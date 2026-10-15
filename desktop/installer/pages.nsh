@@ -1,4 +1,23 @@
 ; Native installer pages. Included by installer.nsi after Tauri bundle defines.
+!define CONNECTOR_INSTALLER_DIR "${__FILEDIR__}"
+
+; Retire the previous registration before installing, including after an old uninstall.
+; The installed desktop only reads and writes the current user's Run entry.
+!macro NSIS_HOOK_PREINSTALL
+    InitPluginsDir
+    SetOutPath "$PLUGINSDIR"
+    File /oname=retire-startup.ps1 "${CONNECTOR_INSTALLER_DIR}\retire-startup.ps1"
+    SetOutPath "$INSTDIR"
+    nsExec::ExecToStack /OEM '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\retire-startup.ps1" -ExecutablePath "$INSTDIR\${MAINBINARYNAME}.exe" -ProductName "${PRODUCTNAME}"'
+    Pop $0
+    Pop $1
+    ${If} $0 != 0
+      DetailPrint "$1"
+      SetErrorLevel 1
+      Abort "无法清理旧版登录计划任务，安装已停止。请先在旧版客户端关闭登录启动，或在任务计划程序中删除 ChatGPT Local Connector 任务；如提示拒绝访问，请使用管理员权限清理后重试。$\r$\n$1"
+    ${EndIf}
+!macroend
+
 Var ConnectorDialog
 Var ConnectorTitleFont
 Var ConnectorIcon

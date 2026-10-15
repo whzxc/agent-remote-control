@@ -1,5 +1,7 @@
 //! OS login registration belongs to the Desktop executable.
-use connector_core::{output, private_dir, root, Result};
+#[cfg(target_os = "macos")]
+use connector_core::{output, private_dir};
+use connector_core::{root, Result};
 pub async fn enabled() -> bool {
     let Ok(exe) = std::env::current_exe() else {
         return false;
@@ -33,27 +35,27 @@ pub async fn enabled() -> bool {
     }
     #[cfg(windows)]
     {
-        return output(
-            "schtasks.exe",
-            &["/Query", "/TN", "ChatGPT Local Connector", "/XML"],
-        )
-        .await
-        .is_ok_and(|s| {
-            s.contains(&xml_escape(&exe.to_string_lossy()))
-                && s.contains("--autostart")
-                && s.contains(&xml_escape(&root().to_string_lossy()))
-        });
+        return winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+            .open_subkey(RUN_KEY)
+            .and_then(|key| key.get_value::<String, _>(RUN_VALUE))
+            .is_ok_and(|value| value == login_command(&exe));
     }
     #[allow(unreachable_code)]
     false
 }
 #[cfg(windows)]
-fn xml_escape(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+#[cfg(windows)]
+const RUN_VALUE: &str = "Local Connector";
+#[cfg(windows)]
+fn login_command(exe: &std::path::Path) -> String {
+    let quote = |path: &std::path::Path| {
+        let value = path.to_string_lossy();
+        // Double trailing backslashes so they cannot escape the closing quote.
+        let trailing = value.chars().rev().take_while(|c| *c == '\\').count();
+        format!("\"{}{}\"", value, "\\".repeat(trailing))
+    };
+    format!("{} --autostart --state-dir {}", quote(exe), quote(&root()))
 }
 pub async fn set(enabled: bool) -> Result<()> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -78,37 +80,25 @@ pub async fn set(enabled: bool) -> Result<()> {
     }
     #[cfg(windows)]
     {
+        let user = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
         if enabled {
-            output(
-                "schtasks.exe",
-                &[
-                    "/Create",
-                    "/TN",
-                    "ChatGPT Local Connector",
-                    "/SC",
-                    "ONLOGON",
-                    "/TR",
-                    &format!(
-                        "\"{}\" --autostart --state-dir \"{}\"",
-                        exe.display(),
-                        root().display()
-                    ),
-                    "/F",
-                ],
-            )
-            .await?;
-        } else if output(
-            "schtasks.exe",
-            &["/Query", "/TN", "ChatGPT Local Connector"],
-        )
-        .await
-        .is_ok()
-        {
-            output(
-                "schtasks.exe",
-                &["/Delete", "/TN", "ChatGPT Local Connector", "/F"],
-            )
-            .await?;
+            let command = login_command(&exe);
+            // Windows Run values support command lines up to 260 characters.
+            if command.encode_utf16().count() > 260 {
+                return Err("登录启动命令超过 Windows 的 260 字符限制".into());
+            }
+            let (key, _) = user.create_subkey(RUN_KEY).map_err(|e| e.to_string())?;
+            key.set_value(RUN_VALUE, &command)
+                .map_err(|e| e.to_string())?;
+        } else {
+            let result = user
+                .open_subkey_with_flags(RUN_KEY, winreg::enums::KEY_SET_VALUE)
+                .and_then(|key| key.delete_value(RUN_VALUE));
+            if let Err(error) = result {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    return Err(error.to_string());
+                }
+            }
         }
         return Ok(());
     }

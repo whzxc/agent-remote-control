@@ -161,9 +161,47 @@ pub async fn output(binary: impl AsRef<std::ffi::OsStr>, args: &[&str]) -> Resul
     .map_err(|_| "COMMAND_TIMEOUT")?
     .map_err(|e| e.to_string())?;
     if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().into());
+        let stderr = decode_command_output(&out.stderr);
+        let message = if stderr.trim().is_empty() {
+            decode_command_output(&out.stdout)
+        } else {
+            stderr
+        };
+        return Err(if message.trim().is_empty() {
+            format!("Command failed: {}", out.status)
+        } else {
+            message.trim().into()
+        });
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into())
+    Ok(decode_command_output(&out.stdout))
+}
+fn decode_command_output(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.into();
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Globalization::{MultiByteToWideChar, CP_OEMCP};
+        // Native Windows CLI tools emit the system OEM code page when redirected.
+        // Preserve UTF-8 from tools such as Node and Git before using this fallback.
+        if let Ok(length) = i32::try_from(bytes.len()) {
+            let mut wide = vec![0u16; bytes.len()];
+            let count = unsafe {
+                MultiByteToWideChar(
+                    CP_OEMCP,
+                    0,
+                    bytes.as_ptr(),
+                    length,
+                    wide.as_mut_ptr(),
+                    length,
+                )
+            };
+            if count > 0 {
+                return String::from_utf16_lossy(&wide[..count as usize]);
+            }
+        }
+    }
+    String::from_utf8_lossy(bytes).into()
 }
 #[derive(Default)]
 pub struct Events {

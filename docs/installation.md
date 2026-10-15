@@ -88,6 +88,14 @@ Failures display an error with retry or manual download options. If installation
 
 Updates are signed with the project's independent key and verified with a public key embedded in the client. This does not replace Apple or Windows code signing.
 
+## Connect at sign-in
+
+Enable this option in Settings to start the app and connect when the current user signs in. Windows uses the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry without administrator privileges; macOS uses a per-user LaunchAgent. Disabling the option removes the corresponding startup entry.
+
+The Windows installer retires the previous login scheduled task during upgrades and preserves enabled startup settings. Installation stops if cleanup fails. If deleting the old task requires administrator privileges, disable startup in the previous client or remove the task in Task Scheduler before retrying. Normal uninstallation removes the current user's startup entry.
+
+On Windows, the startup command, including the application path and state directory argument, must not exceed 260 UTF-16 characters. Shorten the application or state directory path if enabling fails because the command is too long.
+
 ## Removal
 
 Disable connecting at sign-in in Settings, quit the app from the menu bar, then delete the app or use the system uninstaller. Homebrew users can run `brew uninstall --cask local-connector`.

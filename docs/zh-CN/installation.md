@@ -87,6 +87,14 @@ Get-FileHash .\Local.Connector_0.6.2_x64-setup.exe -Algorithm SHA256
 
 更新包使用本项目独立密钥签名，客户端内置公钥验签；它不替代 Apple/Windows 系统代码签名。
 
+## 登录系统时开启连接
+
+在设置中开启后，应用在当前用户登录系统时启动并连接。Windows 使用当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 启动项，无需管理员权限；macOS 使用当前用户的 LaunchAgent。关闭开关会删除对应启动项。
+
+Windows 安装器在更新时清理旧版登录计划任务，并保留已开启的登录启动设置。清理失败会停止安装；若旧任务需要管理员权限删除，请先在旧版客户端关闭登录启动，或在任务计划程序中清理后重试。正常卸载会删除当前用户启动项。
+
+Windows 登录启动命令（含应用路径和配置目录参数）最长为 260 个 UTF-16 字符；路径过长时无法启用，需要缩短应用路径或配置目录路径。
+
 ## 卸载
 
 先在设置关闭登录系统启动，再从菜单栏退出应用，然后删除 App 或使用系统卸载器。Homebrew 用户可执行 `brew uninstall --cask local-connector`。
