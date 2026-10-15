@@ -308,7 +308,7 @@ impl AgentDriver {
     }
 }
 /// GUI launches often have a minimal PATH. Known user-owned CLI directories are also searched.
-pub(super) fn search_paths() -> Vec<PathBuf> {
+pub(crate) fn search_paths() -> Vec<PathBuf> {
     let mut paths =
         std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect::<Vec<_>>();
     if let Some(home) = dirs::home_dir() {

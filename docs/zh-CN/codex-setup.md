@@ -103,3 +103,15 @@ Codex 在 create/send 后从回执取得原 taskId/threadId、turnId，默认以
 `logs.query` 支持入口、时间、级别、分页游标和保留范围；`cli logs --follow` 持续输出 JSON，`cli logs --offline` 在 Core 停止时读取磁盘日志，可重定向导出。`state.wait` 与 `cli watch` 等待状态变化或目标状态，超时不终止任务；游标代表当前快照，历史变化读取日志。`ingress.probe` 分别检查 DNS、边缘地址、Provider、公网 TLS/HTTP 和 OAuth 元数据，认证及执行证据独立报告。
 
 完整参数、示例与结果语义见[英文管理说明](../codex-setup.md#agent-administration)。
+
+## Claude 云端会话通知
+
+`codex_create` 和 `codex_send` 支持可选参数 `notifyClaudeSession`，接受 Claude Code 云端会话 ID（`session_…`、`cse_…`）或 `claude.ai/code/<id>` URL。派发任务的 Claude 会话可传自己的 ID；本机 Claude CLI 需已通过 `claude auth login` 登录。
+
+CLC 在派发成功后按真实 threadId + turnId 绑定，后台复用 Codex waiter 观察。通知仅包含项目目录名、线程 ID、轮次 ID，以及完成、失败、中断、等待审批或等待输入状态，不包含输出、错误原文、审批命令或自定义正文。交互通知后继续观察，终态再通知一次。新轮次不会继承旧绑定；引导同一轮次时省略参数会保留已有绑定，显式传入会话才替换目标，保留去重历史。
+
+普通 `codex_read` 的 `turns[].claudeNotification` 返回 `sessionId` 和 `deliveries`（`state`、`status`），未绑定时为 null。`statusOnly` 不返回轮次详情。投递状态为 `sending`、`delivered` 或 `failed`。
+
+绑定与去重记录以私有 JSON 文件保存于 CLC 状态目录下的 `claude-notifications/`，文件名为线程与轮次组合的哈希；`CLC_STATE_DIR` 可覆盖状态目录。Core 启动时恢复观察。CLI 定位复用 Agent 可执行文件搜索，覆盖 PATH、用户本地安装、Homebrew、npm 与版本管理器目录。以参数数组投递，超时 30 秒，仅 `ok:true` 且 session ID 匹配视为成功。失败或结果不明时发 macOS 系统通知，不自动重试。投递中断后重启会标为失败，不重发，因此避免重复优先于保证送达。系统通知受 macOS 权限和通知设置影响；其他平台保留失败状态但没有系统通知兜底。
+
+绑定失败不影响已派发任务成功，回执附带 `claudeNotification: "bind-failed"` 并记录 WARN。记录从创建起保留 7 天，超过期限后删除并停止观察，不论是否已终态。CLI 投递与系统通知均不占用绑定锁。

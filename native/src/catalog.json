@@ -1338,7 +1338,7 @@
     },
     {
       "name": "codex_read",
-      "description": "读取任务状态与最近记录；includeImages=true 附加 MCP image，默认最多 4 张。unknown 表示当前无法确认活动状态。",
+      "description": "读取任务状态与最近记录；includeImages=true 附加 MCP image，默认最多 4 张。unknown 表示当前无法确认活动状态。 每轮附带 claudeNotification：未绑定为 null，否则包含 sessionId 与 deliveries（state/status，投递状态为 sending、delivered 或 failed）；statusOnly 不返回轮次详情。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1551,6 +1551,10 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+          },
+          "notifyClaudeSession": {
+            "type": "string",
+            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，在完成、失败、中断、等待审批或等待输入时接收固定状态通知；不接受通知正文，省略时保留同轮已有绑定，新轮次不会继承旧绑定。"
           }
         },
         "required": [],
@@ -1657,6 +1661,10 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+          },
+          "notifyClaudeSession": {
+            "type": "string",
+            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，在完成、失败、中断、等待审批或等待输入时接收固定状态通知；不接受通知正文，省略时保留同轮已有绑定，新轮次不会继承旧绑定。"
           }
         },
         "required": [

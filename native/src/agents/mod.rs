@@ -3,7 +3,7 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
 mod adapter;
-mod driver;
+pub(crate) mod driver;
 mod manifest;
 mod process;
 mod wait;

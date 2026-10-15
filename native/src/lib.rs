@@ -1,4 +1,5 @@
 mod changes;
+mod claude_notify;
 mod screen;
 mod shell_command;
 mod text_files;

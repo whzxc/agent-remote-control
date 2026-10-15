@@ -164,13 +164,16 @@ fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
         .cloned()
         .unwrap_or(Value::Null);
     let runtime = t["status"]["type"].as_str().unwrap_or("unknown");
+    let latest = turns
+        .last()
+        .is_some_and(|t| t["id"].as_str() == selected.as_deref());
     let mut interactions: Vec<_> = observation["pending"]
         .as_array()
         .into_iter()
         .flatten()
         .filter(|r| {
             r["params"]["threadId"] == t["id"]
-                && (r["params"]["turnId"].is_null()
+                && ((r["params"]["turnId"].is_null() && latest)
                     || r["params"]["turnId"].as_str() == selected.as_deref())
         })
         .cloned()
@@ -180,7 +183,11 @@ fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
         })
         .collect();
     interactions.sort_by(|a, b| string(a, "responseId").cmp(string(b, "responseId")));
-    let flags = &t["status"]["activeFlags"];
+    let flags = if latest {
+        &t["status"]["activeFlags"]
+    } else {
+        &Value::Null
+    };
     let blocked = flags.as_array().is_some_and(|a| {
         a.iter()
             .any(|f| matches!(f.as_str(), Some("waitingOnApproval" | "waitingOnUserInput")))
@@ -267,24 +274,39 @@ impl WaitSource for CodexSource {
         Ok(value)
     }
 }
+async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSource> {
+    let background = control.background(string(args, "threadId"))?;
+    let owner = if background {
+        CodexOwner::Background(control.utility().await?)
+    } else {
+        CodexOwner::Desktop(control.ipc().await?)
+    };
+    Ok::<_, String>(CodexSource {
+        owner,
+        thread: string(args, "threadId").into(),
+        desktop_owner: None,
+        events: control.events.clone(),
+    })
+}
+
+/// One fresh read using the same owner and classifier as codex_wait.
+pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Result<Value> {
+    let mut source = codex_source(control, args).await?;
+    let observation = source.observe().await?;
+    if !source.alive() {
+        return Err("connection-closed".into());
+    }
+    Ok(source.classify(
+        &observation,
+        &mut args["turnId"].as_str().map(str::to_owned),
+    ))
+}
+
 pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {
     let started = Instant::now();
     let mut shutdown = control.shutdown.subscribe();
     let wake = control.events.lock().await.wake.clone();
-    let setup = async {
-        let background = control.background(string(args, "threadId"))?;
-        let owner = if background {
-            CodexOwner::Background(control.utility().await?)
-        } else {
-            CodexOwner::Desktop(control.ipc().await?)
-        };
-        Ok::<_, String>(CodexSource {
-            owner,
-            thread: string(args, "threadId").into(),
-            desktop_owner: None,
-            events: control.events.clone(),
-        })
-    };
+    let setup = codex_source(control, args);
     let source = tokio::select! {
         biased;
         _ = shutdown.changed() => Err("connector-shutdown".into()),
@@ -370,6 +392,17 @@ mod tests {
         .await;
         condition(&mut value, &args);
         value
+    }
+
+    #[test]
+    fn old_turn_does_not_inherit_latest_interaction() {
+        let observation = json!({"thread":{"id":"thread","status":{"type":"active","activeFlags":["waitingOnApproval"]},"turns":[{"id":"old","status":"inProgress"},{"id":"new","status":"inProgress"}]},"pending":[{"id":1,"method":"item/commandExecution/requestApproval","params":{"threadId":"thread"}}]});
+        let old = classify(&observation, &mut Some("old".into()));
+        assert_eq!(old["state"], "running");
+        assert_eq!(old["interaction"], json!([]));
+        let new = classify(&observation, &mut Some("new".into()));
+        assert_eq!(new["state"], "interaction-required");
+        assert_eq!(new["interaction"][0]["id"], 1);
     }
 
     #[tokio::test(start_paused = true)]

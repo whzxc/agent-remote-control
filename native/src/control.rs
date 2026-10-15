@@ -6,6 +6,7 @@ use crate::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::{collections::HashMap, time::Duration};
 pub struct Control {
+    pub(crate) claude_notifications: Mutex<()>,
     pub session: String,
     pub events: SharedEvents,
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
@@ -22,6 +23,7 @@ const RECEIPTS: crate::kernel::receipts::ReceiptStore =
 impl Control {
     pub fn new(binary: PathBuf) -> Arc<Self> {
         Arc::new(Self {
+            claude_notifications: Mutex::new(()),
             session: id(),
             events: Default::default(),
             shutdown: tokio::sync::watch::channel(0).0,
@@ -383,6 +385,13 @@ impl Control {
     }
 
     pub async fn mutate(self: &Arc<Self>, operation: &str, mut args: Value) -> Result<Value> {
+        if matches!(operation, "create" | "send") {
+            if let Some(value) = args.get("notifyClaudeSession") {
+                args["notifyClaudeSession"] = json!(crate::claude_notify::session_id(
+                    value.as_str().ok_or("INVALID_CLAUDE_SESSION")?
+                )?);
+            }
+        }
         if args.get("requestId").is_none_or(Value::is_null) {
             args["requestId"] = json!(id());
         }
@@ -762,6 +771,15 @@ impl Control {
                 out
             };
             r["turnId"] = out["turn"]["id"].clone();
+            let notification_binding = crate::claude_notify::bind(
+                self,
+                args,
+                thread,
+                string(r, "turnId"),
+                string(&result["thread"], "cwd"),
+            )
+            .await;
+            crate::claude_notify::record_binding(r, notification_binding);
             if let Err(e) = crate::changes::record(thread, string(&r, "turnId"), &baseline) {
                 crate::logs::record("WARN", &e, None);
             }
@@ -812,6 +830,7 @@ impl Control {
             params = configured(args, string(&state, "cwd"))?;
             params["threadId"] = json!(thread);
             params["input"] = input;
+            r["task"]["directory"] = state["cwd"].clone();
             if let Some(active) = active {
                 method = "turn/steer".into();
                 params["expectedTurnId"] = active.get("turnId").unwrap_or(&active["id"]).clone();
@@ -854,6 +873,22 @@ impl Control {
                     crate::logs::record("WARN", &e, None);
                 }
             }
+        }
+        if operation == "send" {
+            let turn = result["turn"]["id"]
+                .as_str()
+                .or_else(|| result["turnId"].as_str())
+                .unwrap_or("");
+            r["turnId"] = json!(turn);
+            let notification_binding = crate::claude_notify::bind(
+                self,
+                args,
+                string(r, "threadId"),
+                turn,
+                string(&r["task"], "directory"),
+            )
+            .await;
+            crate::claude_notify::record_binding(r, notification_binding);
         }
         Ok(result)
     }
@@ -1014,6 +1049,12 @@ impl Control {
                     }
                     let configurations = turn_configurations(&t);
                     result["turns"]=json!(page["data"].as_array().into_iter().flatten().map(|t|{let items=t["items"].as_array().cloned().unwrap_or_default();json!({"turnId":t["id"],"recordedStatus":t["status"],"error":t["error"],"effectiveConfiguration":configurations.get(string(t,"id")).cloned().unwrap_or(json!({"source":"unavailable","model":"unknown","effort":"unknown"})),"items":items.iter().skip(items.len().saturating_sub(15)).map(|i|item(i,0,600)).collect::<Vec<_>>(),"itemsTruncated":items.len()>15})}).collect::<Vec<_>>());
+                }
+                if let Some(turns) = result["turns"].as_array_mut() {
+                    for turn in turns {
+                        turn["claudeNotification"] =
+                            crate::claude_notify::read(id, string(turn, "turnId"))?;
+                    }
                 }
                 Ok(result)
             }

@@ -180,3 +180,15 @@ Fake-IP DNS can collapse its edge pool; exclude its edge discovery domains from
 Fake-IP rewriting in the DNS owner. The managed provider refreshes edge discovery
 by restarting after sustained failure, with a 60–300 second backoff, and records
 transitions rather than healthy polling.
+
+## Claude cloud follow-ups
+
+`codex_create` and `codex_send` accept `notifyClaudeSession`, a Claude Code cloud session ID (`session_…`, `cse_…`) or `claude.ai/code/<id>` URL. Use the dispatching Claude session's ID. The local Claude CLI must already be signed in with `claude auth login`.
+
+CLC binds the accepted thread and turn, independently observes it with the Codex waiter, and sends a fixed Chinese message containing only the project directory name, thread ID, turn ID, and status (completed, failed, interrupted, awaiting approval or awaiting input). No task output, error text, approval command or custom message is sent. An interaction notification does not stop observation; a terminal notification follows once. A new turn never inherits the previous turn's binding. Steering the same turn preserves its binding when the parameter is omitted; an explicit session replaces the target while preserving deduplication history.
+
+`codex_read` includes `turns[].claudeNotification` with `sessionId` and `deliveries` (`state`, `status`); unbound turns return null. Use the normal read rather than `statusOnly` to retrieve turn details. Delivery status is `sending`, `delivered`, or `failed`.
+
+Bindings and deduplication records are private JSON files in `claude-notifications/` under the CLC state directory (`CLC_STATE_DIR` overrides it). Each filename hashes the thread/turn pair. The observer resumes on Core startup. CLI discovery reuses the agent executable search, including PATH, user-local installations, Homebrew and npm/version-manager locations. Delivery uses argument arrays with a 30-second timeout. Only `ok:true` with the matching session ID confirms delivery. Failed or uncertain attempts trigger a macOS system notification and are never retried. An interrupted in-flight delivery is marked failed on restart; this favors avoiding duplicate messages over guaranteed delivery. macOS notification permissions and system notification settings still apply. Other platforms retain the failed delivery status but have no system-notification fallback.
+
+Binding failure does not fail an already dispatched task: the receipt includes `claudeNotification: "bind-failed"` and a WARN is logged. Records expire seven days after creation, regardless of terminal state; expiration deletes the record and stops observation. CLI delivery and system notifications run outside the binding lock.
