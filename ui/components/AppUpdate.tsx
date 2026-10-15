@@ -37,17 +37,7 @@ export function AppUpdate() {
     download = autoDownload.use();
   return (
     <Group title={t("aboutApp")}>
-      <Row title="Local Connector" description={t("currentVersion")}>
-        {status?.version ?? "—"}
-      </Row>
-      <Row
-        title={t("checkForANewVersion")}
-        description={t(
-          isDesktop
-            ? "theAppRestartsAfterUpdatingAndRestoresThe"
-            : "checkForAndInstallUpdatesInTheDesktop",
-        )}
-      >
+      <Row title={`Local Connector v${status?.version ?? "—"}`}>
         <Button
           busy={checking}
           disabled={!isDesktop || active}
@@ -65,7 +55,7 @@ export function AppUpdate() {
           />
         </Row>
       )}
-      <Row title={t("automaticallyDownloadUpdates")} description={t("autoDownloadDescription")}>
+      <Row title={t("automaticallyDownloadUpdates")}>
         <Switch
           label={t("automaticallyDownloadUpdates")}
           checked={download}
@@ -83,11 +73,6 @@ export function AppUpdate() {
       {!state.dialogOpen && state.message && (
         <Notice tone="success">{displayMessage(state.message)}</Notice>
       )}
-      <Row title={t("manualDownload")}>
-        <Button variant="ghost" onClick={() => void openDownloads()}>
-          {t("openDownloads")} <Icon icon={ExternalLink} />
-        </Button>
-      </Row>
       <Row title="whzxc/chatgpt-local-connector">
         <Button
           variant="ghost"

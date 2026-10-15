@@ -111,10 +111,7 @@ export default function SettingsPage() {
         </Row>
       </Group>
       <Group title={t("general")}>
-        <Row
-          title={t("connectAtSystemSignIn")}
-          description={t("connectAtSignInDescription")}
-        >
+        <Row title={t("connectAtSystemSignIn")}>
           <Switch
             label={t("connectAtSystemSignIn")}
             checked={!!service?.enabled}
