@@ -445,7 +445,7 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
             owner.close().await;
             result
         }
-        [] | ["help"] | ["--help"] => Ok(json!({"version":env!("CARGO_PKG_VERSION"),
+        [] | ["help"] | ["--help"] => Ok(json!({"version":env!("CLC_BUILD_VERSION"),
             "usage":"<应用可执行文件> cli <command> [--json]",
             "capabilities":crate::management::catalog(),
             "commands":COMMANDS,

@@ -1,3 +1,4 @@
+import { buildVersion } from './tooling/version.mjs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +8,7 @@ import path from 'node:path';
 import { devStateDir } from './tooling/dev-state.mjs';
 
 const stateRoot = devStateDir;
-const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+const packageVersion = buildVersion();
 type Endpoint = { port: number; token: string };
 export default defineConfig({
   root: fileURLToPath(new URL('./ui', import.meta.url)),

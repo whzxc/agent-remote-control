@@ -1,6 +1,6 @@
 # 发布维护
 
-源码与下载仓库：`whzxc/chatgpt-local-connector`。版本以 `package.json` 为准，GitHub Releases 托管安装包、更新包、静态 `latest.json` 和 Homebrew cask；不发布公共 npm 包。
+源码与下载仓库：`whzxc/chatgpt-local-connector`。正式版本以 Git tag 为准，GitHub Releases 托管安装包、更新包、静态 `latest.json` 和 Homebrew cask；不发布公共 npm 包。
 
 ## 本地配置
 
@@ -73,17 +73,21 @@ npm run release -- --skip-tests
 命令依次执行：
 
 1. 检查本地签名配置、分支与工作区、`gh` 登录，获取远端 main 和标签；远端 main 已领先或分叉时先自行合并。
-2. prepare 升 patch、同步版本、生成 CHANGELOG 并提交；默认运行一次 `npm test`。
-3. 在本机构建 Apple Silicon 安装包、updater 更新包与签名。
-4. 在新的 `release-artifacts/v<版本>-<随机后缀>/` 目录整理文件，验签一次，生成仅含 `darwin-aarch64` 的 `latest.json`、`release-notes.md`、Homebrew cask 和 `SHA256SUMS.txt`。
-5. 打 `v<版本>` 标签，原子推送 main 和该标签。
-6. 执行一条 `gh release create <tag> <文件...> --verify-tag --notes-file ... --latest` 上传并公开。
+2. 读取公开正式 Release，默认选择下一个 patch；默认运行一次 `npm test`。
+3. 将版本通过 `CLC_BUILD_VERSION` 注入前端、Core、Desktop 与安装包，在本机构建 Apple Silicon 安装包、updater 包与签名。
+4. 在新的 `release-artifacts/v<版本>-<随机后缀>/` 目录整理文件、验签，生成 `latest.json`、`release-notes.md`、Homebrew cask 和 `SHA256SUMS.txt`。发布说明取自上一正式版本到当前提交的 Git 历史。
+5. 直接在当前开发提交上打 `v<版本>` 标签，原子推送 main 和标签，先上传 Release 草稿，全部完成后公开。
 
-构建或验签失败时不会打标签、推送或创建 Release，已生成的本地版本提交保留。推送或上传失败时，本地产物和标签保留；检查失败点后分别重试 `git push --atomic origin main refs/tags/v<版本>`、`gh release create`，或用 `gh release upload <tag> <缺失文件...> --clobber` 补传。命令遇到已有标签会停止，避免误改标签。
+发布不修改源码中的版本文件，不生成升版提交，也不维护源码内 CHANGELOG。npm/Cargo/Tauri 配置中的 `0.0.0` 是内部包占位版本；它们不作为正式产品版本。Node 构建工具与 Rust build script 优先读取 `CLC_BUILD_VERSION`（允许 `v` 前缀），否则读取当前提交可达的最近 `v*` 标签；无 Git 标签时使用 `0.0.0`。从源码归档构建正式版本时必须显式传入 `CLC_BUILD_VERSION`。
 
-`release:prepare` 查询 GitHub 已公开正式 Release 的最高稳定版本，忽略草稿和预发布：当前版本不高于它时升至其下一个 patch，同步 npm/Tauri/Cargo 版本文件，生成自上次发布以来的 CHANGELOG，并创建一条 `chore(release)` 提交。当前版本已更高或没有正式 Release 时保留当前版本并检查一致性。单独运行 prepare 不打标签或推送；`npm run release:prepare -- --dry-run` 只显示版本计划。
+指定版本或重试同一版本：
 
-需要 minor/major 时先修改版本并运行 `npm run release:sync`，在普通开发提交中提交。sync 同步版本文件并检查一致性，不提交。已有版本没有 CHANGELOG 条目时，发布说明从 Git 历史生成，要求上次发布标签是当前提交的祖先。
+```sh
+npm run release -- --version 0.9.0
+npm run release -- --ci --version 0.9.0 --skip-tests
+```
+
+已有标签必须指向当前提交；禁止用同一标签发布不同源码，目标版本必须高于最新公开版本。构建或验签失败时不会打标签或推送。推送、dispatch 或上传失败时，修复外部故障后在同一提交用相同 `--version` 重试；产物先上传到草稿，全部成功后才公开；已存在的草稿允许补传，公开版本不得覆盖重发。修改源码后使用新版本，不移动已发布标签。发布说明要求上一正式版本是当前提交的祖先。
 
 ## 本地演练
 
@@ -91,9 +95,9 @@ npm run release -- --skip-tests
 npm run release -- --dry-run
 ```
 
-使用当前版本和工作区源码，构建并生成全部发布文件到新的 `release-artifacts/v<版本>-<随机后缀>/`，包括 updater 签名与一次验签。不会升版本、修改 CHANGELOG、提交、打标签、推送或上传，不要求干净工作区，也不运行测试。演练仍需要真实签名配置；没有签名密钥时，可运行 `npm run desktop:build` 验证未生成 updater 签名的构建。
+使用最近标签版本（或 `--version` 指定版本）和工作区源码，构建并生成全部发布文件到新的 `release-artifacts/v<版本>-<随机后缀>/`，包括 updater 签名与一次验签。不会修改源码、提交、打标签、推送或上传，不要求干净工作区，也不运行测试。演练仍需要真实签名配置；没有签名密钥时，可运行 `npm run desktop:build` 验证未生成 updater 签名的构建。
 
-演练产物的下载链接使用当前版本号，仅用于检查。正式发布需通过默认命令 prepare 后重新构建。构建不会安装、替换或重启正在运行的应用。
+演练产物的下载链接使用当前版本号，仅用于检查。正式发布使用目标发布版本重新构建。构建不会安装、替换或重启正在运行的应用。
 
 ## 可选 Actions 发布
 
@@ -105,7 +109,7 @@ npm run release -- --ci
 gh workflow run release.yml --ref main -f tag=v<版本>
 ```
 
-`--ci` 不需要本地私钥：prepare、默认测试、打标签并推送后，显式 dispatch `release.yml`。该工作流只接受 `workflow_dispatch`，checkout 输入的标签，构建 macOS 产物、验签一次、生成元数据并发布。tag push 不触发发布，避免与本地路线重复。
+`--ci` 不需要本地私钥：选择版本、默认测试、直接在开发提交打标签并推送后，显式 dispatch `release.yml`。该工作流只接受 `workflow_dispatch`，checkout 输入的标签，构建 macOS 产物、验签一次、生成元数据并发布。tag push 不触发发布，避免与本地路线重复。
 
 两个发布工作流共享并发组；不要同时对同一版本运行本地与 Actions 发布。
 

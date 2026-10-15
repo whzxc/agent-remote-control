@@ -3,14 +3,13 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildVersion, stableVersion } from './version.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
 import { macosSigningIdentity } from './macos-signing.mjs';
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
-const pkg = JSON.parse(await readFile('package.json', 'utf8'));
-let version = pkg.version;
+let version = buildVersion();
 const repo = 'whzxc/chatgpt-local-connector';
-const base = `https://github.com/${repo}/releases/download/v${version}`;
-const config = JSON.parse(await readFile('desktop/tauri.conf.json', 'utf8'));
+let base = `https://github.com/${repo}/releases/download/v${version}`;
 const [mode, ...args] = process.argv.slice(2);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = file => readFile(file, 'utf8').then(JSON.parse);
@@ -38,19 +37,6 @@ async function validateManifest(manifest, dir, keys = Object.keys(manifest.platf
   }
 
 }
-async function check() {
-  parts(version);
-  if (config.version !== version) throw new Error('Tauri version mismatch');
-  for (const file of ['native/Cargo.toml', 'desktop/Cargo.toml']) {
-    if (!(await readFile(file, 'utf8')).includes(`version = "${version}"`)) throw new Error(`${file}: version mismatch`);
-  }
-  const lock = await json('package-lock.json');
-  if (lock.version !== version || lock.packages[''].version !== version) throw new Error('package-lock version mismatch');
-  for (const [file, name] of [['native/Cargo.lock','connector-core'],['desktop/Cargo.lock','connector-core'],['desktop/Cargo.lock','local-connector-desktop']]) {
-    if (!(await readFile(file,'utf8')).includes(`name = "${name}"\nversion = "${version}"`)) throw new Error(`${file}: ${name} version mismatch`);
-  }
-  console.log(`Release configuration ready: v${version}, ${repo}`);
-}
 async function cask(dir) {
   const dmg = (await files(dir)).filter(f => f.endsWith('_aarch64.dmg'));
   if (dmg.length !== 1) throw new Error('Expected one Apple Silicon DMG');
@@ -74,7 +60,6 @@ async function cask(dir) {
 end
 `);
 }
-const releaseFiles = ['package.json','package-lock.json','desktop/tauri.conf.json','native/Cargo.toml','desktop/Cargo.toml','native/Cargo.lock','desktop/Cargo.lock','CHANGELOG.md'];
 const git = (...args) => execFileSync('git', args, {encoding:'utf8'}).trim();
 function parts(value) {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) throw new Error(`Invalid stable version: ${value}`);
@@ -85,9 +70,9 @@ function compare(a, b) {
   for (let i=0;i<3;i++) if(x[i]!==y[i]) return x[i]>y[i]?1:-1;
   return 0;
 }
-function latestPublished() {
+function previousPublished() {
   const tags=execFileSync('gh',['api',`repos/${repo}/releases`,'--paginate','--jq','.[] | select(.draft == false and .prerelease == false) | .tag_name'],{encoding:'utf8'}).trim();
-  return tags ? tags.split('\n').map(tag=>tag.replace(/^v/,'')).sort(compare).at(-1) : undefined;
+  return tags ? tags.split('\n').map(tag=>tag.replace(/^v/,'')).filter(value => compare(value, version) < 0).sort(compare).at(-1) : undefined;
 }
 function changesSince(previous) {
   const range=previous ? `refs/tags/v${previous}..HEAD` : 'HEAD';
@@ -100,47 +85,20 @@ function changesSince(previous) {
   return messages.split('\n').map(subject=>`- ${subject}`).join('\n');
 }
 async function notes() {
-  const changelog=await readFile('CHANGELOG.md','utf8');
-  const entry=changelog.split(`## ${version}\n`)[1]?.split('\n## ')[0]?.trim();
-  if(entry) return entry;
-  const previous=latestPublished();
-  return changesSince(previous);
-}
-async function sync() {
-  config.version = version; await writeJson('desktop/tauri.conf.json', config);
-  const lock = await json('package-lock.json'); lock.version = version; lock.packages[''].version = version; await writeJson('package-lock.json',lock);
-  for (const file of ['native/Cargo.toml','desktop/Cargo.toml']) await writeFile(file,(await readFile(file,'utf8')).replace(/^version = "[^"]+"/m,`version = "${version}"`));
-  for (const file of ['native/Cargo.lock','desktop/Cargo.lock']) await writeFile(file,(await readFile(file,'utf8')).replace(/(name = "(?:connector-core|local-connector-desktop)"\nversion = ")[^"]+/g,(_, prefix) => prefix + version));
-  await check();
-}
-async function prepare(options = args) {
-  if(options.some(arg=>arg!=='--dry-run')) throw new Error('prepare [--dry-run]');
-  parts(version);
-  const previous=latestPublished();
-  const bump=previous && compare(version,previous)<=0;
-  const target=bump ? [...parts(previous).slice(0,2),parts(previous)[2]+1n].join('.') : version;
-  console.log(`Published: ${previous ?? 'none'}; current: ${version}; target: ${target}; release commits: ${bump?1:0}`);
-  if(options.includes('--dry-run')) return;
-  if(git('status','--porcelain')) throw new Error('Commit or set aside existing changes before release preparation');
-  if(!bump) { await check(); return; }
-  const changes=changesSince(previous);
-  const changelog=await readFile('CHANGELOG.md','utf8');
-  version=target; pkg.version=target;
-  await writeJson('package.json',pkg);
-  const entry=`## ${version}\n\n${changes}\n\n`;
-  if(!changelog.includes(`## ${version}\n`)) await writeFile('CHANGELOG.md',/^## /m.test(changelog)?changelog.replace(/(?=^## )/m,entry):changelog.trimEnd()+'\n\n'+entry);
-  await sync();
-  git('add','--',...releaseFiles);
-  git('commit','-m',`chore(release): 更新版本至 ${version}`,'--',...releaseFiles);
+  return changesSince(previousPublished());
 }
 if (mode === 'release') {
-  if (args.some(arg => !['--skip-tests', '--dry-run', '--ci'].includes(arg))) throw new Error('release [--dry-run | --ci] [--skip-tests]');
+  const versionAt = args.indexOf('--version');
+  const requested = versionAt < 0 ? undefined : stableVersion(args[versionAt + 1] || '');
+  const flags = versionAt < 0 ? args : args.filter((_, index) => index !== versionAt && index !== versionAt + 1);
+  if (flags.some(arg => !['--skip-tests', '--dry-run', '--ci'].includes(arg))) throw new Error('release [--dry-run | --ci] [--skip-tests] [--version 0.8.29]');
   const dryRun = args.includes('--dry-run');
   const ci = args.includes('--ci');
   if (ci && dryRun) throw new Error('--ci 与 --dry-run 不能同时使用');
   if (!ci && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('本地发布需要 Apple Silicon Mac；其他主机请使用 --ci');
-  // Fail before prepare or compilation, and pass credentials only in the environment.
-  const env = ci ? process.env : releaseSigningEnv(true);
+  // Fail before compilation, and pass credentials only in the environment.
+  const env = ci ? { ...process.env } : releaseSigningEnv(true);
+  let sourceSha;
   if (!ci) macosSigningIdentity(env);
   const run = (script, ...options) => execFileSync(process.execPath, [script, ...options], { env, stdio: 'inherit' });
   if (!dryRun) {
@@ -149,32 +107,45 @@ if (mode === 'release') {
     execFileSync('gh', ['auth', 'status'], { stdio: 'ignore' });
     git('fetch', 'origin', 'main', '--tags');
     git('merge-base', '--is-ancestor', 'origin/main', 'HEAD');
-    await prepare([]);
-    if (git('tag', '--list', `v${version}`)) throw new Error(`Tag v${version} already exists; inspect the previous release attempt before retrying`);
-    if (!args.includes('--skip-tests')) execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['test'], { stdio: 'inherit', shell: process.platform === 'win32' });
-  } else await check();
+    const published = execFileSync('gh', ['api', `repos/${repo}/releases`, '--paginate', '--jq', '.[] | select(.draft == false and .prerelease == false) | .tag_name'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean).map(stableVersion).sort(compare);
+    const latest = published.at(-1);
+    version = requested ?? (latest ? [...parts(latest).slice(0, 2), parts(latest)[2] + 1n].join('.') : '0.1.0');
+    if (latest && compare(version, latest) <= 0) throw new Error('Version is already published or older than the latest release; use a new version');
+    const tag = `v${version}`;
+    if (git('tag', '--list', tag) && git('rev-parse', `${tag}^{commit}`) !== git('rev-parse', 'HEAD')) throw new Error(`${tag} belongs to another commit`);
+    sourceSha = git('rev-parse', 'HEAD');
+    console.log(`Release ${tag} from ${sourceSha}; no version commit`);
+    if (!args.includes('--skip-tests')) execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['test'], { env: { ...env, CLC_BUILD_VERSION: version }, stdio: 'inherit', shell: process.platform === 'win32' });
+  } else version = requested ?? version;
+  parts(version);
+  env.CLC_BUILD_VERSION = version;
+  process.env.CLC_BUILD_VERSION = version;
+  base = `https://github.com/${repo}/releases/download/v${version}`;
   let output;
   if (!ci) {
     run('tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin');
     await mkdir('release-artifacts', { recursive: true });
     output = await mkdtemp(path.join('release-artifacts', `v${version}-`));
-    // Child processes reread the prepared version before generating URLs and notes.
+    // Every child uses the same version without editing the checkout.
     run('tooling/release.mjs', 'stage', 'darwin-aarch64', 'target/aarch64-apple-darwin/release/bundle', output);
     run('tooling/release.mjs', 'finalize', output);
     console.log(`Release artifacts: ${path.resolve(output)}`);
   }
   if (!dryRun) {
-    git('tag', `v${version}`);
+    if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during release; refusing to tag or publish');
+    if (!git('tag', '--list', `v${version}`)) git('tag', `v${version}`);
     git('push', '--atomic', 'origin', 'main', `refs/tags/v${version}`);
     if (ci) execFileSync('gh', ['workflow', 'run', 'release.yml', '--ref', 'main', '-f', `tag=v${version}`], { stdio: 'inherit' });
     else {
       const assets = (await files(output)).filter(file => path.basename(file) !== 'darwin-aarch64.json');
-      execFileSync('gh', ['release', 'create', `v${version}`, ...assets, '--verify-tag', '--notes-file', path.join(output, 'release-notes.md'), '--latest'], { stdio: 'inherit' });
+      const existing = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/releases`, '--paginate', '--slurp'], { encoding: 'utf8' })).flat().find(release => release.tag_name === `v${version}`);
+      if (existing && !existing.draft) throw new Error('Release already published');
+      if (!existing) execFileSync('gh', ['release', 'create', `v${version}`, '--draft', '--verify-tag', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
+      execFileSync('gh', ['release', 'upload', `v${version}`, ...assets, '--clobber'], { stdio: 'inherit' });
+      execFileSync('gh', ['release', 'edit', `v${version}`, '--draft=false', '--latest', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
     }
   }
-} else if (mode === 'prepare') await prepare();
-else if (mode === 'sync') await sync();
-else if (mode === 'stage') {
+} else if (mode === 'stage') {
   const [target, input, output] = args;
   if (!['darwin-aarch64','windows-x86_64'].includes(target) || !input || !output) throw new Error('stage <darwin-aarch64|windows-x86_64> <bundle-dir> <output-dir>');
   await mkdir(output,{recursive:true});
@@ -231,4 +202,4 @@ else if (mode === 'stage') {
   for (const file of assets) sums.set(path.basename(file), hash(await readFile(file)));
   await writeFile(sumsFile, [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
   console.log(windows ? 'Windows metadata merged; existing macOS entries preserved.' : 'macOS release metadata generated.');
-} else throw new Error('Expected release, prepare, sync, stage, finalize, or merge-windows');
+} else throw new Error('Expected release, stage, finalize, or merge-windows');

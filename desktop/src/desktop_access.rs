@@ -35,7 +35,7 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
         match (method.as_str(), route.as_str()) {
             ("GET", "app") => {
                 return Ok(
-                    json!({"pid":std::process::id(),"version":env!("CARGO_PKG_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":connector_core::runtime::build_id(&std::env::current_exe().map_err(|e|e.to_string())?)?}),
+                    json!({"pid":std::process::id(),"version":env!("CLC_BUILD_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":connector_core::runtime::build_id(&std::env::current_exe().map_err(|e|e.to_string())?)?}),
                 )
             }
             ("GET", "updates") => return Ok(crate::updates::snapshot(app)),

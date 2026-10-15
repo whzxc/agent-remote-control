@@ -4,6 +4,7 @@
 # ///
 """Package the Tauri app with a Finder-independent drag-to-install layout."""
 import json
+import plistlib
 import sys
 from pathlib import Path
 
@@ -21,7 +22,8 @@ name = config["productName"]
 application = bundle / "macos" / f"{name}.app"
 if not (application / "Contents" / "Info.plist").is_file():
     raise SystemExit(f"Build the Tauri app first: {application}")
-output = bundle / "dmg" / f"{name}_{config['version']}_aarch64.dmg"
+version = plistlib.loads((application / "Contents" / "Info.plist").read_bytes())["CFBundleShortVersionString"]
+output = bundle / "dmg" / f"{name}_{version}_aarch64.dmg"
 output.parent.mkdir(parents=True, exist_ok=True)
 
 dmgbuild.build_dmg(str(output), name, settings={

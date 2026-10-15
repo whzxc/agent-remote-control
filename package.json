@@ -1,6 +1,6 @@
 {
   "name": "@whzxc/chatgpt-local-connector",
-  "version": "0.8.28",
+  "version": "0.0.0",
   "description": "Personal local MCP connector for ChatGPT and Codex",
   "license": "MIT",
   "type": "module",
@@ -26,8 +26,6 @@
     "precheck:native": "node tooling/build-native.mjs && node tooling/prune-build-cache.mjs",
     "check:native": "cargo check --manifest-path desktop/Cargo.toml",
     "postcheck:native": "node tooling/prune-build-cache.mjs --keep=target/debug",
-    "release:prepare": "node tooling/release.mjs prepare",
-    "release:sync": "node tooling/release.mjs sync",
     "release:stage": "node tooling/release.mjs stage",
     "release:finalize": "node tooling/release.mjs finalize",
     "release": "node tooling/release.mjs release"

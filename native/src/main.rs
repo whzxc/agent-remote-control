@@ -45,7 +45,7 @@ async fn run() -> Result<()> {
             );
         }
         ["--version"] => {
-            connector_core::output::line(env!("CARGO_PKG_VERSION"))?;
+            connector_core::output::line(env!("CLC_BUILD_VERSION"))?;
             Ok(())
         }
         _ => Err("Usage: local-connector [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]".into()),

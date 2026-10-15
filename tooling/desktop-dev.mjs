@@ -23,8 +23,7 @@ try {
   }
 } catch { /* Stale metadata does not prevent starting a new development owner. */ }
 if (owner) {
-  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  if (owner.owner !== 'core' || owner.version !== pkg.version) throw new Error('这份数据已有旧版本后台运行，请先退出旧应用，或使用另一 CLC_STATE_DIR。');
+  if (owner.owner !== 'core' || owner.version !== env.CLC_BUILD_VERSION) throw new Error('这份数据已有旧版本后台运行，请先退出旧应用，或使用另一 CLC_STATE_DIR。');
 }
 if (spawnSync('cargo', ['--version'], { env, stdio: 'ignore' }).status !== 0) {
   const cargo = spawnSync('rustup', ['which', 'cargo'], { env, encoding: 'utf8' });
@@ -57,6 +56,7 @@ if (process.platform === 'darwin') {
 const args = [fileURLToPath(new URL('node_modules/@tauri-apps/cli/tauri.js', root)), 'dev'];
 if (process.platform === 'win32') args.push('--config', 'tauri.windows.conf.json');
 args.push('--config', 'tauri.dev.conf.json');
+args.push('--config', JSON.stringify({ version: env.CLC_BUILD_VERSION }));
 if (process.platform === 'darwin') args.push('--config', JSON.stringify({ bundle: {
   icon: ['icons/icon.png', '../target/dev-icon/Resources/Icon.icns'],
 } }));

@@ -10,10 +10,11 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { identifyPolicy, normalizeSelection, presetPolicy, type ToolCatalog, type ToolPolicy } from '../ui/toolPolicy.ts';
+import { buildVersion } from '../tooling/version.mjs';
 import { toolFingerprint } from '../tooling/catalog.mjs';
 const catalog = JSON.parse(await readFile(new URL('../native/src/catalog.json', import.meta.url), 'utf8'));
 const nativeDomains = catalog.domains;
-const version = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
+const version = buildVersion();
 
 let directory: string;
 let client: Client;

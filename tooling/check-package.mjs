@@ -1,3 +1,4 @@
+import { buildVersion } from './version.mjs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { toolFingerprint } from './catalog.mjs';
@@ -19,7 +20,9 @@ await inspect(root);
 if (process.platform === 'darwin' && root.endsWith('.app')) {
   const resources = path.join(root, 'Contents', 'Resources');
   const native = path.join(resources,'bin/local-connector');
-  const version = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8')).version;
+  const version = buildVersion();
+  const appVersion = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
+  if (appVersion !== version) throw new Error('安装包版本与构建版本不一致。');
   if (execFileSync(native,['--version'],{encoding:'utf8'}).trim() !== version) throw new Error('安装包缺少同版本独立 Core。');
   execFileSync('codesign',['--verify','--strict',native],{stdio:'inherit'});
   execFileSync('codesign',['--verify','--strict',path.join(resources, 'bin/clc-screen')],{stdio:'inherit'});

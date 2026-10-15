@@ -121,7 +121,7 @@ impl Rpc {
             events.pending.clear();
             events.wake.notify_waiters();
         });
-        rpc.call("initialize",json!({"clientInfo":{"name":"local-connector","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
+        rpc.call("initialize",json!({"clientInfo":{"name":"local-connector","version":env!("CLC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
         rpc.write(json!({"method":"initialized"})).await?;
         Ok(rpc)
     }

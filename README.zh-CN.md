@@ -117,7 +117,7 @@ npm run dev:ui
 
 - [安装与更新](docs/zh-CN/installation.md)
 - [发布维护](docs/release.md)
-- [版本说明](CHANGELOG.md)
+- [版本说明](https://github.com/whzxc/chatgpt-local-connector/releases)
 - [开发与构建](docs/development.md)
 - [桌面生命周期](docs/desktop.md)
 - [MCP 工具与任务边界](docs/tools.md)

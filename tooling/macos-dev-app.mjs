@@ -1,3 +1,4 @@
+import { buildVersion } from './version.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -22,8 +23,8 @@ cpSync(path.join(root, 'desktop/Info.plist'), plist);
 const values = {
   CFBundleExecutable: path.basename(binary), CFBundleIdentifier: config.identifier,
   CFBundleName: config.productName, CFBundleDisplayName: config.productName,
-  CFBundlePackageType: 'APPL', CFBundleVersion: base.version,
-  CFBundleShortVersionString: base.version, CFBundleIconName: 'Icon',
+  CFBundlePackageType: 'APPL', CFBundleVersion: buildVersion(),
+  CFBundleShortVersionString: buildVersion(), CFBundleIconName: 'Icon',
 };
 for (const [key, value] of Object.entries(values)) {
   execFileSync('/usr/libexec/PlistBuddy', ['-c', `Add :${key} string ${value}`, plist]);

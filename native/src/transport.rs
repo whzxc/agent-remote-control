@@ -129,7 +129,7 @@ pub async fn listen(
     let build = crate::runtime::build_id(&std::env::current_exe().map_err(|e| e.to_string())?)?;
     save(
         &root().join("web/native.json"),
-        &json!({"port":port,"pid":std::process::id(),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("CARGO_PKG_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
+        &json!({"port":port,"pid":std::process::id(),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("CLC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
     )?;
     Ok(tokio::spawn(async move {
         loop {
@@ -310,7 +310,7 @@ async fn local_request(
             mcp_ingress(&ingress, body).await
         } else if method == "GET" && path == "/healthz" {
             Ok(
-                json!({"runtime":"rust","instance":s.control.session,"pid":std::process::id(),"owner":"core","version":env!("CARGO_PKG_VERSION"),"build":load(&root().join("web/native.json"))?["build"]}),
+                json!({"runtime":"rust","instance":s.control.session,"pid":std::process::id(),"owner":"core","version":env!("CLC_BUILD_VERSION"),"build":load(&root().join("web/native.json"))?["build"]}),
             )
         } else if let Some(route) = path.strip_prefix("/api/") {
             if method != "GET" {
@@ -418,7 +418,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
                 .as_str()
                 .unwrap_or("2025-03-26");
             Ok(
-                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":{"tools":{}},"serverInfo":{"name":"chatgpt-local-connector","version":env!("CARGO_PKG_VERSION")},"instructions":catalog()["instructions"]}),
+                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":{"tools":{}},"serverInfo":{"name":"chatgpt-local-connector","version":env!("CLC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
             )
         }
         "ping" => Ok(json!({})),

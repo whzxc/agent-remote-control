@@ -159,7 +159,7 @@ pub async fn stdio() -> Result<()> {
 async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdout>>) -> Result<()> {
     let result: Result<Value> = match string(&request, "method") {
         "initialize" => Ok(
-            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"local-connector-management","version":env!("CARGO_PKG_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
+            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"local-connector-management","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
         ),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({"tools":[

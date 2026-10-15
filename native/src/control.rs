@@ -1102,7 +1102,7 @@ impl Control {
                 Ok(result)
             }
             "codex_capabilities" => Ok(
-                json!({"version":env!("CARGO_PKG_VERSION"),"backendSession":self.session,"executionOwner":if self.auto_open_codex()? {"desktop"} else {"connector"},"models":self.request("model/list",json!({}),60000).await?,"configuration":self.request("config/read",json!({}),60000).await?}),
+                json!({"version":env!("CLC_BUILD_VERSION"),"backendSession":self.session,"executionOwner":if self.auto_open_codex()? {"desktop"} else {"connector"},"models":self.request("model/list",json!({}),60000).await?,"configuration":self.request("config/read",json!({}),60000).await?}),
             ),
             _ => Err("UNKNOWN_TOOL".into()),
         }

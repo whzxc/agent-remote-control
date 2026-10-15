@@ -1,10 +1,11 @@
+import { buildVersion } from './version.mjs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const targetDir = fileURLToPath(new URL('../target/', import.meta.url));
 
 export function buildEnv(release = false) {
-  const env = { ...process.env, CARGO_TARGET_DIR: targetDir };
+  const env = { ...process.env, CLC_BUILD_VERSION: buildVersion(), CARGO_TARGET_DIR: targetDir };
   if (release) {
     const flags = env.CARGO_ENCODED_RUSTFLAGS?.split('\x1f') ?? env.RUSTFLAGS?.trim().split(/\s+/).filter(Boolean) ?? [];
     const root = fileURLToPath(new URL('../', import.meta.url));

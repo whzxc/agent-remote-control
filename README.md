@@ -73,7 +73,7 @@ Available downloads are the actual assets on [GitHub Releases](https://github.co
 
 ## Releases
 
-Maintainers publish macOS Apple Silicon from a clean `main` with `npm run release`: prepare and commit the version and changelog, run tests once, build and sign locally, generate and verify release metadata, then tag, push, and upload with `gh`. Configure an existing updater key through `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_FILE`, or `~/.tauri/local-connector.key`. Use `-- --dry-run` to build all release files locally without Git changes or uploads, `-- --ci` to dispatch the optional Actions build, and `-- --skip-tests` if tests have already passed. Tag pushes do not trigger a release.
+Maintainers publish macOS Apple Silicon from a clean `main` with `npm run release`: select the next patch version, run tests once, inject the version while building and signing, generate and verify release metadata, then tag the existing development commit and publish through a GitHub Release draft. No version commit or source changelog is created. Use `-- --version 0.9.0` to select a version or retry an unpublished version. Configure an existing updater key through `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_FILE`, or `~/.tauri/local-connector.key`. Use `-- --dry-run` to build all release files locally without Git changes or uploads, `-- --ci` to dispatch the optional Actions build, and `-- --skip-tests` if tests have already passed. Tag pushes do not trigger a release.
 
 Windows x64 is added on demand through the manual `release-windows.yml` workflow (optional `tag`, default: latest public Release). Until supplemented, the latest update manifest has no Windows entries, so Windows clients cannot obtain an update from it. See [Release maintenance](docs/release.md).
 
@@ -123,7 +123,7 @@ Documentation:
 
 - [Installation and updates](docs/installation.md)
 - [Release maintenance](docs/release.md)
-- [Changelog](CHANGELOG.md)
+- [Changelog](https://github.com/whzxc/chatgpt-local-connector/releases)
 - [Development and builds](docs/development.md)
 - [Desktop lifecycle](docs/desktop.md)
 - [MCP tools and task boundaries](docs/tools.md)

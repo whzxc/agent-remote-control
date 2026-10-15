@@ -77,7 +77,7 @@ impl State {
                         desktop,
                     },
                 );
-                Ok(json!({"instance":key,"version":env!("CARGO_PKG_VERSION")}))
+                Ok(json!({"instance":key,"version":env!("CLC_BUILD_VERSION")}))
             }
             "runtime/release" => {
                 leases.remove(key);
@@ -182,7 +182,7 @@ pub(crate) async fn owner(build: &str) -> Result<Option<Value>> {
         return Ok(None);
     }
     if health["owner"] != "core"
-        || health["version"] != env!("CARGO_PKG_VERSION")
+        || health["version"] != env!("CLC_BUILD_VERSION")
         || health["build"] != build
     {
         return Err(
