@@ -136,6 +136,15 @@ test('MCP lists all existing native and generic agent tools and seven discoverab
     assert.equal(tool.inputSchema.type, 'object');
     new AjvJsonSchemaValidator().getValidator(tool.inputSchema);
   }
+  const waitSchema = inventory.tools.find(tool => tool.name === 'codex_wait')!.inputSchema;
+  assert.equal((waitSchema.properties!.timeoutMs as { maximum: number }).maximum, 90000);
+  const validateWait = new AjvJsonSchemaValidator().getValidator(waitSchema);
+  assert.equal(validateWait({ threadId: 'fixture', timeoutMs: 90000 }).valid, true);
+  for (const timeoutMs of [90001, 100000, 270000]) {
+    assert.equal(validateWait({ threadId: 'fixture', timeoutMs }).valid, false);
+    const rejected = await call('codex_wait', { threadId: 'fixture', timeoutMs });
+    assert.equal(rejected.response.isError, true);
+  }
   for (const name of ['read', 'codex_read', 'codex_items']) {
     const exposed = inventory.tools.find(tool => tool.name === name)!;
     const source = catalog.tools.find((tool: {name: string}) => tool.name === name);

@@ -48,7 +48,7 @@ pub(crate) async fn wait(
             );
         }
         if Instant::now() >= deadline {
-            return finish(last, "timeout", "deadline", started, baseline.as_deref());
+            return deadline_result(last, started, baseline.as_deref());
         }
         let observation = tokio::select! {
             biased;
@@ -56,20 +56,11 @@ pub(crate) async fn wait(
             result = tokio::time::timeout_at(deadline.min(Instant::now()+Duration::from_secs(10)), source.observe()) => result,
         };
         let observed = match observation {
-            Ok(Ok(v)) => v,
-            Ok(Err(e)) => return finish(last, "unconfirmed", &e, started, baseline.as_deref()),
+            Ok(result) => result,
             Err(_) if source.deadline_is_timeout() && Instant::now() >= deadline => {
-                return finish(last, "timeout", "deadline", started, baseline.as_deref());
+                return deadline_result(last, started, baseline.as_deref());
             }
-            Err(_) => {
-                return finish(
-                    last,
-                    "unconfirmed",
-                    "native-read-timeout",
-                    started,
-                    baseline.as_deref(),
-                )
-            }
+            Err(_) => Err("native-read-timeout".into()),
         };
         if !source.alive() {
             return finish(
@@ -80,15 +71,30 @@ pub(crate) async fn wait(
                 baseline.as_deref(),
             );
         }
-        last = source.classify(&observed, &mut selected);
-        let current_hash = snapshot_hash(&last);
-        baseline.get_or_insert(current_hash);
-        let state = string(&last, "state").to_owned();
-        // Terminal and interaction states always break a wait: an interaction must never
-        // be hidden by until=terminal, nor should a finished turn wait for interaction.
-        if state != "running" {
-            let reason = string(&last, "reason").to_owned();
-            return finish(last, &state, &reason, started, baseline.as_deref());
+        match observed {
+            Ok(observed) => {
+                last = source.classify(&observed, &mut selected);
+                baseline.get_or_insert_with(|| snapshot_hash(&last));
+                let state = string(&last, "state").to_owned();
+                // Terminal and interaction states always break a wait; until only
+                // determines conditionMet. Content changes do not end the wait.
+                if state != "running" {
+                    let reason = string(&last, "reason").to_owned();
+                    return finish(last, &state, &reason, started, baseline.as_deref());
+                }
+            }
+            Err(error)
+                if matches!(
+                    error.as_str(),
+                    "native-read-timeout" | "DESKTOP_SNAPSHOT_TIMEOUT" | "RPC_TIMEOUT: thread/read"
+                ) =>
+            {
+                // A read timeout is not the wait deadline. Keep the last observation
+                // and its timestamp, but do not claim its state is still confirmed.
+                last["state"] = json!("unconfirmed");
+                last["reason"] = json!(error);
+            }
+            Err(error) => return finish(last, "unconfirmed", &error, started, baseline.as_deref()),
         }
         // Register after the read: Desktop reads themselves publish snapshots. Do not
         // let these self-generated hints cause a read/notification feedback loop.
@@ -99,7 +105,7 @@ pub(crate) async fn wait(
         tokio::select! {
             biased;
             _ = shutdown.changed() => return finish(last, "unconfirmed", "connector-shutdown", started, baseline.as_deref()),
-            _ = tokio::time::sleep_until(deadline) => return finish(last, "timeout", "deadline", started, baseline.as_deref()),
+            _ = tokio::time::sleep_until(deadline) => return deadline_result(last, started, baseline.as_deref()),
             _ = notified => {
                 // Coalesce streaming deltas; cap reads at four/second even under load.
                 tokio::select! {
@@ -110,6 +116,14 @@ pub(crate) async fn wait(
             },
             _ = tokio::time::sleep(Duration::from_secs(2)) => {},
         }
+    }
+}
+fn deadline_result(last: Value, started: Instant, baseline: Option<&str>) -> Value {
+    if last["state"] == "unconfirmed" {
+        let reason = string(&last, "reason").to_owned();
+        finish(last, "unconfirmed", &reason, started, baseline)
+    } else {
+        finish(last, "timeout", "deadline", started, baseline)
     }
 }
 fn snapshot_hash(v: &Value) -> String {
@@ -306,4 +320,148 @@ pub(crate) fn condition(result: &mut Value, args: &Value) {
         "interaction-required" => interaction,
         _ => terminal || interaction,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+
+    struct Source {
+        reads: VecDeque<(u64, Result<Value>)>,
+        alive: bool,
+    }
+    impl WaitSource for Source {
+        async fn observe(&mut self) -> Result<Value> {
+            let Some((delay, result)) = self.reads.pop_front() else {
+                return std::future::pending().await;
+            };
+            tokio::time::sleep(Duration::from_millis(delay)).await;
+            if result.as_ref().is_err_and(|e| e == "DESKTOP_DISCONNECTED") {
+                self.alive = false;
+            }
+            result
+        }
+        fn alive(&self) -> bool {
+            self.alive
+        }
+        fn classify(&mut self, value: &Value, _: &mut Option<String>) -> Value {
+            value.clone()
+        }
+    }
+    fn snapshot(state: &str, text: &str) -> Value {
+        json!({"state":state,"reason":"native-turn-state","turnId":"turn",
+            "recordedStatus":if state == "running" {"inProgress"} else {state},
+            "runtimeStatus":"active","finalResponse":text,"observedAt":"last-success"})
+    }
+    async fn run(reads: Vec<(u64, Result<Value>)>, timeout: u64) -> Value {
+        let (_tx, rx) = watch::channel(0);
+        let args = json!({"timeoutMs":timeout,"until":"terminal","expectedHash":"previous"});
+        let mut value = wait(
+            &mut Source {
+                reads: reads.into(),
+                alive: true,
+            },
+            Arc::new(Notify::new()),
+            rx,
+            &args,
+            Instant::now(),
+        )
+        .await;
+        condition(&mut value, &args);
+        value
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn read_timeouts_and_changed_content_wait_for_terminal() {
+        let result = run(
+            vec![
+                (0, Ok(snapshot("running", "first"))),
+                (0, Err("DESKTOP_SNAPSHOT_TIMEOUT".into())),
+                (11000, Ok(snapshot("running", "too late"))),
+                (0, Err("RPC_TIMEOUT: thread/read".into())),
+                (0, Ok(snapshot("running", "changed"))),
+                (0, Ok(snapshot("completed", "final"))),
+            ],
+            90000,
+        )
+        .await;
+        assert_eq!(result["state"], "completed");
+        assert_eq!(result["conditionMet"], true);
+        assert_eq!(result["changed"], true);
+        assert_eq!(result["finalResponse"], "final");
+        assert!(result["elapsedMs"].as_u64().unwrap() >= 20000);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_preserves_read_failure_and_last_observation() {
+        for (delay, error, reason) in [
+            (0, "DESKTOP_SNAPSHOT_TIMEOUT", "DESKTOP_SNAPSHOT_TIMEOUT"),
+            (0, "RPC_TIMEOUT: thread/read", "RPC_TIMEOUT: thread/read"),
+            (11000, "unused", "native-read-timeout"),
+        ] {
+            let result = run(
+                vec![
+                    (0, Ok(snapshot("running", "partial"))),
+                    (delay, Err(error.into())),
+                ],
+                if delay == 0 { 3000 } else { 15000 },
+            )
+            .await;
+            assert_eq!(result["state"], "unconfirmed");
+            assert_eq!(result["reason"], reason);
+            assert_eq!(result["recordedStatus"], "inProgress");
+            assert_eq!(result["observedAt"], "last-success");
+            assert_eq!(result["conditionMet"], false);
+            assert!(result["elapsedMs"].as_u64().unwrap() >= if delay == 0 { 3000 } else { 15000 });
+        }
+        let result = run(vec![], 1000).await;
+        assert_eq!(result["state"], "unconfirmed");
+        assert_eq!(result["observedAt"], Value::Null);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn recovered_running_read_reaches_normal_deadline() {
+        let result = run(
+            vec![
+                (0, Err("DESKTOP_SNAPSHOT_TIMEOUT".into())),
+                (0, Ok(snapshot("running", "recovered"))),
+            ],
+            3000,
+        )
+        .await;
+        assert_eq!(result["state"], "timeout");
+        assert_eq!(result["reason"], "deadline");
+        assert_eq!(result["elapsedMs"], 3000);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn failures_disconnect_and_interaction_still_return_immediately() {
+        for state in ["failed", "cancelled", "interaction-required", "unconfirmed"] {
+            let result = run(vec![(0, Ok(snapshot(state, "")))], 90000).await;
+            assert_eq!(result["state"], state);
+            assert!(result["elapsedMs"].as_u64().unwrap() < 100);
+            assert_eq!(
+                result["conditionMet"],
+                matches!(state, "failed" | "cancelled")
+            );
+        }
+        for error in [
+            "DESKTOP_DISCONNECTED",
+            "runtime-owner-changed",
+            "native-thread-id-mismatch",
+        ] {
+            let result = run(vec![(0, Err(error.into()))], 90000).await;
+            assert_eq!(result["state"], "unconfirmed");
+            assert_eq!(
+                result["reason"],
+                if error == "DESKTOP_DISCONNECTED" {
+                    "connection-closed"
+                } else {
+                    error
+                }
+            );
+            assert!(result["elapsedMs"].as_u64().unwrap() < 100);
+        }
+    }
 }

@@ -105,7 +105,7 @@ Codex 事件只保留最近 2000 条或 8 MiB 的内存窗口，缺口与重启�
 
 ## 等待语义
 
-codex_wait 和 Pi/ACP 的 agent_wait 采用[可续接的 bounded event-driven long poll](tools.md#任务等待)：默认 30 秒，长任务推荐每次 20–30 秒。timeout 后沿用原 taskId 和 turnId，将上一轮 snapshotHash 传为 expectedHash 继续 wait，直到终态或交互；不重新创建任务，也不重发 prompt。每个 slice 内仍由事件和真实状态复核驱动。300 秒仅为确认上游支持后显式可用的上限，普通 Chat / 通用 MCP Client 不推荐默认一次阻塞数分钟。
+codex_wait 和 Pi/ACP 的 agent_wait 采用[可续接的 bounded event-driven long poll](tools.md#任务等待)：默认 30 秒，长任务推荐每次 20–30 秒。timeout 后沿用原 taskId 和 turnId，将上一轮 snapshotHash 传为 expectedHash 继续 wait，直到终态或交互；不重新创建任务，也不重发 prompt。每个 slice 内仍由事件和真实状态复核驱动。codex_wait 上限为 90 秒，为远程网关留出余量；Pi/ACP agent_wait 上限仍为 300 秒，需确认上游支持。普通 Chat / 通用 MCP Client 不推荐默认一次阻塞数分钟。
 
 ```json
 {"agent":"opencode","taskId":"创建回执中的 taskId","timeoutMs":30000,"until":"terminal-or-interaction"}

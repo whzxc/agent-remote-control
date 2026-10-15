@@ -86,7 +86,7 @@ none 允许所有可达调用方调用已授权工具。bearer 只证明持有�
 
 Codex 在 create/send 后从回执取得原 taskId/threadId、turnId，默认以 30 秒（建议 20–30 秒）一个 slice 调用 agent_wait/codex_wait。收到 timeout 后保留原 ID，将上一轮 snapshotHash 作为 expectedHash 再次 wait，直到 completed/failed/cancelled 或 interaction-required。timeout/取消 wait 只结束当前等待，不终止源任务，不应重新创建任务或重发 prompt；unconfirmed 不代表失败。expectedHash 只控制 changed 比较，不屏蔽终态或交互。
 
-这是 bounded event-driven long poll；每个 slice 内仍由事件唤醒和真实 owner 状态复核驱动，不使用 read/sleep 高频轮询。ChatGPT、Notion、Slack 及其他 MCP Client 可能具有不同的外层工具超时，统一默认 timeoutMs=30000，不引入 per-client 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。确认上游支持时仍可显式传 timeoutMs=300000；这是上限而非推荐值。OpenAI Tunnel stdio adapter 保留 330 秒转发预算，HTTPS MCP 没有更短的等待执行限时；CLC 无法延长外部客户端或代理的超时。
+这是 bounded event-driven long poll；每个 slice 内仍由事件唤醒和真实 owner 状态复核驱动，不使用 read/sleep 高频轮询。ChatGPT、Notion、Slack 及其他 MCP Client 可能具有不同的外层工具超时，统一默认 timeoutMs=30000，不引入 per-client 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。codex_wait 的 timeoutMs 上限为 90000，为远程网关留出余量；agent_wait 仍允许在上游支持时显式传 300000。OpenAI Tunnel stdio adapter 保留 330 秒转发预算，HTTPS MCP 没有更短的等待执行限时；CLC 无法延长外部客户端或代理的超时。
 
 ## 只读上下文与诊断
 

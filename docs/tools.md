@@ -227,7 +227,7 @@ create / send → 取得原 taskId/threadId、turnId → wait(timeoutMs=30000)
 
 timeout 或取消 wait 只释放本次等待，不终止、中断或重建源任务，也不应重新 create/send。续接时保留已返回的 turnId，以固定同一轮次；`expectedHash` 仅比较快照，不要求状态变化后才返回。`unconfirmed` 不代表任务失败，应先核实原任务和回执。
 
-ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能不同，因此统一使用有界 slice，不提供 per-client timeout 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。明确确认上游允许长调用时仍可显式传 `timeoutMs=300000`，这是能力上限而非推荐默认。OpenAI Tunnel stdio adapter 对两个 wait 工具的内部转发预算为 330 秒；HTTPS MCP 的请求头/请求体读取限时不限制等待执行时间。这些 CLC 预算无法延长外部客户端或代理的超时。
+ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能不同，因此统一使用有界 slice，不提供 per-client timeout 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。`codex_wait` 的 `timeoutMs` 最大为 90000，为远程网关留出余量；`agent_wait` 上限仍为 300000。OpenAI Tunnel stdio adapter 对两个 wait 工具的内部转发预算为 330 秒；HTTPS MCP 的请求头/请求体读取限时不限制等待执行时间。这些 CLC 预算无法延长外部客户端或代理的超时。
 
 输入是禁止额外属性的 object：
 
@@ -235,7 +235,7 @@ ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能
 | --- | --- |
 | threadId | 必填、非空 string |
 | turnId | 可选、非空 string；省略时固定首个观察到的当前活跃轮次，否则最近一轮；不会跳到后续轮次 |
-| timeoutMs | integer，1–300000，默认 30000；包括建立读取连接和原生读取时间 |
+| timeoutMs | integer，1–90000，默认 30000；包括建立读取连接和原生读取时间 |
 | until | terminal / interaction-required / terminal-or-interaction（默认）；声明期望目标 |
 | expectedHash | 可选 string，上次返回的 snapshotHash，用于 changed 比较 |
 
@@ -268,7 +268,7 @@ ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能
 - completed / failed / cancelled 来自所选原生轮次；原生 interrupted 映射为 cancelled，recordedStatus 保留原值。
 - interaction-required 返回当前 Connector 原生 pending 的 id、responseId、method、params、backendSession；`codex_respond.id` 使用 responseId（保留原生数值/字符串 ID 的 JSON 编码）。不自动 approve。Desktop 通过 activeFlags 报告等待审批/输入时会立即退出，但其 IPC 不提供原生回调 ID；此时 interactionAction 指向 Desktop 处理，不伪造 ID。
 - timeout / deadline 仅代表这一次等待用尽时间；保留最后观察到的任务状态，不中断、不重发。继续等可再次调用 wait。
-- unconfirmed 表示本次无法确认，reason 区分 connection-closed、connector-shutdown、native-read-timeout、native-connect-timeout、runtime-owner-changed 等。运行状态 notLoaded/unknown、目标轮次不存在、状态矛盾也不会被当作成功或停止。读取本身未能在期限内确认时返回 unconfirmed，而不是用旧快照断言当前状态。observedAt 保留最后成功读取的时间，没有成功读取则为 null。
+- unconfirmed 表示本次无法确认，reason 区分 connection-closed、connector-shutdown、native-read-timeout、native-connect-timeout、runtime-owner-changed 等。运行状态 notLoaded/unknown、目标轮次不存在、状态矛盾也不会被当作成功或停止。单次原生读取或快照超时会在等待期限内继续重试；到期仍无法确认时返回 unconfirmed 和最近的读取超时原因，而不是用旧快照断言当前状态。断连、owner 变化及其他读取错误立即返回。observedAt 保留最后成功读取的时间，没有成功读取则为 null。
 
 等待固定使用实际运行连接，不在断线后重新启动/恢复任务。事件驱动唤醒并合并 250ms 内的流式通知，空闲每两秒回读原生状态；Desktop 重复的相同 revision 快照不会唤醒等待者，避免多个读取者互相触发回读；不依赖有限事件缓冲的连续 cursor。每个 wait 独立等待，不持有共享锁跨越网络读操作或等待。
 
