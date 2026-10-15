@@ -989,6 +989,16 @@ pre {
 }
 .log-table td:last-child { white-space: nowrap; }
 .log-table .record-source { white-space: nowrap; }
+.log-table .record-operation {
+  width: 100%;
+  max-width: 0;
+}
+.record-operation > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .log-table details {
   margin-top: 6px;
   color: var(--text-secondary);

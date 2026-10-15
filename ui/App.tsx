@@ -53,7 +53,7 @@ const BrowserRailPreview = import.meta.env.DEV
 export default function App() {
   locale.use();
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
-  const { feedback } = connector.use(),
+  const { feedback, status } = connector.use(),
     taskState = tasks.use(),
     nav = navigation.use();
   updates.use();
@@ -245,6 +245,11 @@ export default function App() {
             <header className="sheet-header">
               <h1 className="capsule-title" tabIndex={-1}>
                 {pages.find((item) => item.id === page)?.label}
+                {page === "logs" && (
+                  <span className="muted small records-count">
+                    {t("recentRecords", { count: status?.logs.length ?? 0 })}
+                  </span>
+                )}
               </h1>
               <IconButton
                 className="panel-width-toggle"

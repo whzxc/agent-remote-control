@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Copy } from "lucide-react";
-import { t, locale } from "../i18n";
+import { t } from "../i18n";
 import { api } from "../api";
 import { copyText } from "../platform";
 import { displayMessage } from "../messages";
@@ -45,7 +45,7 @@ export default function TasksPage() {
   const projectOf = (r: TaskRecord) =>
     r.task.project || r.task.directory || runtime(r)?.project || "";
   const projectName = (r: TaskRecord) =>
-    projectOf(r)
+    projectOf(r).trim()
       .replace(/[\\/]+$/, "")
       .split(/[\\/]/)
       .pop() || "";
@@ -118,11 +118,9 @@ export default function TasksPage() {
     );
   }
   const time = (value: string) => {
-    const date = new Date(value), today = new Date(), yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    const clock = date.toLocaleTimeString(locale.get(), { hour: "2-digit", minute: "2-digit", hour12: false });
-    const day = date.toDateString() === today.toDateString() ? t("taskToday") : date.toDateString() === yesterday.toDateString() ? t("taskYesterday") : `${date.getFullYear() === today.getFullYear() ? "" : `${date.getFullYear()}/`}${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
-    return `${day} ${clock}`;
+    const date = new Date(value);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
   const detail = selected && (
     <Dialog
@@ -280,17 +278,19 @@ export default function TasksPage() {
                   <strong className="task-document-title">
                     {titleOf(g.first)}
                   </strong>
-                  {projectOf(g.first) && <span className="task-document-project" title={projectOf(g.first)}>{projectName(g.first)}</span>}
                 </span>
-                <time dateTime={g.first.createdAt}>
-                  {time(g.first.createdAt)}
-                </time>
+                <span className="task-document-meta">
+                  {projectName(g.first) && <span className="task-tag task-document-project" title={projectOf(g.first)}>{projectName(g.first)}</span>}
+                  {stateOf(g) === "running" && <span className="task-document-state">{t("running")}</span>}
+                  <time dateTime={g.first.createdAt}>
+                    {time(g.first.createdAt)}
+                  </time>
+                </span>
                 {g.first.task.prompt && (
                   <span className="task-document-preview">
-                    {plainMarkdown(g.first.task.prompt).slice(0, 220)}
+                    {plainMarkdown(g.first.task.prompt)}
                   </span>
                 )}
-                {["running", "runtimeError"].includes(stateOf(g)) && <span className="task-document-state">{t(stateOf(g))}</span>}
               </button>
             </div>
           ))}

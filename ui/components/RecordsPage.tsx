@@ -145,9 +145,6 @@ export default function RecordsPage() {
             "error",
           ].map((value) => ({ value, label: t(value) }))}
         />
-        <span className="muted small">
-          {t("recentRecords", { count: status?.logs.length ?? 0 })}
-        </span>
       </div>
       <div className="log-table-scroll">
         <table className="log-table">
@@ -167,8 +164,8 @@ export default function RecordsPage() {
                   <time title={row.timestamp}>{row.time}</time>
                 </td>
                 {hasSource && <td className="record-source">{row.source || "—"}</td>}
-                <td>
-                  <span>{row.operation}{row.count > 1 ? ` ×${row.count}` : ""}</span>
+                <td className="record-operation">
+                  <span title={row.operation}>{row.operation}{row.count > 1 ? ` ×${row.count}` : ""}</span>
                   {row.detail && (
                     <details>
                       <summary>{t("details")}</summary>
