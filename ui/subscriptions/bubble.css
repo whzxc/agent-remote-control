@@ -97,7 +97,7 @@
   align-items: center;
   gap: 4px;
   color: var(--text-secondary);
-  white-space: normal;
+  white-space: nowrap;
   text-align: right;
 }
 .pace-warning .icon {
@@ -115,7 +115,7 @@
   border-radius: 3px;
 }
 .reading-meta {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   display: flex;
   justify-content: space-between;
   gap: 5px;
@@ -346,7 +346,7 @@
 @keyframes quota-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .history-popover, .rail-card-content { animation: none; } }
 
-.reading-timing { display: flex; flex: 1 1 180px; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 4px 10px; color: var(--text-secondary); text-align: right; }
+.reading-timing { display: flex; flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; align-items: baseline; gap: 4px 10px; color: var(--text-secondary); text-align: right; }
 .reading-meta > span:first-child { white-space: nowrap; }
 
 .reading-reset { margin-left: auto; white-space: nowrap; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
