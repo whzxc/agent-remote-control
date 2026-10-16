@@ -633,6 +633,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "contract-fixture"
+version = "0.1.0"
+dependencies = [
+ "connector-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3537,6 +3546,15 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "release-verifier"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "minisign-verify",
+ "serde_json",
+]
 
 [[package]]
 name = "reqwest"

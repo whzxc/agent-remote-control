@@ -133,7 +133,7 @@ gh workflow run release-windows.yml --ref main -f tag=v<版本>
 - macOS 安装包：`target/aarch64-apple-darwin/release/bundle/`。
 - Windows 安装包：`target/x86_64-pc-windows-msvc/release/bundle/`。
 - 独立 Core 与 macOS `clc-screen` helper 的打包暂存：`dist/native/`，Tauri 仍通过 resources 映射到 `bin/`。
-- 编译图标：`target/release-icon/`、`target/dev-icon/`；隔离合同测试：`target/contracts/`。
+- 编译图标：`target/release-icon/`、`target/dev-icon/`；合同测试 fixture：`tests/fixture/`（编译输出共用 `target/debug/`）。
 
 npm 使用 setup-node 缓存；rust-cache 缓存共享 `target/`，发布工作流允许保存缓存。推荐从 main dispatch，使缓存留在默认分支作用域，checkout 标签不改变工作流的 ref 作用域。`check.yml` 仅手动触发；日常 push/PR 不触发检查。
 

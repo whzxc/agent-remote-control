@@ -19,9 +19,6 @@ const version = buildVersion();
 let directory: string;
 let client: Client;
 let inventory: Awaited<ReturnType<Client['listTools']>>;
-async function writeIfChanged(file: string, content: string) {
-  if (await readFile(file, 'utf8').catch(() => null) !== content) await writeFile(file, content);
-}
 before(async () => {
   directory = await mkdtemp(path.join(tmpdir(), 'chatgpt-local-connector-test-'));
   // Explicit all policy exercises the entire registered tool surface.
@@ -75,42 +72,10 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (params?.delay) setTimeout(reply, params.delay); else reply();
 }
 `);
-  // Keep the Cargo project path stable so each test run reuses its compiled dependencies.
-  // Runtime state and the fake upstream still live in a fresh temporary directory.
-  const target = fileURLToPath(new URL('../target/contracts', import.meta.url));
-  const fixtureDirectory = path.join(target, 'fixture');
-  await mkdir(path.join(fixtureDirectory, 'src'), { recursive: true });
-  const corePath = fileURLToPath(new URL('../native', import.meta.url)).replaceAll('\\', '/');
-  const nativeManifest = await readFile(new URL('../native/Cargo.toml', import.meta.url), 'utf8');
-  const devProfiles = nativeManifest.split(/(?=^\[)/m).filter(section => section.startsWith('[profile.dev')).join('');
-  await writeIfChanged(path.join(fixtureDirectory, 'Cargo.toml'), `[package]
-name="contract-fixture"
-version="0.1.0"
-edition="2021"
-[dependencies]
-connector-core={path=${JSON.stringify(corePath)},features=["test-fixture"]}
-serde_json="1"
-tokio={version="1",features=["full"]}
-${devProfiles}
-[profile.dev.package.connector-core]
-opt-level=0
-debug="line-tables-only"
-`);
-  await writeIfChanged(path.join(fixtureDirectory, 'src/main.rs'), `
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-#[tokio::main] async fn main() {
- let service=connector_core::service::Service::fixture(std::env::var("CLC_FIXTURE_BINARY").unwrap().into()).unwrap();
- let _listener=connector_core::transport::listen(service.clone(),None).await.unwrap();
- let mut lines=BufReader::new(tokio::io::stdin()).lines();
- let mut out=tokio::io::stdout();
- while let Some(line)=lines.next_line().await.unwrap() {
-  let request=serde_json::from_str(&line).unwrap();
-  let response=connector_core::transport::mcp(&service,request).await.unwrap();
-  if !response.is_null() {out.write_all(format!("{response}\\n").as_bytes()).await.unwrap();out.flush().await.unwrap();}
- }
- service.control.close().await;
-}`);
-  execFileSync('cargo', ['build', '--quiet', '--manifest-path', path.join(fixtureDirectory, 'Cargo.toml'), '--target-dir', target], { stdio: 'inherit' });
+  const target = fileURLToPath(new URL('../target', import.meta.url));
+  execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
+    cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
+  });
   client = new Client({ name: 'chatgpt-local-connector-test', version: '1' });
   await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, CLC_STATE_DIR: directory, CLC_FIXTURE_SCRIPT: fixture, CLC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
   inventory = await client.listTools();

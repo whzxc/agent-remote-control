@@ -9,7 +9,7 @@ name = "local-connector"
 path = "src/main.rs"
 
 [features]
-# Compiled only by the existing isolated contract fixture, never desktop builds.
+# Compiled only by the contract fixture, never desktop builds.
 test-fixture = []
 
 [dependencies]
@@ -36,43 +36,6 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
-
-[profile.dev]
-opt-level = 0
-debug = "line-tables-only"
-incremental = true
-
-[profile.dev.package."*"]
-debug = 0
-
-[profile.dev.package.serde_json]
-opt-level = 3
-
-[profile.dev.package.flate2]
-opt-level = 3
-
-[profile.dev.package.miniz_oxide]
-opt-level = 3
-
-[profile.dev.package.image]
-opt-level = 3
-
-[profile.dev.package.png]
-opt-level = 3
-
-[profile.dev.package.zune-jpeg]
-opt-level = 3
-
-[profile.dev.package.fdeflate]
-opt-level = 3
-
-[profile.dev.package.crc32fast]
-opt-level = 3
-
-[profile.release]
-lto = false
-codegen-units = 16
-strip = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Security", "Win32_System_Pipes", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

@@ -44,7 +44,7 @@ jobs:
           shared-key: desktop-x86_64-pc-windows-msvc
           key: shared-target-v2
           workspaces: |
-            desktop -> ../target
+            . -> target
           cache-bin: false
           save-if: 'true'
       - run: npm ci

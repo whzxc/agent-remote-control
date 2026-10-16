@@ -38,7 +38,7 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
-          workspaces: native -> ../target
+          workspaces: . -> target
           shared-key: linux-${{ matrix.arch }}
       - name: Check and build headless Core
         env:
@@ -94,7 +94,7 @@ jobs:
           shared-key: desktop-${{ matrix.target }}
           key: shared-target-v2
           workspaces: |
-            desktop -> ../target
+            . -> target
           cache-bin: false
           save-if: 'true'
       - run: npm ci

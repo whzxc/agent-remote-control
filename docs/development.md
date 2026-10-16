@@ -62,11 +62,12 @@ Rust is pinned in `rust-toolchain.toml`; CI uses the same version. Dev uses
 incremental compilation and `opt-level=0` for our crates, line tables for backtraces,
 and no dependency debug information. Only JSON, image and compression hotspots
 use level 3; other dependencies remain unoptimized. Release keeps level 3, 16 codegen units and no
-cross-crate LTO. Keep the native and desktop profiles aligned.
+cross-crate LTO. Workspace profiles live in the root `Cargo.toml`.
 
-Cargo outputs share repository-root `target/`; contract fixtures retain their
-isolated `target/contracts/` graph and reuse the native dev profile. The local
-compiler-cache budget is 8 GiB: `npm run cache:prune -- --dry-run` previews
+Native, desktop, contract fixture and release verifier share one workspace, root
+`Cargo.lock` and `target/`. The fixture is excluded from default members; its test-only
+feature is enabled only when explicitly building the fixture. The local
+compiler-cache budget is 30 GiB: `npm run cache:prune -- --dry-run` previews
 inactive profile groups and `npm run cache:prune` removes them. Busy/protected
 outputs may temporarily exceed it. Bundles, binaries and user data are retained,
 so this is not a cap on all of `target/`. Run pruning after direct Cargo commands;
@@ -178,3 +179,5 @@ cycle dates when available; monthly windows otherwise use the same 30-day conven
 as OpenUsage.
 
 Plugin sources, development servers and packaging are owned by the independent [Usage](https://github.com/whzxc/chatgpt-usage-plugin) and [Kanban](https://github.com/whzxc/chatgpt-kanban-plugin) repositories. Connector builds no plugin resources or ZIPs.
+
+External build storage may use a repository `target` symlink to `/Volumes/T5/rust-target/<repository-name>`; keep the volume mounted. An unavailable target fails instead of falling back to the internal disk. To return to internal storage, stop builds, remove only the `target` symlink (`unlink target`), then move the external directory back to `target`.
