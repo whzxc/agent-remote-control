@@ -174,20 +174,29 @@ export default function ConnectionOverview() {
       observer.disconnect();
     };
   }, []);
-  const height = Math.max(
-      320,
-      Math.max(Math.max(1, sources.length) + 1, agents.length + 1) * 84,
-    ),
+  const rows = Math.max(Math.max(1, sources.length) + 1, agents.length + 1);
+  const height = showMascot
+      ? Math.max(320, rows * 84)
+      : Math.max(320, dimensions.height - 180),
     leftWidth = dimensions.left,
     rightWidth = dimensions.right;
   const ringRadius = Math.max(
     dimensions.width < 600 ? 48 : 80,
     Math.min(130, dimensions.width * 0.13, dimensions.height * 0.2),
   );
-  const coreColumnWidth =
-    dimensions.width < 600 ? ringRadius * 1.15 : 124 + (ringRadius - 80) * 1.32;
+  const brandSize = ringRadius * (240 / 130);
+  const coreColumnWidth = showMascot
+    ? dimensions.width < 600
+      ? ringRadius * 1.15
+      : 124 + (ringRadius - 80) * 1.32
+    : brandSize;
+  const rowStep = (count: number) => showMascot ? 84 : Math.min(84, height / count);
+  const nodeStyle = (count: number) => ({
+    "--graph-row-step": `${rowStep(count)}px`,
+    "--graph-node-scale": rowStep(count) / 84,
+  }) as CSSProperties;
   const y = (index: number, count: number) =>
-    height / 2 + (index - (count - 1) / 2) * 84;
+    height / 2 + (index - (count - 1) / 2) * rowStep(count);
   const enabled = sources.filter((s) => s.enabled);
   const mascotState: MascotState = error
     ? "unavailable"
@@ -345,6 +354,37 @@ export default function ConnectionOverview() {
           },
         }));
     const count = Math.max(right ? 0 : 1, entries.length) + 1;
+    if (!showMascot) {
+      const scale = brandSize / 240;
+      // mark.svg has viewBox 4 4 92 92, with dot centers at (18, 50) and (82, 50).
+      const inset = brandSize * (14 / 92);
+      const dotX = right ? -inset : wireWidth(false) + inset;
+      const hubX = dotX + (right ? 87 : -87) * scale;
+      const hubY = height / 2;
+      const branch = (index: number) => {
+        const nodeY = y(index, count);
+        const nodeX = right
+          ? wireWidth(true) + 12
+          : -(index === count - 1 ? 5 : 3) * rowStep(count) / 84;
+        return right
+          ? `M ${hubX} ${hubY} C ${hubX + 80 * scale} ${hubY}, ${nodeX - 108 * scale} ${nodeY}, ${nodeX} ${nodeY}`
+          : `M ${nodeX} ${nodeY} C ${nodeX + 108 * scale} ${nodeY}, ${hubX - 80 * scale} ${hubY}, ${hubX} ${hubY}`;
+      };
+      return (
+        <div ref={right ? rightWires : leftWires} className={`graph-wires bundle-wires ${right ? "right" : "left"}`}>
+          <svg viewBox={`0 0 ${wireWidth(right)} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+            {entries.map((entry, index) => (
+              <path key={entry.id} d={branch(index)}
+                className={`bundle-branch ${["connected", "agentAvailable"].includes(entry.state) ? "" : "inactive"} ${activeTip === entry.id ? "hovered" : ""}`} />
+            ))}
+            {!right && !entries.length && <path d={branch(0)} className="bundle-branch inactive" />}
+            <path d={branch(count - 1)} className="bundle-branch inactive" />
+            <path d={`M ${dotX} ${hubY} H ${hubX}`} className="bundle-trunk" />
+            <circle cx={hubX} cy={hubY} r={8 * scale} className="bundle-hub" />
+          </svg>
+        </div>
+      );
+    }
     return (
       <div
         ref={right ? rightWires : leftWires}
@@ -420,15 +460,20 @@ export default function ConnectionOverview() {
       </div>
     );
   };
+  const statusDot = (state: string) => !showMascot && (
+    <span className="graph-status-dot" data-state={state} aria-hidden="true" />
+  );
   return (
     <>
       <section
         ref={core}
-        className="connection-core"
+        className={`connection-core ${showMascot ? "mascot-mode" : "brand-mode"}`}
         style={
           {
             "--graph-ring-radius": `${ringRadius}px`,
             "--graph-core-width": `${coreColumnWidth}px`,
+            "--graph-brand-size": `${brandSize}px`,
+            "--graph-brand-scale": brandSize / 240,
           } as CSSProperties
         }
         aria-label={t("connectionStatus")}
@@ -451,7 +496,7 @@ export default function ConnectionOverview() {
           </button>
         </div>
         <div className="connection-graph" style={{ height }}>
-          <div className="graph-nodes sources">
+          <div className="graph-nodes sources" style={nodeStyle(Math.max(1, sources.length) + 1)}>
             {!sources.length && (
               <button
                 data-panel-anchor
@@ -465,18 +510,25 @@ export default function ConnectionOverview() {
             )}
             {sources.map((source) => (
               <div key={source.id} className="graph-node-wrap">
-                <button
-                  data-panel-anchor
-                  className="graph-node"
-                  aria-label={source.name}
-                  onClick={() => {
-                    setAutoConnect(false);
-                    setDetails(source);
-                  }}
-                >
-                  <SourceIcon platform={source.controlSource} panelVisual />
-                  <span className="graph-node-name">{source.name}</span>
-                </button>
+                <Tooltip text={t(sourceState(source))} side="right">
+                  <button
+                    data-panel-anchor
+                    className="graph-node"
+                    aria-label={showMascot ? source.name : `${source.name}: ${t(sourceState(source))}`}
+                    onMouseEnter={() => setActiveTip(source.id)}
+                    onMouseLeave={() => setActiveTip("")}
+                    onFocus={() => setActiveTip(source.id)}
+                    onBlur={() => setActiveTip("")}
+                    onClick={() => {
+                      setAutoConnect(false);
+                      setDetails(source);
+                    }}
+                  >
+                    <SourceIcon platform={source.controlSource} panelVisual />
+                    {statusDot(sourceState(source))}
+                    <span className="graph-node-name">{source.name}</span>
+                  </button>
+                </Tooltip>
               </div>
             ))}
             <button
@@ -509,7 +561,7 @@ export default function ConnectionOverview() {
               <img className="graph-brand" src={isDark ? markDark : mark} alt="Agent Remote Control" draggable={false} />
             )}
           </div>
-          <div className="agent-side">
+          <div className="agent-side" style={nodeStyle(agents.length + 1)}>
             {wires(true)}
             <div className="graph-nodes agents">
               {agents.map((agent) => (
@@ -519,6 +571,7 @@ export default function ConnectionOverview() {
                   side="left"
                   text={
                     <>
+                      {!showMascot && <div>{t(agentState(agent))}</div>}
                       {agent.version && (
                         <div className="status-hint">{agent.version}</div>
                       )}
@@ -528,11 +581,16 @@ export default function ConnectionOverview() {
                   <button
                     data-panel-anchor
                     className="graph-node"
-                    aria-label={name(agent)}
+                    aria-label={showMascot ? name(agent) : `${name(agent)}: ${t(agentState(agent))}`}
+                    onMouseEnter={() => setActiveTip(agent.agent)}
+                    onMouseLeave={() => setActiveTip("")}
+                    onFocus={() => setActiveTip(agent.agent)}
+                    onBlur={() => setActiveTip("")}
                     aria-haspopup="dialog"
                     onClick={() => setDetailAgent(agent)}
                   >
                     <AgentQuotaIcon agent={agent.agent} />
+                    {statusDot(agentState(agent))}
                     <span className="graph-node-name">{name(agent)}</span>
                   </button>
                 </Tooltip>

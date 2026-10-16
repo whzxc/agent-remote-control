@@ -1139,8 +1139,101 @@
 .graph-brand {
   position: relative;
   z-index: 20;
-  width: calc(var(--graph-ring-radius, 130px) * 1.1);
-  height: calc(var(--graph-ring-radius, 130px) * 1.1);
+  width: var(--graph-brand-size);
+  height: var(--graph-brand-size);
   object-fit: contain;
   user-select: none;
+}
+
+/* The brand connects through its two dots; the mascot keeps its circular ports. */
+.brand-mode .graph-brain::before,
+.brand-mode .graph-brain::after {
+  content: none;
+}
+.brand-mode .graph-nodes {
+  --node-size: calc(44px * var(--graph-node-scale));
+  gap: calc(var(--graph-row-step) - var(--node-size));
+}
+.brand-mode .graph-node,
+.brand-mode .sources .source-icon {
+  width: var(--node-size);
+  height: var(--node-size);
+}
+.brand-mode .sources .graph-node {
+  margin-right: 0;
+}
+.brand-mode .sources .source-icon > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.brand-mode .sources .source-icon svg {
+  width: calc(38px * var(--graph-node-scale));
+  height: calc(38px * var(--graph-node-scale));
+}
+.brand-mode .sources .add-source .source-icon > svg {
+  width: calc(20px * var(--graph-node-scale));
+  height: calc(20px * var(--graph-node-scale));
+}
+.brand-mode .sources .add-source .source-icon {
+  width: calc(34px * var(--graph-node-scale));
+  height: calc(34px * var(--graph-node-scale));
+}
+.brand-mode .agent-side {
+  --agent-icon-size: calc(48px * var(--graph-node-scale));
+}
+.brand-mode .agents {
+  --node-size: var(--agent-icon-size);
+}
+.brand-mode .agents .graph-node {
+  --agent-quota-size: var(--node-size);
+}
+.bundle-wires {
+  --bundle-color: var(--topology-ink);
+  --bundle-opacity: 0.4;
+  pointer-events: none;
+}
+.bundle-wires.right {
+  --bundle-color: var(--topology-green);
+  --bundle-opacity: 0.6;
+}
+.bundle-wires path {
+  stroke: var(--bundle-color);
+  stroke-linecap: round;
+}
+.bundle-wires .bundle-branch {
+  stroke-width: calc(3px * var(--graph-brand-scale));
+  stroke-opacity: var(--bundle-opacity);
+}
+.bundle-wires .bundle-branch.inactive {
+  stroke: var(--topology-inactive);
+  stroke-opacity: 1;
+  stroke-dasharray: 2 8;
+}
+.bundle-wires .bundle-trunk {
+  stroke-width: calc(8px * var(--graph-brand-scale));
+}
+.bundle-hub {
+  fill: var(--bundle-color);
+  stroke: var(--graph-bg);
+  stroke-width: calc(3px * var(--graph-brand-scale));
+}
+.graph-status-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: calc(18px * var(--graph-node-scale));
+  height: calc(18px * var(--graph-node-scale));
+  border: calc(3px * var(--graph-node-scale)) solid var(--graph-bg);
+  border-radius: 50%;
+  background: var(--text-secondary);
+  pointer-events: none;
+}
+.graph-status-dot[data-state="connected"],
+.graph-status-dot[data-state="agentAvailable"] {
+  background: var(--topology-green);
+}
+.graph-status-dot[data-state="connectionError"] {
+  background: var(--danger);
 }

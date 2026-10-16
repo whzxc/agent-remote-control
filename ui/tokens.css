@@ -38,6 +38,9 @@
   --action: #242428;
   --on-action: #fff;
   --accent: #35745a;
+  --topology-ink: #1c2b24;
+  --topology-green: #3e8e5e;
+  --topology-inactive: #b5bfba;
   --success: #21714a;
   --warning: #8a5108;
   --danger: #bc2936;
@@ -72,6 +75,8 @@
   --action: #f0f0f3;
   --on-action: #202024;
   --accent: #afd1bf;
+  --topology-ink: #e9efeb;
+  --topology-green: #6fbf8e;
   --success: #8ad8ad;
   --warning: #f0c17d;
   --danger: #ffa0a7;
