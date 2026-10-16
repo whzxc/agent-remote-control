@@ -92,7 +92,10 @@ def placed(fn, pal, cx, cy, size, template=False):
 
 def app_icon(fn, dark=False):
     tile = TILE_D if dark else TILE
-    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, "dark" if dark else "light", 512, 512, 680)
+    # Match visible artwork, excluding the mark's viewBox padding, to 80% of the tile.
+    mark_width = 84 if fn is primary else 85
+    size = 824 * 0.8 * 92 / mark_width
+    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, "dark" if dark else "light", 512, 512, size)
     return svg(1024, 1024, body)
 
 def full_bleed(fn, size, ratio):

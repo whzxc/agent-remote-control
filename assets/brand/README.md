@@ -23,7 +23,7 @@ ARC — Agent Remote Control。
 | `icons/favicon.svg`、`favicon.ico`、`apple-touch-icon.png` | 网站图标，SVG 版会跟随系统深色模式 |
 | `social/x-avatar-400.png`、`og-card-1200x630.png` | X 头像、链接分享卡片 |
 
-应用图标以 1024 画布居中放置 680 宽的标识，Icon Composer 使用相同尺寸。
+应用图标中的标识实际可见宽度占底板宽度的 80%，不把 SVG 自身的留白算入标识宽度。静态图标按 824 宽的底板计算，Icon Composer 按 1024 宽的原生底板计算，均居中放置。
 
 Tauri 项目可以直接用 `png/app-icon-1024.png` 运行 `npx tauri icon` 生成全套平台图标。
 

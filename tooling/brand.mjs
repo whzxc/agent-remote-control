@@ -42,7 +42,8 @@ writeFileSync(path.join(composer, 'icon.json'), JSON.stringify({
   groups: [{ layers: [{
     'image-name-specializations': [{ value: 'mark.svg' }, { appearance: 'dark', value: 'mark-dark.svg' }],
     name: 'ARC', glass: false,
-    position: { scale: 6.8, 'translation-in-points': [0, 0] },
+    // Native background fills 1024 points; the 100-point SVG has a 92-unit viewBox.
+    position: { scale: 1024 * 0.8 * 92 / (100 * (variant === 'primary' ? 84 : 85)), 'translation-in-points': [0, 0] },
   }], shadow: { kind: 'neutral', opacity: 0 }, specular: false, translucency: { enabled: false, value: 0 } }],
   'supported-platforms': { squares: 'shared' },
 }, null, 2) + '\n');
