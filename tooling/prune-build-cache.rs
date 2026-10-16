@@ -61,16 +61,36 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let keep = args
         .iter()
         .find_map(|a| a.strip_prefix("--keep="))
-        .map(|p| root.join(p));
+        .map(|p| {
+            let path = root.join(p);
+            path.canonicalize().unwrap_or(path)
+        });
     let mut groups = Vec::new();
     for arg in args.iter().skip(1).filter(|a| !a.starts_with("--")) {
         let path = root.join(arg);
-        if path.exists() {
-            let actual = path.canonicalize()?;
-            if !actual.starts_with(&root) || actual == root {
-                return Err("cache root escapes repository".into());
+        if path.exists() || fs::symlink_metadata(&path).is_ok() {
+            let actual = path.canonicalize().map_err(|e| {
+                format!("cache target unavailable (mount the external volume first): {e}")
+            })?;
+            if actual != root.join("target") {
+                let volume = Path::new("/Volumes/T5");
+                let expected = volume
+                    .join("rust-target")
+                    .join(root.file_name().ok_or("repository name missing")?);
+                #[cfg(unix)]
+                let mounted = {
+                    use std::os::unix::fs::MetadataExt;
+                    fs::metadata(volume)?.dev() != fs::metadata("/Volumes")?.dev()
+                };
+                #[cfg(not(unix))]
+                let mounted = false;
+                if path != root.join("target") || actual != expected || !mounted {
+                    return Err(
+                        "cache root escapes repository or the designated external target".into(),
+                    );
+                }
             }
-            discover(&path, &mut groups)?;
+            discover(&actual, &mut groups)?;
         }
     }
     groups.sort();
@@ -133,7 +153,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{} {} ({:.2} GiB compiler cache; bundles and binaries retained)",
             if dry { "Would prune" } else { "Pruning" },
-            path.strip_prefix(&root)?.display(),
+            path.display(),
             *bytes as f64 / 1073741824.
         );
         if !dry {

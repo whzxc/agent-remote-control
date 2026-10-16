@@ -3,7 +3,7 @@ node_modules/
 dist/
 *.tgz
 .env
-target/
+target
 desktop/runtime/
 desktop/gen/
 
