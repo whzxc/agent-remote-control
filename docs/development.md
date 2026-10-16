@@ -73,7 +73,7 @@ outputs may temporarily exceed it. Bundles, binaries and user data are retained,
 so this is not a cap on all of `target/`. Run pruning after direct Cargo commands;
 normal npm development/build/test entries already check the budget.
 
-External build storage may use a repository `target` symlink to `/Volumes/T5/rust-target/<repository-name>`; keep the volume mounted. An unavailable target fails instead of falling back to the internal disk. To return to internal storage, stop builds, remove only the `target` symlink (`unlink target`), then move the external directory back to `target`.
+`target` may be symlinked to an external disk. To return to internal storage, stop builds, run `unlink target`, then move the directory back to the repository as `target`.
 
 Desktop IPC task management supports macOS Unix sockets and Windows named pipes. Windows uses the installed Microsoft Store Codex Desktop.
 

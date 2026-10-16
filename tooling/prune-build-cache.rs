@@ -66,35 +66,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             path.canonicalize().unwrap_or(path)
         });
     let mut groups = Vec::new();
-    for arg in args.iter().skip(1).filter(|a| !a.starts_with("--")) {
-        let path = root.join(arg);
-        if path.exists() || fs::symlink_metadata(&path).is_ok() {
-            let actual = path.canonicalize().map_err(|e| {
-                format!("cache target unavailable (mount the external volume first): {e}")
-            })?;
-            if actual != root.join("target") {
-                let volume = Path::new("/Volumes/T5");
-                let expected = volume
-                    .join("rust-target")
-                    .join(root.file_name().ok_or("repository name missing")?);
-                #[cfg(unix)]
-                let mounted = {
-                    use std::os::unix::fs::MetadataExt;
-                    fs::metadata(volume)?.dev() != fs::metadata("/Volumes")?.dev()
-                };
-                #[cfg(not(unix))]
-                let mounted = false;
-                if path != root.join("target") || actual != expected || !mounted {
-                    return Err(
-                        "cache root escapes repository or the designated external target".into(),
-                    );
-                }
-            }
-            discover(&actual, &mut groups)?;
-        }
-    }
-    groups.sort();
-    groups.dedup();
+    let target = root.join("target").canonicalize()?;
+    discover(&target, &mut groups)?;
     let mut rows = Vec::new();
     for path in groups {
         let mut seen = std::collections::HashSet::new();
