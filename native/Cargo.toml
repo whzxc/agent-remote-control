@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 
 [[bin]]
-name = "local-connector"
+name = "arc-remote"
 path = "src/main.rs"
 
 [features]

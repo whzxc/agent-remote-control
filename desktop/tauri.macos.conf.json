@@ -3,7 +3,7 @@
     "icon": [
       "icons/icon.png",
       "icons/macos/Icon.icns",
-      "icons/LocalConnector.icon"
+      "icons/ARCRemote.icon"
     ]
   }
 }

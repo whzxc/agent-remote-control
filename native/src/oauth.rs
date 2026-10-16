@@ -821,13 +821,13 @@ async fn route(
             "/oauth/logo.png" => {
                 return Ok(asset(
                     "image/png",
-                    include_bytes!("../../ui/assets/brand-reserve/app/local-connector/icon.png"),
+                    include_bytes!("../../ui/assets/brand-reserve/app/arc-remote/icon.png"),
                 ))
             }
             "/oauth/favicon.ico" => {
                 return Ok(asset(
                     "image/x-icon",
-                    include_bytes!("../../ui/assets/brand-reserve/app/local-connector/icon.ico"),
+                    include_bytes!("../../ui/assets/brand-reserve/app/arc-remote/icon.ico"),
                 ))
             }
             "/oauth/status" => {

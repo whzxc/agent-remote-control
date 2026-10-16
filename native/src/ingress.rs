@@ -842,7 +842,7 @@ async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     let _guard = INSTALL.lock().await;
     let client = proxy
         .client(reqwest::Client::builder())
-        .user_agent("chatgpt-local-connector")
+        .user_agent("arc-remote")
         .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| e.to_string())?;

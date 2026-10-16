@@ -270,7 +270,7 @@ impl Executor for Cli {
         {
             // Core has no Tauri/UI handle. Static AppleScript receives text as argv.
             let result = tokio::time::timeout(Duration::from_secs(5), command("/usr/bin/osascript")
-                .args(["-e", "on run argv\ndisplay notification (item 1 of argv) with title \"CLC 通知未送达\"\nend run", &body])
+                .args(["-e", "on run argv\ndisplay notification (item 1 of argv) with title \"ARC 通知未送达\"\nend run", &body])
                 .output()).await;
             if !matches!(result, Ok(Ok(ref out)) if out.status.success()) {
                 crate::logs::record("WARN", "Claude notification fallback failed", None);

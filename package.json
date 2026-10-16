@@ -1,7 +1,7 @@
 {
-  "name": "@whzxc/chatgpt-local-connector",
+  "name": "arc-remote",
   "version": "0.0.0",
-  "description": "Personal local MCP connector for ChatGPT and Codex",
+  "description": "ARC — Agent Remote Control",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -54,11 +54,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/whzxc/chatgpt-local-connector.git"
+    "url": "git+https://github.com/whzxc/arc-remote.git"
   },
-  "homepage": "https://github.com/whzxc/chatgpt-local-connector#readme",
+  "homepage": "https://github.com/whzxc/arc-remote#readme",
   "bugs": {
-    "url": "https://github.com/whzxc/chatgpt-local-connector/issues"
+    "url": "https://github.com/whzxc/arc-remote/issues"
   },
   "keywords": [
     "chatgpt",

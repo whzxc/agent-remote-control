@@ -153,7 +153,7 @@ export async function renderShareCard(
     y += 30;
   }
   label(
-    "Local Connector",
+    "ARC",
     width / 2,
     height - 24,
     11,

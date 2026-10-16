@@ -6,23 +6,23 @@ This guide covers **Connector Desktop**. For use only inside local ChatGPT Deskt
 
 ## Download
 
-Download the installer and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/whzxc/chatgpt-local-connector/releases/latest). The release page is the source of truth for available versions and files.
+Download the installer and `SHA256SUMS.txt` from [GitHub Releases](https://github.com/whzxc/arc-remote/releases/latest). The release page is the source of truth for available versions and files.
 
 | Platform | File | Support |
 | --- | --- | --- |
-| macOS | `Local.Connector_<version>_aarch64.dmg` | Apple Silicon only |
+| macOS | `ARC.Remote_<version>_aarch64.dmg` | Apple Silicon only |
 | Windows x64 | `…-setup.exe` | Requires Microsoft Store Codex Desktop |
 
 You do not need Node, npm, Rust, or Cargo to run the app. Install Codex Desktop and sign in before use. Official Tunnel mode requires a Tunnel ID and runtime API Key; the app prepares connection components on first connect. HTTPS MCP supports a temporary Cloudflare trial without an account, a fixed domain, ngrok, or your reverse proxy, with required client components managed by the app. See the [connection guide](tunnel.md). Both modes require adding a connection in ChatGPT before remote use; see [Codex-assisted setup](codex-setup.md).
 
 ## macOS installation
 
-Open the DMG, drag Local Connector into Applications, eject the image, and launch from Applications. Do not keep running it from the DMG. Before replacing an installation, quit Local Connector from the menu bar and drag in the new app. Configuration and Codex history are stored outside the app and survive replacement.
+Open the DMG, drag ARC into Applications, eject the image, and launch from Applications. Do not keep running it from the DMG. Before replacing an installation, quit ARC from the menu bar and drag in the new app. Configuration and Codex history are stored outside the app and survive replacement.
 
 macOS may block the first launch of ad-hoc signed or unnotarized builds. Local builds can use an explicitly configured personal Developer ID; see [release maintenance](release.md). After confirming the download source and SHA256, choose **Open Anyway** in System Settings → Privacy & Security. If macOS reports that the app is damaged, remove the quarantine flag only from this verified app:
 
 ```sh
-xattr -rd com.apple.quarantine "/Applications/Local Connector.app"
+xattr -rd com.apple.quarantine "/Applications/ARC Remote.app"
 ```
 
 If permission is denied, use an administrator account to handle this app's permissions. You do not need to disable Gatekeeper globally. If the hash differs, download again instead of removing quarantine.
@@ -30,26 +30,26 @@ If permission is denied, use an administrator account to handle this app's permi
 Verify a download:
 
 ```sh
-shasum -a 256 Local.Connector_0.6.2_aarch64.dmg
+shasum -a 256 ARC.Remote_0.6.2_aarch64.dmg
 ```
 
 Compare the result with the corresponding entry in `SHA256SUMS.txt` for the same release.
 
 ## Homebrew
 
-Releases include `local-connector.rb` with the exact DMG checksum. The source repository
+Releases include `arc-remote.rb` with the exact DMG checksum. The source repository
 is not a Homebrew tap. Create a local tap once (see the [Homebrew tap guide](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap)):
 
 ```sh
-brew tap-new local/local-connector
+brew tap-new local/arc-remote
 ```
 
 Download the Cask from the desired published release into that tap, then install it:
 
 ```sh
-curl --fail --location https://github.com/whzxc/chatgpt-local-connector/releases/latest/download/local-connector.rb \
-  --output "$(brew --repository local/local-connector)/Casks/local-connector.rb"
-brew install --cask local/local-connector/local-connector
+curl --fail --location https://github.com/whzxc/arc-remote/releases/latest/download/arc-remote.rb \
+  --output "$(brew --repository local/arc-remote)/Casks/arc-remote.rb"
+brew install --cask local/arc-remote/arc-remote
 ```
 
 The Cask is available on releases that include this asset. For earlier releases, use the DMG directly.
@@ -60,7 +60,7 @@ In-app updates work directly. For Homebrew updates, download the latest Cask aga
 the same command, then run:
 
 ```sh
-brew upgrade --cask --greedy local/local-connector/local-connector
+brew upgrade --cask --greedy local/arc-remote/arc-remote
 ```
 
 `brew update` alone does not refresh this local Cask. Existing installations from the old
@@ -73,7 +73,7 @@ Run the x64 NSIS `.exe` installer. Install and sign in to Microsoft Store Codex 
 PowerShell verification example:
 
 ```powershell
-Get-FileHash .\Local.Connector_0.6.2_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\ARC.Remote_0.6.2_x64-setup.exe -Algorithm SHA256
 ```
 
 To upgrade, quit the app and install over it using the same installer type. Configuration is preserved by default; uninstalling first is unnecessary.
@@ -98,6 +98,6 @@ On Windows, the startup command, including the application path and state direct
 
 ## Removal
 
-Disable connecting at sign-in in Settings, quit the app from the menu bar, then delete the app or use the system uninstaller. Homebrew users can run `brew uninstall --cask local-connector`.
+Disable connecting at sign-in in Settings, quit the app from the menu bar, then delete the app or use the system uninstaller. Homebrew users can run `brew uninstall --cask arc-remote`.
 
 Connector configuration remains in `~/.local/state/chatgpt-local-connector` on macOS or `%LOCALAPPDATA%/chatgpt-local-connector` on Windows by default. Delete that directory yourself only if you no longer need Tunnel settings, receipts, or logs. Codex manages its own projects and history.

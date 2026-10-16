@@ -1,13 +1,13 @@
 # OAuth authentication
 
-An HTTPS ingress can use `auth: "oauth"`. Local Connector includes an authorization server; no external identity provider or account database is required. Secure Tunnel and static Bearer authentication remain separate options.
+An HTTPS ingress can use `auth: "oauth"`. ARC includes an authorization server; no external identity provider or account database is required. Secure Tunnel and static Bearer authentication remain separate options.
 
 ## Connect
 
 1. Select OAuth when creating or editing an HTTPS connection, then start it.
 2. Add the MCP URL to the client. The authorization page displays the client, target connection and callback hostname. Keep this page open.
-3. On the same device, click **Open Local Connector**. The `clc://oauth?request=...` link opens the app and selects the local request in a standalone confirmation dialog. Allow or deny there.
-4. For a connection hosted on another device, open Local Connector on that target device and confirm its pending request, or use the target device's authenticated CLI. A deep link always opens the app on the browser's device, not a remote device.
+3. On the same device, click **Open ARC**. The `clc://oauth?request=...` link opens the app and selects the local request in a standalone confirmation dialog. Allow or deny there.
+4. For a connection hosted on another device, open ARC on that target device and confirm its pending request, or use the target device's authenticated CLI. A deep link always opens the app on the browser's device, not a remote device.
 5. The web page reads back the decision and returns to the registered callback automatically. A manual return link is also available.
 
 There is no authorization password or web login session. The public web endpoints can only read request status and deliver the OAuth callback; they cannot approve or deny. Local app and CLI decisions use the authenticated management channel. Deep links carry only an opaque request ID, never a decision, client description or remote management address. The app resolves all details from its local service. Unknown or expired requests cannot be approved; the app explains how to confirm on the target device. Closing a dialog postpones the decision; it does not grant or deny access. Pending requests appear when the target app's main view is opened. The connection details retain cards for authorized clients and revocation actions at the bottom.

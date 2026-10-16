@@ -20,7 +20,7 @@ let directory: string;
 let client: Client;
 let inventory: Awaited<ReturnType<Client['listTools']>>;
 before(async () => {
-  directory = await mkdtemp(path.join(tmpdir(), 'chatgpt-local-connector-test-'));
+  directory = await mkdtemp(path.join(tmpdir(), 'arc-remote-test-'));
   // Explicit all policy exercises the entire registered tool surface.
   await mkdir(path.join(directory, 'ingresses/default'), { recursive: true });
   await writeFile(path.join(directory, 'ingresses/index.json'), JSON.stringify(['default']));
@@ -76,7 +76,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
     cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
   });
-  client = new Client({ name: 'chatgpt-local-connector-test', version: '1' });
+  client = new Client({ name: 'arc-remote-test', version: '1' });
   await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, CLC_STATE_DIR: directory, CLC_FIXTURE_SCRIPT: fixture, CLC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
   inventory = await client.listTools();
 });

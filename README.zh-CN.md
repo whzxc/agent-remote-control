@@ -1,4 +1,4 @@
-# ChatGPT Local Connector
+# ARC — Agent Remote Control
 
 [English](README.md) | **简体中文**
 
@@ -6,37 +6,37 @@
 
 **在你习惯的 AI 应用里聊想法，让本机的 coding agent 接着干。**
 
-CLC 并不是从“给 ChatGPT 再加一堆工具”开始的。它来自一个困扰我很久的实际工作问题，而且每一阶段，都是上一个问题解决之后自然长出来的。
+ARC 并不是从“给 ChatGPT 再加一堆工具”开始的。它来自一个困扰我很久的实际工作问题，而且每一阶段，都是上一个问题解决之后自然长出来的。
 
-![Local Connector 主界面：连接多个控制来源与 coding agent](docs/images/home-overview.png)
+![ARC 主界面：连接多个控制来源与 coding agent](docs/images/home-overview.png)
 
-## 为什么会有 Local Connector
+## 为什么会有 ARC
 
 ### 第一阶段：让 Chat 看到“现在真实是什么”
 
 我很长时间都在 ChatGPT 的 Chat 模式里讨论工作，但一个问题反复出现：Chat 可以延续对话，却看不到电脑上刚刚发生的变化。项目可能已经改了，架构决策可能调整了，Codex 也可能刚完成一轮工作，但 Chat 仍会拿几天前甚至更旧的上下文继续推理。每次都手工复制文件、diff 和最新状态，久而久之本身就成了新的负担。
 
-所以第一版 CLC 很简单：通过 MCP 把本机项目事实源接给 ChatGPT，让它在需要时直接读取当前文件、代码、文档、项目结构和 Git 状态。目标不是让 Chat “记住更多”，而是让它随时能自己确认“现在真实是什么”。
+所以第一版 ARC 很简单：通过 MCP 把本机项目事实源接给 ChatGPT，让它在需要时直接读取当前文件、代码、文档、项目结构和 Git 状态。目标不是让 Chat “记住更多”，而是让它随时能自己确认“现在真实是什么”。
 
 ### 第二阶段：把 Chat 里的讨论直接变成 Codex 的任务
 
 当 Chat 已经能看到设备上的实时状态，下一步就很自然：既然能读文件，为什么不能执行命令、查看我最近在 Codex 里做了什么，甚至直接替我创建和续接任务？
 
-于是 CLC 继续把 MCP 接到了 Codex App Server。现在 ChatGPT 可以读取本机 Codex 的工作记录，创建、续接或中断任务，并持续回读进度和结果。最终形成了我真正想要的工作流：先在 Chat 里基于实时项目事实把方案聊清楚，再把结论变成明确的 Codex 任务交给本机执行，之后仍然在同一个对话里持续跟进。只要设备在线，我不必坐在电脑前，也能通过 ChatGPT 查看和推进任务。
+于是 ARC 继续把 MCP 接到了 Codex App Server。现在 ChatGPT 可以读取本机 Codex 的工作记录，创建、续接或中断任务，并持续回读进度和结果。最终形成了我真正想要的工作流：先在 Chat 里基于实时项目事实把方案聊清楚，再把结论变成明确的 Codex 任务交给本机执行，之后仍然在同一个对话里持续跟进。只要设备在线，我不必坐在电脑前，也能通过 ChatGPT 查看和推进任务。
 
 ### 第三阶段：从控制一个 Agent，扩展成 Agent 控制层
 
 当 ChatGPT 已经可以协调 Codex 后，只支持一个 Agent 就显得没有必要了。了解到 ACP 之后，我把这套控制模型继续扩展到其他本地 Agent，希望一步覆盖主流 ACP 生态。现在 Pi、OpenCode，以及 Gemini、Claude adapter、Cursor、Grok、Copilot、Kimi、Qwen、Kiro、Devin、Cline、Junie、Hermes 等 Agent，都可以接入同一套工作流。
 
-到这里，CLC 已经从“让 ChatGPT 能读我的本机项目”，变成了“让 ChatGPT 能协调发生在这台机器上的工作”。Chat 负责讨论、推理和基于事实做决策，本地 Agent 负责执行，CLC 负责把两边连接起来，并让整个过程始终可见、可跟进。
+到这里，ARC 已经从“让 ChatGPT 能读我的本机项目”，变成了“让 ChatGPT 能协调发生在这台机器上的工作”。Chat 负责讨论、推理和基于事实做决策，本地 Agent 负责执行，ARC 负责把两边连接起来，并让整个过程始终可见、可跟进。
 
 ### 第四阶段：从一对多，走向多对多
 
 当执行端已经可以选择不同的 Agent，我又开始想：发起工作的入口，为什么还必须是 ChatGPT？无论是在 Claude 里推敲方案，在 Notion、Slack 中处理工作，还是从 Cursor、Raycast 顺手发起任务，都不应该因为换了一个应用，就得另搭一套只服务于它的控制层。
 
-于是我把 CLC 的另一边也打开了。ChatGPT、Claude、Microsoft Copilot、Notion、Slack、Cursor、GitHub Copilot、Raycast，以及其他支持 MCP 的客户端，都可以作为独立控制源同时接入同一个 Core。每个入口保留自己的连接、认证和工具策略，但共享同一套本机项目事实、Agent 能力和任务命名空间。在一个入口创建的任务，也可以从另一个开放了相应工具的入口继续读取、续接和等待，而任务本身仍由原来的 Agent 和执行方负责。
+于是我把 ARC 的另一边也打开了。ChatGPT、Claude、Microsoft Copilot、Notion、Slack、Cursor、GitHub Copilot、Raycast，以及其他支持 MCP 的客户端，都可以作为独立控制源同时接入同一个 Core。每个入口保留自己的连接、认证和工具策略，但共享同一套本机项目事实、Agent 能力和任务命名空间。在一个入口创建的任务，也可以从另一个开放了相应工具的入口继续读取、续接和等待，而任务本身仍由原来的 Agent 和执行方负责。
 
-到这一步，CLC 从“一个 Chat 控制多个 Agent”，变成了“多个控制源连接多个 Agent”。在哪里讨论、交给谁执行，可以分别选择；CLC 不替它们再造一套新的工作流编排，只负责把事实、控制和执行统一到同一个本机控制层里。最初那套“先基于真实情况把问题聊清楚，再让合适的 Agent 接着干”的工作方式没有变，只是不再绑定于某一个产品。
+到这一步，ARC 从“一个 Chat 控制多个 Agent”，变成了“多个控制源连接多个 Agent”。在哪里讨论、交给谁执行，可以分别选择；ARC 不替它们再造一套新的工作流编排，只负责把事实、控制和执行统一到同一个本机控制层里。最初那套“先基于真实情况把问题聊清楚，再让合适的 Agent 接着干”的工作方式没有变，只是不再绑定于某一个产品。
 
 ## 现在它解决什么
 
@@ -47,7 +47,7 @@ CLC 并不是从“给 ChatGPT 再加一堆工具”开始的。它来自一个�
 - **用一套控制层协调多个 Agent**：Codex 保持原生能力并作为默认 Agent，Pi、OpenCode、内置 ACP Agent 和 Custom ACP 共用 `agent_*` 工作流。
 - **每个入口独立管理**：连接、认证、工具策略和生命周期按入口配置；应用统一管理 Tunnel Client、状态和本机 Core。
 
-CLC 本身运行无需安装 Node、npm、Rust 或 Cargo；外部 Agent 仍使用各自所需的运行环境。支持 **Apple Silicon Mac** 和 **Windows x64** 的 Desktop 任务接入。
+ARC 本身运行无需安装 Node、npm、Rust 或 Cargo；外部 Agent 仍使用各自所需的运行环境。支持 **Apple Silicon Mac** 和 **Windows x64** 的 Desktop 任务接入。
 
 Codex 保持默认，原生能力完整保留。所有外部 Agent 沿用自身配置和登录；首页右侧的“更多”入口打开 Agents 管理面板，按品牌显示安装状态和版本，并支持启用已安装的 Agent；标题旁的设置按钮打开外观、额度和用量设置。额度监控和用量估算见[订阅用量](docs/subscriptions.md)。native/adapter 类型与能力见[本地 Agents](docs/agents.md)，公共任务操作统一使用 `agent_*` 工具。
 
@@ -56,7 +56,7 @@ Codex 保持默认，原生能力完整保留。所有外部 Agent 沿用自身�
 Linux 直接运行 `native/`，不需要 Tauri 或 Codex Desktop；Codex 任务统一通过已安装的 Codex CLI app-server 执行。不包含 GUI、打开终端或 screen 截图功能。
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/whzxc/chatgpt-local-connector/main/tooling/install-linux.sh | sh
+curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/install-arc-remote.sh | sh
 ```
 
 选择包含 Linux tarball 的发行版，也可从源码构建。[Linux 安装与使用](docs/zh-CN/linux.md)包含精确构建命令、`start / stop / status`、token/provider/端口配置、使用 Bearer 鉴权的 `/mcp` HTTP 端点，以及 `systemd --user` 和 `loginctl enable-linger` 自启动说明。
@@ -69,7 +69,7 @@ curl -fsSL https://raw.githubusercontent.com/whzxc/chatgpt-local-connector/main/
 | 菜单栏、浮窗和连接设置 | [桌面应用安装](docs/zh-CN/installation.md) |
 | 从网页、手机或另一台设备访问本机 | [远程接入](docs/zh-CN/tunnel.md)，需要另行配置认证与连接 |
 
-下载文件以 [GitHub Releases](https://github.com/whzxc/chatgpt-local-connector/releases) 的实际附件为准。插件与桌面应用分别安装和更新；共享数据目录时需使用同一原生构建。
+下载文件以 [GitHub Releases](https://github.com/whzxc/arc-remote/releases) 的实际附件为准。插件与桌面应用分别安装和更新；共享数据目录时需使用同一原生构建。
 
 ## 让 Codex 帮你配置远程接入
 
@@ -78,10 +78,10 @@ curl -fsSL https://raw.githubusercontent.com/whzxc/chatgpt-local-connector/main/
 在这台电脑的 Codex 中发送下面的消息。Codex 会检查已有进度，完成安装、配置、排障和验收；可提供已登录的 ChatGPT 网页让它继续代操作；只有本人确认或工具无法可靠完成的步骤再由你操作。默认使用官方 OpenAI Secure MCP Tunnel。
 
 ```text
-请在这台电脑上安装、配置并完整验收 ChatGPT Local Connector。默认使用官方 Secure MCP Tunnel，保留已有可用 Tunnel / HTTPS 配置，不引入 CLC 云服务或公共 relay。先检查安装，读取 cli help、cli guide、cli doctor；没有 CLI 时读取 https://github.com/whzxc/chatgpt-local-connector/blob/main/docs/codex-setup.md ，按实际发行版本操作。
+请在这台电脑上安装、配置并完整验收 ARC。默认使用官方 Secure MCP Tunnel，保留已有可用 Tunnel / HTTPS 配置，不引入 ARC 云服务或公共 relay。先检查安装，读取 cli help、cli guide、cli doctor；没有 CLI 时读取 https://github.com/whzxc/arc-remote/blob/main/docs/codex-setup.md ，按实际发行版本操作。
 优先自动完成所有可自动化步骤。若我提供已登录 ChatGPT 的网页或浏览器环境，请实际使用可用的浏览器 / GUI / Computer Use 操作当前可见页面：检查 Developer Mode、复用或创建自定义 MCP、填入连接资料、刷新工具并选用连接。不要仅给我操作教程；不使用私有 API、Cookie 提取、固定 DOM 脚本或绕过安全机制。
 通过 cli onboarding / status 自行读取 URL、Tunnel ID、配置和验证消息，不让我转抄本机已有值。已有安全本机凭据通过 stdin 配置；缺失密钥让我直接填入应用，不发到聊天。只在确需本人登录、身份确认、授权、验证码、管理员权限，或当前工具无法可靠操作时暂停，说明具体阻塞并只给最少动作；完成后继续。
-自动从 ChatGPT 调用 connector_verify，并核对本轮验证码、工具结果和本机 challengeVerifiedAt；然后通过同一连接执行无害 Codex 任务（不调用工具、不读取或修改文件，只回复 CLC_ONBOARDING_OK），读取持久化回执、原生 threadId / turnId 和完成输出。未知状态按原 requestId 回读，不重复派单。分别报告本机就绪、ChatGPT 入站、任务完成的真实证据，不能把打开页面或 Tunnel ready 当成接入成功。
+自动从 ChatGPT 调用 connector_verify，并核对本轮验证码、工具结果和本机 challengeVerifiedAt；然后通过同一连接执行无害 Codex 任务（不调用工具、不读取或修改文件，只回复 ARC_ONBOARDING_OK），读取持久化回执、原生 threadId / turnId 和完成输出。未知状态按原 requestId 回读，不重复派单。分别报告本机就绪、ChatGPT 入站、任务完成的真实证据，不能把打开页面或 Tunnel ready 当成接入成功。
 ```
 
 之后遇到连接问题，也可以复制上面的消息，直接让 Codex 按同一指南排查。使用有本机命令执行能力的 Codex；ChatGPT 账号/工作区权限、Tunnel 身份和必要的用户授权仍需具备。
@@ -117,7 +117,7 @@ npm run dev:ui
 
 - [安装与更新](docs/zh-CN/installation.md)
 - [发布维护](docs/release.md)
-- [版本说明](https://github.com/whzxc/chatgpt-local-connector/releases)
+- [版本说明](https://github.com/whzxc/arc-remote/releases)
 - [开发与构建](docs/development.md)
 - [桌面生命周期](docs/desktop.md)
 - [MCP 工具与任务边界](docs/tools.md)

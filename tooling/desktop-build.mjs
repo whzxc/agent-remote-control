@@ -33,7 +33,7 @@ if (process.platform === 'darwin') args.push('--config', JSON.stringify({ bundle
 } } }));
 if (process.platform === 'darwin' && !buildArgs.includes('--no-bundle')) {
   requireXcode(env);
-  compileIcon(fileURLToPath(new URL('desktop/icons/LocalConnector.icon', root)),
+  compileIcon(fileURLToPath(new URL('desktop/icons/ARCRemote.icon', root)),
     fileURLToPath(new URL('target/release-icon/', root)), env);
   args.push('--config', JSON.stringify({ bundle: { icon: [
     'icons/icon.png', 'icons/macos/Icon.icns', '../target/release-icon/Assets.car',
@@ -46,7 +46,7 @@ execFileSync(process.execPath, [fileURLToPath(new URL('tooling/prepare-desktop.m
 execFileSync(process.execPath, args, { cwd: fileURLToPath(new URL('desktop/', root)), env, stdio: 'inherit' });
 if (process.platform === 'darwin' && !buildArgs.includes('--no-bundle')) {
   execFileSync(process.execPath, [fileURLToPath(new URL('tooling/check-package.mjs', root)),
-    `target/aarch64-apple-darwin/${profile}/bundle/macos/Local Connector.app`],
+    `target/aarch64-apple-darwin/${profile}/bundle/macos/ARC Remote.app`],
   { cwd: fileURLToPath(root), env, stdio: 'inherit' });
   execFileSync('uv', ['run', '--script', fileURLToPath(new URL('tooling/build-dmg.py', root)),
     profile], { cwd: fileURLToPath(root), env, stdio: 'inherit' });

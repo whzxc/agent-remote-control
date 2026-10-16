@@ -32,7 +32,7 @@
 | agents/junie | [color.svg](agents/junie/color.svg), [mono.svg](agents/junie/mono.svg), [wordmark.svg](agents/junie/wordmark.svg) |
 | agents/hermes | [favicon.ico](agents/hermes/favicon.ico), [favicon.svg](agents/hermes/favicon.svg), [logo.png](agents/hermes/logo.png), [mono.svg](agents/hermes/mono.svg), [wordmark.svg](agents/hermes/wordmark.svg) |
 | control-sources/slack | [color.svg](control-sources/slack/color.svg), [mono.svg](control-sources/slack/mono.svg), [wordmark-color.svg](control-sources/slack/wordmark-color.svg), [wordmark.svg](control-sources/slack/wordmark.svg) |
-| app/local-connector | [app.png](app/local-connector/app.png), [head.png](app/local-connector/head.png), [icon.icns](app/local-connector/icon.icns), [icon.ico](app/local-connector/icon.ico), [icon.png](app/local-connector/icon.png), [tray.png](app/local-connector/tray.png) |
+| app/arc-remote | [app.png](app/arc-remote/app.png), [head.png](app/arc-remote/head.png), [icon.icns](app/arc-remote/icon.icns), [icon.ico](app/arc-remote/icon.ico), [icon.png](app/arc-remote/icon.png), [tray.png](app/arc-remote/tray.png) |
 
 ## 来源与使用边界
 
@@ -40,7 +40,7 @@
 
 ChatGPT / Codex PNG 沿用项目已有官方应用资源，仍属 OpenAI，不纳入项目 MIT 许可。ChatGPT 单色文件是 OpenAI 通用标志，Codex 另有专用图形。Hermes 的 logo 与 favicon 来自官方仓库；使用时应核对上游品牌要求。
 
-Slack 品牌要求参见 [官方媒体资料](https://slack.com/media-kit) 与 [品牌条款](https://slack.com/terms-of-service/slack-brand)。CLC 图标来自当前项目已有应用资源。自定义控制源没有固定品牌，因此未指定品牌 Logo。
+Slack 品牌要求参见 [官方媒体资料](https://slack.com/media-kit) 与 [品牌条款](https://slack.com/terms-of-service/slack-brand)。ARC 图标来自当前项目已有应用资源。自定义控制源没有固定品牌，因此未指定品牌 Logo。
 
 本目录未为每个 CLI 虚构桌面 App Logo，也未将字标当作彩色图标。
 

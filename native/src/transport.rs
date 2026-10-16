@@ -418,7 +418,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
                 .as_str()
                 .unwrap_or("2025-03-26");
             Ok(
-                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":{"tools":{}},"serverInfo":{"name":"chatgpt-local-connector","version":env!("CLC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
+                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":{"tools":{}},"serverInfo":{"name":"arc","version":env!("CLC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
             )
         }
         "ping" => Ok(json!({})),
@@ -541,7 +541,7 @@ pub async fn stdio() -> Result<()> {
 
 pub async fn forward_request(route: &str, method: &str, body: Value) -> Result<Value> {
     crate::init_crypto();
-    let unavailable = "无法连接本机 Core，请重新运行 CLI 或打开 Local Connector。";
+    let unavailable = "无法连接本机 Core，请重新运行 CLI 或打开 ARC。";
     let info = load(&root().join("web/native.json")).map_err(|_| unavailable)?;
     let port = info["port"]
         .as_u64()

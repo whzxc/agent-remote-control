@@ -64,7 +64,7 @@ fn onboarding(ingress: &Value) -> Value {
         "verification":ingress["verification"],"diagnostics":crate::diagnostics::ingress(ingress),
         "preset":crate::control_sources::preset(string(ingress,"controlSource")),
         "verificationPrompt":format!("调用 connector_verify，code 为 {}。只验证连接，不创建任务。",string(&ingress["verification"],"code")),
-        "executionPrompt":"创建一个无害 Agent 任务：不调用工具，不读取或修改文件，只回复 CLC_ONBOARDING_OK。使用唯一 UUID requestId，读取回执、taskId、turnId，再用默认 30 秒的 agent_wait/codex_wait；timeout 后沿用原 ID 和上一轮 snapshotHash 作为 expectedHash 继续 wait 至终态或交互，读取最终输出。timeout 不终止任务，不重新创建。未知状态回读原 requestId，不重复创建。",
+        "executionPrompt":"创建一个无害 Agent 任务：不调用工具，不读取或修改文件，只回复 ARC_ONBOARDING_OK。使用唯一 UUID requestId，读取回执、taskId、turnId，再用默认 30 秒的 agent_wait/codex_wait；timeout 后沿用原 ID 和上一轮 snapshotHash 作为 expectedHash 继续 wait 至终态或交互，读取最终输出。timeout 不终止任务，不重新创建。未知状态回读原 requestId，不重复创建。",
         "identityNote":"controlSource is a configured label, not an authenticated user identity. Bearer proves possession only.",
         "clientSetup":"Read preset.status, supportedAuth and caveat before connecting. Conditional paths require client verification; auth-limited paths must not silently fall back to none. A preset is not an installed integration.",
         "secretDelivery":"Supply credentials using stdin or a protected local file. Never paste tokens into chat or use command-line arguments."})

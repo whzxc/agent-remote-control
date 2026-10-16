@@ -19,7 +19,7 @@ pub async fn status() -> Result<Value> {
 pub async fn start() -> Result<Value> {
     if let Some(info) = current().await? {
         if info["daemon"] != true {
-            return Err("CORE_NOT_DAEMON: a leased Core is already running; close its clients and run local-connector stop before start.".into());
+            return Err("CORE_NOT_DAEMON: a leased Core is already running; close its clients and run arc-remote stop before start.".into());
         }
         return status().await;
     }
@@ -123,9 +123,9 @@ pub fn systemd() -> Result<Value> {
         ))
     }
     let config = dirs::config_dir().ok_or("XDG config directory unavailable")?;
-    let path = config.join("systemd/user/local-connector.service");
+    let path = config.join("systemd/user/arc-remote.service");
     let binary = crate::runtime::binary()?;
-    let mut unit = format!("[Unit]\nDescription=ChatGPT Local Connector (headless)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nKillMode=mixed\nUMask=0077\nEnvironment={}\n",
+    let mut unit = format!("[Unit]\nDescription=ARC (headless)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nKillMode=mixed\nUMask=0077\nEnvironment={}\n",
         quote(binary.to_str().ok_or("Invalid binary path")?, true)?,
         quote(&format!("CLC_STATE_DIR={}", root().display()), false)?);
     for key in [
@@ -172,6 +172,6 @@ pub fn systemd() -> Result<Value> {
     ));
     save_bytes(&path, unit.as_bytes())?;
     Ok(
-        json!({"unit":path,"environmentFile":env,"next":"systemctl --user daemon-reload && systemctl --user enable --now local-connector.service","linger":"loginctl enable-linger USER"}),
+        json!({"unit":path,"environmentFile":env,"next":"systemctl --user daemon-reload && systemctl --user enable --now arc-remote.service","linger":"loginctl enable-linger USER"}),
     )
 }

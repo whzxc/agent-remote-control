@@ -10,7 +10,7 @@
 
 ## HTTPS MCP
 
-新增或编辑控制源时选择 HTTPS MCP，再选择接入方式。每个入口可独立选择 **无需认证**、**Bearer** 或 **OAuth**；应根据目标客户端与 CLC 的共同支持范围选择，详见[控制源支持矩阵](control-sources.md)。OAuth 使用 CLC 本机授权服务和所有者确认，详见 [OAuth 认证](../oauth.md)。本项目不提供托管中继。
+新增或编辑控制源时选择 HTTPS MCP，再选择接入方式。每个入口可独立选择 **无需认证**、**Bearer** 或 **OAuth**；应根据目标客户端与 ARC 的共同支持范围选择，详见[控制源支持矩阵](control-sources.md)。OAuth 使用 ARC 本机授权服务和所有者确认，详见 [OAuth 认证](../oauth.md)。本项目不提供托管中继。
 
 | 接入方式 | 必填内容 | 应用处理 | 使用边界 |
 | --- | --- | --- | --- |
@@ -26,7 +26,7 @@
 1. 选择 Cloudflare，或选择 ngrok 并通过「获取令牌」取得自己的 Authtoken。
 2. 点击「保存并重连」。应用自动准备官方组件，使用独立的随机 loopback 端口和临时配置运行隧道，不改动已有 cloudflared/ngrok 配置。
 3. 打开该入口详情，将 MCP URL 配置到目标 MCP 客户端，并与入口保持相同认证方式：无需认证不填写凭据，Bearer 使用该入口生成的 token，OAuth 按客户端授权流程完成。ChatGPT 可从首页接入引导打开 Plugins；也可以提供已授权的登录网页，让 Codex 读取 `cli onboarding` 后通过受支持界面代填。
-4. 使用接入流程中该入口的验证消息，从真实控制源调用 `connector_verify`；CLC 收到匹配验证码后确认该入口。临时地址变化后，需要在对应客户端更新或重建 MCP 连接；旧公网身份对应的验证记录不会沿用。
+4. 使用接入流程中该入口的验证消息，从真实控制源调用 `connector_verify`；ARC 收到匹配验证码后确认该入口。临时地址变化后，需要在对应客户端更新或重建 MCP 连接；旧公网身份对应的验证记录不会沿用。
 
 Cloudflare 临时域名使用 [Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)，仅用于试用，不提供独立 SSE 流支持；当前原生 MCP 使用 JSON POST，不依赖 SSE。cloudflared 需要连通 Cloudflare 的出站 7844 端口，不能假设普通 HTTP 代理能代理其数据通道。长期使用固定地址可选择 Cloudflare 固定域名、ngrok 或自定义域名。ngrok 的账号、域名和额度由用户在 [ngrok](https://ngrok.com/download) 管理，应用不会创建付费资源。
 
@@ -40,4 +40,4 @@ ngrok 提供「临时域名」和「固定域名」两种模式，均只需 Auth
 
 Pinggy 临时模式无需 Token；固定模式需要已绑定持久域名的 Token。LocalXpose 需要 Access Token 和已有的预留域名或自定义域名。临时模式会把首次 MCP 请求从 `/mcp` 重定向到其他路径，因此暂不开放。应用不购买套餐、不预留域名，固定域名不匹配时直接失败，不选择其他地址。
 
-服务商凭据与入口的 MCP 认证独立。Pinggy 通过私有配置文件接收 Token，daemon 状态归 CLC 管理；LocalXpose 通过子进程环境变量接收 Token。两者都不在命令参数或状态响应中暴露凭据。停止 Pinggy 入口只停止该入口的隧道，不停止用户的 Pinggy daemon 或其他隧道。
+服务商凭据与入口的 MCP 认证独立。Pinggy 通过私有配置文件接收 Token，daemon 状态归 ARC 管理；LocalXpose 通过子进程环境变量接收 Token。两者都不在命令参数或状态响应中暴露凭据。停止 Pinggy 入口只停止该入口的隧道，不停止用户的 Pinggy daemon 或其他隧道。

@@ -133,9 +133,9 @@ impl State {
 pub fn binary() -> Result<PathBuf> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let name = if cfg!(windows) {
-        "local-connector.exe"
+        "arc-remote.exe"
     } else {
-        "local-connector"
+        "arc-remote"
     };
     if executable.file_name().is_some_and(|v| v == name) {
         return Ok(executable);

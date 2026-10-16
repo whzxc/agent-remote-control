@@ -158,7 +158,7 @@ pub async fn prepare() -> Result<()> {
     let proxy = crate::proxy::NetworkProxy::resolve(&settings).await?;
     let client = proxy
         .client(reqwest::Client::builder())
-        .user_agent("local-connector")
+        .user_agent("arc-remote")
         .connect_timeout(Duration::from_secs(20))
         .timeout(Duration::from_secs(180))
         .build()

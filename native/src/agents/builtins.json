@@ -80,12 +80,12 @@
       "helpContains": [],
       "versionRequirement": "Installed Claude Code compatible with Claude Agent SDK 0.3.274.",
       "runtime": "Connector-managed private Bun runtime and pinned ACP adapter, downloaded on first enable; no global Node/npm required.",
-      "authentication": "Adapter / Claude Agent SDK login and supported provider environment; CLC stores no credentials.",
+      "authentication": "Adapter / Claude Agent SDK login and supported provider environment; ARC stores no credentials.",
       "caveats": [
         "Connector provisions the ACP adapter on explicit enable and reuses the discovered Claude Code executable via CLAUDE_CODE_EXECUTABLE.",
         "Discovery never downloads components. Agent installed/version describe Claude Code; available additionally requires prepared adapter components.",
         "Authentication and provider configuration remain owned by Claude Code.",
-        "Client terminal/fs and opt-in extensions are not advertised by CLC."
+        "Client terminal/fs and opt-in extensions are not advertised by ARC."
       ],
       "sources": [
         "https://github.com/agentclientprotocol/claude-agent-acp"
@@ -117,7 +117,7 @@
         "acp"
       ],
       "versionRequirement": "Requires a release exposing the documented ACP entry; upstream does not specify a minimum version.",
-      "runtime": "Official standalone CLI installation; no CLC-managed Node/bun/npx.",
+      "runtime": "Official standalone CLI installation; no ARC-managed Node/bun/npx.",
       "authentication": "Existing Cursor CLI login or CURSOR_API_KEY / CURSOR_AUTH_TOKEN.",
       "caveats": [
         "Generic agent executable must identify itself as Cursor and expose acp.",
@@ -230,7 +230,7 @@
       "runtime": "Kimi Python/uv installation runtime; no Node/npx required.",
       "authentication": "Kimi login and configured providers/model.",
       "caveats": [
-        "Upstream exposes load/resume/cancel, permissions, modes and model config; CLC exposes only its common task subset."
+        "Upstream exposes load/resume/cancel, permissions, modes and model config; ARC exposes only its common task subset."
       ],
       "sources": [
         "https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-acp"
@@ -263,7 +263,7 @@
       "authentication": "Qwen Code login/provider/model configuration.",
       "caveats": [
         "Use stdio --acp; qwen serve is a separate HTTP control plane.",
-        "Model/mode extension methods are not exposed by CLC."
+        "Model/mode extension methods are not exposed by ARC."
       ],
       "sources": [
         "https://github.com/QwenLM/qwen-code/blob/main/docs/developers/architecture.md"
@@ -293,11 +293,11 @@
         "acp"
       ],
       "versionRequirement": "Requires a release exposing the documented ACP entry; upstream does not specify a minimum version.",
-      "runtime": "Official native CLI and its managed components; no extra CLC runtime.",
+      "runtime": "Official native CLI and its managed components; no extra ARC runtime.",
       "authentication": "Existing Kiro CLI login and agent/model settings.",
       "caveats": [
         "Use public kiro-cli acp entry.",
-        "_kiro.dev/* extension methods are not exposed by CLC."
+        "_kiro.dev/* extension methods are not exposed by ARC."
       ],
       "sources": [
         "https://kiro.dev/docs/cli/acp/"
@@ -363,8 +363,8 @@
       "runtime": "Node.js for npm cline; follow installed package engines.",
       "authentication": "Credentials saved by cline auth or CLI provider environment.",
       "caveats": [
-        "Upstream supports persisted session loading, Plan/Act and model selection; CLC does not expose pickers.",
-        "CLC does not advertise client filesystem or terminal support; tools requiring those callbacks remain unavailable."
+        "Upstream supports persisted session loading, Plan/Act and model selection; ARC does not expose pickers.",
+        "ARC does not advertise client filesystem or terminal support; tools requiring those callbacks remain unavailable."
       ],
       "sources": [
         "https://docs.cline.bot/usage/acp"
@@ -400,7 +400,7 @@
       "authentication": "Junie CLI JetBrains account, API key or configured BYOK provider.",
       "caveats": [
         "Use the explicit boolean --acp true.",
-        "License flavor affects advertised authentication methods; CLC does not implement IDE gateway authentication."
+        "License flavor affects advertised authentication methods; ARC does not implement IDE gateway authentication."
       ],
       "sources": [
         "https://junie.jetbrains.com/docs/junie-cli-acp.html"
@@ -437,7 +437,7 @@
       "authentication": "Existing Hermes provider credentials and model settings.",
       "caveats": [
         "First-party bundled ACP adapter; install the ACP extra before launch.",
-        "Optional browser tools require additional packages/browser; CLC does not install them.",
+        "Optional browser tools require additional packages/browser; ARC does not install them.",
         "Persistence/resume behavior is version-dependent; use actual loadSession negotiation."
       ],
       "sources": [

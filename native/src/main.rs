@@ -36,7 +36,7 @@ async fn run() -> Result<()> {
             Ok(())
         }
         ["help" | "--help" | "-h"] => {
-            connector_core::output::line("local-connector start | stop | status | daemon | systemd install | stdio | cli <command>\nConfigure MCP with cli ingress add --stdin; see cli help. daemon runs in the foreground; start detaches.")?;
+            connector_core::output::line("arc-remote start | stop | status | daemon | systemd install | stdio | cli <command>\nConfigure MCP with cli ingress add --stdin; see cli help. daemon runs in the foreground; start detaches.")?;
             Ok(())
         }
         ["cli", rest @ ..] => {
@@ -48,6 +48,6 @@ async fn run() -> Result<()> {
             connector_core::output::line(env!("CLC_BUILD_VERSION"))?;
             Ok(())
         }
-        _ => Err("Usage: local-connector [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]".into()),
+        _ => Err("Usage: arc-remote [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]".into()),
     }
 }

@@ -522,7 +522,7 @@ struct PinggySession {
 }
 impl PinggySession {
     fn environment(&self, cmd: &mut tokio::process::Command) {
-        // CLI and stop must address the same CLC-owned daemon, never a user's daemon.
+        // CLI and stop must address the same ARC-owned daemon, never a user's daemon.
         cmd.env("XDG_CONFIG_HOME", &self.state_dir)
             .env("APPDATA", &self.state_dir)
             .env("LOCALAPPDATA", &self.state_dir)
@@ -642,7 +642,7 @@ async fn install(provider: &str, proxy: &crate::proxy::NetworkProxy) -> Result<P
     }
     let client = proxy
         .client(reqwest::Client::builder())
-        .user_agent("chatgpt-local-connector")
+        .user_agent("arc-remote")
         .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| e.to_string())?;

@@ -45,7 +45,7 @@ combines Cursor with Cursor Agent, Antigravity with Gemini CLI, and Grok CLI/Bui
 Grok; it does not change the underlying execution adapters.
 
 Antigravity’s macOS login fallback uses the existing access token. If it expires, open
-Antigravity and refresh its login; CLC does not renew the token itself.
+Antigravity and refresh its login; ARC does not renew the token itself.
 
 ## Controls and display
 

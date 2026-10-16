@@ -41,7 +41,7 @@ if (process.platform === 'darwin') {
   requireXcode(env);
   const output = fileURLToPath(new URL('target/dev-icon/', root));
   const source = path.join(output, 'Icon.icon');
-  cpSync(fileURLToPath(new URL('desktop/icons/LocalConnector.icon', root)), source, { recursive: true });
+  cpSync(fileURLToPath(new URL('desktop/icons/ARCRemote.icon', root)), source, { recursive: true });
   const document = JSON.parse(readFileSync(path.join(source, 'icon.json'), 'utf8'));
   document['fill-specializations'][0].value['linear-gradient'] = [
     'srgb:0.87843,0.94902,0.99216,1.00000',

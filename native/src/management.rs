@@ -83,19 +83,16 @@ async fn start_app() -> Result<Value> {
         return Ok(status);
     }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let desktop = if exe
-        .file_stem()
-        .is_some_and(|s| s == "local-connector-desktop")
-    {
+    let desktop = if exe.file_stem().is_some_and(|s| s == "arc-remote-desktop") {
         exe
     } else if cfg!(target_os = "macos") {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../../MacOS/local-connector-desktop")
+            .join("../../MacOS/arc-remote-desktop")
     } else {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../local-connector-desktop.exe")
+            .join("../arc-remote-desktop.exe")
     };
     #[cfg(target_os = "macos")]
     {
@@ -159,7 +156,7 @@ pub async fn stdio() -> Result<()> {
 async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdout>>) -> Result<()> {
     let result: Result<Value> = match string(&request, "method") {
         "initialize" => Ok(
-            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"local-connector-management","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
+            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"arc-remote-management","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
         ),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({"tools":[
@@ -216,8 +213,7 @@ pub fn desktop_route(route: &str) -> bool {
 }
 
 pub fn error_code(message: &str) -> &str {
-    if message.contains("无法连接本机 Core") || message.contains("请先打开 Local Connector")
-    {
+    if message.contains("无法连接本机 Core") || message.contains("请先打开 ARC") {
         return "APP_UNAVAILABLE";
     }
     for code in [

@@ -1,4 +1,4 @@
-# 用 Codex 配置 Local Connector
+# 用 Codex 配置 ARC
 
 [English](../codex-setup.md) | **简体中文**
 
@@ -6,7 +6,7 @@
 
 在目标电脑使用应用自带 CLI，先读 `cli help`、`cli status`、`cli ingress list`。ChatGPT 默认推荐 OpenAI Secure Tunnel；保留已有入口，新增入口不覆盖默认连接。完整配置任务包含真实控制源入站与无害任务终态验证。
 
-macOS 通常使用 `/Applications/Local Connector.app/Contents/MacOS/local-connector-desktop cli help`；Windows 使用安装目录中的 `local-connector-desktop.exe cli help`。无需 Node/npm。help、guide、capabilities、schema、ingress presets 和 logs --offline 无需运行 Core；`cli app start` 可以启动安装版，本机管理 MCP 也支持离线发现和启动。其他操作按所属 Core/Desktop 报告可用状态。成功输出 `{schemaVersion:1,ok:true,result:...}`，失败输出 `{schemaVersion:1,ok:false,error:{code,message}}`；退出码分别为 0、1。诊断成功不等于每个入口已经 ready。
+macOS 通常使用 `/Applications/ARC Remote.app/Contents/MacOS/arc-remote-desktop cli help`；Windows 使用安装目录中的 `arc-remote-desktop.exe cli help`。无需 Node/npm。help、guide、capabilities、schema、ingress presets 和 logs --offline 无需运行 Core；`cli app start` 可以启动安装版，本机管理 MCP 也支持离线发现和启动。其他操作按所属 Core/Desktop 报告可用状态。成功输出 `{schemaVersion:1,ok:true,result:...}`，失败输出 `{schemaVersion:1,ok:false,error:{code,message}}`；退出码分别为 0、1。诊断成功不等于每个入口已经 ready。
 
 ## CLI 配置与生命周期
 
@@ -62,7 +62,7 @@ Notion：创建独立的 `transport=https`、`auth=bearer`、`httpsProvider=ngro
 
 Cursor：创建独立的 `transport=https`、`auth=bearer`、`httpsProvider=cloudflare`、`cloudflareMode=named` 入口。配置 cloudflareToken、httpsUrl、httpsPort；例如 httpsPort=8788，对应 Cloudflare 服务端路由 `http://127.0.0.1:8788`。每个 Fixed 入口使用不同端口和 Tunnel 身份，不将不同认证上下文用同一身份做负载均衡。
 
-Cloudflare token 模式路由保存在服务端，CLC 不用 token 改写路由。Quick 模式自动分配临时地址，仅用于试用；长期入口优先固定地址加认证。Custom Domain 使用 httpsHost/httpsPort 接收自管 TLS 反向代理请求。不要公开桌面管理端口。
+Cloudflare token 模式路由保存在服务端，ARC 不用 token 改写路由。Quick 模式自动分配临时地址，仅用于试用；长期入口优先固定地址加认证。Custom Domain 使用 httpsHost/httpsPort 接收自管 TLS 反向代理请求。不要公开桌面管理端口。
 
 先查看[控制源矩阵](control-sources.md)。Slackbot 不支持静态 Bearer，可使用通过本机应用或已认证 CLI 确认的 OAuth；不要自动降级。Claude 组织静态请求头 Beta 与 Copilot Studio API-key Header 是有条件的 Bearer 路径；OAuth 是独立选项。CLI help、ingress presets（离线）、list 和 onboarding 均提供 preset metadata。不能把本机探针成功报告为官方客户端已接入。
 
@@ -72,7 +72,7 @@ Cloudflare token 模式路由保存在服务端，CLC 不用 token 改写路由�
 
 执行 `ingress verify <id> --fresh`，从真实控制源调用 connector_verify，回读同一入口的 challengeVerifiedAt、ingressId、controlSource。普通调用只更新历史 verifiedAt；本机直接调用只能证明本机链路。恢复中断的验证用原验证码，不重置其他入口。
 
-完整验收继续创建无害任务：不使用工具、不读写文件，只回复 CLC_ONBOARDING_OK。每次新操作用唯一 requestId，回读持久回执、taskId/threadId、turnId 和 agent_wait/codex_wait 终态输出。未知状态回读原 requestId，不重复提交。允许的另一入口能读取、续接、等待同一 taskId；停止创建入口不终止 Agent。
+完整验收继续创建无害任务：不使用工具、不读写文件，只回复 ARC_ONBOARDING_OK。每次新操作用唯一 requestId，回读持久回执、taskId/threadId、turnId 和 agent_wait/codex_wait 终态输出。未知状态回读原 requestId，不重复提交。允许的另一入口能读取、续接、等待同一 taskId；停止创建入口不终止 Agent。
 
 用户提供已登录浏览器时，实际使用可见受支持界面配置和验证；未指定浏览器优先 in-app Browser。只在登录、身份授权、验证码、权限或无法可靠操作时交还精确步骤；不提取 Cookie、不调用私有接口。
 
@@ -86,7 +86,7 @@ none 允许所有可达调用方调用已授权工具。bearer 只证明持有�
 
 Codex 在 create/send 后从回执取得原 taskId/threadId、turnId，默认以 30 秒（建议 20–30 秒）一个 slice 调用 agent_wait/codex_wait。收到 timeout 后保留原 ID，将上一轮 snapshotHash 作为 expectedHash 再次 wait，直到 completed/failed/cancelled 或 interaction-required。timeout/取消 wait 只结束当前等待，不终止源任务，不应重新创建任务或重发 prompt；unconfirmed 不代表失败。expectedHash 只控制 changed 比较，不屏蔽终态或交互。
 
-这是 bounded event-driven long poll；每个 slice 内仍由事件唤醒和真实 owner 状态复核驱动，不使用 read/sleep 高频轮询。ChatGPT、Notion、Slack 及其他 MCP Client 可能具有不同的外层工具超时，统一默认 timeoutMs=30000，不引入 per-client 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。codex_wait 的 timeoutMs 上限为 90000，为远程网关留出余量；agent_wait 仍允许在上游支持时显式传 300000。OpenAI Tunnel stdio adapter 保留 330 秒转发预算，HTTPS MCP 没有更短的等待执行限时；CLC 无法延长外部客户端或代理的超时。
+这是 bounded event-driven long poll；每个 slice 内仍由事件唤醒和真实 owner 状态复核驱动，不使用 read/sleep 高频轮询。ChatGPT、Notion、Slack 及其他 MCP Client 可能具有不同的外层工具超时，统一默认 timeoutMs=30000，不引入 per-client 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。codex_wait 的 timeoutMs 上限为 90000，为远程网关留出余量；agent_wait 仍允许在上游支持时显式传 300000。OpenAI Tunnel stdio adapter 保留 330 秒转发预算，HTTPS MCP 没有更短的等待执行限时；ARC 无法延长外部客户端或代理的超时。
 
 ## 只读上下文与诊断
 
@@ -108,10 +108,10 @@ Codex 在 create/send 后从回执取得原 taskId/threadId、turnId，默认以
 
 `codex_create` 和 `codex_send` 支持可选参数 `notifyClaudeSession`，接受 Claude Code 云端会话 ID（`session_…`、`cse_…`）或 `claude.ai/code/<id>` URL。派发任务的 Claude 会话可传自己的 ID；本机 Claude CLI 需已通过 `claude auth login` 登录。
 
-CLC 在派发成功后按真实 threadId + turnId 绑定，后台复用 Codex waiter 观察。通知仅包含项目目录名、线程 ID、轮次 ID，以及完成、失败、中断、等待审批或等待输入状态，不包含输出、错误原文、审批命令或自定义正文。交互通知后继续观察，终态再通知一次。被中断轮次的紧接下一轮自动继承绑定，包括从 Desktop 开启的接续轮次；显式绑定或 `notifyClaudeSession: null` 解绑优先，其他新轮次不继承。引导同一轮次时省略参数会保留已有绑定，显式传入会话才替换目标，保留去重历史。
+ARC 在派发成功后按真实 threadId + turnId 绑定，后台复用 Codex waiter 观察。通知仅包含项目目录名、线程 ID、轮次 ID，以及完成、失败、中断、等待审批或等待输入状态，不包含输出、错误原文、审批命令或自定义正文。交互通知后继续观察，终态再通知一次。被中断轮次的紧接下一轮自动继承绑定，包括从 Desktop 开启的接续轮次；显式绑定或 `notifyClaudeSession: null` 解绑优先，其他新轮次不继承。引导同一轮次时省略参数会保留已有绑定，显式传入会话才替换目标，保留去重历史。
 
 普通 `codex_read` 的 `turns[].claudeNotification` 返回 `sessionId` 和 `deliveries`（`state`、`status`），未绑定时为 null。`statusOnly` 不返回轮次详情。投递状态为 `sending`、`delivered` 或 `failed`。
 
-绑定与去重记录以私有 JSON 文件保存于 CLC 状态目录下的 `claude-notifications/`，文件名为线程与轮次组合的哈希；`CLC_STATE_DIR` 可覆盖状态目录。Core 启动时恢复观察。CLI 定位复用 Agent 可执行文件搜索，覆盖 PATH、用户本地安装、Homebrew、npm 与版本管理器目录。以参数数组投递，超时 30 秒，仅 `ok:true` 且 session ID 匹配视为成功。失败或结果不明时发 macOS 系统通知，不自动重试。投递中断后重启会标为失败，不重发，因此避免重复优先于保证送达。系统通知受 macOS 权限和通知设置影响；其他平台保留失败状态但没有系统通知兜底。
+绑定与去重记录以私有 JSON 文件保存于 ARC 状态目录下的 `claude-notifications/`，文件名为线程与轮次组合的哈希；`CLC_STATE_DIR` 可覆盖状态目录。Core 启动时恢复观察。CLI 定位复用 Agent 可执行文件搜索，覆盖 PATH、用户本地安装、Homebrew、npm 与版本管理器目录。以参数数组投递，超时 30 秒，仅 `ok:true` 且 session ID 匹配视为成功。失败或结果不明时发 macOS 系统通知，不自动重试。投递中断后重启会标为失败，不重发，因此避免重复优先于保证送达。系统通知受 macOS 权限和通知设置影响；其他平台保留失败状态但没有系统通知兜底。
 
 绑定失败不影响已派发任务成功，回执附带 `claudeNotification: "bind-failed"` 与 `claudeNotificationError`，WARN 包含原因。投递失败在本地记录线程、轮次与 CLI 错误原因，不将其加入通知正文。记录从创建起保留 7 天，超过期限后删除并停止观察，不论是否已终态。CLI 投递与系统通知均不占用绑定锁。

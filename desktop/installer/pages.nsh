@@ -34,7 +34,7 @@ Var ConnectorInstalledVersion
 
 Function ConnectorWelcome
   Call SkipIfPassive
-  !insertmacro MUI_HEADER_TEXT "安装 Local Connector" "让 ChatGPT 连接这台电脑上的 Agent"
+  !insertmacro MUI_HEADER_TEXT "安装 ARC" "让 ChatGPT 连接这台电脑上的 Agent"
   nsDialogs::Create 1018
   Pop $ConnectorDialog
   ${If} $ConnectorDialog == error
@@ -47,7 +47,7 @@ Function ConnectorWelcome
   Pop $ConnectorIcon
   ${NSD_SetIconFromInstaller} $ConnectorIcon $ConnectorIconHandle
   SetCtlColors $ConnectorIcon 203D35 FFFFFF
-  ${NSD_CreateLabel} 58u 9u 238u 24u "Local Connector"
+  ${NSD_CreateLabel} 58u 9u 238u 24u "ARC"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $ConnectorTitleFont 1
   SetCtlColors $0 224E43 FFFFFF
@@ -138,7 +138,7 @@ Function ConnectorWelcomeLeave
   ; Require a full local path; NSIS validates write access when installing.
   StrCpy $1 $0 2 1
   ${If} $1 != ":\"
-    MessageBox MB_ICONEXCLAMATION "请选择完整的本地安装路径，例如 C:\Apps\Local Connector。"
+    MessageBox MB_ICONEXCLAMATION "请选择完整的本地安装路径，例如 C:\Apps\ARC。"
     Abort
   ${EndIf}
   ; The directory may not exist yet. GetFullPathName clears its output in
@@ -149,7 +149,7 @@ FunctionEnd
 
 Function ConnectorFinish
   Call SkipIfPassive
-  !insertmacro MUI_HEADER_TEXT "安装完成" "Local Connector 已准备就绪"
+  !insertmacro MUI_HEADER_TEXT "安装完成" "ARC 已准备就绪"
   nsDialogs::Create 1018
   Pop $ConnectorDialog
   ${If} $ConnectorDialog == error
@@ -165,7 +165,7 @@ Function ConnectorFinish
   Pop $0
   SendMessage $0 ${WM_SETFONT} $ConnectorTitleFont 1
   SetCtlColors $0 224E43 FFFFFF
-  ${NSD_CreateLabel} 4u 67u 292u 30u "启动 Local Connector，管理本机 Agent，$\r$\n并将它们连接到 ChatGPT。"
+  ${NSD_CreateLabel} 4u 67u 292u 30u "启动 ARC，管理本机 Agent，$\r$\n并将它们连接到 ChatGPT。"
   Pop $0
   SetCtlColors $0 66756F FFFFFF
   ${NSD_CreateLink} 4u 113u 100u 14u "稍后启动"

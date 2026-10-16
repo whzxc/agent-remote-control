@@ -62,7 +62,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::with_id("main-tray")
         .icon(tauri::include_image!("icons/tray-logo.png"))
         .icon_as_template(false)
-        .tooltip("Local Connector")
+        .tooltip("ARC")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {

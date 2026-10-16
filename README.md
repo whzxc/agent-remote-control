@@ -1,42 +1,42 @@
-# ChatGPT Local Connector
+# ARC — Agent Remote Control
 
-CLC supports concurrent ingress for multiple MCP control sources. OpenAI Tunnel and HTTPS (Cloudflare, ngrok, Pinggy, LocalXpose, custom domain) share one Core and task namespace. Configure per-ingress authentication, tool policy and lifecycle with `cli ingress`; see [Codex setup](docs/codex-setup.md).
+ARC supports concurrent ingress for multiple MCP control sources. OpenAI Tunnel and HTTPS (Cloudflare, ngrok, Pinggy, LocalXpose, custom domain) share one Core and task namespace. Configure per-ingress authentication, tool policy and lifecycle with `cli ingress`; see [Codex setup](docs/codex-setup.md).
 
 **English** | [简体中文](README.zh-CN.md)
 
 **Discuss an idea in the AI app you already use. Let a coding agent on your computer do the work.**
 
-CLC did not start as an attempt to give ChatGPT a bigger tool list. It grew out of a workflow problem I kept running into, and each stage solved the next problem that became obvious.
+ARC did not start as an attempt to give ChatGPT a bigger tool list. It grew out of a workflow problem I kept running into, and each stage solved the next problem that became obvious.
 
-![Local Connector home screen connecting multiple control sources and coding agents](docs/images/home-overview.png)
+![ARC home screen connecting multiple control sources and coding agents](docs/images/home-overview.png)
 
-## Why I built Local Connector
+## Why I built ARC
 
 ### Stage 1 — Let Chat see what is true now
 
 I use ChatGPT's Chat mode to think through a lot of work. The recurring problem was continuity: Chat could remember the conversation, but it could not see what had just changed on my computer. A project might already have moved on, an architecture decision might have changed, or Codex might have finished another round of work, while Chat was still reasoning from stale context. Manually pasting files, diffs, and status updates every time became its own burden.
 
-The first version of CLC was therefore simple: expose local project facts to ChatGPT through MCP. Chat can read the current files, code, documentation, project structure, and Git state when it needs them. The goal was not to make Chat “remember more”; it was to let it check the source of truth directly.
+The first version of ARC was therefore simple: expose local project facts to ChatGPT through MCP. Chat can read the current files, code, documentation, project structure, and Git state when it needs them. The goal was not to make Chat “remember more”; it was to let it check the source of truth directly.
 
 ### Stage 2 — Turn the discussion into Codex work
 
 Once Chat could see the machine, the next question was obvious: if it can read project files, why stop there? Could it also run commands, understand what I had recently been doing in Codex, and create or continue tasks for me?
 
-CLC then connected MCP to the Codex App Server. ChatGPT can inspect local Codex work, create and continue tasks, interrupt them when needed, and follow their progress and results. That produced the workflow I actually wanted: discuss the problem in Chat using live project facts, turn the conclusion into a concrete Codex task, and keep following the task from the same conversation. As long as the machine is online, I can check and steer that work through ChatGPT even when I am away from the computer.
+ARC then connected MCP to the Codex App Server. ChatGPT can inspect local Codex work, create and continue tasks, interrupt them when needed, and follow their progress and results. That produced the workflow I actually wanted: discuss the problem in Chat using live project facts, turn the conclusion into a concrete Codex task, and keep following the task from the same conversation. As long as the machine is online, I can check and steer that work through ChatGPT even when I am away from the computer.
 
 ### Stage 3 — Expand from one agent to an agent control layer
 
-Once ChatGPT could coordinate Codex, limiting the design to one agent no longer made much sense. After learning about ACP, I extended the same control model to other local agents and tried to cover the mainstream ACP ecosystem in one step. CLC now supports Pi and OpenCode alongside a broad set of built-in ACP agents, including Gemini, the Claude adapter, Cursor, Grok, Copilot, Kimi, Qwen, Kiro, Devin, Cline, Junie, and Hermes.
+Once ChatGPT could coordinate Codex, limiting the design to one agent no longer made much sense. After learning about ACP, I extended the same control model to other local agents and tried to cover the mainstream ACP ecosystem in one step. ARC now supports Pi and OpenCode alongside a broad set of built-in ACP agents, including Gemini, the Claude adapter, Cursor, Grok, Copilot, Kimi, Qwen, Kiro, Devin, Cline, Junie, and Hermes.
 
-At this point, CLC had grown from “let ChatGPT read my local project” into “let ChatGPT coordinate the work happening on my machine.” Chat was where I discussed, reasoned, and turned project facts into decisions; local agents did the execution; CLC connected the two and kept the whole loop observable.
+At this point, ARC had grown from “let ChatGPT read my local project” into “let ChatGPT coordinate the work happening on my machine.” Chat was where I discussed, reasoned, and turned project facts into decisions; local agents did the execution; ARC connected the two and kept the whole loop observable.
 
 ### Stage 4 — From one-to-many to many-to-many
 
 Once the execution side could choose between different Agents, another question became obvious: why should the place that starts the work still have to be ChatGPT? Whether I am thinking through a problem in Claude, working from Notion or Slack, or starting something from Cursor or Raycast, changing applications should not mean building another control layer just for that client.
 
-So I opened up the other side of CLC as well. ChatGPT, Claude, Microsoft Copilot, Notion, Slack, Cursor, GitHub Copilot, Raycast, and other MCP clients can connect as independent control sources to the same Core. Each ingress keeps its own connection, authentication, and tool policy, while sharing the same local project facts, Agent capabilities, and task namespace. A task created through one ingress can be read, continued, or waited on through another ingress that exposes the required tools, while the task itself remains owned and executed by its original Agent and runtime.
+So I opened up the other side of ARC as well. ChatGPT, Claude, Microsoft Copilot, Notion, Slack, Cursor, GitHub Copilot, Raycast, and other MCP clients can connect as independent control sources to the same Core. Each ingress keeps its own connection, authentication, and tool policy, while sharing the same local project facts, Agent capabilities, and task namespace. A task created through one ingress can be read, continued, or waited on through another ingress that exposes the required tools, while the task itself remains owned and executed by its original Agent and runtime.
 
-CLC therefore moved from “one Chat controls many Agents” to “many control sources connect to many Agents.” Where a discussion happens and which Agent executes the result can be chosen independently. CLC does not try to invent another workflow engine between them; it keeps facts, control, and execution behind one local control layer. The original workflow is still the same—understand the problem from current facts first, then let the right Agent carry it forward—without tying that loop to a single product.
+ARC therefore moved from “one Chat controls many Agents” to “many control sources connect to many Agents.” Where a discussion happens and which Agent executes the result can be chosen independently. ARC does not try to invent another workflow engine between them; it keeps facts, control, and execution behind one local control layer. The original workflow is still the same—understand the problem from current facts first, then let the right Agent carry it forward—without tying that loop to a single product.
 
 ## What this means in practice
 
@@ -47,7 +47,7 @@ CLC therefore moved from “one Chat controls many Agents” to “many control 
 - **Use one control layer for multiple Agents:** Codex stays native and remains the default, while Pi, OpenCode, built-in ACP Agents, and Custom ACP share the `agent_*` workflow.
 - **Manage each ingress independently:** connection, authentication, tool policy, and lifecycle stay per ingress while the app manages Tunnel Clients, state, and the shared local Core.
 
-CLC itself requires no Node, npm, Rust, or Cargo installation. The [ChatGPT Desktop plugins](docs/plugin.md) are maintained in separate repositories and run independently. External Agents still need their own runtimes. Desktop task integration supports **Apple Silicon Mac** and **Windows x64**.
+ARC itself requires no Node, npm, Rust, or Cargo installation. The [ChatGPT Desktop plugins](docs/plugin.md) are maintained in separate repositories and run independently. External Agents still need their own runtimes. Desktop task integration supports **Apple Silicon Mac** and **Windows x64**.
 
 Codex remains the default, with its native capabilities preserved. External Agents use their own configuration and sign-in. The home view’s More button opens Agents management, which lists brands, installation status and versions, and lets you enable installed Agents. Its settings button opens appearance, quota, and usage preferences. See [Subscription usage](docs/subscriptions.md) for quota monitoring and usage estimates. Native/adapter distinctions and capabilities are documented in [Local Agents](docs/agents.md). Codex tasks use `codex_*`; `agent_*` only accepts non-Codex agents and is hidden when none is available. New connections expose the default tool tier; advanced tools are enabled through All or Custom. See [MCP tools](docs/tools.md) for text editing, per-turn changes, logs, shell commands and compact receipts.
 
@@ -56,20 +56,20 @@ Codex remains the default, with its native capabilities preserved. External Agen
 Linux runs `native/` without Tauri or Codex Desktop. Codex tasks use the installed Codex CLI app-server. No GUI or screen capture is included.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/whzxc/chatgpt-local-connector/main/tooling/install-linux.sh | sh
+curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/install-arc-remote.sh | sh
 ```
 
 Use a release containing Linux tarballs, or build from source. See [Linux installation and usage](docs/linux.md) for exact build commands, `start / stop / status`, token/provider/port configuration, the `/mcp` bearer-authenticated HTTP endpoint, and `systemd --user` with `loginctl enable-linger`.
 
 ## Installation: choose an entry point
 
-| How you want to use CLC | Start here |
+| How you want to use ARC | Start here |
 | --- | --- |
 | Inside ChatGPT Desktop on this computer | [Independent plugins](docs/plugin.md); no Tunnel or Connector Desktop required |
 | Tray, floating panels and connection settings | [Desktop installation](docs/installation.md) |
 | Access this computer from Web, mobile or another device | [Remote ingress](docs/tunnel.md); separate authentication and connection setup required |
 
-Available downloads are the actual assets on [GitHub Releases](https://github.com/whzxc/chatgpt-local-connector/releases). Plugin and desktop updates are separate; use the same native build when sharing state.
+Available downloads are the actual assets on [GitHub Releases](https://github.com/whzxc/arc-remote/releases). Plugin and desktop updates are separate; use the same native build when sharing state.
 
 ## Releases
 
@@ -84,10 +84,10 @@ For local plugin use, follow the plugin guide above. The following workflow is f
 Send the following message to Codex on the target computer. It checks existing progress and handles installation, configuration, troubleshooting, and verification. You can provide a signed-in ChatGPT browser session for it to operate. You only need to handle steps that require your identity or confirmation, or that its tools cannot reliably complete. The default connection uses the official OpenAI Secure MCP Tunnel.
 
 ```text
-Install, configure, and fully verify ChatGPT Local Connector on this computer. Default to the official Secure MCP Tunnel, preserve any working Tunnel / HTTPS configuration, and do not introduce a CLC cloud service or public relay. Check the installation first and read cli help, cli guide, and cli doctor. If the CLI is unavailable, read https://github.com/whzxc/chatgpt-local-connector/blob/main/docs/codex-setup.md and follow the actual installed release.
+Install, configure, and fully verify ARC on this computer. Default to the official Secure MCP Tunnel, preserve any working Tunnel / HTTPS configuration, and do not introduce a ARC cloud service or public relay. Check the installation first and read cli help, cli guide, and cli doctor. If the CLI is unavailable, read https://github.com/whzxc/arc-remote/blob/main/docs/codex-setup.md and follow the actual installed release.
 Complete all automatable steps. If I provide a signed-in ChatGPT page or browser environment, use the available browser / GUI / Computer Use tools on the visible page: check Developer Mode, reuse or create a custom MCP connection, enter its details, refresh tools, and select it. Do not just give me instructions. Do not use private APIs, extract cookies, run fixed DOM scripts, or bypass security controls.
 Read URLs, Tunnel ID, configuration, and verification messages from cli onboarding / status without asking me to copy values already on this computer. Configure existing secure local credentials through stdin. Ask me to enter missing keys directly in the app, never in chat. Pause only for required sign-in, identity confirmation, authorization, verification codes, administrator access, or a step the available tools cannot reliably perform. Explain the exact blocker and the minimum action, then continue.
-Call connector_verify from ChatGPT and check the current code, tool result, and local challengeVerifiedAt. Then run a harmless Codex task over the same connection: do not call tools or read or modify files; only reply CLC_ONBOARDING_OK. Read the persistent receipt, native threadId / turnId, and completed output. Read back unknown states with the original requestId instead of submitting again. Report separate evidence for local readiness, ChatGPT inbound access, and task completion. Opening a page or reaching Tunnel ready is not proof of successful setup.
+Call connector_verify from ChatGPT and check the current code, tool result, and local challengeVerifiedAt. Then run a harmless Codex task over the same connection: do not call tools or read or modify files; only reply ARC_ONBOARDING_OK. Read the persistent receipt, native threadId / turnId, and completed output. Read back unknown states with the original requestId instead of submitting again. Report separate evidence for local readiness, ChatGPT inbound access, and task completion. Opening a page or reaching Tunnel ready is not proof of successful setup.
 ```
 
 You can reuse this message for connection problems. Use a Codex session that can execute commands on the target computer. Your ChatGPT account/workspace permissions, Tunnel identity, and required authorizations are still necessary.
@@ -123,7 +123,7 @@ Documentation:
 
 - [Installation and updates](docs/installation.md)
 - [Release maintenance](docs/release.md)
-- [Changelog](https://github.com/whzxc/chatgpt-local-connector/releases)
+- [Changelog](https://github.com/whzxc/arc-remote/releases)
 - [Development and builds](docs/development.md)
 - [Desktop lifecycle](docs/desktop.md)
 - [MCP tools and task boundaries](docs/tools.md)

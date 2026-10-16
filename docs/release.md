@@ -1,6 +1,6 @@
 # 发布维护
 
-源码与下载仓库：`whzxc/chatgpt-local-connector`。正式版本以 Git tag 为准，GitHub Releases 托管安装包、更新包、静态 `latest.json` 和 Homebrew cask；不发布公共 npm 包。
+源码与下载仓库：`whzxc/arc-remote`。正式版本以 Git tag 为准，GitHub Releases 托管安装包、更新包、静态 `latest.json` 和 Homebrew cask；不发布公共 npm 包。
 
 ## 本地配置
 
@@ -45,12 +45,12 @@ Developer ID 签名与 Apple 公证是不同环节。需要公证时，在本机
 
 ## 配置本地自签名身份
 
-无需 Apple Developer 团队。先在登录钥匙串中安装带 `codeSigning` 扩展用途的自签名证书及对应私钥，例如 `Local Connector Self Signed`。可用 OpenSSL 生成，再通过 `security import <证书.p12> -k ~/Library/Keychains/login.keychain-db -x -T /usr/bin/codesign` 导入；导入密码通过系统提示输入。生成文件应放在仓库外的私有临时目录，导入后删除私钥和 PKCS#12 临时文件。不要在每次构建时重新生成证书。
+无需 Apple Developer 团队。先在登录钥匙串中安装带 `codeSigning` 扩展用途的自签名证书及对应私钥，例如 `ARC Self Signed`。可用 OpenSSL 生成，再通过 `security import <证书.p12> -k ~/Library/Keychains/login.keychain-db -x -T /usr/bin/codesign` 导入；导入密码通过系统提示输入。生成文件应放在仓库外的私有临时目录，导入后删除私钥和 PKCS#12 临时文件。不要在每次构建时重新生成证书。
 
-若 codesign 报证书不受信任，在“钥匙串访问 → 登录 → 我的证书 → Local Connector Self Signed → 显示简介 → 信任”中仅将“代码签名”设为“始终信任”，按系统提示授权。
+若 codesign 报证书不受信任，在“钥匙串访问 → 登录 → 我的证书 → ARC Self Signed → 显示简介 → 信任”中仅将“代码签名”设为“始终信任”，按系统提示授权。
 
 ```sh
-export APPLE_SIGNING_IDENTITY='Local Connector Self Signed'
+export APPLE_SIGNING_IDENTITY='ARC Self Signed'
 npm run desktop:build
 # 开发包也使用同一身份
 npm run dev
@@ -58,7 +58,7 @@ npm run dev
 
 自签名流程移除其他 `APPLE_*` 变量，仅保留明确指定的 `APPLE_SIGNING_IDENTITY`；不导入环境中的证书、不公证、不添加 `--timestamp`。身份不可用时构建失败，不回退或自动选择其他证书。自签名不能替代 Developer ID 公证或 Minisign 更新签名。
 
-相同证书和稳定 identifier 使 designated requirement 不再随二进制内容变化。可用 `codesign -d -r- <App或Core路径>` 比较连续构建；自签名 requirement 应包含 identifier 和证书锚点。更换证书仍会改变 requirement。从 ad-hoc 切换后，首次安装可能需要重新授予 Local Connector 屏幕录制、辅助功能及自动化权限；是否保留授权以系统实际结果为准。
+相同证书和稳定 identifier 使 designated requirement 不再随二进制内容变化。可用 `codesign -d -r- <App或Core路径>` 比较连续构建；自签名 requirement 应包含 identifier 和证书锚点。更换证书仍会改变 requirement。从 ad-hoc 切换后，首次安装可能需要重新授予 ARC 屏幕录制、辅助功能及自动化权限；是否保留授权以系统实际结果为准。
 
 ## 默认本地发布 macOS
 
@@ -155,4 +155,4 @@ ChatGPT Desktop 插件分别由 [chatgpt-usage-plugin](https://github.com/whzxc/
 
 ## Linux 无界面产物
 
-`release.yml` 对同一 tag 在 Ubuntu 24.04 的 x86_64、aarch64 runner 上独立检查并构建 `native/Cargo.toml`，不构建 Tauri 或 GUI。全部平台构建成功后，独立汇总任务将 `local-connector-<tag>-linux-<arch>.tar.gz`、`install-linux.sh` 和相应 SHA256SUMS.txt 条目合并到同一 Release。tarball 包含 Core 和 MIT LICENSE，要求 glibc 2.39 或更新版本。Linux 不使用桌面 updater；安装脚本校验 SHA256 与版本，更新前停止 daemon、更新后重启。Linux 用法见 [Linux 无界面运行](zh-CN/linux.md)。
+`release.yml` 对同一 tag 在 Ubuntu 24.04 的 x86_64、aarch64 runner 上独立检查并构建 `native/Cargo.toml`，不构建 Tauri 或 GUI。全部平台构建成功后，独立汇总任务将 `arc-remote-<tag>-linux-<arch>.tar.gz`、`install-arc-remote.sh` 和相应 SHA256SUMS.txt 条目合并到同一 Release。tarball 包含 Core 和 MIT LICENSE，要求 glibc 2.39 或更新版本。Linux 不使用桌面 updater；安装脚本校验 SHA256 与版本，更新前停止 daemon、更新后重启。Linux 用法见 [Linux 无界面运行](zh-CN/linux.md)。

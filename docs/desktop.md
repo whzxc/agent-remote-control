@@ -15,7 +15,7 @@ On macOS and Windows, left-clicking the menu-bar or tray icon opens and focuses 
 
 The in-app subscription usage overview follows the application theme and locale. It uses scrollable subscription cards, 12px outer and card padding, and directly visible Settings and per-provider Share Screenshot actions. It does not show an application version footer. Quota blocks, usage rows and warning icons open secondary detail bubbles; scrolling dismisses open details. Escape or an outside click closes the overview.
 
-Share Screenshot copies a 4x image of one provider’s displayed quota and usage rows to the clipboard, with the current appearance and Local Connector branding. It does not capture other windows.
+Share Screenshot copies a 4x image of one provider’s displayed quota and usage rows to the clipboard, with the current appearance and ARC branding. It does not capture other windows.
 
 Automatically open Codex tasks is enabled by default. Creation persists a temporary empty seed before opening the task page for Desktop execution; sending, continuation, and interruption use the Desktop owner's IPC. When disabled, new tasks are created and run directly in Connector's app-server, without Desktop IPC or guaranteed Desktop continuation/interruption. Existing tasks retain their owner. Read-only background task queries do not resume execution. Background sends steer the latest in-progress turn when active; a new turn automatically resumes only a notLoaded session. Desktop resume arguments are ignored, preserving Desktop ownership; unconfirmed requests are never replayed automatically.
 

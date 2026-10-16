@@ -61,9 +61,10 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
+; Persistent registry identity is independent of the display name.
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Local Connector"
 !define MANUKEY "Software\${MANUFACTURER}"
-!define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
+!define MANUPRODUCTKEY "${MANUKEY}\Local Connector"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -73,7 +74,7 @@ Var UpdateMode
 Var NoShortcutMode
 
 Name "${PRODUCTNAME}"
-BrandingText "Local Connector"
+BrandingText "ARC"
 SetFont "Microsoft YaHei UI" 9
 OutFile "${OUTFILE}"
 

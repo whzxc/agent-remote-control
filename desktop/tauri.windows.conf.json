@@ -21,7 +21,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Local Connector",
+        "title": "ARC",
         "width": 840,
         "height": 578,
         "minWidth": 800,
