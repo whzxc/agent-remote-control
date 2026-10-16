@@ -8,7 +8,7 @@ import { macosSigningIdentity, macosSigningArgs } from './macos-signing.mjs';
 export async function buildNative({ release = false, target, bundled = release } = {}) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   if (release && !target) target = process.platform === 'darwin' ? 'aarch64-apple-darwin' : process.platform === 'win32' ? 'x86_64-pc-windows-msvc' : undefined;
-  const args = ['build', '--locked', '--manifest-path', 'desktop/Cargo.toml', '--bin', 'arc-remote', '--features', bundled ? 'core-bin,tauri/custom-protocol' : 'core-bin'];
+  const args = ['build', '--locked', '--manifest-path', 'desktop/Cargo.toml', '--bin', 'arc', '--features', bundled ? 'core-bin,tauri/custom-protocol' : 'core-bin'];
   if (release) args.push('--release');
   if (target) args.push('--target', target);
   const env = buildEnv(release);
@@ -18,7 +18,7 @@ export async function buildNative({ release = false, target, bundled = release }
   env.TAURI_CONFIG = JSON.stringify({ bundle: { resources: [] } });
   execFileSync(process.execPath, [path.join(root, 'tooling/prune-build-cache.mjs'), `--keep=target/${target || (release ? 'release' : 'debug')}`], { cwd: root, stdio: 'inherit' });
   execFileSync('cargo', args, { cwd: root, env, stdio: 'inherit' });
-  const name = process.platform === 'win32' ? 'arc-remote.exe' : 'arc-remote';
+  const name = process.platform === 'win32' ? 'arc.exe' : 'arc';
   const binary = path.join(root, 'target', ...(target ? [target] : []), release ? 'release' : 'debug', name);
   if (process.platform === 'darwin') execFileSync('codesign', [
     ...macosSigningArgs(identity, 'com.whzxc.local-connector.core'), binary,

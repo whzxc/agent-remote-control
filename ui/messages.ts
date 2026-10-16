@@ -2,7 +2,7 @@ import { t, type MessageKey } from './i18n';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 
-// Only the presentation boundary translates known ARC messages. Raw service
+// Only the presentation boundary translates known Agent Remote Control messages. Raw service
 // responses, logs, task content, identifiers and MCP contracts stay unchanged.
 const messagePatterns = Object.entries({ en, 'zh-CN': zhCN }).flatMap(([, messages]) =>
   Object.entries(messages).map(([key, message]) => {

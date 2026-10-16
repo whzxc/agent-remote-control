@@ -206,8 +206,10 @@ fn main() {
                     }
                     let handle = app.handle().clone();
                     app.dialog()
-                        .message(format!("{error}\n\n请处理后重新打开 ARC。"))
-                        .title("ARC 启动失败")
+                        .message(format!(
+                            "{error}\n\n请处理后重新打开 Agent Remote Control。"
+                        ))
+                        .title("Agent Remote Control 启动失败")
                         .kind(tauri_plugin_dialog::MessageDialogKind::Error)
                         .show(move |_| handle.exit(1));
                     return Ok(());
@@ -278,7 +280,7 @@ fn main() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("ARC 启动失败")
+        .expect("Agent Remote Control 启动失败")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested {
                 code: None, api, ..

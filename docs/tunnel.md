@@ -8,7 +8,7 @@ Return to the [project home](../README.md). For assisted setup, send the home pa
 
 ## HTTPS MCP
 
-When adding or editing a control source, select HTTPS MCP and choose a provider. Authentication is configured per ingress as **None**, **Bearer**, or **OAuth**; choose a mode supported by the target client and ARC, as documented in the [control source support matrix](control-sources.md). OAuth uses ARC's local authorization server with password-protected web consent or authenticated CLI consent; see [OAuth authentication](oauth.md). This project does not provide a hosted relay.
+When adding or editing a control source, select HTTPS MCP and choose a provider. Authentication is configured per ingress as **None**, **Bearer**, or **OAuth**; choose a mode supported by the target client and Agent Remote Control（ARC）, as documented in the [control source support matrix](control-sources.md). OAuth uses ARC's local authorization server with password-protected web consent or authenticated CLI consent; see [OAuth authentication](oauth.md). This project does not provide a hosted relay.
 
 | Provider | Required information | Managed by the app | Boundaries |
 | --- | --- | --- | --- |

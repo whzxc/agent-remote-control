@@ -1,4 +1,4 @@
-//! Connector-owned Claude ACP dependencies. Discovery never downloads or uses global npm.
+//! Agent Remote Control-owned Claude ACP dependencies. Discovery never downloads or uses global npm.
 use super::*;
 use base64::Engine;
 use sha2::{Digest, Sha512};
@@ -158,7 +158,7 @@ pub async fn prepare() -> Result<()> {
     let proxy = crate::proxy::NetworkProxy::resolve(&settings).await?;
     let client = proxy
         .client(reqwest::Client::builder())
-        .user_agent("arc-remote")
+        .user_agent("agent-remote-control")
         .connect_timeout(Duration::from_secs(20))
         .timeout(Duration::from_secs(180))
         .build()

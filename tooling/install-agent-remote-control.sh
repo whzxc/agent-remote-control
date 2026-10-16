@@ -10,7 +10,7 @@ esac
 for command in curl tar sha256sum awk install mktemp; do
   command -v "$command" >/dev/null || { echo "Missing command: $command" >&2; exit 1; }
 done
-repo=https://github.com/whzxc/arc-remote
+repo=https://github.com/whzxc/agent-remote-control
 version=${CLC_VERSION:-}
 if [ -z "$version" ]; then
   latest=$(curl --proto '=https' --proto-redir '=https' -fsSL -o /dev/null -w '%{url_effective}' "$repo/releases/latest")
@@ -21,7 +21,7 @@ case "$version" in *[!a-zA-Z0-9._-]*) echo 'Invalid release tag' >&2; exit 1 ;; 
 destination=${CLC_INSTALL_DIR:-"$HOME/.local/bin"}
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
-asset=arc-remote-$version-linux-$arch.tar.gz
+asset=agent-remote-control-$version-linux-$arch.tar.gz
 url=$repo/releases/download/$version
 curl --proto '=https' --proto-redir '=https' -fsSL "$url/$asset" -o "$stage/$asset" || {
   echo "Release $version has no downloadable $asset; choose a release containing Linux tarballs or build native/Cargo.toml from source." >&2
@@ -31,12 +31,12 @@ curl --proto '=https' --proto-redir '=https' -fsSL "$url/SHA256SUMS.txt" -o "$st
 awk -v asset="$asset" '$2 == asset {print}' "$stage/SHA256SUMS.txt" > "$stage/checksum"
 [ "$(wc -l < "$stage/checksum" | tr -d ' ')" = 1 ] || { echo 'Missing or duplicate checksum' >&2; exit 1; }
 (cd "$stage" && sha256sum -c checksum)
-tar -xzf "$stage/$asset" -C "$stage" arc-remote
-[ "$("$stage/arc-remote" --version)" = "${version#v}" ] || { echo 'Version mismatch' >&2; exit 1; }
+tar -xzf "$stage/$asset" -C "$stage" arc
+[ "$("$stage/arc" --version)" = "${version#v}" ] || { echo 'Version mismatch' >&2; exit 1; }
 mkdir -p "$destination"
 # Replace via rename so a running executable is never truncated.
-staged_binary=$(mktemp "$destination/.arc-remote.XXXXXX")
+staged_binary=$(mktemp "$destination/.agent-remote-control.XXXXXX")
 trap 'rm -rf "$stage"; rm -f "$staged_binary"' EXIT HUP INT TERM
-install -m 755 "$stage/arc-remote" "$staged_binary"
-mv -f "$staged_binary" "$destination/arc-remote"
-printf 'Installed %s to %s/arc-remote\nAdd this directory to PATH. Stop the daemon before upgrading; restart it after installation.\n' "$version" "$destination"
+install -m 755 "$stage/arc" "$staged_binary"
+mv -f "$staged_binary" "$destination/arc"
+printf 'Installed %s to %s/arc\nAdd this directory to PATH. Stop the daemon before upgrading; restart it after installation.\n' "$version" "$destination"

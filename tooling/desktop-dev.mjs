@@ -41,12 +41,9 @@ if (process.platform === 'darwin') {
   requireXcode(env);
   const output = fileURLToPath(new URL('target/dev-icon/', root));
   const source = path.join(output, 'Icon.icon');
-  cpSync(fileURLToPath(new URL('desktop/icons/ARCRemote.icon', root)), source, { recursive: true });
+  cpSync(fileURLToPath(new URL('desktop/icons/AgentRemoteControl.icon', root)), source, { recursive: true });
   const document = JSON.parse(readFileSync(path.join(source, 'icon.json'), 'utf8'));
-  document['fill-specializations'][0].value['linear-gradient'] = [
-    'srgb:0.87843,0.94902,0.99216,1.00000',
-    'srgb:0.65098,0.81176,0.92941,1.00000',
-  ];
+  document['fill-specializations'][0].value = { solid: 'srgb:0.87843,0.94902,0.99216,1.00000' };
   writeFileSync(path.join(source, 'icon.json'), JSON.stringify(document, null, 2) + '\n');
   compileIcon(source, path.join(output, 'Resources'), env);
   const runner = 'node ../tooling/macos-dev-app.mjs';

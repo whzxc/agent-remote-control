@@ -45,12 +45,12 @@ func requireAX() throws {
     if !AXIsProcessTrusted() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         if AXIsProcessTrustedWithOptions(options) { return }
-        try fail("ACCESSIBILITY_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 辅助功能中授权 ARC，然后重试。")
+        try fail("ACCESSIBILITY_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 辅助功能中授权 Agent Remote Control，然后重试。")
     }
 }
 func requireRecording() throws {
     if !CGPreflightScreenCaptureAccess() && !CGRequestScreenCaptureAccess() {
-        try fail("SCREEN_RECORDING_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中授权 ARC，然后重试；若系统要求重新打开 App，请按提示操作。")
+        try fail("SCREEN_RECORDING_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中授权 Agent Remote Control，然后重试；若系统要求重新打开 App，请按提示操作。")
     }
 }
 struct Window {

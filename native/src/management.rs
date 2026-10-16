@@ -83,16 +83,16 @@ async fn start_app() -> Result<Value> {
         return Ok(status);
     }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let desktop = if exe.file_stem().is_some_and(|s| s == "arc-remote-desktop") {
+    let desktop = if exe.file_stem().is_some_and(|s| s == "agent-remote-control") {
         exe
     } else if cfg!(target_os = "macos") {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../../MacOS/arc-remote-desktop")
+            .join("../../MacOS/agent-remote-control")
     } else {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../arc-remote-desktop.exe")
+            .join("../agent-remote-control.exe")
     };
     #[cfg(target_os = "macos")]
     {
@@ -156,7 +156,7 @@ pub async fn stdio() -> Result<()> {
 async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdout>>) -> Result<()> {
     let result: Result<Value> = match string(&request, "method") {
         "initialize" => Ok(
-            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"arc-remote-management","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
+            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"agent-remote-control-management","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
         ),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({"tools":[
@@ -213,7 +213,8 @@ pub fn desktop_route(route: &str) -> bool {
 }
 
 pub fn error_code(message: &str) -> &str {
-    if message.contains("无法连接本机 Core") || message.contains("请先打开 ARC") {
+    if message.contains("无法连接本机 Core") || message.contains("请先打开 Agent Remote Control")
+    {
         return "APP_UNAVAILABLE";
     }
     for code in [

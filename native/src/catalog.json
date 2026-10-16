@@ -3,7 +3,7 @@
   "tools": [
     {
       "name": "connector_verify",
-      "description": "验证当前控制源入口到本机的连接。用户从 ARC 引导中提供 code 时调用；只回传验证码，不读取文件、不创建任务。",
+      "description": "验证当前控制源入口到本机的连接。用户从 Agent Remote Control 引导中提供 code 时调用；只回传验证码，不读取文件、不创建任务。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -42,7 +42,7 @@
     },
     {
       "name": "projects",
-      "description": "实时读取当前设备 Codex 的原生项目列表，保留项目 ID、名称和全部目录。Connector 不维护项目登记；查询失败时不回退旧列表。",
+      "description": "实时读取当前设备 Codex 的原生项目列表，保留项目 ID、名称和全部目录。Agent Remote Control 不维护项目登记；查询失败时不回退旧列表。",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -380,7 +380,7 @@
     },
     {
       "name": "screen",
-      "description": "仅 macOS：列窗口、截图、读取辅助功能树、按元素、滚动到元素、提窗或发送按键。直接使用 ARC 的屏幕录制/辅助功能权限。除 windows 外须指定 app、bundleId、title 或 windowId；同 App 多窗口优先主窗口。press/show 用 ref 或 label+nth；raise 显式提窗，其他需要前台的操作遵循 front。动作返回 performed 仅表示事件已发送，使用 after 截图核对结果；失败或断线后先观察，不盲目重试。",
+      "description": "仅 macOS：列窗口、截图、读取辅助功能树、按元素、滚动到元素、提窗或发送按键。直接使用 Agent Remote Control 的屏幕录制/辅助功能权限。除 windows 外须指定 app、bundleId、title 或 windowId；同 App 多窗口优先主窗口。press/show 用 ref 或 label+nth；raise 显式提窗，其他需要前台的操作遵循 front。动作返回 performed 仅表示事件已发送，使用 after 截图核对结果；失败或断线后先观察，不盲目重试。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1470,7 +1470,7 @@
     },
     {
       "name": "codex_create",
-      "description": "创建并执行文本任务；默认由 Desktop 执行，关闭自动打开后由 Connector 执行。返回任务标识和精简回执。",
+      "description": "创建并执行文本任务；默认由 Desktop 执行，关闭自动打开后由 Agent Remote Control 执行。返回任务标识和精简回执。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2379,7 +2379,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           }
         },
         "required": [
@@ -2411,7 +2411,7 @@
     },
     {
       "name": "agent_tasks",
-      "description": "列出任务；Pi/ACP 仅列出 ARC 创建的持久任务。",
+      "description": "列出任务；Pi/ACP 仅列出 Agent Remote Control 创建的持久任务。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2548,7 +2548,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           }
         },
         "required": [
@@ -2685,7 +2685,7 @@
           "taskId": {
             "type": "string",
             "minLength": 1,
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           }
         },
         "required": [
@@ -2732,7 +2732,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           },
           "prompt": {
             "type": "string"
@@ -2802,7 +2802,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           },
           "requestId": {
             "type": "string",
@@ -2868,7 +2868,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           },
           "after": {
             "type": "integer",
@@ -2927,7 +2927,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           }
         },
         "required": [
@@ -2974,7 +2974,7 @@
           },
           "taskId": {
             "type": "string",
-            "description": "ARC 返回的 taskId"
+            "description": "Agent Remote Control 返回的 taskId"
           },
           "requestId": {
             "type": "string",
@@ -3223,7 +3223,7 @@
     },
     {
       "name": "logs",
-      "description": "倒序读取 Connector Core 与已接入 app-server stderr 日志；grep 为固定字符串，cursor 续页。",
+      "description": "倒序读取 Agent Remote Control Core 与已接入 app-server stderr 日志；grep 为固定字符串，cursor 续页。",
       "inputSchema": {
         "type": "object",
         "properties": {

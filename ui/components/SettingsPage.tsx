@@ -1,4 +1,4 @@
-import { notificationsPreference } from "../state/store";
+import { notificationsPreference, mascotPreference } from "../state/store";
 import { useEffect, useState } from "react";
 import { Monitor, Sun, Moon } from "lucide-react";
 import { t, language, languageOptions, setLanguage } from "../i18n";
@@ -27,6 +27,7 @@ export default function SettingsPage() {
     [appearanceReady, setAppearanceReady] = useState(false),
     [service, setService] = useState<Service>();
   const notifications = notificationsPreference.use();
+  const showMascot = mascotPreference.use();
   const mac = isDesktop && navigator.platform.toLowerCase().includes("mac");
   useEffect(() => {
     if (mac)
@@ -153,6 +154,9 @@ export default function SettingsPage() {
               { value: "dark", label: t("dark"), icon: Moon },
             ]}
           />
+        </Row>
+        <Row title={t("showMascot")} description={t("showMascotDescription")}>
+          <Switch label={t("showMascot")} checked={showMascot} onChange={mascotPreference.set} />
         </Row>
         <Row title={t("themeColor")}>
           <SingleChoice

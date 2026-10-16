@@ -1,14 +1,14 @@
 [package]
-name = "arc-remote-desktop"
+name = "agent-remote-control"
 version = "0.0.0"
 edition = "2021"
 license = "MIT"
-default-run = "arc-remote-desktop"
+default-run = "agent-remote-control"
 
 # Build the Core executable with the desktop dependency graph so both binaries
 # reuse the same connector-core library and transitive dependency features.
 [[bin]]
-name = "arc-remote"
+name = "arc"
 path = "../native/src/main.rs"
 required-features = ["core-bin"]
 

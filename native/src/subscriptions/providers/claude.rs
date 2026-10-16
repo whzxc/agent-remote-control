@@ -72,7 +72,7 @@ pub async fn read(
     if let Some(version) = version {
         request = request.header(
             "User-Agent",
-            format!("claude-cli/{version} (external, cli) Local-Connector"),
+            format!("claude-cli/{version} (external, cli) agent-remote-control"),
         );
     }
     let v = get(request).await?;

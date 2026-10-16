@@ -219,7 +219,7 @@ fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
         .map(|i| crate::control::item(i, 0, 6000));
     json!({"state":state,"reason":reason,"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
         "runtimeSource":t["runtimeSource"],"finalResponse":assistant,"error":turn["error"],"interaction":interactions,
-        "activeFlags":flags,"interactionAction":if blocked && interactions.is_empty(){Some("Inspect Codex Desktop for the pending interaction; this owner exposes no callback ID to Connector")}else if !interactions.is_empty(){Some("Use codex_respond with id=responseId and backendSession; do not resend the task")}else{None},
+        "activeFlags":flags,"interactionAction":if blocked && interactions.is_empty(){Some("Inspect Codex Desktop for the pending interaction; this owner exposes no callback ID to Agent Remote Control")}else if !interactions.is_empty(){Some("Use codex_respond with id=responseId and backendSession; do not resend the task")}else{None},
         "observedAt":now()})
 }
 

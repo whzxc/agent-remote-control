@@ -37,7 +37,7 @@ export function AppUpdate() {
     download = autoDownload.use();
   return (
     <Group title={t("aboutApp")}>
-      <Row title={`ARC v${status?.version ?? "—"}`}>
+      <Row title={`Agent Remote Control v${status?.version ?? "—"}`}>
         <Button
           busy={checking}
           disabled={!isDesktop || active}
@@ -73,12 +73,12 @@ export function AppUpdate() {
       {!state.dialogOpen && state.message && (
         <Notice tone="success">{displayMessage(state.message)}</Notice>
       )}
-      <Row title="whzxc/arc-remote">
+      <Row title="whzxc/agent-remote-control">
         <Button
           variant="ghost"
           onClick={() =>
             void openUrl(
-              "https://github.com/whzxc/arc-remote",
+              "https://github.com/whzxc/agent-remote-control",
             ).catch((e) => notify(String(e), true))
           }
         >

@@ -74,7 +74,7 @@ Var UpdateMode
 Var NoShortcutMode
 
 Name "${PRODUCTNAME}"
-BrandingText "ARC"
+BrandingText "Agent Remote Control"
 SetFont "Microsoft YaHei UI" 9
 OutFile "${OUTFILE}"
 

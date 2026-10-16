@@ -245,7 +245,7 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
         let removed = e.rows.remove(0);
         e.bytes -= removed.to_string().len();
     }
-    // Codex owns its history. Only Connector-owned Agent streams need an archive.
+    // Codex owns its history. Only Agent Remote Control-owned Agent streams need an archive.
     if !e.durable {
         return;
     }

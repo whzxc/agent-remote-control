@@ -2,7 +2,7 @@
 
 固定 9 个 curated preset 加 Custom；其他 MCP 客户端使用 Custom。预设只提供客户端类型与接入建议，不代表已完成官方客户端验收，也不创建独立协议或 Service。同一类型允许任意多个入口，以 ingress.id 区分。
 
-| 控制源 | Remote MCP | 推荐 transport | 推荐认证 | ARC 当前程度 | 主要边界 / 官方资料 |
+| 控制源 | Remote MCP | 推荐 transport | 推荐认证 | Agent Remote Control（ARC） 当前程度 | 主要边界 / 官方资料 |
 | --- | --- | --- | --- | --- | --- |
 | ChatGPT | 支持 | openai-tunnel | openai | 现有路径可用 | 优先 Secure Tunnel；HTTPS 也支持本机应用确认的 OAuth。Tunnel 与客户端开发者模式权限分别管理。 [官方 1](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) / [官方 2](https://developers.openai.com/api/docs/guides/developer-mode) |
 | Claude | 支持 | https | oauth | 有条件支持 | OAuth 使用本机应用确认或已认证 CLI 确认，支持动态注册或预注册客户端凭据。组织静态请求头 Beta 仍可使用 Bearer；需确认客户端注册流程。 [官方 1](https://claude.com/docs/connectors/building) / [官方 2](https://claude.com/docs/connectors/building/authentication) |

@@ -134,7 +134,7 @@ impl AgentDriver {
                 *p.capabilities.lock().await=json!({"protocol":"pi-rpc","resume":true,"cancel":true,"streaming":true,"permissions":"extension-ui-only","completionEvent":"agent_settled"});
                 let mut t=p.state.lock().await;t["sessionId"]=state["sessionId"].clone();t["metadata"]=state;
             } else {
-                let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"arc-remote","version":env!("CLC_BUILD_VERSION")}}),15000).await?;
+                let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"agent-remote-control","version":env!("CLC_BUILD_VERSION")}}),15000).await?;
                 if init["protocolVersion"]!=1 {return Err("ACP_VERSION_UNSUPPORTED".into());}
                 *p.capabilities.lock().await=init.clone();
                 let t=p.state.lock().await.clone();

@@ -59,10 +59,14 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             }
         });
     }
+    #[cfg(target_os = "macos")]
+    let icon = tauri::include_image!("icons/menubar-18Template@2x.png");
+    #[cfg(not(target_os = "macos"))]
+    let icon = tauri::include_image!("icons/tray-logo.png");
     TrayIconBuilder::with_id("main-tray")
-        .icon(tauri::include_image!("icons/tray-logo.png"))
-        .icon_as_template(false)
-        .tooltip("ARC")
+        .icon(icon)
+        .icon_as_template(cfg!(target_os = "macos"))
+        .tooltip("Agent Remote Control")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {

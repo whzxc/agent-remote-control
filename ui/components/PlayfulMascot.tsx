@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
-import logo from "../assets/arc-remote-head.png";
+import logo from "../assets/mascot/default.png";
 import happy from "../assets/mascot/happy.png";
 import surprised from "../assets/mascot/surprised.png";
 import pout from "../assets/mascot/pout.png";

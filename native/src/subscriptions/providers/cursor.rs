@@ -170,7 +170,7 @@ pub async fn read(
             get(client
                 .get("https://grok.com/rest/grok/credits")
                 .bearer_auth(bearer)
-                .header("User-Agent", "Mozilla/5.0 Local-Connector"))
+                .header("User-Agent", "Mozilla/5.0 agent-remote-control"))
             .await
         }
         .await;

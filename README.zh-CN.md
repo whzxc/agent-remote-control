@@ -1,4 +1,4 @@
-# ARC — Agent Remote Control
+# Agent Remote Control（ARC）
 
 [English](README.md) | **简体中文**
 
@@ -10,7 +10,7 @@ ARC 并不是从“给 ChatGPT 再加一堆工具”开始的。它来自一个�
 
 ![ARC 主界面：连接多个控制来源与 coding agent](docs/images/home-overview.png)
 
-## 为什么会有 ARC
+## 为什么会有 Agent Remote Control
 
 ### 第一阶段：让 Chat 看到“现在真实是什么”
 
@@ -56,7 +56,7 @@ Codex 保持默认，原生能力完整保留。所有外部 Agent 沿用自身�
 Linux 直接运行 `native/`，不需要 Tauri 或 Codex Desktop；Codex 任务统一通过已安装的 Codex CLI app-server 执行。不包含 GUI、打开终端或 screen 截图功能。
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/install-arc-remote.sh | sh
+curl -fsSL https://raw.githubusercontent.com/whzxc/agent-remote-control/main/tooling/install-agent-remote-control.sh | sh
 ```
 
 选择包含 Linux tarball 的发行版，也可从源码构建。[Linux 安装与使用](docs/zh-CN/linux.md)包含精确构建命令、`start / stop / status`、token/provider/端口配置、使用 Bearer 鉴权的 `/mcp` HTTP 端点，以及 `systemd --user` 和 `loginctl enable-linger` 自启动说明。
@@ -65,11 +65,11 @@ curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/insta
 
 | 使用方式 | 从这里开始 |
 | --- | --- |
-| 在本机 ChatGPT Desktop 内使用 | [独立插件安装与使用](docs/zh-CN/plugin.md)，无需 Tunnel 或 Connector 桌面应用 |
+| 在本机 ChatGPT Desktop 内使用 | [独立插件安装与使用](docs/zh-CN/plugin.md)，无需 Tunnel 或 Agent Remote Control 桌面应用 |
 | 菜单栏、浮窗和连接设置 | [桌面应用安装](docs/zh-CN/installation.md) |
 | 从网页、手机或另一台设备访问本机 | [远程接入](docs/zh-CN/tunnel.md)，需要另行配置认证与连接 |
 
-下载文件以 [GitHub Releases](https://github.com/whzxc/arc-remote/releases) 的实际附件为准。插件与桌面应用分别安装和更新；共享数据目录时需使用同一原生构建。
+下载文件以 [GitHub Releases](https://github.com/whzxc/agent-remote-control/releases) 的实际附件为准。插件与桌面应用分别安装和更新；共享数据目录时需使用同一原生构建。
 
 ## 让 Codex 帮你配置远程接入
 
@@ -78,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/insta
 在这台电脑的 Codex 中发送下面的消息。Codex 会检查已有进度，完成安装、配置、排障和验收；可提供已登录的 ChatGPT 网页让它继续代操作；只有本人确认或工具无法可靠完成的步骤再由你操作。默认使用官方 OpenAI Secure MCP Tunnel。
 
 ```text
-请在这台电脑上安装、配置并完整验收 ARC。默认使用官方 Secure MCP Tunnel，保留已有可用 Tunnel / HTTPS 配置，不引入 ARC 云服务或公共 relay。先检查安装，读取 cli help、cli guide、cli doctor；没有 CLI 时读取 https://github.com/whzxc/arc-remote/blob/main/docs/codex-setup.md ，按实际发行版本操作。
+请在这台电脑上安装、配置并完整验收 ARC。默认使用官方 Secure MCP Tunnel，保留已有可用 Tunnel / HTTPS 配置，不引入 ARC 云服务或公共 relay。先检查安装，读取 cli help、cli guide、cli doctor；没有 CLI 时读取 https://github.com/whzxc/agent-remote-control/blob/main/docs/codex-setup.md ，按实际发行版本操作。
 优先自动完成所有可自动化步骤。若我提供已登录 ChatGPT 的网页或浏览器环境，请实际使用可用的浏览器 / GUI / Computer Use 操作当前可见页面：检查 Developer Mode、复用或创建自定义 MCP、填入连接资料、刷新工具并选用连接。不要仅给我操作教程；不使用私有 API、Cookie 提取、固定 DOM 脚本或绕过安全机制。
 通过 cli onboarding / status 自行读取 URL、Tunnel ID、配置和验证消息，不让我转抄本机已有值。已有安全本机凭据通过 stdin 配置；缺失密钥让我直接填入应用，不发到聊天。只在确需本人登录、身份确认、授权、验证码、管理员权限，或当前工具无法可靠操作时暂停，说明具体阻塞并只给最少动作；完成后继续。
 自动从 ChatGPT 调用 connector_verify，并核对本轮验证码、工具结果和本机 challengeVerifiedAt；然后通过同一连接执行无害 Codex 任务（不调用工具、不读取或修改文件，只回复 ARC_ONBOARDING_OK），读取持久化回执、原生 threadId / turnId 和完成输出。未知状态按原 requestId 回读，不重复派单。分别报告本机就绪、ChatGPT 入站、任务完成的真实证据，不能把打开页面或 Tunnel ready 当成接入成功。
@@ -92,13 +92,13 @@ curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/insta
 
 在「设置 → 通用 → 语言」选择 Auto / English / 简体中文。Auto 跟随系统或浏览器语言，不支持的语言回退为 English；手动选择优先并自动保存，切换立即生效。语言偏好与主题一样保存在当前 WebView/浏览器中，不影响 MCP 工具、任务内容或协议。
 
-首次配置后，日常使用保持本机联网、Desktop 可用且 Connector 连接开启即可；登录时启动为可选设置。关闭窗口后连接继续运行，最后一个插件或桌面客户端退出后，共享后台才会停止；有插件连接时，退出桌面应用不一定停止后台。macOS 可在「设置 → 通用 → 显示位置」选择「全部」「仅菜单栏」或「仅 Dock 栏」，修改立即生效并自动保存。
+首次配置后，日常使用保持本机联网、Desktop 可用且 Agent Remote Control 连接开启即可；登录时启动为可选设置。关闭窗口后连接继续运行，最后一个插件或桌面客户端退出后，共享后台才会停止；有插件连接时，退出桌面应用不一定停止后台。macOS 可在「设置 → 通用 → 显示位置」选择「全部」「仅菜单栏」或「仅 Dock 栏」，修改立即生效并自动保存。
 
 `agent_wait` 支持 Codex、Pi、全部内置 ACP 与 Custom ACP，在本机连接期间等待；`codex_wait` 保留原生语义。历史读取和事件查询继续使用相应的 read/events 工具。普通 Chat 回复结束后不会继续后台等待；它不提供定时唤醒或主动推送。详见[等待工具](docs/tools.md#任务等待)。
 
 ### 分工与边界
 
-设置中的「自动打开 Codex 任务」默认开启，新任务由 Desktop 接管执行；关闭后，新任务由 Connector 后台执行，不自动打开 Desktop，也不保证可在 Desktop 中操作。开关仅影响新任务，已有任务仍由原执行方管理。最后一个 Core 客户端退出会停止 Connector 所有的后台执行，但不会主动中断 Desktop 所有的任务；未知状态不显示为空闲。
+设置中的「自动打开 Codex 任务」默认开启，新任务由 Desktop 接管执行；关闭后，新任务由 Agent Remote Control 后台执行，不自动打开 Desktop，也不保证可在 Desktop 中操作。开关仅影响新任务，已有任务仍由原执行方管理。最后一个 Core 客户端退出会停止 Agent Remote Control 所有的后台执行，但不会主动中断 Desktop 所有的任务；未知状态不显示为空闲。
 
 不按 Codex Desktop 应用版本号限制连接；可用性取决于实际 IPC 握手和所需操作是否受支持。私有协议可能随 Desktop 更新变化，连接成功不代表所有操作均兼容。
 
@@ -117,7 +117,7 @@ npm run dev:ui
 
 - [安装与更新](docs/zh-CN/installation.md)
 - [发布维护](docs/release.md)
-- [版本说明](https://github.com/whzxc/arc-remote/releases)
+- [版本说明](https://github.com/whzxc/agent-remote-control/releases)
 - [开发与构建](docs/development.md)
 - [桌面生命周期](docs/desktop.md)
 - [MCP 工具与任务边界](docs/tools.md)

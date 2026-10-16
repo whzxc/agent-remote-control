@@ -23,7 +23,7 @@ application = bundle / "macos" / f"{name}.app"
 if not (application / "Contents" / "Info.plist").is_file():
     raise SystemExit(f"Build the Tauri app first: {application}")
 version = plistlib.loads((application / "Contents" / "Info.plist").read_bytes())["CFBundleShortVersionString"]
-output = bundle / "dmg" / f"{name}_{version}_aarch64.dmg"
+output = bundle / "dmg" / f"agent-remote-control_{version}_aarch64.dmg"
 output.parent.mkdir(parents=True, exist_ok=True)
 
 dmgbuild.build_dmg(str(output), name, settings={

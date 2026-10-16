@@ -121,7 +121,7 @@ impl Rpc {
             events.pending.clear();
             events.wake.notify_waiters();
         });
-        rpc.call("initialize",json!({"clientInfo":{"name":"arc-remote","version":env!("CLC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
+        rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("CLC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
         rpc.write(json!({"method":"initialized"})).await?;
         Ok(rpc)
     }
@@ -174,7 +174,7 @@ impl Rpc {
         {
             let _ = child.kill().await;
         }
-        // The utility process group belongs only to Connector, never Desktop.
+        // The utility process group belongs only to Agent Remote Control, never Desktop.
         #[cfg(unix)]
         if let Some(pid) = pid {
             unsafe {

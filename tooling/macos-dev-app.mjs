@@ -8,7 +8,7 @@ import { macosSigningIdentity, macosSigningArgs } from './macos-signing.mjs';
 // Cargo's target runner receives the freshly built executable and app arguments.
 const root = fileURLToPath(new URL('../', import.meta.url));
 const binary = path.resolve(process.argv[2]);
-const contents = path.join(path.dirname(binary), 'bundle/macos/ARC Remote Dev.app/Contents');
+const contents = path.join(path.dirname(binary), 'bundle/macos/Agent Remote Control Dev.app/Contents');
 const resources = path.join(contents, 'Resources');
 mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
 mkdirSync(resources, { recursive: true });

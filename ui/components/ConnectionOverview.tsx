@@ -35,9 +35,14 @@ import AgentsSettings, { AgentDetails } from "./AgentsSettings";
 import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import { Button, Icon, Notice, Tooltip } from "./ui";
 import PlayfulMascot, { type MascotState } from "./PlayfulMascot";
+import { mascotPreference } from "../state/store";
+import { dark } from "../theme";
+import mark from "../assets/arc/mark.svg";
+import markDark from "../assets/arc/mark-dark.svg";
 export default function ConnectionOverview() {
   const { status, busy, loading, error } = connector.use();
   const inventory = agentStore.use();
+  const showMascot = mascotPreference.use(), isDark = dark.use();
   const { snapshot } = subscriptions.use(),
     max = maxVisibleAgents.use(),
     nav = navigation.use();
@@ -495,10 +500,14 @@ export default function ConnectionOverview() {
               } as CSSProperties
             }
           >
-            <PlayfulMascot
-              state={mascotState}
-              onDisplacement={(p) => setRingOffset({ x: p.x / 3, y: p.y / 3 })}
-            />
+            {showMascot ? (
+              <PlayfulMascot
+                state={mascotState}
+                onDisplacement={(p) => setRingOffset({ x: p.x / 3, y: p.y / 3 })}
+              />
+            ) : (
+              <img className="graph-brand" src={isDark ? markDark : mark} alt="Agent Remote Control" draggable={false} />
+            )}
           </div>
           <div className="agent-side">
             {wires(true)}

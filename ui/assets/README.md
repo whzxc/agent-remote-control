@@ -5,19 +5,13 @@
 
 以上图标仅用于标识连接的产品，相关品牌与素材权利归 OpenAI 所有，不纳入本项目 MIT 授权。
 
-## 应用头像
+## Agent Remote Control（ARC） 标识与吉祥物
 
-`arc-remote.png` 是 ARC 的应用头像，使用不透明浅鼠尾草底色。网页品牌图和 favicon 引用同一源图。桌面图标位于 `desktop/icons/`，可在仓库根目录使用以下命令重新生成：
+品牌源文件与两套素材位于 `assets/brand/`；`npm run brand -- primary` 重新生成全部平台图标及 UI 标识，参数可换为 `alternate`。
 
-```sh
-npx tauri icon ui/assets/arc-remote.png --output desktop/icons
-```
+`ui/assets/arc/` 是当前品牌素材。macOS 使用 `desktop/icons/AgentRemoteControl.icon` 的原生深浅外观和 `menubar-18Template(@2x).png` 模板菜单栏图标；Windows 使用生成的 ICO 和彩色托盘图标。
 
-macOS 运行时 Dock 图标跟随系统外观：浅色使用安装包原图，深色由 AppKit 绘制深色圆角底板并叠加 `arc-remote-head.png`，系统切换外观时立即更新。应用内深浅主题不改变 Dock 外观。未运行时以及 Finder 中仍使用安装包的静态图标。
-
-菜单栏使用 `desktop/icons/tray-logo.png`：应用头像去除底色后的透明彩色版本，不使用系统单色模板渲染。
-
-首页互动头像使用 `arc-remote-head.png`（高清透明底），背景由 CSS 单独绘制，点击动画只作用于头像。
+首页中心默认显示 ARC 标识；在外观设置中打开“显示吉祥物”可切换回互动头像。`mascot/` 和 `brand-reserve/app/mascot/` 保留吉祥物素材。
 
 ## Agent 单色图标
 

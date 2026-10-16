@@ -8,7 +8,7 @@ import { releaseSigningEnv } from './release-signing.mjs';
 import { macosSigningIdentity } from './macos-signing.mjs';
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
 let version = buildVersion();
-const repo = 'whzxc/arc-remote';
+const repo = 'whzxc/agent-remote-control';
 let base = `https://github.com/${repo}/releases/download/v${version}`;
 const [mode, ...args] = process.argv.slice(2);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -40,17 +40,17 @@ async function validateManifest(manifest, dir, keys = Object.keys(manifest.platf
 async function cask(dir) {
   const dmg = (await files(dir)).filter(f => f.endsWith('_aarch64.dmg'));
   if (dmg.length !== 1) throw new Error('Expected one Apple Silicon DMG');
-  await writeFile(path.join(dir, 'arc-remote.rb'), `cask "arc-remote" do
+  await writeFile(path.join(dir, 'agent-remote-control.rb'), `cask "agent-remote-control" do
   version "${version}"
   sha256 "${hash(await readFile(dmg[0]))}"
 
-  url "https://github.com/${repo}/releases/download/v#{version}/ARC.Remote_#{version}_aarch64.dmg"
-  name "ARC"
+  url "https://github.com/${repo}/releases/download/v#{version}/agent-remote-control_#{version}_aarch64.dmg"
+  name "Agent Remote Control"
   desc "Connect ChatGPT to local Codex Desktop"
   homepage "https://github.com/${repo}"
   depends_on arch: :arm64
   auto_updates true
-  app "ARC Remote.app"
+  app "Agent Remote Control.app"
 
   caveats <<~EOS
     See the repository installation guide if macOS blocks the first launch.
@@ -154,7 +154,7 @@ if (mode === 'release') {
     ? f.endsWith(`_${version}_aarch64.dmg`) || /\.app\.tar\.gz(?:\.sig)?$/.test(f)
     : path.basename(f).includes(`_${version}_`) && /\.exe(?:\.sig)?$/.test(f));
   for (const file of candidates) {
-    let name = path.basename(file).replaceAll(' ','.');
+    let name = path.basename(file).replace(/^Agent Remote Control/, 'agent-remote-control').replaceAll(' ','.');
     if (target === 'darwin-aarch64' && name.includes('.app.tar.gz')) name = name.replace('.app.tar.gz', `_${version}_aarch64.app.tar.gz`);
     await copyFile(file,path.join(output,name));
   }
@@ -198,7 +198,7 @@ if (mode === 'release') {
     }
   }
   await writeJson(path.join(dir, 'latest.json'), manifest);
-  const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['arc-remote.rb', 'latest.json', 'release-notes.md'].includes(path.basename(f)));
+  const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md'].includes(path.basename(f)));
   for (const file of assets) sums.set(path.basename(file), hash(await readFile(file)));
   await writeFile(sumsFile, [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
   console.log(windows ? 'Windows metadata merged; existing macOS entries preserved.' : 'macOS release metadata generated.');

@@ -21,7 +21,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "ARC",
+        "title": "Agent Remote Control",
         "width": 840,
         "height": 578,
         "minWidth": 800,

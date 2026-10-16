@@ -153,7 +153,7 @@ export async function renderShareCard(
     y += 30;
   }
   label(
-    "ARC",
+    "Agent Remote Control",
     width / 2,
     height - 24,
     11,

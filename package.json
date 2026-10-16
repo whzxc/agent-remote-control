@@ -1,13 +1,14 @@
 {
-  "name": "arc-remote",
+  "name": "agent-remote-control",
   "version": "0.0.0",
-  "description": "ARC — Agent Remote Control",
+  "description": "Agent Remote Control",
   "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=24.12.0"
   },
   "scripts": {
+    "brand": "node tooling/brand.mjs",
     "check": "tsc --noEmit -p ui/tsconfig.json",
     "build": "vite build --config vite.config.ts && node tooling/build-native.mjs",
     "cache:prune": "node tooling/prune-build-cache.mjs",
@@ -54,11 +55,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/whzxc/arc-remote.git"
+    "url": "git+https://github.com/whzxc/agent-remote-control.git"
   },
-  "homepage": "https://github.com/whzxc/arc-remote#readme",
+  "homepage": "https://github.com/whzxc/agent-remote-control#readme",
   "bugs": {
-    "url": "https://github.com/whzxc/arc-remote/issues"
+    "url": "https://github.com/whzxc/agent-remote-control/issues"
   },
   "keywords": [
     "chatgpt",

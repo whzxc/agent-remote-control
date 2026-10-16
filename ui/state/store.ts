@@ -99,3 +99,5 @@ export function preference<T>(
 }
 
 export const notificationsPreference = preference("notifications",true, value => value !== "off", value => value ? "on" : "off");
+
+export const mascotPreference = preference("mascot", false, value => value === "on", value => value ? "on" : "off");

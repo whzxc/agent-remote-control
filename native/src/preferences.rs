@@ -5,7 +5,7 @@ fn lock() -> &'static std::sync::Mutex<()> {
     &LOCK
 }
 pub fn defaults() -> Value {
-    json!({"theme":"system","theme-color":"forest","language":"auto","notifications":"on","update-auto-check":"on","update-auto-download":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","usage-periods":"[\"today\",\"yesterday\",\"last7\",\"last30\"]","agents-max-visible":"4"})
+    json!({"theme":"system","theme-color":"forest","language":"auto","notifications":"on","mascot":"off","update-auto-check":"on","update-auto-download":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","usage-periods":"[\"today\",\"yesterday\",\"last7\",\"last30\"]","agents-max-visible":"4"})
 }
 fn stored() -> Value {
     load(&root().join("ui-preferences.json")).unwrap_or(json!({"values":{},"imported":false}))

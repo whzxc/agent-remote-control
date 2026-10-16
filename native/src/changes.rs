@@ -1,4 +1,4 @@
-//! Per-turn Git baselines, shared by Desktop and Connector submissions.
+//! Per-turn Git baselines, shared by Desktop and Agent Remote Control submissions.
 use crate::*;
 async fn git(cwd: &str, args: &[&str]) -> Result<String> {
     projects::git(cwd, args.iter().map(|s| (*s).into()).collect()).await

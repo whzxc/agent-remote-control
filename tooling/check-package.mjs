@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { toolFingerprint } from './catalog.mjs';
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-const root = process.argv[2] || 'target/aarch64-apple-darwin/release/bundle/macos/ARC Remote.app';
+const root = process.argv[2] || 'target/aarch64-apple-darwin/release/bundle/macos/Agent Remote Control.app';
 const catalog = JSON.parse(await readFile(new URL('../native/src/catalog.json', import.meta.url), 'utf8'));
 toolFingerprint(catalog.tools);
 let bytes = 0;
@@ -19,7 +19,7 @@ async function inspect(dir) {
 await inspect(root);
 if (process.platform === 'darwin' && root.endsWith('.app')) {
   const resources = path.join(root, 'Contents', 'Resources');
-  const native = path.join(resources,'bin/arc-remote');
+  const native = path.join(resources,'bin/arc');
   const version = buildVersion();
   const appVersion = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
   if (appVersion !== version) throw new Error('安装包版本与构建版本不一致。');

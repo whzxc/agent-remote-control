@@ -1,4 +1,4 @@
-# ARC — Agent Remote Control
+# Agent Remote Control（ARC）
 
 ARC supports concurrent ingress for multiple MCP control sources. OpenAI Tunnel and HTTPS (Cloudflare, ngrok, Pinggy, LocalXpose, custom domain) share one Core and task namespace. Configure per-ingress authentication, tool policy and lifecycle with `cli ingress`; see [Codex setup](docs/codex-setup.md).
 
@@ -10,7 +10,7 @@ ARC did not start as an attempt to give ChatGPT a bigger tool list. It grew out 
 
 ![ARC home screen connecting multiple control sources and coding agents](docs/images/home-overview.png)
 
-## Why I built ARC
+## Why I built Agent Remote Control
 
 ### Stage 1 — Let Chat see what is true now
 
@@ -56,7 +56,7 @@ Codex remains the default, with its native capabilities preserved. External Agen
 Linux runs `native/` without Tauri or Codex Desktop. Codex tasks use the installed Codex CLI app-server. No GUI or screen capture is included.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/whzxc/arc-remote/main/tooling/install-arc-remote.sh | sh
+curl -fsSL https://raw.githubusercontent.com/whzxc/agent-remote-control/main/tooling/install-agent-remote-control.sh | sh
 ```
 
 Use a release containing Linux tarballs, or build from source. See [Linux installation and usage](docs/linux.md) for exact build commands, `start / stop / status`, token/provider/port configuration, the `/mcp` bearer-authenticated HTTP endpoint, and `systemd --user` with `loginctl enable-linger`.
@@ -65,11 +65,11 @@ Use a release containing Linux tarballs, or build from source. See [Linux instal
 
 | How you want to use ARC | Start here |
 | --- | --- |
-| Inside ChatGPT Desktop on this computer | [Independent plugins](docs/plugin.md); no Tunnel or Connector Desktop required |
+| Inside ChatGPT Desktop on this computer | [Independent plugins](docs/plugin.md); no Tunnel or Agent Remote Control Desktop required |
 | Tray, floating panels and connection settings | [Desktop installation](docs/installation.md) |
 | Access this computer from Web, mobile or another device | [Remote ingress](docs/tunnel.md); separate authentication and connection setup required |
 
-Available downloads are the actual assets on [GitHub Releases](https://github.com/whzxc/arc-remote/releases). Plugin and desktop updates are separate; use the same native build when sharing state.
+Available downloads are the actual assets on [GitHub Releases](https://github.com/whzxc/agent-remote-control/releases). Plugin and desktop updates are separate; use the same native build when sharing state.
 
 ## Releases
 
@@ -84,7 +84,7 @@ For local plugin use, follow the plugin guide above. The following workflow is f
 Send the following message to Codex on the target computer. It checks existing progress and handles installation, configuration, troubleshooting, and verification. You can provide a signed-in ChatGPT browser session for it to operate. You only need to handle steps that require your identity or confirmation, or that its tools cannot reliably complete. The default connection uses the official OpenAI Secure MCP Tunnel.
 
 ```text
-Install, configure, and fully verify ARC on this computer. Default to the official Secure MCP Tunnel, preserve any working Tunnel / HTTPS configuration, and do not introduce a ARC cloud service or public relay. Check the installation first and read cli help, cli guide, and cli doctor. If the CLI is unavailable, read https://github.com/whzxc/arc-remote/blob/main/docs/codex-setup.md and follow the actual installed release.
+Install, configure, and fully verify ARC on this computer. Default to the official Secure MCP Tunnel, preserve any working Tunnel / HTTPS configuration, and do not introduce a ARC cloud service or public relay. Check the installation first and read cli help, cli guide, and cli doctor. If the CLI is unavailable, read https://github.com/whzxc/agent-remote-control/blob/main/docs/codex-setup.md and follow the actual installed release.
 Complete all automatable steps. If I provide a signed-in ChatGPT page or browser environment, use the available browser / GUI / Computer Use tools on the visible page: check Developer Mode, reuse or create a custom MCP connection, enter its details, refresh tools, and select it. Do not just give me instructions. Do not use private APIs, extract cookies, run fixed DOM scripts, or bypass security controls.
 Read URLs, Tunnel ID, configuration, and verification messages from cli onboarding / status without asking me to copy values already on this computer. Configure existing secure local credentials through stdin. Ask me to enter missing keys directly in the app, never in chat. Pause only for required sign-in, identity confirmation, authorization, verification codes, administrator access, or a step the available tools cannot reliably perform. Explain the exact blocker and the minimum action, then continue.
 Call connector_verify from ChatGPT and check the current code, tool result, and local challengeVerifiedAt. Then run a harmless Codex task over the same connection: do not call tools or read or modify files; only reply ARC_ONBOARDING_OK. Read the persistent receipt, native threadId / turnId, and completed output. Read back unknown states with the original requestId instead of submitting again. Report separate evidence for local readiness, ChatGPT inbound access, and task completion. Opening a page or reaching Tunnel ready is not proof of successful setup.
@@ -98,13 +98,13 @@ The [Codex setup and CLI guide](docs/codex-setup.md) covers configuration and di
 
 Choose Auto / English / 简体中文 in **Settings → General → Language**. Auto follows your system or browser language, falling back to English for unsupported languages. A manual selection takes priority, is saved, and takes effect immediately. Like the theme, this preference belongs to the current WebView/browser; it does not affect MCP tools, task content, or protocols.
 
-After setup, keep the computer online, Desktop available, and Connector connected. Connecting at sign-in is optional. Closing the window leaves the connection running; the shared backend stops after its last local Connector client exits. On macOS, **Settings → General → Show app in** offers All, Menu bar only, or Dock only. Changes apply immediately and are saved automatically.
+After setup, keep the computer online, Desktop available, and Agent Remote Control connected. Connecting at sign-in is optional. Closing the window leaves the connection running; the shared backend stops after its last local Agent Remote Control client exits. On macOS, **Settings → General → Show app in** offers All, Menu bar only, or Dock only. Changes apply immediately and are saved automatically.
 
 `agent_wait` supports Pi, all built-in ACP Agents, and Custom ACP while the local connection is running; `codex_wait` preserves native semantics. Use the corresponding read/events tools for history and events. An ordinary Chat response does not keep waiting after it ends; these tools provide neither scheduled wakeups nor proactive push notifications. See [task waiting](docs/tools.md#任务等待).
 
 ### Responsibilities and boundaries
 
-**Automatically open Codex tasks** is enabled by default: Desktop owns and runs new tasks. When disabled, Connector runs new tasks in the background without opening Desktop, and Desktop control of those tasks is not guaranteed. The setting affects only new tasks; existing tasks retain their execution owner. Closing the last Core client stops Connector-owned execution but does not actively interrupt Desktop-owned tasks. Unknown states are not shown as idle.
+**Automatically open Codex tasks** is enabled by default: Desktop owns and runs new tasks. When disabled, Agent Remote Control runs new tasks in the background without opening Desktop, and Desktop control of those tasks is not guaranteed. The setting affects only new tasks; existing tasks retain their execution owner. Closing the last Core client stops Agent Remote Control-owned execution but does not actively interrupt Desktop-owned tasks. Unknown states are not shown as idle.
 
 Connections are not restricted by Codex Desktop version numbers. Availability depends on the actual IPC handshake and support for each operation. Private protocols can change with Desktop updates; a successful connection does not guarantee compatibility with every operation.
 
@@ -123,7 +123,7 @@ Documentation:
 
 - [Installation and updates](docs/installation.md)
 - [Release maintenance](docs/release.md)
-- [Changelog](https://github.com/whzxc/arc-remote/releases)
+- [Changelog](https://github.com/whzxc/agent-remote-control/releases)
 - [Development and builds](docs/development.md)
 - [Desktop lifecycle](docs/desktop.md)
 - [MCP tools and task boundaries](docs/tools.md)

@@ -1,12 +1,12 @@
 # 本地 Agents
 
-ARC 支持 Codex Native、Pi RPC 和 OpenCode ACP。Agents 面板自动发现可执行文件、版本和连接方式，不保存或要求重复填写 provider/token。Codex 初始排序在首位，可关闭并调整排序；Codex 使用 codex_*，非 Codex 任务显式选择 agent_* 的 `agent`，不接受 codex。
+Agent Remote Control（ARC） 支持 Codex Native、Pi RPC 和 OpenCode ACP。Agents 面板自动发现可执行文件、版本和连接方式，不保存或要求重复填写 provider/token。Codex 初始排序在首位，可关闭并调整排序；Codex 使用 codex_*，非 Codex 任务显式选择 agent_* 的 `agent`，不接受 codex。
 
 Agents 面板用卡片展示图标、名称和已安装版本，未安装项显示“未安装”。每张卡片的图标、标题与开关同排展示，不显示拖拽标识；拖拽卡片可排序，也可聚焦卡片后用方向键调整。顺序保存在本机，首页只显示已安装且启用的 Agent，默认最多 4 个；Agents 设置的“外观”组可调整为 4、6、8、10 个。展示名称按品牌归类，例如 Cursor、Antigravity、Grok；底层执行标识与协议保持独立。标题栏的“刷新”按钮更新本机发现结果，标题旁的设置按钮打开外观、额度和用量设置；这与 Agent 管理开关是两个入口。非 Codex Agent 的开关控制 ARC 是否接受该 Agent 的任务请求；关闭后新的 `agent_*` 调用返回 `AGENT_DISABLED`，不会卸载 Agent、修改其配置或终止已执行的任务。Codex 专用 `codex_*` 入口保持独立。开关保存在本机，重启后仍生效；本机管理接口 `PUT /api/agents` 接收 `{ "agent": "codex", "enabled": false }`。
 
 | Agent | 连接方式 | 配置与执行归属 | 能力边界 |
 | --- | --- | --- | --- |
-| Codex | App Server + Desktop IPC | 继承 Codex；按现有设置由 Desktop 或 Connector 执行 | 使用 `codex_*` 入口，高级能力通过全部/自定义工具列表开启 |
+| Codex | App Server + Desktop IPC | 继承 Codex；按现有设置由 Desktop 或 Agent Remote Control 执行 | 使用 `codex_*` 入口，高级能力通过全部/自定义工具列表开启 |
 | Pi | 官方 `pi --mode rpc` JSONL | 继承 Pi 配置、provider、model、扩展；ARC 管理子进程 | 使用 `agent_settled` 确认最终完成，需要提供该事件的 Pi 版本（本版适配 0.85.1）；交互通过 extension UI，非统一工具权限沙箱 |
 | OpenCode | 官方 `opencode acp`，ACP v1 JSON-RPC stdio | 继承 OpenCode 配置和登录；ARC 管理子进程 | 支持文本 prompt、流式更新、取消与权限响应；恢复要求 `loadSession` 能力 |
 
@@ -21,7 +21,7 @@ Agents 管理面板加载期间先显示 Codex 占位，读取完成后直接展
 | Agent / id | 启动命令 | 类型 | 认证归属与主要限制 | 实机覆盖 |
 | --- | --- | --- | --- | --- |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/acp-mode.md) / gemini | `gemini --acp` | native | Gemini CLI/provider；旧 `--experimental-acp` 已弃用；个人 Code Assist 登录不再服务 Gemini CLI | 0.53.1 启动与认证拒绝路径；无成功 prompt |
-| [Claude Code](https://github.com/agentclientprotocol/claude-agent-acp) / claude | `claude` + Connector 管理的 ACP 适配器 | adapter | ACP 项目维护的 `@agentclientprotocol/claude-agent-acp` 使用官方 Claude Agent SDK；独立 `claude` 不提供原生 ACP | adapter 0.79.0 握手、建会话与缺少认证失败路径；无成功 prompt |
+| [Claude Code](https://github.com/agentclientprotocol/claude-agent-acp) / claude | `claude` + Agent Remote Control 管理的 ACP 适配器 | adapter | ACP 项目维护的 `@agentclientprotocol/claude-agent-acp` 使用官方 Claude Agent SDK；独立 `claude` 不提供原生 ACP | adapter 0.79.0 握手、建会话与缺少认证失败路径；无成功 prompt |
 | [Cursor Agent](https://cursor.com/docs/cli/acp) / cursor | `agent acp`，同参数别名 `cursor-agent` | native | Cursor 登录/API token；同名 agent 必须通过 Cursor 身份检查；旧版没有 acp 时不可用 | 旧版本和同名非 Cursor 程序的发现拒绝；未做 prompt |
 | [Grok Build / Grok CLI](https://docs.x.ai/build/cli/reference) / grok | `grok agent stdio` | native | 官方 Grok 登录/XAI provider；不适用于同名社区 CLI | 1.0.25 创建、wait、最终输出、send、跨进程 load、cancel；无害命令未触发权限请求 |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server) / copilot | `copilot --acp --stdio` | native | Copilot 登录或 BYOK；ACP 仍是 public preview；不是 Copilot language server | 静态与未安装状态 |
@@ -44,9 +44,9 @@ Agents 管理面板加载期间先显示 Codex 占位，读取完成后直接展
 
 Gemini/Qwen/Cline 的 npm 安装需要各自版本要求的 Node；Kimi/Hermes 使用自身 Python 环境；Grok、Cursor、Kiro、Devin 和 Junie 使用官方安装提供的运行环境。Copilot 可以使用独立二进制或 npm 安装。ARC 不把发现 npx/node/bun 当成发现 Agent。
 
-Claude Code 使用 Connector 管理的 ACP 适配器。用户安装并登录 Claude Code 后，在 Agents 中启用 Claude；首次启用会后台下载固定版本的适配器及私有 Bun 运行时，使用 SHA-512 校验，并在启动探测通过后原子激活。无需全局 Node、npm 或 `claude-agent-acp`，也不重复下载 SDK 的 Claude 原生程序。适配器通过 `CLAUDE_CODE_EXECUTABLE` 复用已发现的 Claude，认证和 provider 配置仍归 Claude 管理。
+Claude Code 使用 Agent Remote Control 管理的 ACP 适配器。用户安装并登录 Claude Code 后，在 Agents 中启用 Claude；首次启用会后台下载固定版本的适配器及私有 Bun 运行时，使用 SHA-512 校验，并在启动探测通过后原子激活。无需全局 Node、npm 或 `claude-agent-acp`，也不重复下载 SDK 的 Claude 原生程序。适配器通过 `CLAUDE_CODE_EXECUTABLE` 复用已发现的 Claude，认证和 provider 配置仍归 Claude 管理。
 
-组件保存在 ARC 数据目录的 `dependencies/claude-acp/<version>`，按 Connector 内置清单随版本更新；支持 macOS / Windows 的 ARM64、x64。下载使用应用的网络代理配置，不执行 npm 安装脚本。普通发现和刷新不会下载；启用后显示准备状态，失败后重新启用可重试，未完成的安装不会被任务使用。关闭开关会取消当前准备，不卸载已完成组件；退出应用也取消未完成准备。升级后组件清单变化时需要再次启用以准备新版本，既有版本保留供正在运行的会话使用；下次 Core 启动、尚未创建 Agent 进程时删除已完成安装的旧版本。
+组件保存在 ARC 数据目录的 `dependencies/claude-acp/<version>`，按 Agent Remote Control 内置清单随版本更新；支持 macOS / Windows 的 ARM64、x64。下载使用应用的网络代理配置，不执行 npm 安装脚本。普通发现和刷新不会下载；启用后显示准备状态，失败后重新启用可重试，未完成的安装不会被任务使用。关闭开关会取消当前准备，不卸载已完成组件；退出应用也取消未完成准备。升级后组件清单变化时需要再次启用以准备新版本，既有版本保留供正在运行的会话使用；下次 Core 启动、尚未创建 Agent 进程时删除已完成安装的旧版本。
 
 Claude 的 `installed`、`path`、`version` 描述本机 Claude Code；`available` 还要求适配器就绪，`adapter.state` 区分 missing、preparing、ready、failed。适配器就绪只表示可以尝试建立会话，不保证 Claude 已登录、额度或模型服务可用。
 

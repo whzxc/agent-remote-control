@@ -164,7 +164,7 @@ export function setAutoDownload(value: boolean) {
 export async function openDownloads() {
   try {
     await openUrl(
-      "https://github.com/whzxc/arc-remote/releases/latest",
+      "https://github.com/whzxc/agent-remote-control/releases/latest",
     );
   } catch (e) {
     patch({ error: t("unableToOpenDownloadsValue", { error: String(e) }) });

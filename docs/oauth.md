@@ -1,6 +1,6 @@
 # OAuth authentication
 
-An HTTPS ingress can use `auth: "oauth"`. ARC includes an authorization server; no external identity provider or account database is required. Secure Tunnel and static Bearer authentication remain separate options.
+An HTTPS ingress can use `auth: "oauth"`. Agent Remote Control（ARC） includes an authorization server; no external identity provider or account database is required. Secure Tunnel and static Bearer authentication remain separate options.
 
 ## Connect
 
@@ -52,4 +52,4 @@ Use the installed executable's CLI. Sensitive input goes through stdin, and the 
 
 Read the pending request and its client/callback/resource before deciding. CLI decisions use the existing authenticated local management channel; do not expose it publicly. After an unknown write outcome, read the same request instead of creating another one. App/CLI authorization does not substitute for real client tool and task acceptance.
 
-Reconnecting an ingress at the same MCP URL preserves its OAuth grants. Clients can reuse their access token or obtain a new one with their refresh token, without a new registration or consent. A client-side reconnect that performs dynamic registration again creates a distinct client identity and requires consent; matching display names or callback URLs do not prove it is the previously authorized client. Connector cannot recover credentials discarded by the client. Changing the resource URL or revoking access requires a new authorization.
+Reconnecting an ingress at the same MCP URL preserves its OAuth grants. Clients can reuse their access token or obtain a new one with their refresh token, without a new registration or consent. A client-side reconnect that performs dynamic registration again creates a distinct client identity and requires consent; matching display names or callback URLs do not prove it is the previously authorized client. Agent Remote Control cannot recover credentials discarded by the client. Changing the resource URL or revoking access requires a new authorization.

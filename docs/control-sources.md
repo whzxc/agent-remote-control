@@ -2,7 +2,7 @@
 
 Nine curated presets plus Custom. Other MCP clients use Custom. Presets describe client capabilities, not completed client verification or separate protocols/services. Multiple entries of the same type are allowed; ingress.id is the identity.
 
-| Control source | Remote MCP | Recommended transport | Recommended auth | ARC availability | Caveat / official docs |
+| Control source | Remote MCP | Recommended transport | Recommended auth | Agent Remote Control（ARC） availability | Caveat / official docs |
 | --- | --- | --- | --- | --- | --- |
 | ChatGPT | Supported | openai-tunnel | openai | supported | Prefer Secure Tunnel. HTTPS also supports OAuth with local app consent via clc:// or authenticated CLI consent. Tunnel access and client developer-mode permissions are separate. [Official 1](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) / [Official 2](https://developers.openai.com/api/docs/guides/developer-mode) |
 | Claude | Supported | https | oauth | conditional | OAuth uses local app consent via clc:// or authenticated CLI consent and DCR or preregistered client credentials. Organization static-header beta can still use Bearer. Verify the client registration flow. [Official 1](https://claude.com/docs/connectors/building) / [Official 2](https://claude.com/docs/connectors/building/authentication) |

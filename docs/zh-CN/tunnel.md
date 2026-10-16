@@ -10,7 +10,7 @@
 
 ## HTTPS MCP
 
-新增或编辑控制源时选择 HTTPS MCP，再选择接入方式。每个入口可独立选择 **无需认证**、**Bearer** 或 **OAuth**；应根据目标客户端与 ARC 的共同支持范围选择，详见[控制源支持矩阵](control-sources.md)。OAuth 使用 ARC 本机授权服务和所有者确认，详见 [OAuth 认证](../oauth.md)。本项目不提供托管中继。
+新增或编辑控制源时选择 HTTPS MCP，再选择接入方式。每个入口可独立选择 **无需认证**、**Bearer** 或 **OAuth**；应根据目标客户端与 Agent Remote Control（ARC） 的共同支持范围选择，详见[控制源支持矩阵](control-sources.md)。OAuth 使用 ARC 本机授权服务和所有者确认，详见 [OAuth 认证](../oauth.md)。本项目不提供托管中继。
 
 | 接入方式 | 必填内容 | 应用处理 | 使用边界 |
 | --- | --- | --- | --- |

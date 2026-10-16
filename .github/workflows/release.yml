@@ -45,17 +45,17 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           cargo clippy --manifest-path native/Cargo.toml --locked --target "$TARGET"
-          cargo build --manifest-path native/Cargo.toml --locked --release --bin arc-remote --target "$TARGET"
+          cargo build --manifest-path native/Cargo.toml --locked --release --bin arc --target "$TARGET"
       - name: Package Linux tarball
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           TARGET: ${{ matrix.target }}
           ARCH: ${{ matrix.arch }}
         run: |
-          test "v$(target/$TARGET/release/arc-remote --version)" = "$RELEASE_TAG"
+          test "v$(target/$TARGET/release/arc --version)" = "$RELEASE_TAG"
           mkdir -p linux-package linux-artifacts
-          cp "target/$TARGET/release/arc-remote" LICENSE linux-package/
-          tar -czf "linux-artifacts/arc-remote-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc-remote LICENSE
+          cp "target/$TARGET/release/arc" LICENSE linux-package/
+          tar -czf "linux-artifacts/agent-remote-control-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
@@ -137,9 +137,9 @@ jobs:
           node tooling/release.mjs merge-windows release-artifacts
       - name: Add Linux installer and verify all checksums
         run: |
-          cp tooling/install-arc-remote.sh release-artifacts/install-arc-remote.sh
+          cp tooling/install-agent-remote-control.sh release-artifacts/install-agent-remote-control.sh
           cd release-artifacts
-          shasum -a 256 install-arc-remote.sh >> SHA256SUMS.txt
+          shasum -a 256 install-agent-remote-control.sh >> SHA256SUMS.txt
           shasum -a 256 -c SHA256SUMS.txt
       - name: Publish
         env:
@@ -151,5 +151,5 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --draft --verify-tag --notes-file release-artifacts/release-notes.md
           fi
-          gh release upload "$RELEASE_TAG" release-artifacts/*.dmg release-artifacts/*.exe release-artifacts/*.gz release-artifacts/*.sig release-artifacts/latest.json release-artifacts/SHA256SUMS.txt release-artifacts/arc-remote.rb release-artifacts/release-notes.md release-artifacts/install-arc-remote.sh --clobber
+          gh release upload "$RELEASE_TAG" release-artifacts/*.dmg release-artifacts/*.exe release-artifacts/*.gz release-artifacts/*.sig release-artifacts/latest.json release-artifacts/SHA256SUMS.txt release-artifacts/agent-remote-control.rb release-artifacts/release-notes.md release-artifacts/install-agent-remote-control.sh --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file release-artifacts/release-notes.md

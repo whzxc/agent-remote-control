@@ -1135,3 +1135,12 @@
 .task-document-meta > time { flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right; }
 
 @media (max-width: 600px) { .sheet-header { padding-left: 16px; } }
+
+.graph-brand {
+  position: relative;
+  z-index: 20;
+  width: calc(var(--graph-ring-radius, 130px) * 1.1);
+  height: calc(var(--graph-ring-radius, 130px) * 1.1);
+  object-fit: contain;
+  user-select: none;
+}

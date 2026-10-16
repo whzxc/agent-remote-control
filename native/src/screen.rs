@@ -1,4 +1,4 @@
-//! macOS UI operations run under Connector, never under Codex app-server.
+//! macOS UI operations run under Agent Remote Control, never under Codex app-server.
 use crate::*;
 
 pub async fn call(args: Value) -> Result<Value> {

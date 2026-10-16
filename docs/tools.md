@@ -29,11 +29,11 @@ edit 依次在内存中应用 edits。oldText 不可为空，未找到或匹配�
 
 ## 轮次改动
 
-codex_changes 接收 threadId、可选 turnId（默认最近一轮）、limit，以及可选 path/offset/length。Connector 提交新轮次前记录目录 HEAD 和 dirty，Desktop 与后台提交共用此记录；steer 保留同一轮次起点。返回起点以来可达的新提交（sha、标题）、相对起点 HEAD 的当前 diff 文件及增删行统计，包含未跟踪文件。指定 path 时按 UTF-16 offset/length 分页返回 diff；未指定 path 时 offset/limit 分页提交。文件统计中的 null 增删行表示二进制或不可读取。
+codex_changes 接收 threadId、可选 turnId（默认最近一轮）、limit，以及可选 path/offset/length。Agent Remote Control（ARC） 提交新轮次前记录目录 HEAD 和 dirty，Desktop 与后台提交共用此记录；steer 保留同一轮次起点。返回起点以来可达的新提交（sha、标题）、相对起点 HEAD 的当前 diff 文件及增删行统计，包含未跟踪文件。指定 path 时按 UTF-16 offset/length 分页返回 diff；未指定 path 时 offset/limit 分页提交。文件统计中的 null 增删行表示二进制或不可读取。
 
 没有起点的历史或外部轮次、起点不可读或目录变化时，返回 fallback=true，退化为最近 limit 个提交和当前工作区相对 HEAD 的改动。已有 dirty 修改会包含在比较中，结果不宣称改动只属于该任务。查询反映当前工作区，不冻结终态文件快照。
 
-## Connector 日志
+## Agent Remote Control 日志
 
 logs 读取保留的 Core 日志及已接入的 app-server stderr，按时间倒序。since 使用 RFC3339 时间，level 精确过滤，grep 是固定字符串；limit 控制页长，cursor 续页。日志沿用 7 天、16 MiB 保留策略；cursor 已过期时 gap=true。stderr 沿用现有采样限制。
 
@@ -94,12 +94,12 @@ mcp 的 list 可携带 threadId 读取线程上下文中的目录；tool/call �
 使用已有线程，不隐式创建或续接线程。服务名、工具名、arguments、_meta 完整透传；下游不可用或不支持时返回原生错误。
 oauth/login 返回原生登录结果，认证仍由原生完成；订阅启动/停止的 mutation 使用现有 requestId 回执。
 
-当前支持的任务操作为创建、读取、续接、追加输入和中断。Desktop 任务的其他 `thread/`、`turn/` 扩展操作由连接器明确拒绝，需在 Desktop 中完成；原生 Schema 中存在某方法不代表 Connector 支持调用。账号结果直接来自 App Server。
+当前支持的任务操作为创建、读取、续接、追加输入和中断。Desktop 任务的其他 `thread/`、`turn/` 扩展操作由连接器明确拒绝，需在 Desktop 中完成；原生 Schema 中存在某方法不代表 Agent Remote Control 支持调用。账号结果直接来自 App Server。
 
 ## 参数与默认行为
 
 `codex_create` 的 project 接受 Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需指定具体目录，也可以省略。
-`thread` 透传 ThreadStartParams，`turn` 透传 TurnStartParams；`codex_send` 的 `resume` 仅对 Connector 后台任务透传；Desktop 任务忽略该字段。`codex_call thread/resume` 对 Desktop 任务返回 resumed=false 与 desktop-resume-ignored，不在 Connector app-server 加载任务。输入使用 `prompt` 或完整原生 `input` 数组；两者同时提供时 input 优先。
+`thread` 透传 ThreadStartParams，`turn` 透传 TurnStartParams；`codex_send` 的 `resume` 仅对 Agent Remote Control 后台任务透传；Desktop 任务忽略该字段。`codex_call thread/resume` 对 Desktop 任务返回 resumed=false 与 desktop-resume-ignored，不在 Agent Remote Control app-server 加载任务。输入使用 `prompt` 或完整原生 `input` 数组；两者同时提供时 input 优先。
 thread/turn 中的原生参数优先于便利字段；任务 ID 与 input 由顶层字段统一确定。
 
 省略参数时使用原生宿主或已有任务设置。MCP 不强制 approvalPolicy=never、网络关闭、
@@ -163,15 +163,15 @@ control_output 每页最多 12000 个 UTF-16 code units，拼接所有 text 后�
 写入原生 RPC 默认超时 24 小时，可通过 timeoutMs 指定；超时不等于操作取消，不自动重放。
 completed 是控制操作完成，任务完成需要检查对应轮次终态。
 
-桌面任务执行归 Desktop 所有，Connector 通过本机版本化协调 IPC 管理，不接管其 app-server。
-关闭「自动打开 Codex 任务」后，新任务归 Connector 的 App Server 后台执行，读取、续接和中断按持久化的任务归属路由。后台任务不保证可在 Desktop 中操作。没有执行方实时状态时 runtimeStatus 为 unknown，不表示空闲。
-桌面快照自接收起保留 4 秒，过期后重新发现 owner 并 follow/wait；owner 变化、断连及重连不会沿用旧缓存。Desktop send 先调用轻量 read(thread, false)，从返回快照中查找 inProgress 轮次并选择 steer/start；读取失败才回退为空状态。新 turn/start 在提交前用已知目录记录 Git 起点，steer 沿用已有轮次；不为基线加载完整历史。Connector 后台任务 active 时额外查询最新一轮（降序 limit=1），inProgress 则 steer；turn/start 仅在 notLoaded 时自动 resume。
+桌面任务执行归 Desktop 所有，Agent Remote Control 通过本机版本化协调 IPC 管理，不接管其 app-server。
+关闭「自动打开 Codex 任务」后，新任务归 Agent Remote Control 的 App Server 后台执行，读取、续接和中断按持久化的任务归属路由。后台任务不保证可在 Desktop 中操作。没有执行方实时状态时 runtimeStatus 为 unknown，不表示空闲。
+桌面快照自接收起保留 4 秒，过期后重新发现 owner 并 follow/wait；owner 变化、断连及重连不会沿用旧缓存。Desktop send 先调用轻量 read(thread, false)，从返回快照中查找 inProgress 轮次并选择 steer/start；读取失败才回退为空状态。新 turn/start 在提交前用已知目录记录 Git 起点，steer 沿用已有轮次；不为基线加载完整历史。Agent Remote Control 后台任务 active 时额外查询最新一轮（降序 limit=1），inProgress 则 steer；turn/start 仅在 notLoaded 时自动 resume。
 
 桌面 Thread/Turn 查询是 owner 快照的明确投影；显示层 steeringUserMessage 等 item 可能不同于公开 App Server union。
 兼容性边界和支持的任务写操作见 [桌面说明](desktop.md)，未支持的方法明确拒绝；不使用受签名保护的 app-tools 管道、不绕过账号和系统权限。
 跨设备不是自动路由能力；可通过原生命令在用户已有 SSH 环境中执行明确的远端操作。
 
-停止入口只停止该入口的 Tunnel 和转发；退出 Core 才停止 App Server 和 Connector 后台任务；界面保持可用，Desktop 自行管理其任务生命周期。
+停止入口只停止该入口的 Tunnel 和转发；退出 Core 才停止 App Server 和 Agent Remote Control 后台任务；界面保持可用，Desktop 自行管理其任务生命周期。
 重启后旧提交中回执标记 unconfirmed，不自动重放；尚未提交的待审批请求继续保留。
 事件缓冲最多保留最近 2000 条或 8 MiB，gap/reset 明确报告缺口；完整已落盘结果应从原生任务/回执读取。
 Chat 页面不会因任务完成自动被唤醒，交互请求也需要调用方主动查询。
@@ -181,13 +181,13 @@ Chat 页面不会因任务完成自动被唤醒，交互请求也需要调用方
 
 stdio 仅为传输代理，使用父进程传入的本机端口与随机凭据连接应用内的 Rust 核心。stdio 退出不会销毁应用内核心。工具调用产生本机活动日志，来源缺失时不推测 Chat ID。
 
-`codex_events` 只提供当前连接的有界内存事件窗口，不创建磁盘归档；返回 `retention: memory-window`。任务历史通过 `codex_read` / `codex_items` 从原生 Codex 读取。请求回执与任务关联独立持久化；Connector 自己管理的 Pi/ACP 输出通过 `agent_events.persistedOutput.outputId` 和 `control_output` 读取归档。
+`codex_events` 只提供当前连接的有界内存事件窗口，不创建磁盘归档；返回 `retention: memory-window`。任务历史通过 `codex_read` / `codex_items` 从原生 Codex 读取。请求回执与任务关联独立持久化；Agent Remote Control 自己管理的 Pi/ACP 输出通过 `agent_events.persistedOutput.outputId` 和 `control_output` 读取归档。
 
 原生进程、文件监听和订阅句柄属于当前 App Server 连接；断线后不自动重建。旧会话的审批响应会被拒绝，未确认的写操作不自动重放。
 
 ## 可选任务审批与记录
 
-Connector 设置页的任务审批模式只决定新任务管理请求是否默认等待确认，不是权限门槛。用户意图优先：创建、续接、中断以及等价的 `codex_call` 任务请求可传 `approval: "approved"` 表示已确认，或 `approval: "bypass"` 声明直接执行；省略或 `default` 遵循本机设置。其他文件、命令等工具不受此任务审批模式影响，Codex 原生执行权限与回调审批保持独立。
+Agent Remote Control 设置页的任务审批模式只决定新任务管理请求是否默认等待确认，不是权限门槛。用户意图优先：创建、续接、中断以及等价的 `codex_call` 任务请求可传 `approval: "approved"` 表示已确认，或 `approval: "bypass"` 声明直接执行；省略或 `default` 遵循本机设置。其他文件、命令等工具不受此任务审批模式影响，Codex 原生执行权限与回调审批保持独立。
 
 等待时立即返回 `state: "awaiting-approval"` 和原 requestId，尚不提交任务。云端可按用户意图调用：
 
@@ -197,13 +197,13 @@ receipt {"requestId":"<原请求 UUID>","action":"bypass"}
 receipt {"requestId":"<原请求 UUID>","action":"reject"}
 ```
 
-本机任务页也可批准或拒绝。批准、绕过后 Connector 自动提交已保存的原请求，不需要重新创建。重复决定仅回读当前回执；已提交、已拒绝或结果未确认的请求不会重放。`receipt` 省略 action 或传 `read` 只查询结果。初次请求的 approval 属于参数摘要；推进已等待的请求使用上述 action，不修改原参数后重发。
+本机任务页也可批准或拒绝。批准、绕过后 Agent Remote Control 自动提交已保存的原请求，不需要重新创建。重复决定仅回读当前回执；已提交、已拒绝或结果未确认的请求不会重放。`receipt` 省略 action 或传 `read` 只查询结果。初次请求的 approval 属于参数摘要；推进已等待的请求使用上述 action，不修改原参数后重发。
 
 模式可在连接期间切换，仅影响之后的新请求，已等待的请求保留。待审批请求跨应用重启保留；提交中断且结果不明的请求标记 unconfirmed，需检查原生状态。
 
-任务页展示此 Connector 记录的请求，按原生任务 ID 汇总创建、续接和中断，按创建时间倒序排列内容自适应高度的瀑布流文档卡片，展示标题、项目、模型、推理等级、创建时间、当前状态及 Prompt 预览；点击卡片平滑放大到窗口中央，查看完整 Prompt 和请求记录。关闭按钮、Esc 或点击背景可缩回卡片；未归档任务的详情中也可打开 Codex，已归档任务显示归档状态并隐藏打开按钮。Prompt、请求模型、推理等级和项目来自持久化请求；未提供的配置不显示，不冒充实际执行配置。原生覆盖参数与 input 优先级反映在详情中。任务列表读取全部已持久化的任务回执，不限定当前连接或轮次；已有回执也纳入列表，未保存的 Prompt、配置和未知运行状态不显示，不扫描会话 JSONL 补造内容。
+任务页展示此 Agent Remote Control 记录的请求，按原生任务 ID 汇总创建、续接和中断，按创建时间倒序排列内容自适应高度的瀑布流文档卡片，展示标题、项目、模型、推理等级、创建时间、当前状态及 Prompt 预览；点击卡片平滑放大到窗口中央，查看完整 Prompt 和请求记录。关闭按钮、Esc 或点击背景可缩回卡片；未归档任务的详情中也可打开 Codex，已归档任务显示归档状态并隐藏打开按钮。Prompt、请求模型、推理等级和项目来自持久化请求；未提供的配置不显示，不冒充实际执行配置。原生覆盖参数与 input 优先级反映在详情中。任务列表读取全部已持久化的任务回执，不限定当前连接或轮次；已有回执也纳入列表，未保存的 Prompt、配置和未知运行状态不显示，不扫描会话 JSONL 补造内容。
 
-运行状态通过原生任务快照刷新并保存最后一次基本信息，不解析会话 JSONL；关闭页面、应用重启或无法刷新时，仍保留任务记录和最后一次状态及时间。卡片只显示 Codex 原生运行状态，不将 Connector 回执状态映射为任务状态；原生 idle 显示“空闲”，不代表用户工作目标已完成。任务正文保存在权限受限的本机状态目录，不写入连接日志或系统通知。
+运行状态通过原生任务快照刷新并保存最后一次基本信息，不解析会话 JSONL；关闭页面、应用重启或无法刷新时，仍保留任务记录和最后一次状态及时间。卡片只显示 Codex 原生运行状态，不将 Agent Remote Control 回执状态映射为任务状态；原生 idle 显示“空闲”，不代表用户工作目标已完成。任务正文保存在权限受限的本机状态目录，不写入连接日志或系统通知。
 
 ## 任务等待
 
@@ -227,7 +227,7 @@ create / send → 取得原 taskId/threadId、turnId → wait(timeoutMs=30000)
 
 timeout 或取消 wait 只释放本次等待，不终止、中断或重建源任务，也不应重新 create/send。续接时保留已返回的 turnId，以固定同一轮次；`expectedHash` 仅比较快照，不要求状态变化后才返回。`unconfirmed` 不代表任务失败，应先核实原任务和回执。
 
-ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能不同，因此统一使用有界 slice，不提供 per-client timeout 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。`codex_wait` 的 `timeoutMs` 最大为 90000，为远程网关留出余量；`agent_wait` 上限仍为 300000。OpenAI Tunnel stdio adapter 对两个 wait 工具的内部转发预算为 330 秒；HTTPS MCP 的请求头/请求体读取限时不限制等待执行时间。这些 ARC 预算无法延长外部客户端或代理的超时。
+ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能不同，因此统一使用有界 slice，不提供 per-client timeout 配置。普通 Chat / 通用 MCP Client 不推荐默认阻塞数分钟。`codex_wait` 的 `timeoutMs` 最大为 90000，为远程网关留出余量；`agent_wait` 上限仍为 300000。OpenAI Tunnel stdio adapter 对两个 wait 工具的内部转发预算为 330 秒；HTTPS MCP 的请求头/请求体读取限时不限制等待执行时间。这些 Agent Remote Control 预算无法延长外部客户端或代理的超时。
 
 输入是禁止额外属性的 object：
 
@@ -266,13 +266,13 @@ ChatGPT、Notion、Slack 及其他 MCP Client 的外层 Tool Call timeout 可能
 `finalResponse` 是选中轮次最近一条 assistant 输出，并不把 running 输出认定为最终交付；沿用条目的 textHash、UTF-16 offset/nextOffset，文本最多 6000 个 UTF-16 单位。余下内容通过 `codex_items` 读取，大结果沿用 `control_output` 分页。
 
 - completed / failed / cancelled 来自所选原生轮次；原生 interrupted 映射为 cancelled，recordedStatus 保留原值。
-- interaction-required 返回当前 Connector 原生 pending 的 id、responseId、method、params、backendSession；`codex_respond.id` 使用 responseId（保留原生数值/字符串 ID 的 JSON 编码）。不自动 approve。Desktop 通过 activeFlags 报告等待审批/输入时会立即退出，但其 IPC 不提供原生回调 ID；此时 interactionAction 指向 Desktop 处理，不伪造 ID。
+- interaction-required 返回当前 Agent Remote Control 原生 pending 的 id、responseId、method、params、backendSession；`codex_respond.id` 使用 responseId（保留原生数值/字符串 ID 的 JSON 编码）。不自动 approve。Desktop 通过 activeFlags 报告等待审批/输入时会立即退出，但其 IPC 不提供原生回调 ID；此时 interactionAction 指向 Desktop 处理，不伪造 ID。
 - timeout / deadline 仅代表这一次等待用尽时间；保留最后观察到的任务状态，不中断、不重发。继续等可再次调用 wait。
 - unconfirmed 表示本次无法确认，reason 区分 connection-closed、connector-shutdown、native-read-timeout、native-connect-timeout、runtime-owner-changed 等。运行状态 notLoaded/unknown、目标轮次不存在、状态矛盾也不会被当作成功或停止。单次原生读取或快照超时会在等待期限内继续重试；到期仍无法确认时返回 unconfirmed 和最近的读取超时原因，而不是用旧快照断言当前状态。断连、owner 变化及其他读取错误立即返回。observedAt 保留最后成功读取的时间，没有成功读取则为 null。
 
 等待固定使用实际运行连接，不在断线后重新启动/恢复任务。事件驱动唤醒并合并 250ms 内的流式通知，空闲每两秒回读原生状态；Desktop 重复的相同 revision 快照不会唤醒等待者，避免多个读取者互相触发回读；不依赖有限事件缓冲的连续 cursor。每个 wait 独立等待，不持有共享锁跨越网络读操作或等待。
 
-MCP notifications/cancelled 可取消对应 wait，返回 unconfirmed / wait-cancelled（若客户端仍接受响应），不会发送 turn/interrupt。当前无会话 MCP 入口要求并发等待使用唯一 JSON-RPC request ID，重复活跃 ID 会被拒绝。本地 HTTP 的 MCP 和 plugin/call 等待在读完请求体后显式监听 socket EOF/错误，断开即丢弃等待 future 并释放该 ingress 的 wait ID；stdio 关闭会断开转发连接。此行为不依赖 Hyper 自动丢弃 service future，不会中断源任务；Connector shutdown 通知等待者退出。连接已经关闭时无法向原调用方交付响应，调用方应把结果视为未知并重新读取任务。客户端、Tunnel 或反向代理可能有更短的请求期限；本机 stdio 转发支持五分钟等待，但不能保证外部入口接受同样时长。
+MCP notifications/cancelled 可取消对应 wait，返回 unconfirmed / wait-cancelled（若客户端仍接受响应），不会发送 turn/interrupt。当前无会话 MCP 入口要求并发等待使用唯一 JSON-RPC request ID，重复活跃 ID 会被拒绝。本地 HTTP 的 MCP 和 plugin/call 等待在读完请求体后显式监听 socket EOF/错误，断开即丢弃等待 future 并释放该 ingress 的 wait ID；stdio 关闭会断开转发连接。此行为不依赖 Hyper 自动丢弃 service future，不会中断源任务；Agent Remote Control shutdown 通知等待者退出。连接已经关闭时无法向原调用方交付响应，调用方应把结果视为未知并重新读取任务。客户端、Tunnel 或反向代理可能有更短的请求期限；本机 stdio 转发支持五分钟等待，但不能保证外部入口接受同样时长。
 
 这是有界同步等待，不是持久化监控订阅、定时任务或后台推送。普通 Chat 结束当前回复后不会继续执行等待。
 
@@ -280,7 +280,7 @@ MCP notifications/cancelled 可取消对应 wait，返回 unconfirmed / wait-can
 
 ## Review 事实视图与完整性
 
-`overview/tree/search/read/git` 默认按宿主权限读取。显式传入 `view: "review"` 时，以真实工作区路径为边界，排除越界路径及 Connector 自身运行状态目录；不按文件名或内容猜测敏感性，不隐藏提交消息。正常 root 内符号链接仍可读取，Git diff 核对重命名两侧是否位于读取边界内。
+`overview/tree/search/read/git` 默认按宿主权限读取。显式传入 `view: "review"` 时，以真实工作区路径为边界，排除越界路径及 Agent Remote Control 自身运行状态目录；不按文件名或内容猜测敏感性，不隐藏提交消息。正常 root 内符号链接仍可读取，Git diff 核对重命名两侧是否位于读取边界内。
 
 includeSource=true 时，`data.coverage` 说明分页、筛选和跳过原因；`read.nextLine` 非空代表尚未读完，即使 `truncated` 为 false。搜索的 `matchesComplete` 表示单文件片段完整性，超出 5 处命中或 500 字符片段时用 `read` 继续读取。tree/search 续页可携带上一页 `listingHash` 作为 `expectedHash`；read 使用 `sha256`。哈希变化时重新分页。列表哈希只验证列表，不能验证搜索期间各文件内容。
 
