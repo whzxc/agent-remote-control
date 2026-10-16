@@ -281,7 +281,7 @@ impl Ipc {
             | "thread-stream-following-changed"
             | "thread-follower-steer-turn"
             | "thread-follower-load-complete-history" => 1,
-            "thread-follower-start-turn" => 2,
+            "thread-follower-start-turn" | "thread-follower-update-thread-settings" => 2,
             "thread-follower-interrupt-turn" => 4,
             _ => 0,
         };
@@ -436,7 +436,7 @@ impl Ipc {
                 // Desktop inherits collaborationMode separately from model/effort;
                 // its settings take precedence when App Server starts the turn.
                 if args["collaborationMode"].is_null() {
-                    let state = self.snapshot(thread).await.unwrap_or(Value::Null);
+                    let state = self.read_owned(thread, false, &owner).await?;
                     let settings = &state["latestThreadSettings"];
                     if args["model"].is_null() {
                         let model = settings["model"]
@@ -460,6 +460,37 @@ impl Ipc {
                             mode["settings"]["reasoning_effort"] = effort.clone();
                         }
                         args["collaborationMode"] = mode;
+                    }
+                }
+                // Persist the same overrides through the owner before starting the turn.
+                // Desktop's next-turn defaults and collaboration settings are separate
+                // from the App Server request and must agree with explicit dispatches.
+                let mut settings = serde_json::Map::new();
+                for key in [
+                    "model",
+                    "effort",
+                    "collaborationMode",
+                    "serviceTier",
+                    "cwd",
+                    "sandboxPolicy",
+                    "permissions",
+                    "approvalPolicy",
+                    "approvalsReviewer",
+                ] {
+                    if let Some(value) = args.get(key) {
+                        settings.insert(key.into(), value.clone());
+                    }
+                }
+                if !settings.is_empty() {
+                    let updated = self
+                        .request(
+                            "thread-follower-update-thread-settings",
+                            json!({"conversationId":thread,"threadSettings":settings}),
+                            Some(&owner),
+                        )
+                        .await?;
+                    if updated["result"]["applied"] != true {
+                        return Err("DESKTOP_REJECTED: thread settings not applied".into());
                     }
                 }
                 let r = self

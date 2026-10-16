@@ -24,6 +24,8 @@ pub fn receipt(value: Value) -> Value {
         "turnId",
         "taskId",
         "error",
+        "claudeNotification",
+        "claudeNotificationError",
     ] {
         if !value[key].is_null() {
             out[key] = value[key].clone();

@@ -296,10 +296,22 @@ pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Resul
     if !source.alive() {
         return Err("connection-closed".into());
     }
-    Ok(source.classify(
+    let mut result = source.classify(
         &observation,
         &mut args["turnId"].as_str().map(str::to_owned),
-    ))
+    );
+    if result["state"] == "cancelled" {
+        let turns = observation["thread"]["turns"].as_array();
+        if let Some(turns) = turns {
+            if let Some(index) = turns.iter().position(|t| t["id"] == result["turnId"]) {
+                result["nextTurnId"] = turns
+                    .get(index + 1)
+                    .map(|t| t["id"].clone())
+                    .unwrap_or(Value::Null);
+            }
+        }
+    }
+    Ok(result)
 }
 
 pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {

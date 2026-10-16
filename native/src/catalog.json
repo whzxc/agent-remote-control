@@ -1553,8 +1553,8 @@
             "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
           },
           "notifyClaudeSession": {
-            "type": "string",
-            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，在完成、失败、中断、等待审批或等待输入时接收固定状态通知；不接受通知正文，省略时保留同轮已有绑定，新轮次不会继承旧绑定。"
+            "type": ["string", "null"],
+            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，接收固定状态通知；省略时保留同轮绑定，被中断轮次的紧接下一轮继承绑定，显式指定会话或 null 解绑优先。"
           }
         },
         "required": [],
@@ -1663,8 +1663,8 @@
             "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
           },
           "notifyClaudeSession": {
-            "type": "string",
-            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，在完成、失败、中断、等待审批或等待输入时接收固定状态通知；不接受通知正文，省略时保留同轮已有绑定，新轮次不会继承旧绑定。"
+            "type": ["string", "null"],
+            "description": "派发方自己的 Claude Code 云端会话 ID（session_… / cse_…）或 claude.ai/code/<id> URL。按轮次绑定，接收固定状态通知；省略时保留同轮绑定，被中断轮次的紧接下一轮继承绑定，显式指定会话或 null 解绑优先。"
           }
         },
         "required": [

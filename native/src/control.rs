@@ -386,7 +386,7 @@ impl Control {
 
     pub async fn mutate(self: &Arc<Self>, operation: &str, mut args: Value) -> Result<Value> {
         if matches!(operation, "create" | "send") {
-            if let Some(value) = args.get("notifyClaudeSession") {
+            if let Some(value) = args.get("notifyClaudeSession").filter(|v| !v.is_null()) {
                 args["notifyClaudeSession"] = json!(crate::claude_notify::session_id(
                     value.as_str().ok_or("INVALID_CLAUDE_SESSION")?
                 )?);
@@ -1233,6 +1233,18 @@ fn configured(args: &Value, cwd: &str) -> Result<Value> {
 }
 pub(crate) fn thread(s: &Value, complete: bool) -> Result<Value> {
     let mut t = json!({"id":s["id"],"name":s["title"],"cwd":s["cwd"],"path":s["rolloutPath"],"createdAt":s["createdAt"].as_u64().unwrap_or(0)/1000,"updatedAt":s["updatedAt"].as_u64().unwrap_or(0)/1000,"model":s["latestModel"],"reasoningEffort":s["latestReasoningEffort"],"status":s["threadRuntimeStatus"],"runtimeSource":"codex-desktop-owner"});
+    let settings = &s["latestThreadSettings"];
+    if let Some(model) = settings.get("model") {
+        t["model"] = model.clone();
+    }
+    if let Some(effort) = settings.get("effort") {
+        t["reasoningEffort"] = effort.clone();
+    } else if let Some(effort) = s["latestCollaborationMode"]["settings"].get("reasoning_effort") {
+        t["reasoningEffort"] = effort.clone();
+    }
+    if let Some(provider) = settings.get("modelProvider") {
+        t["modelProvider"] = provider.clone();
+    }
     if complete {
         t["turns"] = json!(desktop::turns(s)?)
     }

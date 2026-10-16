@@ -106,7 +106,7 @@ thread/turn 中的原生参数优先于便利字段；任务 ID 与 input 由顶
 限定写入根、恢复必须声明 mode，也不注入额外 developerInstructions。
 model、effort、serviceTier、provider、permissions、sandboxPolicy、approvalPolicy、
 collaborationMode、outputSchema、runtimeWorkspaceRoots、附件和其他原生参数由上游解释与校验。
-模型目录仅用于发现，不由 MCP 额外阻止未列出的模型或档位。Desktop 新任务继承原生创建结果的模型；续接时先做一次轻量读取，命中 4 秒内 owner 快照或 follow/wait 获取新快照，再由 mutate 从共享缓存继承模型与协作模式，不额外读取。未显式提供 collaborationMode 时，显式 model/effort 同步到继承的协作模式设置，避免旧设置覆盖本次请求。轻量读取失败时回退为空状态，省略无法继承的配置并交给 Desktop 默认值。
+模型目录仅用于发现，不由 MCP 额外阻止未列出的模型或档位。Desktop 新任务继承原生创建结果的模型；开轮前从 owner 获取设置，命中 4 秒内快照或 follow/wait 获取新快照。未显式提供 collaborationMode 时，显式 model/effort 同步到继承的协作模式设置；通过 owner 更新线程默认配置后再启动轮次，首轮与后续新轮次使用相同路径。无法读取 owner 设置时明确报错，不静默使用 Desktop 默认值。线程配置优先读取原生 latestThreadSettings，实际轮次配置读取持久化 turn context。
 
 便利字段 mode 支持 read-only、workspace-write、danger-full-access。
 显式使用前两种 mode 而省略 networkAccess 时，此便利预设关闭网络；完全省略 mode 时不覆盖

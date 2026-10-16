@@ -55,6 +55,8 @@ struct Binding {
     created_at: i64,
     waiting: Vec<String>,
     deliveries: Vec<Delivery>,
+    #[serde(default)]
+    continuation_bound: bool,
 }
 fn directory() -> PathBuf {
     root().join("claude-notifications")
@@ -95,8 +97,9 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
         created_at: chrono::Utc::now().timestamp(),
         waiting: vec![],
         deliveries: vec![],
+        continuation_bound: false,
     });
-    b.session_id = Some(session.to_owned());
+    b.session_id = (!session.is_empty()).then(|| session.to_owned());
     persist(dir, &b)
 }
 pub(crate) async fn bind(
@@ -106,7 +109,7 @@ pub(crate) async fn bind(
     turn: &str,
     cwd: &str,
 ) -> Result<()> {
-    if args["notifyClaudeSession"].is_null() {
+    if args.get("notifyClaudeSession").is_none() {
         return Ok(());
     }
     if turn.is_empty() {
@@ -115,20 +118,22 @@ pub(crate) async fn bind(
     let _guard = control.claude_notifications.lock().await;
     bind_in(
         &directory(),
-        args["notifyClaudeSession"].as_str(),
+        Some(args["notifyClaudeSession"].as_str().unwrap_or("")),
         thread,
         turn,
         cwd,
     )
 }
 pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
-    if result.is_err() {
+    if let Err(error) = result {
+        #[cfg(not(test))]
         crate::logs::record(
             "WARN",
-            "Codex task dispatched, but Claude notification binding failed",
+            &format!("Codex task dispatched, but Claude notification binding failed: {error}"),
             None,
         );
         receipt["claudeNotification"] = json!("bind-failed");
+        receipt["claudeNotificationError"] = json!(error);
     }
 }
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
@@ -247,10 +252,16 @@ impl Executor for Cli {
         )
         .await
         .map_err(|_| "CLAUDE_SEND_TIMEOUT")?
-        .map_err(|_| "CLAUDE_SEND_FAILED")?;
-        // Do not retain stderr or the CLI's error text.
+        .map_err(|e| format!("CLAUDE_SEND_FAILED: {e}"))?;
         if !output.status.success() {
-            return Err("CLAUDE_SEND_FAILED".into());
+            return Err(format!(
+                "CLAUDE_SEND_FAILED: exit {}; {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+                    .chars()
+                    .take(2000)
+                    .collect::<String>()
+            ));
         }
         Ok(output.stdout)
     }
@@ -284,12 +295,27 @@ async fn deliver(executor: &impl Executor, b: &Binding, state: &str) -> &'static
         .and_then(|bytes| {
             serde_json::from_slice::<Value>(&bytes).map_err(|_| "CLAUDE_SEND_UNKNOWN".into())
         });
-    if matches!(result, Ok(ref v) if v["ok"] == true && v["session_id"].as_str() == Some(session)) {
-        "delivered"
-    } else {
-        executor.fallback(fallback_body(b)).await;
-        "failed"
-    }
+    let error = match result {
+        Ok(ref v) if v["ok"] == true && v["session_id"].as_str() == Some(session) => {
+            return "delivered"
+        }
+        Ok(ref v) if v["ok"] == true => "CLAUDE_SESSION_MISMATCH".to_owned(),
+        Ok(v) => format!("CLAUDE_SEND_REJECTED: {}", v["error"]),
+        Err(error) => error,
+    };
+    #[cfg(not(test))]
+    crate::logs::record(
+        "WARN",
+        &format!(
+            "Claude notification delivery failed: thread={} turn={}: {error}",
+            b.thread_id, b.turn_id
+        ),
+        None,
+    );
+    #[cfg(test)]
+    let _ = error;
+    executor.fallback(fallback_body(b)).await;
+    "failed"
 }
 fn fallback_body(b: &Binding) -> String {
     format!(
@@ -321,6 +347,19 @@ async fn process(
         return Ok(());
     };
     *b = current;
+    if b.session_id.is_none() {
+        return Ok(());
+    }
+    if observation["state"] == "cancelled" && !b.continuation_bound {
+        if let Some(next) = observation["nextTurnId"].as_str().filter(|s| !s.is_empty()) {
+            // An existing record, including an explicit unbind, wins over inheritance.
+            if binding(dir, &b.thread_id, next)?.is_none() {
+                bind_in(dir, b.session_id.as_deref(), &b.thread_id, next, &b.project)?;
+            }
+            b.continuation_bound = true;
+            persist(dir, b)?;
+        }
+    }
     let previous_waiting = b.waiting.clone();
     let events = transitions(b, observation);
     if events.is_empty() && b.waiting == previous_waiting {
@@ -384,7 +423,10 @@ pub(crate) fn start(control: &Arc<control::Control>) {
                         if fallback {
                             Cli.fallback(fallback_body(&b)).await;
                         }
-                        if b.terminal || b.session_id.is_none() {
+                        let interrupted = b.deliveries.iter().any(|d| d.state == "中断");
+                        if (b.terminal && (!interrupted || b.continuation_bound))
+                            || b.session_id.is_none()
+                        {
                             continue;
                         }
                         let c = control.clone();
@@ -418,7 +460,7 @@ pub(crate) fn start(control: &Arc<control::Control>) {
             tokio::select! {
                 biased;
                 _ = shutdown.changed() => break,
-                result = cycle => if result.is_err() { crate::logs::record("WARN", "Claude notification persistence/observation failed", None); },
+                result = cycle => if let Err(error) = result { crate::logs::record("WARN", &format!("Claude notification persistence/observation failed: {error}"), None); },
             }
             recovering = false;
             drop(control);
