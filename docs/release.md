@@ -109,7 +109,7 @@ npm run release -- --ci
 gh workflow run release.yml --ref main -f tag=v<版本>
 ```
 
-`--ci` 不需要本地私钥：选择版本、默认测试、直接在开发提交打标签并推送后，显式 dispatch `release.yml`。该工作流只接受 `workflow_dispatch`，checkout 输入的标签，构建 macOS 产物、验签一次、生成元数据并发布。tag push 不触发发布，避免与本地路线重复。
+`--ci` 不需要本地私钥：选择版本、默认测试、直接在开发提交打标签并推送后，显式 dispatch `release.yml`。该工作流只接受 `workflow_dispatch`，checkout 输入的标签，并行构建 macOS、Windows 和两个 Linux 平台，全部成功后统一验签桌面产物、生成完整元数据并发布。tag push 不触发发布，避免与本地路线重复。
 
 两个发布工作流共享并发组；不要同时对同一版本运行本地与 Actions 发布。
 
@@ -123,7 +123,7 @@ gh workflow run release-windows.yml --ref main -f tag=v<版本>
 
 不填 tag 时解析最新公开 Release。工作流 checkout 该标签对应提交，构建 `x86_64-pc-windows-msvc`，对本次 exe 验签一次。下载该 Release 的 `latest.json` 和 `SHA256SUMS.txt`，保留 macOS 平台、说明和日期，合并 `windows-x86_64`、`windows-x86_64-nsis` 与哈希，用 `--clobber` 上传 exe、sig 和两个元数据文件。
 
-补发前，更新清单没有 Windows 条目，Windows 客户端无法通过该清单取得 Windows 自动更新。补发旧版本不会将其设为 latest；目标标签需包含这套发布脚本。
+完整 Actions 发布已包含 Windows；此入口用于本地 macOS 发布后的补发或重建已有 Windows 产物。补发旧版本不会将其设为 latest；目标标签需包含这套发布脚本。
 
 ## 构建目录与缓存
 
@@ -155,4 +155,4 @@ ChatGPT Desktop 插件分别由 [chatgpt-usage-plugin](https://github.com/whzxc/
 
 ## Linux 无界面产物
 
-`release.yml` 对同一 tag 在 Ubuntu 24.04 的 x86_64、aarch64 runner 上独立检查并构建 `native/Cargo.toml`，不构建 Tauri 或 GUI。两个 Linux 构建成功后，macOS 发布任务将 `local-connector-<tag>-linux-<arch>.tar.gz`、`install-linux.sh` 和相应 SHA256SUMS.txt 条目合并到同一 Release。tarball 包含 Core 和 MIT LICENSE，要求 glibc 2.39 或更新版本。Linux 不使用桌面 updater；安装脚本校验 SHA256 与版本，更新前停止 daemon、更新后重启。Linux 用法见 [Linux 无界面运行](zh-CN/linux.md)。
+`release.yml` 对同一 tag 在 Ubuntu 24.04 的 x86_64、aarch64 runner 上独立检查并构建 `native/Cargo.toml`，不构建 Tauri 或 GUI。全部平台构建成功后，独立汇总任务将 `local-connector-<tag>-linux-<arch>.tar.gz`、`install-linux.sh` 和相应 SHA256SUMS.txt 条目合并到同一 Release。tarball 包含 Core 和 MIT LICENSE，要求 glibc 2.39 或更新版本。Linux 不使用桌面 updater；安装脚本校验 SHA256 与版本，更新前停止 daemon、更新后重启。Linux 用法见 [Linux 无界面运行](zh-CN/linux.md)。

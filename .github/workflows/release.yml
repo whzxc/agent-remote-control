@@ -1,5 +1,5 @@
 name: Release
-run-name: Release ${{ inputs.tag }} (macOS + Linux)
+run-name: Release ${{ inputs.tag }} (macOS + Windows + Linux)
 on:
   workflow_dispatch:
     inputs:
@@ -32,7 +32,7 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.0
         with:
           targets: ${{ matrix.target }}
           components: clippy
@@ -61,9 +61,18 @@ jobs:
           name: linux-${{ matrix.arch }}
           path: linux-artifacts/*.tar.gz
           if-no-files-found: error
-  release:
-    needs: linux
-    runs-on: macos-latest
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            platform: darwin-aarch64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         shell: bash
@@ -76,40 +85,62 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.0
         with:
-          targets: aarch64-apple-darwin
+          targets: ${{ matrix.target }}
       - uses: astral-sh/setup-uv@v6
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
-          shared-key: desktop-aarch64-apple-darwin
+          shared-key: desktop-${{ matrix.target }}
           key: shared-target-v2
           workspaces: |
             desktop -> ../target
           cache-bin: false
           save-if: 'true'
       - run: npm ci
-      - name: Build signed macOS installers
+      - name: Build signed desktop installers
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run desktop:build -- --release --target aarch64-apple-darwin
-      - name: Generate metadata and verify signature
+        run: npm run desktop:build -- --release --target ${{ matrix.target }}
+      - name: Stage platform artifacts
+        run: npm run release:stage -- ${{ matrix.platform }} target/${{ matrix.target }}/release/bundle release-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: release-artifacts/*
+          if-no-files-found: error
+  release:
+    needs: [linux, desktop]
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release-artifacts
+      - name: Generate combined metadata and verify both signatures
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          npm run release:stage -- darwin-aarch64 target/aarch64-apple-darwin/release/bundle release-artifacts
           npm run release:finalize -- release-artifacts
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: linux-*
-          merge-multiple: true
-          path: release-artifacts
-      - name: Add Linux checksums and installer
+          node tooling/release.mjs merge-windows release-artifacts
+      - name: Add Linux installer and verify all checksums
         run: |
           cp tooling/install-linux.sh release-artifacts/install-linux.sh
           cd release-artifacts
-          shasum -a 256 local-connector-*-linux-*.tar.gz install-linux.sh >> SHA256SUMS.txt
+          shasum -a 256 install-linux.sh >> SHA256SUMS.txt
+          shasum -a 256 -c SHA256SUMS.txt
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -120,5 +151,5 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --draft --verify-tag --notes-file release-artifacts/release-notes.md
           fi
-          gh release upload "$RELEASE_TAG" release-artifacts/*.dmg release-artifacts/*.gz release-artifacts/*.sig release-artifacts/latest.json release-artifacts/SHA256SUMS.txt release-artifacts/local-connector.rb release-artifacts/release-notes.md release-artifacts/install-linux.sh --clobber
+          gh release upload "$RELEASE_TAG" release-artifacts/*.dmg release-artifacts/*.exe release-artifacts/*.gz release-artifacts/*.sig release-artifacts/latest.json release-artifacts/SHA256SUMS.txt release-artifacts/local-connector.rb release-artifacts/release-notes.md release-artifacts/install-linux.sh --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file release-artifacts/release-notes.md

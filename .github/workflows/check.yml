@@ -20,7 +20,7 @@ jobs:
           node-version: '24'
           registry-url: https://registry.npmjs.org
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.0
         with:
           components: rustfmt
       - name: Format | Rust
