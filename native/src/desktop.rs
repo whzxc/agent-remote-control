@@ -228,11 +228,7 @@ impl Ipc {
             alive,
         };
         let init = ipc
-            .request(
-                "initialize",
-                json!({"clientType":"agent-remote-control"}),
-                None,
-            )
+            .request("initialize", json!({"clientType":"local-connector"}), None)
             .await?;
         ipc.client = string(&init["result"], "clientId").into();
         Ok(ipc)

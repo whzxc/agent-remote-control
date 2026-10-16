@@ -6,7 +6,7 @@ This guide configures **remote ingresses**. For local ChatGPT Desktop plugin ins
 
 Use the CLI on the target computer. Start by reading `<app executable> cli help`, `cli status` and `cli ingress list`. Help, guide, capabilities, schema, ingress presets and offline logs work without Core. Use `cli app start` to launch the installed app; local management MCP also supports offline discovery and startup. Other operations report availability from their Core/Desktop owner. Do not overwrite another ingress or install over a running version without authorization. OpenAI Secure Tunnel remains the default ChatGPT onboarding path.
 
-On macOS the usual executable is `/Applications/Agent Remote Control.app/Contents/MacOS/agent-remote-control`; on Windows use the installed `agent-remote-control.exe`. Do not require Node/npm on users' machines. Every CLI response is JSON: `{schemaVersion:1,ok:true,result:...}` or `{schemaVersion:1,ok:false,error:{code,message}}`, with exit status 0 or 1. Read operation results and per-ingress state, not just the exit code of a diagnostic command.
+On macOS the usual executable is `/Applications/Agent Remote Control.app/Contents/Resources/bin/arc`; on Windows use the installed `bin/arc.exe`. Do not require Node/npm on users' machines. Every CLI response is JSON: `{schemaVersion:1,ok:true,result:...}` or `{schemaVersion:1,ok:false,error:{code,message}}`, with exit status 0 or 1. Read operation results and per-ingress state, not just the exit code of a diagnostic command.
 
 ## Commands
 

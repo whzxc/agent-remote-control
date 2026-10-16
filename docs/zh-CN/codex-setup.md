@@ -6,7 +6,7 @@
 
 在目标电脑使用应用自带 CLI，先读 `cli help`、`cli status`、`cli ingress list`。ChatGPT 默认推荐 OpenAI Secure Tunnel；保留已有入口，新增入口不覆盖默认连接。完整配置任务包含真实控制源入站与无害任务终态验证。
 
-macOS 通常使用 `/Applications/Agent Remote Control.app/Contents/MacOS/agent-remote-control cli help`；Windows 使用安装目录中的 `agent-remote-control.exe cli help`。无需 Node/npm。help、guide、capabilities、schema、ingress presets 和 logs --offline 无需运行 Core；`cli app start` 可以启动安装版，本机管理 MCP 也支持离线发现和启动。其他操作按所属 Core/Desktop 报告可用状态。成功输出 `{schemaVersion:1,ok:true,result:...}`，失败输出 `{schemaVersion:1,ok:false,error:{code,message}}`；退出码分别为 0、1。诊断成功不等于每个入口已经 ready。
+macOS 通常使用 `/Applications/Agent Remote Control.app/Contents/Resources/bin/arc cli help`；Windows 使用安装目录中的 `bin/arc.exe cli help`。无需 Node/npm。help、guide、capabilities、schema、ingress presets 和 logs --offline 无需运行 Core；`cli app start` 可以启动安装版，本机管理 MCP 也支持离线发现和启动。其他操作按所属 Core/Desktop 报告可用状态。成功输出 `{schemaVersion:1,ok:true,result:...}`，失败输出 `{schemaVersion:1,ok:false,error:{code,message}}`；退出码分别为 0、1。诊断成功不等于每个入口已经 ready。
 
 ## CLI 配置与生命周期
 

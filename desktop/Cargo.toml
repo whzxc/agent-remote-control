@@ -3,7 +3,12 @@ name = "agent-remote-control"
 version = "0.0.0"
 edition = "2021"
 license = "MIT"
-default-run = "agent-remote-control"
+default-run = "local-connector-desktop"
+
+# Stable executable identity for existing OS login registrations.
+[[bin]]
+name = "local-connector-desktop"
+path = "src/main.rs"
 
 # Build the Core executable with the desktop dependency graph so both binaries
 # reuse the same connector-core library and transitive dependency features.

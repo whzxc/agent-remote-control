@@ -46,4 +46,4 @@ writeFileSync(path.join(composer, 'icon.json'), JSON.stringify({
   }], shadow: { kind: 'neutral', opacity: 0 }, specular: false, translucency: { enabled: false, value: 0 } }],
   'supported-platforms': { squares: 'shared' },
 }, null, 2) + '\n');
-console.log(`ARC brand: ${variant}`);
+console.log(`Agent Remote Control brand: ${variant}`);

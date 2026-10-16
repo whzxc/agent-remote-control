@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, copyFile } from 'node:fs/promises';
+import { mkdir, copyFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { buildEnv } from './build-env.mjs';
@@ -24,6 +24,7 @@ export async function buildNative({ release = false, target, bundled = release }
     ...macosSigningArgs(identity, 'com.whzxc.local-connector.core'), binary,
   ], { env, stdio: 'inherit' });
   const destination = path.join(root, 'dist/native', name);
+  await rm(path.dirname(destination), { recursive: true, force: true });
   await mkdir(path.dirname(destination), { recursive: true });
   await copyFile(binary, destination);
   if (process.platform === 'darwin') {

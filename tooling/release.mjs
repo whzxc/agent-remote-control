@@ -150,9 +150,13 @@ if (mode === 'release') {
   if (!['darwin-aarch64','windows-x86_64'].includes(target) || !input || !output) throw new Error('stage <darwin-aarch64|windows-x86_64> <bundle-dir> <output-dir>');
   await mkdir(output,{recursive:true});
   if ((await readdir(output)).length) throw new Error('Stage directory must be empty; use a fresh directory');
-  const candidates = (await files(input)).filter(f => target === 'darwin-aarch64'
-    ? f.endsWith(`_${version}_aarch64.dmg`) || /\.app\.tar\.gz(?:\.sig)?$/.test(f)
-    : path.basename(f).includes(`_${version}_`) && /\.exe(?:\.sig)?$/.test(f));
+  const productName = (await json('desktop/tauri.conf.json')).productName;
+  const candidates = (await files(input)).filter(f => {
+    const name = path.basename(f);
+    return target === 'darwin-aarch64'
+      ? [`agent-remote-control_${version}_aarch64.dmg`, `${productName}.app.tar.gz`, `${productName}.app.tar.gz.sig`].includes(name)
+      : name.startsWith(`${productName}_${version}_`) && /\.exe(?:\.sig)?$/.test(name);
+  });
   for (const file of candidates) {
     let name = path.basename(file).replace(/^Agent Remote Control/, 'agent-remote-control').replaceAll(' ','.');
     if (target === 'darwin-aarch64' && name.includes('.app.tar.gz')) name = name.replace('.app.tar.gz', `_${version}_aarch64.app.tar.gz`);
