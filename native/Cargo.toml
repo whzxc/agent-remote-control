@@ -30,6 +30,7 @@ regex = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 libc = "0.2"
 flate2 = "1"
+zstd = { version = "0.13", default-features = false }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 hyper = { version = "1", features = ["server", "http1"] }

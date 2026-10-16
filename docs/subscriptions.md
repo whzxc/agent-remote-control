@@ -103,6 +103,8 @@ not measurements of only the last few minutes; a change in usage rate changes th
 ## Token and dollar estimates
 
 Codex and Antigravity history describes local device logs, not a complete account invoice.
+Codex scans both plain `.jsonl` and Zstandard-compressed `.jsonl.zst` rollouts
+in active and archived session folders, merging copies before counting usage.
 Cursor history comes from its account export. Dollar values are API-equivalent USD
 estimates, not subscription charges. Unknown prices preserve token counts but exclude
 unpriced costs; refreshing prices can change historical estimates without changing tokens.

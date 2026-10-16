@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 
-const CACHE_SCHEMA: u32 = 13;
+const CACHE_SCHEMA: u32 = 14;
 const MAX_LINE: u64 = 8 * 1024 * 1024;
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -547,6 +547,24 @@ fn fingerprint(f: &mut std::fs::File, offset: u64, len: u64) -> std::io::Result<
     f.take(len).read_to_end(&mut bytes)?;
     Ok(hash(bytes))
 }
+// Offsets in projections always refer to the decoded JSONL stream.
+fn log_reader(path: &Path, offset: u64) -> Result<Box<dyn Read>> {
+    let mut file = std::fs::File::open(path).map_err(|_| "file-unreadable")?;
+    if path.extension().is_some_and(|ext| ext == "zst") {
+        let mut decoder =
+            zstd::stream::read::Decoder::new(file).map_err(|_| "file-decompression-failed")?;
+        let skipped = std::io::copy(&mut decoder.by_ref().take(offset), &mut std::io::sink())
+            .map_err(|_| "file-decompression-failed")?;
+        if skipped != offset {
+            return Err("file-seek-failed".into());
+        }
+        Ok(Box::new(decoder))
+    } else {
+        file.seek(SeekFrom::Start(offset))
+            .map_err(|_| "file-seek-failed")?;
+        Ok(Box::new(file))
+    }
+}
 // Ignore message bodies at the JSON boundary instead of allocating a Value tree
 // for every assistant response, image and tool output while counting usage.
 fn usage_record(bytes: &[u8], detail: bool) -> serde_json::Result<Value> {
@@ -647,9 +665,7 @@ fn oversized_compaction(path: &Path, offset: u64, length: u64) -> Result<Option<
         kind: String,
         payload: Payload,
     }
-    let mut file = std::fs::File::open(path).map_err(|_| "file-unreadable")?;
-    file.seek(SeekFrom::Start(offset))
-        .map_err(|_| "file-seek-failed")?;
+    let file = log_reader(path, offset)?;
     let record: Record = serde_json::from_reader(BufReader::new(file.take(length)))
         .map_err(|_| "invalid-json-line")?;
     Ok((record.kind == "compacted").then(|| {
@@ -674,17 +690,19 @@ fn scan(path: &Path, s: &mut FileState, detail: bool) -> Result<u64> {
     {
         return Ok(0);
     }
+    let compressed = path.extension().is_some_and(|ext| ext == "zst");
     let head = fingerprint(&mut f, 0, s.offset.min(512)).map_err(|_| "file-read-failed")?;
     let tail = fingerprint(&mut f, s.offset.saturating_sub(512), s.offset.min(512))
         .map_err(|_| "file-read-failed")?;
-    if s.schema != CACHE_SCHEMA
+    if compressed
+        || s.schema != CACHE_SCHEMA
         || s.identity != identity
         || s.offset > m.len()
         || s.head != head
         || s.tail != tail
         || (s.length == m.len() && s.stamp != stamp)
     {
-        let rebuilt = s.schema == CACHE_SCHEMA && s.offset > 0;
+        let rebuilt = !compressed && s.schema == CACHE_SCHEMA && s.offset > 0;
         *s = FileState::default();
         if rebuilt {
             s.projection
@@ -692,9 +710,7 @@ fn scan(path: &Path, s: &mut FileState, detail: bool) -> Result<u64> {
                 .insert("source-rewritten-history-coverage-unknown".into());
         }
     }
-    f.seek(SeekFrom::Start(s.offset))
-        .map_err(|_| "file-seek-failed")?;
-    let mut r = BufReader::with_capacity(256 * 1024, f);
+    let mut r = BufReader::with_capacity(256 * 1024, log_reader(path, s.offset)?);
     let mut read = 0;
     s.partial = false;
     let mut bytes = Vec::new();
@@ -760,10 +776,11 @@ fn scan(path: &Path, s: &mut FileState, detail: bool) -> Result<u64> {
             }
         }
     }
-    let mut f = r.into_inner();
-    s.head = fingerprint(&mut f, 0, s.offset.min(512)).map_err(|_| "file-read-failed")?;
-    s.tail = fingerprint(&mut f, s.offset.saturating_sub(512), s.offset.min(512))
-        .map_err(|_| "file-read-failed")?;
+    if !compressed {
+        s.head = fingerprint(&mut f, 0, s.offset.min(512)).map_err(|_| "file-read-failed")?;
+        s.tail = fingerprint(&mut f, s.offset.saturating_sub(512), s.offset.min(512))
+            .map_err(|_| "file-read-failed")?;
+    }
     s.length = m.len();
     s.stamp = stamp;
     s.identity = identity;
@@ -790,7 +807,7 @@ pub(crate) fn visit_responses(mut visit: impl FnMut(Response)) -> bool {
     let mut tasks = BTreeMap::<String, Vec<PathBuf>>::new();
     for path in &paths {
         let header = (|| -> Result<String> {
-            let file = std::fs::File::open(path).map_err(|_| "file-unreadable")?;
+            let file = log_reader(path, 0)?;
             let mut bytes = Vec::new();
             BufReader::new(file)
                 .take(MAX_LINE + 1)
@@ -870,7 +887,11 @@ fn discover(dir: &Path, out: &mut Vec<PathBuf>, issues: &mut BTreeSet<String>, d
                 };
                 if kind.is_dir() {
                     discover(&e.path(), out, issues, depth + 1);
-                } else if kind.is_file() && e.path().extension().is_some_and(|x| x == "jsonl") {
+                } else if kind.is_file()
+                    && e.file_name().to_str().is_some_and(|name| {
+                        name.ends_with(".jsonl") || name.ends_with(".jsonl.zst")
+                    })
+                {
                     out.push(e.path());
                 }
             }
