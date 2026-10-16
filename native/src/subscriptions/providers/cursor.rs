@@ -153,6 +153,51 @@ pub async fn read(
             }
         }
     }
+    if raw["plan"]["isMerged"] == true {
+        // Exchange the current Cursor login, never borrow another provider's login.
+        let shared = async {
+            let credential = get(client
+                .post(
+                    "https://api2.cursor.sh/aiserver.v1.DashboardService/GetXaiCommerceBearerToken",
+                )
+                .bearer_auth(token)
+                .header("Connect-Protocol-Version", "1")
+                .json(&json!({"purpose":"XAI_COMMERCE_BEARER_PURPOSE_BROWSER_COMMERCE"})))
+            .await?;
+            let bearer = credential["credential"]["token"]
+                .as_str()
+                .ok_or(Failure::from("credentials-missing"))?;
+            get(client
+                .get("https://grok.com/rest/grok/credits")
+                .bearer_auth(bearer)
+                .header("User-Agent", "Mozilla/5.0 Local-Connector"))
+            .await
+        }
+        .await;
+        match shared {
+            Ok(v) if v["config"]["isUnifiedBillingUser"] == true => {
+                let q = &v["config"];
+                let label = match q["currentPeriod"]["type"].as_str() {
+                    Some("USAGE_PERIOD_TYPE_WEEKLY") => "weekly",
+                    Some("USAGE_PERIOD_TYPE_MONTHLY") => "monthly",
+                    _ => "current-period",
+                };
+                if let Some(w) = window(
+                    "cursorModels",
+                    "cursorModels",
+                    label,
+                    number(&q["creditUsagePercent"]),
+                    date(&q["currentPeriod"]["end"]),
+                ) {
+                    windows.retain(|w| w.id != "plan" && w.id != "cursorModels");
+                    windows.insert(0, w);
+                }
+                raw["sharedUsage"] = v;
+            }
+            Err(e) => raw["sharedUsageError"] = json!(e.code),
+            _ => {}
+        }
+    }
     Reading::new(windows, raw)
 }
 pub async fn history(client: &reqwest::Client, c: &Credential) -> Value {

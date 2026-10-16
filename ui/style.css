@@ -760,9 +760,6 @@ pre {
   stroke-linecap: round;
   pointer-events: none;
 }
-.quota-outline circle {
-  vector-effect: non-scaling-stroke;
-}
 .quota-track {
   stroke: var(--border);
 }

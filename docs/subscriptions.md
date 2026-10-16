@@ -22,7 +22,7 @@ credential fingerprints or local expiry checks. Codex uses a short-lived native 
 on each refresh to pick up the current login. Cursor prefers its desktop database token
 and uses Keychain only when that token is unavailable.
 
-Quota and usage history refresh independently. Codex and Antigravity scan local logs
+Quota and usage history refresh independently. Codex, Claude Code and Antigravity scan local logs
 without requiring credentials or a successful quota request. These logs describe local
 device activity and are not filtered by the current account. Cursor's account export
 uses its current credentials. A history failure preserves the previous history.
@@ -33,10 +33,10 @@ uses its current credentials. A history failure preserves the previous history.
 | --- | --- |
 | Codex / ChatGPT | Existing Codex account: quota windows, reported plan including Pro 5x/20x, available reset credits and their expiry dates; local rollout token history |
 | OpenCode Go | Existing OpenCode credentials and subscription usage response |
-| Claude | Existing Claude login and reported subscription quota windows |
-| Cursor | Existing desktop login, plan and billing-cycle quotas; account token CSV export |
+| Claude | Existing Claude login, subscription quota windows, available reset grants and weekly product shares; local Claude Code token history |
+| Cursor | Existing desktop login, plan and billing-cycle quotas; merged X Pass allowance and product consumption; account token CSV export |
 | Antigravity | Running local language server, or supported macOS login fallback; model-group quotas and local conversation token history |
-| Grok | Existing login and reported plan, including Free; quota only when the response provides it |
+| Grok | Existing login and reported plan, including Free; reported quota and X Pass product consumption |
 | Kimi | Existing credentials and reported membership/quota data |
 
 Sources depend on provider availability, authentication and platform support. Agent
@@ -100,11 +100,34 @@ near-limit/over-limit projections are suppressed. Zero usage, stale readings and
 or expired windows do not generate a burn-rate forecast. Estimates are cycle averages,
 not measurements of only the last few minutes; a change in usage rate changes the outcome.
 
+## Product usage and resets
+
+Claude reset grants are requested through the existing CLI OAuth login with the
+installed CLI version. The reset count includes grants the provider reports usable
+now; details show the remaining count and expiry. This display
+does not redeem resets. Weekly product shares describe the distribution of consumed
+usage, not a percentage of the total allowance or token counts.
+
+For unified X Pass subscriptions, Grok and Cursor display the same shared allowance
+and product consumption. Each provider uses its own login: Cursor exchanges its login
+for a short-lived commerce credential, used only in memory to read X Pass credits.
+Product shares use a multicolor bar with names and percentages on hover or focus.
+Zero shares retain a dot; unconsumed X Pass allowance uses a neutral segment.
+Empty Claude Code history is hidden.
+Product percentages are shares of the whole period allowance and are not normalized
+to 100%. Third-party model quotas remain separate. Missing breakdown data is not
+inferred from another provider's login. X Pass responses may round percentages, and
+independent refreshes can observe different points in time.
+
 ## Token and dollar estimates
 
-Codex and Antigravity history describes local device logs, not a complete account invoice.
+Codex, Claude Code and Antigravity history describes local device logs, not a complete account invoice.
 Codex scans both plain `.jsonl` and Zstandard-compressed `.jsonl.zst` rollouts
 in active and archived session folders, merging copies before counting usage.
+Claude Code scans `projects/**/*.jsonl` under `CLAUDE_CONFIG_DIR` or `~/.claude`,
+including subagents. Repeated message IDs are counted once using cumulative token
+counts; cache reads and 5-minute/1-hour writes are priced separately. This does not
+include Claude web chats, Cowork or activity on other devices.
 Cursor history comes from its account export. Dollar values are API-equivalent USD
 estimates, not subscription charges. Unknown prices preserve token counts but exclude
 unpriced costs; refreshing prices can change historical estimates without changing tokens.

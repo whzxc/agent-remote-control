@@ -81,6 +81,7 @@ fn event(blob: &[u8], step: Option<&[u8]>) -> Option<Event> {
         return None;
     }
     Some(Event {
+        write_hour: 0,
         at: i64::try_from(timestamp).ok()?.checked_mul(1000)?,
         model: if id.contains("default") && !label.is_empty() {
             label

@@ -49,11 +49,33 @@ pub async fn read(
     client: &reqwest::Client,
     c: &Credential,
 ) -> std::result::Result<Reading, Failure> {
-    let v = get(client
+    // Reset grants are opt-in and gated on the native CLI client version.
+    let version = tokio::time::timeout(
+        Duration::from_secs(5),
+        crate::command("claude")
+            .arg("--version")
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .ok()
+    .and_then(|r| r.ok())
+    .filter(|r| r.status.success())
+    .and_then(|r| String::from_utf8(r.stdout).ok())
+    .and_then(|s| s.split_whitespace().next().map(str::to_owned));
+    let mut request = client
         .get("https://api.anthropic.com/api/oauth/usage")
+        .query(&[("cedar_ember", "1")])
         .bearer_auth(&c.secret)
-        .header("anthropic-beta", "oauth-2025-04-20"))
-    .await?;
+        .header("anthropic-beta", "oauth-2025-04-20")
+        .header("x-app", "cli");
+    if let Some(version) = version {
+        request = request.header(
+            "User-Agent",
+            format!("claude-cli/{version} (external, cli) Local-Connector"),
+        );
+    }
+    let v = get(request).await?;
     let mut windows = vec![];
     if let Some(limits) = v["limits"].as_array() {
         for q in limits {

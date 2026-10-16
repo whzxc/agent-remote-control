@@ -1,5 +1,6 @@
 // Source formats and pricing snapshot adapted from OpenUsage (MIT); see shared/pricing/LICENSE.OpenUsage.
 mod antigravity;
+mod claude;
 mod csv;
 mod pricing;
 use chrono::{DateTime, Local, Utc};
@@ -17,6 +18,7 @@ pub(super) struct Event {
     cached: u64,
     output: u64,
     write: u64,
+    write_hour: u64,
     fast: bool,
 }
 impl Event {
@@ -65,6 +67,7 @@ pub async fn local(provider: &str) -> Value {
                     cached,
                     output,
                     write: 0,
+                    write_hour: 0,
                     fast: r
                         .service_tier
                         .as_deref()
@@ -72,6 +75,19 @@ pub async fn local(provider: &str) -> Value {
                 });
             });
             summarize(events, "codex", missing || incomplete, &pricing::current())
+        })
+        .await
+        .unwrap_or_else(|_| json!({"error":"history-unavailable"}));
+    }
+    if provider == "claude-code" {
+        return tokio::task::spawn_blocking(|| {
+            let scan = claude::scan();
+            summarize(
+                scan.events,
+                "claude-code",
+                scan.incomplete,
+                &pricing::current(),
+            )
         })
         .await
         .unwrap_or_else(|_| json!({"error":"history-unavailable"}));
@@ -283,7 +299,11 @@ fn cost(e: &Event, provider: &str, p: &pricing::Pricing) -> Option<f64> {
         1.
     };
     Some(
-        (e.input as f64 * i + e.cached as f64 * cr + e.output as f64 * o + e.write as f64 * cw)
+        (e.input as f64 * i
+            + e.cached as f64 * cr
+            + e.output as f64 * o
+            + e.write.saturating_sub(e.write_hour) as f64 * cw
+            + e.write_hour as f64 * i * 2.)
             / 1_000_000.
             * multiplier,
     )

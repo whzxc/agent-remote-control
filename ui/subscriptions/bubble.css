@@ -350,3 +350,23 @@
 .reading-meta > span:first-child { white-space: nowrap; }
 
 .reading-reset { margin-left: auto; white-space: nowrap; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.product-usage { margin-block: 12px; }
+.product-usage-title { font-weight: 600; }
+.product-usage-bar { display: flex; gap: 4px; margin-top: 10px; }
+.product-usage-bar .product-usage-segment {
+  flex-basis: 0; flex-shrink: 1; min-width: 12px; width: auto;
+  height: 12px; min-height: 12px; padding: 0; border: 0;
+  border-radius: var(--radius-full, 999px); box-shadow: none;
+}
+.product-usage-bar .product-usage-remaining { background: var(--border); }
+.product-usage-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.history-popover.product-popover {
+  width: max-content;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.product-popover .history-scroll { height: auto; }
+.product-popover .history-detail { width: auto; }
+.product-popover .usage-detail-tail { display: none; }

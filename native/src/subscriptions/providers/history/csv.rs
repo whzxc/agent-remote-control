@@ -93,6 +93,7 @@ pub(super) fn parse(bytes: &[u8]) -> Result<Scan, ()> {
                 return None;
             }
             Some(Event {
+                write_hour: 0,
                 at: time(value(0)?)?,
                 model,
                 input: n(3)?,

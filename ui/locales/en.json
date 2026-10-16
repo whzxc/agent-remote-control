@@ -731,5 +731,8 @@
   "recordRoute_subscriptions/refresh": "Refresh quota",
   "recordRoute_subscriptions/credentials": "Update quota credentials",
   "recordDraftCommit": "Save control source",
-  "recordDraftDiscard": "Cancel adding control source"
+  "recordDraftDiscard": "Cancel adding control source",
+  "usageSharedProducts": "X Pass · Shared usage",
+  "usageWeeklyProducts": "This week by product",
+  "usageSharedUnavailable": "X Pass breakdown unavailable; showing Cursor’s last quota reading."
 }

@@ -118,7 +118,7 @@ pub async fn read(
     Ok((reading, c.source))
 }
 pub(super) fn has_history(id: &str) -> bool {
-    matches!(id, "codex" | "antigravity" | "cursor")
+    matches!(id, "codex" | "antigravity" | "cursor" | "claude-code")
 }
 pub(super) async fn read_history(id: &str) -> std::result::Result<Value, Failure> {
     if id == "cursor" {

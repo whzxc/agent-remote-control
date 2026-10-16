@@ -13,6 +13,7 @@ export function presentSubscription(provider: ProviderSnapshot): ProviderSnapsho
   let availableResetCount: number | undefined;
   let creditBalance: number | undefined;
   let resetCredits: ProviderSnapshot['resetCredits'];
+  let productUsage: ProviderSnapshot['productUsage'];
   if (provider.agentId === 'codex') {
     windows = windows.filter(w => w.poolId !== 'base_model_inference' && w.scope !== 'gpt-reserve');
     const groups = Object.values(object(raw.rateLimitsByLimitId));
@@ -45,8 +46,27 @@ export function presentSubscription(provider: ProviderSnapshot): ProviderSnapsho
   } else if (provider.agentId === 'kimi') {
     plan = text(object(object(raw.user).membership).level);
   }
+  if (provider.agentId === 'claude') {
+    const resets = object(raw.cedar_ember);
+    if (Array.isArray(resets.grants) && resets.eligible === true) {
+      resetCredits = resets.grants.map(object).filter(g => g.usable_now === true && typeof g.resets_left === 'number' && Number.isSafeInteger(g.resets_left) && g.resets_left > 0)
+        .map(g => ({expiresAt: text(g.ends_at), count: g.resets_left as number}));
+      availableResetCount = resetCredits.reduce((sum, g) => sum + (g.count ?? 0), 0);
+    }
+    const rows = object(raw.seven_day_breakdown).rows;
+    if (Array.isArray(rows)) productUsage = {basis: 'consumed', shared: false, rows: rows.map(object)
+      .filter(r => typeof r.percent === 'number' && Number.isFinite(r.percent) && r.percent >= 0 && r.percent <= 100 && typeof r.display_name === 'string')
+      .map(r => ({label: r.display_name as string, percent: r.percent as number}))};
+  }
+  const shared = object(provider.agentId === 'cursor' ? object(raw.sharedUsage).config : provider.agentId === 'grok' ? raw.config : undefined);
+  if (shared.isUnifiedBillingUser === true && Array.isArray(shared.productUsage)) {
+    const names: Record<string,string> = {PRODUCT_GROK_BOT:'Grok Bot', PRODUCT_GROK_CHAT:'Grok Chat', PRODUCT_CURSOR:'Cursor', PRODUCT_GROK_VOICE:'Grok Voice', PRODUCT_GROK_IMAGINE:'Grok Imagine'};
+    productUsage = {basis:'allowance', shared:true, rows:shared.productUsage.map(object)
+      .filter(r => typeof r.usagePercent === 'number' && Number.isFinite(r.usagePercent) && r.usagePercent >= 0 && typeof r.product === 'string')
+      .map(r => ({label:names[r.product as string] ?? r.product as string, percent:r.usagePercent as number}))};
+  }
   if (plan?.trim().toLowerCase() === 'free') plan = 'Free';
   const history = raw.history && typeof raw.history === 'object' ? raw.history as UsageHistory : undefined;
   const displayWindowId = windows.some(w => w.id === provider.displayWindowId) ? provider.displayWindowId : windows[0]?.id;
-  return {...provider, windows, displayWindowId, plan, availableResetCount, creditBalance, resetCredits, history};
+  return {...provider, windows, displayWindowId, plan, availableResetCount, creditBalance, resetCredits, productUsage, history};
 }

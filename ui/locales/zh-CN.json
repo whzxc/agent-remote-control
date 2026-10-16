@@ -731,5 +731,8 @@
   "recordRoute_subscriptions/refresh": "刷新额度",
   "recordRoute_subscriptions/credentials": "更新额度凭据",
   "recordDraftCommit": "保存控制源",
-  "recordDraftDiscard": "取消添加控制源"
+  "recordDraftDiscard": "取消添加控制源",
+  "usageSharedProducts": "X Pass · 共享用量",
+  "usageWeeklyProducts": "本周产品用量占比",
+  "usageSharedUnavailable": "未获取到 X Pass 明细，当前显示 Cursor 额度读数。"
 }

@@ -65,6 +65,7 @@ export default function QuotaBubble({
     provider.history.error !== "history-unavailable"
   )
     notices.push(provider.history.error);
+  if (provider.rawUsage?.sharedUsageError) notices.push(t("usageSharedUnavailable"));
   if (provider.pinUnavailable) notices.push(t("usagePinUnavailable"));
   if (provider.accountBlocked) notices.push(t("usageAccountBlocked"));
   if (provider.state === "stale") notices.push(t("usageStale"));
@@ -115,7 +116,16 @@ export default function QuotaBubble({
       ].includes(provider.error.code)) ||
     (!!provider.history?.error &&
       provider.history.error !== "history-unavailable");
+  const productRows = provider.productUsage?.rows ?? [];
+  const productRemainder = provider.productUsage?.basis === "allowance"
+    ? Math.max(0, 100 - productRows.reduce((sum, row) => sum + row.percent, 0)) : 0;
   function detail(key: string) {
+    if (key.startsWith("product:")) {
+      const row = productRows[Number(key.slice(8))];
+      return row ? `${row.label} · ${new Intl.NumberFormat(locale.get(), {maximumFractionDigits: 1}).format(row.percent)}%` : null;
+    }
+    if (key === "productRemaining") return `${t("usageRemaining")} · ${new Intl.NumberFormat(locale.get(), {maximumFractionDigits: 1}).format(productRemainder)}%`;
+
     const reading = readings.find((r) => "reading:" + r.w.id === key);
     if (key === "notices")
       return (
@@ -140,12 +150,14 @@ export default function QuotaBubble({
         <>
           {provider.resetCredits?.length
             ? provider.resetCredits.map((credit, index) => (
-                <div className="history-period expiry-row" key={index}>
+                <div key={index}>
+                <div className="history-period expiry-row">
                   <span>
-                    <span className="credit-number">{index + 1}</span>
+                    <span className="credit-number">{credit.count ?? index + 1}</span>
                     {preciseTime(credit.expiresAt) || t("usageExpiryUnknown")}
                   </span>
                   <span>{resetText(credit.expiresAt, now)}</span>
+                </div>
                 </div>
               ))
             : t("usageExpiryUnknown")}
@@ -361,7 +373,41 @@ export default function QuotaBubble({
                   </Button>
                 </div>
               )}
-              {showHistory && provider.history?.periods
+              {!!provider.productUsage?.rows.length && (
+                <section className="product-usage" aria-label={t(provider.productUsage.shared ? "usageSharedProducts" : "usageWeeklyProducts")}>
+                  <div className="product-usage-title">{t(provider.productUsage.shared ? "usageSharedProducts" : "usageWeeklyProducts")}</div>
+                  <div className="product-usage-bar">
+                    {productRows.map((row, index) => {
+                      const key = `product:${index}`;
+                      return <Button
+                        key={row.label}
+                        variant="ghost"
+                        className="product-usage-segment"
+                        style={{flexGrow: row.percent, background: `var(--chart-${index % 8 + 1})`}}
+                        aria-label={`${row.label} · ${row.percent}%`}
+                        ref={node => register(key, node)}
+                        onPointerEnter={event => event.pointerType !== "touch" && hover(key)}
+                        onPointerLeave={event => event.pointerType !== "touch" && hover("")}
+                        onFocus={() => focus(key)} onBlur={() => focus("")}
+                        onClick={() => focus(key)}
+                        aria-expanded={expanded && displayed === key}
+                      />;
+                    })}
+                    {productRemainder > 0 && <Button
+                      variant="ghost" className="product-usage-segment product-usage-remaining"
+                      style={{flexGrow:productRemainder}}
+                      aria-label={`${t("usageRemaining")} · ${productRemainder}%`}
+                      ref={node => register("productRemaining", node)}
+                      onPointerEnter={event => event.pointerType !== "touch" && hover("productRemaining")}
+                      onPointerLeave={event => event.pointerType !== "touch" && hover("")}
+                      onFocus={() => focus("productRemaining")} onBlur={() => focus("")}
+                      onClick={() => focus("productRemaining")}
+                      aria-expanded={expanded && displayed === "productRemaining"}
+                    />}
+                  </div>
+                </section>
+              )}
+              {showHistory && (provider.agentId !== "claude" || provider.history?.periods?.some(row => row.tokens > 0)) && provider.history?.periods
                 ?.filter((row) => periods.includes(row.id))
                 .map((row) => (
                   <div className="history-period" key={row.id}>

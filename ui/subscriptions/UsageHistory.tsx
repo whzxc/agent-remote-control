@@ -55,17 +55,18 @@ export default function UsageHistory({
     if (node) triggers.current.set(key, node);
     else triggers.current.delete(key);
   };
+  const compact = (key: string) => key.startsWith("product:") || key === "productRemaining";
   const geometry = (key: string) => {
     const trigger = triggers.current.get(key);
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     // Keep both horizontal edges: collision flipping must clear the whole rail
     // card rather than flip around a point on its right-hand text.
-    const bounds = (rail && trigger.closest(".rail-bubble")) || trigger;
+    const bounds = (rail && !compact(key) && trigger.closest(".rail-bubble")) || trigger;
     const anchorRect = bounds.getBoundingClientRect();
     return [
       anchorRect.left,
-      rect.top + rect.height / 2,
+      compact(key) ? rect.top : rect.top + rect.height / 2,
       Math.min(
         content.current?.scrollHeight || 80,
         Math.min(360, innerHeight * 0.6),
@@ -213,15 +214,15 @@ export default function UsageHistory({
         <Popover.Portal>
           <Popover.Content
             ref={card}
-            className={`history-popover ${rail ? "rail-popover" : ""}`}
-            side={side}
+            className={`history-popover ${rail ? "rail-popover" : ""} ${compact(displayed) ? "product-popover" : ""}`}
+            side={compact(displayed) ? "top" : side}
             align="center"
-            sideOffset={28}
+            sideOffset={compact(displayed) ? 8 : 28}
             collisionPadding={12}
             updatePositionStrategy="always"
             style={
               {
-                height: motion.value[2]! + 36,
+                height: compact(displayed) ? "auto" : motion.value[2]! + 36,
                 "--tail-span": `${Math.max(12, Math.min(80, motion.value[2]! - 4))}px`,
               } as CSSProperties
             }
