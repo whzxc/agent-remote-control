@@ -81,6 +81,8 @@ for await (const line of createInterface({ input: process.stdin })) {
   const fixtureDirectory = path.join(target, 'fixture');
   await mkdir(path.join(fixtureDirectory, 'src'), { recursive: true });
   const corePath = fileURLToPath(new URL('../native', import.meta.url)).replaceAll('\\', '/');
+  const nativeManifest = await readFile(new URL('../native/Cargo.toml', import.meta.url), 'utf8');
+  const devProfiles = nativeManifest.split(/(?=^\[)/m).filter(section => section.startsWith('[profile.dev')).join('');
   await writeIfChanged(path.join(fixtureDirectory, 'Cargo.toml'), `[package]
 name="contract-fixture"
 version="0.1.0"
@@ -89,9 +91,10 @@ edition="2021"
 connector-core={path=${JSON.stringify(corePath)},features=["test-fixture"]}
 serde_json="1"
 tokio={version="1",features=["full"]}
-[profile.dev]
-debug=1
-incremental=false
+${devProfiles}
+[profile.dev.package.connector-core]
+opt-level=0
+debug="line-tables-only"
 `);
   await writeIfChanged(path.join(fixtureDirectory, 'src/main.rs'), `
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};

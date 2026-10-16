@@ -11,5 +11,5 @@ if (!process.env.CI) {
   if (!existsSync(binary) || statSync(source).mtimeMs > statSync(binary).mtimeMs) {
     execFileSync('rustc', ['--edition=2021', '-C', 'debuginfo=0', source, '-o', binary], { cwd: root, stdio: 'inherit' });
   }
-  execFileSync(binary, ['10', 'target', 'tmp', ...process.argv.slice(2).filter(arg => arg === '--dry-run' || arg.startsWith('--keep='))], { cwd: root, stdio: 'inherit' });
+  execFileSync(binary, ['8', 'target', ...process.argv.slice(2).filter(arg => arg === '--dry-run' || arg.startsWith('--keep='))], { cwd: root, stdio: 'inherit' });
 }

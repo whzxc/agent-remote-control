@@ -58,16 +58,19 @@ cargo fmt --manifest-path native/Cargo.toml -- --check
 cargo fmt --manifest-path desktop/Cargo.toml -- --check
 ```
 
-Rust outputs share the ignored repository-root `target/` directory.
-Core packaging uses the desktop dependency graph so both executables reuse the
-same Core library; isolated contract fixtures use `target/contracts/`. The npm test, Desktop check, dev, and
-build commands prune inactive compiler output groups when the local total exceeds
-10 GiB, including temporary Cargo projects below `tmp/`. Cleanup holds Cargo's
-profile locks and skips busy or explicitly protected groups. It preserves binaries,
-packaged apps/installers, fixture sources, and release receipts. Direct Cargo calls
-must be followed by `npm run cache:prune`; `--dry-run` previews the candidates.
-Development profiles retain limited debug information and disable incremental
-compilation. Dependency caches remain reusable between normal builds.
+Rust is pinned in `rust-toolchain.toml`; CI uses the same version. Dev uses
+incremental compilation and `opt-level=0` for our crates, line tables for backtraces,
+and no dependency debug information. Only JSON, image and compression hotspots
+use level 3; other dependencies remain unoptimized. Release keeps level 3, 16 codegen units and no
+cross-crate LTO. Keep the native and desktop profiles aligned.
+
+Cargo outputs share repository-root `target/`; contract fixtures retain their
+isolated `target/contracts/` graph and reuse the native dev profile. The local
+compiler-cache budget is 8 GiB: `npm run cache:prune -- --dry-run` previews
+inactive profile groups and `npm run cache:prune` removes them. Busy/protected
+outputs may temporarily exceed it. Bundles, binaries and user data are retained,
+so this is not a cap on all of `target/`. Run pruning after direct Cargo commands;
+normal npm development/build/test entries already check the budget.
 
 Desktop IPC task management supports macOS Unix sockets and Windows named pipes. Windows uses the installed Microsoft Store Codex Desktop.
 
