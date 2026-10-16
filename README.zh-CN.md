@@ -10,6 +10,8 @@ ARC 并不是从“给 ChatGPT 再加一堆工具”开始的。它来自一个�
 
 ![ARC 主界面：连接多个控制来源与 coding agent](docs/images/home-overview.png)
 
+当前 primary 标识采用等粗圆头弧线，渐变版保留为 alternate。用 `npm run brand -- primary` 或 `alternate` 重新生成全部图标，详见[品牌素材](assets/brand/README.md)。
+
 ## 为什么会有 Agent Remote Control
 
 ### 第一阶段：让 Chat 看到“现在真实是什么”

@@ -4,8 +4,8 @@ ARC — Agent Remote Control。
 
 两套标识，文件夹结构和文件名完全一致，切换时整个文件夹替换即可：
 
-- `primary/`：定稿。绿点在左、黑点在右；黑弧在上、绿弧在下，每段弧从同色圆点细起，抵达对面时变粗。
-- `alternate/`：备选。等粗圆头弧线；黑点在左、绿点在右；黑弧在上、绿弧在下。
+- `primary/`：定稿。等粗圆头弧线；黑点在左、绿点在右；黑弧在上、绿弧在下。
+- `alternate/`：备选。渐变弧线；绿点在左、黑点在右；黑弧在上、绿弧在下，每段弧从同色圆点细起，抵达对面时变粗。
 
 ## 目录
 
@@ -22,6 +22,8 @@ ARC — Agent Remote Control。
 | `icons/AppIcon.icns`、`app.ico` | macOS / Windows 应用图标 |
 | `icons/favicon.svg`、`favicon.ico`、`apple-touch-icon.png` | 网站图标，SVG 版会跟随系统深色模式 |
 | `social/x-avatar-400.png`、`og-card-1200x630.png` | X 头像、链接分享卡片 |
+
+应用图标以 1024 画布居中放置 680 宽的标识，Icon Composer 使用相同尺寸。
 
 Tauri 项目可以直接用 `png/app-icon-1024.png` 运行 `npx tauri icon` 生成全套平台图标。
 

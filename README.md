@@ -10,6 +10,8 @@ ARC did not start as an attempt to give ChatGPT a bigger tool list. It grew out 
 
 ![ARC home screen connecting multiple control sources and coding agents](docs/images/home-overview.png)
 
+The primary brand uses uniform round-ended arcs; the tapered variant remains available. Regenerate all icons with `npm run brand -- primary` or `alternate`; see [brand assets](assets/brand/README.md).
+
 ## Why I built Agent Remote Control
 
 ### Stage 1 — Let Chat see what is true now

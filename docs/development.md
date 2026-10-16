@@ -182,4 +182,4 @@ as OpenUsage.
 
 Plugin sources, development servers and packaging are owned by the independent [Usage](https://github.com/whzxc/chatgpt-usage-plugin) and [Kanban](https://github.com/whzxc/chatgpt-kanban-plugin) repositories. Agent Remote Control builds no plugin resources or ZIPs.
 
-Switch all platform icons and UI branding with `npm run brand -- primary` (or `alternate`); source assets and regeneration instructions are in `assets/brand/`.
+Switch all platform icons and UI branding with `npm run brand -- primary` (uniform round-ended arcs, the active brand) or `npm run brand -- alternate` (tapered arcs); source assets and regeneration instructions are in `assets/brand/`.

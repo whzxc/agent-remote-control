@@ -51,8 +51,8 @@ def stroke_paint(role, pal):
     op = "" if alpha >= 1 else f' stroke-opacity="{alpha}"'
     return f'stroke="{color}"{op}'
 
-def primary(pal, template=False):
-    # 定稿：绿点在左、黑点在右；黑弧在上（右细→左粗），绿弧在下（左细→右粗）
+def alternate(pal, template=False):
+    # 备选：渐变弧线；绿点在左、黑点在右；黑弧在上（右细→左粗），绿弧在下（左细→右粗）
     thin, thick, node, gap = (8, 14, 12, 3) if template else (6, 13, 10.5, 3.5)
     tk = theta(node + gap + thick / 2)
     tn = theta(node + gap + thin / 2)
@@ -62,8 +62,8 @@ def primary(pal, template=False):
              f'<circle cx="82" cy="50" r="{node}" {paint("ink", pal)}/>')
     return top + bottom + nodes
 
-def alternate(pal, template=False):
-    # 备选：等粗圆头弧线；黑点在左、绿点在右；黑弧在上，绿弧在下
+def primary(pal, template=False):
+    # 定稿：等粗圆头弧线；黑点在左、绿点在右；黑弧在上，绿弧在下
     w, node, gap = (11, 12, 3) if template else (9, 10, 4)
     t = theta(node + gap + w / 2)
     top = uniform(180 + t, 360 - t, w, stroke_paint("ink", pal))
@@ -92,7 +92,7 @@ def placed(fn, pal, cx, cy, size, template=False):
 
 def app_icon(fn, dark=False):
     tile = TILE_D if dark else TILE
-    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, "dark" if dark else "light", 512, 512, 590)
+    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, "dark" if dark else "light", 512, 512, 680)
     return svg(1024, 1024, body)
 
 def full_bleed(fn, size, ratio):
