@@ -68,30 +68,27 @@ export function AgentQuotaIcon({ agent }: { agent: string }) {
     provider && ["ready", "stale"].includes(provider.state)
       ? provider.windows.filter(
           (w) =>
-            [
-              "weekly",
-              "weekly_all",
-              "seven_day",
-              "10080 min",
-              "604800 s",
-            ].includes(w.label) &&
             Number.isFinite(w.usedPercent) &&
             (!w.resetsAt || Date.parse(w.resetsAt) > now),
         )
       : [];
-  const weekly = windows.find((w) => w.poolId === pool) || windows[0],
+  const weekly = windows.filter((w) =>
+    ["weekly", "weekly_all", "seven_day", "10080 min", "604800 s"].includes(w.label),
+  );
+  const current = weekly.find((w) => w.poolId === pool) || weekly[0]
+    || windows.find((w) => w.id === provider?.displayWindowId) || windows[0],
     running = active.includes(agent),
-    label = weekly
-      ? `${windowLabel("weekly")} · ${quotaLabel()} ${quotaPercent(weekly)}`
+    label = current
+      ? `${windowLabel(current.label)} · ${quotaLabel()} ${quotaPercent(current)}`
       : undefined;
   return (
     <span
-      className={`agent-quota-icon ${weekly ? "has-quota" : ""} ${running ? "running" : ""}`}
+      className={`agent-quota-icon ${current ? "has-quota" : ""} ${running ? "running" : ""}`}
       aria-busy={running}
       aria-label={label}
       role={label ? "img" : undefined}
     >
-      {weekly && provider && (
+      {current && provider && (
         <svg className="quota-outline" viewBox="0 0 48 48" aria-hidden="true">
           <circle className="quota-track" cx="24" cy="24" r="21" />
           <circle
@@ -99,13 +96,13 @@ export function AgentQuotaIcon({ agent }: { agent: string }) {
             cy="24"
             r="21"
             pathLength="100"
-            stroke={readingStatus(weekly, provider, now).color}
-            strokeDasharray={`${quotaValue(weekly)} 100`}
+            stroke={readingStatus(current, provider, now).color}
+            strokeDasharray={`${quotaValue(current)} 100`}
             transform="rotate(-90 24 24)"
           />
           <TimeTick
             provider={provider}
-            window={weekly}
+            window={current}
             center={24}
             radius={21}
           />

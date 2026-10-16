@@ -163,6 +163,7 @@
   "cloudflareRouteServiceUrl": "Cloudflare route service URL",
   "createATunnelInCloudflareUnderNetworkingTunnels": "Create a tunnel in Cloudflare under Networking → Tunnels. Copy the token, save and connect, then add a public route from your domain to this service URL. The app manages the client; no install command is needed.",
   "addConnectionInChatgpt": "Add connection in ChatGPT",
+  "getApiKey": "Get API Key",
   "getCredentials": "Get credentials",
   "getKey": "Get key",
   "pasteRuntimeKey": "Paste runtime key",

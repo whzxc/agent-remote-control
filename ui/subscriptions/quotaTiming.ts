@@ -9,7 +9,11 @@ export function quotaPeriod(w:QuotaWindow,p:ProviderSnapshot):number|undefined {
     const summary=raw?.usage ?? raw?.summary;
     const start=summary?.billingCycleStart ?? summary?.billingCycleStartDate;
     const end=summary?.billingCycleEnd ?? summary?.billingCycleEndDate;
-    const date=(v:unknown)=>typeof v==='number' ? (v<1e12?v*1000:v) : typeof v==='string'?Date.parse(v):NaN;
+    const date = (value: unknown) => {
+      if (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value)) value = Number(value);
+      if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+      return typeof value === 'string' ? Date.parse(value) : NaN;
+    };
     const length=date(end)-date(start);
     if(Number.isFinite(length)&&length>0)return length;
     return 30*86400000;

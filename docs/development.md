@@ -136,6 +136,10 @@ language-server discovery; closed-app Keychain fallback is macOS-only. Quota buc
 remain separate for Gemini and third-party models, with 5h and weekly windows. Legacy
 model responses supply only 5h windows; missing fractions never become a full allowance.
 
+Grok reads `/rest/grok/credits` using its existing native login and reads the reported
+subscription tier from the CLI settings endpoint. Weekly and monthly periods follow
+the upstream response; missing percentages remain unknown.
+
 Quota-less successful responses retain their raw data so that plan names remain available.
 Agent management groups Cursor subscription information with Cursor Agent, and Antigravity
 subscription information with Gemini CLI. Execution keeps the original adapter identifiers.

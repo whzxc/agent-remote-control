@@ -391,6 +391,7 @@ export default function IngressDialog({
                 ingress?.config.hasApiKey
                   ? t("savedLeaveBlankToKeep")
                   : t("pasteRuntimeKey"),
+                <a href="https://platform.openai.com/settings/organization/api-keys" onClick={(e) => { e.preventDefault(); void openUrl(e.currentTarget.href).catch(e => setError(String(e))); }}>{t("getApiKey")}</a>,
               )}
             </>
           ) : (

@@ -42,7 +42,6 @@ export function presentSubscription(provider: ProviderSnapshot): ProviderSnapsho
   } else if (provider.agentId === 'grok') {
     // The official CLI enriches billing with its explicit remote-settings tier.
     plan = text(raw.subscriptionTier) ?? text(raw.subscription_tier);
-    if (typeof object(raw.config).creditUsagePercent !== 'number') windows = [];
   } else if (provider.agentId === 'kimi') {
     plan = text(object(object(raw.user).membership).level);
   }

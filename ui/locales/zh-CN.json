@@ -163,6 +163,7 @@
   "cloudflareRouteServiceUrl": "Cloudflare 路由的服务地址",
   "createATunnelInCloudflareUnderNetworkingTunnels": "在 Cloudflare 的 Networking → Tunnels 创建通道，复制 Token 后保存并连接；再添加公开路由，将上述公网域名指向此服务地址。客户端由应用管理，无需运行安装命令。",
   "addConnectionInChatgpt": "前往 ChatGPT 添加连接",
+  "getApiKey": "获取 API Key",
   "getCredentials": "获取凭据",
   "getKey": "获取密钥",
   "pasteRuntimeKey": "粘贴运行密钥",
