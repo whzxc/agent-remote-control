@@ -50,6 +50,8 @@ struct Delivery {
     #[serde(default)]
     batch: String,
     #[serde(default)]
+    attempted_at: i64,
+    #[serde(default)]
     error: Option<String>,
     state: String,
     #[serde(default)]
@@ -499,6 +501,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             event_id: hash(json!([b.agent, b.thread_id, b.turn_id, key]).to_string()),
             created_at: chrono::Utc::now().timestamp(),
             batch: String::new(),
+            attempted_at: 0,
             error: None,
             key,
             state,
@@ -600,7 +603,7 @@ pub(crate) fn settings() -> Result<Value> {
         settings["notificationsEnabled"] = json!(true);
     }
     if settings["notificationWakeLimit"].is_null() {
-        settings["notificationWakeLimit"] = json!(10);
+        settings["notificationWakeLimit"] = json!(20);
     }
     Ok(settings)
 }
@@ -633,7 +636,12 @@ async fn flush(
         let wakes: std::collections::HashSet<_> = all
             .iter()
             .flat_map(|b| b.deliveries.iter())
-            .filter(|d| d.channel == channel && d.target == target && !d.batch.is_empty())
+            .filter(|d| {
+                d.channel == channel
+                    && d.target == target
+                    && !d.batch.is_empty()
+                    && d.attempted_at > now.saturating_sub(3600)
+            })
             .map(|d| d.batch.clone())
             .collect();
         let reason = if settings["notificationsEnabled"] == false {
@@ -642,7 +650,7 @@ async fn flush(
             Some("unbound")
         } else if channel != Channel::ClaudeSession {
             Some("channel-unavailable-in-P0")
-        } else if wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(10) as usize {
+        } else if wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize {
             Some("wake-limit")
         } else {
             None
@@ -665,6 +673,7 @@ async fn flush(
                     d.error = reason.map(str::to_owned);
                     if reason.is_none() {
                         d.batch = batch.clone();
+                        d.attempted_at = now;
                     }
                     selected.deliveries.push(d.clone());
                 }
@@ -1254,6 +1263,7 @@ mod tests {
             event_id: "event-17".into(),
             created_at: 0,
             batch: String::new(),
+            attempted_at: 0,
             error: None,
             key: "request:17".into(),
             target: "session_test".into(),
@@ -1293,6 +1303,7 @@ pub(crate) fn push_available(notification: &Value) -> bool {
     let Ok(all) = records(&directory()) else {
         return false;
     };
+    let now = chrono::Utc::now().timestamp();
     let wakes: std::collections::HashSet<_> = all
         .iter()
         .flat_map(|b| b.deliveries.iter())
@@ -1300,10 +1311,11 @@ pub(crate) fn push_available(notification: &Value) -> bool {
             d.channel == Channel::ClaudeSession
                 && notification["target"] == d.target
                 && !d.batch.is_empty()
+                && d.attempted_at > now.saturating_sub(3600)
         })
         .map(|d| &d.batch)
         .collect();
-    wakes.len() < settings["notificationWakeLimit"].as_u64().unwrap_or(10) as usize
+    wakes.len() < settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize
 }
 
 pub(crate) async fn observe(thread: &str, turn: &str, observed: &Value) -> Result<()> {
