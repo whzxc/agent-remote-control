@@ -1520,7 +1520,15 @@
       },
       "example": {
         "threadId": "<threadId>"
-      }
+      },
+      "guideParameters": [
+        "threadId",
+        "cursor",
+        "limit",
+        "statusOnly",
+        "waitMs",
+        "includeImages"
+      ]
     },
     {
       "name": "codex_wait",
@@ -1587,7 +1595,14 @@
       "example": {
         "threadId": "<threadId>",
         "turnId": "<turnId>"
-      }
+      },
+      "guideParameters": [
+        "threadId",
+        "turnId",
+        "timeoutMs",
+        "expectedHash",
+        "until"
+      ]
     },
     {
       "name": "codex_create",
@@ -1726,7 +1741,13 @@
       "example": {
         "project": "/workspace/project",
         "prompt": "Inspect this project and summarize its purpose."
-      }
+      },
+      "guideParameters": [
+        "project",
+        "prompt",
+        "input",
+        "notify"
+      ]
     },
     {
       "name": "codex_send",
@@ -1863,7 +1884,13 @@
       "example": {
         "threadId": "<threadId>",
         "prompt": "Review the result against the acceptance criteria."
-      }
+      },
+      "guideParameters": [
+        "threadId",
+        "prompt",
+        "input",
+        "notify"
+      ]
     },
     {
       "name": "codex_interrupt",
@@ -2107,7 +2134,18 @@
       },
       "example": {
         "threadId": "<threadId>"
-      }
+      },
+      "guideParameters": [
+        "threadId",
+        "turnId",
+        "latest",
+        "cursor",
+        "limit",
+        "offset",
+        "length",
+        "expectedHash",
+        "includeImages"
+      ]
     },
     {
       "name": "codex_schema",
@@ -3539,7 +3577,15 @@
       "example": {
         "threadId": "<threadId>",
         "turnId": "<turnId>"
-      }
+      },
+      "guideParameters": [
+        "threadId",
+        "turnId",
+        "path",
+        "limit",
+        "offset",
+        "length"
+      ]
     },
     {
       "name": "logs",

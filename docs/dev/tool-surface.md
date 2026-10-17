@@ -45,6 +45,8 @@
 ## guide 内容调整
 
 - 首次调用 `guide`（默认 topic=loop）返回：当前控制源的 loop、通用要点、常用 op 的现成调用示例（`act codex_create`（Claude 示例含 notify；ChatGPT 与其他控制源按当前能力使用等待与收件箱）、`act codex_send`、`query codex_wait`、`query codex_read` / `codex_changes`、`query read` / `search`），以及其余 op 的一行索引。
+- 仅在默认 `topic=loop` 的索引中，为 `codex_create`、`codex_send`、`codex_wait`、`codex_read`、`codex_items`、`codex_changes` 各增加一行 `signature`，只列参数名，不增加说明或编排示例；其余 op 保持原有一行索引。必填参数直接列名，可选参数加 `?`，例如 `codex_wait(threadId, turnId?, timeoutMs?≤90000, expectedHash?, until?)`。
+- 签名的展示参数及顺序由现有 catalog 的 `guideParameters` 选择，包含 `project` / `notify`、`latest`、`turnId` / `expectedHash` 等关键可选项；生成时从各 op 的 `inputSchema` 校验参数存在、补齐所有必填参数，并读取必填状态与 `timeoutMs` 上限，避免 schema 漂移。
 - `guide({op: "<name>"})` 返回单个 op 的完整 schema、说明与示例。缓存的 guide schema 不接受 op 时，调用 `query({op:"guide",args:{op:"<name>"}})`；该 op 也接受 topic，沿用同一 guide 实现，不改变三个 MCP 工具的 schema。
 - 内容保持短小；索引只展示说明首句，单个 op 返回现有 description 全文，不重写语义。每个 op 的最小参数示例与 schema 一起维护在现有 catalog；不生成猜测性的 schema 示例。
 - MCP `instructions` 改为：先调用 `guide`；所有能力通过 `query` / `act` 调用。

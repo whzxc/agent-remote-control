@@ -210,7 +210,38 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
             call
         })
         .collect();
-    json!({"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":ops.iter().map(|op| json!({"op":op["name"],"via":via(op),"description":op["description"].as_str().unwrap_or("").split(['。','\n']).next().unwrap_or("")})).collect::<Vec<_>>()})
+    let index: Vec<_> = ops
+        .iter()
+        .map(|op| {
+            let mut entry = json!({"op":op["name"],"via":via(op),"description":op["description"].as_str().unwrap_or("").split(['。','\n']).next().unwrap_or("")});
+            if topic == "loop" {
+                if let Some(parameters) = op["guideParameters"].as_array() {
+                    let schema = &op["inputSchema"];
+                    let mut parameters = parameters.clone();
+                    for required in schema["required"].as_array().into_iter().flatten() {
+                        if !parameters.contains(required) {
+                            parameters.push(required.clone());
+                        }
+                    }
+                    let parameters: Vec<_> = parameters.iter().map(|parameter| {
+                        let name = parameter.as_str().expect("guide parameter name");
+                        let property = schema["properties"].get(name).expect("guide parameter in inputSchema");
+                        let required = schema["required"].as_array().is_some_and(|names| names.contains(parameter));
+                        let optional = if required { "" } else { "?" };
+                        let bound = if name == "timeoutMs" {
+                            property.get("maximum").map(|max| format!("≤{max}")).unwrap_or_default()
+                        } else {
+                            String::new()
+                        };
+                        format!("{name}{optional}{bound}")
+                    }).collect();
+                    entry["signature"] = json!(format!("{}({})", string(op, "name"), parameters.join(", ")));
+                }
+            }
+            entry
+        })
+        .collect();
+    json!({"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":index})
 }
 
 /// Only suggest reads or waits; a suggested next step never authorizes a write.
