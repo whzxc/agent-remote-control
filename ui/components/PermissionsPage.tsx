@@ -95,7 +95,6 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
       <div className="permission-copy">
         <h3>{t("permission." + item.id)}</h3>
         <p>{t("permissionUse." + item.id)}</p>
-        {authorization && item.state !== "granted" && <p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>}
         {item.id === "full-disk-access" && disk && commandDisk && disk.state !== commandDisk.state && <p className="permission-hint">{t("permissionsDiskMismatch")}</p>}
       </div>
       <div className="permission-actions">
@@ -115,7 +114,7 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
     </header>
     <p className="permissions-summary" role="status">{!data ? t("permissionsLoading") : `${missing ? t("permissionsNeedAttention", {count: missing}) : t(unknown ? "permissionsSomeUnknown" : "permissionsAllReady")} · ${relative}`}</p>
     {data && <>
-      {mac && <Group title={t("permissionsSystem")}>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
+      {mac && <Group title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
       <Group title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>
       <Group title={t("permissionsConnections")}>
         {connections.length === 0 && <p className="permission-hint">{t("permissionsNoConnections")}</p>}

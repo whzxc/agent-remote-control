@@ -335,7 +335,7 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
-              {item.id === "settings" && permissionMissing && <span className="task-count" aria-label={t("permissionsTitle")}>•</span>}
+              {item.id === "settings" && permissionMissing && <span className="task-count permission-indicator" aria-label={t("permissionsTitle")}>•</span>}
               {item.id === "tasks" && pending > 0 && (
                 <span className="task-count">{pending}</span>
               )}

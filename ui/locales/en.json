@@ -777,7 +777,7 @@
   "permissionsViewConnection": "View connection",
   "permissionsVerified": "Verified",
   "permissionsUnverified": "Not verified",
-  "permissionsAppHint": "Enable {app} in the System Settings list.",
+  "permissionsAppHint": "Enable the following permissions for {app} in System Settings.",
   "permissionsDiskMismatch": "File access and command access have different results. Reopen ARC after granting access, then check again.",
   "permission.codex": "Codex",
   "permissionUse.codex": "Codex Desktop is installed and signed in.",

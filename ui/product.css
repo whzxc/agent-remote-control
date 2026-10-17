@@ -1293,3 +1293,5 @@
 .permissions-page .settings-group { gap: 0; }
 .permissions-page .settings-group > h2 { font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); margin: 0 0 var(--space-1); }
 .permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }
+
+.navigation-capsule .permission-indicator { background: var(--warning); }

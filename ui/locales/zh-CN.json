@@ -777,7 +777,7 @@
   "permissionsViewConnection": "查看连接",
   "permissionsVerified": "已验证",
   "permissionsUnverified": "未验证",
-  "permissionsAppHint": "在系统设置的列表中打开 {app}。",
+  "permissionsAppHint": "在系统设置中为 {app} 打开以下权限。",
   "permissionsDiskMismatch": "文件访问与命令访问的检测结果不一致。授权后请重新打开 ARC，再次检测。",
   "permission.codex": "Codex",
   "permissionUse.codex": "Codex Desktop 已安装并登录。",
