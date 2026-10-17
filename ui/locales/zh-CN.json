@@ -514,5 +514,7 @@
   "setup.blocked.runtime-key-rejected": "OpenAI 拒绝了 runtime key 或其 Tunnel 权限。",
   "setup.runtime-key-rejected": "OpenAI 拒绝了 runtime key（401/403）。请复制具备 Tunnels Read + Use 的正确 runtime key，由 ARC 重新接收；也可以选择改用 HTTPS + OAuth。",
   "setup.clipboard-invalid": "剪贴板里不是 {credential}，请点击 {credential} 旁边的复制按钮。",
-  "setup.health-unobserved": "尚未观察到 OpenAI 控制面认证成功。请保持客户端运行；若诊断报告错误，按其下一步操作处理。"
+  "setup.health-unobserved": "尚未观察到 OpenAI 控制面认证成功。请保持客户端运行；若诊断报告错误，按其下一步操作处理。",
+  "controlSourceNotifications": "唤醒控制源",
+  "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。"
 }

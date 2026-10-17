@@ -365,13 +365,22 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, name: &str, args: Value) ->
     if !s.connected.load(std::sync::atomic::Ordering::SeqCst) {
         return Err("Connection closed".into());
     }
-    let result = s.call(name, args).await;
+    let result = s.call(name, args.clone()).await;
     if name == "connector_verify" && result.is_err() {
         return result;
     }
     let mut images = Vec::new();
-    let (value, error) = match result {
+    let mut reads = Vec::new();
+    let (mut value, error) = match result {
         Ok(mut value) => {
+            match crate::claude_notify::read_turns(name, &args, &value).await {
+                Ok(turns) => reads = turns,
+                Err(error) => crate::logs::record(
+                    "WARN",
+                    &format!("Inbox read tracking failed: {error}"),
+                    None,
+                ),
+            }
             if matches!(name, "read" | "codex_read" | "codex_items" | "screen") {
                 images = crate::images::take(&mut value);
             }
@@ -382,6 +391,37 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, name: &str, args: Value) ->
         }
         Err(error) => (json!({"error":crate::egress::failure(&error)}), true),
     };
+    if !error {
+        let task = value["threadId"]
+            .as_str()
+            .or_else(|| value["taskId"].as_str())
+            .or_else(|| args["taskId"].as_str())
+            .unwrap_or("");
+        let turn = value["turnId"].as_str().unwrap_or("");
+        if !task.is_empty() && !turn.is_empty() && value["notification"] != "bind-failed" {
+            match crate::claude_notify::read(task, turn) {
+                Ok(notification) => value["notification"] = notification,
+                Err(error) => {
+                    value["notificationError"] = json!(error);
+                }
+            }
+        }
+        let available = crate::claude_notify::push_available(&value["notification"]);
+        crate::egress::next(&mut value, name, &args, available);
+    }
+    let inbox = match crate::claude_notify::inbox(&s.id, &reads).await {
+        Ok(inbox) => inbox,
+        Err(error) => {
+            crate::logs::record("WARN", &format!("Inbox unavailable: {error}"), None);
+            Value::Null
+        }
+    };
+    if !inbox.is_null() {
+        if !value.is_object() {
+            value = json!({"value":value});
+        }
+        value["arcInbox"] = inbox;
+    }
     let mut result = crate::egress::tool(value, error);
     result["content"].as_array_mut().unwrap().extend(images);
     Ok(result)

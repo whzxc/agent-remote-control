@@ -986,15 +986,17 @@ impl Service {
             || route.starts_with("tasks/runtime/")
         {
             return match (method, route) {
-                ("GET", "task-settings") => Ok(
-                    json!({"enabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?}),
-                ),
+                ("GET", "task-settings") => Ok(crate::claude_notify::settings()?),
                 ("PUT", "task-settings") => {
-                    let mut settings = json!({"enabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?});
-                    for key in ["enabled", "autoOpenCodex"] {
+                    let mut settings = crate::claude_notify::settings()?;
+                    for key in ["enabled", "autoOpenCodex", "notificationsEnabled"] {
                         if let Some(value) = body.get(key) {
                             settings[key] = json!(value.as_bool().ok_or("invalid task setting")?);
                         }
+                    }
+                    if let Some(value) = body.get("notificationWakeLimit") {
+                        settings["notificationWakeLimit"] =
+                            json!(value.as_u64().ok_or("invalid notification wake limit")?);
                     }
                     save(&root().join("task-settings.json"), &settings)?;
                     Ok(settings)

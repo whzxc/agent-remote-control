@@ -114,7 +114,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 | `add-connector` | remote-ui | 该 ingress 收到 DCR 或 authorize 请求（OAuth pending request 出现） |
 | `consent` | authorize | 该 ingress 存在有效 OAuth grant |
 | `verify-connector` | remote-ui | `verification.challengeVerifiedAt` 晚于本次 setup 开始 |
-| `loop-test` | remote-ui | 出现带 `notifyClaudeSession` 的任务完成并且通知已送达（或任务完成、通知失败时给出 finding） |
+| `loop-test` | remote-ui | 出现带 `notify` 的任务完成并且通知已送达（或任务完成、通知失败时给出 finding） |
 
 ### chatgpt-chat
 

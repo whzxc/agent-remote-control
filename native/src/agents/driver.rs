@@ -157,7 +157,7 @@ impl AgentDriver {
         }
         Ok(p)
     }
-    pub async fn prompt(&self, p: &Arc<Process>, text: &str) -> Result<Value> {
+    pub async fn prompt(&self, p: &Arc<Process>, text: &str, args: &Value) -> Result<Value> {
         {
             let mut t = p.state.lock().await;
             if !matches!(
@@ -166,14 +166,35 @@ impl AgentDriver {
             ) {
                 return Err("TASK_BUSY_OR_UNCONFIRMED".into());
             }
+            let previous_turn = t["turnId"].clone();
+            let interrupted = t["status"] == "cancelled";
             t["status"] = json!("running");
             t["turnId"] = json!(id());
             t["output"] = json!("");
+            t.as_object_mut().unwrap().remove("notification");
+            t.as_object_mut().unwrap().remove("notificationError");
             t["lastMessage"] = Value::Null;
             t["error"] = Value::Null;
             t["stopReason"] = Value::Null;
             t["outputTruncated"] = json!(false);
             save_task(&t)?;
+            let result = crate::claude_notify::bind(
+                args,
+                string(&t, "taskId"),
+                string(&t, "turnId"),
+                string(&t, "cwd"),
+            )
+            .await;
+            crate::claude_notify::record_binding(&mut t, result);
+            if interrupted {
+                let inherited = crate::claude_notify::inherit(
+                    string(&t, "taskId"),
+                    previous_turn.as_str().unwrap_or(""),
+                    string(&t, "turnId"),
+                )
+                .await;
+                crate::claude_notify::record_binding(&mut t, inherited);
+            }
             p.events.lock().await.wake.notify_waiters();
         }
         let sid = p.state.lock().await["sessionId"].clone();
@@ -211,6 +232,15 @@ impl AgentDriver {
         }
         t["updatedAt"] = json!(now());
         save_task(&t)?;
+        if let Err(error) = crate::claude_notify::observe(
+            string(&t, "taskId"),
+            string(&t, "turnId"),
+            &json!({"state":t["status"],"title":t["title"]}),
+        )
+        .await
+        {
+            crate::logs::record("WARN", &error, None);
+        }
         p.events.lock().await.wake.notify_waiters();
         result.map(|_| t.clone())
     }
@@ -243,6 +273,15 @@ impl AgentDriver {
             t["status"] = json!(if p.pi { "cancelled" } else { "cancelling" });
         }
         save_task(&t)?;
+        if let Err(error) = crate::claude_notify::observe(
+            string(&t, "taskId"),
+            string(&t, "turnId"),
+            &json!({"state":t["status"],"title":t["title"]}),
+        )
+        .await
+        {
+            crate::logs::record("WARN", &error, None);
+        }
         p.events.lock().await.wake.notify_waiters();
         Ok(t.clone())
     }

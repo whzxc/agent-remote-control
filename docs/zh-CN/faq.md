@@ -28,7 +28,7 @@ Deep link 打开的是浏览器所在设备的应用。请在承载连接的电�
 
 ## Claude 没收到回访
 
-检查 notifyClaudeSession 是否为 Claude Code 云端会话、本机 Claude Code CLI 是否已登录、ARC 是否持续运行。读取 `claudeNotification` 和记录。投递只尝试一次；通知失败后直接读取任务。详见 [Claude](guides/claude.md)。
+检查 notify 是否使用 claude-session 通道、target 是否为自己的 Claude Code 云端会话、本机 Claude Code CLI 是否已登录、ARC 是否持续运行。读取 `notification` 和记录。投递只尝试一次；通知失败后直接读取任务。详见 [Claude](guides/claude.md)。
 
 ## 可以关窗口或离开电脑吗？
 

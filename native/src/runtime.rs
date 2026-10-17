@@ -420,8 +420,9 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|e| e.to_string())?;
+    crate::claude_notify::migrate().await?;
     let listener = crate::transport::listen(service.clone(), None).await?;
-    crate::claude_notify::start(&service.control);
+    crate::claude_notify::start(&service.control, &service.agents);
     let startup_service = service.clone();
     let startup = tokio::spawn(async move {
         if daemon {

@@ -6,8 +6,8 @@ while preserving its task, requestId, wait, and output requirements.
 
 For `claude-loop`, send it from a **Claude Code cloud session**,
 not this local CLI session or ordinary Claude chat. Append: “Call ARC through its
-connector. Set notifyClaudeSession to this Claude Code cloud session's actual
-session ID or URL. If you cannot identify it, ask me for it; never invent it.”
+connector. Set notify to {channel: "claude-session", target: this Claude Code cloud session's actual
+session ID or URL}. If you cannot identify it, ask me for it; never invent it.”
 If findings say Claude Code was explicitly skipped, omit notification binding;
 explain that only task completion will be checked.
 

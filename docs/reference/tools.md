@@ -59,11 +59,17 @@ Use `codex_wait` or `agent_wait` after dispatch. Both default to 30000 ms and re
 
 After timeout, keep the same task/thread and turn IDs and pass the previous snapshotHash as expectedHash. It controls changed reporting, not whether a terminal result is returned. Cancellation/disconnection of a wait ends that wait, not the task. Results distinguish completed, failed, cancelled, interaction-required, timeout, and unconfirmed. Read finalResponse and the observation timestamps.
 
-## Claude follow-ups
+## Control-source notifications
 
-`codex_create` and `codex_send` accept notifyClaudeSession: a `session_…` / `cse_…` cloud ID or `claude.ai/code/<id>` URL. Omission retains a same-turn binding; null unbinds. New turns should bind explicitly. The immediate continuation of an interrupted turn inherits a binding only when it has no explicit binding/unbinding record.
+`codex_create` and `codex_send` accept `notify: {channel: "claude-session", target: "…"}`. The target is a `session_…` / `cse_…` cloud ID or `claude.ai/code/<id>` URL. `agent_create` and `agent_send` accept the same binding. `chatgpt-web` is accepted as an unavailable channel in P0; use segmented waits and the inbox until P1. Omission retains a same-turn binding; null unbinds. New turns should bind explicitly. The immediate continuation of an interrupted turn inherits a binding only when it has no explicit binding/unbinding record.
 
-ARC observes completion, failure, cancellation, and requests for input/approval. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Each event is attempted once; uncertain/interrupted sends are not retried. Read claudeNotification on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. macOS provides a system-notification fallback. See the [workflow guide](../guides/claude.md).
+ARC observes completion, failure, cancellation, and requests for input/approval. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Each event is attempted once; uncertain/interrupted sends are not retried. Read `notification` (channel, target, deliveries with eventId, kind, level, state and error) on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. macOS provides a system-notification fallback. See the [workflow guide](../guides/claude.md).
+
+`guide` is available in the common preset, with topics `loop` (default), `notify`, `review` and `approvals`. It follows the ingress control source and app locale. Existing custom allowlists must include it explicitly. Dispatch without explicit permission parameters unless the user requests them in the current conversation.
+
+All registered turns produce fixed `completed`, `failed`, `interrupted` or `needs-input` events. Tool results on the originating ingress carry `arcInbox` when unread events exist (at most five listed, fifty retained per ingress). A successful `codex_read`, `codex_wait`, `codex_items`, `codex_changes`, `agent_read` or `agent_wait` marks the returned turn's existing events read. Unconfirmed waits do not acknowledge events. Array/scalar results use `{value, arcInbox}` only when an inbox is present.
+
+Claude events for one target merge for 30 seconds. `notification.deliveries[].state` is `pending`, `sending`, `delivered` or `failed`; uncertain sends never retry. The default limit is ten attempted batches per target in retained seven-day turn records. Settings → Wake control sources controls `task-settings.notificationsEnabled`; `notificationWakeLimit` configures the cap. Disabled, unavailable and capped deliveries record a fixed error while leaving the inbox available. Dispatch and wait responses include `next` with the appropriate read or wait call.
 
 ## Host and native operations
 

@@ -48,6 +48,7 @@ export interface Status {
   ingressSummary: { running: number; ready: number; total: number };
   taskApprovalEnabled: boolean;
   autoOpenCodex: boolean;
+  notificationsEnabled: boolean;
   core: CoreSnapshot;
   connection?: { running: boolean; updateAvailable: boolean; mcpUrl: string };
   deviceName: string;

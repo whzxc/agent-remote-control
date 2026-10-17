@@ -80,6 +80,7 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
   async function saveTask(patch: {
     enabled?: boolean;
     autoOpenCodex?: boolean;
+    notificationsEnabled?: boolean;
   }) {
     await run("task-settings", async () => {
       await api("task-settings", "PUT", patch);
@@ -99,6 +100,10 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
         </div>
       </section>
       <Group title={t("behavior")}>
+        <Row title={t("controlSourceNotifications")} description={t("controlSourceNotificationsDescription")}>
+          <Switch label={t("controlSourceNotifications")} checked={status?.notificationsEnabled !== false}
+            disabled={!!busy || !status} onChange={(value) => void saveTask({ notificationsEnabled: value })} />
+        </Row>
         <Row
           title={t("automaticallyOpenCodexTasks")}
           description={t("whenDisabledNewTasksRunInTheBackground")}

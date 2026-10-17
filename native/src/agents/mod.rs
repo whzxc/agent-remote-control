@@ -478,6 +478,14 @@ impl AgentHost {
         }
         Ok(r)
     }
+    pub(crate) async fn observe_notification(
+        self: &Arc<Self>,
+        agent: &str,
+        task: &str,
+        turn: &str,
+    ) -> Result<Value> {
+        wait::observe(self, agent, task, turn).await
+    }
     pub async fn tool(
         self: &Arc<Self>,
         native: &Arc<control::Control>,
@@ -494,6 +502,9 @@ impl AgentHost {
         crate::validator("tool", name, &spec["inputSchema"])?
             .validate(&args)
             .map_err(|e| e.to_string())?;
+        if matches!(name, "agent_create" | "agent_send") {
+            crate::claude_notify::normalize(&mut args)?;
+        }
         if name == "agents" {
             let mut inventory = self.inventory().await;
             inventory["agents"]
@@ -664,6 +675,11 @@ impl AgentHost {
             match result {
                 Ok(v) => {
                     r["state"] = json!("completed");
+                    for key in ["notification", "notificationError"] {
+                        if let Some(value) = v.get(key) {
+                            r[key] = value.clone();
+                        }
+                    }
                     r["result"] = v;
                 }
                 Err(e) => {
@@ -716,7 +732,7 @@ impl AgentHost {
         };
         match name {
             "agent_create" if string(args, "prompt").is_empty() => Ok(p.state.lock().await.clone()),
-            "agent_create" | "agent_send" => driver.prompt(&p, string(args, "prompt")).await,
+            "agent_create" | "agent_send" => driver.prompt(&p, string(args, "prompt"), args).await,
             "agent_interrupt" => driver.interrupt(&p).await,
             "agent_respond" => driver.respond(&p, args).await,
             _ => Err("UNKNOWN_TOOL".into()),

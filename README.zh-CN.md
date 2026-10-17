@@ -35,7 +35,7 @@ GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两�
 
 1. **安装。** 从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 下载最新的 macOS 应用，移入 Applications，并登录 Codex。[安装说明](docs/zh-CN/installation.md)。
 2. **接入 Claude。** 在 ARC 选择添加控制源 → 手动配置 → Claude，再选择 HTTPS + OAuth，把 MCP URL 添加为 Claude 自定义连接器，再到 ARC 同意授权。
-3. **派出首个任务。** 告诉 Claude：“通过 ARC 让 Codex 不读文件、不调用工具，只回复 ARC_LOOP_OK。把你自己的 Claude Code 云端会话设为 notifyClaudeSession。派发后结束本轮，收到通知再读取结果。”若 Claude 无法读取自身会话 ID，再手动粘贴云端会话 URL 或 ID。[逐步上手](docs/zh-CN/getting-started.md)。
+3. **派出首个任务。** 告诉 Claude：“通过 ARC 让 Codex 不读文件、不调用工具，只回复 ARC_LOOP_OK。设置 notify 为 {channel: "claude-session", target: 你自己的 Claude Code 云端会话 ID 或 URL}。派发后结束本轮，收到通知再读取结果。”若 Claude 无法读取自身会话 ID，再手动粘贴云端会话 URL 或 ID。[逐步上手](docs/zh-CN/getting-started.md)。
 
 ## 文档
 

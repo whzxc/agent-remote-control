@@ -128,6 +128,15 @@ impl Process {
                         .pending
                         .insert(msg["id"].to_string(), msg.clone());
                     state["status"] = json!("waiting-permission");
+                    if let Err(error) = crate::claude_notify::observe(
+                        string(&state, "taskId"),
+                        string(&state, "turnId"),
+                        &json!({"state":"interaction-required","title":state["title"],"interaction":[msg]}),
+                    )
+                    .await
+                    {
+                        crate::logs::record("WARN", &error, None);
+                    }
                 }
                 if pi {
                     if method == "message_end" && msg["message"]["role"] == "assistant" {
@@ -166,6 +175,17 @@ impl Process {
                             state["outputTruncated"] = json!(true);
                         }
                         state["output"] = json!(text);
+                    }
+                }
+                if method == "agent_settled" {
+                    if let Err(error) = crate::claude_notify::observe(
+                        string(&state, "taskId"),
+                        string(&state, "turnId"),
+                        &json!({"state":state["status"],"title":state["title"]}),
+                    )
+                    .await
+                    {
+                        crate::logs::record("WARN", &error, None);
                     }
                 }
                 state["updatedAt"] = json!(now());

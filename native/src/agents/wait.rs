@@ -114,7 +114,7 @@ impl WaitSource for AgentSource {
         } else {
             ("unconfirmed", "agent-state-unknown-or-no-turn")
         };
-        json!({"state":state,"reason":reason,"agent":self.agent,"taskId":self.task,
+        json!({"state":state,"reason":reason,"title":t["title"],"agent":self.agent,"taskId":self.task,
             "sessionId":t["sessionId"],"threadId":null,"turnId":selected,
             "recordedStatus":t["status"],"runtimeStatus":if state=="unconfirmed"{"unknown"}else{status},
             "runtimeSource":self.host.drivers[&self.agent].protocol(),"processSession":t["processSession"],
@@ -154,4 +154,20 @@ pub(super) async fn agent_wait(
     result["runtimeSource"] = json!(host.drivers[string(args, "agent")].protocol());
     crate::waiter::condition(&mut result, args);
     Ok(result)
+}
+
+pub(super) async fn observe(
+    host: &Arc<AgentHost>,
+    agent: &str,
+    task: &str,
+    turn: &str,
+) -> Result<Value> {
+    let mut source = AgentSource {
+        host: host.clone(),
+        agent: agent.into(),
+        task: task.into(),
+        process_session: None,
+    };
+    let observation = source.observe().await?;
+    Ok(source.classify(&observation, &mut Some(turn.into())))
 }

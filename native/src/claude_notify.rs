@@ -1,4 +1,4 @@
-//! Turn-scoped Claude follow-ups. Delivery is attempted once, never retried.
+//! Turn-scoped control-source events, inboxes and fixed notification channels.
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::{future::Future, time::Duration};
@@ -39,8 +39,18 @@ pub(crate) fn session_id(value: &str) -> Result<String> {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Delivery {
+    #[serde(default)]
+    channel: Channel,
     key: String,
-    session_id: String,
+    target: String,
+    #[serde(default)]
+    event_id: String,
+    #[serde(default)]
+    created_at: i64,
+    #[serde(default)]
+    batch: String,
+    #[serde(default)]
+    error: Option<String>,
     state: String,
     #[serde(default)]
     task_state: String,
@@ -51,7 +61,17 @@ struct Delivery {
 struct Binding {
     thread_id: String,
     turn_id: String,
-    session_id: Option<String>,
+    target: Option<String>,
+    #[serde(default)]
+    channel: Channel,
+    #[serde(default)]
+    ingress: String,
+    #[serde(default)]
+    agent: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    explicit: bool,
     project: String,
     terminal: bool,
     created_at: i64,
@@ -61,7 +81,7 @@ struct Binding {
     continuation_bound: bool,
 }
 fn directory() -> PathBuf {
-    root().join("claude-notifications")
+    root().join("notifications")
 }
 fn path_in(dir: &Path, thread: &str, turn: &str) -> PathBuf {
     dir.join(format!("{}.json", hash(json!([thread, turn]).to_string())))
@@ -89,7 +109,12 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
     let mut b = previous.unwrap_or_else(|| Binding {
         thread_id: thread.into(),
         turn_id: turn.into(),
-        session_id: None,
+        target: None,
+        channel: Channel::ClaudeSession,
+        ingress: String::new(),
+        agent: String::new(),
+        title: String::new(),
+        explicit: false,
         project: Path::new(cwd)
             .file_name()
             .and_then(|v| v.to_str())
@@ -101,41 +126,101 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
         deliveries: vec![],
         continuation_bound: false,
     });
-    b.session_id = (!session.is_empty()).then(|| session.to_owned());
+    b.target = (!session.is_empty()).then(|| session.to_owned());
     persist(dir, &b)
 }
-pub(crate) async fn bind(
-    control: &control::Control,
-    args: &Value,
-    thread: &str,
-    turn: &str,
-    cwd: &str,
-) -> Result<()> {
-    if args.get("notifyClaudeSession").is_none() {
-        return Ok(());
+pub(crate) static LOCK: Mutex<()> = Mutex::const_new(());
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Channel {
+    #[default]
+    ClaudeSession,
+    ChatgptWeb,
+}
+
+pub(crate) fn normalize(args: &mut Value) -> Result<()> {
+    if args["notify"]["channel"] == "claude-session" {
+        args["notify"]["target"] = json!(session_id(string(&args["notify"], "target"))?);
     }
+    Ok(())
+}
+
+pub(crate) async fn bind(args: &Value, thread: &str, turn: &str, cwd: &str) -> Result<()> {
     if turn.is_empty() {
-        return Err("MISSING_TURN_ID".into());
+        return Ok(());
+    } // Thread-only create has no event yet.
+    let _guard = LOCK.lock().await;
+    let dir = directory();
+    if binding(&dir, thread, turn)?.is_none() {
+        bind_in(&dir, Some(""), thread, turn, cwd)?;
     }
-    let _guard = control.claude_notifications.lock().await;
-    bind_in(
-        &directory(),
-        Some(args["notifyClaudeSession"].as_str().unwrap_or("")),
-        thread,
-        turn,
-        cwd,
-    )
+    let mut b = binding(&dir, thread, turn)?.unwrap();
+    if let Some(notify) = args.get("notify") {
+        if b.target.as_deref() != notify["target"].as_str()
+            || serde_json::to_value(b.channel).unwrap() != notify["channel"]
+        {
+            for d in &mut b.deliveries {
+                if d.status == "pending" {
+                    d.status = "failed".into();
+                    d.error = Some("binding-changed".into());
+                }
+            }
+        }
+        b.explicit = true;
+        b.target = notify["target"].as_str().map(str::to_owned);
+        if !notify.is_null() {
+            b.channel =
+                serde_json::from_value(notify["channel"].clone()).map_err(|e| e.to_string())?;
+        }
+    }
+    if b.ingress.is_empty() {
+        b.ingress = string(&crate::kernel::origin::current_origin(), "ingressId").into();
+    }
+    if b.agent.is_empty() {
+        b.agent = args["agent"].as_str().unwrap_or("codex").into();
+    }
+    if b.title.is_empty() {
+        b.title = args["title"]
+            .as_str()
+            .filter(|v| !v.is_empty())
+            .unwrap_or(&b.project)
+            .into();
+    }
+    persist(&dir, &b)
+}
+pub(crate) async fn inherit(thread: &str, previous: &str, turn: &str) -> Result<()> {
+    let _guard = LOCK.lock().await;
+    if let (Some(mut old), Some(mut next)) = (
+        binding(&directory(), thread, previous)?,
+        binding(&directory(), thread, turn)?,
+    ) {
+        if !next.explicit && !old.continuation_bound {
+            next.target = old.target.clone();
+            next.channel = old.channel;
+            for d in &mut next.deliveries {
+                if d.status == "pending" && d.target.is_empty() {
+                    d.target = old.target.clone().unwrap_or_default();
+                    d.channel = old.channel;
+                }
+            }
+            persist(&directory(), &next)?;
+        }
+        old.continuation_bound = true;
+        persist(&directory(), &old)?;
+    }
+    Ok(())
 }
 pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
     if let Err(error) = result {
         #[cfg(not(test))]
         crate::logs::record(
             "WARN",
-            &format!("Codex task dispatched, but Claude notification binding failed: {error}"),
+            &format!("Task dispatched, but notification binding failed: {error}"),
             None,
         );
-        receipt["claudeNotification"] = json!("bind-failed");
-        receipt["claudeNotificationError"] = json!(error);
+        receipt["notification"] = json!("bind-failed");
+        receipt["notificationError"] = json!(error);
     }
 }
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
@@ -147,18 +232,43 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
     Ok(true)
 }
 fn notification(b: Option<Binding>) -> Value {
-    b.filter(|b| b.session_id.is_some()).map(|b| json!({
-        "sessionId": b.session_id,
-        "deliveries": b.deliveries.iter().filter(|d| Some(d.session_id.as_str()) == b.session_id.as_deref()).map(|d| json!({"state":d.state,"taskState":d.task_state,"status":d.status})).collect::<Vec<_>>()
+    b.filter(|b| b.target.is_some()).map(|b| json!({
+        "channel": b.channel, "target": b.target,
+        "deliveries": b.deliveries.iter().filter(|d| d.channel == b.channel && Some(d.target.as_str()) == b.target.as_deref()).map(|d| json!({"eventId":d.event_id,"kind":event(&b,d)["kind"],"level":if b.channel==Channel::ClaudeSession {"L1"}else{"L4"},"state":d.status,"error":d.error})).collect::<Vec<_>>()
     })).unwrap_or(Value::Null)
 }
 pub(crate) fn read(thread: &str, turn: &str) -> Result<Value> {
     Ok(notification(binding(&directory(), thread, turn)?))
 }
-fn message(b: &Binding, state: &str) -> String {
+fn event(b: &Binding, d: &Delivery) -> Value {
+    let kind = match d.task_state.as_str() {
+        "completed" => "completed",
+        "failed" => "failed",
+        "cancelled" => "interrupted",
+        _ => "needs-input",
+    };
+    let agent = !b.agent.is_empty() && b.agent != "codex";
+    let next = if kind == "needs-input" {
+        if agent {
+            json!({"hint":"Read the pending interaction before responding.","tool":"agent_pending","arguments":{"agent":b.agent,"taskId":b.thread_id}})
+        } else {
+            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","tool":"codex_pending","arguments":{}})
+        }
+    } else if agent {
+        json!({"hint":"Read the result and review it against the acceptance criteria.","tool":"agent_read","arguments":{"agent":b.agent,"taskId":b.thread_id}})
+    } else {
+        json!({"hint":"Read the result and review its changes.","tool":"codex_read","arguments":{"threadId":b.thread_id}})
+    };
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"next":next})
+}
+fn message(b: &Binding) -> String {
     format!(
-        "Codex 任务通知：项目 {}，线程 {}，轮次 {}，状态 {}，请检查。",
-        b.project, b.thread_id, b.turn_id, state
+        "[ARC] {}",
+        b.deliveries
+            .iter()
+            .map(|d| event(b, d).to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
     )
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
@@ -197,6 +307,8 @@ fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
             "等待输入"
         } else if method.contains("Approval") || method.contains("approval") {
             "等待审批"
+        } else if !b.agent.is_empty() && b.agent != "codex" {
+            "等待输入"
         } else {
             continue;
         };
@@ -241,6 +353,9 @@ trait Executor {
 struct Cli;
 impl Executor for Cli {
     async fn send(&self, args: Vec<String>) -> Result<Vec<u8>> {
+        if settings()?["notificationsEnabled"] == false {
+            return Err("NOTIFICATIONS_DISABLED".into());
+        }
         let binary = crate::agents::driver::discover("claude").ok_or("CLAUDE_NOT_FOUND")?;
         let paths = std::env::join_paths(crate::agents::driver::search_paths())
             .map_err(|e| e.to_string())?;
@@ -268,6 +383,9 @@ impl Executor for Cli {
         Ok(output.stdout)
     }
     async fn fallback(&self, body: String) {
+        if !settings().is_ok_and(|s| s["notificationsEnabled"] != false) {
+            return;
+        }
         if let Err(error) =
             crate::transport::forward_request("permissions/notify", "POST", json!({"body":body}))
                 .await
@@ -280,10 +398,10 @@ impl Executor for Cli {
         }
     }
 }
-async fn deliver(executor: &impl Executor, b: &Binding, state: &str) -> &'static str {
-    let session = b.session_id.as_deref().unwrap();
+async fn deliver_message(executor: &impl Executor, b: &Binding, body: &str) -> &'static str {
+    let session = b.target.as_deref().unwrap();
     let result = executor
-        .send(arguments(session, &message(b, state)))
+        .send(arguments(session, body))
         .await
         .and_then(|bytes| {
             serde_json::from_slice::<Value>(&bytes).map_err(|_| "CLAUDE_SEND_UNKNOWN".into())
@@ -328,26 +446,41 @@ fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
     }
     Ok(false)
 }
-async fn process(
-    executor: &impl Executor,
-    dir: &Path,
-    lock: &Mutex<()>,
-    b: &mut Binding,
-    observation: &Value,
-) -> Result<()> {
+async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Value) -> Result<()> {
     let guard = lock.lock().await;
     let Some(current) = binding(dir, &b.thread_id, &b.turn_id)? else {
         return Ok(());
     };
     *b = current;
-    if b.session_id.is_none() {
-        return Ok(());
+    if let Some(title) = observation["title"]
+        .as_str()
+        .filter(|title| !title.is_empty())
+    {
+        b.title = title.into();
     }
     if observation["state"] == "cancelled" && !b.continuation_bound {
         if let Some(next) = observation["nextTurnId"].as_str().filter(|s| !s.is_empty()) {
-            // An existing record, including an explicit unbind, wins over inheritance.
-            if binding(dir, &b.thread_id, next)?.is_none() {
-                bind_in(dir, b.session_id.as_deref(), &b.thread_id, next, &b.project)?;
+            let mut successor = binding(dir, &b.thread_id, next)?.unwrap_or_else(|| {
+                let mut next_binding = b.clone();
+                next_binding.turn_id = next.into();
+                next_binding.created_at = chrono::Utc::now().timestamp();
+                next_binding.terminal = false;
+                next_binding.waiting.clear();
+                next_binding.deliveries.clear();
+                next_binding.explicit = false;
+                next_binding.continuation_bound = false;
+                next_binding
+            });
+            if !successor.explicit {
+                successor.target = b.target.clone();
+                successor.channel = b.channel;
+                for d in &mut successor.deliveries {
+                    if d.status == "pending" && d.target.is_empty() {
+                        d.target = b.target.clone().unwrap_or_default();
+                        d.channel = b.channel;
+                    }
+                }
+                persist(dir, &successor)?;
             }
             b.continuation_bound = true;
             persist(dir, b)?;
@@ -361,42 +494,301 @@ async fn process(
     let first = b.deliveries.len();
     for (key, state) in events {
         b.deliveries.push(Delivery {
-            session_id: b.session_id.clone().unwrap(),
+            channel: b.channel,
+            target: b.target.clone().unwrap_or_default(),
+            event_id: hash(json!([b.agent, b.thread_id, b.turn_id, key]).to_string()),
+            created_at: chrono::Utc::now().timestamp(),
+            batch: String::new(),
+            error: None,
             key,
             state,
             task_state: string(observation, "state").into(),
-            status: "sending".into(),
+            status: "pending".into(),
         });
     }
-    // Reservation and terminal/interaction dedup state are one atomic write.
+    // Append first: a crash between writes is reconciled by deterministic event IDs.
+    for d in &b.deliveries[first..] {
+        inbox_append(dir, &b.ingress, event(b, d))?;
+    }
     persist(dir, b)?;
     drop(guard);
-    let reserved = b.clone();
-    for delivery in &reserved.deliveries[first..] {
-        let status = deliver(executor, &reserved, &delivery.state).await;
-        let _guard = lock.lock().await;
-        if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
-            if let Some(record) = current
-                .deliveries
-                .iter_mut()
-                .find(|d| d.key == delivery.key && d.session_id == delivery.session_id)
-            {
-                record.status = status.into();
+    Ok(())
+}
+
+fn inbox_path(dir: &Path, ingress: &str) -> PathBuf {
+    dir.join("inboxes").join(format!("{}.json", hash(ingress)))
+}
+fn inbox_append(dir: &Path, ingress: &str, event: Value) -> Result<()> {
+    if ingress.is_empty() {
+        return Ok(());
+    }
+    let path = inbox_path(dir, ingress);
+    let mut rows = if path.exists() {
+        load(&path)?
+    } else {
+        json!([])
+    };
+    let rows = rows.as_array_mut().ok_or("INVALID_INBOX")?;
+    if !rows.iter().any(|v| v["eventId"] == event["eventId"]) {
+        rows.push(event);
+        if rows.len() > 50 {
+            rows.drain(..rows.len() - 50);
+        }
+        save(&path, &json!(rows))?;
+    }
+    Ok(())
+}
+pub(crate) async fn inbox(ingress: &str, reads: &[(String, String)]) -> Result<Value> {
+    let _guard = LOCK.lock().await;
+    let path = inbox_path(&directory(), ingress);
+    if !path.exists() {
+        return Ok(Value::Null);
+    }
+    let mut rows = load(&path)?;
+    if let Some(rows) = rows.as_array_mut() {
+        for row in rows {
+            if reads.iter().any(|(task, turn)| {
+                (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
+            }) {
+                row["read"] = json!(true);
             }
-            persist(dir, &current)?;
-            *b = current;
+        }
+    }
+    if !reads.is_empty() {
+        save(&path, &rows)?;
+    }
+    let unread: Vec<_> = rows
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|v| v["read"] != true)
+        .cloned()
+        .collect();
+    Ok(if unread.is_empty() {
+        Value::Null
+    } else {
+        json!({"unread":unread.len(),"events":unread.into_iter().take(5).collect::<Vec<_>>()})
+    })
+}
+
+fn records(dir: &Path) -> Result<Vec<Binding>> {
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    std::fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
+        .map(|e| serde_json::from_value(load(&e.path())?).map_err(|e| e.to_string()))
+        .collect()
+}
+
+pub(crate) fn settings() -> Result<Value> {
+    let path = root().join("task-settings.json");
+    let mut settings = if path.exists() {
+        load(&path)?
+    } else {
+        json!({})
+    };
+    if settings["enabled"].is_null() {
+        settings["enabled"] = json!(false);
+    }
+    if settings["autoOpenCodex"].is_null() {
+        settings["autoOpenCodex"] = json!(!cfg!(target_os = "linux"));
+    }
+    if settings["notificationsEnabled"].is_null() {
+        settings["notificationsEnabled"] = json!(true);
+    }
+    if settings["notificationWakeLimit"].is_null() {
+        settings["notificationWakeLimit"] = json!(10);
+    }
+    Ok(settings)
+}
+
+// A batch is reserved under the existing lock, sent outside it, then merged.
+// Only pending records are eligible; sending records never retry after restart.
+async fn flush(
+    executor: &impl Executor,
+    dir: &Path,
+    lock: &Mutex<()>,
+    now: i64,
+    window: i64,
+    settings: &Value,
+) -> Result<()> {
+    let guard = lock.lock().await;
+    let mut all = records(dir)?;
+    let mut targets = Vec::new();
+    for b in &all {
+        for d in &b.deliveries {
+            if d.status == "pending"
+                && now - d.created_at >= window
+                && !targets.contains(&(d.channel, d.target.clone()))
+            {
+                targets.push((d.channel, d.target.clone()));
+            }
+        }
+    }
+    let mut batches = Vec::new();
+    for (channel, target) in targets {
+        let wakes: std::collections::HashSet<_> = all
+            .iter()
+            .flat_map(|b| b.deliveries.iter())
+            .filter(|d| d.channel == channel && d.target == target && !d.batch.is_empty())
+            .map(|d| d.batch.clone())
+            .collect();
+        let reason = if settings["notificationsEnabled"] == false {
+            Some("disabled")
+        } else if target.is_empty() {
+            Some("unbound")
+        } else if channel != Channel::ClaudeSession {
+            Some("channel-unavailable-in-P0")
+        } else if wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(10) as usize {
+            Some("wake-limit")
+        } else {
+            None
+        };
+        let batch = id();
+        let mut reserved = Vec::new();
+        for b in &mut all {
+            let mut selected = b.clone();
+            selected.target = Some(target.clone());
+            selected.channel = channel;
+            selected.deliveries.clear();
+            for d in &mut b.deliveries {
+                if d.channel == channel && d.target == target && d.status == "pending" {
+                    d.status = if reason.is_some() {
+                        "failed"
+                    } else {
+                        "sending"
+                    }
+                    .into();
+                    d.error = reason.map(str::to_owned);
+                    if reason.is_none() {
+                        d.batch = batch.clone();
+                    }
+                    selected.deliveries.push(d.clone());
+                }
+            }
+            if !selected.deliveries.is_empty() {
+                persist(dir, b)?;
+                if reason == Some("wake-limit") && !b.ingress.is_empty() {
+                    let path = inbox_path(dir, &b.ingress);
+                    if path.exists() {
+                        let mut rows = load(&path)?;
+                        for row in rows.as_array_mut().into_iter().flatten() {
+                            if selected
+                                .deliveries
+                                .iter()
+                                .any(|d| row["eventId"] == d.event_id)
+                            {
+                                row["notificationError"] = json!("wake-limit");
+                            }
+                        }
+                        save(&path, &rows)?;
+                    }
+                }
+                reserved.push(selected);
+            }
+        }
+        if reason.is_none() {
+            batches.push(reserved);
+        }
+    }
+    drop(guard);
+    for batch in batches {
+        let body = batch
+            .iter()
+            .map(|b| message(b))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let status = deliver_message(executor, &batch[0], &body).await;
+        let _guard = lock.lock().await;
+        for reserved in batch {
+            if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
+                for d in &mut current.deliveries {
+                    if reserved
+                        .deliveries
+                        .iter()
+                        .any(|r| r.event_id == d.event_id && r.target == d.target)
+                    {
+                        d.status = status.into();
+                        if status == "failed" {
+                            d.error = Some("delivery-failed-or-unconfirmed".into());
+                        }
+                    }
+                }
+                persist(dir, &current)?;
+            }
         }
     }
     Ok(())
 }
-pub(crate) fn start(control: &Arc<control::Control>) {
+
+pub(crate) async fn migrate() -> Result<()> {
+    let _guard = LOCK.lock().await;
+    let old = root().join("claude-notifications");
+    if !old.exists() {
+        return Ok(());
+    }
+    for entry in std::fs::read_dir(&old)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
+        if !entry.path().extension().is_some_and(|v| v == "json") {
+            continue;
+        }
+        let mut v = load(&entry.path())?;
+        v["target"] = v["sessionId"].take();
+        v["channel"] = json!("claude-session");
+        v["explicit"] = json!(true);
+        v["agent"] = json!("codex");
+        // Recover the original ingress from existing dispatch receipts once.
+        for receipt in std::fs::read_dir(root())
+            .map_err(|e| e.to_string())?
+            .flatten()
+        {
+            if !receipt.path().extension().is_some_and(|ext| ext == "json") {
+                continue;
+            }
+            if let Ok(r) = load(&receipt.path()) {
+                if r["threadId"] == v["threadId"] && r["turnId"] == v["turnId"] {
+                    v["ingress"] = json!(string(&r["origin"], "ingressId"));
+                    v["title"] = json!(string(&r["task"], "title"));
+                    break;
+                }
+            }
+        }
+        if let Some(ds) = v["deliveries"].as_array_mut() {
+            for d in ds {
+                d["target"] = d["sessionId"].take();
+            }
+        }
+        let mut b: Binding = serde_json::from_value(v).map_err(|e| e.to_string())?;
+        for d in &mut b.deliveries {
+            d.event_id = hash(json!([b.agent, b.thread_id, b.turn_id, d.key]).to_string());
+            d.batch = d.event_id.clone();
+        }
+        if binding(&directory(), &b.thread_id, &b.turn_id)?.is_none() {
+            persist(&directory(), &b)?;
+        }
+        std::fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
+    }
+    std::fs::remove_dir(&old).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents::AgentHost>) {
+    let agents = Arc::downgrade(agents);
     let weak = Arc::downgrade(control);
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
-        crate::logs::record("INFO", "Claude notification observer started", None);
+        crate::logs::record("INFO", "Control-source notification observer started", None);
         let mut recovering = true;
         loop {
             let Some(control) = weak.upgrade() else {
+                break;
+            };
+            let Some(agents) = agents.upgrade() else {
                 break;
             };
             let cycle = async {
@@ -406,7 +798,7 @@ pub(crate) fn start(control: &Arc<control::Control>) {
                         .flatten()
                         .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
                     {
-                        let _guard = control.claude_notifications.lock().await;
+                        let _guard = LOCK.lock().await;
                         let mut b: Binding = serde_json::from_value(load(&entry.path())?)
                             .map_err(|e| e.to_string())?;
                         if remove_expired(&directory(), &b, chrono::Utc::now().timestamp())? {
@@ -414,22 +806,26 @@ pub(crate) fn start(control: &Arc<control::Control>) {
                         }
                         let fallback = recovering && recover(&directory(), &mut b)?;
                         drop(_guard);
-                        if fallback {
+                        if fallback && settings()?["notificationsEnabled"] != false {
                             Cli.fallback(fallback_body(&b)).await;
                         }
                         let interrupted = b.deliveries.iter().any(|d| d.state == "中断");
-                        if (b.terminal && (!interrupted || b.continuation_bound))
-                            || b.session_id.is_none()
-                        {
+                        if b.terminal && (!interrupted || b.continuation_bound) {
                             continue;
                         }
                         let c = control.clone();
+                        let agents = agents.clone();
                         reads.spawn(async move {
                             let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
-                            let result = tokio::time::timeout(
-                                Duration::from_secs(10),
-                                crate::waiter::codex_observe(&c, &args),
-                            )
+                            let result = tokio::time::timeout(Duration::from_secs(10), async {
+                                if b.agent.is_empty() || b.agent == "codex" {
+                                    crate::waiter::codex_observe(&c, &args).await
+                                } else {
+                                    agents
+                                        .observe_notification(&b.agent, &b.thread_id, &b.turn_id)
+                                        .await
+                                }
+                            })
                             .await;
                             (b, result)
                         });
@@ -440,21 +836,23 @@ pub(crate) fn start(control: &Arc<control::Control>) {
                         continue;
                     };
                     let mut b = old;
-                    process(
-                        &Cli,
-                        &directory(),
-                        &control.claude_notifications,
-                        &mut b,
-                        &observed,
-                    )
-                    .await?;
+                    process(&directory(), &LOCK, &mut b, &observed).await?;
                 }
+                flush(
+                    &Cli,
+                    &directory(),
+                    &LOCK,
+                    chrono::Utc::now().timestamp(),
+                    30,
+                    &settings()?,
+                )
+                .await?;
                 Ok::<_, String>(())
             };
             tokio::select! {
                 biased;
                 _ = shutdown.changed() => break,
-                result = cycle => if let Err(error) = result { crate::logs::record("WARN", &format!("Claude notification persistence/observation failed: {error}"), None); },
+                result = cycle => if let Err(error) = result { crate::logs::record("WARN", &format!("Control-source notification persistence/observation failed: {error}"), None); },
             }
             recovering = false;
             drop(control);
@@ -513,7 +911,18 @@ mod tests {
         b: &mut Binding,
         observation: &Value,
     ) -> Result<()> {
-        super::process(executor, dir, &Mutex::new(()), b, observation).await
+        super::process(dir, &Mutex::new(()), b, observation).await?;
+        flush(
+            executor,
+            dir,
+            &Mutex::new(()),
+            i64::MAX,
+            0,
+            &json!({"notificationWakeLimit":100}),
+        )
+        .await?;
+        *b = binding(dir, &b.thread_id, &b.turn_id)?.unwrap();
+        Ok(())
     }
     async fn recover(executor: &impl Executor, dir: &Path, b: &mut Binding) -> Result<()> {
         if super::recover(dir, b)? {
@@ -572,7 +981,7 @@ mod tests {
             binding(&dir.0, "thread-1", "turn-1")
                 .unwrap()
                 .unwrap()
-                .session_id
+                .target
                 .as_deref(),
             Some("session_test")
         );
@@ -580,7 +989,7 @@ mod tests {
             binding(&dir.0, "thread-1", "turn-2")
                 .unwrap()
                 .unwrap()
-                .session_id
+                .target
                 .as_deref(),
             Some("cse_other")
         );
@@ -590,7 +999,7 @@ mod tests {
             binding(&dir.0, "thread-1", "turn-2")
                 .unwrap()
                 .unwrap()
-                .session_id
+                .target
                 .as_deref(),
             Some("cse_other")
         );
@@ -602,7 +1011,7 @@ mod tests {
         bind_in(&dir.0, None, "thread-1", "turn-1", "").unwrap();
         bind_in(&dir.0, None, "thread-1", "turn-2", "").unwrap();
         let mut b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
-        assert_eq!(b.session_id.as_deref(), Some("session_test"));
+        assert_eq!(b.target.as_deref(), Some("session_test"));
         assert!(binding(&dir.0, "thread-1", "turn-2").unwrap().is_none());
         let fake = Fake::success();
         process(&fake, &dir.0, &mut b, &json!({"state":"completed"}))
@@ -626,7 +1035,7 @@ mod tests {
             receipt["result"],
             json!({"submitted":true,"turnId":"turn-1"})
         );
-        assert_eq!(receipt["claudeNotification"], "bind-failed");
+        assert_eq!(receipt["notification"], "bind-failed");
     }
     #[test]
     fn seven_day_cleanup_covers_terminal_and_unfinished_records() {
@@ -683,12 +1092,15 @@ mod tests {
                 dir: &dir.0,
                 fail,
             };
-            super::process(&probe, &dir.0, &lock, &mut b, &interaction(json!(17)))
+            super::process(&dir.0, &lock, &mut b, &interaction(json!(17)))
+                .await
+                .unwrap();
+            flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}))
                 .await
                 .unwrap();
             let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
-            assert_eq!(b.session_id.as_deref(), Some("cse_other"));
-            assert_eq!(b.deliveries[0].session_id, "session_test");
+            assert_eq!(b.target.as_deref(), Some("cse_other"));
+            assert_eq!(b.deliveries[0].target, "session_test");
             assert_eq!(
                 b.deliveries[0].status,
                 if fail { "failed" } else { "delivered" }
@@ -732,23 +1144,18 @@ mod tests {
         assert_eq!(fake.calls.lock().unwrap().len(), 3);
         assert!(b.terminal);
         let report = notification(binding(&dir.0, "thread-1", "turn-1").unwrap());
-        assert_eq!(report["sessionId"], "session_test");
+        assert_eq!(report["target"], "session_test");
         assert_eq!(
             report["deliveries"][2],
-            json!({"state":"完成", "taskState":"completed", "status":"delivered"})
+            json!({"eventId":b.deliveries[2].event_id,"kind":"completed","level":"L1","state":"delivered","error":null})
         );
         assert!(b.deliveries.iter().all(|d| d.status == "delivered"));
         let calls = fake.calls.lock().unwrap();
+        assert_eq!(calls[0][0], "-p");
+        assert!(calls[0][1].starts_with("[ARC] "));
         assert_eq!(
-            calls[0],
-            vec![
-                "-p",
-                "Codex 任务通知：项目 sample，线程 thread-1，轮次 turn-1，状态 等待审批，请检查。",
-                "--cloud",
-                "session_test",
-                "--output-format",
-                "json"
-            ]
+            &calls[0][2..],
+            ["--cloud", "session_test", "--output-format", "json"]
         );
         assert!(!serde_json::to_string(&*calls).unwrap().contains("SECRET"));
         assert!(
@@ -768,7 +1175,7 @@ mod tests {
         bind_in(&dir.0, Some("cse_other"), "thread-1", "turn-1", "").unwrap();
         let mut b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
         let report = notification(Some(b.clone()));
-        assert_eq!(report["sessionId"], "cse_other");
+        assert_eq!(report["target"], "cse_other");
         assert_eq!(report["deliveries"], json!([]));
         process(&fake, &dir.0, &mut b, &interaction(json!(17)))
             .await
@@ -780,8 +1187,8 @@ mod tests {
             .unwrap();
         assert_eq!(other.calls.lock().unwrap()[0][3], "cse_other");
         assert_eq!(
-            notification(Some(b))["deliveries"],
-            json!([{"state":"完成","taskState":"completed","status":"delivered"}])
+            notification(Some(b.clone()))["deliveries"],
+            json!([{"eventId":b.deliveries[1].event_id,"kind":"completed","level":"L1","state":"delivered","error":null}])
         );
     }
 
@@ -843,8 +1250,13 @@ mod tests {
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
         b.deliveries.push(Delivery {
+            channel: Channel::ClaudeSession,
+            event_id: "event-17".into(),
+            created_at: 0,
+            batch: String::new(),
+            error: None,
             key: "request:17".into(),
-            session_id: "session_test".into(),
+            target: "session_test".into(),
             state: "等待审批".into(),
             task_state: "interaction-required".into(),
             status: "sending".into(),
@@ -864,4 +1276,99 @@ mod tests {
         assert_eq!(fake.calls.lock().unwrap().len(), 1);
         assert_eq!(b.deliveries[1].state, "中断");
     }
+}
+
+pub(crate) fn push_available(notification: &Value) -> bool {
+    if notification["channel"] != "claude-session" || !notification["target"].is_string() {
+        return false;
+    }
+    let Ok(settings) = settings() else {
+        return false;
+    };
+    if settings["notificationsEnabled"] == false
+        || crate::agents::driver::discover("claude").is_none()
+    {
+        return false;
+    }
+    let Ok(all) = records(&directory()) else {
+        return false;
+    };
+    let wakes: std::collections::HashSet<_> = all
+        .iter()
+        .flat_map(|b| b.deliveries.iter())
+        .filter(|d| {
+            d.channel == Channel::ClaudeSession
+                && notification["target"] == d.target
+                && !d.batch.is_empty()
+        })
+        .map(|d| &d.batch)
+        .collect();
+    wakes.len() < settings["notificationWakeLimit"].as_u64().unwrap_or(10) as usize
+}
+
+pub(crate) async fn observe(thread: &str, turn: &str, observed: &Value) -> Result<()> {
+    if let Some(mut b) = binding(&directory(), thread, turn)? {
+        process(&directory(), &LOCK, &mut b, observed).await?;
+    }
+    Ok(())
+}
+
+// A read can beat the background observer. Record the state it actually read
+// before marking that turn read; later transitions remain unread.
+pub(crate) async fn read_turns(
+    name: &str,
+    args: &Value,
+    value: &Value,
+) -> Result<Vec<(String, String)>> {
+    let mut reads = Vec::new();
+    if !matches!(
+        name,
+        "codex_read" | "codex_wait" | "codex_items" | "codex_changes" | "agent_read" | "agent_wait"
+    ) || value["state"] == "unconfirmed"
+    {
+        return Ok(reads);
+    }
+    let task = value["taskId"]
+        .as_str()
+        .or_else(|| args["taskId"].as_str())
+        .or_else(|| value["threadId"].as_str())
+        .or_else(|| args["threadId"].as_str())
+        .unwrap_or("");
+    let turns = if name == "codex_read" {
+        value["turns"].as_array().cloned().unwrap_or_default()
+    } else if name == "codex_items" && value["turnId"].is_null() && args["turnId"].is_null() {
+        value["items"].as_array().cloned().unwrap_or_default()
+    } else {
+        vec![value.clone()]
+    };
+    for t in turns {
+        let turn = t["turnId"]
+            .as_str()
+            .or_else(|| args["turnId"].as_str())
+            .unwrap_or("");
+        if turn.is_empty() {
+            continue;
+        }
+        let mut observation = t.clone();
+        if observation["title"].is_null() {
+            observation["title"] = value["title"].clone();
+        }
+        if name == "codex_read" || name == "agent_read" {
+            observation["state"] = json!(match t["recordedStatus"]
+                .as_str()
+                .or_else(|| t["status"].as_str())
+                .unwrap_or("")
+            {
+                "completed" => "completed",
+                "failed" => "failed",
+                "cancelled" | "interrupted" => "cancelled",
+                _ => "unconfirmed",
+            });
+        }
+        observe(task, turn, &observation).await?;
+        reads.push((task.into(), turn.into()));
+    }
+    reads.sort();
+    reads.dedup();
+    Ok(reads)
 }

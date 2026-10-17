@@ -446,12 +446,12 @@ fn loop_evidence(observed: &Value, notification: &Value, needs_notification: boo
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|d| d["taskState"] == "completed")
+            .filter(|d| d["kind"] == "completed")
         {
-            if delivery["status"] == "delivered" {
+            if delivery["state"] == "delivered" {
                 result["complete"] = json!(true);
             }
-            if delivery["status"] == "failed" {
+            if delivery["state"] == "failed" {
                 result["notificationFailed"] = json!(true);
             }
         }
@@ -498,7 +498,7 @@ async fn loop_status(s: &Arc<Service>, state: &Value, i: &Value) -> Result<Value
         if evidence["notificationFailed"] == true
             || needs_notification
                 && observed["state"] == "completed"
-                && r["claudeNotification"] == "bind-failed"
+                && r["notification"] == "bind-failed"
         {
             result["notificationFailed"] = json!(true);
         }
@@ -929,12 +929,12 @@ mod tests {
         assert_eq!(
             loop_evidence(
                 &completed,
-                &json!({"deliveries":[{"state":"完成","status":"delivered"}]}),
+                &json!({"deliveries":[{"state":"delivered"}]}),
                 true
             )["complete"],
             false
         );
-        let notification = json!({"deliveries":[{"state":"Display text may change","taskState":"completed","status":"delivered"}]});
+        let notification = json!({"deliveries":[{"kind":"completed","state":"delivered"}]});
         assert_eq!(
             loop_evidence(&json!({"state":"running"}), &notification, true)["complete"],
             false

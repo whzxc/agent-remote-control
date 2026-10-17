@@ -34,9 +34,9 @@ Claude's [connector documentation](https://claude.com/docs/connectors/building) 
 
 Give a project name or absolute directory. Then dispatch one concrete round:
 
-> Ask Codex to implement the agreed change in this project and run its existing checks. Use a fresh requestId. Set notifyClaudeSession to your own Claude Code cloud session. Keep the returned threadId and turnId. When notified, read the task and inspect its changes against our acceptance criteria.
+> Ask Codex to implement the agreed change in this project and run its existing checks. Use a fresh requestId. Set notify to {channel: "claude-session", target: your own Claude Code cloud session ID or URL}. Keep the returned threadId and turnId. When notified, read the task and inspect its changes against our acceptance criteria.
 
-The corresponding tool call is `codex_create` with `project`, `prompt`, `requestId`, and `notifyClaudeSession`. Retain the receipt and task IDs. Use `codex_wait` for an immediate check; after a timeout, continue with the same IDs and the returned snapshotHash as expectedHash.
+The corresponding tool call is `codex_create` with `project`, `prompt`, `requestId`, and `notify`. Retain the receipt and task IDs. Use `codex_wait` for an immediate check; after a timeout, continue with the same IDs and the returned snapshotHash as expectedHash.
 
 ## Receive, review, continue
 
@@ -44,9 +44,9 @@ After dispatching, Claude can end its turn. When Codex finishes, the notificatio
 
 ARC sends a fixed status message when a bound turn completes, fails, is interrupted, or needs approval/input. The message identifies the project, task, and turn. Claude then reads the actual output through `codex_read` / `codex_items`, and the changes through `codex_changes` or `git`.
 
-Ask Claude to compare the result with the acceptance criteria, explain any remaining issue, and use `codex_send` for the next round. Include `notifyClaudeSession` on each new round. An input added to the current round retains its binding when the field is omitted. Set it to `null` to unbind. An immediately following continuation of an interrupted round can inherit the binding; explicit binding or unbinding takes precedence.
+Ask Claude to compare the result with the acceptance criteria, explain any remaining issue, and use `codex_send` for the next round. Include `notify` on each new round. An input added to the current round retains its binding when the field is omitted. Set it to `null` to unbind. An immediately following continuation of an interrupted round can inherit the binding; explicit binding or unbinding takes precedence.
 
-Read `claudeNotification` in the task result for delivery status. A binding failure appears as `bind-failed` in the dispatch receipt. Check **Records** if delivery fails. On macOS, ARC also attempts a system notification.
+Read `notification` in the task result for delivery status. A binding failure appears as `bind-failed` in the dispatch receipt. Check **Records** if delivery fails. On macOS, ARC also attempts a system notification.
 
 ## A useful working agreement
 

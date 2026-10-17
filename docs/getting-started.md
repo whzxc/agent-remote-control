@@ -33,7 +33,7 @@ xattr -rd com.apple.quarantine "/Applications/Agent Remote Control.app"
 
 Open a Claude Code cloud session on claude.ai and send this prompt. Claude can read its own session ID from its environment, for example the `cse_…` value in `CLAUDE_CODE_REMOTE_SDK_URL`:
 
-> Through ARC, create a Codex task that uses no tools, reads no files, and only replies ARC_LOOP_OK. Use a fresh requestId and set notifyClaudeSession to your own Claude Code cloud session. Read the receipt and retain threadId and turnId, then end your turn. When the completion notification wakes this session, read the result and confirm it matches.
+> Through ARC, create a Codex task that uses no tools, reads no files, and only replies ARC_LOOP_OK. Use a fresh requestId and set notify to {channel: "claude-session", target: your own Claude Code cloud session ID or URL}. Read the receipt and retain threadId and turnId, then end your turn. When the completion notification wakes this session, read the result and confirm it matches.
 
 If Claude cannot read its own session ID, paste the cloud session URL or ID instead.
 

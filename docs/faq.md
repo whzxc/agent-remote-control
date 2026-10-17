@@ -28,7 +28,7 @@ Call `codex_wait` / `agent_wait` again with the original task and turn IDs, usin
 
 ## Claude did not receive a follow-up
 
-Check that notifyClaudeSession names a Claude Code cloud session, the local Claude Code CLI is logged in, and ARC remained running. Read `claudeNotification` and Records. Delivery is attempted once; review the task directly after a failed notification. See [Claude](guides/claude.md).
+Check that notify uses channel "claude-session" and target names your Claude Code cloud session, the local Claude Code CLI is logged in, and ARC remained running. Read `notification` and Records. Delivery is attempted once; review the task directly after a failed notification. See [Claude](guides/claude.md).
 
 ## Can I close the window or leave the computer?
 

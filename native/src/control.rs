@@ -6,7 +6,6 @@ use crate::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::{collections::HashMap, time::Duration};
 pub struct Control {
-    pub(crate) claude_notifications: Mutex<()>,
     pub session: String,
     pub events: SharedEvents,
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
@@ -23,7 +22,6 @@ const RECEIPTS: crate::kernel::receipts::ReceiptStore =
 impl Control {
     pub fn new(binary: PathBuf) -> Arc<Self> {
         Arc::new(Self {
-            claude_notifications: Mutex::new(()),
             session: id(),
             events: Default::default(),
             shutdown: tokio::sync::watch::channel(0).0,
@@ -386,11 +384,7 @@ impl Control {
 
     pub async fn mutate(self: &Arc<Self>, operation: &str, mut args: Value) -> Result<Value> {
         if matches!(operation, "create" | "send") {
-            if let Some(value) = args.get("notifyClaudeSession").filter(|v| !v.is_null()) {
-                args["notifyClaudeSession"] = json!(crate::claude_notify::session_id(
-                    value.as_str().ok_or("INVALID_CLAUDE_SESSION")?
-                )?);
-            }
+            crate::claude_notify::normalize(&mut args)?;
         }
         if args.get("requestId").is_none_or(Value::is_null) {
             args["requestId"] = json!(id());
@@ -772,7 +766,6 @@ impl Control {
             };
             r["turnId"] = out["turn"]["id"].clone();
             let notification_binding = crate::claude_notify::bind(
-                self,
                 args,
                 thread,
                 string(r, "turnId"),
@@ -881,7 +874,6 @@ impl Control {
                 .unwrap_or("");
             r["turnId"] = json!(turn);
             let notification_binding = crate::claude_notify::bind(
-                self,
                 args,
                 string(r, "threadId"),
                 turn,
@@ -913,6 +905,13 @@ impl Control {
                     args[k] = default.clone();
                 }
             }
+        }
+        if name == "guide" {
+            return Ok(crate::egress::guide(
+                &crate::kernel::origin::current_origin(),
+                &args,
+                &crate::i18n::locale(),
+            ));
         }
         if name == "command" && args["cmd"].is_string() {
             return self.mutate("command", args).await;
@@ -1056,7 +1055,7 @@ impl Control {
                 }
                 if let Some(turns) = result["turns"].as_array_mut() {
                     for turn in turns {
-                        turn["claudeNotification"] =
+                        turn["notification"] =
                             crate::claude_notify::read(id, string(turn, "turnId"))?;
                     }
                 }
