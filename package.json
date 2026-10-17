@@ -1,7 +1,7 @@
 {
   "name": "agent-remote-control",
   "version": "0.0.0",
-  "description": "Agent Remote Control",
+  "description": "Connect Claude and ChatGPT to local coding agents through MCP and remote control",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -33,12 +33,9 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@radix-ui/themes": "^3.3.0",
     "@tauri-apps/api": "^2.12.2",
     "@tauri-apps/cli": "^2.11.4",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.3",
-    "@tauri-apps/plugin-dialog": "^2.7.3",
-    "@tauri-apps/plugin-notification": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2.5.5",
     "@types/node": "26.1.1",
     "@types/react": "^19.3.0",
@@ -61,11 +58,11 @@
     "url": "https://github.com/whzxc/agent-remote-control/issues"
   },
   "keywords": [
-    "chatgpt",
+    "claude",
     "codex",
     "mcp",
-    "local",
-    "connector"
+    "agent",
+    "remote-control"
   ],
   "private": true
 }

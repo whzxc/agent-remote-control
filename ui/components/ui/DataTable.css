@@ -1,23 +1,25 @@
-.data-table-theme {
+.data-table-container {
   min-height: 0;
-  background: transparent;
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
   font-family: var(--font-ui);
   color: var(--text);
-  --default-font-family: var(--font-ui);
-  --gray-12: var(--text);
-  --gray-a5: var(--border);
-  --focus-8: var(--accent);
-}
-.data-table .rt-TableRootTable {
   min-width: var(--data-table-width);
   font-size: 13px;
   line-height: 20px;
 }
-.data-table .rt-TableCell {
+.data-table th,
+.data-table td {
   padding: 12px 10px;
   vertical-align: middle;
+  text-align: left;
+  box-shadow: inset 0 -1px var(--border);
 }
-.data-table .rt-TableColumnHeaderCell {
+.data-table th {
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -27,6 +29,10 @@
 }
 .data-table-row:hover {
   background: var(--hover);
+}
+.data-table-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .data-pagination {
   display: flex;
