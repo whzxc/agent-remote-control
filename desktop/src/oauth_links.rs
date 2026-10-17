@@ -4,7 +4,6 @@ use tauri_plugin_deep_link::DeepLinkExt;
 
 fn open(app: &tauri::AppHandle, url: &tauri::Url) {
     if url.scheme() != "agent-remote-control"
-        || url.host_str() != Some("oauth")
         || !["", "/"].contains(&url.path())
         || !url.username().is_empty()
         || url.password().is_some()
@@ -14,6 +13,46 @@ fn open(app: &tauri::AppHandle, url: &tauri::Url) {
         return;
     }
     let params: Vec<_> = url.query_pairs().collect();
+    match url.host_str() {
+        Some("ingress") => {
+            let id = params
+                .iter()
+                .find(|(key, _)| key == "id")
+                .map(|(_, v)| v.as_ref())
+                .unwrap_or("");
+            let field = params
+                .iter()
+                .find(|(key, _)| key == "field")
+                .map(|(_, v)| v.as_ref())
+                .unwrap_or("");
+            if !id.is_empty() {
+                let _ = crate::windows::show(
+                    app,
+                    Some(("ingress:edit".into(), json!({"id":id,"field":field}))),
+                );
+            }
+            return;
+        }
+        Some("settings")
+            if params
+                .iter()
+                .any(|(k, v)| k == "section" && v == "permissions") =>
+        {
+            let _ = crate::windows::show(app, Some(("permissions:open".into(), json!(null))));
+            return;
+        }
+        Some("setup")
+            if params
+                .iter()
+                .any(|(k, v)| k == "target" && v == "codex-login") =>
+        {
+            let _ = crate::windows::show(app, Some(("codex:login".into(), json!(null))));
+            return;
+        }
+        Some("oauth") => {}
+        _ => return,
+    }
+
     if params.len() != 1 || params[0].0 != "request" {
         return;
     }

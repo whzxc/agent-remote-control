@@ -145,6 +145,12 @@ export default function App() {
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       const listeners = await Promise.all([
         listen<string>("oauth:open", (e) => setOauthRequest({ id: e.payload })),
+        listen<{ id: string; field: string }>("ingress:edit", (e) => {
+          navigation.set((old) => ({ ...old, ingressEdit: e.payload }));
+          navigate("overview");
+        }),
+        listen("permissions:open", () => { navigate("settings"); setPermissionsOpen(true); }),
+        listen("codex:login", () => { void api("codex/login", "POST").catch((e: Error) => notify(e.message, true)); }),
         listen("updates:check", () => {
           showUpdate();
           void checkUpdate();

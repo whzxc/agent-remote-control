@@ -196,6 +196,10 @@ pub async fn probe(
     } else {
         checks["publicMcp"] = json!({"state":"not_available","reason":"no public HTTPS endpoint"});
     }
+    ingress.observe("lastProbe", json!({"observedAt":now(),"url":address,
+        "passed":summary["state"] == "ready"
+            && matches!(string(&checks["publicMcp"], "state"), "reachable" | "authentication_required")
+            && (summary["auth"] != "oauth" || checks["oauthMetadata"]["state"] == "reachable")})).await?;
     Ok(
         json!({"ingressId":ingress.id,"observedAt":now(),"checks":checks,"diagnostics":self::ingress(&summary)}),
     )

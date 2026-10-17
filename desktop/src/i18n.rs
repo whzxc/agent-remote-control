@@ -5,14 +5,22 @@ use std::sync::{
 };
 
 // The WebView resolves Auto and persists the preference with other UI settings.
-// Native menus use this locale; the service and MCP never read it.
+// Native menus and setup share the resolved Auto locale.
 static CHINESE: AtomicBool = AtomicBool::new(false);
 static EN: OnceLock<Value> = OnceLock::new();
 static ZH: OnceLock<Value> = OnceLock::new();
 
 #[tauri::command]
-pub fn set_ui_locale(locale: String) {
+pub async fn set_ui_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
     CHINESE.store(locale == "zh-CN", Ordering::Relaxed);
+    crate::request(
+        &app,
+        "preferences",
+        "PUT",
+        serde_json::json!({"values":{"resolved-language":locale}}),
+    )
+    .await?;
+    Ok(())
 }
 
 pub fn t(key: &str) -> &str {

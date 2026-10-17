@@ -1600,6 +1600,111 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "setup.next",
+      "method": "POST",
+      "route": "setup/next",
+      "description": "Read the current setup step; goal previews a sequence without persisting it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "goal": {
+                "type": "string",
+                "enum": [
+                  "claude-loop",
+                  "chatgpt-chat"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "localOnly": true
+    },
+    {
+      "name": "setup.apply",
+      "method": "POST",
+      "route": "setup/apply",
+      "description": "Submit a decision or execute the current auto step. Reuses existing ingresses. Secret entry belongs in the ARC form.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "stepId": {
+                "type": "string",
+                "enum": [
+                  "choose-goal",
+                  "codex-ready",
+                  "claude-code-ready",
+                  "permissions",
+                  "choose-address",
+                  "chatgpt-prereq",
+                  "tunnel-credentials",
+                  "create-ingress"
+                ]
+              },
+              "input": {
+                "type": "object",
+                "properties": {
+                  "option": {
+                    "type": "string"
+                  },
+                  "tunnelId": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "stepId",
+              "input"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "localOnly": true
+    },
+    {
+      "name": "setup.wait",
+      "method": "POST",
+      "route": "setup/wait",
+      "description": "Wait for the current setup step to change; timeout is a normal result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "timeout": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3600,
+                "default": 60
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "localOnly": true
     }
   ]
 }

@@ -24,6 +24,13 @@ const COMMANDS: &[&str] = &[
     "context --stdin",
     "status",
     "onboarding",
+    "setup next",
+    "setup next --goal <goal>",
+    "setup apply <stepId> --stdin",
+    "setup wait",
+    "setup wait --timeout <sec>",
+    "setup playbook <id>",
+    "setup reset",
     "doctor",
     "logs",
     "configure --stdin",
@@ -55,7 +62,7 @@ const COMMANDS: &[&str] = &[
 
 const GUIDE: &str = include_str!("../../docs/reference/cli.md");
 
-fn onboarding(ingress: &Value) -> Value {
+pub(crate) fn onboarding(ingress: &Value) -> Value {
     json!({"ingressId":ingress["id"],"controlSource":ingress["controlSource"],
         "stage":if ingress["config"]["configured"]!=true {"configure"}else if ingress["state"]!="ready" {"start"}else if ingress["verification"]["challengeVerifiedAt"].is_string(){"inbound_verified"}else{"client_setup_or_verify"},
         "transport":ingress["transport"],"authentication":ingress["auth"],"url":ingress["url"],"tunnelId":ingress["config"]["tunnelId"],
@@ -83,6 +90,14 @@ async fn doctor() -> crate::Result<Value> {
 }
 // Keep help and argument validation on the same command grammar.
 fn command_usage(args: &[&str]) -> Result<String, (String, String)> {
+    if args == ["setup"] {
+        return command_usage(&["setup", "next"]);
+    }
+    if args.starts_with(&["setup", "--goal"]) {
+        let mut normalized = vec!["setup", "next"];
+        normalized.extend_from_slice(&args[1..]);
+        return command_usage(&normalized);
+    }
     if args.is_empty() || args == ["--help"] {
         return Ok("cli help".into());
     }
@@ -301,7 +316,7 @@ fn known_fields(value: &Value, allowed: &[&str], prefix: &str) -> crate::Result<
     Ok(())
 }
 
-fn validate_ingress_input(body: &Value, update: bool) -> crate::Result<()> {
+pub(crate) fn validate_ingress_input(body: &Value, update: bool) -> crate::Result<()> {
     let mut fields = vec![
         "name",
         "controlSource",
@@ -422,6 +437,13 @@ fn stdin_json() -> crate::Result<Value> {
 async fn execute(args: &[String]) -> crate::Result<Value> {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     match args.as_slice() {
+        ["setup"] | ["setup", "next"] => crate::management::call("setup.next",json!({})).await,
+        ["setup", "--goal", goal] | ["setup", "next", "--goal", goal] => crate::management::call("setup.next",json!({"body":{"goal":goal}})).await,
+        ["setup", "apply", step, "--stdin"] => crate::management::call("setup.apply",json!({"body":{"stepId":step,"input":stdin_json()?}})).await,
+        ["setup", "wait"] => crate::management::call("setup.wait",json!({})).await,
+        ["setup", "wait", "--timeout", seconds] => crate::management::call("setup.wait",json!({"body":{"timeout":seconds.parse::<u64>().map_err(|_|"INVALID_ARGUMENT: timeout must be seconds")?}})).await,
+        ["setup", "playbook", id] => crate::setup::playbook(id),
+        ["setup", "reset"] => forward_request("setup/reset","DELETE",json!({})).await,
         ["capabilities"] => Ok(crate::management::catalog()),
         ["schema", name] => crate::management::catalog()["operations"]
             .as_array()

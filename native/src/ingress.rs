@@ -151,6 +151,19 @@ impl Ingress {
         let token = string(&meta, "bearerToken");
         !token.is_empty() && hash(header) == hash(format!("Bearer {token}"))
     }
+    pub(crate) async fn observe_request(&self, field: &str) -> Result<()> {
+        let mut verification = self.verification.lock().await;
+        if verification[field].is_null() {
+            verification[field] = json!(now());
+            save(&self.dir.join("verification.json"), &verification)?;
+        }
+        Ok(())
+    }
+    pub(crate) async fn observe(&self, field: &str, value: Value) -> Result<()> {
+        let mut verification = self.verification.lock().await;
+        verification[field] = value;
+        save(&self.dir.join("verification.json"), &verification)
+    }
     pub async fn summary(&self) -> Result<Value> {
         let status = self.status().await?;
         let meta = self.meta.lock().await;
@@ -326,7 +339,7 @@ impl Ingress {
         }
         let mcp_url = self.mcp_url.lock().await.clone();
         let v = self.verification.lock().await;
-        let chat = json!({"ingressId":self.id,"controlSource":self.meta.lock().await["controlSource"],"code":v["code"],"verifiedAt":v["verifiedAt"],"challengeVerifiedAt":v["challengeVerifiedAt"]});
+        let chat = json!({"ingressId":self.id,"controlSource":self.meta.lock().await["controlSource"],"code":v["code"],"verifiedAt":v["verifiedAt"],"challengeVerifiedAt":v["challengeVerifiedAt"],"firstOAuthRequestAt":v["firstOAuthRequestAt"],"firstMcpRequestAt":v["firstMcpRequestAt"],"lastProbe":v["lastProbe"]});
         let logs = self.logs.lock().await.clone();
         if ready
             && !self

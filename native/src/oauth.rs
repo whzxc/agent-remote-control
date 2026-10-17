@@ -797,6 +797,7 @@ async fn route(
             }
             "/oauth/authorize" => {
                 let key = ingress.oauth.lock().await.authorize(&q, resource)?;
+                ingress.observe_request("firstOAuthRequestAt").await?;
                 return Ok(Response::builder()
                     .status(303)
                     .header("Location", format!("{issuer}/oauth/resume?request={key}"))
@@ -918,14 +919,14 @@ async fn route(
             *registration_field = Some("body");
             "invalid_request"
         })?;
-        return Ok(response(
-            201,
-            oauth.register(&metadata, resource).map_err(|error| {
-                *registration_field = error.field;
-                *registration_detail = error.detail;
-                error.code
-            })?,
-        ));
+        let registered = oauth.register(&metadata, resource).map_err(|error| {
+            *registration_field = error.field;
+            *registration_detail = error.detail;
+            error.code
+        })?;
+        drop(oauth);
+        ingress.observe_request("firstOAuthRequestAt").await?;
+        return Ok(response(201, registered));
     }
     if content != "application/x-www-form-urlencoded" {
         return Err("invalid_request".into());

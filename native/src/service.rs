@@ -442,8 +442,15 @@ impl Service {
         let ingress_id = route
             .strip_prefix("ingress/")
             .and_then(|p| p.split('/').next());
-        let audit =
-            method != "GET" && !["runtime/lease", "logs/query", "state/wait"].contains(&route);
+        let audit = method != "GET"
+            && ![
+                "runtime/lease",
+                "logs/query",
+                "state/wait",
+                "setup/next",
+                "setup/wait",
+            ]
+            .contains(&route);
         if audit {
             crate::logs::append(
                 json!({"time":now(),"level":"INFO","msg":format!("{method} {route}: started"),"operationId":operation,"ingressId":ingress_id,"phase":"started"}),
@@ -472,6 +479,9 @@ impl Service {
     ) -> Result<Value> {
         if self.closing.load(Ordering::SeqCst) {
             return Err("core shutting down".into());
+        }
+        if route.starts_with("setup/") {
+            return crate::setup::request(self, route, method, body).await;
         }
         if route == "operations" && method == "POST" {
             return crate::operations::submit(body, self.control.session.clone());

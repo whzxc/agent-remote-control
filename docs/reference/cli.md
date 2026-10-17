@@ -23,6 +23,47 @@ Commands return a JSON envelope: `schemaVersion: 1`, `ok: true`, and `result`; e
 
 Choose the operation name from capabilities; command names and catalog operation names are not interchangeable. `cli call <operation> --stdin` sends JSON input. `cli mcp` exposes the local management catalog over stdio, separate from remote execution tools.
 
+## Agent-driven setup
+
+`cli setup` returns the next step for `claude-loop` (recommended) or
+`chatgpt-chat`. Without a saved goal it returns `choose-goal`; submit the user's
+choice with `cli setup apply choose-goal --stdin` and
+`{"option":"claude-loop"}` or `{"option":"chatgpt-chat"}`. `setup next --goal`
+previews a goal without persisting it. Apply decisions as `{"option":"<id>"}`;
+auto actions use `{}`. `claude-code-ready` and `permissions` accept an explicit
+`{"option":"skip"}`. Skipping Claude Code reports a notification limitation and
+checks the completed task's `ARC_ONBOARDING_OK` reply instead.
+
+The five step kinds are `auto`, `decide`, `authorize`, `secret`, and `remote-ui`.
+The response includes `goal`, `progress`, `complete`, and `step` with localized
+`title`, `explain`, option labels, `apply`, `openUrl`, `doneWhen`, and `playbook`.
+App language preferences apply; Auto uses the locale resolved by the App, or
+terminal locale when no App locale has been saved. `onboarding` supplies the
+selected ingress URL and current verification prompt.
+
+`setup wait` defaults to 60 seconds (0–3600 accepted); timeout returns the
+current step successfully. `setup reset` clears only setup choices and its start
+time, leaving ingresses intact. Repeated apply reuses an existing matching
+ingress. Fixed-address choice and ChatGPT prerequisite confirmation prepare an
+unstarted ingress before credential entry. Fixed addresses default to Cloudflare
+named; select another provider in the existing connection form if needed.
+`setup apply tunnel-credentials --stdin` accepts the non-secret
+`{"tunnelId":"..."}`. Users enter runtime keys and provider credentials only in
+the ARC form opened by `openUrl`, never in chat or command-line arguments.
+
+`setup playbook protocol` returns bundled protocol Markdown in `result.markdown`;
+step playbooks currently return a placeholder. The local catalog exposes
+`setup.next`, `setup.apply`, and `setup.wait`, also accessible through `cli mcp`.
+Catalog inputs follow the usual `body` wrapper; apply takes
+`{"body":{"stepId":"choose-goal","input":{"option":"claude-loop"}}}`.
+
+Ingress `verification` includes `firstOAuthRequestAt` (accepted remote
+DCR/authorize), `firstMcpRequestAt` (authenticated MCP dispatch), and `lastProbe`
+(`observedAt`, `url`, `passed`). These are observations, not challenge verification;
+setup requires a challenge newer than its saved start time and a completed task
+from the selected ingress. Claude completion additionally requires delivered
+notification evidence unless Claude Code was skipped.
+
 ## Command groups
 
 | Group | Commands after `cli` |
@@ -30,6 +71,7 @@ Choose the operation name from capabilities; command names and catalog operation
 | Discover | help, guide, capabilities, schema `<operation>` |
 | Invoke | call `<operation>` [--stdin], mcp |
 | App | app start/status/quit/restart |
+| Setup | setup [next] [--goal `<goal>`], setup apply `<stepId>` --stdin, setup wait [--timeout `<sec>`], setup playbook `<id>`, setup reset |
 | Diagnose | status, doctor, onboarding, context --stdin, watch |
 | Logs | logs, logs --stdin, logs --follow, logs --offline |
 | Ingress | ingress list/presets, add --stdin, update `<id>` --stdin, remove/start/stop/restart/probe/doctor `<id>`, start-all, stop-all |

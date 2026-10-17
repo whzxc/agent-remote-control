@@ -120,6 +120,13 @@ export default function ConnectionOverview() {
     setEditing(ingress);
     setFormOpen(true);
   }
+  useEffect(() => {
+    if (!nav.ingressEdit) return;
+    const ingress = status?.ingresses.find((i) => i.id === nav.ingressEdit?.id);
+    if (!ingress) return;
+    edit(ingress);
+    navigation.set((old) => ({ ...old, ingressEdit: undefined }));
+  }, [nav.ingressEdit, status?.ingresses]);
   async function toggle() {
     if (busy) return;
     if (

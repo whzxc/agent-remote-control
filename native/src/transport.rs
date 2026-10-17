@@ -399,6 +399,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     if request["jsonrpc"] != "2.0" {
         return Err("invalid jsonrpc".into());
     }
+    s.observe_request("firstMcpRequestAt").await?;
     let id = request.get("id").cloned();
     let method = string(&request, "method");
     if method == "tools/call" && !s.allows(string(&request["params"], "name")).await {
@@ -578,18 +579,19 @@ pub async fn forward_to(info: &Value, route: &str, method: &str, body: Value) ->
             format!("http://127.0.0.1:{port}/api/{route}"),
         )
         .bearer_auth(string(&info, "token"))
-        .timeout(Duration::from_secs(
-            if route == "start"
-                || route.ends_with("/start")
-                || route.ends_with("/restart")
-                || route.ends_with("/start-all")
-                || route.starts_with("updates/")
-            {
-                360
-            } else {
-                120
-            },
-        ));
+        .timeout(Duration::from_secs(if route == "setup/wait" {
+            body["timeout"].as_u64().unwrap_or(60).saturating_add(30)
+        } else if route == "setup/apply"
+            || route == "start"
+            || route.ends_with("/start")
+            || route.ends_with("/restart")
+            || route.ends_with("/start-all")
+            || route.starts_with("updates/")
+        {
+            360
+        } else {
+            120
+        }));
     if method != reqwest::Method::GET {
         request = request.json(&body);
     }
