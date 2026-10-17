@@ -1,5 +1,7 @@
-import { maxVisibleAgents } from "../state/quota";
-import { AgentQuotaIcon } from "./AgentQuotaIcon";
+import { maxVisibleAgents } from "../subscriptions/displayPreferences";
+import { subscriptions } from "../state/subscriptions";
+import { navigation } from "../state/navigation";
+import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import {
   useEffect,
   useState,
@@ -87,6 +89,7 @@ export default function ConnectionOverview() {
   const { status, busy, loading, error } = connector.use();
   agentStore.use();
   const max = maxVisibleAgents.use();
+  const { snapshot } = subscriptions.use(), nav = navigation.use();
   const [editing, setEditing] = useState<Ingress>(),
     [formOpen, setFormOpen] = useState(false),
     [details, setDetails] = useState<Ingress>(),
@@ -98,8 +101,17 @@ export default function ConnectionOverview() {
       Number(b.controlSource === "chatgpt") -
         Number(a.controlSource === "chatgpt") || a.name.localeCompare(b.name),
   );
+  const providerOrder =
+    snapshot?.providers
+      .filter((p) => p.eligible && p.selected)
+      .map((p) => p.agentId) || [];
   const agents = orderedAgents()
     .filter((a) => a.installed)
+    .sort((a, b) => {
+      const ai = providerOrder.indexOf(a.agent),
+        bi = providerOrder.indexOf(b.agent);
+      return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+    })
     .slice(0, [4, 6, 8, 10].includes(max) ? max : 4);
   const running = sources.some((i) => i.running),
     progressing =
@@ -138,6 +150,25 @@ export default function ConnectionOverview() {
         );
     });
   }
+  useEffect(() => {
+    if (nav.providerId === undefined) return;
+    if (nav.providerId === "") {
+      setAgentsOpen(true);
+      navigation.set((old) => ({ ...old, providerId: undefined }));
+      return;
+    }
+    const provider = snapshot?.providers.find(
+      (p) => p.providerId === nav.providerId,
+    );
+    if (!provider) return;
+    const agent = orderedAgents().find((a) => a.agent === provider.agentId) || {
+      agent: provider.agentId,
+      displayName: provider.name,
+      installed: provider.eligible,
+    };
+    setDetailAgent(agent);
+    navigation.set((old) => ({ ...old, providerId: undefined }));
+  }, [nav.providerId, snapshot]);
   function agentState(a: Agent) {
     {
       if (a.adapter?.state === "preparing") return "preparing";

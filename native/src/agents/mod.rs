@@ -242,6 +242,12 @@ impl AgentHost {
         self.inventory_status(&mut value).await;
         value
     }
+    /// Cached discovery only: subscriptions never probe executables in a GET.
+    pub async fn cached_subscription_inventory(&self) -> Option<Value> {
+        let mut value = self.inventory_cache.lock().await.as_ref()?.1.clone();
+        self.inventory_status(&mut value).await;
+        Some(value)
+    }
     async fn inventory_status(&self, inventory: &mut Value) {
         let preparing = self
             .adapter_job

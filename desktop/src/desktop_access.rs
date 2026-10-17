@@ -88,9 +88,11 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
         }
     }
     match &operation {
-        DesktopRequest::ServiceGet => Ok(
-            json!({"supported":cfg!(target_os="macos") || cfg!(windows),"enabled":crate::autostart::enabled().await}),
-        ),
+        DesktopRequest::ServiceGet => {
+            return Ok(
+                json!({"supported":cfg!(target_os="macos") || cfg!(windows),"enabled":crate::autostart::enabled().await}),
+            )
+        }
         DesktopRequest::ServiceSet(body) => {
             check_write(app)?;
             if !body.is_object() || body.as_object().unwrap().keys().any(|key| key != "enabled") {
@@ -98,8 +100,64 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
             }
             let enabled = body["enabled"].as_bool().ok_or("invalid enabled")?;
             crate::autostart::set(enabled).await?;
-            Ok(json!({"supported":true,"enabled":enabled}))
+            return Ok(json!({"supported":true,"enabled":enabled}));
         }
-        DesktopRequest::Route(..) => unreachable!(),
+        _ => {}
     }
+    // Validation reads the existing in-memory registry snapshot, never credentials.
+    if let DesktopRequest::SubscriptionsOpen(body) = &operation {
+        if !body.is_object() || body.as_object().unwrap().keys().any(|k| k != "providerId") {
+            return Err("invalid subscriptions open request".into());
+        }
+        if let Some(id) = body.get("providerId") {
+            let id = id
+                .as_str()
+                .filter(|id| !id.is_empty())
+                .ok_or("unknown subscription provider")?;
+            let service = app
+                .state::<std::sync::Arc<connector_core::runtime::Client>>()
+                .inner()
+                .clone();
+            let snapshot = service.subscriptions().await?;
+            if !snapshot["providers"]
+                .as_array()
+                .is_some_and(|rows| rows.iter().any(|p| p["providerId"] == id))
+            {
+                return Err("unknown subscription provider".into());
+            }
+        }
+    }
+    let handle = app.clone();
+    let (sent, received) = tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || {
+        // A timed-out queued write must not run later when the UI becomes free.
+        if sent.is_closed() {
+            return;
+        }
+        let result = (|| {
+            check_write(&handle)?;
+            match operation {
+                DesktopRequest::Route(..)
+                | DesktopRequest::ServiceGet
+                | DesktopRequest::ServiceSet(_) => unreachable!(),
+                DesktopRequest::SubscriptionsOpen(body) => {
+                    open(&handle, body["providerId"].as_str().unwrap_or(""))
+                }
+            }
+        })();
+        let _ = sent.send(result);
+    })
+    .map_err(|e| e.to_string())?;
+    tokio::time::timeout(std::time::Duration::from_secs(5), received)
+        .await
+        .map_err(|_| {
+            "desktop request timed out; read current state before retrying a write".to_owned()
+        })?
+        .map_err(|_| "desktop owner unavailable".to_owned())?
+}
+
+pub fn open(app: &tauri::AppHandle, provider: &str) -> Result<Value, String> {
+    check_write(app)?;
+    crate::windows::show(app, Some(("subscriptions:open".into(), json!(provider))))?;
+    Ok(json!({"opened":true,"providerId":provider,"pid":std::process::id()}))
 }

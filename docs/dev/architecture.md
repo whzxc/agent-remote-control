@@ -75,4 +75,4 @@ Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该�
 
 打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。
 
-额度由 Core 每五分钟读取一次：Codex 复用 Control 的 app-server 连接调用 account/rateLimits/read，Claude 使用原生登录读取单次额度。只在内存保存当前读数，不写入历史、价格或缓存文件。旧用量缓存和偏好文件不再读取；UI 偏好以 JSON 对象加载，未知字段不影响加载。
+Core 的 SubscriptionService 统一调度各 provider 额度，保存启用、刷新间隔、来源选择与固定窗口。原生凭据读取和上游响应归各 provider；成功读数缓存到 subscriptions/readings，恢复后标记 stale，失败退避，过期窗口隐藏。桌面 subscriptions:changed 与浏览器 /api/subscriptions/events 共用快照。旧缓存里的 history 字段读取时移除，不再采集本地用量、汇总 Token 或读取价格。

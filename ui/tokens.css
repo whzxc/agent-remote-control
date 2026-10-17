@@ -115,3 +115,14 @@
   --mark-agent-start: var(--brand-agent-start);
   --mark-agent-end: var(--brand-agent-end);
 }
+
+:root {
+  --chart-1: light-dark(#5146e5, #9c91ff);
+  --chart-2: light-dark(#0b9ad4, #50bef0);
+  --chart-3: light-dark(#149c6b, #4dca9e);
+  --chart-4: light-dark(#dc8714, #efb95d);
+  --chart-5: light-dark(#d05c8d, #ef8bb5);
+  --chart-6: light-dark(#847050, #b7a482);
+  --chart-7: light-dark(#357cbc, #74aad9);
+  --chart-8: light-dark(#9761bc, #c496e6);
+}

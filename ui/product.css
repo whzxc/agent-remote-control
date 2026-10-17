@@ -1111,3 +1111,14 @@
 .permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }
 
 .navigation-capsule .permission-indicator { background: var(--warning); }
+
+.elastic-panel .dialog-body:has(> .usage-overview) {
+  padding: 12px;
+}
+
+.quota-provider-controls {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: end;
+  min-width: 0;
+}

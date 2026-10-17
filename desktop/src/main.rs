@@ -196,13 +196,16 @@ fn main() {
             };
             app.manage(service.clone());
             let handle = app.handle().clone();
-            let quota_client = service.clone();
+            let subscription_client = service.clone();
             tauri::async_runtime::spawn(async move {
                 let mut previous = Value::Null;
                 loop {
-                    let snapshot = quota_client.quota().await.unwrap_or_else(|_| json!({}));
+                    let snapshot = subscription_client
+                        .subscriptions()
+                        .await
+                        .unwrap_or_else(|_| json!({}));
                     if snapshot != previous {
-                        let _ = handle.emit_to("main", "quota:changed", &snapshot);
+                        let _ = handle.emit_to("main", "subscriptions:changed", &snapshot);
                         previous = snapshot;
                     }
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;

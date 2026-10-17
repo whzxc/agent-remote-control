@@ -75,6 +75,18 @@
       "localOnly": true
     },
     {
+      "name": "subscriptions.get",
+      "method": "GET",
+      "route": "subscriptions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "description": "subscriptions.get",
+      "localOnly": true
+    },
+    {
       "name": "service.get",
       "method": "GET",
       "route": "service",
@@ -621,6 +633,90 @@
         ]
       },
       "description": "preferences.set",
+      "localOnly": true
+    },
+    {
+      "name": "subscriptions.set",
+      "method": "PUT",
+      "route": "subscriptions/settings",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "providers": {
+                "type": "array"
+              },
+              "pinnedWindows": {
+                "type": "object"
+              },
+              "refreshMinutes": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "enabled",
+              "providers",
+              "pinnedWindows"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "description": "subscriptions.set",
+      "localOnly": true
+    },
+    {
+      "name": "subscriptions.refresh",
+      "method": "POST",
+      "route": "subscriptions/refresh",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "providerId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "subscriptions.refresh",
+      "localOnly": true
+    },
+    {
+      "name": "subscriptions.open",
+      "method": "POST",
+      "route": "subscriptions/open",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "providerId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "subscriptions.open",
       "localOnly": true
     },
     {

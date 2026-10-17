@@ -1,6 +1,5 @@
-import { AgentQuotaIcon } from "./AgentQuotaIcon";
 import { useState } from "react";
-import { RefreshCw, Settings } from "lucide-react";
+import { RefreshCw, Settings, Gauge } from "lucide-react";
 import { t } from "../i18n";
 import { openUrl } from "../platform";
 import {
@@ -13,6 +12,10 @@ import {
   refreshAgents,
   type Agent,
 } from "../state/agents";
+import { subscriptions } from "../state/subscriptions";
+import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
+import UsageOverview from "../subscriptions/UsageOverview";
+import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
 import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
 export function AgentDetails({
@@ -24,6 +27,12 @@ export function AgentDetails({
   showOfficialLink?: boolean;
   onClose: () => void;
 }) {
+  const { snapshot } = subscriptions.use();
+  const provider = snapshot?.settings.enabled
+    ? snapshot.providers.find(
+        (p) => p.agentId === agent.agent && p.eligible && p.selected,
+      )
+    : undefined;
   return (
     <Dialog title={name(agent)} onClose={onClose} headerless width={440}>
       <div className="agent-summary">
@@ -34,6 +43,7 @@ export function AgentDetails({
         </div>
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
+      {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
 }
@@ -42,6 +52,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
     items = orderedAgents();
   const [detail, setDetail] = useState<Agent>(),
     [display, setDisplay] = useState(false),
+    [overview, setOverview] = useState(false),
     [dragging, setDragging] = useState(""),
     [dropTarget, setDropTarget] = useState(""),
     [error, setError] = useState("");
@@ -60,6 +71,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
         wide
         actions={
           <>
+            <IconButton icon={Gauge} label={t("trayUsage")} onClick={() => setOverview(true)} />
             <IconButton
               icon={Settings}
               label={t("agentDisplaySettings")}
@@ -197,6 +209,9 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />
       )}{" "}
+      {overview && <Dialog title={t("trayUsage")} onClose={() => setOverview(false)} width={440}>
+        <UsageOverview onNavigate={() => { setOverview(false); setDisplay(true); }} />
+      </Dialog>}
       {display && <AgentDisplaySettings onClose={() => setDisplay(false)} />}
     </>
   );

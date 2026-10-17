@@ -43,9 +43,11 @@ ui/tokens.css 定义语义颜色、字号、间距、圆角、尺寸与阴影；
 
 Agents 区分已安装卡片与紧凑未安装行。已安装启用项支持拖动及方向键排序，版本单行省略并可悬停查看。未安装项提供官方安装信息。显示设置只控制首页 Agent 数量。
 
-## 额度环
+## 订阅额度
 
-首页节点和 Agents 设置页复用 AgentQuotaIcon，Codex/Claude 展示剩余百分比环，选择剩余百分比最小的窗口，提示中的重置时间对应该窗口。hover/focus 提示只有剩余百分比和完整重置时间。其他 Agent 或读取失败时显示普通图标。
+首页节点和 Agents 设置页使用 QuotaRing 中的 AgentQuotaIcon；Agent 面板使用 QuotaBubble。保留套餐链接、窗口读数、重置时间、pace 提示、时间刻度、credits 到期详情和 product usage 明细。UsageHistory 负责悬停/focus 详情的弹簧跟随、碰撞定位与逐层 Escape；不绘制历史图表。额度总览复用同一卡片并导出额度图片。
+
+Agent 显示设置保留首页个数、剩余/已用、倒计时/日期、启用、刷新间隔、provider 选择与固定窗口。不提供本地用量周期、Token 或金额展示。
 
 ## 验证
 

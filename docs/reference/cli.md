@@ -37,6 +37,7 @@ Choose the operation name from capabilities; command names and catalog operation
 | OAuth | ingress oauth list `<id>`, request `<id> <request-id>`, decision/register/revoke `<id>` --stdin |
 | Bearer | ingress token rotate `<id>` |
 | Settings | configure --stdin, network --stdin, connect, disconnect |
+| Quota | subscriptions get/set --stdin/refresh [providerId]/open [providerId] |
 | Storage | storage compact |
 
 help, guide, capabilities, schema, ingress presets, and logs --offline do not need Core running. Other commands use the target instance's Core/Desktop. app start can launch an installed app. Prefer ingress commands for multi-connection administration; configure/network/connect/disconnect address the primary connection projection.
@@ -61,6 +62,11 @@ For OpenAI Tunnel, use controlSource chatgpt, transport openai-tunnel, auth open
 Read `cli onboarding` for the ingress's stage, URL/Tunnel ID, verificationPrompt, and executionPrompt. Ask the actual client to call connector_verify with the displayed code. Then dispatch a harmless task and read its final result. `--fresh` creates a new verification challenge; retain it for that client round.
 
 For OAuth, read the pending request before deciding. [OAuth](oauth.md#local-management) specifies the request/decision fields. Token rotation prints the new Bearer secret once; redirect it to a private file with `umask 077` rather than collecting it in chat logs.
+
+## Subscription settings
+
+Read subscriptions get first. subscriptions set replaces enabled, refreshMinutes (1/3/5/10), the complete providers array, and the complete pinnedWindows map. Preserve selections you intend to keep. refresh starts an online refresh; inspect observedAt/state/error for its result. open activates Agent details.
+
 
 ## State and environment
 

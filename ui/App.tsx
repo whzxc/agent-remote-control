@@ -21,7 +21,7 @@ import { t, locale } from "./i18n";
 import { isDesktop } from "./platform";
 import { connector, notify, startConnector } from "./state/connector";
 import { startAgents } from "./state/agents";
-import { startAgentActivity, startQuota } from "./state/quota";
+import { startAgentActivity, startSubscriptions } from "./state/subscriptions";
 import { startTasks, tasks } from "./state/tasks";
 import {
   startUpdateChecks,
@@ -31,7 +31,7 @@ import {
   updateVisible,
   installDirect,
 } from "./state/updates";
-type Page = "overview" | "tasks" | "logs" | "settings";
+import { navigation, type Page } from "./state/navigation";
 import { panelLayers, panelAnchorAt } from "./state/panels";
 import {
   capturePanelOrigin,
@@ -130,7 +130,7 @@ export default function App() {
   useEffect(() => {
     const stops = [
       startConnector(),
-      startQuota(),
+      startSubscriptions(),
       startAgentActivity(),
       startAgents(),
       startTasks(),
@@ -152,6 +152,10 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (["overview", "settings", "logs", "tasks"].includes(e.payload))
             navigate(e.payload as Page);
+        }),
+        listen<string>("subscriptions:open", (e) => {
+          navigation.set((old) => ({ ...old, providerId: e.payload }));
+          navigate("overview");
         }),
         listen<string>("connection-error", (e) => notify(e.payload, true)),
       ]);

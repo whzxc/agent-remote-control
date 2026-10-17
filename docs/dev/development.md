@@ -58,11 +58,11 @@ npm run check:package
 
 macOS 使用 Icon Composer 文档、actool 生成的 Assets.car 和静态 ICNS 回退。CFBundleIconName 与 CFBundleIconFile 保持同一个无扩展名名称。DEVELOPER_DIR 可选择完整 Xcode；脚本也支持标准 Xcode 安装。开发图标从同一分层源图派生，不复制独立设计。
 
-## 额度环
+## 订阅额度开发
 
-Core 每五分钟刷新 Codex/Claude 额度，React 使用 AgentQuotaIcon。桌面通过 quota:changed 收到当前结果，浏览器通过 Vite 转发的已认证 /api/quota/events 事件流接收结果。
+Core 负责订阅额度读取、刷新调度和当前读数缓存；React 共享 QuotaBubble、QuotaRing、悬停详情和额度分享卡。桌面通过 subscriptions:changed 收到更新；浏览器通过 Vite 转发的已认证 /api/subscriptions/events 接收快照。流断开后重新跟随当前 owner，轮询仅作回退。
 
-额度读取失败时移除环，显示普通 Agent 图标。原生登录、桌面事件与浏览器事件流分别验证。
+额度来源、缓存与节奏规则见[订阅参考](../reference/subscriptions.md)。原生登录、桌面事件与浏览器事件流分别验证。不采集本地用量日志，不维护 Token 统计或价格数据。
 
 ## 插件边界
 
