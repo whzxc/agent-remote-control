@@ -4,7 +4,7 @@
 
 ## 1. Install on macOS
 
-Download the Apple Silicon DMG from [Releases](https://github.com/whzxc/agent-remote-control/releases/latest). Drag **Agent Remote Control** into Applications, eject the DMG, and open the app. Install Codex Desktop and sign in. For automatic follow-ups, also install and sign in to Claude Code CLI.
+Download the newest Apple Silicon DMG from [Releases](https://github.com/whzxc/agent-remote-control/releases). Drag **Agent Remote Control** into Applications, eject the DMG, and open the app. Install Codex Desktop and sign in. For automatic follow-ups, also install and sign in to Claude Code CLI.
 
 If macOS blocks a verified download, use **System Settings → Privacy & Security → Open Anyway**. For a “damaged” warning, remove quarantine from this app:
 

@@ -12,7 +12,7 @@ export PATH="$HOME/.local/bin:$PATH"
 arc --version
 ```
 
-The installer needs curl, tar, sha256sum, awk, install, and mktemp. It verifies the release checksum and binary version. Set ARC_VERSION to a v-prefixed tag and ARC_INSTALL_DIR to an absolute destination on the sh process when needed. CI tarballs use Ubuntu 24.04; older glibc systems need a source build. Tunnel downloads also need unzip/tar.
+The installer needs curl, tar, sha256sum, awk, install, and mktemp. Automatic version selection also needs jq and searches release pages for the newest non-draft, non-prerelease version containing the current architecture’s Linux tarball. Releases for other platforms are skipped. It verifies the release checksum and binary version. Set ARC_VERSION to a v-prefixed tag and ARC_INSTALL_DIR to an absolute destination on the sh process when needed. CI tarballs use Ubuntu 24.04; older glibc systems need a source build. Tunnel downloads also need unzip/tar.
 
 To build on the matching architecture:
 

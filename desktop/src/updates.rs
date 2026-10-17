@@ -66,6 +66,16 @@ async fn updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater
         .build()
         .map_err(|e| e.to_string())
 }
+async fn check(app: &tauri::AppHandle) -> Result<Option<tauri_plugin_updater::Update>, String> {
+    match updater(app).await?.check().await {
+        Ok(update) => Ok(update),
+        Err(
+            tauri_plugin_updater::Error::TargetNotFound(_)
+            | tauri_plugin_updater::Error::TargetsNotFound(_),
+        ) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
 pub async fn check_update(app: tauri::AppHandle) -> Result<Value, String> {
     let state = app.state::<UpdateState>();
     let _guard = state.install.try_lock().map_err(|_| "已有更新正在进行")?;
@@ -79,15 +89,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Value, String> {
             )
             .await;
     }
-    let result = async {
-        updater(&app)
-            .await?
-            .check()
-            .await
-            .map_err(|e| e.to_string())
-    }
-    .await;
-    let update = match result {
+    let update = match check(&app).await {
         Ok(value) => value,
         Err(error) => {
             progress(&app, json!({"phase":"idle","error":error}));
@@ -133,7 +135,7 @@ async fn download(
     state.downloading.store(true, Ordering::SeqCst);
     let result = tokio::select! {
         result = async {
-            let Some(update) = updater(&app).await?.check().await.map_err(|e| e.to_string())? else {
+            let Some(update) = check(app).await? else {
                 return Ok(None);
             };
             if update.version != version {

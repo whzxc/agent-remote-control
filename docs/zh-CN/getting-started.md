@@ -4,7 +4,7 @@
 
 ## 1. 在 macOS 安装
 
-从 [Releases](https://github.com/whzxc/agent-remote-control/releases/latest) 下载 Apple Silicon DMG。把 **Agent Remote Control** 拖入 Applications，推出 DMG，再打开应用。安装 Codex Desktop 并登录。要接收自动回访，再安装并登录 Claude Code CLI。
+从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 下载最新的 Apple Silicon DMG。把 **Agent Remote Control** 拖入 Applications，推出 DMG，再打开应用。安装 Codex Desktop 并登录。要接收自动回访，再安装并登录 Claude Code CLI。
 
 macOS 拦截已核验的下载时，在**系统设置 → 隐私与安全性 → 仍要打开**中处理。若提示“已损坏”，仅移除此应用的隔离标记：
 

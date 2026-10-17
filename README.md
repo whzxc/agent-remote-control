@@ -27,7 +27,7 @@ GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connect
 
 ## Start in three steps
 
-1. **Install.** Download the macOS app from [Releases](https://github.com/whzxc/agent-remote-control/releases/latest), move it to Applications, and sign in to Codex. [Installation](docs/installation.md).
+1. **Install.** Download the newest macOS app from [Releases](https://github.com/whzxc/agent-remote-control/releases), move it to Applications, and sign in to Codex. [Installation](docs/installation.md).
 2. **Connect Claude.** Add Claude in ARC, choose HTTPS + OAuth, then add the MCP URL as a custom connector in Claude. Approve the request in ARC.
 3. **Send your first task.** Ask Claude: “Use ARC to ask Codex to reply ARC_LOOP_OK without reading files or using tools. Set notifyClaudeSession to your own Claude Code cloud session. End your turn after dispatching; when notified, read the result.” If Claude cannot read its session ID, paste the cloud session URL or ID instead. [Step-by-step guide](docs/getting-started.md).
 

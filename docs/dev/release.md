@@ -58,7 +58,7 @@ npm run release -- --platforms windows,linux
 
 产物整理到唯一 release-artifacts/v<version>-<suffix> 目录，生成 latest.json、release-notes.md、Cask 和 SHA256SUMS.txt。发布说明从上一正式 tag 到当前提交生成；上一 tag 必须是祖先。选择 mac 时，先在本地构建并验签 macOS 产物，再在当前提交打 tag 并原子推送 main/tag。--platforms 默认为 mac,windows,linux，接受其中不重复的逗号分隔子集。含 Windows/Linux 时触发该 tag 的 release.yml，通过 platforms 输入只运行所选 job；不含它们时完全不触发 CI。CI 不创建或公开 Release。本地等待对应 SHA 的 CI 成功，只下载所选平台，生成校验和，再用 gh 上传草稿并公开 Release。
 
-latest.json 只包含本次实际构建的 macOS/Windows updater 条目，不沿用其他版本或未选平台。Linux 包与安装脚本作为独立资产发布，不写入 Tauri updater 平台表；只发布 Linux 时 platforms 为空。Cask 仅在包含 macOS 时生成。单独发布仍使用新的版本，不为已有公开版本补发或合并平台。
+latest.json 只包含本次实际构建的 macOS/Windows updater 条目，不沿用其他版本或未选平台。Linux 包与安装脚本作为独立资产发布，不写入 Tauri updater 平台表；只发布 Linux 时 platforms 为空。Cask 仅在包含 macOS 时生成。单独发布仍使用新的版本，不为已有公开版本补发或合并平台。未发布的平台停留在上一版：桌面检查更新将缺少当前平台视为没有更新，不报错；Linux 安装脚本自动选择包含当前架构 tarball 的最新正式版。
 
 CI 或上传失败时停止，保留本地产物和已推送 tag，检查失败原因后再处理，不自动重复触发或公开所选平台尚未齐备的版本。已有 tag 必须指向同一源码。草稿可按相同版本补传，公开版本不可覆盖；源码改变后使用新版本。不要生成只改版本号的提交，也不保留源码 CHANGELOG。
 

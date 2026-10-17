@@ -2,7 +2,7 @@
 
 **English** | [简体中文](zh-CN/installation.md)
 
-Get installers and `SHA256SUMS.txt` from [Releases](https://github.com/whzxc/agent-remote-control/releases/latest). ARC runs without Node, npm, or Rust. Install and sign in to the Agent you want to use.
+Choose the newest release containing your platform’s installer and download it with `SHA256SUMS.txt` from [Releases](https://github.com/whzxc/agent-remote-control/releases). ARC runs without Node, npm, or Rust. Install and sign in to the Agent you want to use.
 
 | Platform | Package |
 | --- | --- |
@@ -22,16 +22,17 @@ xattr -rd com.apple.quarantine "/Applications/Agent Remote Control.app"
 
 ## Homebrew
 
-The repository publishes a Cask as a release asset. Create a local tap and download it:
+The repository publishes a Cask as a release asset. Choose the newest release containing `agent-remote-control.rb` from [Releases](https://github.com/whzxc/agent-remote-control/releases), then create a local tap and download its Cask:
 
 ```sh
+release_tag=vX.Y.Z # Replace with the chosen release tag.
 brew tap-new local/agent-remote-control
-curl --fail --location https://github.com/whzxc/agent-remote-control/releases/latest/download/agent-remote-control.rb \
+curl --fail --location "https://github.com/whzxc/agent-remote-control/releases/download/$release_tag/agent-remote-control.rb" \
   --output "$(brew --repository local/agent-remote-control)/Casks/agent-remote-control.rb"
 brew install --cask local/agent-remote-control/agent-remote-control
 ```
 
-To update through Homebrew, download the Cask again and run:
+To update through Homebrew, choose the newest release containing the Cask, update `release_tag`, download it again, and run:
 
 ```sh
 brew upgrade --cask --greedy local/agent-remote-control/agent-remote-control
@@ -45,7 +46,7 @@ Run the x64 NSIS installer. For Desktop-owned Codex tasks, install and sign in t
 
 ## Update
 
-Open **Settings → About** to check for updates. While running, ARC automatically checks every hour and downloads new versions, then prompts you to install. Read the release notes and confirm installation, or skip the version. ARC verifies the updater signature and restores running connections after restarting. Automatic checks and downloads are always enabled.
+Open **Settings → About** to check for updates. While running, ARC automatically checks every hour and downloads new versions, then prompts you to install. Read the release notes and confirm installation, or skip the version. ARC verifies the updater signature and restores running connections after restarting. Automatic checks and downloads are always enabled. If the latest release does not include your platform, ARC stays on its previous version and treats the check as no update, without an error.
 
 For a manual update, quit ARC and replace the app or run the newer installer. Read the release's migration instructions before upgrading across an identity change. Installation normally retains local configuration and Agent history.
 

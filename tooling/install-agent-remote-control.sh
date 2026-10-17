@@ -13,8 +13,23 @@ done
 repo=https://github.com/whzxc/agent-remote-control
 version=${ARC_VERSION:-}
 if [ -z "$version" ]; then
-  latest=$(curl --proto '=https' --proto-redir '=https' -fsSL -o /dev/null -w '%{url_effective}' "$repo/releases/latest")
-  version=${latest##*/}
+  command -v jq >/dev/null || { echo 'Missing command: jq (needed to select a release; or set ARC_VERSION)' >&2; exit 1; }
+  page=1
+  while :; do
+    releases=$(curl --proto '=https' --proto-redir '=https' -fsSL \
+      "https://api.github.com/repos/whzxc/agent-remote-control/releases?per_page=100&page=$page")
+    version=$(printf '%s' "$releases" | jq -r --arg arch "$arch" '
+      first(.[] | select(.draft == false and .prerelease == false)
+        | . as $release
+        | select(any(.assets[]; .name == ("agent-remote-control-" + $release.tag_name + "-linux-" + $arch + ".tar.gz")))
+        | .tag_name) // empty')
+    [ -z "$version" ] || break
+    printf '%s' "$releases" | jq -e 'length == 100' >/dev/null || {
+      echo "No stable release contains a Linux $arch tarball" >&2
+      exit 1
+    }
+    page=$((page + 1))
+  done
 fi
 case "$version" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo 'ARC_VERSION must be a v-prefixed release tag' >&2; exit 1 ;; esac
 case "$version" in *[!a-zA-Z0-9._-]*) echo 'Invalid release tag' >&2; exit 1 ;; esac
