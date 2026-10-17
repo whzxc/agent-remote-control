@@ -25,10 +25,12 @@ and the [CLI reference](reference/cli.md) for executable paths.
 
 ## What the Agent does, and when it needs you
 
-The Agent operates already signed-in setup pages: it creates/reuses tunnels,
+After you choose a goal, the Agent explains the resources and local-tool access
+and asks for one scope confirmation, reusing an explicit confirmation already given.
+Within that scope, the Agent operates already signed-in setup pages: it creates/reuses tunnels,
 creates runtime keys, completes risk acknowledgments and connector creation, and
 approves the matching ARC OAuth request through the authenticated local CLI.
-It pauses for missing login, CAPTCHA/challenges, passwords/2FA, payment, or its
+After that confirmation, it pauses for missing login, CAPTCHA/challenges, passwords/2FA, payment, or its
 own safety-policy requirements. Choices still appear in the Agent conversation.
 
 For Cloudflare fixed addresses, ARC manages the authorization certificate,
