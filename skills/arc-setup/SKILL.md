@@ -28,6 +28,8 @@ installed protocol and `cli setup`; ask the user to choose the goal.
 
 ## Configure
 
+Reply in the language of the user’s request. Pass `--locale zh-CN` for Chinese or `--locale en` for English on every `cli setup next`, `apply`, and `wait` call.
+
 Use the user's ARC executable (`arc`, or the supplied absolute path). Commands
 below follow that executable; installed desktop binaries also accept `cli`.
 

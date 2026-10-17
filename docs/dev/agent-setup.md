@@ -58,6 +58,7 @@
 
 - `steps: [{id, title, kind, done}]`：当前目标的完整推导序列，供 App 展示进度；未选择目标时为空。
 - `cliPath`、`stateDir`：当前实例的 CLI 绝对路径和状态目录，供复制提示词；`dispatch`：已保存的派发回执及线程链接，未派发时为空。
+- next / apply / wait 支持单次 `--locale zh-CN|en`（catalog 为 `body.locale`），覆盖本次 explain/title/label/doneWhen，不修改 App 偏好；Agent 跟随用户请求语言传入。
 - `explain`、`title`、`label` 按 ARC 当前语言（zh-CN / en）输出，供 Agent 原样转述，保证不同 Agent 的解释一致。
 - `apply`：需要 Agent 执行的命令（auto / decide 用）。
 - `openUrl`：需要打开的页面（authorize / remote-ui / secret 用），可以是 https 链接或 `agent-remote-control://` deep link。

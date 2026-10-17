@@ -4,7 +4,7 @@
 
 全新 Mac 上，只要已登录本机 Agent，就可以从这一句话开始：
 
-> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
+> 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
 
 skill 会检测 ARC，缺失时运行 release 安装脚本，给当前 Agent 安装配置 skill，再进入本机配置协议。macOS 安装脚本会校验 App 压缩包、安装并打开 ARC，等待 Core 就绪，无需挂载 DMG 或自行拼装命令。
 

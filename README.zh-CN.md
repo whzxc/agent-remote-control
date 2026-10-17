@@ -6,7 +6,7 @@
 
 全新 Mac 上，把这句话交给本机 Agent，即可从安装开始配置 ARC：
 
-> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
+> 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
 
 已经安装？在 App 中点击**添加控制源 → 发送给 Codex**。[其他安装方式](docs/zh-CN/installation.md)。
 

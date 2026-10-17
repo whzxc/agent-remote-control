@@ -451,12 +451,14 @@ async fn loop_status(s: &Arc<Service>, state: &Value, i: &Value) -> Result<Value
     }
     Ok(result)
 }
-async fn next(s: &Arc<Service>, preview_goal: Option<&str>) -> Result<Value> {
+async fn next(s: &Arc<Service>, preview_goal: Option<&str>, locale: Option<&str>) -> Result<Value> {
     let mut state = state()?;
     if let Some(value) = preview_goal {
         choose_goal(&mut state, value)?;
     }
-    let locale = crate::i18n::locale();
+    let locale = locale
+        .map(str::to_owned)
+        .unwrap_or_else(crate::i18n::locale);
     if state["goal"].is_null() {
         return presentation(derive(&state, &json!({}), &locale), &state);
     }
@@ -718,12 +720,12 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
             _ => return Err("INVALID_ARGUMENT: this step has no apply action".into()),
         }
     }
-    next(s, None).await
+    next(s, None, body["locale"].as_str()).await
 }
 pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -> Result<Value> {
     match (method, route) {
         ("POST", "setup/dispatch") => dispatch(s, body).await,
-        ("POST", "setup/next") => next(s, body["goal"].as_str()).await,
+        ("POST", "setup/next") => next(s, body["goal"].as_str(), body["locale"].as_str()).await,
         ("POST", "setup/apply") => apply(s, body).await,
         ("DELETE", "setup/reset") => {
             let _guard = APPLY.lock().await;
@@ -731,10 +733,10 @@ pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -
             if path().exists() {
                 std::fs::remove_file(path()).map_err(|e| e.to_string())?;
             }
-            next(s, None).await
+            next(s, None, None).await
         }
         ("POST", "setup/wait") => {
-            let mut current = next(s, None).await?;
+            let mut current = next(s, None, body["locale"].as_str()).await?;
             let initial = current["step"]["id"].clone();
             let deadline = tokio::time::Instant::now()
                 + Duration::from_secs(body["timeout"].as_u64().unwrap_or(60));
@@ -746,7 +748,9 @@ pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -
                     deadline.min(tokio::time::Instant::now() + Duration::from_secs(1)),
                 )
                 .await;
-                match tokio::time::timeout_at(deadline, next(s, None)).await {
+                match tokio::time::timeout_at(deadline, next(s, None, body["locale"].as_str()))
+                    .await
+                {
                     Ok(value) => current = value?,
                     Err(_) => break,
                 }

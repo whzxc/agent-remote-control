@@ -1,5 +1,7 @@
 # Setup protocol
 
+Reply in the language of the user’s request. Pass `--locale zh-CN` for Chinese or `--locale en` for English on every `cli setup next`, `apply`, and `wait` call.
+
 Run `cli setup next` and follow its current step until `complete` is true.
 `next --goal <goal>` previews without saving; submit choices through
 `cli setup apply <stepId> --stdin` with `{"option":"<option-id>"}`.

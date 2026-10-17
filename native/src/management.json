@@ -1618,6 +1618,13 @@
                   "claude-loop",
                   "chatgpt-chat"
                 ]
+              },
+              "locale": {
+                "type": "string",
+                "enum": [
+                  "zh-CN",
+                  "en"
+                ]
               }
             },
             "additionalProperties": false
@@ -1675,6 +1682,13 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "locale": {
+                "type": "string",
+                "enum": [
+                  "zh-CN",
+                  "en"
+                ]
               }
             },
             "additionalProperties": false,
@@ -1707,6 +1721,13 @@
                 "minimum": 0,
                 "maximum": 3600,
                 "default": 60
+              },
+              "locale": {
+                "type": "string",
+                "enum": [
+                  "zh-CN",
+                  "en"
+                ]
               }
             },
             "additionalProperties": false

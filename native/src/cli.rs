@@ -25,10 +25,15 @@ const COMMANDS: &[&str] = &[
     "status",
     "onboarding",
     "setup next",
+    "setup next --locale <locale>",
     "setup next --goal <goal>",
+    "setup next --goal <goal> --locale <locale>",
     "setup apply <stepId> --stdin",
+    "setup apply <stepId> --stdin --locale <locale>",
     "setup wait",
+    "setup wait --locale <locale>",
     "setup wait --timeout <sec>",
+    "setup wait --timeout <sec> --locale <locale>",
     "setup playbook <id>",
     "setup reset",
     "skill install --target <target>",
@@ -91,6 +96,11 @@ async fn doctor() -> crate::Result<Value> {
 }
 // Keep help and argument validation on the same command grammar.
 fn command_usage(args: &[&str]) -> Result<String, (String, String)> {
+    if args.first() == Some(&"setup") && args.contains(&"--locale") {
+        let (normalized, _) = setup_locale(args)
+            .map_err(|e| (e, "cli setup next|apply|wait [--locale zh-CN|en]".into()))?;
+        return command_usage(&normalized).map(|usage| format!("{usage} [--locale zh-CN|en]"));
+    }
     if args == ["setup"] {
         return command_usage(&["setup", "next"]);
     }
@@ -435,14 +445,45 @@ fn stdin_json() -> crate::Result<Value> {
     Ok(value)
 }
 
+fn setup_locale<'a>(args: &[&'a str]) -> crate::Result<(Vec<&'a str>, Option<&'a str>)> {
+    let mut args = args.to_vec();
+    let mut locale = None;
+    if args.first() == Some(&"setup") {
+        if let Some(index) = args.iter().position(|arg| *arg == "--locale") {
+            let value = args
+                .get(index + 1)
+                .copied()
+                .ok_or("INVALID_ARGUMENT: --locale requires zh-CN or en")?;
+            if !["zh-CN", "en"].contains(&value) {
+                return Err("INVALID_ARGUMENT: --locale must be zh-CN or en".into());
+            }
+            args.drain(index..index + 2);
+            if args.contains(&"--locale") || matches!(args.get(1), Some(&"reset" | &"playbook")) {
+                return Err(
+                    "INVALID_ARGUMENT: --locale is supported once on setup next/apply/wait".into(),
+                );
+            }
+            locale = Some(value);
+        }
+    }
+    Ok((args, locale))
+}
+
 async fn execute(args: &[String]) -> crate::Result<Value> {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (args, locale) = setup_locale(&args)?;
+    let setup_body = |mut body: Value| {
+        if let Some(locale) = locale {
+            body["locale"] = json!(locale);
+        }
+        json!({"body":body})
+    };
     match args.as_slice() {
-        ["setup"] | ["setup", "next"] => crate::management::call("setup.next",json!({})).await,
-        ["setup", "--goal", goal] | ["setup", "next", "--goal", goal] => crate::management::call("setup.next",json!({"body":{"goal":goal}})).await,
-        ["setup", "apply", step, "--stdin"] => crate::management::call("setup.apply",json!({"body":{"stepId":step,"input":stdin_json()?}})).await,
-        ["setup", "wait"] => crate::management::call("setup.wait",json!({})).await,
-        ["setup", "wait", "--timeout", seconds] => crate::management::call("setup.wait",json!({"body":{"timeout":seconds.parse::<u64>().map_err(|_|"INVALID_ARGUMENT: timeout must be seconds")?}})).await,
+        ["setup"] | ["setup", "next"] => crate::management::call("setup.next",setup_body(json!({}))).await,
+        ["setup", "--goal", goal] | ["setup", "next", "--goal", goal] => crate::management::call("setup.next",setup_body(json!({"goal":goal}))).await,
+        ["setup", "apply", step, "--stdin"] => crate::management::call("setup.apply",setup_body(json!({"stepId":step,"input":stdin_json()?}))).await,
+        ["setup", "wait"] => crate::management::call("setup.wait",setup_body(json!({}))).await,
+        ["setup", "wait", "--timeout", seconds] => crate::management::call("setup.wait",setup_body(json!({"timeout":seconds.parse::<u64>().map_err(|_|"INVALID_ARGUMENT: timeout must be seconds")?}))).await,
         ["skill", "install", "--target", target] => crate::skills::install(target),
         ["setup", "playbook", id] => crate::setup::playbook(id),
         ["setup", "reset"] => forward_request("setup/reset","DELETE",json!({})).await,

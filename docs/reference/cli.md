@@ -41,6 +41,8 @@ sequence as `{id,title,kind,done}`), and `step` with localized
 Goal explanations share the App’s selected-goal copy. User-facing titles,
 explanations, and completion descriptions contain no internal field names or commands;
 use the structured fields and playbooks for execution details.
+`next`, `apply`, and `wait` accept `--locale zh-CN|en` (catalog: `body.locale`)
+to localize this response without changing saved preferences. If omitted,
 App language preferences apply; Auto uses the locale resolved by the App, or
 terminal locale when no App locale has been saved. `onboarding` supplies the
 selected ingress URL and current verification prompt. `cliPath` and `stateDir`
@@ -119,7 +121,7 @@ observed with `setup wait`, not inferred from screenshots or local task creation
 | Discover | help, guide, capabilities, schema `<operation>` |
 | Invoke | call `<operation>` [--stdin], mcp |
 | App | app start/status/quit/restart |
-| Setup | setup [next] [--goal `<goal>`], setup apply `<stepId>` --stdin, setup wait [--timeout `<sec>`], setup playbook `<id>`, setup reset |
+| Setup | setup [next] [--goal `<goal>`] [--locale zh-CN\|en], setup apply `<stepId>` --stdin [--locale zh-CN\|en], setup wait [--timeout `<sec>`] [--locale zh-CN\|en], setup playbook `<id>`, setup reset |
 | Skill | skill install --target codex\|claude-code |
 | Diagnose | status, doctor, onboarding, context --stdin, watch |
 | Logs | logs, logs --stdin, logs --follow, logs --offline |
