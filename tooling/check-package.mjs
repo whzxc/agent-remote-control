@@ -1,3 +1,4 @@
+import { verifyMacosReleaseSignature } from './macos-signing.mjs';
 import { buildVersion } from './version.mjs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -18,6 +19,13 @@ async function inspect(dir) {
 }
 await inspect(root);
 if (process.platform === 'darwin' && root.endsWith('.app')) {
+  const identifier = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
+  if (!['com.whzxc.agent-remote-control', 'com.whzxc.agent-remote-control.dev'].includes(identifier)) throw new Error('安装包 bundle identifier 不正确。');
+  if (identifier === 'com.whzxc.agent-remote-control') {
+    verifyMacosReleaseSignature(root, identifier);
+    verifyMacosReleaseSignature(path.join(root, 'Contents/Resources/bin/arc'), `${identifier}.core`);
+    verifyMacosReleaseSignature(path.join(root, 'Contents/Resources/bin/arc-screen'), `${identifier}.screen`);
+  }
   const resources = path.join(root, 'Contents', 'Resources');
   const native = path.join(resources,'bin/arc');
   const version = buildVersion();

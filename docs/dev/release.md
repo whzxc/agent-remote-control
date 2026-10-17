@@ -16,9 +16,11 @@ Updater 使用独立 Minisign 私钥，必须对应 desktop/tauri.conf.json 的�
 
 加密密钥另用 TAURI_SIGNING_PRIVATE_KEY_PASSWORD。密钥放仓库外，脚本只读，不生成、搬移或输出。普通 desktop:build 可不带 updater 密钥；release 和 dry-run 都要求它。
 
-macOS 只有显式 APPLE_SIGNING_IDENTITY 才使用指定证书，否则 ad-hoc。Developer ID 使用完整的个人团队身份；本地自签名使用明确证书名。脚本不自动选取钥匙串证书，指定身份不可用即失败。Developer ID 路径使用 hardened runtime 和安全时间戳；自签名不发送公证凭据。
+macOS 正式包（desktop:build，包括 debug 构建）、release、dry-run 和 release:stage 固定使用个人自签名证书 `Local Connector Self Signed`，SHA-1 指纹为 `DCE238666578502CF7DE81A7B4D5E835A186BC60`。无需设置 APPLE_SIGNING_IDENTITY；如设置，只接受该证书名或指纹。签名按指纹选择，缺少原证书及私钥、指定 ad-hoc 或其他证书时立即失败，不自动选择钥匙串中的公司 Team。产物检查同时校验 Desktop、Core 和 screen helper 的证书与 identifier，stage 拒绝其他身份的包。
 
-公证另需同一团队的 APPLE_ID、APPLE_TEAM_ID、App 专用 APPLE_PASSWORD 或受支持的 API 凭据。只做本地签名检查时移除公证变量；dry-run 配置公证凭据后也会向 Apple 提交。签名与公证配置遵循 [Tauri 官方文档](https://v2.tauri.app/distribute/sign/macos/)。
+证书私钥保存在仓库外的钥匙串中。换构建机必须安全导入同一份证书及私钥；重新生成同名证书不能保持授权身份。正式包启用 hardened runtime，不使用 Apple 公证或时间戳，并清除子进程环境中的其他 APPLE_* 凭据。自签名不等于 Developer ID 或公证，首次安装仍可能被 Gatekeeper 拦截，操作见安装指南。开发入口 npm run dev / npm run build 保留独立的显式 APPLE_SIGNING_IDENTITY 配置，未设置时使用 ad-hoc。
+
+完整 CI 发版的 macOS runner 从 GitHub Secrets `ARC_MACOS_CERTIFICATE_P12`（原证书及私钥的 PKCS#12 文件，经 Base64 编码）和 `ARC_MACOS_CERTIFICATE_PASSWORD` 导入临时钥匙串；导入后按固定指纹检查，结束时删除临时钥匙串。维护者需单独安全配置这两个 Secret；工作流不会生成新证书，缺失时失败。不要把证书私钥、导出文件或密码提交到仓库。Updater Minisign 密钥与上述系统代码签名证书相互独立。
 
 Bundle identifiers：正式 App 为 com.whzxc.agent-remote-control，开发包加 .dev，Core 加 .core，Swift helper 加 .screen。更换身份后检查系统权限，不能把 updater 签名当作系统代码签名。
 
@@ -60,7 +62,7 @@ npm run release -- --ci --version X.Y.Z --skip-tests
 npm run release -- --dry-run
 ```
 
-演练构建并生成发布文件，不提交、打 tag、推送或上传，也不自动运行测试。它仍需 updater 私钥，并可能执行已配置的 Apple 公证。演练链接使用选择的版本；正式发布需用目标版本重建。
+演练构建并生成发布文件，不提交、打 tag、推送或上传，也不自动运行测试。它仍需 updater 私钥和固定的 macOS 自签名证书，不执行 Apple 公证。演练链接使用选择的版本；正式发布需用目标版本重建。
 
 stage/finalize 用于已有产物的整理、验签和汇总；参数以 tooling/release.mjs 为准。缺失平台产物先补齐，再公开完整清单。最新下载、manifest 中的平台 URL、签名和嵌入版本必须一致。
 
@@ -68,7 +70,7 @@ stage/finalize 用于已有产物的整理、验签和汇总；参数以 tooling
 
 从旧标识版本首次发布 ARC 身份时，release.mjs 检查上一公开 tag 的状态目录定义，将一次性手工迁移命令加入发布说明；后续 ARC 到 ARC 发布不重复附加。命令只供用户执行，产品与安装器不自动迁移，不添加兼容 alias。
 
-说明要求用户先关闭旧版登录启动并退出应用，再移动正式、开发、预览状态目录及 XDG 配置目录，维护者另移动 updater 私钥，随后安装新版。目标目录存在时不覆盖。Windows 用户手动移动 LOCALAPPDATA 下对应目录，清理旧版登录项并重新启用新版；macOS 根据系统提示重新授权屏幕录制、辅助功能、自动化和登录项。
+说明要求用户先关闭旧版登录启动并退出应用，再移动正式、开发、预览状态目录及 XDG 配置目录，维护者另移动 updater 私钥，随后安装新版。目标目录存在时不覆盖。Windows 用户手动移动 LOCALAPPDATA 下对应目录，清理旧版登录项并重新启用新版；macOS 根据系统提示重新授权屏幕录制、辅助功能、完全磁盘访问和登录项。
 
 跨身份更新后，必须从新安装重新读取连接与权限状态。macOS、Windows 安装器注册表/可执行名称与 bundle identity 均使用新名称，旧安装由用户按发布说明处理。
 

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildVersion, stableVersion } from './version.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
-import { macosSigningIdentity } from './macos-signing.mjs';
+import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
 let version = buildVersion();
 const repo = 'whzxc/agent-remote-control';
@@ -104,7 +104,7 @@ if (mode === 'release') {
   // Fail before compilation, and pass credentials only in the environment.
   const env = ci ? { ...process.env } : releaseSigningEnv(true);
   let sourceSha;
-  if (!ci) macosSigningIdentity(env);
+  if (!ci) macosSigningIdentity(env, { release: true });
   const run = (script, ...options) => execFileSync(process.execPath, [script, ...options], { env, stdio: 'inherit' });
   if (!dryRun) {
     if (git('branch', '--show-current') !== 'main') throw new Error('Run release from main');
@@ -153,6 +153,12 @@ if (mode === 'release') {
 } else if (mode === 'stage') {
   const [target, input, output] = args;
   if (!['darwin-aarch64','windows-x86_64'].includes(target) || !input || !output) throw new Error('stage <darwin-aarch64|windows-x86_64> <bundle-dir> <output-dir>');
+  if (target === 'darwin-aarch64') {
+    if (process.platform !== 'darwin') throw new Error('macOS 产物必须在 Mac 上验签后整理');
+    const app = path.join(input, 'macos/Agent Remote Control.app');
+    verifyMacosReleaseSignature(app, 'com.whzxc.agent-remote-control');
+    execFileSync(process.execPath, ['tooling/check-package.mjs', app], { stdio: 'inherit' });
+  }
   await mkdir(output,{recursive:true});
   if ((await readdir(output)).length) throw new Error('Stage directory must be empty; use a fresh directory');
   const productName = (await json('desktop/tauri.conf.json')).productName;

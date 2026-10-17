@@ -50,6 +50,10 @@ Accessibility enables screen tree / press / show / key / raise. Screen recording
 
 Notification permission is checked in ARC Desktop for closed-loop fallback delivery; without Desktop only a log is recorded. Login readiness checks registration and disabled state. Codex, Claude and ingress verification appear on the same page. Inapplicable Windows/Linux permissions do not require action.
 
+### Why does an update ask for permissions again?
+
+macOS grants are tied to the app's code-signing identity. Official macOS builds use a fixed personal self-signed certificate and stable bundle identifiers to preserve that identity across updates. Switching from an older ad-hoc build to this certificate may require granting access once more. Replacing the certificate, even with the same name, can invalidate existing grants. Open **Settings → Permissions & readiness** after updating; do not repeatedly remove and re-add permissions when the signing identity has not been checked.
+
 ### Why does a remote tool return PERMISSION_REQUIRED?
 
 Tools never request system consent. The error includes permissionId; use the local permissions page and retry. A terminal's grants do not establish permissions for Core, screen helper or the Codex executor. The FDA heuristic does not guarantee access to every volume.

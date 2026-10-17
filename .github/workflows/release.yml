@@ -98,6 +98,28 @@ jobs:
           cache-bin: false
           save-if: 'true'
       - run: npm ci
+      - name: Import fixed macOS signing identity
+        if: runner.os == 'macOS'
+        env:
+          ARC_MACOS_CERTIFICATE_P12: ${{ secrets.ARC_MACOS_CERTIFICATE_P12 }}
+          ARC_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.ARC_MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ARC_MACOS_CERTIFICATE_P12" || { echo 'Missing fixed macOS signing certificate; refusing ad-hoc build'; exit 1; }
+          umask 077
+          certificate="$RUNNER_TEMP/arc-signing.p12"
+          keychain="$RUNNER_TEMP/arc-signing.keychain-db"
+          trap 'rm -f "$certificate"' EXIT
+          printf '%s' "$ARC_MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate"
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$ARC_MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
+          node --input-type=module -e "import { macosSigningIdentity } from './tooling/macos-signing.mjs'; macosSigningIdentity(process.env, { release: true });"
       - name: Build signed desktop installers
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -110,6 +132,12 @@ jobs:
           name: desktop-${{ matrix.platform }}
           path: release-artifacts/*
           if-no-files-found: error
+      - name: Remove temporary macOS signing keychain
+        if: always() && runner.os == 'macOS'
+        run: |
+          if [ -f "$RUNNER_TEMP/arc-signing.keychain-db" ]; then
+            security delete-keychain "$RUNNER_TEMP/arc-signing.keychain-db"
+          fi
   release:
     needs: [linux, desktop]
     runs-on: macos-latest

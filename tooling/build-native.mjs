@@ -12,7 +12,7 @@ export async function buildNative({ release = false, target, bundled = release }
   if (release) args.push('--release');
   if (target) args.push('--target', target);
   const env = buildEnv(release);
-  const identity = macosSigningIdentity(env);
+  const identity = macosSigningIdentity(env, { release });
   // The Core is itself a desktop resource, so its build must not copy resources
   // that have not been produced yet (notably on a clean Actions checkout).
   env.TAURI_CONFIG = JSON.stringify({ bundle: { resources: [] } });
