@@ -37,6 +37,7 @@ const COMMANDS: &[&str] = &[
     "setup playbook <id>",
     "setup reset",
     "skill install --target <target>",
+    "uninstall [--purge]",
     "doctor",
     "logs",
     "configure --stdin",
@@ -65,6 +66,34 @@ const COMMANDS: &[&str] = &[
     "ingress doctor <id>",
     "ingress verify <id> [--fresh]",
 ];
+
+pub(crate) fn command_line(args: &[&str], input: Option<&Value>) -> String {
+    let quote = |text: &str| {
+        if cfg!(windows) {
+            format!("'{}'", text.replace('\'', "''"))
+        } else {
+            format!("'{}'", text.replace('\'', "'\"'\"'"))
+        }
+    };
+    let binary = crate::runtime::binary().unwrap_or_else(|_| "arc".into());
+    let executable = quote(&binary.to_string_lossy());
+    let state = quote(&crate::root().to_string_lossy());
+    let args = args
+        .iter()
+        .map(|arg| quote(arg))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let command = if cfg!(windows) {
+        format!("& {{ $env:ARC_STATE_DIR = {state}; & {executable} cli {args} }}")
+    } else {
+        format!("ARC_STATE_DIR={state} {executable} cli {args}")
+    };
+    match input {
+        Some(input) if cfg!(windows) => format!("{} | {command}", quote(&input.to_string())),
+        Some(input) => format!("printf '%s' {} | {command}", quote(&input.to_string())),
+        None => command,
+    }
+}
 
 const GUIDE: &str = include_str!("../../docs/reference/cli.md");
 
@@ -487,6 +516,8 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
         ["skill", "install", "--target", target] => crate::skills::install(target),
         ["setup", "playbook", id] => crate::setup::playbook(id),
         ["setup", "reset"] => forward_request("setup/reset","DELETE",json!({})).await,
+        ["uninstall"] => crate::uninstall::run(false).await,
+        ["uninstall", "--purge"] => crate::uninstall::run(true).await,
         ["capabilities"] => Ok(crate::management::catalog()),
         ["schema", name] => crate::management::catalog()["operations"]
             .as_array()
@@ -509,22 +540,20 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
             result
         }
         [] | ["help"] | ["--help"] => Ok(json!({"version":env!("ARC_BUILD_VERSION"),
-            "usage":"<应用可执行文件> cli <command> [--json]",
-            "capabilities":crate::management::catalog(),
-            "commands":COMMANDS,
-            "subscriptionsInput":{"enabled":"boolean; required","refreshMinutes":"1/3/5/10; defaults to 3"},
-            "subscriptionsNote":"get reads memory only. set replaces enabled and refreshMinutes: read get.settings first. Providers participate automatically with their Agent; home rings use weekly quota. refresh requests an online read for an eligible provider, or all eligible providers when omitted; accepted is not fresh-data success. Read observedAt/state/error afterwards. open activates the target instance's Agent detail panel, or the Agents panel when omitted.",
-            "controlSourcePresets":crate::control_sources::presets(),
-            "ingressInput":{"id":"optional on add; immutable","name":"optional display name; defaults to preset name with an available numeric suffix","controlSource":"see ingress presets; any other client label remains valid","transport":"openai-tunnel | https","auth":"openai for OpenAI Tunnel; none | bearer | oauth for HTTPS","bearerToken":"32+ printable ASCII characters, stdin only; never returned by list/status","enabled":true,"toolPolicy":"all or {allowlist:[connector_verify,agents,agent_create,agent_read,agent_wait,...]}","config":{"httpsProvider":"cloudflare | ngrok | pinggy | localxpose | custom","cloudflareMode":"quick | named","cloudflareAuth":"token (default) | login (setup-managed local credentials)","cloudflareTunnelId":"locally-managed Tunnel UUID; setup-managed","httpsUrl":"https://hostname/mcp; required for named/custom, optional fixed ngrok address","httpsHost":"127.0.0.1 default; custom only","httpsPort":"8787 default; choose distinct ports for named/custom and match the external route","cloudflareToken":"named Tunnel token; stdin only","ngrokAuthtoken":"ngrok credential; stdin only","pinggyMode":"quick | named","pinggyToken":"Pinggy named domain token; stdin only","localxposeMode":"named; quick is unavailable because the first request is redirected","localxposeAccessToken":"LocalXpose credential; stdin only","localxposeRegion":"us | eu | ap","tunnelId":"official Tunnel ID","apiKey":"official Tunnel runtime key; stdin only","tunnelBinary":"optional executable path"}},
-            "waitContract":"create/send → wait(30s default; 20–30s recommended) → timeout → same taskId/threadId and turnId, previous snapshotHash as expectedHash → wait again until terminal/interaction. Event-driven slices, not read/sleep polling. Timeout/cancelling wait never stops or recreates the task; unconfirmed is not failure. Ordinary Chat/general MCP clients should not block for minutes by default. codex_wait maximum 90000ms leaves remote gateway headroom; agent_wait maximum 300000ms requires upstream support; stdio forwarding budget remains 330s.",
-            "update":"Partial merge; running ingresses are stopped, updated and restarted by the shared backend. Other ingresses remain online. Changes reset only this ingress verification.",
-            "oauthDecisionInput":{"id":"pending request id from oauth list","allow":"boolean; true approves, false denies"},
-            "oauthReadback":"oauth request returns pending/approved/denied/completed/expired; approved is not token exchange or task acceptance. Keep the client authorization page open for callback.",
-            "authNote":"none exposes allowed tools to anyone with network access. Prefer a fixed URL with OAuth (local app consent via agent-remote-control:// or authenticated CLI consent, PKCE, DCR or preregistration) or bearer for clients that support it.",
-            "tokenDelivery":"token rotate returns the new secret once in stdout. Redirect to a protected local file (umask 077); do not capture it into chat/logs. Supply an initial bearerToken via stdin when adding.",
-            "configureInput":{"tunnelId":"可选；省略保留原值","apiKey":"可选；空字符串保留原值"},
-            "networkInput":{"proxyMode":"system | direct | custom","proxyUrl":"自定义 HTTP/HTTPS 地址，其余为空"},
-            "note":"所有命令输出 JSON。help、guide、capabilities、schema、ingress presets 和 logs --offline 无需运行 Core；app start 可启动安装版，cli mcp 支持离线能力发现和启动。其他操作按所属 Core/Desktop 报告可用状态。凭据仅从 stdin 输入，禁止放入命令参数或聊天。"})),
+            "usage":"arc cli <command>",
+            "groups":[
+                {"commands":"setup next|apply|wait|playbook|reset; skill install --target codex|claude-code","description":"Configure ARC with an Agent; follow the returned step and nextAction."},
+                {"commands":"status; doctor; onboarding; context --stdin","description":"Read current state, diagnostics and onboarding evidence."},
+                {"commands":"ingress list|presets|add|update|remove|start|stop|restart|probe|doctor|verify","description":"Manage and diagnose a selected connection; add/update accept JSON on stdin."},
+                {"commands":"ingress oauth list|request|decision|register|revoke; ingress token rotate","description":"Manage this connection's OAuth access and bearer token."},
+                {"commands":"app start|status|quit|restart; uninstall [--purge]","description":"Control the installed application; uninstall to Trash, or permanently with --purge."},
+                {"commands":"subscriptions get|set|refresh|open","description":"Read or refresh subscription usage; set accepts JSON on stdin."},
+                {"commands":"logs [--stdin|--follow|--offline]; watch; storage compact","description":"Inspect logs, watch changes or compact local storage."},
+                {"commands":"configure --stdin; network --stdin; connect; disconnect; verify [--fresh]","description":"Configure and control the primary connection."},
+                {"commands":"capabilities; schema <operation>; call <operation> [--stdin]; mcp","description":"Discover full operation schemas, execute an operation or serve local management MCP."},
+                {"commands":"help; guide","description":"Show this compact index or the full CLI reference."}
+            ],
+            "note":"JSON output. Read cli schema <operation> for exact inputs and cli guide for command syntax. Credentials use stdin or ARC clipboard apply, never command arguments."})),
         ["subscriptions", "get"] => forward_request("subscriptions", "GET", json!({})).await,
         ["subscriptions", "set", "--stdin"] => {
             forward_request("subscriptions/settings", "PUT", stdin_json()?).await

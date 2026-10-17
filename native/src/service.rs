@@ -961,7 +961,9 @@ impl Service {
                     next.summary().await
                 };
             }
-            if method != "POST" || !["start", "stop", "verification/reset"].contains(&action) {
+            if method != "POST"
+                || !["start", "stop", "install", "verification/reset"].contains(&action)
+            {
                 return Err("UNKNOWN_ROUTE".into());
             }
             if action == "start" && i.meta.lock().await["enabled"] != true {

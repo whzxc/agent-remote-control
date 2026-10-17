@@ -300,6 +300,7 @@ test('setup rejects a short runtime key without saving or clearing; HTTPS fallba
   await writeFile(poll, '0');
   await writeFile(tunnel, `#!${process.execPath}
 const fs = require('node:fs');
+if (process.argv[2] === '--version') { console.log('tunnel-client v0.0.16'); process.exit(0); }
 if (process.argv[2] === 'init') process.exit(0);
 const server = require('node:http').createServer((req, res) => {
   if (req.url === '/readyz') return res.end('ready');

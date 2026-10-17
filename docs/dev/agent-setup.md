@@ -169,7 +169,7 @@ Agent 只点击官方复制按钮，不读剪贴板、不检查含秘钥的 DOM 
 ```text
 帮我配置 Agent Remote Control，目标：claude-loop。
 ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态目录>。先运行 `"<cli>" cli setup playbook protocol` 了解协议，然后循环 `"<cli>" cli setup next` 推进。
-我委托你完成已登录页面上的配置。decide 步骤原样转述说明和选项；仅在未登录、人机验证、密码/2FA、付款或你的安全策略要求时停下。以 setup wait 为完成依据；通过官方复制按钮和 ARC 剪贴板接收传递秘钥，不读取、不输出值。
+选定目标后，按协议一次说明资源和本机工具访问范围并取得确认；已有明确确认时复用。随后完成已登录页面上的配置。decide 步骤原样转述说明和选项；仅在未登录、人机验证、密码/2FA、付款或你的安全策略要求时停下。以 setup wait 为完成依据；通过官方复制按钮和 ARC 剪贴板接收传递秘钥，不读取、不输出值。
 ```
 
 ## 文档
@@ -231,3 +231,15 @@ Tunnel Client 的 `/readyz` 只是启动探测，可能在控制面认证前成�
 Tauri 的插件事件分发持有插件列表锁。deep link 回调不得同步重建已释放的 WebView，否则初始化 WebView 再取同一把锁。回调只投递 blocking worker，让 Apple Event 返回后再执行窗口操作；不能用可能在主线程内联执行的 run_on_main_thread 代替。
 
 最小复现：用独立 App 身份和隔离状态目录启动旧版，关闭配置面板、关闭主窗口并等待超过 30 秒使 WebView 释放，再向该 App 发送 `agent-remote-control://ingress?id=setup-chatgpt-chat&field=apiKey`。旧实现会在 open-URL Apple Event 中等待插件互斥锁；修复后窗口可重建，编辑框能响应。窗口仍存在时也应验证同一路由。不要用正在使用的正式实例执行复现。
+
+## 0.9.14：新机器配置与清理
+
+本轮保持 onboarding 薄层及五种 step kind，不增加授权状态文件；一次范围确认由 Agent 在当前对话中复用。
+
+- OpenAI ingress 启动先检查所选 tunnel-client，最低版本为 0.0.16；缺失或过旧时使用原有官方 release 下载、校验和与状态目录安装路径。必要时停止该 ingress，切换受管路径后再启动，不覆盖用户外部程序。对运行中的入口重复 start 也先检查版本。显式依赖安装自行 stop/start，支持按 ingress 定位。
+- 无法识别版本及升级失败分别产生 `TUNNEL_VERSION_UNKNOWN`、`TUNNEL_UPGRADE_FAILED`，保留具体原因、已知版本和最低版本。`ingress doctor` 与 `setup next` 共用 findings；客户端关键错误经既有凭据脱敏后截取摘要，并附可执行下一步命令。依赖故障优先于运行时 key 判断。
+- `cli help` 只返回命令分组及一句话说明；完整输入契约继续归 `capabilities` / `schema`，操作说明归 `guide`。setup 的 apply 和 nextAction 包含当前 CLI、状态目录；自动步骤的 nextAction 包含标准输入 JSON，决策步骤仍由用户选择。
+- 创建或复用 Platform Tunnel 时关联目标 ChatGPT 工作区；启用插件前在相同工作区检查关联。当前客户端健康信息没有工作区关联字段，因此不推断“未关联”，也不增加预检 API；以远端已认证 MCP 请求作为启用完成证据。
+- skill、protocol 和 App 生成提示词统一要求选定目标后一次说明并确认资源与访问范围。ChatGPT 包括 tunnel、受限 API key、工作区关联及本机工具访问；Claude 包括 Cloudflare tunnel/DNS、连接器、ARC OAuth 同意和 Claude Code 安装。后续复用明确确认，仍遵守 Agent 自身策略及登录、验证码、密码和付款等例外。
+- 新建 runtime key 使用 `arc-<tunnel-id>-runtime-<timestamp>` 名称，只记录名称。替换后等待新 key 控制面认证成功，再撤销本次能明确识别为 ARC 创建的被替换 key；不动来源不明或无关 key。
+- `cli uninstall [--purge]` 是本机命令，不加入远端 MCP。默认移入系统废纸篓，purge 永久删除；停止 App/Core 与登录项，清理当前实例状态及受管依赖、平台缓存、安装资源与两个 Agent 的 arc-setup。macOS 在删除 App 前对其 App/Core/screen 标识执行 tccutil，失败明确报告。历史 `~/.local/bin/tunnel-client` 仅在该实例配置或升级记录能归属时清理；不卸载独立安装的 Codex/Claude Code，不清理云端资源。Windows 延后到 CLI 退出后清理并给出结果文件。

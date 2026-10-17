@@ -5,6 +5,7 @@ pub mod screen;
 mod setup_secret;
 mod shell_command;
 mod text_files;
+mod uninstall;
 use serde_json::{json, Value};
 use std::{
     path::{Path, PathBuf},

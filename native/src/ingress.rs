@@ -30,6 +30,8 @@ pub struct Ingress {
     started: Mutex<Option<Instant>>,
     failure: Mutex<String>,
     control_plane: Mutex<Value>,
+    tunnel_dependency: Mutex<Value>,
+    tunnel_error: Mutex<String>,
     pub(crate) operation: Mutex<()>,
     pub(crate) retired: std::sync::atomic::AtomicBool,
     pub connected: std::sync::atomic::AtomicBool,
@@ -76,6 +78,8 @@ impl Ingress {
             started: Mutex::new(None),
             failure: Mutex::new(String::new()),
             control_plane: Mutex::new(Value::Null),
+            tunnel_dependency: Mutex::new(Value::Null),
+            tunnel_error: Mutex::new(String::new()),
             operation: Mutex::new(()),
             retired: std::sync::atomic::AtomicBool::new(false),
             connected: std::sync::atomic::AtomicBool::new(false),
@@ -170,7 +174,7 @@ impl Ingress {
         let status = self.status().await?;
         let meta = self.meta.lock().await;
         let config = status["config"].clone();
-        let mut result = json!({"health":status["tunnel"]["health"],"controlPlane":status["tunnel"]["controlPlane"],"discoveredUrls":status["discoveredUrls"],"id":self.id,"name":meta["name"],"controlSource":meta["controlSource"],"transport":meta["transport"],"provider":config["httpsProvider"],"enabled":meta["enabled"],"auth":meta["auth"],"toolPolicy":meta["toolPolicy"],"config":config,"running":status["connection"]["running"],"state":status["tunnel"]["state"],"error":status["tunnel"]["error"],"url":status["connection"]["mcpUrl"],"verification":status["core"]["chatgpt"],"logs":status["logs"]});
+        let mut result = json!({"health":status["tunnel"]["health"],"controlPlane":status["tunnel"]["controlPlane"],"tunnelDependency":status["tunnel"]["dependency"],"tunnelError":status["tunnel"]["lastError"],"discoveredUrls":status["discoveredUrls"],"id":self.id,"name":meta["name"],"controlSource":meta["controlSource"],"transport":meta["transport"],"provider":config["httpsProvider"],"enabled":meta["enabled"],"auth":meta["auth"],"toolPolicy":meta["toolPolicy"],"config":config,"running":status["connection"]["running"],"state":status["tunnel"]["state"],"error":status["tunnel"]["error"],"url":status["connection"]["mcpUrl"],"verification":status["core"]["chatgpt"],"logs":status["logs"]});
         result["diagnostics"] = crate::diagnostics::ingress(&result);
         Ok(result)
     }
@@ -197,6 +201,9 @@ impl Ingress {
             msg = msg.replace(bearer, "[REDACTED]");
         }
         drop(meta);
+        if matches!(level, "WARN" | "WARNING" | "ERROR" | "FATAL" | "PANIC") {
+            *self.tunnel_error.lock().await = msg.chars().take(1200).collect();
+        }
         let mut logs = self.logs.lock().await;
         logs.push(json!({"time":now(),"level":level,"msg":msg}).to_string());
         if logs.len() > 200 {
@@ -385,7 +392,7 @@ impl Ingress {
         }
         let core = json!({"chatgpt":chat,"transport":{"state":state,"error":error}});
         Ok(
-            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health,"controlPlane":control_plane},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
+            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health,"controlPlane":control_plane,"dependency":self.tunnel_dependency.lock().await.clone(),"lastError":self.tunnel_error.lock().await.clone()},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
         )
     }
     pub async fn stop(&self) -> Result<()> {
@@ -437,6 +444,7 @@ impl Ingress {
         }
         *self.failure.lock().await = String::new();
         *self.control_plane.lock().await = Value::Null;
+        self.tunnel_error.lock().await.clear();
         if was_connected {
             self.log("INFO", "Connection closed").await;
         }
@@ -459,11 +467,17 @@ impl Ingress {
         if self.meta.lock().await["enabled"] != true {
             return Err("ingress disabled".into());
         }
+        let settings = self.settings.lock().await.clone();
+        // Check even an already-running ingress before treating start as a no-op.
+        let binary = if settings["connectionMode"] != "https" && configured(&settings) {
+            Some(self.prepare_tunnel(false).await?)
+        } else {
+            None
+        };
         if self.connected.load(std::sync::atomic::Ordering::SeqCst) {
             return Ok(());
         }
         self.stop().await?;
-        let settings = self.settings.lock().await.clone();
         if !configured(&settings) {
             return Err("请先填写连接信息".into());
         }
@@ -521,23 +535,7 @@ impl Ingress {
         }
         let proxy = crate::proxy::NetworkProxy::resolve(&settings).await?;
         self.log("INFO", proxy.message).await;
-        let binary = match executable(string(&settings, "tunnelBinary")) {
-            Some(binary) => binary,
-            None => {
-                self.log(
-                    "INFO",
-                    "Preparing connection components; first use requires a download",
-                )
-                .await;
-                let binary = install_tunnel(&proxy)
-                    .await
-                    .map_err(|e| format!("准备连接组件失败，请检查网络后重试：{e}"))?;
-                let mut config = self.settings.lock().await;
-                config["tunnelBinary"] = json!(binary);
-                self.persist(&config).await?;
-                binary
-            }
-        };
+        let binary = binary.ok_or("Tunnel Client was not prepared")?;
         let dir = root().join("runs").join(id());
         private_dir(&dir)?;
         let key = dir.join("api-key");
@@ -577,7 +575,14 @@ impl Ingress {
                 .map_err(|_| "Tunnel 配置超时")?
                 .map_err(|e| e.to_string())?;
             if !o.status.success() {
-                return Err("生成 Tunnel 配置失败".into());
+                let detail = format!(
+                    "{} {}",
+                    String::from_utf8_lossy(&o.stderr),
+                    String::from_utf8_lossy(&o.stdout)
+                );
+                self.log("ERROR", &format!("Tunnel init failed: {detail}"))
+                    .await;
+                return Err(self.tunnel_error.lock().await.clone());
             }
             let mut cmd = tunnel_command(&binary);
             proxy.apply(&mut cmd);
@@ -667,6 +672,74 @@ impl Ingress {
             .store(true, std::sync::atomic::Ordering::SeqCst);
         self.log("INFO", "Starting connection").await;
         Ok(())
+    }
+    async fn prepare_tunnel(&self, force: bool) -> Result<PathBuf> {
+        let settings = self.settings.lock().await.clone();
+        let current = executable(string(&settings, "tunnelBinary"));
+        let version = match &current {
+            Some(path) => tunnel_version(path).await,
+            None => Err("Tunnel Client is missing".into()),
+        };
+        let observed = version
+            .as_ref()
+            .ok()
+            .map(|v| format!("{}.{}.{}", v[0], v[1], v[2]));
+        *self.tunnel_dependency.lock().await = json!({"path":current,"version":observed,
+            "minimumVersion":TUNNEL_MIN_VERSION,"state":"checking"});
+        if !force {
+            if let Ok(version) = &version {
+                if *version >= [0, 0, 16] {
+                    self.tunnel_dependency.lock().await["state"] = json!("ready");
+                    return Ok(current.unwrap());
+                }
+            } else if current.is_some() {
+                let error = version.unwrap_err();
+                let mut dependency = self.tunnel_dependency.lock().await;
+                dependency["state"] = json!("error");
+                dependency["code"] = json!("TUNNEL_VERSION_UNKNOWN");
+                dependency["error"] = json!(error);
+                return Err(error);
+            }
+        }
+        self.stop().await?;
+        self.tunnel_dependency.lock().await["state"] = json!("upgrading");
+        self.log(
+            "INFO",
+            &format!(
+                "Installing Tunnel Client >= {TUNNEL_MIN_VERSION} (previous: {})",
+                observed.as_deref().unwrap_or("unknown")
+            ),
+        )
+        .await;
+        let installed: Result<PathBuf> = async {
+            let proxy = self.network_proxy().await?;
+            let binary = install_tunnel(&proxy).await?;
+            let version = tunnel_version(&binary).await?;
+            if version < [0, 0, 16] {
+                return Err(format!("Downloaded Tunnel Client is older than {TUNNEL_MIN_VERSION}"));
+            }
+            // Preserve ownership of the historical ARC launcher after switching paths.
+            if let (Some(old), Some(home)) = (&current, dirs::home_dir()) {
+                if *old == home.join(".local/bin/tunnel-client") {
+                    save(&root().join("dependencies/legacy-tunnel.json"), &json!({"path":old}))?;
+                }
+            }
+            let mut settings = self.settings.lock().await;
+            settings["tunnelBinary"] = json!(binary);
+            self.persist(&settings).await?;
+            *self.tunnel_dependency.lock().await = json!({"state":"ready","path":binary,
+                "version":format!("{}.{}.{}",version[0],version[1],version[2]),"minimumVersion":TUNNEL_MIN_VERSION});
+            Ok(binary)
+        }.await;
+        if let Err(error) = &installed {
+            self.log("ERROR", &format!("Tunnel Client upgrade failed: {error}"))
+                .await;
+            let mut dependency = self.tunnel_dependency.lock().await;
+            dependency["state"] = json!("error");
+            dependency["code"] = json!("TUNNEL_UPGRADE_FAILED");
+            dependency["error"] = json!(self.tunnel_error.lock().await.clone());
+        }
+        installed
     }
     pub async fn request(
         self: &Arc<Self>,
@@ -782,17 +855,14 @@ impl Ingress {
                 )
             }
             ("POST", "install") => {
-                if self.connected.load(std::sync::atomic::Ordering::SeqCst) {
-                    return Err("请先关闭连接".into());
-                }
                 if body["component"] != "tunnel" {
                     return Err("请安装官方 Codex Desktop".into());
                 }
-                let proxy = self.network_proxy().await?;
-                let binary = install_tunnel(&proxy).await?;
-                let mut s = self.settings.lock().await;
-                s["tunnelBinary"] = json!(binary);
-                self.persist(&s).await?;
+                let running = self.connected.load(std::sync::atomic::Ordering::SeqCst);
+                self.prepare_tunnel(true).await?;
+                if running {
+                    self.start().await?;
+                }
                 Ok(json!({"ok":true}))
             }
             _ => Err("UNKNOWN_ROUTE".into()),
@@ -886,6 +956,35 @@ fn executable(name: &str) -> Option<PathBuf> {
         .map(|p| p.join(name))
         .find(|p| p.is_file())
 }
+pub(crate) const TUNNEL_MIN_VERSION: &str = "0.0.16";
+async fn tunnel_version(binary: &Path) -> Result<[u64; 3]> {
+    let mut command = tunnel_command(binary);
+    command.arg("--version").kill_on_drop(true);
+    let output = tokio::time::timeout(Duration::from_secs(5), command.output())
+        .await
+        .map_err(|_| "Tunnel Client --version timed out")?
+        .map_err(|e| format!("Cannot run Tunnel Client --version: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "Tunnel Client --version exited with {}",
+            output.status
+        ));
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let pattern =
+        regex::Regex::new(r"(?:^|[\s])v?(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?(?:[\s]|$)")
+            .unwrap();
+    let captures = pattern
+        .captures(&text)
+        .ok_or("Unrecognized Tunnel Client --version output")?;
+    let mut version = [0; 3];
+    for (i, part) in version.iter_mut().enumerate() {
+        *part = captures[i + 1]
+            .parse()
+            .map_err(|_| "Invalid Tunnel Client version")?;
+    }
+    Ok(version)
+}
 async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     static INSTALL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = INSTALL.lock().await;
@@ -927,6 +1026,28 @@ async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     } else {
         "amd64"
     };
+    let cached = root()
+        .join("dependencies/tunnel")
+        .join(tag)
+        .join(if cfg!(windows) {
+            "tunnel-client.exe"
+        } else {
+            "tunnel-client"
+        });
+    if cached.is_file()
+        && cached
+            .parent()
+            .unwrap()
+            .join(if cfg!(windows) {
+                "cloudflared.exe"
+            } else {
+                "cloudflared"
+            })
+            .is_file()
+        && tunnel_version(&cached).await.is_ok_and(|v| v >= [0, 0, 16])
+    {
+        return Ok(cached);
+    }
     let name = format!("tunnel-client-{tag}-{platform}-{arch}.zip");
     let asset = |name: &str| -> Result<String> {
         let url = release["assets"]
@@ -1085,7 +1206,7 @@ fn control_plane_health(snapshot: &Value) -> Value {
     let status = details["http_status"].as_u64().unwrap_or(0);
     json!({"state": if matches!(status, 401 | 403) { "rejected" }
         else if details["last_success"].is_string() && snapshot["status"] == "ok" { "authenticated" }
-        else { "unknown" }, "httpStatus":status})
+        else { "unknown" }, "httpStatus":status,"failureCategory":details["failure_category"],"observedAt":snapshot["observed_at"]})
 }
 fn rejected_control_plane_log(entry: &Value) -> Option<u16> {
     // Older client versions still report explicit control-plane failures in logs.

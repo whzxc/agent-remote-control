@@ -56,9 +56,11 @@ Enable **Connect at sign-in** in Settings. Disable it before uninstalling. After
 
 ## Uninstall
 
+For full local cleanup, run the installed CLI’s `cli uninstall` (moves the App, state, managed dependencies, caches, login registration and arc-setup skills to Trash; resets macOS permissions first), or `cli uninstall --purge` for permanent deletion.
+
 Disable sign-in startup, quit ARC, then delete the macOS app or use the Windows uninstaller. Homebrew users can run `brew uninstall --cask agent-remote-control`.
 
-ARC leaves its state in `~/.local/state/agent-remote-control` on macOS and `%LOCALAPPDATA%/agent-remote-control` on Windows. Remove that directory only when you want to discard its configuration, receipts, and logs. Agent-owned histories remain in their own stores. See [CLI](reference/cli.md#state-and-environment) for custom locations.
+Manual App removal leaves ARC state in `~/.local/state/agent-remote-control` on macOS and `%LOCALAPPDATA%/agent-remote-control` on Windows. Remove that directory only when you want to discard its configuration, receipts, and logs. Agent-owned histories remain in their own stores. See [CLI](reference/cli.md#state-and-environment) for custom locations.
 
 ## Limits
 

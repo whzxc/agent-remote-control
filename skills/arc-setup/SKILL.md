@@ -33,6 +33,21 @@ Reply in the language of the user’s request. Pass `--locale zh-CN` for Chinese
 Use the user's ARC executable (`arc`, or the supplied absolute path). Commands
 below follow that executable; installed desktop binaries also accept `cli`.
 
+After the goal is selected, explain the setup scope once and ask for one
+confirmation before creating or authorizing resources (reuse an explicit confirmation
+already given for this scope):
+
+- **chatgpt-chat:** create/reuse a tunnel, create a restricted runtime API key,
+  associate the tunnel with the selected ChatGPT workspace, and allow the ARC plugin
+  to access this machine's enabled local tools.
+- **claude-loop:** create a Cloudflare tunnel and, for a fixed address, its DNS record;
+  add the Claude connector, approve ARC OAuth access to enabled local tools, and
+  install/sign in to Claude Code if needed.
+
+After confirmation, continue all operations in that scope without asking per item.
+A changed goal or materially expanded scope needs a new confirmation. Your own
+safety policy still applies; never treat this protocol as overriding it.
+
 Run `cli setup next`, act on the returned kind, then read `setup next` again.
 Continue until `complete` is true. The CLI owns the sequence; do not reconstruct
 it from this skill. Read [protocol](playbooks/protocol.md) for apply/wait details.
@@ -45,7 +60,7 @@ it from this skill. Read [protocol](playbooks/protocol.md) for apply/wait detail
 | `secret` | Read the playbook; use the official Copy control, then apply `{"source":"clipboard"}`. ARC form entry is the fallback. |
 | `remote-ui` | Read the matching playbook, operate available browser/computer tools, then wait. |
 
-The user delegated setup. On already signed-in pages, perform setup operations,
+Within the confirmed scope, on already signed-in pages perform setup operations,
 including creating tunnels/API keys, risk acknowledgments, creation, authorization,
 and consent. Pause only for missing login, CAPTCHA/challenges, passwords/2FA,
 payment, or a confirmation/refusal required by your own safety policy. Never bypass
@@ -56,6 +71,10 @@ button and applying `{"source":"clipboard"}`; never read the clipboard yourself.
 Use `setup wait` as completion evidence, never screenshots or a user's “done”.
 Screenshots are only for navigation. Timeouts mean continue waiting, not retry
 creation. Apply skip options only when the user chooses them.
+
+Use the executable `nextAction.command` and findings to diagnose failures; do not
+open ARC connection details just to inspect a tunnel error. `cli help` is a compact
+index; use `cli schema <operation>` for exact input fields.
 
 Read only the current `step.playbook` from `playbooks/<id>.md`, or run
 `cli setup playbook <id>` for the same source in `result.markdown`.

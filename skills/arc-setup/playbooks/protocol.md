@@ -15,7 +15,15 @@ using the playbook; skip only when the user explicitly chooses it.
 For authorize, secret, and remote-ui, read the matching playbook. Use browser
 tools first, computer-use/ARC screen second. All playbooks follow this rule:
 
-The user delegated setup. On already signed-in pages, perform setup operations,
+After goal selection, explain the scope and obtain one confirmation, unless the
+user already explicitly confirmed it. For chatgpt-chat this covers tunnel creation,
+a restricted runtime API key, the target ChatGPT workspace association, and plugin
+access to this machine's enabled tools. For claude-loop this covers Cloudflare
+tunnel/DNS (DNS for fixed addresses), the Claude connector, ARC OAuth consent and
+Claude Code installation/sign-in. Reuse that confirmation throughout the selected
+scope; ask again only for a changed scope or the exceptions below.
+
+Within the confirmed scope, on already signed-in pages perform setup operations,
 including creating tunnels/API keys, risk acknowledgments, creation, authorization,
 and consent. Pause only for missing login, CAPTCHA/challenges, passwords/2FA,
 payment, or a confirmation/refusal required by your own safety policy. Never bypass
@@ -27,7 +35,12 @@ button exists, ask the user to copy manually; ARC's form remains a fallback.
 
 Run `cli setup wait --timeout 60` after external actions. Timeouts return the
 current step successfully: continue waiting, do not infer completion from the UI.
-Use fresh next output when the step changes. Surface returned findings.
+Use fresh next output when the step changes. Surface returned findings and execute
+their `nextAction.command`; next also supplies an executable `nextAction.command`
+for the current step. Read `cli schema <operation>` for full inputs.
+ARC ensures Tunnel Client >= 0.0.16 before starting an OpenAI ingress, including
+stopping and restarting it when needed. A version/upgrade finding takes precedence
+over replacing a key. Use the diagnostic summary; no ARC UI inspection is needed.
 For tunnel credentials, apply also accepts the non-secret `{"tunnelId":"..."}`.
 Secret clipboard apply returns saved flags only; re-read next afterward.
 For Cloudflare login and Claude Code readiness, apply `{}` to start the action

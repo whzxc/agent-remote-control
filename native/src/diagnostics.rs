@@ -14,15 +14,67 @@ pub fn ingress(i: &Value) -> Value {
     let mut findings = Vec::new();
     let id = &i["id"];
     let state = string(i, "state");
-    if i["controlPlane"]["state"] == "rejected" {
-        findings.push(finding(
+    let dependency = &i["tunnelDependency"];
+    if dependency["state"] == "error" {
+        let mut f = finding(
+            string(dependency, "code"),
+            "error",
+            "ingress",
+            id,
+            string(dependency, "error"),
+            "ingress.dependencies.install",
+        );
+        f["dependency"] = dependency.clone();
+        f["nextAction"]["command"] = json!(crate::cli::command_line(
+            &["call", "ingress.dependencies.install", "--stdin"],
+            Some(&json!({"id":id,"body":{"component":"tunnel"}}))
+        ));
+        findings.push(f);
+    } else if i["controlPlane"]["state"] == "rejected" {
+        let mut f = finding(
             "RUNTIME_KEY_REJECTED",
             "error",
             "ingress",
             id,
             crate::i18n::text(&crate::i18n::locale(), "setup.runtime-key-rejected"),
-            "setup.apply",
+            "setup.playbook",
+        );
+        f["httpStatus"] = i["controlPlane"]["httpStatus"].clone();
+        f["detail"] = json!(if string(i, "tunnelError").is_empty() {
+            format!(
+                "Tunnel Client control-plane HTTP {} ({})",
+                i["controlPlane"]["httpStatus"],
+                string(&i["controlPlane"], "failureCategory")
+            )
+        } else {
+            string(i, "tunnelError").to_owned()
+        });
+        f["dependency"] = dependency.clone();
+        f["nextAction"]["command"] = json!(crate::cli::command_line(
+            &["setup", "playbook", "tunnel-credentials"],
+            None
         ));
+        findings.push(f);
+    }
+    if i["transport"] == "openai-tunnel"
+        && state != "ready"
+        && dependency["state"] != "error"
+        && i["controlPlane"]["state"] != "rejected"
+        && !string(i, "tunnelError").is_empty()
+    {
+        let mut f = finding(
+            "TUNNEL_CLIENT_ERROR",
+            "error",
+            "ingress",
+            id,
+            string(i, "tunnelError"),
+            "ingress.restart",
+        );
+        f["nextAction"]["command"] = json!(crate::cli::command_line(
+            &["ingress", "restart", string(i, "id")],
+            None
+        ));
+        findings.push(f);
     }
     if state == "stopped" && i["running"] == false {
         findings.push(finding(
@@ -39,7 +91,7 @@ pub fn ingress(i: &Value) -> Value {
             "error",
             "ingress",
             id,
-            "此入口报告故障；只检查此入口的配置和 Provider。",
+            string(i, "error"),
             "inspect-ingress",
         ));
     } else if i["config"]["configured"] == false {
@@ -76,6 +128,14 @@ pub fn ingress(i: &Value) -> Value {
             "此入口未启用身份认证。",
             "inspect-authentication",
         ));
+    }
+    for f in &mut findings {
+        if f["nextAction"]["command"].is_null() {
+            f["nextAction"]["command"] = json!(crate::cli::command_line(
+                &["ingress", "doctor", string(i, "id")],
+                None
+            ));
+        }
     }
     json!({"findings":findings,"checks":{"transport":{"state":state},"authentication":{"state":if i["auth"]=="none"{"disabled"}else{"configured-not-verified"}},"inbound":{"state":inbound,"observedAt":i["verification"]["challengeVerifiedAt"]},"execution":{"state":"not_checked"},"remoteClient":{"state":"unknown"}},"readOnly":true})
 }

@@ -481,7 +481,7 @@
   "setup.completeTitle": "配置完成",
   "setup.completeExplain": "ARC 已验证连接与首次任务。返回首页查看连接拓扑。",
   "setup.taskTitle": "配置 Agent Remote Control",
-  "setup.agentPrompt": "帮我配置 Agent Remote Control，目标：{goal}。\nARC CLI：{cli}。执行命令时将 ARC_STATE_DIR 设为 {stateDir}。先运行 `\"{cli}\" cli setup playbook protocol`，然后循环 `\"{cli}\" cli setup next --locale zh-CN` 推进。\n我委托你完成已登录页面上的配置。decide 步骤原样转述说明和选项；仅在未登录、人机验证、密码/2FA、付款或你的安全策略要求时停下。以 setup wait 为完成依据。不读取、不输出秘钥，通过官方复制按钮和 ARC 剪贴板接收传递。",
+  "setup.agentPrompt": "帮我配置 Agent Remote Control，目标：{goal}。\nARC CLI：{cli}。执行命令时将 ARC_STATE_DIR 设为 {stateDir}。先运行 `\"{cli}\" cli setup playbook protocol`，然后循环 `\"{cli}\" cli setup next --locale zh-CN` 推进。\n选定目标后，按协议一次说明将创建或授权的资源及本机工具访问范围；若尚未明确确认，请一次确认。确认后完成已登录页面上的整个范围，不逐项询问。decide 步骤原样转述说明和选项；仅在未登录、人机验证、密码/2FA、付款或你的安全策略要求时停下。以 setup wait 为完成依据。不读取、不输出秘钥，通过官方复制按钮和 ARC 剪贴板接收传递。",
   "setup.otherAgentPrompt": "若使用 Claude Code，先运行 `\"{cli}\" cli skill install --target claude-code` 安装当前 skill。",
   "setup.option.claude-loop.explain": "Claude + Codex 通过 HTTPS 和 OAuth 连接；如需在 Claude Code 云端会话自动接回结果，本机需安装并登录 Claude Code CLI。",
   "setup.option.chatgpt-chat.explain": "ChatGPT Chat + Codex 默认尝试 OpenAI Secure Tunnel；Platform 权限不足时可改用 HTTPS + OAuth。ChatGPT 需允许自定义 MCP 连接。",
@@ -514,5 +514,5 @@
   "setup.blocked.runtime-key-rejected": "OpenAI 拒绝了 runtime key 或其 Tunnel 权限。",
   "setup.runtime-key-rejected": "OpenAI 拒绝了 runtime key（401/403）。请复制具备 Tunnels Read + Use 的正确 runtime key，由 ARC 重新接收；也可以选择改用 HTTPS + OAuth。",
   "setup.clipboard-invalid": "剪贴板里不是 {credential}，请点击 {credential} 旁边的复制按钮。",
-  "setup.health-unobserved": "尚未观察到 OpenAI 认证成功。请保持客户端运行；若客户端不支持详细健康状态，请在 ARC 中更新 Tunnel Client。"
+  "setup.health-unobserved": "尚未观察到 OpenAI 控制面认证成功。请保持客户端运行；若诊断报告错误，按其下一步操作处理。"
 }

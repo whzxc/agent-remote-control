@@ -1516,7 +1516,7 @@
       "name": "dependencies.install",
       "route": "install",
       "method": "POST",
-      "description": "Install official Tunnel Client for the primary ingress.",
+      "description": "Install official Tunnel Client; stop and restart the primary ingress when needed.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -1535,6 +1535,39 @@
           }
         },
         "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "ingress.dependencies.install",
+      "route": "ingress/{id}/install",
+      "method": "POST",
+      "description": "Install official Tunnel Client for one ingress, stopping and restarting it when needed.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "const": "tunnel"
+              }
+            },
+            "required": [
+              "component"
+            ],
+            "additionalProperties": false
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
           "body"
         ],
         "additionalProperties": false

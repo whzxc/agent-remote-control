@@ -551,6 +551,31 @@ fn presentation(mut next: Value, state: &Value) -> Result<Value> {
     next["cliPath"] = json!(crate::runtime::binary()?);
     next["stateDir"] = json!(root());
     next["dispatch"] = state["dispatch"].clone();
+    for key in ["step", "fallback"] {
+        if let Some(apply) = next[key]["apply"].as_str().map(str::to_owned) {
+            let args: Vec<_> = apply.split_whitespace().collect();
+            next[key]["apply"] = json!(crate::cli::command_line(&args, None));
+        }
+    }
+    if next["complete"] != true {
+        let step = &next["step"];
+        let id = string(step, "id");
+        let (args, input) = if step["kind"] == "auto" && step["installCommand"].is_null() {
+            (vec!["setup", "apply", id, "--stdin"], Some(json!({})))
+        } else {
+            (vec!["setup", "playbook", string(step, "playbook")], None)
+        };
+        next["nextAction"] = json!({"command":crate::cli::command_line(&args, input.as_ref())});
+        if let Some(action) = next["findings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|f| f["severity"] == "error" && f["nextAction"]["command"].is_string())
+            .map(|f| f["nextAction"].clone())
+        {
+            next["nextAction"] = action;
+        }
+    }
     Ok(next)
 }
 fn agent_prompt(goal: &str, cli: &Path, locale: &str) -> String {
@@ -796,9 +821,7 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 if i["enabled"] != true {
                     call(s, &prefix, "PUT", json!({"enabled":true})).await?;
                 }
-                if i["running"] != true {
-                    call(s, &format!("{prefix}/start"), "POST", json!({})).await?;
-                }
+                call(s, &format!("{prefix}/start"), "POST", json!({})).await?;
                 if uses_https(&state) {
                     call(s, &format!("{prefix}/probe"), "POST", json!({})).await?;
                 }

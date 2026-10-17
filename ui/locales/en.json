@@ -481,7 +481,7 @@
   "setup.completeTitle": "Setup complete",
   "setup.completeExplain": "ARC has verified the connection and first task. Return home to see your connections.",
   "setup.taskTitle": "Configure Agent Remote Control",
-  "setup.agentPrompt": "Help me configure Agent Remote Control for {goal}.\nARC CLI: {cli}. Run commands with ARC_STATE_DIR set to {stateDir} for this instance. First run `\"{cli}\" cli setup playbook protocol`, then loop over `\"{cli}\" cli setup next --locale en`.\nI delegate setup on signed-in pages to you. Relay decide explanations and options; pause for missing login, challenges, passwords/2FA, payment, or your safety policy. Use setup wait as evidence. Never read or output secrets; transfer them through the official Copy button and ARC clipboard apply.",
+  "setup.agentPrompt": "Help me configure Agent Remote Control for {goal}.\nARC CLI: {cli}. Run commands with ARC_STATE_DIR set to {stateDir} for this instance. First run `\"{cli}\" cli setup playbook protocol`, then loop over `\"{cli}\" cli setup next --locale en`.\nAfter selecting the goal, explain the resources and local-tool access described in the protocol and obtain one scope confirmation unless already explicitly given. Then complete that scope on signed-in pages without per-item confirmation. Relay decide explanations and options; pause for missing login, challenges, passwords/2FA, payment, or your safety policy. Use setup wait as evidence. Never read or output secrets; transfer them through the official Copy button and ARC clipboard apply.",
   "setup.otherAgentPrompt": "For Claude Code, first run `\"{cli}\" cli skill install --target claude-code` to install the current skill.",
   "setup.option.claude-loop.explain": "Claude + Codex uses HTTPS and OAuth; automatic follow-ups in Claude Code cloud sessions need a signed-in local Claude Code CLI.",
   "setup.option.chatgpt-chat.explain": "ChatGPT Chat + Codex tries OpenAI Secure Tunnel first; if Platform access is unavailable, HTTPS + OAuth is an alternative. ChatGPT must allow custom MCP connections.",
@@ -514,5 +514,5 @@
   "setup.blocked.runtime-key-rejected": "OpenAI rejected the runtime key or its Tunnel permissions.",
   "setup.runtime-key-rejected": "OpenAI rejected the runtime key (401/403). Copy the correct runtime key with Tunnels Read + Use and let ARC receive it again, or choose HTTPS + OAuth instead.",
   "setup.clipboard-invalid": "The clipboard does not contain {credential}. Click the Copy button next to {credential}.",
-  "setup.health-unobserved": "OpenAI authentication has not been observed. Keep the client running; if it lacks detailed health reporting, update the Tunnel Client in ARC."
+  "setup.health-unobserved": "OpenAI control-plane authentication has not been observed yet. Keep the client running and follow the diagnostic next action if an error is reported."
 }
