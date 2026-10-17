@@ -821,7 +821,7 @@ async fn route(
             "/oauth/logo.png" => {
                 return Ok(asset(
                     "image/png",
-                    include_bytes!("../../ui/assets/arc/app-icon.png"),
+                    include_bytes!("../../desktop/icons/128x128@2x.png"),
                 ))
             }
             "/oauth/favicon.ico" => {

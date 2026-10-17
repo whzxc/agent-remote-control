@@ -72,10 +72,6 @@ Core 负责订阅额度读取、刷新调度和当前读数缓存；React 共享
 
 额度来源、缓存与节奏规则见[订阅参考](../reference/subscriptions.md)。原生登录、桌面事件与浏览器事件流分别验证。不采集本地用量日志，不维护 Token 统计或价格数据。
 
-## 插件边界
-
-Usage、Kanban 的源码、开发服务器和打包属于各自独立仓库，ARC 不构建它们的资源或 ZIP。tooling/export-plugin.mjs 仅调用外部二进制 export；覆盖参数使用 mcpServers.arc、ARC_STATE_DIR 和 ARC_PLUGIN_DEV_HTML。外部产物必须实现同一接口，本仓库不保留旧名兼容。
-
 ## 文档维护
 
 README 和上手/指南保留英文主文件与完整中文对照；参考层 docs/reference 只用英文，维护层 docs/dev 只用中文。cli guide 内嵌 docs/reference/cli.md，改路径后需重编译 Core。文档描述当前行为、限制和操作，不保存验收过程或个人环境。修改后检查所有内部链接、CLI 输出和语言对应关系。

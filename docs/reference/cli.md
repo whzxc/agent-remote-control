@@ -83,7 +83,7 @@ Read subscriptions get first. subscriptions set replaces enabled and refreshMinu
 | Build version | ARC_BUILD_VERSION; otherwise nearest reachable v-tag, then 0.0.0 |
 | Linux installer | ARC_VERSION (v-prefixed tag), ARC_INSTALL_DIR |
 
-ARC_NATIVE_PORT, ARC_NATIVE_TOKEN, and ARC_INGRESS_ID are private forwarding-process inputs. ARC_DEV_SUPERVISED is owned by the desktop development runner; ARC_FIXTURE_* belongs to test fixtures. ARC_PLUGIN_DEV_HTML is an export helper's interface to an external plugin binary. Upstream variables such as CODEX_HOME retain their own meaning. See [Development](../dev/development.md) for builds and [Linux](linux.md) for daemon commands.
+ARC_NATIVE_PORT, ARC_NATIVE_TOKEN, and ARC_INGRESS_ID are private forwarding-process inputs. ARC_DEV_SUPERVISED is owned by the desktop development runner; ARC_FIXTURE_* belongs to test fixtures. Upstream variables such as CODEX_HOME retain their own meaning. See [Development](../dev/development.md) for builds and [Linux](linux.md) for daemon commands.
 
 ## Limits
 

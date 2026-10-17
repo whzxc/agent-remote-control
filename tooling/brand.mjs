@@ -29,9 +29,8 @@ copy('png/app-icon-1024.png', 'desktop/icons/dev/icon.png');
 copy('png/app-icon-32.png', 'desktop/icons/tray-logo.png');
 for (const suffix of ['', '@2x']) copy(`png/menubar-18Template${suffix}.png`, `desktop/icons/menubar-18Template${suffix}.png`);
 copy('svg/app-icon.svg', 'desktop/icon.svg');
-for (const file of ['mark.svg', 'mark-dark.svg', 'mark-theme.svg', 'lockup.svg', 'lockup-dark.svg']) copy(`svg/${file}`, `ui/assets/arc/${file}`);
-for (const file of ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png']) copy(`icons/${file}`, `ui/assets/arc/${file}`);
-copy('png/app-icon-256.png', 'ui/assets/arc/app-icon.png');
+for (const file of ['mark.svg', 'mark-theme.svg']) copy(`svg/${file}`, `ui/assets/arc/${file}`);
+for (const file of ['favicon.svg', 'favicon.ico']) copy(`icons/${file}`, `ui/assets/arc/${file}`);
 
 const composer = path.join(icons, 'AgentRemoteControl.icon');
 rmSync(composer, { recursive: true, force: true });
