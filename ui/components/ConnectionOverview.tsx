@@ -37,9 +37,8 @@ import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import { Button, Icon, Notice, Tooltip } from "./ui";
 import PlayfulMascot, { type MascotState } from "./PlayfulMascot";
 import { mascotPreference } from "../state/store";
-import { dark } from "../theme";
-import mark from "../assets/arc/mark.svg";
-import markDark from "../assets/arc/mark-dark.svg";
+import themedMark from "../assets/arc/mark-theme.svg?raw";
+
 
 type Point = { x: number; y: number };
 type WireState = "normal" | "connecting" | "error" | "inactive";
@@ -93,7 +92,7 @@ export default function ConnectionOverview() {
   const gradientId = useId();
   const { status, busy, loading, error } = connector.use();
   const inventory = agentStore.use();
-  const showMascot = mascotPreference.use(), isDark = dark.use();
+  const showMascot = mascotPreference.use();
   const { snapshot } = subscriptions.use(),
     max = maxVisibleAgents.use(),
     nav = navigation.use();
@@ -640,7 +639,8 @@ export default function ConnectionOverview() {
                 onDisplacement={(p) => setRingOffset({ x: p.x / 3, y: p.y / 3 })}
               />
             ) : (
-              <img className="graph-brand" src={isDark ? markDark : mark} alt="Agent Remote Control" draggable={false} />
+              <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control"
+                dangerouslySetInnerHTML={{ __html: themedMark.replace(/^<svg[^>]*>|<\/svg>$/g, "").replaceAll("agent-theme", `${gradientId}-mark`) }} />
             )}
           </div>
           <div className="agent-side" style={nodeStyle(layoutCount(agents.length))}>

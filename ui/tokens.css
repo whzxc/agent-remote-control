@@ -37,10 +37,13 @@
   --hover: #ededf0;
   --action: #242428;
   --on-action: #fff;
-  --accent: #35745a;
-  --topology-ink: #1c2b24;
-  --topology-green: #3e8e5e;
-  --topology-error: #c2453a;
+  --accent: #5b5ff5;
+  --brand-ink: #1d1d1f;
+  --brand-orange: #d97757;
+  --brand-agent-start: #9c8cff;
+  --brand-agent-end: #3f63ff;
+
+  --topology-error: #d7263d;
   --success: #21714a;
   --warning: #8a5108;
   --danger: #bc2936;
@@ -74,10 +77,13 @@
   --hover: #34343a;
   --action: #f0f0f3;
   --on-action: #202024;
-  --accent: #afd1bf;
-  --topology-ink: #e9efeb;
-  --topology-green: #6fbf8e;
-  --topology-error: var(--danger);
+  --accent: #7a7dff;
+  --brand-ink: #f5f5f7;
+  --brand-orange: #e8865e;
+  --brand-agent-start: #b7aaff;
+  --brand-agent-end: #5c7cff;
+
+  --topology-error: #ff4967;
   --success: #8ad8ad;
   --warning: #f0c17d;
   --danger: #ffa0a7;
@@ -140,4 +146,16 @@
   --chart-6: light-dark(#847050, #b7a482);
   --chart-7: light-dark(#357cbc, #74aad9);
   --chart-8: light-dark(#9761bc, #c496e6);
+}
+
+:root {
+  --topology-source: var(--brand-ink);
+  --topology-agent: var(--accent);
+  --mark-agent-start: var(--accent);
+  --mark-agent-end: var(--accent);
+}
+:root[data-theme-color="arc"] {
+  --topology-source: var(--brand-orange);
+  --mark-agent-start: var(--brand-agent-start);
+  --mark-agent-end: var(--brand-agent-end);
 }

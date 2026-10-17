@@ -1186,11 +1186,11 @@
   --agent-quota-size: var(--node-size);
 }
 .earmuff-wires {
-  --earmuff-color: var(--topology-ink);
+  --earmuff-color: var(--topology-source);
   pointer-events: none;
 }
 .earmuff-wires.right {
-  --earmuff-color: var(--topology-green);
+  --earmuff-color: var(--topology-agent);
 }
 .earmuff-wires stop {
   stop-color: var(--earmuff-color);

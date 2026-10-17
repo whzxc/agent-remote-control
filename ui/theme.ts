@@ -9,6 +9,7 @@ export const theme = preference<Theme>(
   (value) => value,
 );
 export const themeColors = {
+  arc: { label: "themeArc", light: "#5B5FF5", dark: "#7A7DFF" },
   forest: { label: "themeForest", light: "#6f9d89", dark: "#afd1bf" },
   blue: { label: "themeBlue", light: "#007aff", dark: "#0a84ff" },
   purple: { label: "themePurple", light: "#943d96", dark: "#bf5af2" },
@@ -21,11 +22,11 @@ export const themeColors = {
 } as const;
 export const themeColor = preference<keyof typeof themeColors>(
   "theme-color",
-  "forest",
+  "arc",
   (value) =>
     Object.hasOwn(themeColors, value)
       ? (value as keyof typeof themeColors)
-      : "forest",
+      : "arc",
   (value) => value,
 );
 const system = matchMedia("(prefers-color-scheme: dark)");
@@ -38,6 +39,7 @@ function applyTheme() {
   dark.set(resolved);
   document.documentElement.dataset.theme = resolved ? "dark" : "light";
   document.documentElement.style.colorScheme = resolved ? "dark" : "light";
+  document.documentElement.dataset.themeColor = themeColor.get();
   const color = themeColors[themeColor.get()];
   document.documentElement.style.setProperty(
     "--accent",

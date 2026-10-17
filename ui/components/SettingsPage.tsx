@@ -180,7 +180,7 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
             options={Object.entries(themeColors).map(([value, color]) => ({
               value,
               label: t(color.label),
-              color: color.light,
+              color: value === "arc" ? "linear-gradient(90deg, var(--brand-orange) 0% 50%, var(--brand-agent-start) 50%, var(--brand-agent-end) 100%)" : color.light,
             }))}
           />
         </Row>

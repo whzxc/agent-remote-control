@@ -8,10 +8,11 @@ from fontTools.pens.transformPen import TransformPen
 ROOT = sys.argv[1]
 FONTS = sys.argv[2]
 R, C = 32.0, 50.0
-INK, ACC = "#1C2B24", "#3E8E5E"
-INK_D, ACC_D = "#E9EFEB", "#6FBF8E"
-TILE, TILE_D = "#E2E9E5", "#17251F"
-SUB, SUB_D = "#55655D", "#9FB3A8"
+INK, ACC = "#1D1D1F", "#5B5FF5"
+ORANGE, ORANGE_D = "#D97757", "#E8865E"
+INK_D, ACC_D = "#F5F5F7", "#7A7DFF"
+TILE, TILE_D = "#F4F2EE", "#1A1A1F"
+SUB, SUB_D = INK, INK_D
 
 def pt(a, r=R):
     t = math.radians(a)
@@ -52,18 +53,18 @@ def stroke_paint(role, pal):
     return f'stroke="{color}"{op}'
 
 def alternate(pal, template=False):
-    # 备选：渐变弧线；绿点在左、黑点在右；黑弧在上（右细→左粗），绿弧在下（左细→右粗）
+    # 备选：渐粗弧线；彩色版本左橙右蓝紫，模板保持原样。
     thin, thick, node, gap = (8, 14, 12, 3) if template else (6, 13, 10.5, 3.5)
     tk = theta(node + gap + thick / 2)
     tn = theta(node + gap + thin / 2)
     top = taper(180 + tk, 360 - tn, thick, thin, paint("ink", pal))
     bottom = taper(tk, 180 - tn, thick, thin, paint("acc", pal))
-    nodes = (f'<circle cx="18" cy="50" r="{node}" {paint("acc", pal)}/>'
-             f'<circle cx="82" cy="50" r="{node}" {paint("ink", pal)}/>')
+    nodes = (f'<circle cx="18" cy="50" r="{node}" {paint("acc" if template else "ink", pal)}/>'
+             f'<circle cx="82" cy="50" r="{node}" {paint("ink" if template else "acc", pal)}/>')
     return top + bottom + nodes
 
 def primary(pal, template=False):
-    # 定稿：等粗圆头弧线；黑点在左、绿点在右；黑弧在上，绿弧在下
+    # 定稿：等粗圆头弧线；左点和上弧为来源色。
     w, node, gap = (11, 12, 3) if template else (9, 10, 4)
     t = theta(node + gap + w / 2)
     top = uniform(180 + t, 360 - t, w, stroke_paint("ink", pal))
@@ -73,8 +74,11 @@ def primary(pal, template=False):
     return top + bottom + nodes
 
 PAL = {
-    "light": {"ink": (INK, 1), "acc": (ACC, 1)},
-    "dark": {"ink": (INK_D, 1), "acc": (ACC_D, 1)},
+    "theme": {"ink": ("var(--topology-source)", 1), "acc": ("url(#agent-theme)", 1)},
+    "light": {"ink": (ORANGE, 1), "acc": ("url(#agent-light)", 1)},
+    "light-solid": {"ink": (ORANGE, 1), "acc": (ACC, 1)},
+    "dark": {"ink": (ORANGE_D, 1), "acc": ("url(#agent-dark)", 1)},
+    "dark-solid": {"ink": (ORANGE_D, 1), "acc": (ACC_D, 1)},
     "mono": {"ink": ("#111111", 1), "acc": ("#111111", 1)},
     "template": {"ink": ("#000000", 1), "acc": ("#000000", 0.55)},
 }
@@ -83,19 +87,25 @@ def svg(w, h, body, vb=None):
     vb = vb or f"0 0 {w} {h}"
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="{vb}">{body}</svg>'
 
+def artwork(fn, pal, template=False):
+    stops = ("#B7AAFF", "#5C7CFF") if pal == "dark" else ("#9C8CFF", "#3F63FF")
+    if pal == "theme": stops = ("var(--mark-agent-start)", "var(--mark-agent-end)")
+    defs = f'<defs><linearGradient id="agent-{pal}" gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="92" y2="50"><stop stop-color="{stops[0]}"/><stop offset="1" stop-color="{stops[1]}"/></linearGradient></defs>' if pal in ("light", "dark", "theme") else ""
+    return defs + fn(PAL[pal], template)
+
 def mark_svg(fn, pal, template=False):
-    return svg(100, 100, fn(PAL[pal], template), "4 4 92 92")
+    return svg(100, 100, artwork(fn, pal, template), "4 4 92 92")
 
 def placed(fn, pal, cx, cy, size, template=False):
     s = size / 92
-    return f'<g transform="translate({cx},{cy}) scale({s:.5f}) translate(-50,-50)">{fn(PAL[pal], template)}</g>'
+    return f'<g transform="translate({cx},{cy}) scale({s:.5f}) translate(-50,-50)">{artwork(fn, pal, template)}</g>'
 
-def app_icon(fn, dark=False):
+def app_icon(fn, dark=False, solid=False):
     tile = TILE_D if dark else TILE
     # Match visible artwork, excluding the mark's viewBox padding, to 80% of the tile.
     mark_width = 84 if fn is primary else 85
     size = 824 * 0.8 * 92 / mark_width
-    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, "dark" if dark else "light", 512, 512, size)
+    body = f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{tile}"/>' + placed(fn, ("dark" if dark else "light") + ("-solid" if solid else ""), 512, 512, size)
     return svg(1024, 1024, body)
 
 def full_bleed(fn, size, ratio):
@@ -144,6 +154,7 @@ def build(name, fn):
     sans = Font(os.path.join(FONTS, "geist-sans/Geist-Bold.ttf"))
     mono = Font(os.path.join(FONTS, "geist-mono/GeistMono-Regular.ttf"))
     files = {
+        "mark-theme.svg": mark_svg(fn, "theme"),
         "mark.svg": mark_svg(fn, "light"),
         "mark-dark.svg": mark_svg(fn, "dark"),
         "mark-mono.svg": mark_svg(fn, "mono"),
@@ -158,8 +169,8 @@ def build(name, fn):
     for fname, text in files.items():
         with open(os.path.join(base, "svg", fname), "w") as fh:
             fh.write(text)
-    for s in (16, 32, 64, 128, 256, 512, 1024):
-        png(files["app-icon.svg"], os.path.join(base, "png", f"app-icon-{s}.png"), s)
+    for s in (16, 30, 32, 64, 128, 256, 512, 1024):
+        png(app_icon(fn, solid=s <= 32), os.path.join(base, "png", f"app-icon-{s}.png"), s)
     png(files["app-icon-dark.svg"], os.path.join(base, "png", "app-icon-dark-1024.png"), 1024)
     for s in (256, 512, 1024):
         png(files["mark.svg"], os.path.join(base, "png", f"mark-{s}.png"), s)
@@ -169,11 +180,15 @@ def build(name, fn):
     png(lk, os.path.join(base, "png", "lockup-1200.png"), 1200, int(1200 * 200 / lw))
     src = Image.open(os.path.join(base, "png", "app-icon-1024.png")).convert("RGBA")
     src.save(os.path.join(base, "icons", "AppIcon.icns"))
-    src.save(os.path.join(base, "icons", "app.ico"), sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
-    fav = os.path.join(base, "png", "mark-256.png")
-    Image.open(fav).convert("RGBA").save(os.path.join(base, "icons", "favicon.ico"), sizes=[(16, 16), (32, 32), (48, 48)])
-    light_g = fn(PAL["light"])
-    dark_g = fn(PAL["dark"])
+    def raster(text, size):
+        return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=text.encode(), output_width=size, output_height=size))).convert("RGBA")
+    for filename, sizes, mark in [("app.ico", (16,24,32,48,64,128,256), False), ("favicon.ico", (16,32,48), True)]:
+        images = [raster(mark_svg(fn, "light-solid" if size <= 32 else "light") if mark else app_icon(fn, solid=size <= 32), size) for size in sizes]
+        images[-1].save(os.path.join(base,"icons",filename), sizes=[(s,s) for s in sizes], append_images=images[:-1])
+    # ICNS also carries native small raster representations.
+    src.save(os.path.join(base, "icons", "AppIcon.icns"), append_images=[raster(app_icon(fn, solid=True), s) for s in (16,32)])
+    light_g = artwork(fn, "light-solid")
+    dark_g = artwork(fn, "dark-solid")
     favsvg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92">'
               '<style>.d{display:none}@media (prefers-color-scheme: dark){.l{display:none}.d{display:inline}}</style>'
               f'<g class="l">{light_g}</g><g class="d">{dark_g}</g></svg>')

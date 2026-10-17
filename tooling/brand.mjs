@@ -20,13 +20,16 @@ execFileSync(process.execPath, [path.join(root, 'node_modules/@tauri-apps/cli/ta
 // Keep the existing desktop-only layout; mobile targets are not shipped.
 rmSync(path.join(icons, 'android'), { recursive: true, force: true });
 rmSync(path.join(icons, 'ios'), { recursive: true, force: true });
-cpSync(path.join(icons, 'icon.icns'), path.join(icons, 'macos/Icon.icns'));
+copy('icons/AppIcon.icns', 'desktop/icons/macos/Icon.icns');
+copy('icons/app.ico', 'desktop/icons/icon.ico');
+copy('png/app-icon-32.png', 'desktop/icons/32x32.png');
+copy('png/app-icon-30.png', 'desktop/icons/Square30x30Logo.png');
 rmSync(path.join(icons, 'icon.icns'));
 copy('png/app-icon-1024.png', 'desktop/icons/dev/icon.png');
 copy('png/app-icon-32.png', 'desktop/icons/tray-logo.png');
 for (const suffix of ['', '@2x']) copy(`png/menubar-18Template${suffix}.png`, `desktop/icons/menubar-18Template${suffix}.png`);
 copy('svg/app-icon.svg', 'desktop/icon.svg');
-for (const file of ['mark.svg', 'mark-dark.svg', 'lockup.svg', 'lockup-dark.svg']) copy(`svg/${file}`, `ui/assets/arc/${file}`);
+for (const file of ['mark.svg', 'mark-dark.svg', 'mark-theme.svg', 'lockup.svg', 'lockup-dark.svg']) copy(`svg/${file}`, `ui/assets/arc/${file}`);
 for (const file of ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png']) copy(`icons/${file}`, `ui/assets/arc/${file}`);
 copy('png/app-icon-256.png', 'ui/assets/arc/app-icon.png');
 
@@ -36,8 +39,8 @@ copy('svg/mark.svg', 'desktop/icons/AgentRemoteControl.icon/Assets/mark.svg');
 copy('svg/mark-dark.svg', 'desktop/icons/AgentRemoteControl.icon/Assets/mark-dark.svg');
 writeFileSync(path.join(composer, 'icon.json'), JSON.stringify({
   'fill-specializations': [
-    { value: { solid: 'srgb:0.88627,0.91373,0.89804,1.00000' } },
-    { appearance: 'dark', value: { solid: 'srgb:0.09020,0.14510,0.12157,1.00000' } },
+    { value: { solid: 'srgb:0.95686,0.94902,0.93333,1.00000' } },
+    { appearance: 'dark', value: { solid: 'srgb:0.10196,0.10196,0.12157,1.00000' } },
   ],
   groups: [{ layers: [{
     'image-name-specializations': [{ value: 'mark.svg' }, { appearance: 'dark', value: 'mark-dark.svg' }],
