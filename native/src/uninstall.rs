@@ -98,7 +98,7 @@ pub async fn run(purge: bool) -> Result<Value> {
     #[cfg(windows)]
     {
         output("powershell.exe", &["-NoProfile", "-NonInteractive", "-Command",
-            "Remove-ItemProperty -LiteralPath 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'Agent Remote Control' -ErrorAction SilentlyContinue"]).await?;
+            "$ErrorActionPreference = 'Stop'; $key = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'; if (Get-ItemProperty -LiteralPath $key -Name 'Agent Remote Control' -ErrorAction SilentlyContinue) { Remove-ItemProperty -LiteralPath $key -Name 'Agent Remote Control' }; exit 0"]).await?;
     }
 
     // Shut down the actual Desktop and Core before touching state or permissions.
@@ -117,7 +117,7 @@ pub async fn run(purge: bool) -> Result<Value> {
                     "-NonInteractive",
                     "-Command",
                     &format!(
-                        "if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ exit 1 }}"
+                        "if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ exit 1 }}; exit 0"
                     ),
                 ],
             )
