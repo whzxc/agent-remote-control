@@ -7,11 +7,8 @@ use tokio::{
 };
 pub enum DesktopRequest {
     Route(String, String, Value),
-    PanelGet,
     ServiceGet,
     ServiceSet(Value),
-    PanelSet(Value),
-    SubscriptionsOpen(Value),
 }
 pub trait DesktopAccess: Send + Sync {
     fn check_write(&self) -> Result<()>;
@@ -71,11 +68,6 @@ pub async fn listen_desktop(
                             let operation = match (path.as_str(), method.as_str()) {
                                 ("/api/service", "GET") => DesktopRequest::ServiceGet,
                                 ("/api/service", "POST") => DesktopRequest::ServiceSet(body),
-                                ("/api/usage-panel", "GET") => DesktopRequest::PanelGet,
-                                ("/api/usage-panel", "PUT") => DesktopRequest::PanelSet(body),
-                                ("/api/subscriptions/open", "POST") => {
-                                    DesktopRequest::SubscriptionsOpen(body)
-                                }
                                 _ if crate::management::desktop_route(
                                     path.trim_start_matches("/api/"),
                                 ) =>
@@ -118,7 +110,7 @@ pub async fn listen(
     service: Arc<Service>,
     desktop: Option<Arc<dyn DesktopAccess>>,
 ) -> Result<tokio::task::JoinHandle<()>> {
-    service.subscriptions.start();
+    service.quota.start();
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| e.to_string())?;
@@ -258,13 +250,13 @@ async fn local_request(
         Ok(Err(e)) => return local_reply(400, json!({"error":e})),
         Err(_) => return local_reply(408, json!({"error":"request timeout"})),
     };
-    if method == "GET" && matches!(path.as_str(), "/api/events" | "/api/subscriptions/events") {
+    if method == "GET" && matches!(path.as_str(), "/api/events" | "/api/quota/events") {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         tokio::spawn(async move {
-            let subscriptions = path == "/api/subscriptions/events";
-            let mut changes = s.subscriptions.subscribe();
+            let quota = path == "/api/quota/events";
+            let mut changes = s.quota.subscribe();
             loop {
-                let snapshot = if subscriptions {
+                let snapshot = if quota {
                     json!(&*changes.borrow_and_update())
                 } else {
                     match tokio::select! { _ = tx.closed() => return, v = s.status() => v } {
@@ -283,8 +275,8 @@ async fn local_request(
                 }
                 tokio::select! {
                     _ = tx.closed() => return,
-                    result = changes.changed(), if subscriptions => if result.is_err() { return; },
-                    _ = tokio::time::sleep(Duration::from_secs(if subscriptions { 15 } else { 2 })) => {},
+                    result = changes.changed(), if quota => if result.is_err() { return; },
+                    _ = tokio::time::sleep(Duration::from_secs(if quota { 15 } else { 2 })) => {},
                 }
             }
         });
@@ -321,11 +313,6 @@ async fn local_request(
             let operation = match (route, method.as_str()) {
                 ("service", "GET") => Some(DesktopRequest::ServiceGet),
                 ("service", "POST") => Some(DesktopRequest::ServiceSet(body.clone())),
-                ("usage-panel", "GET") => Some(DesktopRequest::PanelGet),
-                ("usage-panel", "PUT") => Some(DesktopRequest::PanelSet(body.clone())),
-                ("subscriptions/open", "POST") => {
-                    Some(DesktopRequest::SubscriptionsOpen(body.clone()))
-                }
                 _ if crate::management::desktop_route(route) => Some(DesktopRequest::Route(
                     route.into(),
                     method.clone(),

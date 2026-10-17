@@ -1,3 +1,4 @@
+import { AgentQuotaIcon } from "./AgentQuotaIcon";
 import { useState } from "react";
 import { RefreshCw, Settings } from "lucide-react";
 import { t } from "../i18n";
@@ -12,9 +13,6 @@ import {
   refreshAgents,
   type Agent,
 } from "../state/agents";
-import { subscriptions } from "../state/subscriptions";
-import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
-import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
 import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
 export function AgentDetails({
@@ -26,12 +24,6 @@ export function AgentDetails({
   showOfficialLink?: boolean;
   onClose: () => void;
 }) {
-  const { snapshot } = subscriptions.use();
-  const provider = snapshot?.settings.enabled
-    ? snapshot.providers.find(
-        (p) => p.agentId === agent.agent && p.eligible && p.selected,
-      )
-    : undefined;
   return (
     <Dialog title={name(agent)} onClose={onClose} headerless width={440}>
       <div className="agent-summary">
@@ -42,7 +34,6 @@ export function AgentDetails({
         </div>
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
-      {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
 }

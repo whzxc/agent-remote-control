@@ -2,7 +2,7 @@
 use connector_core::runtime::Client as Service;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 #[cfg(target_os = "macos")]
 mod appearance;
@@ -14,7 +14,6 @@ mod permissions;
 mod session;
 mod tray;
 mod updates;
-mod usage_panel;
 mod windows;
 #[cfg(target_os = "windows")]
 mod windows_frame;
@@ -35,29 +34,6 @@ async fn request(
         return desktop_access::request(
             app,
             connector_core::transport::DesktopRequest::Route(route.into(), method.into(), body),
-        )
-        .await;
-    }
-    if route == "usage-panel/geometry" && method == "POST" {
-        usage_panel::geometry(app, body).await?;
-        return Ok(json!({"accepted":true}));
-    }
-    if route == "usage-panel/ready" && method == "POST" {
-        usage_panel::ready(app);
-        return Ok(json!({"ready":true}));
-    }
-    if route == "usage-panel" && ["GET", "PUT"].contains(&method) {
-        let operation = if method == "GET" {
-            connector_core::transport::DesktopRequest::PanelGet
-        } else {
-            connector_core::transport::DesktopRequest::PanelSet(body)
-        };
-        return desktop_access::request(app, operation).await;
-    }
-    if route == "subscriptions/open" && method == "POST" {
-        return desktop_access::request(
-            app,
-            connector_core::transport::DesktopRequest::SubscriptionsOpen(body),
         )
         .await;
     }
@@ -154,7 +130,6 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_denylist(&["usage-rail"])
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
                         & !(tauri_plugin_window_state::StateFlags::VISIBLE
@@ -220,6 +195,19 @@ fn main() {
                 }
             };
             app.manage(service.clone());
+            let handle = app.handle().clone();
+            let quota_client = service.clone();
+            tauri::async_runtime::spawn(async move {
+                let mut previous = Value::Null;
+                loop {
+                    let snapshot = quota_client.quota().await.unwrap_or_else(|_| json!({}));
+                    if snapshot != previous {
+                        let _ = handle.emit_to("main", "quota:changed", &snapshot);
+                        previous = snapshot;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+            });
             let autostart = std::env::args().any(|arg| arg == "--autostart");
             let resume =
                 updates::take_resume().or_else(
@@ -257,7 +245,6 @@ fn main() {
             }
             windows::install(app.handle());
             oauth_links::install(app.handle()).map_err(std::io::Error::other)?;
-            usage_panel::install(app.handle());
             tray::install(app)?;
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
@@ -272,12 +259,7 @@ fn main() {
                 return;
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if !cfg!(debug_assertions)
-                    || window
-                        .app_handle()
-                        .get_webview_window("usage-rail")
-                        .is_some()
-                {
+                if !cfg!(debug_assertions) {
                     api.prevent_close();
                     let _ = window.hide();
                 }
@@ -293,7 +275,6 @@ fn main() {
                 api.prevent_exit();
             }
             if let tauri::RunEvent::Exit = event {
-                usage_panel::close();
                 // The updater already drained the service before replacing the
                 // app. Do not block the event loop on a second async shutdown.
                 if !app

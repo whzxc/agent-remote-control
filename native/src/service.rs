@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU16, Ordering};
 
 pub struct Service {
     pub runtime: crate::runtime::State,
-    pub subscriptions: Arc<crate::subscriptions::SubscriptionService>,
+    pub quota: Arc<crate::quota::QuotaService>,
     pub control: Arc<Control>,
     pub agents: Arc<crate::agents::AgentHost>,
     execution: Arc<crate::execution::Execution>,
@@ -247,11 +247,10 @@ impl Service {
             let ingress = Ingress::new(entry, execution.clone(), token.clone())?;
             ingresses.insert(ingress.id.clone(), ingress);
         }
-        let subscriptions =
-            crate::subscriptions::SubscriptionService::new(control.clone(), agents.clone())?;
+        let quota = crate::quota::QuotaService::new(control.clone(), agents.clone());
         Ok(Arc::new(Self {
             runtime: Default::default(),
-            subscriptions,
+            quota,
             execution,
             control,
             agents,
@@ -390,8 +389,7 @@ impl Service {
         let _configuration = self.configuration.lock().await;
         self.closing.store(true, Ordering::SeqCst);
         crate::logs::record("INFO", "Service stopping", None);
-        crate::usage::stop();
-        self.subscriptions.stop().await;
+        self.quota.stop().await;
         let entries = self.entries().await;
         for ingress in &entries {
             ingress.retired.store(true, Ordering::SeqCst);
@@ -582,19 +580,13 @@ impl Service {
             return self.runtime.request(route, body);
         }
         if route == "agents/activity" && method == "GET" {
-            let selected = self
-                .subscriptions
-                .subscribe()
-                .borrow()
-                .providers
-                .iter()
-                .filter(|p| p.selected && p.eligible)
-                .map(|p| p.agent_id.clone())
-                .collect();
-            return Ok(self.agents.activity(selected).await);
+            return Ok(self
+                .agents
+                .activity(vec!["codex".into(), "claude".into()])
+                .await);
         }
-        if route == "subscriptions" || route.starts_with("subscriptions/") {
-            return self.subscriptions.request(route, method, body).await;
+        if route == "quota" && method == "GET" {
+            return Ok(self.quota.snapshot());
         }
         if route == "tool-catalog" && method == "GET" {
             let catalog = catalog();
@@ -1041,16 +1033,10 @@ impl Service {
                 }
                 ("GET" | "POST", "agents") => {
                     let inventory = self.agents.ui_inventory(method == "POST").await;
-                    self.subscriptions.inventory(&inventory).await;
                     Ok(inventory)
                 }
                 ("PUT", "agents") => {
                     let result = self.agents.set_enabled(&body).await?;
-                    self.subscriptions
-                        .agent_enabled(string(&body, "agent"), body["enabled"] == true)
-                        .await?;
-                    let inventory = self.agents.ui_inventory(false).await;
-                    self.subscriptions.inventory(&inventory).await;
                     Ok(result)
                 }
                 ("GET", "codex/login") => {

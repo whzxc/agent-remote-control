@@ -32,7 +32,6 @@
 | agents/junie | [color.svg](agents/junie/color.svg), [mono.svg](agents/junie/mono.svg), [wordmark.svg](agents/junie/wordmark.svg) |
 | agents/hermes | [favicon.ico](agents/hermes/favicon.ico), [favicon.svg](agents/hermes/favicon.svg), [logo.png](agents/hermes/logo.png), [mono.svg](agents/hermes/mono.svg), [wordmark.svg](agents/hermes/wordmark.svg) |
 | control-sources/slack | [color.svg](control-sources/slack/color.svg), [mono.svg](control-sources/slack/mono.svg), [wordmark-color.svg](control-sources/slack/wordmark-color.svg), [wordmark.svg](control-sources/slack/wordmark.svg) |
-| app/mascot | [app.png](app/mascot/app.png), [head.png](app/mascot/head.png), [icon.icns](app/mascot/icon.icns), [icon.ico](app/mascot/icon.ico), [icon.png](app/mascot/icon.png), [tray.png](app/mascot/tray.png) |
 
 ## 来源与使用边界
 

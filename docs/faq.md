@@ -36,7 +36,7 @@ Closing the ARC window keeps its menu-bar/tray process running. Keep the compute
 
 ## Why is quota information missing or stale?
 
-Open the Agent in ARC and refresh its usage. Check the reported source error and the provider's native login. Some sources expose a plan without quota data. Cached readings are marked stale. See [Subscriptions](reference/subscriptions.md).
+Codex and Claude quota rings refresh every five minutes while the Agent is installed and enabled. Check the provider’s native login if no ring appears. Hover or focus the ring for remaining percentage and reset time. Other Agents use ordinary icons.
 
 ## Limits
 

@@ -49,7 +49,6 @@ claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定�
 
 大结果由 kernel::results 保存不可变快照，按 UTF-16 分页。Pi/ACP 原生事件使用活跃 JSONL 尾和校验过的 gzip 分段；Codex 历史保持上游所有权。用户日志与事件档案分离。具体预算与保留期见[工具参考](../reference/tools.md#output-events-and-logs)，不在多处复制。
 
-订阅采集按任务流式聚合，持久化文件身份、完整行偏移和增量计数检查点。现代 response ID 决定计数族，旧记录标明覆盖限制。UI 接收额度周期样本和汇总，不保留完整历史时间线。价格与使用记录保持独立刷新。
 
 ## Desktop 生命周期
 
@@ -60,7 +59,7 @@ claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定�
 - 再打开：恢复之前运行的连接；原本断开的保持断开。
 - 更新：验签后要求其他入口退出，排空请求，暂停自动启动，等待 Core 文件锁释放再安装。失败时恢复客户端与连接。
 
-托盘左键打开主窗口，右键打开原生菜单；不额外创建托盘 WebView。macOS 用量 rail 是独立非激活窗口，隐藏 rail 不关闭监控。屏幕捕获和原生窗口由平台实现管理，Linux 返回明确 unsupported。
+托盘左键打开主窗口，右键打开原生菜单；不额外创建托盘 WebView。屏幕捕获和原生窗口由平台实现管理，Linux 返回明确 unsupported。
 
 ## 状态与构建边界
 
@@ -75,3 +74,5 @@ Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该�
 权限页监听窗口焦点并支持手动刷新，系统设置跳转固定在本地 Desktop，不暴露新的 MCP 工具。
 
 打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。
+
+额度由 Core 每五分钟读取一次：Codex 复用 Control 的 app-server 连接调用 account/rateLimits/read，Claude 使用原生登录读取单次额度。只在内存保存当前读数，不写入历史、价格或缓存文件。旧用量缓存和偏好文件不再读取；UI 偏好以 JSON 对象加载，未知字段不影响加载。

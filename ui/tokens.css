@@ -52,16 +52,6 @@
   --danger-soft: #fff0f1;
   --overlay: #0005;
   --shadow: 0 8px 32px #0000001f, 0 1px 4px #00000014;
-  --rail-surface: #171719;
-  --rail-raised: #29292d;
-  --rail-subtle: #222225;
-  --rail-hover: #34343a;
-  --rail-warning: #f0c17d;
-  --rail-danger: #ffa0a7;
-  --rail-ink: #f5f5f7;
-  --rail-muted: #b3b3bb;
-  --rail-track: #39393d;
-  --rail-border: #ffffff26;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -100,10 +90,6 @@
     --text: #f5f5f7;
   }
 }
-:root {
-  --rail-border: color-mix(in srgb, var(--accent-dark) 35%, transparent);
-}
-
 /* Host colors remain semantic; shared controls use the same Connector tokens. */
 :root[data-surface="mcp"] {
   --canvas: var(--color-background-primary, var(--surface));
@@ -116,36 +102,6 @@
   --font-ui: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   --text-md: var(--font-text-md-size, 14px);
   --text-sm: var(--font-text-sm-size, 13px);
-}
-
-/* Usage composition: input and output are disjoint; subsets retain their color. */
-:root {
-  --usage-input: #77998c;
-  --usage-output: #aaa0e5;
-  --usage-other: #a9aeb9;
-}
-:root[data-theme="dark"] {
-  --usage-input: #91b6a6;
-  --usage-output: #b9aaf0;
-  --usage-other: #9099ac;
-}
-
-/* Categorical chart palette, shared by trends and their model legends. */
-:root {
-  --usage-cost: light-dark(#ad6d08, #efb95d);
-  --usage-cache-hit: light-dark(#09845b, #4dca9e);
-  --timeline-node: light-dark(#687080, #566071);
-  --timeline-node-active: light-dark(#0071e3, #286ed0);
-  --timeline-node-compaction: light-dark(#ad6d08, #a36b10);
-  --timeline-node-ink: #fff;
-  --chart-1: light-dark(#5146e5, #9c91ff);
-  --chart-2: light-dark(#0b9ad4, #50bef0);
-  --chart-3: light-dark(#149c6b, #4dca9e);
-  --chart-4: light-dark(#dc8714, #efb95d);
-  --chart-5: light-dark(#d05c8d, #ef8bb5);
-  --chart-6: light-dark(#847050, #b7a482);
-  --chart-7: light-dark(#357cbc, #74aad9);
-  --chart-8: light-dark(#9761bc, #c496e6);
 }
 
 :root {

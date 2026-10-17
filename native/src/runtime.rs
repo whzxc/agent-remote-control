@@ -120,11 +120,6 @@ impl State {
             crate::transport::DesktopRequest::Route(..) => unreachable!(),
             crate::transport::DesktopRequest::ServiceGet => ("service", "GET", json!({})),
             crate::transport::DesktopRequest::ServiceSet(body) => ("service", "POST", body),
-            crate::transport::DesktopRequest::PanelGet => ("usage-panel", "GET", json!({})),
-            crate::transport::DesktopRequest::PanelSet(body) => ("usage-panel", "PUT", body),
-            crate::transport::DesktopRequest::SubscriptionsOpen(body) => {
-                ("subscriptions/open", "POST", body)
-            }
         };
         crate::transport::forward_to(&endpoint, route, method, body).await
     }
@@ -320,8 +315,8 @@ impl Client {
         )
         .await
     }
-    pub async fn subscriptions(&self) -> Result<Value> {
-        self.request("subscriptions", "GET", json!({})).await
+    pub async fn quota(&self) -> Result<Value> {
+        self.request("quota", "GET", json!({})).await
     }
     pub async fn log(&self, level: &str, message: &str) {
         crate::logs::record(level, message, None);

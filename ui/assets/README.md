@@ -11,7 +11,7 @@
 
 `ui/assets/arc/` 是当前品牌素材。macOS 使用 `desktop/icons/AgentRemoteControl.icon` 的原生深浅外观和 `menubar-18Template(@2x).png` 模板菜单栏图标；Windows 使用生成的 ICO 和彩色托盘图标。
 
-首页中心默认显示 ARC 标识；在外观设置中打开“显示吉祥物”可切换回互动头像。`mascot/` 和 `brand-reserve/app/mascot/` 保留吉祥物素材。
+首页中心固定显示 ARC 标识。
 
 ## Agent 单色图标
 

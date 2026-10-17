@@ -51,11 +51,10 @@ impl Control {
         Ok(rpc.as_ref().unwrap().clone())
     }
     pub async fn account_rate_limits(&self) -> Result<Value> {
-        // A short-lived reader follows the current native login on each refresh.
-        let rpc = Rpc::start(&self.rpc_binary()?, Default::default(), &id()).await?;
-        let result = rpc.call("account/rateLimits/read", json!({}), 15000).await;
-        rpc.close().await;
-        result
+        self.utility()
+            .await?
+            .call("account/rateLimits/read", json!({}), 15000)
+            .await
     }
     pub(crate) async fn ipc(&self) -> Result<Arc<Ipc>> {
         if cfg!(target_os = "linux") {

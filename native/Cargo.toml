@@ -27,10 +27,8 @@ dirs = "6"
 reqwest = { version = "0.13", default-features = false, features = ["json", "form", "query", "rustls-no-provider"] }
 jsonschema = { version = "0.33", default-features = false }
 regex = "1"
-rusqlite = { version = "0.37", features = ["bundled"] }
 libc = "0.2"
 flate2 = "1"
-zstd = { version = "0.13", default-features = false }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 hyper = { version = "1", features = ["server", "http1"] }

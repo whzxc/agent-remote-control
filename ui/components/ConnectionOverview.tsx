@@ -1,3 +1,5 @@
+import { maxVisibleAgents } from "../state/quota";
+import { AgentQuotaIcon } from "./AgentQuotaIcon";
 import {
   useEffect,
   useState,
@@ -6,16 +8,7 @@ import {
   useId,
   type CSSProperties,
 } from "react";
-import {
-  Plus,
-  Power,
-  Ellipsis,
-  LoaderCircle,
-  CircleCheck,
-  CircleDashed,
-  CircleAlert,
-  CirclePause,
-} from "lucide-react";
+import { Plus, Power, Ellipsis, LoaderCircle } from "lucide-react";
 import { t } from "../i18n";
 import { api } from "../api";
 import { ingressState, connector, run, refreshConnector } from "../state/connector";
@@ -25,22 +18,17 @@ import {
   name,
   type Agent,
 } from "../state/agents";
-import { subscriptions } from "../state/subscriptions";
-import { navigation } from "../state/navigation";
-import { maxVisibleAgents } from "../subscriptions/displayPreferences";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import IngressDialog from "./IngressDialog";
 import IngressDetailsDialog from "./IngressDetailsDialog";
 import AgentsSettings, { AgentDetails } from "./AgentsSettings";
-import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import { Button, Icon, Notice, Tooltip } from "./ui";
-import PlayfulMascot, { type MascotState } from "./PlayfulMascot";
-import { mascotPreference } from "../state/store";
 import themedMark from "../assets/arc/mark-theme.svg?raw";
-
-
-type Point = { x: number; y: number };
+type Point = {
+  x: number;
+  y: number;
+};
 type WireState = "normal" | "connecting" | "error" | "inactive";
 function wireState(state: string): WireState {
   if (["connected", "agentAvailable"].includes(state)) return "normal";
@@ -48,10 +36,16 @@ function wireState(state: string): WireState {
   if (["connectionError", "unknown"].includes(state)) return "error";
   return "inactive";
 }
-
 // Offset a cubic by arc length, so the root flare has the same physical reach
 // for short, long and steep connections. Widths are full widths, not radii.
-function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number, state: WireState) {
+function grownWire(
+  start: Point,
+  c1: Point,
+  c2: Point,
+  end: Point,
+  scale: number,
+  state: WireState,
+) {
   const steps = Math.max(64, Math.ceil((
     Math.hypot(c1.x - start.x, c1.y - start.y) +
     Math.hypot(c2.x - c1.x, c2.y - c1.y) +
@@ -74,7 +68,8 @@ function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number
   const edges = samples.map((p) => {
     const u = p.length / (length || 1), s = length - p.length;
     const body = state === "connecting" ? 0 : 3 + 3 * u ** 1.6;
-    const halfWidth = scale * (body + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2) / 2;
+    const halfWidth =
+      (scale * (body + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2)) / 2;
     return [
       `${p.x + p.nx * halfWidth} ${p.y + p.ny * halfWidth}`,
       `${p.x - p.nx * halfWidth} ${p.y - p.ny * halfWidth}`,
@@ -87,15 +82,11 @@ function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number
     gap: gap.length ? `M ${gap.map((p) => `${p.x} ${p.y}`).join(" L ")}` : "",
   };
 }
-
 export default function ConnectionOverview() {
   const gradientId = useId();
   const { status, busy, loading, error } = connector.use();
-  const inventory = agentStore.use();
-  const showMascot = mascotPreference.use();
-  const { snapshot } = subscriptions.use(),
-    max = maxVisibleAgents.use(),
-    nav = navigation.use();
+  agentStore.use();
+  const max = maxVisibleAgents.use();
   const [editing, setEditing] = useState<Ingress>(),
     [formOpen, setFormOpen] = useState(false),
     [details, setDetails] = useState<Ingress>(),
@@ -107,17 +98,8 @@ export default function ConnectionOverview() {
       Number(b.controlSource === "chatgpt") -
         Number(a.controlSource === "chatgpt") || a.name.localeCompare(b.name),
   );
-  const providerOrder =
-    snapshot?.providers
-      .filter((p) => p.eligible && p.selected)
-      .map((p) => p.agentId) || [];
   const agents = orderedAgents()
-    .filter((a) => a.installed && (!showMascot || a.enabled))
-    .sort((a, b) => {
-      const ai = providerOrder.indexOf(a.agent),
-        bi = providerOrder.indexOf(b.agent);
-      return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
-    })
+    .filter((a) => a.installed)
     .slice(0, [4, 6, 8, 10].includes(max) ? max : 4);
   const running = sources.some((i) => i.running),
     progressing =
@@ -137,7 +119,11 @@ export default function ConnectionOverview() {
     }
     await run("ingress-all", async () => {
       const result = await api<{
-        results: { id: string; ok: boolean; error?: string }[];
+        results: {
+          id: string;
+          ok: boolean;
+          error?: string;
+        }[];
       }>(`ingress/${running ? "stop-all" : "start-all"}`, "POST");
       await refreshConnector();
       const errors = result.results.filter((r) => !r.ok);
@@ -152,27 +138,8 @@ export default function ConnectionOverview() {
         );
     });
   }
-  useEffect(() => {
-    if (nav.providerId === undefined) return;
-    if (nav.providerId === "") {
-      setAgentsOpen(true);
-      navigation.set((old) => ({ ...old, providerId: undefined }));
-      return;
-    }
-    const provider = snapshot?.providers.find(
-      (p) => p.providerId === nav.providerId,
-    );
-    if (!provider) return;
-    const agent = orderedAgents().find((a) => a.agent === provider.agentId) || {
-      agent: provider.agentId,
-      displayName: provider.name,
-      installed: provider.eligible,
-    };
-    setDetailAgent(agent);
-    navigation.set((old) => ({ ...old, providerId: undefined }));
-  }, [nav.providerId, snapshot]);
   function agentState(a: Agent) {
-    if (!showMascot) {
+    {
       if (a.adapter?.state === "preparing") return "preparing";
       if (a.adapter?.state === "failed") return "connectionError";
       if (!a.installed || !a.enabled) return "disabled";
@@ -185,7 +152,7 @@ export default function ConnectionOverview() {
       if (state === "ready") return "connected";
       if (state === "error") return "connectionError";
       if (state === "connecting") return "preparing";
-      if (!showMascot) return "disconnected";
+      return "disconnected";
     }
     return a.status === "ready"
       ? "connected"
@@ -194,10 +161,9 @@ export default function ConnectionOverview() {
         : "connectionError";
   }
   function sourceState(i: Ingress) {
-    if (!showMascot && !i.enabled) return "disabled";
+    if (!i.enabled) return "disabled";
     return error ? "unknown" : ingressState(i);
   }
-
   const core = useRef<HTMLElement>(null),
     leftWires = useRef<HTMLDivElement>(null),
     rightWires = useRef<HTMLDivElement>(null);
@@ -206,9 +172,7 @@ export default function ConnectionOverview() {
       height: 650,
       left: 200,
       right: 200,
-    }),
-    [ringOffset, setRingOffset] = useState({ x: 0, y: 0 }),
-    [activeTip, setActiveTip] = useState("");
+    });
   useLayoutEffect(() => {
     const measure = () =>
       setDimensions({
@@ -234,9 +198,7 @@ export default function ConnectionOverview() {
   const rows = Math.max(Math.max(1, sources.length) + 1, agents.length + 1);
   // Below the 70px compact row size, scroll instead of shrinking names or
   // the 24px minimum Agent icon; reserve room for the last utility row.
-  const height = showMascot
-      ? Math.max(320, rows * 84)
-      : Math.max(320, dimensions.height - 180, rows * 70 + 64),
+  const height = Math.max(320, dimensions.height - 180, rows * 70 + 64),
     leftWidth = dimensions.left,
     rightWidth = dimensions.right;
   const ringRadius = Math.max(
@@ -244,163 +206,26 @@ export default function ConnectionOverview() {
     Math.min(130, dimensions.width * 0.13, dimensions.height * 0.2),
   );
   const brandSize = ringRadius * (240 / 130);
-  const coreColumnWidth = showMascot
-    ? dimensions.width < 600
-      ? ringRadius * 1.15
-      : 124 + (ringRadius - 80) * 1.32
-    : brandSize;
+  const coreColumnWidth = brandSize;
   // Real nodes stay centered; the utility occupies the next row, with 16px
   // below the button. Each row reserves 58px: button radius + name gap,
   // name line height + 24px clearance. Its remaining space is the icon radius.
-  const rowStep = (count: number) => showMascot ? 84 : Math.max(
+  const rowStep = (count: number) =>
+    Math.max(
     70, Math.min(84, (dimensions.height - 64) / Math.max(1, count + 1)),
   );
-  const layoutCount = (count: number) => showMascot ? count + 1 : count;
-  const nodeStyle = (count: number) => ({
-    "--graph-row-step": `${rowStep(count)}px`,
-    "--graph-node-scale": showMascot ? 1 : Math.min(1, (rowStep(count) - 58) / 24),
-  }) as CSSProperties;
+  const layoutCount = (count: number) => count;
+  const nodeStyle = (count: number) =>
+    ({
+      "--graph-row-step": `${rowStep(count)}px`,
+      "--graph-node-scale": Math.min(1, (rowStep(count) - 58) / 24),
+    }) as CSSProperties;
   const y = (index: number, count: number) =>
     height / 2 + (index - (count - 1) / 2) * rowStep(count);
-  const enabled = sources.filter((s) => s.enabled);
-  const mascotState: MascotState = error
-    ? "unavailable"
-    : !status
-      ? "connecting"
-      : busy === "ingress-all"
-        ? running
-          ? "stopping"
-          : "connecting"
-        : enabled.some((s) => s.state === "stopping")
-          ? "stopping"
-          : enabled.some((s) => s.state === "starting")
-            ? "connecting"
-            : enabled.some((s) => ["error", "degraded"].includes(s.state))
-              ? running
-                ? "degraded"
-                : "error"
-              : !running
-                ? "offline"
-                : status.core.activeTurns > 0 || status.core.activeWrites > 0
-                  ? "working"
-                  : "connected";
   const [switchOn, setSwitchOn] = useState<boolean>();
   useEffect(() => { if (!progressing && status) setSwitchOn(running); }, [running, progressing, status]);
-  function stateIcon(label: string) {
-    return label === "connectionError"
-      ? CircleAlert
-      : label === "disabled"
-        ? CirclePause
-        : ["connectingLabel", "preparing"].includes(label)
-          ? LoaderCircle
-          : ["connected", "agentAvailable"].includes(label)
-            ? CircleCheck
-            : CircleDashed;
-  }
   const wireWidth = (right: boolean) =>
     Math.max(1, right ? rightWidth : leftWidth);
-  // Distribute individual ports along the central ring, including utility branches.
-  function port(index: number, count: number, right = false) {
-    const radius = ringRadius;
-    const halfCore = coreColumnWidth / 2;
-    const offset =
-      count <= 1
-        ? 0
-        : (index / (count - 1) - 0.5) * Math.min((count - 1) * 24, 96);
-    const reach = Math.sqrt(radius * radius - offset * offset) - halfCore;
-    return {
-      x: (right ? reach : wireWidth(false) - reach) + ringOffset.x,
-      y: height / 2 + offset + ringOffset.y,
-    };
-  }
-  function wire(index: number, count: number, right = false) {
-    const inner = port(index, count, right);
-    const start = right ? inner : { x: 0, y: y(index, count) };
-    const end = right ? { x: wireWidth(true), y: y(index, count) } : inner;
-    const span = end.x - start.x;
-    return { start, end, c1: start.x + span * 0.45, c2: start.x + span * 0.55 };
-  }
-  function wirePoint(curve: ReturnType<typeof wire>, u: number) {
-    const { start, end, c1, c2 } = curve;
-    return {
-      x:
-        (1 - u) ** 3 * start.x +
-        3 * (1 - u) ** 2 * u * c1 +
-        3 * (1 - u) * u * u * c2 +
-        u ** 3 * end.x,
-      y: start.y + (end.y - start.y) * (3 * u * u - 2 * u * u * u),
-    };
-  }
-  // The horizontal status positions define a shared circle in graph coordinates.
-  function markerParameter(curve: ReturnType<typeof wire>, right: boolean) {
-    const rightOrigin = wireWidth(false) + coreColumnWidth;
-    const leftAnchor = wirePoint(wire(0, 1), 1 / 3).x;
-    const rightAnchor = rightOrigin + wirePoint(wire(0, 1, true), 2 / 3).x;
-    const centerX = (leftAnchor + rightAnchor) / 2;
-    const radius = (rightAnchor - leftAnchor) / 2;
-    let inner = right ? 0 : 1,
-      outer = right ? 1 : 0;
-    for (let n = 0; n < 30; n++) {
-      const u = (inner + outer) / 2;
-      const point = wirePoint(curve, u);
-      const distance = Math.hypot(
-        point.x + (right ? rightOrigin : 0) - centerX,
-        point.y - height / 2,
-      );
-      if (distance < radius) inner = u;
-      else outer = u;
-    }
-    return (inner + outer) / 2;
-  }
-  function path(index: number, count: number, right = false, gap = false) {
-    const curve = wire(index, count, right);
-    const { start, end, c1, c2 } = curve;
-    const point = (u: number) => wirePoint(curve, u);
-    const tangent = (u: number) => ({
-      x:
-        3 * (1 - u) ** 2 * (c1 - start.x) +
-        6 * (1 - u) * u * (c2 - c1) +
-        3 * u * u * (end.x - c2),
-      y: 6 * u * (1 - u) * (end.y - start.y),
-    });
-    const segment = (a: number, b: number) => {
-      const p = point(a),
-        q = point(b),
-        da = tangent(a),
-        db = tangent(b),
-        span = (b - a) / 3;
-      return `M ${p.x} ${p.y} C ${p.x + span * da.x} ${p.y + span * da.y}, ${q.x - span * db.x} ${q.y - span * db.y}, ${q.x} ${q.y}`;
-    };
-    if (!gap) return segment(0, 1);
-    // Keep the curve gap centered on the same circle intersection as the icon.
-    const center = markerParameter(curve, right),
-      marker = point(center);
-    const edge = (bound: number) => {
-      let near = center,
-        far = bound;
-      for (let n = 0; n < 20; n++) {
-        const u = (near + far) / 2,
-          p = point(u);
-        if (Math.hypot(p.x - marker.x, p.y - marker.y) < 13) near = u;
-        else far = u;
-      }
-      return far;
-    };
-    return `${segment(0, edge(0))} ${segment(edge(1), 1)}`;
-  }
-  const portStyle = (index: number, count: number, right = false) => {
-    const point = port(index, count, right);
-    return { left: `${point.x}px`, top: `${point.y}px` };
-  };
-  const markerPoint = (index: number, count: number, right = false) => {
-    const curve = wire(index, count, right);
-    return wirePoint(curve, markerParameter(curve, right));
-  };
-  const marker = (index: number, count: number, right = false) => {
-    const point = markerPoint(index, count, right);
-    return { left: `${point.x}px`, top: `${point.y}px` };
-  };
-
   const wires = (right = false) => {
     const entries = right
       ? agents.map((a) => ({
@@ -418,33 +243,52 @@ export default function ConnectionOverview() {
             setDetails(i);
           },
         }));
-    const count = showMascot ? Math.max(right ? 0 : 1, entries.length) + 1 : entries.length;
-    if (!showMascot) {
+    const count = entries.length;
+    {
       // The mark crops its 100-unit design to viewBox 4 4 92 92.
       const scale = brandSize / (92 * 2.6), radius = 130 * scale;
       const center = { x: right ? -coreColumnWidth / 2 : wireWidth(false) + coreColumnWidth / 2, y: height / 2 };
       const connected = entries.map((entry, index) => ({ ...entry, index, appearance: wireState(entry.state) }))
         .filter((entry) => entry.appearance !== "inactive");
-      const halfAngle = Math.min(40, Math.max(26, (connected.length - 1) * 8 / 2 + 6));
+      const halfAngle = Math.min(
+        40,
+        Math.max(26, ((connected.length - 1) * 8) / 2 + 6),
+      );
       const spacing = connected.length > 1 ? Math.min(16, (halfAngle * 2 - 12) / (connected.length - 1)) : 0;
       const onArc = (offset: number) => {
-        const angle = (right ? offset : 180 - offset) * Math.PI / 180;
+        const angle = ((right ? offset : 180 - offset) * Math.PI) / 180;
         return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
       };
       const arcStart = onArc(-halfAngle), arcEnd = onArc(halfAngle);
       const branches = connected.map((entry, index) => {
         const end = onArc((index - (connected.length - 1) / 2) * spacing);
-        const start = { x: right ? wireWidth(true) + 12 : -3 * rowStep(count) / 84, y: y(entry.index, count) };
+        const start = {
+          x: right ? wireWidth(true) + 12 : (-3 * rowStep(count)) / 84,
+          y: y(entry.index, count),
+        };
         const c1 = { x: start.x + (right ? -100 : 100) * scale, y: start.y };
-        const c2 = { x: end.x + (end.x - center.x) * 60 / 130, y: end.y + (end.y - center.y) * 60 / 130 };
+        const c2 = {
+          x: end.x + ((end.x - center.x) * 60) / 130,
+          y: end.y + ((end.y - center.y) * 60) / 130,
+        };
         const span = Math.max(1, Math.hypot(end.x - start.x, end.y - start.y));
-        return { ...entry, start, end, shape: grownWire(start, c1, c2, end, scale, entry.appearance),
-          solidStop: Math.min(0.29, 10 * scale / span), flareStop: Math.min(1, 26 * scale / span),
-          gradient: `${gradientId}-${right ? "right" : "left"}-${index}` };
+        return {
+          ...entry,
+          start,
+          end,
+          shape: grownWire(start, c1, c2, end, scale, entry.appearance),
+          solidStop: Math.min(0.29, (10 * scale) / span),
+          flareStop: Math.min(1, (26 * scale) / span),
+          gradient: `${gradientId}-${right ? "right" : "left"}-${index}`,
+        };
       });
       return (
         <div ref={right ? rightWires : leftWires} className={`graph-wires earmuff-wires ${right ? "right" : "left"}`}>
-          <svg viewBox={`0 0 ${wireWidth(right)} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+          <svg
+          viewBox={`0 0 ${wireWidth(right)} ${height}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
             <defs>
               {branches.map((branch) => (
                 <linearGradient key={branch.id} id={branch.gradient} gradientUnits="userSpaceOnUse" data-state={branch.appearance}
@@ -459,9 +303,13 @@ export default function ConnectionOverview() {
             </defs>
             {branches.map((branch) => (
               <g key={branch.id} data-state={branch.appearance}>
-                {branch.appearance === "connecting" && <path d={branch.shape.centerline} className="connecting-wire" style={{ strokeWidth: 3 * scale }} />}
+                {branch.appearance === "connecting" && (
+                  <path d={branch.shape.centerline} className="connecting-wire" style={{ strokeWidth: 3 * scale }} />
+                )}
                 <path d={branch.shape.outline} className="grown-wire" style={{ fill: `url(#${branch.gradient})` }} />
-                {branch.appearance === "error" && <path d={branch.shape.gap} className="wire-break" style={{ strokeWidth: 18 * scale }} />}
+                {branch.appearance === "error" && (
+                  <path d={branch.shape.gap} className="wire-break" style={{ strokeWidth: 18 * scale }} />
+                )}
               </g>
             ))}
             <path className="earmuff" style={{ strokeWidth: 14 * scale }}
@@ -470,86 +318,12 @@ export default function ConnectionOverview() {
         </div>
       );
     }
-    return (
-      <div
-        ref={right ? rightWires : leftWires}
-        className={`graph-wires ${right ? "right" : "left"}`}
-      >
-        {right && inventory.loading && !inventory.loaded && (
-          <svg
-            className="search-wires"
-            viewBox="0 0 200 120"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path d="M 0 60 C 90 60, 110 36, 200 36" />
-          </svg>
-        )}
-        <svg
-          viewBox={`0 0 ${wireWidth(right)} ${height}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          {entries.map((entry, index) => (
-            <path
-              key={entry.id}
-              d={path(index, count, right, true)}
-              className={`${["connected", "agentAvailable"].includes(entry.state) ? "live" : ""} ${entry.state === "connectionError" ? "failed" : ""} ${activeTip === entry.id ? "hovered" : ""}`}
-            />
-          ))}
-          {!right && !entries.length && <path d={path(0, 2)} />}
-          <path
-            d={path(count - 1, count, right)}
-            className={right ? "more-wire" : "placeholder"}
-          />
-        </svg>
-        {entries.map((entry, index) => {
-          const live = ["connected", "agentAvailable"].includes(entry.state),
-            failed = entry.state === "connectionError";
-          return (
-            <span key={entry.id}>
-              <span
-                className={`wire-port ${live ? "live" : ""} ${failed ? "failed" : ""}`}
-                style={portStyle(index, count, right)}
-                aria-hidden="true"
-              />
-              <Tooltip text={t(entry.state)} side={right ? "left" : "right"}>
-                <button
-                  type="button"
-                  data-panel-anchor
-                  className={`wire-status ${live ? "live" : ""} ${failed ? "failed" : ""}`}
-                  style={marker(index, count, right)}
-                  aria-label={`${entry.label}: ${t(entry.state)}`}
-                  onClick={entry.open}
-                  onMouseEnter={() => setActiveTip(entry.id)}
-                  onMouseLeave={() => setActiveTip("")}
-                >
-                  <Icon
-                    icon={stateIcon(entry.state)}
-                    className={
-                      ["connectingLabel", "preparing"].includes(entry.state)
-                        ? "spinning"
-                        : ""
-                    }
-                  />
-                </button>
-              </Tooltip>
-            </span>
-          );
-        })}
-        <span
-          className="wire-port utility-port"
-          style={portStyle(count - 1, count, right)}
-          aria-hidden="true"
-        />
-      </div>
-    );
   };
   return (
     <>
       <section
         ref={core}
-        className={`connection-core ${showMascot ? "mascot-mode" : "brand-mode"}`}
+        className={`connection-core ${"brand-mode"}`}
         style={
           {
             "--graph-ring-radius": `${ringRadius}px`,
@@ -577,18 +351,11 @@ export default function ConnectionOverview() {
           </button>
         </div>
         <div className="connection-graph" style={{ height }}>
-          <div className="graph-nodes sources" data-empty={!sources.length} style={nodeStyle(layoutCount(showMascot ? Math.max(1, sources.length) : sources.length))}>
-            {showMascot && !sources.length && (
-              <button
-                data-panel-anchor
-                className="graph-node"
-                aria-label="ChatGPT"
-                onClick={() => edit()}
-              >
-                <SourceIcon platform="chatgpt" panelVisual />
-                <span className="graph-node-name">ChatGPT</span>
-              </button>
-            )}
+          <div
+            className="graph-nodes sources"
+            data-empty={!sources.length}
+            style={nodeStyle(layoutCount(sources.length))}
+          >
             {sources.map((source) => (
               <div key={source.id} className="graph-node-wrap">
                 <Tooltip text={t(sourceState(source))} side="right">
@@ -596,11 +363,7 @@ export default function ConnectionOverview() {
                     data-panel-anchor
                     className="graph-node"
                     data-connection-state={wireState(sourceState(source))}
-                    aria-label={showMascot ? source.name : `${source.name}: ${t(sourceState(source))}`}
-                    onMouseEnter={() => setActiveTip(source.id)}
-                    onMouseLeave={() => setActiveTip("")}
-                    onFocus={() => setActiveTip(source.id)}
-                    onBlur={() => setActiveTip("")}
+                    aria-label={`${source.name}: ${t(sourceState(source))}`}
                     onClick={() => {
                       setAutoConnect(false);
                       setDetails(source);
@@ -624,24 +387,9 @@ export default function ConnectionOverview() {
             </button>
           </div>
           {wires()}
-          <div
-            className="graph-brain"
-            style={
-              {
-                "--ring-offset-x": `${ringOffset.x}px`,
-                "--ring-offset-y": `${ringOffset.y}px`,
-              } as CSSProperties
-            }
-          >
-            {showMascot ? (
-              <PlayfulMascot
-                state={mascotState}
-                onDisplacement={(p) => setRingOffset({ x: p.x / 3, y: p.y / 3 })}
-              />
-            ) : (
-              <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control"
+          <div className="graph-brain">
+            <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control"
                 dangerouslySetInnerHTML={{ __html: themedMark.replace(/^<svg[^>]*>|<\/svg>$/g, "").replaceAll("agent-theme", `${gradientId}-mark`) }} />
-            )}
           </div>
           <div className="agent-side" style={nodeStyle(layoutCount(agents.length))}>
             {wires(true)}
@@ -653,7 +401,7 @@ export default function ConnectionOverview() {
                   side="left"
                   text={
                     <>
-                      {!showMascot && <div>{t(agentState(agent))}</div>}
+                      {<div>{t(agentState(agent))}</div>}
                       {agent.version && (
                         <div className="status-hint">{agent.version}</div>
                       )}
@@ -664,11 +412,7 @@ export default function ConnectionOverview() {
                     data-panel-anchor
                     className="graph-node"
                     data-connection-state={wireState(agentState(agent))}
-                    aria-label={showMascot ? name(agent) : `${name(agent)}: ${t(agentState(agent))}`}
-                    onMouseEnter={() => setActiveTip(agent.agent)}
-                    onMouseLeave={() => setActiveTip("")}
-                    onFocus={() => setActiveTip(agent.agent)}
-                    onBlur={() => setActiveTip("")}
+                    aria-label={`${name(agent)}: ${t(agentState(agent))}`}
                     aria-haspopup="dialog"
                     onClick={() => setDetailAgent(agent)}
                   >

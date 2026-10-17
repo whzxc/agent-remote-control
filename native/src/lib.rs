@@ -33,12 +33,12 @@ pub mod permissions;
 pub mod preferences;
 pub mod projects;
 pub mod proxy;
+pub mod quota;
 pub mod rpc;
 pub mod runtime;
 pub mod service;
-pub mod subscriptions;
 pub mod transport;
-pub mod usage;
+
 pub mod waiter;
 pub type Result<T> = std::result::Result<T, String>;
 pub fn now() -> String {

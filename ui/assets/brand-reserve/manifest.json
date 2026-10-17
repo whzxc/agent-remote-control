@@ -360,48 +360,6 @@
       "sha256": "de7d43f3386105ab20952958c2c25beb0d903e2aeb6e1aef57c49a648c0d1c07"
     },
     {
-      "file": "app/mascot/app.png",
-      "source": "ui/assets/mascot/avatar.png",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "243c236221538741e033074298739aa8abcdc2bbe00d905a539dd7338482007b"
-    },
-    {
-      "file": "app/mascot/head.png",
-      "source": "ui/assets/mascot/default.png",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "4b476bf0adc4f3f993a585a595d8b8e96a44eb109ab5756e40dba0f220d150c0"
-    },
-    {
-      "file": "app/mascot/tray.png",
-      "source": "app/mascot/tray.png",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "239e5a628b0a5b7f1a061f14122d2683c03a68fcebb6a96ba16d0d4bd0842fdb"
-    },
-    {
-      "file": "app/mascot/icon.icns",
-      "source": "desktop/icons/icon.icns",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "81853c30e93f5be299357c45e676dfd587e11fca4e0164242530c3575c79231c"
-    },
-    {
-      "file": "app/mascot/icon.ico",
-      "source": "app/mascot/icon.ico",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "bca9c0a34b152603335e1125fc48280e668b9ad6abb3bec4fb14a1472409b784"
-    },
-    {
-      "file": "app/mascot/icon.png",
-      "source": "app/mascot/icon.png",
-      "license": "Project asset",
-      "note": "原文件拷贝，来源说明见 ui/assets/README.md。",
-      "sha256": "74619d2c8167ae8021cca35a272dab500b81fa52c88d20822490e724365fb3cb"
-    },
-    {
       "file": "agents/hermes/logo.png",
       "source": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ea0c2b820bd30bace020a3791d8aef0b44002e0d/website/static/img/logo.png",
       "license": "Upstream brand asset; trademark rights reserved",

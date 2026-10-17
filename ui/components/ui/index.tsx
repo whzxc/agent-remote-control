@@ -17,7 +17,6 @@ import {
   Switch as Sw,
   Checkbox as C,
   Tooltip as T,
-  Popover as P,
   DropdownMenu as M,
   Progress as R,
 } from "radix-ui";
@@ -33,7 +32,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { t } from "../../i18n";
-import { isDesktop, copyText } from "../../platform";
+import { copyText } from "../../platform";
 import { HoverScope } from "./HoverScope";
 export { HoverScope };
 export { HoverPreviewGroup } from "./HoverPreviewGroup";
@@ -485,113 +484,6 @@ export function Tooltip({
   );
 }
 export const TooltipProvider = T.Provider;
-export function Popover({
-  trigger,
-  children,
-  label,
-  onBounds,
-  side = "bottom",
-  hover = false,
-  nativeHover = false,
-}: {
-  trigger: ReactNode;
-  children: ReactNode;
-  label: string;
-  side?: "left" | "right" | "bottom" | "top";
-  hover?: boolean;
-  nativeHover?: boolean;
-  onBounds?: (rect: DOMRect | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const content = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const hoverTarget = useRef<boolean | undefined>(undefined);
-  const schedule = (value: boolean) => {
-    if (hoverTarget.current === value) return;
-    hoverTarget.current = value;
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(value), value ? 120 : 180);
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
-  useEffect(() => {
-    if (!nativeHover || !isDesktop) return;
-    let stopped = false;
-    let off: (() => void) | undefined;
-    void import("@tauri-apps/api/event").then(async ({ listen }) => {
-      const dispose = await listen<{ x: number; y: number }>(
-        "usage-panel:hover",
-        (event) => {
-          const { x, y } = event.payload;
-          const inside = [triggerRef.current, content.current].some((el) => {
-            const r = el?.getBoundingClientRect();
-            return (
-              r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
-            );
-          });
-          schedule(inside);
-        },
-      );
-      if (stopped) dispose();
-      else off = dispose;
-    });
-    return () => {
-      stopped = true;
-      off?.();
-    };
-  }, [nativeHover]);
-  useLayoutEffect(() => {
-    if (!open || !content.current) {
-      onBounds?.(null);
-      return;
-    }
-    const report = () => onBounds?.(content.current!.getBoundingClientRect());
-    const observer = new ResizeObserver(report);
-    observer.observe(content.current);
-    const frame = requestAnimationFrame(report);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-      onBounds?.(null);
-    };
-  }, [open, onBounds]);
-  return (
-    <P.Root
-      open={open}
-      onOpenChange={(value) => {
-        hoverTarget.current = undefined;
-        clearTimeout(timer.current);
-        setOpen(value);
-      }}
-    >
-      <P.Trigger
-        ref={triggerRef}
-        asChild
-        onMouseEnter={hover ? () => schedule(true) : undefined}
-        onMouseLeave={hover ? () => schedule(false) : undefined}
-      >
-        {trigger}
-      </P.Trigger>
-      <P.Portal>
-        <P.Content
-          ref={content}
-          className={`popover ${nativeHover ? "rail-popover" : ""}`}
-          aria-label={label}
-          side={side}
-          sideOffset={8}
-          collisionPadding={12}
-          onOpenAutoFocus={(event) => {
-            if (hover) event.preventDefault();
-          }}
-          onMouseEnter={hover ? () => schedule(true) : undefined}
-          onMouseLeave={hover ? () => schedule(false) : undefined}
-        >
-          {children}
-        </P.Content>
-      </P.Portal>
-    </P.Root>
-  );
-}
 export function Menu({
   trigger,
   items,

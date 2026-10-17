@@ -21,7 +21,7 @@ import { t, locale } from "./i18n";
 import { isDesktop } from "./platform";
 import { connector, notify, startConnector } from "./state/connector";
 import { startAgents } from "./state/agents";
-import { startAgentActivity, startSubscriptions } from "./state/subscriptions";
+import { startAgentActivity, startQuota } from "./state/quota";
 import { startTasks, tasks } from "./state/tasks";
 import {
   startUpdateChecks,
@@ -31,9 +31,7 @@ import {
   updateVisible,
   installDirect,
 } from "./state/updates";
-import { navigation, type Page } from "./state/navigation";
-import { panelPreferences } from "./usage-rail/preferences";
-import type { PanelPreferences } from "./usage-rail/layout";
+type Page = "overview" | "tasks" | "logs" | "settings";
 import { panelLayers, panelAnchorAt } from "./state/panels";
 import {
   capturePanelOrigin,
@@ -44,20 +42,15 @@ import ConnectionOverview from "./components/ConnectionOverview";
 import TasksPage from "./components/TasksPage";
 import RecordsPage from "./components/RecordsPage";
 import { AppUpdateDialogs } from "./components/AppUpdate";
-import AgentDisplaySettings from "./components/AgentDisplaySettings";
 import { Icon, IconButton, Loading, Notice, HoverScope } from "./components/ui";
 import { api } from "./api";
 import type { Readiness } from "./components/PermissionsPage";
 const SettingsPage = lazy(() => import("./components/SettingsPage"));
-const BrowserRailPreview = import.meta.env.DEV
-  ? lazy(() => import("./usage-rail/BrowserRailPreview"))
-  : null;
 export default function App() {
   locale.use();
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
   const { feedback, status } = connector.use(),
-    taskState = tasks.use(),
-    nav = navigation.use();
+    taskState = tasks.use();
   updates.use();
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [permissionMissing, setPermissionMissing] = useState(false);
@@ -137,7 +130,7 @@ export default function App() {
   useEffect(() => {
     const stops = [
       startConnector(),
-      startSubscriptions(),
+      startQuota(),
       startAgentActivity(),
       startAgents(),
       startTasks(),
@@ -159,16 +152,6 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (["overview", "settings", "logs", "tasks"].includes(e.payload))
             navigate(e.payload as Page);
-        }),
-        listen<PanelPreferences>("usage-panel:preferences", (e) =>
-          panelPreferences.set(e.payload),
-        ),
-        listen("agents:settings", () =>
-          navigation.set((old) => ({ ...old, agentSettings: true })),
-        ),
-        listen<string>("subscriptions:open", (e) => {
-          navigation.set((old) => ({ ...old, providerId: e.payload }));
-          navigate("overview");
         }),
         listen<string>("connection-error", (e) => notify(e.payload, true)),
       ]);
@@ -361,20 +344,6 @@ export default function App() {
       )}
       <AppUpdateDialogs />
       <OAuthApproval requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
-      {nav.agentSettings && (
-        <AgentDisplaySettings
-          onClose={() =>
-            navigation.set((old) => ({ ...old, agentSettings: false }))
-          }
-        />
-      )}
-      {BrowserRailPreview && !isDesktop && page === "overview" && (
-        <Suspense fallback={null}>
-          <div inert={layers.length > 0}>
-            <BrowserRailPreview />
-          </div>
-        </Suspense>
-      )}
     </div>
   );
 }

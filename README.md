@@ -40,7 +40,7 @@ Prefer local Codex to configure it? Send this prompt:
 - **Start:** [Getting started](docs/getting-started.md) · [Concepts](docs/concepts.md) · [Automatic setup](docs/auto-setup.md)
 - **Connect:** [Claude](docs/guides/claude.md) · [ChatGPT](docs/guides/chatgpt.md) · [Other clients](docs/guides/other-clients.md) · [HTTPS providers](docs/guides/connections.md)
 - **Use:** [FAQ](docs/faq.md) · [Install, update, uninstall](docs/installation.md) · [Why ARC](docs/story.md)
-- **Reference (English):** [Tools](docs/reference/tools.md) · [Agents](docs/reference/agents.md) · [CLI](docs/reference/cli.md) · [OAuth](docs/reference/oauth.md) · [Subscriptions](docs/reference/subscriptions.md) · [Linux](docs/reference/linux.md)
+- **Reference (English):** [Tools](docs/reference/tools.md) · [Agents](docs/reference/agents.md) · [CLI](docs/reference/cli.md) · [OAuth](docs/reference/oauth.md) · [Linux](docs/reference/linux.md)
 - **Contribute (中文):** [Development](docs/dev/development.md) · [Architecture](docs/dev/architecture.md) · [UI](docs/dev/ui.md) · [Releases](docs/dev/release.md)
 
 Also supports Notion, Slack, Cursor, GitHub Copilot, Raycast, Microsoft Copilot, Grok and custom MCP clients; Pi, OpenCode and other ACP Agents run alongside Codex.

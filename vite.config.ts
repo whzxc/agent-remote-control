@@ -63,7 +63,7 @@ export default defineConfig({
           // Reconnect EventSource when the native app starts, exits, or is replaced.
           // Otherwise an already-open preview stream can stay attached to its old owner.
           const owner = ownerIdentity();
-          const watchOwner = ['/api/events', '/api/subscriptions/events'].includes(request.url || '') ? setInterval(() => {
+          const watchOwner = ['/api/events', '/api/quota/events'].includes(request.url || '') ? setInterval(() => {
             if (ownerIdentity() !== owner) { upstream.destroy(); response.end(); }
           }, 1000) : undefined;
           response.on('close', () => { clearInterval(watchOwner); upstream.destroy(); }); upstream.end(body);
@@ -77,7 +77,6 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('./ui/index.html', import.meta.url)),
-        usageRail: fileURLToPath(new URL('./ui/usage-rail.html', import.meta.url)),
       },
       output: {
         codeSplitting: {

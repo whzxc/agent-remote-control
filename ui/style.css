@@ -763,12 +763,6 @@ pre {
 .quota-track {
   stroke: var(--border);
 }
-.quota-time-tick {
-  stroke: var(--text-secondary);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  pointer-events: none;
-}
 .activity-arc {
   position: absolute;
   inset: 0;
@@ -783,51 +777,6 @@ pre {
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linecap: round;
-}
-.quota-ring {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 6px;
-  width: 40px;
-  color: var(--rail-ink);
-  font-variant-numeric: tabular-nums;
-}
-.quota-dial {
-  width: 36px;
-  height: 36px;
-  position: relative;
-}
-.quota-dial > svg:not(.activity-arc) {
-  width: 36px;
-  height: 36px;
-  overflow: visible;
-}
-.quota-dial circle {
-  fill: none;
-  stroke-width: 4;
-}
-.quota-dial .track {
-  stroke: var(--rail-track);
-}
-.quota-dial .value {
-  stroke-linecap: round;
-}
-.quota-dial img {
-  position: absolute;
-  inset: 10px;
-  width: 16px;
-  height: 16px;
-  filter: brightness(0) invert(1);
-}
-.quota-number {
-  font-family: ui-rounded, "SF Pro Rounded", var(--font-ui);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 16px;
-}
-.quota-ring.stale {
-  opacity: 0.6;
 }
 .agent-summary {
   display: flex;
@@ -918,11 +867,6 @@ pre {
   justify-content: center;
   border-radius: var(--radius-control);
 }
-.period-options {
-  display: flex;
-  gap: 8px 16px;
-  flex-wrap: wrap;
-}
 .list-toolbar {
   display: flex;
   gap: 12px;
@@ -1007,142 +951,6 @@ pre {
   .agent-grid {
     grid-template-columns: 1fr;
   }
-}
-.usage-overview {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  color: var(--text);
-}
-.usage-overview-scroll {
-  min-height: 0;
-  overflow: auto;
-  scrollbar-width: thin;
-}
-.usage-overview-content {
-  display: grid;
-  gap: 10px;
-}
-.usage-provider-card {
-  background: var(--surface-subtle);
-  border-radius: var(--radius-row);
-  padding: 12px;
-  color: var(--text);
-}
-.usage-overview-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-top: 8px;
-  margin-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.usage-overview-actions .button {
-  min-height: 32px;
-  padding: 5px 8px;
-  font-size: 12px;
-}
-.usage-surface {
-  position: fixed;
-  inset: 0;
-  color: var(--rail-ink);
-  pointer-events: none;
-  user-select: none;
-  line-height: normal;
-  color-scheme: dark;
-  --accent: var(--accent-dark);
-  --text-secondary: var(--rail-muted);
-}
-.surface-shapes {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: #000;
-  pointer-events: none;
-}
-.rail-hit-target {
-  pointer-events: fill;
-  cursor: grab;
-  touch-action: none;
-}
-.rail-outline,
-.bubble-shape {
-  stroke: var(--rail-border);
-  stroke-width: 2;
-  pointer-events: none;
-}
-.rail-outline {
-  fill: none;
-}
-.rail-activity {
-  stroke: var(--rail-ink);
-  stroke-dasharray: 32 64;
-  animation: rail-working 1.8s linear infinite;
-}
-@keyframes rail-working {
-  to {
-    stroke-dashoffset: -96;
-  }
-}
-.ring-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.ring-group {
-  position: absolute;
-  transform-origin: top left;
-}
-.ring-button {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  border-radius: 10px;
-}
-.rail-page {
-  position: absolute;
-  line-height: normal;
-  background: transparent;
-  color: var(--rail-muted);
-  border: 0;
-  border-radius: 8px;
-  padding: 0;
-  pointer-events: auto;
-  cursor: pointer;
-}
-.rail-bubble {
-  position: absolute;
-  width: 280px;
-  transform-origin: top left;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  pointer-events: auto;
-  border-radius: 20px;
-}
-.browser-rail-preview {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  pointer-events: none;
-}
-.browser-rail-preview .usage-surface {
-  position: absolute;
-}
-.rail-menu-error {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  pointer-events: auto;
-}
-.rail-preview-menu {
-  position: fixed;
-  pointer-events: auto;
-  z-index: 121;
 }
 .row-control:has(.choice) {
   width: 340px;

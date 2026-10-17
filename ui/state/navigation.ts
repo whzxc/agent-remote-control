@@ -1,6 +1,0 @@
-import { createStore } from "./store";
-export type Page = "overview" | "tasks" | "logs" | "settings";
-export const navigation = createStore<{
-  providerId?: string;
-  agentSettings: boolean;
-}>({ agentSettings: false });

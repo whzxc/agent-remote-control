@@ -1,15 +1,4 @@
 
-.graph-brain::after {
-  content: "";
-  position: absolute;
-  left: calc(50% + var(--ring-offset-x));
-  top: calc(50% + var(--ring-offset-y));
-  width: calc(var(--graph-ring-radius) * 2 + 64px);
-  height: calc(var(--graph-ring-radius) * 2 + 80px);
-  transform: translate(-50%, -45%);
-  border-radius: 50%;
-  z-index: 2;
-}
 .ingress-dialog-title {
   display: flex;
   align-items: center;
@@ -19,10 +8,6 @@
 .ingress-dialog-title .status {
   font-size: var(--text-sm);
   font-weight: 400;
-}
-/* Keep the mascot above persistent content and below the shell overlays (29+). */
-.graph-brain .mascot {
-  z-index: 20;
 }
 
 
@@ -134,21 +119,6 @@
   gap: 18px;
   position: relative;
 }
-.graph-brain:before {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  box-sizing: content-box;
-  width: calc(var(--graph-ring-radius) * 2 - var(--graph-line-width));
-  height: calc(var(--graph-ring-radius) * 2 - var(--graph-line-width));
-  border: var(--graph-line-width) solid var(--accent);
-  background: var(--accent-soft);
-  border-radius: 50%;
-  top: calc(50% + var(--ring-offset-y));
-  left: calc(50% + var(--ring-offset-x));
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-}
 .graph-wires {
   height: 100%;
   min-height: 0;
@@ -181,29 +151,6 @@
   stroke-dasharray: 4 5;
   opacity: 0.65;
 }
-.wire-status {
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-  cursor: pointer;
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  background: transparent;
-  border-radius: 50%;
-}
-.wire-status svg {
-  width: 17px;
-  height: 17px;
-}
-.wire-status.live {
-  color: var(--accent);
-}
-.wire-status.failed,
 .graph-error {
   color: var(--danger);
 }
@@ -264,27 +211,6 @@
     --agent-quota-size: 44px;
   }
 }
-.wire-port {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  transform: translate(-50%, -50%);
-  border: 1.5px solid var(--text-secondary);
-  border-radius: 50%;
-  background: var(--graph-bg);
-  pointer-events: none;
-  z-index: 2;
-}
-.wire-port.live {
-  border-color: var(--accent);
-}
-.wire-port.failed {
-  border-color: var(--danger);
-}
-.wire-port.utility-port {
-  border-color: color-mix(in srgb, var(--text-secondary) 65%, var(--graph-bg));
-}
 .agents .agents-more {
   border: 1px dashed var(--text-secondary);
   border-radius: 50%;
@@ -331,42 +257,9 @@
   width: 30px;
   height: 30px;
 }
-.wire-status:hover,
-.wire-status:focus-visible {
-  z-index: 5;
-  background: var(--graph-bg);
-}
 .status-hint {
   font-size: 11px;
   opacity: 0.7;
-}
-.graph-wires .search-wires {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 100%;
-  height: 100px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-.search-wires path { stroke-linecap: round; opacity: 0.55; }
-
-.wire-status::before {
-  content: "";
-  position: absolute;
-  inset: -12px;
-  border-radius: 50%;
-}
-.wire-status {
-  transition:
-    filter 180ms ease,
-    box-shadow 180ms ease;
-}
-.wire-status:hover,
-.wire-status:focus-visible {
-  filter: brightness(0.82);
-  box-shadow: 0 5px 12px
-    color-mix(in srgb, var(--color-black) 15.69%, transparent);
 }
 .graph-wires path {
   transition: filter 180ms ease;
@@ -378,67 +271,11 @@
     );
 }
 @media (prefers-reduced-motion: reduce) {
-  .wire-status,
   .graph-wires path {
     transition: none;
   }
 }
 
-.mascot {
-  position: relative;
-  z-index: 1;
-  isolation: isolate;
-  width: calc(var(--graph-ring-radius, 130px) * 1.6);
-  height: calc(var(--graph-ring-radius, 130px) * 1.6);
-}
-.mascot-button {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 42px;
-  background: transparent;
-  cursor: grab;
-  transition: none;
-  touch-action: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.mascot-button:hover,
-.mascot-button:active {
-  background: transparent;
-}
-.mascot-button.dragging {
-  cursor: grabbing;
-}
-.mascot-head {
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-7deg);
-  pointer-events: none;
-}
-.mascot-button img {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 10px;
-  object-fit: contain;
-  pointer-events: none;
-  user-select: none;
-}
-@media (max-width: 700px) {
-  .mascot-button {
-    border-radius: 28px;
-  }
-  .mascot-button img {
-    padding: 6px;
-  }
-}
 
 .connection-action {
   position: relative;
@@ -799,22 +636,9 @@
   color: inherit;
   cursor: pointer;
 }
-.connection-core .wire-status {
-  color: var(--text-secondary);
-}
-.connection-core .wire-status.live {
-  color: var(--accent);
-}
-.connection-core .wire-status.failed {
-  color: var(--danger);
-}
 .connection-core .graph-node .agent-quota-icon {
   width: var(--agent-quota-size);
   height: var(--agent-quota-size);
-}
-
-.graph-brain .mascot {
-  z-index: 20;
 }
 .graph-error .notice {
   padding: 8px 12px;
@@ -1111,9 +935,6 @@
   outline: none;
 }
 
-.elastic-panel .dialog-body:has(> .usage-overview) {
-  padding: 12px;
-}
 
 .graph-node { position: relative; }
 .graph-node-name { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); max-width: 112px; font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1145,14 +966,9 @@
   user-select: none;
 }
 
-/* The mark wears outer arcs; the mascot keeps its circular ports. */
 .brand-mode.connection-core {
   overflow-y: auto;
   align-items: safe center;
-}
-.brand-mode .graph-brain::before,
-.brand-mode .graph-brain::after {
-  content: none;
 }
 .brand-mode .graph-nodes {
   --node-size: calc(44px * var(--graph-node-scale));
