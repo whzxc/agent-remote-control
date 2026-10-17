@@ -510,6 +510,23 @@ impl Service {
                 return crate::operations::read(id, &self.control.session);
             }
         }
+        if route == "permissions" && method == "GET" {
+            let mut readiness = crate::permissions::status().await;
+            let account = self
+                .control
+                .request("account/read", json!({"refreshToken":false}), 5000)
+                .await;
+            let command_fda = crate::permissions::command_disk_access(&self.control).await;
+            if let Some(items) = readiness["items"].as_array_mut() {
+                items.push(json!({"id":"command-full-disk-access","process":"Codex app-server","state":command_fda,"heuristic":true,"grantTarget":crate::permissions::grant_target()}));
+                items.push(json!({"id":"codex-login","process":"Codex app-server","state":match account { Ok(ref a) if !a["account"].is_null() => "granted", Ok(_) => "missing", Err(_) => "unknown" }}));
+                for entry in self.entries().await {
+                    let summary = entry.summary().await?;
+                    items.push(json!({"id":format!("ingress:{}",entry.id),"process":"Core","state":if summary["verification"]["challengeVerifiedAt"].is_string() {"granted"}else{"missing"},"diagnostics":crate::diagnostics::ingress(&summary)}));
+                }
+            }
+            return Ok(readiness);
+        }
         match (method, route) {
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {

@@ -21,13 +21,7 @@ export async function openUrl(url: string) {
 }
 export async function notifyNative(title: string, body: string) {
   if (!isDesktop || localStorage.getItem("notifications") === "off") return;
-  const { isPermissionGranted, requestPermission, sendNotification } =
-    await import("@tauri-apps/plugin-notification");
-  if (
-    (await isPermissionGranted()) ||
-    (await requestPermission()) === "granted"
-  )
-    sendNotification({ title, body });
+  await desktopRequest("permissions/notify", "POST", {title, body}).catch(() => {});
 }
 
 export async function copyText(value: string) {

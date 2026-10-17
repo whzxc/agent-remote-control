@@ -266,22 +266,13 @@ impl Executor for Cli {
         Ok(output.stdout)
     }
     async fn fallback(&self, body: String) {
-        #[cfg(target_os = "macos")]
+        if let Err(error) =
+            crate::transport::forward_request("permissions/notify", "POST", json!({"body":body}))
+                .await
         {
-            // Core has no Tauri/UI handle. Static AppleScript receives text as argv.
-            let result = tokio::time::timeout(Duration::from_secs(5), command("/usr/bin/osascript")
-                .args(["-e", "on run argv\ndisplay notification (item 1 of argv) with title \"Agent Remote Control 通知未送达\"\nend run", &body])
-                .output()).await;
-            if !matches!(result, Ok(Ok(ref out)) if out.status.success()) {
-                crate::logs::record("WARN", "Claude notification fallback failed", None);
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = body;
             crate::logs::record(
                 "WARN",
-                "Claude notification delivery failed; system fallback is macOS only",
+                &format!("Claude notification fallback unavailable: {error}"),
                 None,
             );
         }

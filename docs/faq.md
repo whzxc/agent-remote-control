@@ -41,3 +41,17 @@ Open the Agent in ARC and refresh its usage. Check the reported source error and
 ## Limits
 
 Temporary tunnel URLs can change. Initial consent and task interactions may need your input. Ordinary Chat sessions need an active wait or another message to check progress; automatic Claude follow-ups use the cloud-session setup described above.
+
+## Check permissions and readiness
+
+Before remote use, open ARC **Settings → Permissions & readiness** locally and choose **Check again**. Use **Grant access** where needed. Returning from System Settings refreshes the page.
+
+Accessibility enables screen tree / press / show / key / raise. Screen recording enables capture and windows titles; macOS may require reopening ARC. Use Full Disk Access for file tools: projects in Documents, Desktop, Downloads, external disks or network volumes can otherwise prompt or fail. Core uses a read-only heuristic with granted / missing / unknown results; unknown is not permission. command is probed separately inside Codex app-server and arbitrary shell commands are refused until FDA is ready.
+
+Notification permission is checked in ARC Desktop for closed-loop fallback delivery; without Desktop only a log is recorded. Login readiness checks registration and disabled state. Codex, Claude and ingress verification appear on the same page. Inapplicable Windows/Linux permissions do not require action.
+
+### Why does a remote tool return PERMISSION_REQUIRED?
+
+Tools never request system consent. The error includes permissionId; use the local permissions page and retry. A terminal's grants do not establish permissions for Core, screen helper or the Codex executor. The FDA heuristic does not guarantee access to every volume.
+
+For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.

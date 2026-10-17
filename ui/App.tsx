@@ -46,6 +46,8 @@ import RecordsPage from "./components/RecordsPage";
 import { AppUpdateDialogs } from "./components/AppUpdate";
 import AgentDisplaySettings from "./components/AgentDisplaySettings";
 import { Icon, IconButton, Loading, Notice, HoverScope } from "./components/ui";
+import { api } from "./api";
+import type { Readiness } from "./components/PermissionsPage";
 const SettingsPage = lazy(() => import("./components/SettingsPage"));
 const BrowserRailPreview = import.meta.env.DEV
   ? lazy(() => import("./usage-rail/BrowserRailPreview"))
@@ -57,6 +59,24 @@ export default function App() {
     taskState = tasks.use(),
     nav = navigation.use();
   updates.use();
+  const [permissionMissing, setPermissionMissing] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => void api<Readiness>("permissions").then(data => {
+      const enabled = status?.ingresses?.filter(i => i.enabled) ?? [];
+      const permits = (tool: string) => enabled.some(i => i.toolPolicy === "all" || (typeof i.toolPolicy === "object" ? i.toolPolicy.allowlist.includes(tool) : ["read", "tree", "search", "overview"].includes(tool)));
+      if (active) setPermissionMissing(data.items.some(i => i.state === "missing" && (
+        (["accessibility","screen-recording"].includes(i.id) && permits("screen")) ||
+        (i.id === "full-disk-access" && ["read","tree","search","edit","write"].some(permits)) ||
+        (i.id === "command-full-disk-access" && permits("command")) ||
+        (i.id === "notifications" && enabled.length > 0)
+      )));
+    }).catch(() => {});
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => { active = false; window.removeEventListener("focus", refresh); };
+  }, [JSON.stringify(status?.ingresses?.map(i => [i.enabled, i.toolPolicy]))]);
+
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
     return ["overview", "settings", "logs", "tasks"].includes(saved ?? "") ? saved as Page : "overview";
@@ -312,6 +332,7 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
+              {item.id === "settings" && permissionMissing && <span className="task-count" aria-label={t("permissionsTitle")}>•</span>}
               {item.id === "tasks" && pending > 0 && (
                 <span className="task-count">{pending}</span>
               )}

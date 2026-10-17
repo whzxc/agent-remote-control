@@ -33,6 +33,8 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
             check_write(app)?;
         }
         match (method.as_str(), route.as_str()) {
+            ("GET", "permissions/desktop") => return Ok(crate::permissions::status().await),
+            ("POST", "permissions/notify") => return crate::permissions::notify(app, body).await,
             ("GET", "app") => {
                 return Ok(
                     json!({"pid":std::process::id(),"version":env!("ARC_BUILD_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":connector_core::runtime::build_id(&std::env::current_exe().map_err(|e|e.to_string())?)?}),

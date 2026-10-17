@@ -10,6 +10,7 @@ mod autostart;
 mod desktop_access;
 mod i18n;
 mod oauth_links;
+mod permissions;
 mod session;
 mod tray;
 mod updates;
@@ -26,6 +27,9 @@ async fn request(
 ) -> Result<Value, String> {
     if method != "GET" {
         desktop_access::check_write(app)?;
+    }
+    if route == "permissions/request" && method == "POST" {
+        return permissions::request(body["id"].as_str().unwrap_or("")).await;
     }
     if connector_core::management::desktop_route(route) {
         return desktop_access::request(

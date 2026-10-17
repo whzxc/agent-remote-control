@@ -4,6 +4,11 @@ pub fn tool(value: Value, error: bool) -> Value {
     json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":{"result":value},"isError":error})
 }
 pub fn failure(e: &str) -> Value {
+    if let Ok(value) = serde_json::from_str::<Value>(e) {
+        if value["code"] == "PERMISSION_REQUIRED" {
+            return value;
+        }
+    }
     let rpc = e
         .strip_prefix("RPC_REJECTED:")
         .and_then(|s| serde_json::from_str::<Value>(s).ok());

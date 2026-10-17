@@ -65,3 +65,13 @@ claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定�
 ## 状态与构建边界
 
 状态目录名统一 agent-remote-control；开发使用 -dev，隔离预览显式使用 -preview。身份、环境变量和 deep link 不保留旧名 alias 或自动迁移。应用包只包含原生程序与静态资源，Node/npm 属于构建工具。CLI guide 与工具目录在构建时嵌入，改动后需要重新构建才能进入新产物。
+
+## 权限与就绪
+
+Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该结果。辅助功能及屏幕录制由 arc-screen 的 status 检测，工具只 preflight，缺失返回结构化 PERMISSION_REQUIRED。显式请求仅从 Desktop 权限页进入 helper request。Core 打开受 FDA 保护的 TCC 数据库做启发式探测，不读取内容；command 通过 Codex app-server 的 command/exec 单独执行零字节读取。未知状态不作已授权处理。
+
+通知由 Desktop 查询 UserNotifications，主动授权仅由用户点击触发。Core 闭环兜底通过已有认证本地 Desktop 通道请求 permissions/notify；Desktop 不在线或缺授权时仅记日志，不调用 osascript。登录启动检查 LaunchAgent 与 launchctl print-disabled。入口验证复用 diagnostics，Claude 复用 CLI 定位并查询 auth status，Codex 登录复用 account/read。
+
+权限页监听窗口焦点并支持手动刷新，系统设置跳转固定在本地 Desktop，不暴露新的 MCP 工具。
+
+打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。

@@ -1,3 +1,4 @@
+import PermissionsPage from "./PermissionsPage";
 import { notificationsPreference, mascotPreference } from "../state/store";
 import { useEffect, useState } from "react";
 import { Monitor, Sun, Moon } from "lucide-react";
@@ -12,6 +13,7 @@ import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
 import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
   const { status, busy } = connector.use();
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const currentTheme = theme.use(),
     color = themeColor.use(),
     currentLanguage = language.use();
@@ -85,8 +87,17 @@ export default function SettingsPage() {
       await refreshConnector();
     });
   }
+  if (permissionsOpen) return <div className="settings-page">
+    <Button onClick={() => setPermissionsOpen(false)}>{t("permissionsBack")}</Button>
+    <PermissionsPage />
+  </div>;
   return (
     <div className="settings-page">
+      <Group title={t("permissionsTitle")}>
+        <Row title={t("permissionsTitle")} description={t("permissionsSummary")}>
+          <Button onClick={() => setPermissionsOpen(true)}>{t("permissionsOpen")}</Button>
+        </Row>
+      </Group>
       <Group title={t("behavior")}>
         <Row
           title={t("automaticallyOpenCodexTasks")}

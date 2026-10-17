@@ -30,6 +30,20 @@ pub async fn enabled() -> bool {
             ],
         )
         .await;
+        let uid = output("id", &["-u"]).await.unwrap_or_default();
+        let disabled = output(
+            "launchctl",
+            &["print-disabled", &format!("gui/{}", uid.trim())],
+        )
+        .await;
+        let Ok(disabled) = disabled else {
+            return false;
+        };
+        if disabled.lines().any(|line| {
+            line.contains("\"com.whzxc.agent-remote-control\"") && line.contains("true")
+        }) {
+            return false;
+        }
         return program.is_ok_and(|s| s.trim() == exe.to_string_lossy())
             && state.is_ok_and(|s| s.trim() == root().to_string_lossy());
     }
@@ -104,4 +118,30 @@ pub async fn set(enabled: bool) -> Result<()> {
     }
     #[allow(unreachable_code)]
     Err("不支持开机启动".into())
+}
+
+pub async fn readiness() -> serde_json::Value {
+    use serde_json::json;
+    #[cfg(target_os = "macos")]
+    {
+        let registered = dirs::home_dir().is_some_and(|home| {
+            home.join("Library/LaunchAgents/com.whzxc.agent-remote-control.plist")
+                .exists()
+        });
+        let uid = output("id", &["-u"]).await.unwrap_or_default();
+        let disabled = output(
+            "launchctl",
+            &["print-disabled", &format!("gui/{}", uid.trim())],
+        )
+        .await
+        .ok()
+        .map(|text| {
+            text.lines().any(|line| {
+                line.contains("\"com.whzxc.agent-remote-control\"") && line.contains("true")
+            })
+        });
+        return json!({"id":"login-start","process":"Desktop","registered":registered,"disabled":disabled,"state":if !registered || disabled == Some(true) {"missing"} else if disabled.is_none() {"unknown"} else if enabled().await {"granted"} else {"missing"}});
+    }
+    #[cfg(not(target_os = "macos"))]
+    json!({"id":"login-start","process":"Desktop","state":if cfg!(target_os="linux") {"not-applicable"}else if enabled().await {"granted"}else{"missing"}})
 }

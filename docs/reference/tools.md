@@ -144,3 +144,17 @@ press/show/raise/key can add `after: {"waitMs":200,"capture":true}` or a capture
 ## Limits
 
 Tool allowlists do not isolate users/tasks or change OS permissions. Native method availability, login, and Agent capabilities come from the actual host. Screen operations are macOS-only; Linux has no Desktop actions. Event buffers are not durable task history; consume pagination before its retention expires.
+
+## macOS permissions
+
+| Tools | Permission / execution owner |
+| --- | --- |
+| screen tree, press, show, key, raise | Accessibility / arc-screen |
+| screen capture, windows titles | Screen recording / arc-screen |
+| read, tree, search, edit, write, git | Full Disk Access for protected locations / Core |
+| command | Full Disk Access / Codex app-server execution host |
+| Closed-loop notification fallback | Notifications / ARC Desktop |
+
+Missing screen permission returns `PERMISSION_REQUIRED`, `permissionId` and local settings guidance without prompting. File protection uses an FDA heuristic; unknown is not granted. Arbitrary shell commands require a successful executor FDA probe because their accessed paths cannot be inferred reliably. Screen-recording grants may require reopening ARC.
+
+For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.

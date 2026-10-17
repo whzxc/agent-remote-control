@@ -3,6 +3,4 @@
 <plist version="1.0"><dict>
   <key>CFBundleIconFile</key>
   <string>Icon</string>
-  <key>NSAppleEventsUsageDescription</key>
-  <string>连接任务服务时，需要退出并重新打开 Codex Desktop，让 Chat 创建的任务在桌面中可见、可操作。</string>
 </dict></plist>

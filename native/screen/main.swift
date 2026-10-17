@@ -42,16 +42,10 @@ func rectJSON(_ rect: CGRect) -> [String: Any] {
     ["x": rect.origin.x, "y": rect.origin.y, "width": rect.width, "height": rect.height]
 }
 func requireAX() throws {
-    if !AXIsProcessTrusted() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        if AXIsProcessTrustedWithOptions(options) { return }
-        try fail("ACCESSIBILITY_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 辅助功能中授权 Agent Remote Control，然后重试。")
-    }
+    if !AXIsProcessTrusted() { try fail("PERMISSION_REQUIRED:accessibility") }
 }
 func requireRecording() throws {
-    if !CGPreflightScreenCaptureAccess() && !CGRequestScreenCaptureAccess() {
-        try fail("SCREEN_RECORDING_PERMISSION_REQUIRED: 已请求系统授权提示，请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中授权 Agent Remote Control，然后重试；若系统要求重新打开 App，请按提示操作。")
-    }
+    if !CGPreflightScreenCaptureAccess() { try fail("PERMISSION_REQUIRED:screen-recording") }
 }
 struct Window {
     let id: CGWindowID
@@ -271,6 +265,19 @@ func key(_ description: String) throws {
 }
 func run(_ args: [String: Any]) throws -> [String: Any] {
     let action = args["action"] as? String ?? ""
+    if action == "status" {
+        return ["accessibility": AXIsProcessTrusted() ? "granted" : "missing",
+                "screen-recording": CGPreflightScreenCaptureAccess() ? "granted" : "missing"]
+    }
+    if action == "request" {
+        switch args["permissionId"] as? String {
+        case "accessibility":
+            _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        case "screen-recording": _ = CGRequestScreenCaptureAccess()
+        default: try fail("UNKNOWN_PERMISSION")
+        }
+        return ["requested": true]
+    }
     guard ["windows", "capture", "tree", "press", "show", "raise", "key"].contains(action) else { try fail("UNKNOWN_SCREEN_ACTION") }
     let mode = args["front"] as? String ?? "auto"
     guard ["auto", "never", "always"].contains(mode) else { try fail("INVALID_FRONT_MODE") }
@@ -279,6 +286,7 @@ func run(_ args: [String: Any]) throws -> [String: Any] {
         return ["windows": windows(args).map(\.json)]
     }
     if action == "capture" { try requireRecording() }
+    if action != "capture" { try requireAX() }
     let window = try target(args)
     let focus = Focus()
     defer { focus.restore() }
@@ -335,7 +343,10 @@ do {
     FileHandle.standardOutput.write(response)
 } catch {
     let message = (error as? Failure)?.message ?? error.localizedDescription
-    let response = try! JSONSerialization.data(withJSONObject: ["ok": false, "error": message], options: [.sortedKeys])
+    let error: Any = message.hasPrefix("PERMISSION_REQUIRED:") ?
+        ["code": "PERMISSION_REQUIRED", "permissionId": String(message.dropFirst("PERMISSION_REQUIRED:".count)),
+         "message": "Open ARC Settings → Permissions & readiness to grant access. / 打开 ARC 设置 → 权限与就绪完成授权。"] : message
+    let response = try! JSONSerialization.data(withJSONObject: ["ok": false, "error": error], options: [.sortedKeys])
     FileHandle.standardOutput.write(response)
 }
 FileHandle.standardOutput.write(Data([10]))

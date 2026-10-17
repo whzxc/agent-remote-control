@@ -941,9 +941,13 @@ impl Control {
             "projects" => Ok(
                 json!({"observedAt":now(),"source":"codex-app-server:project/list","projects":crate::projects::list(self).await?}),
             ),
-            "overview" | "tree" | "search" | "read" | "git" => {
-                crate::projects::query(self, name, &args).await
+            "overview" => {
+                let mut result = crate::projects::query(self, name, &args).await?;
+                result["permissions"] =
+                    crate::transport::forward_request("permissions", "GET", json!({})).await?;
+                Ok(result)
             }
+            "tree" | "search" | "read" | "git" => crate::projects::query(self, name, &args).await,
             "edit" | "write" | "git_write" => self.mutate(name, args).await,
             "logs" => {
                 args["descending"] = json!(true);

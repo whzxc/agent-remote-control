@@ -203,7 +203,9 @@ async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdou
 pub fn desktop_route(route: &str) -> bool {
     matches!(
         route,
-        "appearance"
+        "permissions/desktop"
+            | "permissions/notify"
+            | "appearance"
             | "app"
             | "app/quit"
             | "app/restart"

@@ -50,7 +50,11 @@ async fn invoke(args: Value) -> Result<Value> {
     let mut response: Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("SCREEN_HELPER_INVALID_JSON: {e}"))?;
     if response["ok"] != true {
-        return Err(string(&response, "error").to_owned());
+        return Err(if response["error"].is_object() {
+            response["error"].to_string()
+        } else {
+            string(&response, "error").to_owned()
+        });
     }
     let mut result = response["result"].take();
     let image = if args["action"] == "capture" {

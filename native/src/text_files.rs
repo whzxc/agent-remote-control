@@ -10,12 +10,14 @@ pub async fn write(c: &control::Control, operation: &str, args: &Value) -> Resul
         let p = projects::resolve(c, string(args, "project")).await?;
         Path::new(string(&p, "root")).join(requested)
     };
+    crate::permissions::check_path(&path)?;
     // Follow an existing symlink, preserving the link rather than replacing it.
     let path = if path.exists() {
         std::fs::canonicalize(path).map_err(|e| e.to_string())?
     } else {
         path
     };
+    crate::permissions::check_path(&path)?;
     static LOCKS: std::sync::OnceLock<crate::kernel::receipts::RequestLocks> =
         std::sync::OnceLock::new();
     let _guard = LOCKS

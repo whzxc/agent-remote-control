@@ -73,7 +73,7 @@
     },
     {
       "name": "overview",
-      "description": "查看项目目录结构和文档入口；includeSource=true 附加分支、改动与观测元数据。",
+      "description": "查看项目目录结构和文档入口；includeSource=true 附加分支、改动与观测元数据。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -124,7 +124,7 @@
     },
     {
       "name": "tree",
-      "description": "分页列出目录，支持绝对目录且可省 project；附目录与条目元数据，nextOffset 续页。",
+      "description": "分页列出目录，支持绝对目录且可省 project；附目录与条目元数据，nextOffset 续页。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -204,7 +204,7 @@
     },
     {
       "name": "search",
-      "description": "按固定字符串搜索落盘内容和文件名，包含未提交改动；nextOffset 非空时继续，片段不完整时用 read。",
+      "description": "按固定字符串搜索落盘内容和文件名，包含未提交改动；nextOffset 非空时继续，片段不完整时用 read。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -289,7 +289,7 @@
     },
     {
       "name": "read",
-      "description": "按行读取 UTF-8 文本或返回 MCP image，附 sha256 和文件元数据；支持绝对路径，文本用 nextLine 续读。",
+      "description": "按行读取 UTF-8 文本或返回 MCP image，附 sha256 和文件元数据；支持绝对路径，文本用 nextLine 续读。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -380,7 +380,7 @@
     },
     {
       "name": "screen",
-      "description": "仅 macOS：列窗口、截图、读取辅助功能树、按元素、滚动到元素、提窗或发送按键。直接使用 Agent Remote Control 的屏幕录制/辅助功能权限。除 windows 外须指定 app、bundleId、title 或 windowId；同 App 多窗口优先主窗口。press/show 用 ref 或 label+nth；raise 显式提窗，其他需要前台的操作遵循 front。动作返回 performed 仅表示事件已发送，使用 after 截图核对结果；失败或断线后先观察，不盲目重试。",
+      "description": "仅 macOS：列窗口、截图、读取辅助功能树、按元素、滚动到元素、提窗或发送按键。直接使用 Agent Remote Control 的屏幕录制/辅助功能权限。除 windows 外须指定 app、bundleId、title 或 windowId；同 App 多窗口优先主窗口。press/show 用 ref 或 label+nth；raise 显式提窗，其他需要前台的操作遵循 front。动作返回 performed 仅表示事件已发送，使用 after 截图核对结果；失败或断线后先观察，不盲目重试。 macOS permissions: Accessibility for tree/press/show/key/raise; Screen Recording for capture/windows titles. Missing access returns PERMISSION_REQUIRED with permissionId; grant in ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -784,7 +784,7 @@
     },
     {
       "name": "command",
-      "description": "简单命令传 cmd/cwd/timeoutMs，使用用户默认 shell，同步返回输出、退出码和耗时。原生 action/params 保留 sandbox/permission、PTY 和流式语义。",
+      "description": "简单命令传 cmd/cwd/timeoutMs，使用用户默认 shell，同步返回输出、退出码和耗时。原生 action/params 保留 sandbox/permission、PTY 和流式语义。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3040,7 +3040,7 @@
     },
     {
       "name": "edit",
-      "description": "精确替换文本；多处 edits 全部成功才原子写入。返回 sha256、简短 diff 和活动任务提示。绝对 path 可省 project。",
+      "description": "精确替换文本；多处 edits 全部成功才原子写入。返回 sha256、简短 diff 和活动任务提示。绝对 path 可省 project。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3113,7 +3113,7 @@
     },
     {
       "name": "write",
-      "description": "创建或覆盖 UTF-8 文本，自动创建父目录；expectedHash 校验已有内容。返回 sha256 和活动任务提示。绝对 path 可省 project。",
+      "description": "创建或覆盖 UTF-8 文本，自动创建父目录；expectedHash 校验已有内容。返回 sha256 和活动任务提示。绝对 path 可省 project。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Settings → Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {

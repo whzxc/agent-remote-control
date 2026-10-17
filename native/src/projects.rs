@@ -70,7 +70,9 @@ pub async fn resolve(c: &Control, id: &str) -> Result<Value> {
             string(p, "name").into(),
         )
     };
+    crate::permissions::check_path(&root)?;
     let root = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
+    crate::permissions::check_path(&root)?;
     if !root.is_dir() {
         return Err("project must be a directory".into());
     }
@@ -468,6 +470,7 @@ async fn state(p: &Value) -> Result<Value> {
     )
 }
 fn walk(root: &Path, dir: &Path, out: &mut BTreeSet<String>) -> Result<()> {
+    crate::permissions::check_path(dir)?;
     for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let e = entry.map_err(|e| e.to_string())?;
         if e.file_type().map_err(|e| e.to_string())?.is_dir() {
@@ -512,6 +515,10 @@ async fn files(root: &str, prefix: &str, ignored: bool) -> Result<Vec<String>> {
 }
 pub(crate) fn read_bytes(root: &str, file: &str) -> Result<Vec<u8>> {
     let path = Path::new(root).join(file);
+    crate::permissions::check_path(&path)?;
+    if let Ok(resolved) = path.canonicalize() {
+        crate::permissions::check_path(&resolved)?;
+    }
     let before = std::fs::metadata(&path).map_err(io_reason)?;
     if !before.is_file() {
         return Err("NOT_REGULAR_FILE".into());

@@ -1,6 +1,6 @@
 mod changes;
 mod claude_notify;
-mod screen;
+pub mod screen;
 mod shell_command;
 mod text_files;
 use serde_json::{json, Value};
@@ -29,6 +29,7 @@ pub mod management;
 pub mod oauth;
 pub mod operations;
 pub mod output;
+pub mod permissions;
 pub mod preferences;
 pub mod projects;
 pub mod proxy;

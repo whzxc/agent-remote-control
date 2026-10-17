@@ -80,7 +80,7 @@ async fn doctor() -> crate::Result<Value> {
         "preset":crate::control_sources::preset(string(ingress,"controlSource")),"onboarding":onboarding(ingress)}));
     }
     Ok(
-        json!({"ingresses":items,"summary":status["ingressSummary"],"desktop":status["core"]["desktop"],"appServer":status["core"]["appServer"],"executionVerified":false,"diagnostics":status["diagnostics"]}),
+        json!({"permissions":forward_request("permissions", "GET", json!({})).await?,"ingresses":items,"summary":status["ingressSummary"],"desktop":status["core"]["desktop"],"appServer":status["core"]["appServer"],"executionVerified":false,"diagnostics":status["diagnostics"]}),
     )
 }
 // Keep help and argument validation on the same command grammar.
