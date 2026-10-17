@@ -1,5 +1,5 @@
 name: Build release platforms
-run-name: Release ${{ inputs.tag }} (Windows + Linux)
+run-name: Release ${{ inputs.tag }} (${{ inputs.platforms }})
 on:
   workflow_dispatch:
     inputs:
@@ -7,6 +7,11 @@ on:
         description: Release tag
         type: string
         required: true
+      platforms:
+        description: Comma-separated CI platforms (windows,linux)
+        type: string
+        required: true
+        default: windows,linux
 env:
   ARC_BUILD_VERSION: ${{ inputs.tag }}
 permissions:
@@ -16,6 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   linux:
+    if: contains(format(',{0},', inputs.platforms), ',linux,')
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +68,7 @@ jobs:
           path: linux-artifacts/*.tar.gz
           if-no-files-found: error
   windows:
+    if: contains(format(',{0},', inputs.platforms), ',windows,')
     runs-on: windows-latest
     defaults:
       run:

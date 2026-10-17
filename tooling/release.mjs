@@ -29,8 +29,12 @@ function verifySignatures(artifacts) {
     execFileSync(process.execPath, ['tooling/prune-build-cache.mjs'], { stdio: 'inherit' });
   }
 }
-async function validateManifest(manifest, dir, keys = Object.keys(manifest.platforms)) {
-  if (manifest.version !== version || !manifest.platforms['darwin-aarch64']) throw new Error('Invalid release manifest');
+async function validateManifest(manifest, dir) {
+  if (manifest.version !== version || !manifest.platforms || !Object.keys(manifest.platforms).every(key => ['darwin-aarch64', 'windows-x86_64', 'windows-x86_64-nsis'].includes(key))) throw new Error('Invalid release manifest');
+  const keys = Object.keys(manifest.platforms);
+  if (!keys.length) {
+    for (const arch of ['x86_64', 'aarch64']) await readFile(path.join(dir, `agent-remote-control-v${version}-linux-${arch}.tar.gz`));
+  }
   for (const key of keys) {
     const value = manifest.platforms[key];
     if (!value.url.startsWith(base + '/')) throw new Error('Unexpected updater download origin/version');
@@ -97,16 +101,30 @@ async function notes() {
   return `${changes}\n\n## Upgrading from CLC\n\nDisable the old login item and quit ARC before installing/opening this update. On macOS/Linux, move existing state once (existing destinations are left untouched):\n\n\`\`\`sh\n${migration}\n\`\`\`\n\nOn Windows, move %LOCALAPPDATA%/chatgpt-local-connector to %LOCALAPPDATA%/agent-remote-control (and the -dev/-preview variants) before opening the new app. Re-enable login items and grant macOS permissions to the new app identity. Maintainers: move ~/.tauri/local-connector.key to ~/.tauri/agent-remote-control.key. No automatic migration is performed.\n`;
 }
 if (mode === 'release') {
-  const versionAt = args.indexOf('--version');
-  const requested = versionAt < 0 ? undefined : stableVersion(args[versionAt + 1] || '');
-  const flags = versionAt < 0 ? args : args.filter((_, index) => index !== versionAt && index !== versionAt + 1);
-  if (flags.some(arg => !['--skip-tests', '--dry-run'].includes(arg))) throw new Error('release [--dry-run] [--skip-tests] [--version 0.8.29]');
-  const dryRun = args.includes('--dry-run');
-  if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('发布需要在 Apple Silicon Mac 上本地构建和签名');
+  const options = { version: undefined, platforms: 'mac,windows,linux' };
+  const flags = [];
+  for (let i = 0; i < args.length; i++) {
+    const option = args[i];
+    if (option === '--version' || option === '--platforms') {
+      const key = option.slice(2);
+      if (!args[i + 1] || args[i + 1].startsWith('--') || (key === 'version' ? options.version !== undefined : flags.includes('--platforms'))) throw new Error(`Invalid or repeated ${option}`);
+      options[key] = args[++i];
+      if (key === 'platforms') flags.push('--platforms');
+    } else if (['--skip-tests', '--dry-run'].includes(option)) flags.push(option);
+    else throw new Error('release [--dry-run] [--skip-tests] [--version X.Y.Z] [--platforms mac,windows,linux]');
+  }
+  const requested = options.version === undefined ? undefined : stableVersion(options.version);
+  const platforms = options.platforms.split(',');
+  if (new Set(platforms).size !== platforms.length || platforms.some(value => !['mac', 'windows', 'linux'].includes(value))) throw new Error('--platforms accepts a nonempty comma-separated selection of mac,windows,linux');
+  const mac = platforms.includes('mac');
+  const ciPlatforms = platforms.filter(value => value !== 'mac');
+  const dryRun = flags.includes('--dry-run');
+  if (dryRun && !mac) throw new Error('--dry-run requires mac; CI platforms are only built during release');
+  if (mac && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS 发布需要在 Apple Silicon Mac 上本地构建和签名');
   // Fail before compilation, and pass credentials only in the environment.
-  const env = releaseSigningEnv(true);
+  const env = mac ? releaseSigningEnv(true) : { ...process.env };
   let sourceSha;
-  macosSigningIdentity(env, { release: true });
+  if (mac) macosSigningIdentity(env, { release: true });
   const run = (script, ...options) => execFileSync(process.execPath, [script, ...options], { env, stdio: 'inherit' });
   if (!dryRun) {
     if (git('branch', '--show-current') !== 'main') throw new Error('Run release from main');
@@ -128,40 +146,49 @@ if (mode === 'release') {
   env.ARC_BUILD_VERSION = version;
   process.env.ARC_BUILD_VERSION = version;
   base = `https://github.com/${repo}/releases/download/v${version}`;
-  run('tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin');
+  if (mac) run('tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin');
   await mkdir('release-artifacts', { recursive: true });
   const output = await mkdtemp(path.join('release-artifacts', `v${version}-`));
-  run('tooling/release.mjs', 'stage', 'darwin-aarch64', 'target/aarch64-apple-darwin/release/bundle', output);
-  run('tooling/release.mjs', 'finalize', output);
+  if (mac) run('tooling/release.mjs', 'stage', 'darwin-aarch64', 'target/aarch64-apple-darwin/release/bundle', output);
+  if (mac) run('tooling/release.mjs', 'finalize', output);
   console.log(`Release artifacts: ${path.resolve(output)}`);
   if (!dryRun) {
     if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during release; refusing to tag or publish');
     if (!git('tag', '--list', `v${version}`)) git('tag', `v${version}`);
     git('push', '--atomic', 'origin', 'main', `refs/tags/v${version}`);
     const tag = `v${version}`;
-    // CI only builds Windows/Linux from the same immutable tag. All publication stays local.
-    const listRuns = () => JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', 'release.yml', '--branch', tag,
-      '--event', 'workflow_dispatch', '--json', 'databaseId,headSha', '--limit', '20'], { encoding: 'utf8' }));
-    const previousRuns = new Set(listRuns().map(item => item.databaseId));
-    execFileSync('gh', ['workflow', 'run', 'release.yml', '--ref', tag, '-f', `tag=${tag}`], { stdio: 'inherit' });
-    let build;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      build = listRuns().find(item => !previousRuns.has(item.databaseId) && item.headSha === sourceSha);
-      if (build) break;
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    // CI builds only selected platforms from the same immutable tag.
+    if (ciPlatforms.length) {
+      const listRuns = () => JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', 'release.yml', '--branch', tag,
+        '--event', 'workflow_dispatch', '--json', 'databaseId,headSha', '--limit', '20'], { encoding: 'utf8' }));
+      const previousRuns = new Set(listRuns().map(item => item.databaseId));
+      execFileSync('gh', ['workflow', 'run', 'release.yml', '--ref', tag, '-f', `tag=${tag}`, '-f', `platforms=${ciPlatforms.join(',')}`], { stdio: 'inherit' });
+      let build;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        build = listRuns().find(item => !previousRuns.has(item.databaseId) && item.headSha === sourceSha);
+        if (build) break;
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      if (!build) throw new Error('CI 已触发但未取得对应 run；请检查工作流，不要重复发版');
+      const runId = String(build.databaseId);
+      console.log(`Waiting for ${ciPlatforms.join('/')} CI: ${runId}`);
+      execFileSync('gh', ['run', 'watch', runId, '--exit-status', '--interval', '15'], { stdio: 'inherit' });
+      const artifacts = [
+        ...(platforms.includes('windows') ? ['desktop-windows-x86_64'] : []),
+        ...(platforms.includes('linux') ? ['linux-x86_64', 'linux-aarch64'] : []),
+      ];
+      for (const name of artifacts) {
+        execFileSync('gh', ['run', 'download', runId, '--name', name, '--dir', output], { stdio: 'inherit' });
+      }
+      if (platforms.includes('windows')) await readFile(path.join(output, 'windows-x86_64.json'));
+      if (platforms.includes('linux')) {
+        for (const arch of ['x86_64', 'aarch64']) {
+          await readFile(path.join(output, `agent-remote-control-${tag}-linux-${arch}.tar.gz`));
+        }
+        await copyFile('tooling/install-agent-remote-control.sh', path.join(output, 'install-agent-remote-control.sh'));
+      }
     }
-    if (!build) throw new Error('CI 已触发但未取得对应 run；请检查工作流，不要重复发版');
-    const runId = String(build.databaseId);
-    console.log(`Waiting for Windows/Linux CI: ${runId}`);
-    execFileSync('gh', ['run', 'watch', runId, '--exit-status', '--interval', '15'], { stdio: 'inherit' });
-    for (const name of ['desktop-windows-x86_64', 'linux-x86_64', 'linux-aarch64']) {
-      execFileSync('gh', ['run', 'download', runId, '--name', name, '--dir', output], { stdio: 'inherit' });
-    }
-    for (const arch of ['x86_64', 'aarch64']) {
-      await readFile(path.join(output, `agent-remote-control-${tag}-linux-${arch}.tar.gz`));
-    }
-    await copyFile('tooling/install-agent-remote-control.sh', path.join(output, 'install-agent-remote-control.sh'));
-    run('tooling/release.mjs', 'merge-windows', output);
+    if (ciPlatforms.length) run('tooling/release.mjs', 'finalize', output);
     if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed while waiting for CI; refusing to publish');
     const assets = (await files(output)).filter(file => !['darwin-aarch64.json', 'windows-x86_64.json'].includes(path.basename(file)));
     const existing = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/releases`, '--paginate', '--slurp'], { encoding: 'utf8' })).flat().find(release => release.tag_name === tag);
@@ -205,36 +232,28 @@ if (mode === 'release') {
   }
   await writeJson(path.join(output,`${target}.json`), { version, platforms });
   console.log(`Staged ${target} artifacts for metadata generation.`);
-} else if (mode === 'finalize' || mode === 'merge-windows') {
+} else if (mode === 'finalize') {
   const [dir] = args;
-  if (!dir) throw new Error(`${mode} <artifact-dir>`);
-  const windows = mode === 'merge-windows';
-  const fragment = await json(path.join(dir, windows ? 'windows-x86_64.json' : 'darwin-aarch64.json'));
-  if (fragment.version !== version) throw new Error('Mixed release versions');
-  const manifest = windows ? await json(path.join(dir, 'latest.json')) : {
-    version, notes: await notes(), pub_date: new Date().toISOString(), platforms: {},
-  };
-  Object.assign(manifest.platforms, fragment.platforms);
-  await validateManifest(manifest, dir, Object.keys(fragment.platforms));
-  const payloads = [...new Set(Object.values(fragment.platforms).map(value => path.join(dir, value.url.slice(base.length + 1))))];
-  verifySignatures(payloads);
-  if (!windows) {
-    await writeFile(path.join(dir, 'release-notes.md'), manifest.notes + '\n');
-    await cask(dir);
+  if (!dir) throw new Error('finalize <artifact-dir>');
+  const entries = await readdir(dir);
+  const fragments = entries.filter(name => ['darwin-aarch64.json', 'windows-x86_64.json'].includes(name));
+  const linux = entries.filter(name => name === `agent-remote-control-v${version}-linux-x86_64.tar.gz` || name === `agent-remote-control-v${version}-linux-aarch64.tar.gz`);
+  if (!fragments.length && !linux.length) throw new Error('No platform artifacts');
+  const manifest = { version, notes: await notes(), pub_date: new Date().toISOString(), platforms: {} };
+  for (const name of fragments) {
+    const fragment = await json(path.join(dir, name));
+    if (fragment.version !== version) throw new Error('Mixed release versions');
+    Object.assign(manifest.platforms, fragment.platforms);
   }
-  const sumsFile = path.join(dir, 'SHA256SUMS.txt');
-  const sums = new Map();
-  if (windows) {
-    for (const line of (await readFile(sumsFile, 'utf8')).trim().split('\n')) {
-      const [, digest, name] = line.match(/^([a-f0-9]{64})  (.+)$/) ?? [];
-      if (!name) throw new Error('Invalid SHA256SUMS entry');
-      // Replace all previous Windows checksums, including renamed installers.
-      if (!/\.exe(?:\.sig)?$/.test(name)) sums.set(name, digest);
-    }
-  }
+  await validateManifest(manifest, dir);
+  const payloads = [...new Set(Object.values(manifest.platforms).map(value => path.join(dir, value.url.slice(base.length + 1))))];
+  if (payloads.length) verifySignatures(payloads);
+  await writeFile(path.join(dir, 'release-notes.md'), manifest.notes + '\n');
+  if (manifest.platforms['darwin-aarch64']) await cask(dir);
   await writeJson(path.join(dir, 'latest.json'), manifest);
   const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md', 'install-agent-remote-control.sh'].includes(path.basename(f)));
+  const sums = new Map();
   for (const file of assets) sums.set(path.basename(file), hash(await readFile(file)));
-  await writeFile(sumsFile, [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
-  console.log(windows ? 'Windows metadata merged; existing macOS entries preserved.' : 'macOS release metadata generated.');
-} else throw new Error('Expected release, stage, finalize, or merge-windows');
+  await writeFile(path.join(dir, 'SHA256SUMS.txt'), [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
+  console.log('Release metadata generated for staged platforms.');
+} else throw new Error('Expected release, stage, or finalize');
