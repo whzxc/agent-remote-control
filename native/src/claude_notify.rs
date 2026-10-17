@@ -566,6 +566,27 @@ pub(crate) async fn inbox(ingress: &str, reads: &[(String, String)]) -> Result<V
         .flatten()
         .filter(|v| v["read"] != true)
         .cloned()
+        .map(|mut row| {
+            // Stored events predate the frozen surface; project their next call
+            // through the current catalog without rewriting notification history.
+            if let Some(op) = row["next"]["tool"].as_str().map(str::to_owned) {
+                let mut next = row["next"].take();
+                if let Some(spec) = catalog()["ops"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|s| s["name"] == op)
+                {
+                    next["via"] = json!(crate::egress::via(spec));
+                    next["op"] = json!(op);
+                    next["args"] = next["arguments"].take();
+                }
+                next.as_object_mut().unwrap().remove("tool");
+                next.as_object_mut().unwrap().remove("arguments");
+                row["next"] = next;
+            }
+            row
+        })
         .collect();
     Ok(if unread.is_empty() {
         Value::Null
@@ -1328,6 +1349,7 @@ pub(crate) async fn observe(thread: &str, turn: &str, observed: &Value) -> Resul
 // A read can beat the background observer. Record the state it actually read
 // before marking that turn read; later transitions remain unread.
 pub(crate) async fn read_turns(
+    control: &Arc<control::Control>,
     name: &str,
     args: &Value,
     value: &Value,
@@ -1361,7 +1383,33 @@ pub(crate) async fn read_turns(
         if turn.is_empty() {
             continue;
         }
+        if reads
+            .iter()
+            .any(|(read_task, read_turn)| read_task == task && read_turn == turn)
+        {
+            continue;
+        }
         let mut observation = t.clone();
+        // Item/change pages identify the read turn but carry no lifecycle state.
+        // Reconcile a pending binding now, before inbox() acknowledges it, so the
+        // observer cannot append an already-read completion on its next cycle.
+        if matches!(name, "codex_items" | "codex_changes")
+            && binding(&directory(), task, turn)?.is_some_and(|b| !b.terminal)
+        {
+            match tokio::time::timeout(
+                Duration::from_secs(10),
+                crate::waiter::codex_observe(control, &json!({"threadId":task,"turnId":turn})),
+            )
+            .await
+            {
+                Ok(Ok(value)) => observation = value,
+                error => crate::logs::record(
+                    "WARN",
+                    &format!("Inbox turn observation unavailable: {error:?}"),
+                    None,
+                ),
+            }
+        }
         if observation["title"].is_null() {
             observation["title"] = value["title"].clone();
         }

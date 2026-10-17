@@ -33,19 +33,19 @@
 - **op 名沿用现有工具名**（`codex_create`、`codex_wait`、`read`、`git` 等），现有知识、guide 文案和回执里的 `next.tool` 直接复用，只是外层变成 `query` / `act`。`next` 改为 `{hint, via: "query"|"act", op, args}`；无建议调用时只返回 hint。readNext 与通知事件的后续调用采用相同 via/op/args。
 - 每个 op 归属 query 或 act，依据现有 annotations 的 readOnlyHint；混合读写操作（如 receipt、screen、mcp、codex_thread）整体归 act，不按 action 再拆入口；connector_verify 修正为写操作。`codex_call`、`codex_schema` 等原生协议透传也作为 op 保留。
 - `connector_verify` 并入 `act` 的 op；setup 生成的验证提示词改为写明完整调用。
-- 现有的工具档位（默认 / 只读 / 全部 / 自定义列表）语义保留，作用对象从 MCP 工具变为 op：未启用或本机不可用的 op 不出现在 guide 索引中，查询其 schema 或调用时都返回 OP_UNAVAILABLE。三个 MCP 工具不受档位影响；只读档保留 connector_verify 维护例外，仍通过 act 调用。现有 allowlist 保持原 op 名，启动时移除不再属于 op 的 guide。
+- 现有的工具档位（默认 / 只读 / 全部 / 自定义列表）语义保留，作用对象从 MCP 工具变为 op：未启用或本机不可用的 op 不出现在 guide 索引中，查询其 schema 或调用时都返回 OP_UNAVAILABLE。三个 MCP 工具不受档位影响；只读档保留 connector_verify 维护例外，仍通过 act 调用。现有 allowlist 保持原 op 名；guide 也是始终可用的 query op，不受档位限制。
 - 这三个工具的名称与参数结构**冻结**：今后发版不得改名、删除或修改其参数结构。能力变化只能通过 op 与 guide 发生。把这条写进 AGENTS.md，作为“不保留兼容层”规则旁边的工具面约束。
 
 ## 自愈与版本提示
 
-- **参数错误**：复用现有 jsonschema validator；op 校验失败时，错误结果附带该 op 当前的 inputSchema 与一个最小示例，控制源一次即可纠正。
+- **参数错误**：复用现有 jsonschema validator；op 校验失败时，错误结果附带该 op 当前的 inputSchema、一个最小示例及 query guide 的 schema 读取调用，控制源一次即可纠正。
 - **未知 op**：返回最接近的候选已启用 op 名（最多三个），并提示调用 `guide` 查看索引。op 改名不需要兼容层，靠这条自愈。
 - **版本提示**：所有工具结果附带 `arcVersion`（嵌入 catalog（包含 guide、op schema、示例与档位元数据）的 SHA-256 前 12 位）。guide 告诉控制源：发现 `arcVersion` 与自己读 guide 时不同，就重读 guide。与 `arcInbox` 同样以捎带方式实现，不新增工具。对象结果直接加字段；数组、标量、null 始终包装成 `{value, arcVersion}`，存在未读事件时再附带 arcInbox。此版本标识内容版本，不是应用版本；本地档位与可用性变化直接重读 guide，不改变内容哈希。
 
 ## guide 内容调整
 
 - 首次调用 `guide`（默认 topic=loop）返回：当前控制源的 loop、通用要点、常用 op 的现成调用示例（`act codex_create`（Claude 示例含 notify；ChatGPT 与其他控制源按当前能力使用等待与收件箱）、`act codex_send`、`query codex_wait`、`query codex_read` / `codex_changes`、`query read` / `search`），以及其余 op 的一行索引。
-- `guide({op: "<name>"})` 返回单个 op 的完整 schema、说明与示例。
+- `guide({op: "<name>"})` 返回单个 op 的完整 schema、说明与示例。缓存的 guide schema 不接受 op 时，调用 `query({op:"guide",args:{op:"<name>"}})`；该 op 也接受 topic，沿用同一 guide 实现，不改变三个 MCP 工具的 schema。
 - 内容保持短小；索引只展示说明首句，单个 op 返回现有 description 全文，不重写语义。每个 op 的最小参数示例与 schema 一起维护在现有 catalog；不生成猜测性的 schema 示例。
 - MCP `instructions` 改为：先调用 `guide`；所有能力通过 `query` / `act` 调用。
 

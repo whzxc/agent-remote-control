@@ -1,7 +1,7 @@
 //! Application composition: tool routing over shared execution owners.
 use crate::{agents::AgentHost, control::Control, *};
 pub struct Execution {
-    control: Arc<Control>,
+    pub(crate) control: Arc<Control>,
     agents: Arc<AgentHost>,
 }
 impl Execution {

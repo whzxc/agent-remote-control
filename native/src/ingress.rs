@@ -995,30 +995,43 @@ async fn tunnel_version(binary: &Path) -> Result<[u64; 3]> {
 async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     static INSTALL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = INSTALL.lock().await;
+    let parent = root().join("dependencies/tunnel");
+    let binary_name = if cfg!(windows) {
+        "tunnel-client.exe"
+    } else {
+        "tunnel-client"
+    };
+    let cloudflared_name = if cfg!(windows) {
+        "cloudflared.exe"
+    } else {
+        "cloudflared"
+    };
+    let mut cached = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&parent) {
+        for entry in entries.flatten() {
+            let binary = entry.path().join(binary_name);
+            if binary.is_file() && entry.path().join(cloudflared_name).is_file() {
+                if let Ok(version) = tunnel_version(&binary).await {
+                    if version >= [0, 0, 16] {
+                        cached.push((version, binary));
+                    }
+                }
+            }
+        }
+    }
+    if let Some((_, binary)) = cached.into_iter().max_by(|a, b| a.0.cmp(&b.0)) {
+        return Ok(binary);
+    }
+    // Install the supported official version directly. Startup must not depend
+    // on the anonymous GitHub releases API or on discovering the latest release.
+    let tag = format!("v{TUNNEL_MIN_VERSION}");
+    let base = format!("https://github.com/openai/tunnel-client/releases/download/{tag}");
     let client = proxy
         .client(reqwest::Client::builder())
         .user_agent("agent-remote-control")
         .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| e.to_string())?;
-    let release: Value = client
-        .get("https://api.github.com/repos/openai/tunnel-client/releases/latest")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .error_for_status()
-        .map_err(|e| e.to_string())?
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
-    let tag = string(&release, "tag_name");
-    if !tag.starts_with('v')
-        || !tag
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
-    {
-        return Err("无效发行版本".into());
-    }
     let platform = if cfg!(target_os = "macos") {
         "darwin"
     } else if cfg!(windows) {
@@ -1033,44 +1046,9 @@ async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     } else {
         "amd64"
     };
-    let cached = root()
-        .join("dependencies/tunnel")
-        .join(tag)
-        .join(if cfg!(windows) {
-            "tunnel-client.exe"
-        } else {
-            "tunnel-client"
-        });
-    if cached.is_file()
-        && cached
-            .parent()
-            .unwrap()
-            .join(if cfg!(windows) {
-                "cloudflared.exe"
-            } else {
-                "cloudflared"
-            })
-            .is_file()
-        && tunnel_version(&cached).await.is_ok_and(|v| v >= [0, 0, 16])
-    {
-        return Ok(cached);
-    }
     let name = format!("tunnel-client-{tag}-{platform}-{arch}.zip");
-    let asset = |name: &str| -> Result<String> {
-        let url = release["assets"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .find(|a| a["name"] == name)
-            .and_then(|a| a["browser_download_url"].as_str())
-            .ok_or("官方资产缺失")?;
-        if !url.starts_with("https://github.com/openai/tunnel-client/releases/download/") {
-            return Err("非官方资产地址".into());
-        }
-        Ok(url.into())
-    };
     let sums = client
-        .get(asset("SHA256SUMS.txt")?)
+        .get(format!("{base}/SHA256SUMS.txt"))
         .send()
         .await
         .map_err(|e| e.to_string())?
@@ -1087,7 +1065,7 @@ async fn install_tunnel(proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
         })
         .ok_or("官方校验和缺失")?;
     let bytes = client
-        .get(asset(&name)?)
+        .get(format!("{base}/{name}"))
         .send()
         .await
         .map_err(|e| e.to_string())?

@@ -1,6 +1,6 @@
 # Test a task from the remote conversation
 
-ARC exposes only `guide`, `query`, and `act`. Start with `guide`; dispatch with `act({"op":"codex_create","args":{...},"requestId":"<UUID>"})` (or agent_create), read receipts through act receipt, and wait/read/review through query. Put notify inside args. Reread guide when arcVersion changes.
+ARC exposes only `guide`, `query`, and `act`. Start with `guide`; dispatch with `act({"op":"codex_create","args":{...},"requestId":"<UUID>"})` (or agent_create), read receipts through act receipt, and wait/read/review through query. Put notify inside args. Reread guide when arcVersion changes. If the cached guide schema rejects op, use query({"op":"guide","args":{"op":"codex_create"}}). codex_create requires a selected project in args; codex_send uses the returned threadId.
 
 You are the **local setup agent**. Do not create the test task locally. Generate a
 ready-to-paste prompt from `onboarding.executionPrompt`, translating it if needed

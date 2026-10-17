@@ -16,7 +16,7 @@ Codex 提供普通 `gpt-6-astra`，其模型列表没有独立的 Astra Pro 选�
 
 1. 安装 ARC，并登录 Codex Desktop。
 2. 按官方 [Secure MCP Tunnel 流程](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)取得 Tunnel ID 和运行时 API key，直接填入 ARC 的 **ChatGPT** 连接表单。
-3. 保存并连接。ARC 会准备和管理官方 Tunnel Client。
+3. 保存并连接。ARC 会准备和管理官方 Tunnel Client；优先复用合格缓存，没有合格缓存时直接下载支持的官方版本并校验 SHA256，不依赖匿名 GitHub API。
 4. 在 ChatGPT 开启可用的 **Developer Mode**。打开[插件](https://chatgpt.com/plugins)，创建开发者连接，选择 **Tunnel**，选中同一个 Tunnel。界面名称不同时，按当前[连接说明](https://developers.openai.com/plugins/deploy/connect-chatgpt)操作。
 5. 在 Chat 对话启用 ARC。执行 ARC 显示的验证提示词，通过该入口的 code 调用 `act connector_verify`。
 

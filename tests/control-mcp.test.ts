@@ -112,7 +112,7 @@ async function completed(name: string, args: Record<string, unknown>) {
 
 test('MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas', async () => {
   assert.deepEqual(inventory.tools.map(tool => tool.name), ['guide', 'query', 'act']);
-  const existing = ['edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
+  const existing = ['guide', 'edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
   assert.deepEqual(operations.map(tool => tool.name).sort(), [...existing, 'agents', 'agent_capabilities', 'agent_tasks', 'agent_create', 'agent_read', 'agent_context', 'agent_wait', 'agent_send', 'agent_interrupt', 'agent_events', 'agent_pending', 'agent_respond', 'fs', 'command', 'process', 'mcp', 'file_search', 'codex_thread', 'codex_account'].filter(name => !name.startsWith('agent') || operations.some(tool => tool.name === 'agents')).sort());
   for (const tool of operations) {
     assert.equal(tool.inputSchema.type, 'object');
@@ -467,7 +467,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     await management(`ingress/${b.id}/stop`, 'POST');
     await management(`ingress/${b.id}`, 'PUT', { toolPolicy: { allowlist: [] } });
     await management(`ingress/${b.id}/start`, 'POST');
-    assert.deepEqual(await list(b), []);
+    assert.deepEqual(await list(b), ['guide']);
     for (const name of ['connector_verify', 'codex_wait', 'agent_wait']) assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: {} })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE');
   } finally {
     await management(`ingress/${a.id}`, 'DELETE');

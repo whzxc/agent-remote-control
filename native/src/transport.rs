@@ -388,9 +388,16 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
             .ok_or("Unknown tool; call guide, query or act.")?;
         crate::validator("tool", tool, &spec["inputSchema"])?
             .validate(&envelope)
-            .map_err(|e| json!({"code":"INVALID_ARGUMENTS","message":e.to_string(),"inputSchema":spec["inputSchema"]}).to_string())?;
-        let op_name = if tool == "guide" { string(&envelope,"op") } else { name };
-        if tool != "guide" || envelope.get("op").is_some() {
+            .map_err(|e| json!({"code":"INVALID_ARGUMENTS","message":e.to_string(),"inputSchema":spec["inputSchema"],"guide":{"tool":"query","arguments":{"op":"guide","args":{}}}}).to_string())?;
+        if tool != "guide" && name == "guide" {
+            let spec = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == "guide").unwrap();
+            if tool != "query" {
+                return Err(json!({"code":"WRONG_TOOL","op":"guide","via":"query","example":crate::egress::example(spec)}).to_string());
+            }
+            crate::egress::validate_op(spec, &args)?;
+        }
+        let op_name = if name == "guide" { string(&args,"op") } else { name };
+        if name != "guide" || args.get("op").is_some() {
             let op = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == op_name);
             let Some(op) = op else {
                 return Err(crate::egress::unknown_op(op_name, &enabled_ops(s).await));
@@ -398,11 +405,11 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
             if !s.allows(op_name).await {
                 return Err(json!({"code":"OP_UNAVAILABLE","op":op_name,"message":"This op is disabled by the ingress policy or unavailable on this device. Call guide for enabled ops."}).to_string());
             }
-            if tool != "guide" && tool != crate::egress::via(op) {
+            if name != "guide" && tool != crate::egress::via(op) {
                 return Err(json!({"code":"WRONG_TOOL","op":op_name,"message":"Use the op's assigned tool.","via":crate::egress::via(op),"example":crate::egress::example(op)}).to_string());
             }
         }
-        if tool == "guide" {
+        if name == "guide" {
             return Ok(crate::egress::guide(&s.origin().await, &args, &crate::i18n::locale(), &enabled_ops(s).await));
         }
         if let Some(request_id) = envelope.get("requestId") {
@@ -414,7 +421,8 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
     let mut reads = Vec::new();
     let (mut value, error) = match result {
         Ok(mut value) => {
-            match crate::claude_notify::read_turns(name, &args, &value).await {
+            match crate::claude_notify::read_turns(&s.execution.control, name, &args, &value).await
+            {
                 Ok(turns) => reads = turns,
                 Err(error) => crate::logs::record(
                     "WARN",

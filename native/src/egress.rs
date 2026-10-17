@@ -138,7 +138,7 @@ pub(crate) fn example(spec: &Value) -> Value {
 pub(crate) fn validate_op(spec: &Value, args: &Value) -> Result<()> {
     crate::validator("op", string(spec, "name"), &spec["inputSchema"])?
         .validate(args)
-        .map_err(|error| json!({"code":"INVALID_ARGUMENTS","op":spec["name"],"message":error.to_string(),"inputSchema":spec["inputSchema"],"example":example(spec)}).to_string())
+        .map_err(|error| json!({"code":"INVALID_ARGUMENTS","op":spec["name"],"message":error.to_string(),"inputSchema":spec["inputSchema"],"example":example(spec),"guide":{"tool":"query","arguments":{"op":"guide","args":{"op":spec["name"]}}}}).to_string())
 }
 
 pub(crate) fn unknown_op(name: &str, ops: &[Value]) -> String {
@@ -162,7 +162,7 @@ pub(crate) fn unknown_op(name: &str, ops: &[Value]) -> String {
     let mut candidates: Vec<_> = ops.iter().map(|op| string(op, "name")).collect();
     candidates.sort_by_key(|candidate| (distance(name, candidate), *candidate));
     candidates.truncate(3);
-    json!({"code":"UNKNOWN_OP","op":name,"message":"Call guide for the enabled op index, then guide({op}) for its schema.","candidates":candidates}).to_string()
+    json!({"code":"UNKNOWN_OP","op":name,"message":"Call guide for the enabled op index, then query({op: \"guide\", args: {op: \"<name>\"}}) for its schema (also works with a cached guide schema).","candidates":candidates}).to_string()
 }
 
 pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -> Value {

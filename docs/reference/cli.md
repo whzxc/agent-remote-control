@@ -236,7 +236,10 @@ For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core an
 
 Before starting an OpenAI Tunnel ingress, ARC checks the selected Tunnel Client
 against minimum version `0.0.16`. Missing/older clients are installed into the
-state directory from the official release with SHA256 verification. A running
+state directory. ARC first reuses a managed cache containing both executables at
+a qualifying version. If none qualifies, it downloads the supported `v0.0.16`
+release directly from the official repository and verifies its SHA256SUMS.txt.
+Startup does not call the anonymous GitHub releases API. A running
 ingress is stopped only when an upgrade is needed and restarted by the same start
 operation. External executables are not overwritten; the ingress switches to the
 managed executable. An unrecognized version blocks startup with

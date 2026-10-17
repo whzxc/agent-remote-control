@@ -16,7 +16,7 @@ Codex offers the ordinary `gpt-6-astra` model; its model list does not expose a 
 
 1. Install ARC and sign in to Codex Desktop.
 2. Follow the official [Secure MCP Tunnel setup](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) to obtain a Tunnel ID and runtime API key. Enter them directly in ARC's **ChatGPT** connection form.
-3. Save and connect. ARC prepares and manages the official Tunnel Client.
+3. Save and connect. ARC prepares and manages the official Tunnel Client, reusing a qualifying cached version before downloading the supported official release with SHA256 verification. Startup does not depend on the anonymous GitHub API.
 4. Enable **Developer Mode** in ChatGPT where available. Open [Plugins](https://chatgpt.com/plugins), create a developer-mode connection, choose **Tunnel**, and select the same tunnel. Follow the current [connection instructions](https://developers.openai.com/plugins/deploy/connect-chatgpt) if the UI labels differ.
 5. Enable ARC in the Chat conversation. Run the verification prompt shown by ARC; it calls `act connector_verify` with that ingress's code.
 

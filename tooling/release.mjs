@@ -94,7 +94,11 @@ function changesSince(previous) {
 }
 async function notes() {
   const previous = previousPublished();
-  const changes = changesSince(previous);
+  let changes = changesSince(previous);
+  const previousCatalog = previous && JSON.parse(git('show', `refs/tags/v${previous}:native/src/catalog.json`));
+  if (previousCatalog && !previousCatalog.tools.some(tool => tool.name === 'query')) {
+    changes += '\n\n## MCP tool refresh / 工具刷新\n\nThis release consolidates MCP tools into guide / query / act. Refresh tools once and reauthorize ARC in your client. These three tool names and parameter structures are now frozen; future capabilities are disclosed through ops and guide.\n\n本版把 MCP 工具收敛为 guide / query / act。请在控制端刷新一次工具并重新授权 ARC。之后三个工具的名称和参数结构不再变化，能力更新通过 op 与 guide 披露。';
+  }
   // Include the manual identity change only when upgrading from an old release.
   if (!previous || !git('show', `refs/tags/v${previous}:native/src/lib.rs`).includes('chatgpt-local-connector')) return changes;
   const migration = 'for base in "$HOME/.local/state" "${XDG_STATE_HOME:-$HOME/.local/state}" "${XDG_CONFIG_HOME:-$HOME/.config}"; do for suffix in "" -dev -preview; do old="$base/chatgpt-local-connector$suffix"; new="$base/agent-remote-control$suffix"; if [ -d "$old" ] && [ ! -e "$new" ]; then mv "$old" "$new" || exit; fi; done; done';

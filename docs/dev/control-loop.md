@@ -88,7 +88,7 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 ```
 
   最多列 5 条，没有未读时不出现该字段。
-- 已读：控制源对该轮次调用 `query codex_read` / `query codex_wait` / `query codex_items` / `query codex_changes`（其他 Agent 用 `query agent_read` / `query agent_wait`；事件分页不视为读完整轮次）成功读到对应轮次即视为已读；不新增专门的 ack 工具。
+- 已读：控制源对该轮次调用 `query codex_read` / `query codex_wait` / `query codex_items` / `query codex_changes`（其他 Agent 用 `query agent_read` / `query agent_wait`；事件分页不视为读完整轮次）成功读到对应轮次即视为已读，在该次响应组装收件箱前同步保存。items / changes 无轮次状态时先同步观察尚未终结的绑定，避免后台观察器稍后补写已读完成事件；运行中轮次之后的新事件仍保持未读。不新增专门的 ack 工具。存量事件的旧 next 在输出时按当前 catalog 投影为 via/op/args。
 - 收件箱每入口保留最近 50 条（包括已读记录用于去重），超出丢最旧的。事件来自本次及之后经 ARC 派发的轮次；不追溯未登记的历史任务。同轮其他入口追加输入不改变原归属。
 - 原返回值是数组、标量或 null 时始终包装成 `{value, arcVersion}`；有未读事件时再附带 arcInbox。所有工具结果（包括错误）附带 guide 与 catalog 的内容短哈希 arcVersion，变化时控制源重读 guide。工具执行失败不标记已读；无法确认状态的等待不清除未读。
 
@@ -117,6 +117,7 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 冻结工具 `guide` 始终可用，不受 op 档位限制：
 
 - 入参 `topic` 可选：`loop`（默认）、`notify`、`review`、`approvals`；可选 `op` 返回指定操作的完整 schema、说明与调用示例，优先于 topic。
+- 缓存的 guide schema 不接受 op 时，通过 `query({op:"guide",args:{topic?,op?}})` 读取同一指南；该 op 始终可用，不改动工具参数结构。
 - 默认返回编排内容、常用 query / act 调用示例与当前入口启用的 op 一行索引；op 名沿用原工具名。其他操作均通过 `query({op,args})` 或 `act({op,args,requestId?})` 调用。
 - **按控制源返回不同内容**：根据请求所在入口判断控制源类型（Claude、ChatGPT、其他），返回该控制源能用的 Loop 路径。
 - 内容放在 catalog（或与 catalog 同级的本地化文案）里，随版本发布，每个 topic 保持短小（编排文案目标 40 行以内，目录和单个 op schema 按需返回）。中英文按现有 locale 机制。
