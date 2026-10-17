@@ -11,6 +11,8 @@ skill for your Agent, and continues through the local setup protocol. The macOS
 installer checks the App tarball’s checksum, installs and opens ARC, and waits
 for Core. No DMG mounting or command assembly is needed.
 
+Remote verification uses `act({"op":"connector_verify","args":{"code":"<code>"}})`. Task acceptance starts with `guide`, then dispatches through `act` and waits/reads through `query`. The MCP tools stay fixed at guide / query / act; connection levels apply to ops.
+
 ## Continue in the App
 
 If ARC is already installed, click **Add control source**, choose **Claude**

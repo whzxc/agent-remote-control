@@ -3,7 +3,7 @@ export type ToolMode = 'all' | 'common' | 'readOnly' | 'custom';
 export interface ToolCatalog {
   groups: { id: string; label: { en: string; 'zh-CN': string } }[];
   required: string[];
-  tools: { name: string; description: string; group: string; presets: string[]; requires: string[]; tier?: "default" | "advanced"; conditional?: boolean; available?: boolean }[];
+  tools: { name: string; description: string; via: "query" | "act"; group: string; presets: string[]; requires: string[]; tier?: "default" | "advanced"; conditional?: boolean; available?: boolean }[];
 }
 
 // Only an explicit selection/save of a changed policy invokes normalization.

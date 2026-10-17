@@ -2,7 +2,9 @@
 
 [Home](../../README.md) · [Tools](tools.md)
 
-ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*`; Pi and ACP Agents use `agent_*` with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed, enabled entries, with a configurable limit of 4/6/8/10.
+ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*` ops; Pi and ACP Agents use `agent_*` ops with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed, enabled entries, with a configurable limit of 4/6/8/10.
+
+Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a current schema and example. Execute reads through query and mutations through act; these entrypoints remain fixed when capabilities change.
 
 ## Drivers and launch commands
 
@@ -37,10 +39,10 @@ Components live under `dependencies/claude-acp/<version>` in ARC state. Old comp
 ## Create, wait, continue
 
 ```text
-agent_create {"agent":"opencode","cwd":"/absolute/project","prompt":"Do not use tools or read files. Reply OK.","requestId":"<fresh UUID>"}
-agent_wait {"agent":"opencode","taskId":"<returned taskId>","timeoutMs":30000}
-agent_read {"agent":"opencode","taskId":"<returned taskId>"}
-agent_send {"agent":"opencode","taskId":"<returned taskId>","prompt":"Continue with the agreed next step.","requestId":"<fresh UUID>"}
+act {"op":"agent_create","args":{"agent":"opencode","cwd":"/absolute/project","prompt":"Do not use tools or read files. Reply OK."},"requestId":"<fresh UUID>"}
+query {"op":"agent_wait","args":{"agent":"opencode","taskId":"<returned taskId>","timeoutMs":30000}}
+query {"op":"agent_read","args":{"agent":"opencode","taskId":"<returned taskId>"}}
+act {"op":"agent_send","args":{"agent":"opencode","taskId":"<returned taskId>","prompt":"Continue with the agreed next step."},"requestId":"<fresh UUID>"}
 ```
 
 taskId is ARC's persistent UUID; sessionId is the upstream session. Pi/ACP turnId identifies one submitted prompt. agent_tasks lists ARC-created tasks with pagination. Receipts and wait continuation follow [Tools](tools.md#waiting). Pi prompt acceptance and ACP prompt completion occur at different points, so use agent_wait for the task outcome.
@@ -73,4 +75,4 @@ compatibility can describe helpArgs/helpContains/identityContains, versionRequir
 
 ## Limits
 
-Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic MCP tools do not expose ACP model/mode switching, fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.
+Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic Agent ops do not expose ACP model/mode switching, fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.

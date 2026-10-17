@@ -18,7 +18,7 @@ For Claude, add an HTTPS ingress with OAuth. For ChatGPT, start with [Secure Tun
 
 1. Open the control source in ARC and edit its connection.
 2. Choose the provider and enter the required fields. Use **Get token** links when offered.
-3. Select the client's authentication: OAuth for Claude, or Bearer for clients supporting the `Authorization` header. Keep the Default tool list to begin.
+3. Select the client's authentication: OAuth for Claude, or Bearer for clients supporting the `Authorization` header. Keep the Default op list to begin.
 4. Save and connect. ARC downloads the provider component when needed and manages its process.
 5. Copy the displayed MCP URL into the client and run the connection's verification prompt there.
 

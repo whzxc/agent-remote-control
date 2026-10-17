@@ -4,6 +4,8 @@
 
 让 Claude 阅读项目、与你确定方案，再交给本机 Codex 实现。ARC 把状态送回发起任务的 Claude Code 云端会话，让 Claude 接着审查和推进。
 
+先调用 `guide` 读取当前入口的编排指南、可用 op 和调用示例；`guide({"op":"codex_create"})` 可查看完整参数。所有操作通过 `query({"op":"…","args":{…}})` 或 `act({"op":"…","args":{…}})` 调用；结果中的 `arcVersion` 变化时重新读取 `guide`。
+
 ## 准备
 
 - 在执行电脑安装 ARC，并登录 Codex Desktop。
@@ -36,15 +38,15 @@ Claude 的[连接器文档](https://claude.com/docs/connectors/building)说明�
 
 > 让 Codex 在该项目实现约定的改动，运行已有检查。使用新 requestId，设置 notify 为 {channel: "claude-session", target: 你自己的 Claude Code 云端会话 ID 或 URL}。保留返回的 threadId 和 turnId。收到通知后读取任务，按验收标准审查改动。
 
-对应工具为 `codex_create`，主要字段是 `project`、`prompt`、`requestId` 和 `notify`。保留回执和任务 ID。需要立即检查进度时使用 `codex_wait`；超时后沿用原 ID，把返回的 snapshotHash 作为 expectedHash 继续等待。
+调用 `act`，op 为 `codex_create`；将 `project`、`prompt`、`notify` 放入 args，requestId 放在外层。保留回执和任务 ID。需要立即检查进度时使用 `query codex_wait`；超时后沿用原 ID，把返回的 snapshotHash 作为 expectedHash 继续等待。
 
 ## 接收、审查、继续
 
 派发后 Claude 可以直接结束本轮。Codex 完成时，通知会唤醒同一 Claude Code 云端会话，让它审查改动并继续。
 
-绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送固定状态消息，标明项目、任务和轮次。Claude 随后通过 `codex_read` / `codex_items` 读取实际输出，通过 `codex_changes` 或 `git` 审查改动。
+绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送固定状态消息，标明项目、任务和轮次。Claude 随后通过 `query codex_read` / `query codex_items` 读取实际输出，通过 `query codex_changes` 或 `query git` 审查改动。
 
-让 Claude 对照验收标准判断结果，说明剩余问题，再用 `codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。被中断轮次紧接的续轮可以继承绑定，显式绑定或解除优先。
+让 Claude 对照验收标准判断结果，说明剩余问题，再用 `act codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。被中断轮次紧接的续轮可以继承绑定，显式绑定或解除优先。
 
 任务结果的 `notification` 显示投递状态。绑定失败会在派发回执中标为 `bind-failed`。投递失败时查看**记录**；macOS 上 ARC 还会尝试发送系统通知。
 

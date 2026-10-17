@@ -2,6 +2,8 @@
 
 **English** | [简体中文](zh-CN/getting-started.md)
 
+Call `guide` first for this connection’s workflow, enabled ops, and examples. Use `guide({"op":"codex_create"})` for the full schema. Invoke operations through `query({"op":"…","args":{…}})` or `act({"op":"…","args":{…}})`; reread `guide` when a result’s `arcVersion` changes.
+
 ## Set up with an Agent
 
 On a fresh Mac, [let a local Agent install and configure ARC](auto-setup.md). If ARC is already installed, open **Add control source**, choose **Claude** (recommended) or **ChatGPT**, and click **Send to Codex**. ARC installs the setup skill and shows progress while Codex handles signed-in setup pages, credential transfer, and the first remote test; you choose the route and help when login or its safety policy requires you.
@@ -27,7 +29,7 @@ xattr -rd com.apple.quarantine "/Applications/Agent Remote Control.app"
 3. Save, connect, and copy the displayed MCP URL.
 4. In Claude's connector settings, add a custom connector with that URL. Start its authorization flow.
 5. Keep the authorization page open. Choose **Open ARC**, check the request in ARC, and allow it. Return to Claude and enable the connector for the conversation.
-6. Copy the connection's verification prompt and ask Claude to run it. It calls `connector_verify` through the connection you just added.
+6. Copy the connection's verification prompt and ask Claude to run it. It calls `act connector_verify` through the connection you just added.
 
 ### 3. Dispatch and receive a notification
 

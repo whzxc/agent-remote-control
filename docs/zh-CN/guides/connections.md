@@ -2,7 +2,7 @@
 
 [English](../../guides/connections.md) | **简体中文**
 
-Claude 使用 HTTPS 入口和 OAuth；ChatGPT 优先使用 [Secure Tunnel](chatgpt.md)。每条入口有自己的提供商、凭据、URL 和工具列表。
+Claude 使用 HTTPS 入口和 OAuth；ChatGPT 优先使用 [Secure Tunnel](chatgpt.md)。每条入口有自己的提供商、凭据、URL 和op 列表。
 
 | 提供商 | 需要填写 | 地址 |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ Claude 使用 HTTPS 入口和 OAuth；ChatGPT 优先使用 [Secure Tunnel](chatg
 
 1. 在 ARC 打开控制源，编辑连接。
 2. 选择提供商，填写所需字段；有**获取令牌**链接时可直接打开。
-3. 选择客户端支持的认证：Claude 用 OAuth，支持 `Authorization` 头的客户端可用 Bearer。先保留默认工具列表。
+3. 选择客户端支持的认证：Claude 用 OAuth，支持 `Authorization` 头的客户端可用 Bearer。先保留默认op 列表。
 4. 保存并连接。ARC 会按需下载提供商组件并管理进程。
 5. 把显示的 MCP URL 填入客户端，在客户端执行连接验证提示词。
 

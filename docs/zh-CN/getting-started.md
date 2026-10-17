@@ -2,6 +2,8 @@
 
 [English](../getting-started.md) | **简体中文**
 
+先调用 `guide` 读取当前入口的编排指南、可用 op 和调用示例；`guide({"op":"codex_create"})` 可查看完整参数。所有操作通过 `query({"op":"…","args":{…}})` 或 `act({"op":"…","args":{…}})` 调用；结果中的 `arcVersion` 变化时重新读取 `guide`。
+
 ## 交给 Agent 配置
 
 全新 Mac 可[交给本机 Agent 从安装开始配置](auto-setup.md)。已经安装 ARC 时，打开**添加控制源**，选择 **Claude（推荐）**或 **ChatGPT**，点击**发送给 Codex**。ARC 会安装配置 skill 并显示进度，Codex 操作已登录页面并完成配置、凭据传递和首次远端测试；你负责路线选择，在需要登录或安全策略要求时协助。
@@ -27,7 +29,7 @@ xattr -rd com.apple.quarantine "/Applications/Agent Remote Control.app"
 3. 保存并连接，复制显示的 MCP URL。
 4. 在 Claude 的连接器设置里添加自定义连接器，填入 URL，发起授权。
 5. 保持授权页打开，点击**打开 ARC**，在 ARC 核对请求并允许。返回 Claude，在对话中启用连接器。
-6. 复制连接的验证提示词，让 Claude 执行；它会通过刚添加的连接调用 `connector_verify`。
+6. 复制连接的验证提示词，让 Claude 执行；它会通过刚添加的连接调用 `act connector_verify`。
 
 ### 3. 派任务并接收通知
 

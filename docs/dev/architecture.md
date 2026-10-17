@@ -25,7 +25,7 @@ OpenAI Tunnel 使用官方身份和客户端，其 stdio adapter 携带 ARC_NATI
 
 管理 API 绑定随机 loopback 端口，校验 Host、Origin 和私有令牌；认证信息存于受保护状态目录。远程 HTTPS 不暴露管理 API。OAuth、Bearer、None 与 OpenAI 认证按入口配置，协议细节只在 [OAuth](../reference/oauth.md)维护。
 
-工具 allowlist 同时约束发现与调用。注册表拥有分组、预设、依赖与高级标记；本机管理目录保留完整工具集合。来源上下文记录 ingressId、controlSource、authType，随回执和后台操作传递，不改变原任务 owner。
+控制源 MCP 工具固定为 guide / query / act；catalog.tools 保存冻结定义，catalog.ops 保存操作 schema、示例与原说明，toolExposure 保留 op 的分组、预设、依赖与高级标记。op allowlist 同时约束 guide 发现与调用；本机管理目录保留完整 op 集合。传输层解包后沿现有执行链校验、执行 op，egress 为所有工具结果附带目录短哈希 arcVersion。来源上下文记录 ingressId、controlSource、authType，随回执和后台操作传递，不改变原任务 owner。
 
 ## 任务归属与执行
 
@@ -41,7 +41,7 @@ Pi/ACP 每个任务拥有独立进程，AgentHost 保存 ARC taskId 与上游 se
 
 waiter 通过事件唤醒和真实状态复核判断轮次，默认 30 秒切片，取消等待只释放等待，不取消任务。Codex 保持原 owner，Pi/ACP 使用其存活进程状态。等待不持有全局锁，也不恢复已停止的执行进程。
 
-claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定状态投递记录。完成、失败、中断、等待输入或审批触发通知。发送期间释放记录锁，返回后合并；每条只尝试一次，重启后未确认的 sending 记录转为失败。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。macOS 系统通知作为失败回退。行为与调用参数见[工具参考](../reference/tools.md#claude-follow-ups)。
+claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定状态投递记录。完成、失败、中断、等待输入或审批触发通知。发送期间释放记录锁，返回后合并；每条只尝试一次，重启后未确认的 sending 记录转为失败。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。macOS 系统通知作为失败回退。行为与调用参数见[工具参考](../reference/tools.md#control-source-notifications)。
 
 ## 数据与观察
 

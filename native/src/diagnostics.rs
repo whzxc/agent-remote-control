@@ -189,7 +189,8 @@ pub fn receipts(diagnostics: &mut Value, records: Result<Vec<Value>>) {
                     "read-original-request",
                 );
                 f["scope"]["ingressId"] = r["origin"]["ingressId"].clone();
-                f["nextAction"]["tool"] = json!("receipt");
+                f["nextAction"]["via"] = json!("act");
+                f["nextAction"]["op"] = json!("receipt");
                 diagnostics["findings"].as_array_mut().unwrap().push(f);
             }
         }

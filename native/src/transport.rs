@@ -291,11 +291,9 @@ async fn local_request(
             .unwrap();
     }
     let waiting = method == "POST"
-        && (((path == "/mcp" || path.starts_with("/mcp/"))
-            && body["method"] == "tools/call"
-            && is_wait(&body))
-            || (path == "/api/plugin/call"
-                && matches!(string(&body, "name"), "codex_wait" | "agent_wait")));
+        && (path == "/mcp" || path.starts_with("/mcp/"))
+        && body["method"] == "tools/call"
+        && is_wait(&body);
     let operation = async {
         if (path == "/mcp" || path.starts_with("/mcp/")) && method == "POST" {
             let ingress = if let Some(id) = path.strip_prefix("/mcp/") {
@@ -355,20 +353,63 @@ async fn local_request(
     }
 }
 fn is_wait(request: &Value) -> bool {
-    matches!(
-        string(&request["params"], "name"),
-        "codex_wait" | "agent_wait"
-    )
+    request["params"]["name"] == "query"
+        && matches!(
+            string(&request["params"]["arguments"], "op"),
+            "codex_wait" | "agent_wait"
+        )
 }
-async fn call_tool(s: &Arc<crate::ingress::Ingress>, name: &str, args: Value) -> Result<Value> {
-    // A closed ingress and invalid verification challenge remain protocol errors.
-    if !s.connected.load(std::sync::atomic::Ordering::SeqCst) {
-        return Err("Connection closed".into());
+async fn enabled_ops(s: &Arc<crate::ingress::Ingress>) -> Vec<Value> {
+    let mut ops = Vec::new();
+    for op in catalog()["ops"].as_array().unwrap() {
+        if s.allows(string(op, "name")).await {
+            ops.push(op.clone());
+        }
     }
-    let result = s.call(name, args.clone()).await;
-    if name == "connector_verify" && result.is_err() {
-        return result;
-    }
+    ops
+}
+
+async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value) -> Result<Value> {
+    let name = if tool == "guide" {
+        "guide"
+    } else {
+        string(&envelope, "op")
+    };
+    let mut args = if tool == "guide" {
+        envelope.clone()
+    } else {
+        envelope["args"].clone()
+    };
+    let result = async {
+        if !s.connected.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("Connection closed".into());
+        }
+        let spec = catalog()["tools"].as_array().unwrap().iter().find(|t| t["name"] == tool)
+            .ok_or("Unknown tool; call guide, query or act.")?;
+        crate::validator("tool", tool, &spec["inputSchema"])?
+            .validate(&envelope)
+            .map_err(|e| json!({"code":"INVALID_ARGUMENTS","message":e.to_string(),"inputSchema":spec["inputSchema"]}).to_string())?;
+        let op_name = if tool == "guide" { string(&envelope,"op") } else { name };
+        if tool != "guide" || envelope.get("op").is_some() {
+            let op = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == op_name);
+            let Some(op) = op else {
+                return Err(crate::egress::unknown_op(op_name, &enabled_ops(s).await));
+            };
+            if !s.allows(op_name).await {
+                return Err(json!({"code":"OP_UNAVAILABLE","op":op_name,"message":"This op is disabled by the ingress policy or unavailable on this device. Call guide for enabled ops."}).to_string());
+            }
+            if tool != "guide" && tool != crate::egress::via(op) {
+                return Err(json!({"code":"WRONG_TOOL","op":op_name,"message":"Use the op's assigned tool.","via":crate::egress::via(op),"example":crate::egress::example(op)}).to_string());
+            }
+        }
+        if tool == "guide" {
+            return Ok(crate::egress::guide(&s.origin().await, &args, &crate::i18n::locale(), &enabled_ops(s).await));
+        }
+        if let Some(request_id) = envelope.get("requestId") {
+            args["requestId"] = request_id.clone();
+        }
+        s.call(name, args.clone()).await
+    }.await;
     let mut images = Vec::new();
     let mut reads = Vec::new();
     let (mut value, error) = match result {
@@ -442,11 +483,6 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     s.observe_request("firstMcpRequestAt").await?;
     let id = request.get("id").cloned();
     let method = string(&request, "method");
-    if method == "tools/call" && !s.allows(string(&request["params"], "name")).await {
-        return Ok(
-            json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"tool not available"}}),
-        );
-    }
     let result = match method {
         "initialize" => {
             let protocol = request["params"]["protocolVersion"]
@@ -457,15 +493,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
             )
         }
         "ping" => Ok(json!({})),
-        "tools/list" => {
-            let mut tools = Vec::new();
-            for tool in catalog()["tools"].as_array().unwrap() {
-                if s.allows(string(tool, "name")).await {
-                    tools.push(tool.clone());
-                }
-            }
-            Ok(json!({"tools":tools}))
-        }
+        "tools/list" => Ok(json!({"tools":catalog()["tools"]})),
         "tools/call" if is_wait(&request) => {
             let key = id.as_ref().ok_or("wait requires a request id")?.to_string();
             let (guard, mut cancel) = s.wait_calls.register(key)?;
@@ -473,14 +501,15 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
                 .get("arguments")
                 .cloned()
                 .unwrap_or(json!({}));
+            let op_args = &args["args"];
             let started = std::time::Instant::now();
             let response = tokio::select! {
                 result = call_tool(s, string(&request["params"], "name"), args.clone()) => result,
                 _ = cancel.changed() => {
-                    let mut value = json!({"state":"unconfirmed","reason":"wait-cancelled","threadId":args["threadId"],"turnId":args["turnId"],"runtimeStatus":"unknown","recordedStatus":null,"finalResponse":null,"interaction":[],"changed":false,"conditionMet":false,"observedAt":null,"returnedAt":now(),"elapsedMs":started.elapsed().as_millis() as u64});
-                    if request["params"]["name"] == "agent_wait" {
-                        value["agent"] = args["agent"].clone();
-                        value["taskId"] = args["taskId"].clone();
+                    let mut value = json!({"state":"unconfirmed","reason":"wait-cancelled","threadId":op_args["threadId"],"turnId":op_args["turnId"],"runtimeStatus":"unknown","recordedStatus":null,"finalResponse":null,"interaction":[],"changed":false,"conditionMet":false,"observedAt":null,"returnedAt":now(),"elapsedMs":started.elapsed().as_millis() as u64});
+                    if args["op"] == "agent_wait" {
+                        value["agent"] = op_args["agent"].clone();
+                        value["taskId"] = op_args["taskId"].clone();
                     }
                     Ok(crate::egress::tool(value, false))
                 }
@@ -513,7 +542,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     Ok(match result {
         Ok(v) => json!({"jsonrpc":"2.0","id":id,"result":v}),
         Err(e) => {
-            json!({"jsonrpc":"2.0","id":id,"error":{"code":if e=="method not found"{-32601}else{-32603},"message":e}})
+            json!({"jsonrpc":"2.0","id":id,"error":{"code":if e=="method not found"{-32601}else{-32603},"message":e,"data":{"arcVersion":crate::egress::arc_version()}}})
         }
     })
 }

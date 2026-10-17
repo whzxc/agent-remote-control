@@ -5,7 +5,7 @@
 ```text
 Claude / ChatGPT / other clients
            │
-  ingress A      ingress B       authentication + allowed tools
+  ingress A      ingress B       authentication + allowed ops
            └──────┬──────┘
                 Core             shared projects and tasks
           ┌───────┴────────┐
@@ -18,7 +18,7 @@ The app where you ask for work: Claude, ChatGPT, or another MCP client. Add more
 
 ## Ingress
 
-One connection into ARC. It has its own transport, authentication, allowed tools, and start/stop controls. Claude normally uses HTTPS + OAuth; ChatGPT defaults to OpenAI Secure Tunnel. Stopping one ingress leaves the others running.
+One connection into ARC. It has its own transport, authentication, allowed ops, and start/stop controls. Claude normally uses HTTPS + OAuth; ChatGPT defaults to OpenAI Secure Tunnel. Stopping one ingress leaves the others running.
 
 ## Core
 
@@ -32,10 +32,10 @@ The program doing the work on your computer. Codex uses its native task interfac
 
 With **Automatically open Codex tasks** enabled, new Codex tasks execute in Codex Desktop. With it disabled, new tasks execute in ARC's background App Server. Existing tasks retain their owner. On Linux, Codex runs in the background. A task receipt confirms dispatch; read or wait for the task to see the outcome.
 
-## Tool levels
+## Operation levels
 
-Choose **Default**, **Read-only**, **All**, or **Custom** in the connection editor. Default covers project facts and everyday Codex work. All adds advanced operations. Custom selects individual tools. Read-only supports inspection, with connection verification as its maintenance exception. See [Tools](reference/tools.md).
+Choose **Default**, **Read-only**, **All**, or **Custom** in the connection editor. Default covers project facts and everyday Codex work. All adds advanced operations. Custom selects individual ops. Read-only supports inspection, with connection verification as its maintenance exception. See [Operations](reference/tools.md).
 
 ## Limits
 
-Tool levels control which tools a connection exposes, not an Agent's operating-system permissions. Connections share tasks; separate ingresses are not separate user workspaces. Quitting the last Core client stops ARC-owned background processes. Desktop-owned Codex tasks keep their Desktop lifecycle.
+The three MCP tools are always guide / query / act. Operation levels control the guide index and which ops a connection can call, not an Agent's operating-system permissions. Connections share tasks; separate ingresses are not separate user workspaces. Quitting the last Core client stops ARC-owned background processes. Desktop-owned Codex tasks keep their Desktop lifecycle.

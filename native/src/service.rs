@@ -116,15 +116,15 @@ fn normalize(mut entry: Value) -> Result<Value> {
     if entry["toolPolicy"] != "all" {
         let allowed = entry["toolPolicy"]["allowlist"]
             .as_array()
-            .ok_or("toolPolicy must be all or {allowlist:[tool names]}")?;
+            .ok_or("toolPolicy must be all or {allowlist:[op names]}")?;
         for name in allowed {
-            if !catalog()["tools"]
+            if !catalog()["ops"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|t| t["name"] == *name)
             {
-                return Err("unknown tool in allowlist".into());
+                return Err("unknown op in allowlist".into());
             }
         }
     }
@@ -200,7 +200,7 @@ impl Service {
             {
                 let before = allowed.len();
                 allowed.retain(|name| {
-                    catalog()["tools"]
+                    catalog()["ops"]
                         .as_array()
                         .unwrap()
                         .iter()
@@ -331,6 +331,7 @@ impl Service {
         status["core"]["pendingInteractions"] =
             json!(self.control.events.lock().await.pending.len());
         status["core"]["toolCount"] = json!(catalog()["tools"].as_array().unwrap().len());
+        status["core"]["opCount"] = json!(catalog()["ops"].as_array().unwrap().len());
         status["core"]["package"] = json!({"version":env!("ARC_BUILD_VERSION"),"sha":"native"});
         let mut items = Vec::new();
         for i in self.entries().await {
@@ -578,7 +579,7 @@ impl Service {
             let catalog = catalog();
             let exposure = &catalog["toolExposure"];
             let agents_available = self.execution.available("agents").await;
-            let tools: Vec<_> = catalog["tools"]
+            let tools: Vec<_> = catalog["ops"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -590,6 +591,7 @@ impl Service {
                     }
                     item["name"] = json!(name);
                     item["description"] = tool["description"].clone();
+                    item["via"] = json!(crate::egress::via(tool));
                     item["available"] =
                         json!(!name.starts_with("agent_") && name != "agents" || agents_available);
                     item

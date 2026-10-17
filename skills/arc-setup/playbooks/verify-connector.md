@@ -1,5 +1,7 @@
 # Verify the remote connector
 
+The verification call is `act({"op":"connector_verify","args":{"code":"<displayed code>"}})`. Use the current onboarding prompt exactly; connector_verify is an op, not a standalone tool. After upgrading from the old surface, refresh the client’s tools and renew authorization once.
+
 Use the fresh `onboarding.verificationPrompt` returned by next.
 
 - **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `openUrl`, select

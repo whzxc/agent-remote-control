@@ -886,15 +886,13 @@ impl Control {
     }
     pub async fn tool(self: &Arc<Self>, name: &str, mut args: Value) -> Result<Value> {
         let catalog = catalog();
-        let spec = catalog["tools"]
+        let spec = catalog["ops"]
             .as_array()
             .unwrap()
             .iter()
             .find(|t| t["name"] == name)
             .ok_or("UNKNOWN_TOOL")?;
-        crate::validator("tool", name, &spec["inputSchema"])?
-            .validate(&args)
-            .map_err(|e| e.to_string())?;
+        crate::egress::validate_op(spec, &args)?;
         for (k, v) in spec["inputSchema"]["properties"]
             .as_object()
             .into_iter()
@@ -905,13 +903,6 @@ impl Control {
                     args[k] = default.clone();
                 }
             }
-        }
-        if name == "guide" {
-            return Ok(crate::egress::guide(
-                &crate::kernel::origin::current_origin(),
-                &args,
-                &crate::i18n::locale(),
-            ));
         }
         if name == "command" && args["cmd"].is_string() {
             return self.mutate("command", args).await;
@@ -985,7 +976,7 @@ impl Control {
                 let e = self.events.lock().await;
                 let after = num(&args, "after", 0) as u64;
                 Ok(
-                    json!({"backendSession":self.session,"reset":args.get("backendSession").is_some()&&args["backendSession"]!=self.session,"gap":after.saturating_add(1)<e.rows.first().and_then(|r|r["cursor"].as_u64()).unwrap_or_else(||e.sequence.saturating_add(1)),"events":e.rows.iter().filter(|r|r["cursor"].as_u64().unwrap_or(0)>after).take(num(&args,"limit",100).min(2000)).collect::<Vec<_>>(),"latestCursor":e.sequence,"retention":"memory-window","historyTool":"codex_read"}),
+                    json!({"backendSession":self.session,"reset":args.get("backendSession").is_some()&&args["backendSession"]!=self.session,"gap":after.saturating_add(1)<e.rows.first().and_then(|r|r["cursor"].as_u64()).unwrap_or_else(||e.sequence.saturating_add(1)),"events":e.rows.iter().filter(|r|r["cursor"].as_u64().unwrap_or(0)>after).take(num(&args,"limit",100).min(2000)).collect::<Vec<_>>(),"latestCursor":e.sequence,"retention":"memory-window","historyOp":"codex_read"}),
                 )
             }
             "control_output" => crate::kernel::results::read_output(&args),

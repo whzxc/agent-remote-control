@@ -28,15 +28,13 @@ impl Execution {
     }
     pub async fn call(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
         if name == "receipt" {
-            let spec = crate::catalog()["tools"]
+            let spec = crate::catalog()["ops"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .find(|t| t["name"] == name)
                 .unwrap();
-            crate::validator("tool", name, &spec["inputSchema"])?
-                .validate(&args)
-                .map_err(|e| e.to_string())?;
+            crate::egress::validate_op(spec, &args)?;
             if let Some(receipt) = self.agents.receipt(args.clone()).await? {
                 return Ok(receipt);
             }

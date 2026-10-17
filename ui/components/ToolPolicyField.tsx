@@ -100,6 +100,7 @@ export default function ToolPolicyField({
           options={options}
           disabled={disabled || !catalog}
         />
+        <span className="muted small">{t("toolSurfaceFixed")}</span>
         {catalog && (
           <div className="actions">
             <span className="muted small">
@@ -203,7 +204,7 @@ export default function ToolPolicyField({
                         >
                           <Tooltip text={tool.description}>
                             <span tabIndex={0} className="tool-name">
-                              {tool.name}
+                              {tool.via} · {tool.name}
                               {tool.tier === "advanced" ? ` · ${t("toolsAdvanced")}` : ""}
                               {tool.available === false ? ` · ${t("toolsUnavailable")}` : ""}
                             </span>
@@ -212,7 +213,7 @@ export default function ToolPolicyField({
                       ) : (
                         <Tooltip text={tool.description}>
                           <span tabIndex={0} className="tool-name">
-                            {tool.name}
+                            {tool.via} · {tool.name}
                               {tool.tier === "advanced" ? ` · ${t("toolsAdvanced")}` : ""}
                               {tool.available === false ? ` · ${t("toolsUnavailable")}` : ""}
                           </span>

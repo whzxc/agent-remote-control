@@ -14,9 +14,9 @@ Open its ARC connection details and read the error. Check the public URL or Tunn
 
 A deep link opens the app on the browser's device. Approve the pending request on the computer hosting the connection, then return to the original authorization page. The authenticated CLI can also approve it. See [OAuth](reference/oauth.md).
 
-## New tools do not appear
+## New capabilities do not appear
 
-Save the connection's tool list, then refresh MCP tools or reconnect that client. Select a preset again to adopt its current tools; saved custom allowlists stay exact. Additional Agent tools appear only when a non-Codex Agent is installed, available, and enabled.
+MCP tools stay fixed at `guide`, `query`, and `act`. Save the connection’s op list and call `guide` again. Reselect a preset to adopt new ops; saved custom allowlists stay exact. Other Agent ops appear only when a non-Codex Agent is installed, available, and enabled. Upgrading from the old tool surface requires one client tool refresh and renewed authorization; later capability changes are disclosed through guide.
 
 ## Where did Codex run the task?
 
@@ -24,7 +24,7 @@ Read `executionOwner` in the receipt/result. Desktop owns new tasks by default. 
 
 ## A wait timed out. Should I send the task again?
 
-Call `codex_wait` / `agent_wait` again with the original task and turn IDs, using the returned snapshotHash as expectedHash. Read the original receipt if dispatch is uncertain. A wait timeout does not stop the task.
+Call `query codex_wait` / `query agent_wait` again with the original task and turn IDs, using the returned snapshotHash as expectedHash. Read the original receipt if dispatch is uncertain. A wait timeout does not stop the task.
 
 ## Claude did not receive a follow-up
 

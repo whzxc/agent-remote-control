@@ -873,6 +873,13 @@ impl Ingress {
             return Err("Connection closed".into());
         }
         let result = if name == "connector_verify" {
+            let spec = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
             let mut v = self.verification.lock().await;
             if args["code"] != v["code"] {
                 return Err("验证码不匹配".into());

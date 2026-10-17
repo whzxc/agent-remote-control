@@ -1,18 +1,36 @@
-# MCP tools
+# MCP tools and operations
 
 [Home](../../README.md) · [Concepts](../concepts.md) · [CLI](cli.md)
 
 ## Discovery and policy
 
-The embedded [catalog](../../native/src/catalog.json) defines 48 tools and their JSON Schemas. Each ingress enforces its policy on both `tools/list` and `tools/call`. Default stores an explicit allowlist; All enables the registry; Custom stores an exact selection. Read-only excludes mutating tools except `connector_verify`, which writes the connection verification record. Saving a selection includes required receipt, status, wait, and output readers.
+The public MCP surface is frozen at three tools. Call `guide` first; use `guide({"op":"codex_create"})` for a single op’s full schema and example.
 
-| Group | Tools |
-| --- | --- |
-| Default (24) | `connector_verify`, `projects`, `overview`, `tree`, `search`, `read`, `git`, `command`, `codex_tasks`, `codex_read`, `codex_wait`, `codex_create`, `codex_send`, `codex_interrupt`, `receipt`, `codex_items`, `codex_pending`, `codex_respond`, `control_output`, `edit`, `write`, `codex_changes`, `logs`, `screen` |
-| Advanced (12) | `fs`, `process`, `mcp`, `codex_thread`, `codex_account`, `file_search`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_call`, `codex_events`, `git_write` |
-| Conditional default (12) | `agents`, `agent_capabilities`, `agent_tasks`, `agent_create`, `agent_read`, `agent_wait`, `agent_send`, `agent_interrupt`, `agent_events`, `agent_pending`, `agent_respond`, `agent_context` |
+| Tool | Input | Annotation |
+| --- | --- | --- |
+| guide | `{topic?: "loop"\|"notify"\|"review"\|"approvals", op?: string}` | readOnlyHint=true |
+| query | `{op: string, args: object}` | readOnlyHint=true |
+| act | `{op: string, args: object, requestId?: string}` | readOnlyHint=false |
 
-Conditional tools appear only when at least one non-Codex Agent is available and enabled. `agent_*` requires a non-Codex Agent ID; Codex uses `codex_*`. Refresh local Agent discovery and then the client's tools when availability changes. Saved allowlists do not grow automatically; reselect a preset to adopt new tools.
+`args` is an open object at the MCP boundary and is validated against the current op schema on the server. `guide` defaults to topic=loop and returns the ingress-specific workflow, common examples, and an enabled op index. `op` takes precedence over topic. Each index row gives `op`, `via`, and a short description; a single-op response includes `inputSchema`, the full description, and a ready-to-call example. Replace example paths and IDs with actual values. Claude dispatch examples include notify; other sources use their currently available wait/inbox workflow.
+
+The embedded [catalog](../../native/src/catalog.json) defines the fixed tools and 48 ops. Names of the former tools remain op names, without tool aliases. The table below lists each op’s assigned entrypoint; mixed read/write ops such as receipt, screen, mcp, and codex_thread always use act, even for a read action. Assignment follows readOnlyHint, with connector_verify marked as a write because it saves verification state.
+
+| Group | Ops via query | Ops via act |
+| --- | --- | --- |
+| Default (24) | `projects`, `overview`, `tree`, `search`, `read`, `git`, `codex_tasks`, `codex_read`, `codex_wait`, `codex_items`, `codex_pending`, `control_output`, `codex_changes`, `logs` | `connector_verify`, `screen`, `command`, `codex_create`, `codex_send`, `codex_interrupt`, `receipt`, `codex_respond`, `edit`, `write` |
+| Advanced (12) | `codex_account`, `file_search`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_events` | `git_write`, `fs`, `process`, `mcp`, `codex_thread`, `codex_call` |
+| Conditional default (12) | `agents`, `agent_capabilities`, `agent_tasks`, `agent_read`, `agent_context`, `agent_wait`, `agent_events`, `agent_pending` | `agent_create`, `agent_send`, `agent_interrupt`, `agent_respond` |
+
+Default stores an explicit op allowlist; All enables the registry; Custom stores an exact selection. Read-only retains connector_verify through act as its connection-maintenance exception. Saving a selection includes necessary receipt, status, wait, and output dependencies. Existing allowlists retain their op names; the obsolete guide entry is removed because guide is always available.
+
+`tools/list` always returns the same three definitions, including on an empty allowlist. Disabled ops are omitted from guide and rejected with OP_UNAVAILABLE. Conditional ops require an available, enabled non-Codex Agent. Refresh local Agent discovery, then call guide again; no client tool refresh is needed for op changes. Saved allowlists do not grow automatically; reselect a preset to adopt new ops.
+
+Every tool result carries `arcVersion`, a short SHA-256 of the embedded guide and catalog (not the application release version). Reread guide when it differs from the version last read. Object results gain this field; array, scalar, and null results are wrapped as `{value, arcVersion}`. Unread events additionally attach arcInbox. Policy and availability are checked live; the catalog version does not change when a local policy changes.
+
+INVALID_ARGUMENTS on an op includes its current inputSchema and a minimal call example. UNKNOWN_OP supplies up to three closest enabled op names and points to guide. WRONG_TOOL supplies the assigned entrypoint. These are MCP tool errors (`isError=true`) with arcVersion, so a client can correct the call once without refreshing its cached tools.
+
+Upgrading from the former tool surface requires one client tool refresh and renewed authorization. Later capabilities change through ops and guide.
 
 ## Project facts and files
 
@@ -21,9 +39,9 @@ Conditional tools appear only when at least one non-Codex Agent is available and
 `tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines; tree/search use nextOffset. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
 
 ```text
-read {"path":"/absolute/project/README.md"}
-edit {"path":"/absolute/project/file.txt","edits":[{"oldText":"before","newText":"after"}],"expectedHash":"<sha256>"}
-write {"path":"/absolute/project/new.txt","content":"hello\n"}
+query {"op":"read","args":{"path":"/absolute/project/README.md"}}
+act {"op":"edit","args":{"path":"/absolute/project/file.txt","edits":[{"oldText":"before","newText":"after"}],"expectedHash":"<sha256>"}}
+act {"op":"write","args":{"path":"/absolute/project/new.txt","content":"hello\n"}}
 ```
 
 `edit` applies all replacements in memory before an atomic file replacement. Empty oldText, missing matches, or ambiguous matches without replaceAll fail the whole operation. `expectedHash` checks existing content. `write` creates parent directories and creates or replaces a UTF-8 file. Existing permissions are preserved by edit. Active-task notices do not block a write.
@@ -33,10 +51,10 @@ write {"path":"/absolute/project/new.txt","content":"hello\n"}
 ## Codex tasks
 
 ```text
-codex_create {"project":"/absolute/project","prompt":"Read the project and summarize its structure.","requestId":"<fresh UUID>","mode":"read-only"}
-codex_wait {"threadId":"<returned ID>","turnId":"<returned turn>","timeoutMs":30000}
-codex_read {"threadId":"<returned ID>"}
-codex_changes {"threadId":"<returned ID>","turnId":"<returned turn>"}
+act {"op":"codex_create","args":{"project":"/absolute/project","prompt":"Read the project and summarize its structure."},"requestId":"<fresh UUID>"}
+query {"op":"codex_wait","args":{"threadId":"<returned ID>","turnId":"<returned turn>","timeoutMs":30000}}
+query {"op":"codex_read","args":{"threadId":"<returned ID>"}}
+query {"op":"codex_changes","args":{"threadId":"<returned ID>","turnId":"<returned turn>"}}
 ```
 
 `codex_create` accepts prompt or native input; input takes precedence. `thread` and `turn` forward native parameters. Explicit native parameters take precedence over convenience fields. Omitted model, effort, serviceTier, permissions, and approval policy inherit the native host/task settings. `mode` presets are read-only, workspace-write, or danger-full-access; the first two default networkAccess to false when selected explicitly. networkAccess alone requires a complete permission policy.
@@ -47,7 +65,7 @@ codex_changes {"threadId":"<returned ID>","turnId":"<returned turn>"}
 
 ## Receipts and interactions
 
-Mutations accept a UUID requestId, generated when omitted. Retain it for retries: the same ID and arguments return the original receipt; changed arguments conflict. The default dispatch wait is 25 seconds, adjustable with waitMs from 0 to 120000. A longer dispatch returns pending. `receipt` reads the original operation or applies approve/bypass/reject to a pending ARC task approval.
+Ops that support receipts accept a UUID requestId, generated when omitted. Supply it at act’s outer level or in args; the outer value takes precedence. For receipt it identifies the original operation. Ops without a requestId property (including connector_verify and screen) reject it; omit it for those ops. Retain it for retries: the same ID and arguments return the original receipt; changed arguments conflict. The default dispatch wait is 25 seconds, adjustable with waitMs from 0 to 120000. A longer dispatch returns pending. `receipt` reads the original operation or applies approve/bypass/reject to a pending ARC task approval.
 
 Receipt completion describes the operation; task completion comes from read/wait. An unconfirmed outcome needs readback using the original request/task IDs. Do not resend it with a new ID.
 
@@ -65,15 +83,15 @@ After timeout, keep the same task/thread and turn IDs and pass the previous snap
 
 ARC observes completion, failure, cancellation, and requests for input/approval. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Each event is attempted once; uncertain/interrupted sends are not retried. Read `notification` (channel, target, deliveries with eventId, kind, level, state and error) on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. macOS provides a system-notification fallback. See the [workflow guide](../guides/claude.md).
 
-`guide` is available in the common preset, with topics `loop` (default), `notify`, `review` and `approvals`. It follows the ingress control source and app locale. Existing custom allowlists must include it explicitly. Dispatch without explicit permission parameters unless the user requests them in the current conversation.
+`guide` is always available with topics `loop` (default), `notify`, `review` and `approvals`. It follows the ingress control source and app locale. Dispatch without explicit permission parameters unless the user requests them in the current conversation.
 
-All registered turns produce fixed `completed`, `failed`, `interrupted` or `needs-input` events. Tool results on the originating ingress carry `arcInbox` when unread events exist (at most five listed, fifty retained per ingress). A successful `codex_read`, `codex_wait`, `codex_items`, `codex_changes`, `agent_read` or `agent_wait` marks the returned turn's existing events read. Unconfirmed waits do not acknowledge events. Array/scalar results use `{value, arcInbox}` only when an inbox is present.
+All registered turns produce fixed `completed`, `failed`, `interrupted` or `needs-input` events. Tool results on the originating ingress carry `arcInbox` when unread events exist (at most five listed, fifty retained per ingress). A successful `codex_read`, `codex_wait`, `codex_items`, `codex_changes`, `agent_read` or `agent_wait` marks the returned turn's existing events read. Unconfirmed waits do not acknowledge events. Array/scalar results always use `{value, arcVersion}`, with arcInbox when present.
 
-Claude events for one target merge for 30 seconds. `notification.deliveries[].state` is `pending`, `sending`, `delivered` or `failed`; uncertain sends never retry. The default limit is 20 attempted batches per channel and target in a rolling one-hour window, counted from delivery reservation. Turn records are retained for seven days. Settings → Wake control sources controls `task-settings.notificationsEnabled`; `notificationWakeLimit` configures the cap. Disabled, unavailable and capped deliveries record a fixed error while leaving the inbox available. Dispatch and wait responses include `next` with the appropriate read or wait call.
+Claude events for one target merge for 30 seconds. `notification.deliveries[].state` is `pending`, `sending`, `delivered` or `failed`; uncertain sends never retry. The default limit is 20 attempted batches per channel and target in a rolling one-hour window, counted from delivery reservation. Turn records are retained for seven days. Settings → Wake control sources controls `task-settings.notificationsEnabled`; `notificationWakeLimit` configures the cap. Disabled, unavailable and capped deliveries record a fixed error while leaving the inbox available. Dispatch and wait responses include `next: {hint, via, op, args}` with the appropriate call (or just hint when no call is needed). receipt suggestions use act; read/wait suggestions use query.
 
 ## Host and native operations
 
-| Tool | Operations |
+| Op | Operations |
 | --- | --- |
 | command | Simple cmd/cwd execution, or native exec/write/terminate/resize |
 | process | spawn, writeStdin, kill, resizePty |
@@ -84,7 +102,7 @@ Claude events for one target merge for 30 seconds. `notification.deliveries[].st
 | codex_query / codex_call | Native read/mutation methods subject to task ownership |
 | screen | macOS window capture and accessibility operations; OS permissions apply |
 
-Simple `command {"cmd":"git status --short","cwd":"/absolute/project","timeoutMs":10000}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Simple fields and action/params are mutually exclusive. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
+Simple `act {"op":"command","args":{"cmd":"git status --short","cwd":"/absolute/project","timeoutMs":10000}}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Simple fields and action/params are mutually exclusive. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
 
 Native handles for processes, watches, and MCP subscriptions belong to the current App Server connection. MCP tool/call and event/stream/start require an existing threadId. Consult codex_schema before using native parameters; top-level RPC timeoutMs is separate from params.timeoutMs.
 
@@ -102,7 +120,7 @@ For overview/tree/search/read/git, explicit `view: "review"` resolves the real w
 
 With includeSource, coverage records pagination, filtering, and skipped items. A non-null read.nextLine requires another page even if truncated is false. Search snippets cap per-file matches/characters; matchesComplete reports their completeness. Use read for the full text. tree/search can pass listingHash as expectedHash; read uses sha256. A changed hash requires restarting pagination. A listing hash does not freeze file contents.
 
-`agent_context {"agent":"pi","taskId":"<existing ID>","view":"handoff"}` reads an existing non-Codex task plus current project facts. Optional project must match the task workspace or TASK_WORKSPACE_MISMATCH is returned. Missing evidence is partial. Policy checks include agent_read and git; readNext recommends allowed tools. Codex review uses codex_read/items/changes directly.
+`query {"op":"agent_context","args":{"agent":"pi","taskId":"<existing ID>","view":"handoff"}}` reads an existing non-Codex task plus current project facts. Optional project must match the task workspace or TASK_WORKSPACE_MISMATCH is returned. Missing evidence is partial. Policy checks include agent_read and git; readNext recommends allowed ops with via/op/args. Codex review uses codex_read/items/changes directly.
 
 ## Git mutations
 
@@ -149,11 +167,11 @@ press/show/raise/key can add `after: {"waitMs":200,"capture":true}` or a capture
 
 ## Limits
 
-Tool allowlists do not isolate users/tasks or change OS permissions. Native method availability, login, and Agent capabilities come from the actual host. Screen operations are macOS-only; Linux has no Desktop actions. Event buffers are not durable task history; consume pagination before its retention expires.
+Op allowlists do not isolate users/tasks or change OS permissions. Native method availability, login, and Agent capabilities come from the actual host. Screen operations are macOS-only; Linux has no Desktop actions. Event buffers are not durable task history; consume pagination before its retention expires.
 
 ## macOS permissions
 
-| Tools | Permission / execution owner |
+| Ops | Permission / execution owner |
 | --- | --- |
 | screen tree, press, show, key, raise | Accessibility / arc-screen |
 | screen capture, windows titles | Screen recording / arc-screen |

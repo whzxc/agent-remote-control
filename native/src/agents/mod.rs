@@ -493,15 +493,13 @@ impl AgentHost {
         mut args: Value,
     ) -> Result<Value> {
         let catalog = crate::catalog();
-        let spec = catalog["tools"]
+        let spec = catalog["ops"]
             .as_array()
             .unwrap()
             .iter()
             .find(|t| t["name"] == name)
             .ok_or("UNKNOWN_TOOL")?;
-        crate::validator("tool", name, &spec["inputSchema"])?
-            .validate(&args)
-            .map_err(|e| e.to_string())?;
+        crate::egress::validate_op(spec, &args)?;
         if matches!(name, "agent_create" | "agent_send") {
             crate::claude_notify::normalize(&mut args)?;
         }

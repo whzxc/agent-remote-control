@@ -835,7 +835,7 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                             .contains(&needle)
                         {
                             results
-                                .push(json!({"path":path,"sha256":hash(&text),"matches":matches,"matchesComplete":total_matches<=5 && text.lines().filter(|s| if sensitive { s.contains(&needle) } else { s.to_lowercase().contains(&needle) }).all(|s|s.chars().count()<=500),"totalMatches":total_matches,"readNext":{"tool":"read","arguments":{"project":args["project"],"path":path,"view":if review{"review"}else{"raw"}}}}));
+                                .push(json!({"path":path,"sha256":hash(&text),"matches":matches,"matchesComplete":total_matches<=5 && text.lines().filter(|s| if sensitive { s.contains(&needle) } else { s.to_lowercase().contains(&needle) }).all(|s|s.chars().count()<=500),"totalMatches":total_matches,"readNext":{"via":"query","op":"read","args":{"project":args["project"],"path":path,"view":if review{"review"}else{"raw"}}}}));
                         }
                     }
                     Err(e) => {

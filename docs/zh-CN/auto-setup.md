@@ -8,6 +8,8 @@
 
 skill 会检测 ARC，缺失时运行 release 安装脚本，给当前 Agent 安装配置 skill，再进入本机配置协议。macOS 安装脚本会校验 App 压缩包、安装并打开 ARC，等待 Core 就绪，无需挂载 DMG 或自行拼装命令。
 
+远端验证通过 `act({"op":"connector_verify","args":{"code":"<验证码>"}})`；任务验收先读 `guide`，再通过 `act` 派发、`query` 等待与读取。MCP 工具固定为 guide / query / act，连接里的档位作用于 op。
+
 ## 在 App 中继续
 
 已经安装 ARC 时，点击**添加控制源**，选择 **Claude（推荐）**或 **ChatGPT**，再点**发送给 Codex**。点击**打开 Codex 任务**继续对话；稍后可从首页的**继续配置**回到进度页。

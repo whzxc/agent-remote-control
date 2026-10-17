@@ -19,6 +19,7 @@ const version = buildVersion();
 let directory: string;
 let client: Client;
 let inventory: Awaited<ReturnType<Client['listTools']>>;
+let operations: typeof inventory.tools;
 before(async () => {
   directory = await mkdtemp(path.join(tmpdir(), 'agent-remote-control-test-'));
   // Explicit all policy exercises the entire registered tool surface.
@@ -79,11 +80,23 @@ for await (const line of createInterface({ input: process.stdin })) {
   client = new Client({ name: 'agent-remote-control-test', version: '1' });
   await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
   inventory = await client.listTools();
+  const index = (await call('guide')).result.ops;
+  operations = await Promise.all(index.map(async ({op}: {op: string}) => {
+    const detail = (await call('guide', {op})).result;
+    return {...catalog.ops.find((item: any) => item.name === op), inputSchema: detail.inputSchema, description: detail.description};
+  }));
 });
 after(async () => { await client?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
+function opCall(name: string, args: Record<string, unknown> = {}) {
+  if (name === 'guide') return { name, arguments: args };
+  const spec = catalog.ops.find((op: any) => op.name === name);
+  const via = spec.annotations.readOnlyHint ? 'query' : 'act';
+  const {requestId, ...rest} = args;
+  return {name: via, arguments: {op: name, args: via === 'act' && requestId !== undefined ? rest : args, ...(via === 'act' && requestId !== undefined ? {requestId} : {})}};
+}
 async function call(name: string, args: Record<string, unknown> = {}) {
-  const response = await client.callTool({ name, arguments: args });
+  const response = await client.callTool(opCall(name, args));
   return { response, result: (response.structuredContent as { result: any } | undefined)?.result };
 }
 async function completed(name: string, args: Record<string, unknown>) {
@@ -97,14 +110,15 @@ async function completed(name: string, args: Record<string, unknown>) {
   return result;
 }
 
-test('MCP lists all existing native and generic agent tools and seven discoverable native domains with valid object schemas', async () => {
+test('MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas', async () => {
+  assert.deepEqual(inventory.tools.map(tool => tool.name), ['guide', 'query', 'act']);
   const existing = ['edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
-  assert.deepEqual(inventory.tools.map(tool => tool.name).sort(), [...existing, 'guide', 'agents', 'agent_capabilities', 'agent_tasks', 'agent_create', 'agent_read', 'agent_context', 'agent_wait', 'agent_send', 'agent_interrupt', 'agent_events', 'agent_pending', 'agent_respond', 'fs', 'command', 'process', 'mcp', 'file_search', 'codex_thread', 'codex_account'].filter(name => !name.startsWith('agent') || inventory.tools.some(tool => tool.name === 'agents')).sort());
-  for (const tool of inventory.tools) {
+  assert.deepEqual(operations.map(tool => tool.name).sort(), [...existing, 'agents', 'agent_capabilities', 'agent_tasks', 'agent_create', 'agent_read', 'agent_context', 'agent_wait', 'agent_send', 'agent_interrupt', 'agent_events', 'agent_pending', 'agent_respond', 'fs', 'command', 'process', 'mcp', 'file_search', 'codex_thread', 'codex_account'].filter(name => !name.startsWith('agent') || operations.some(tool => tool.name === 'agents')).sort());
+  for (const tool of operations) {
     assert.equal(tool.inputSchema.type, 'object');
     new AjvJsonSchemaValidator().getValidator(tool.inputSchema);
   }
-  const waitSchema = inventory.tools.find(tool => tool.name === 'codex_wait')!.inputSchema;
+  const waitSchema = operations.find(tool => tool.name === 'codex_wait')!.inputSchema;
   assert.equal((waitSchema.properties!.timeoutMs as { maximum: number }).maximum, 90000);
   const validateWait = new AjvJsonSchemaValidator().getValidator(waitSchema);
   assert.equal(validateWait({ threadId: 'fixture', timeoutMs: 90000 }).valid, true);
@@ -114,8 +128,8 @@ test('MCP lists all existing native and generic agent tools and seven discoverab
     assert.equal(rejected.response.isError, true);
   }
   for (const name of ['read', 'codex_read', 'codex_items']) {
-    const exposed = inventory.tools.find(tool => tool.name === name)!;
-    const source = catalog.tools.find((tool: {name: string}) => tool.name === name);
+    const exposed = operations.find(tool => tool.name === name)!;
+    const source = catalog.ops.find((tool: {name: string}) => tool.name === name);
     assert.deepEqual(exposed.inputSchema, source.inputSchema);
     assert.equal(exposed.description, source.description);
     assert.match(exposed.description!, /MCP image/);
@@ -123,23 +137,23 @@ test('MCP lists all existing native and generic agent tools and seven discoverab
     const params = name === 'read' ? ['maxEdge', 'quality'] : ['includeImages', 'maxImages'];
     for (const key of params) assert.ok(exposed.inputSchema.properties?.[key]);
   }
-  assert.ok(inventory.tools.find(tool => tool.name === 'codex_items')!.inputSchema.properties?.latest);
+  assert.ok(operations.find(tool => tool.name === 'codex_items')!.inputSchema.properties?.latest);
   const agents = (await management('agents')).agents;
   assert.deepEqual(agents.map((agent: { agent: string }) => agent.agent).sort(), ['claude', 'cline', 'codex', 'copilot', 'cursor', 'devin', 'gemini', 'grok', 'hermes', 'junie', 'kimi', 'kiro', 'opencode', 'pi', 'qwen']);
   for (const agent of agents.filter((agent: { protocol: string }) => agent.protocol === 'acp-v1')) {
     assert.equal(agent.descriptor.protocol, 'acp-v1');
     assert.ok(['native', 'adapter'].includes(agent.integration));
   }
-  const gitWrite = inventory.tools.find(tool => tool.name === 'git_write')!;
+  const gitWrite = operations.find(tool => tool.name === 'git_write')!;
   assert.equal(gitWrite.annotations?.readOnlyHint, false);
-  assert.equal(inventory.tools.find(tool => tool.name === 'git')!.annotations?.readOnlyHint, true);
+  assert.equal(operations.find(tool => tool.name === 'git')!.annotations?.readOnlyHint, true);
   assert.deepEqual(catalog.toolExposure.tools.git_write.presets, []);
   assert.deepEqual(catalog.toolExposure.tools.git_write.requires, ['control_output', 'receipt']);
-  const command = inventory.tools.find(tool => tool.name === 'command')!;
+  const command = operations.find(tool => tool.name === 'command')!;
   assert.match(command.description!, /sandbox\/permission/);
-  assert.match(inventory.tools.find(tool => tool.name === 'process')!.description!, /非 Codex sandbox/);
+  assert.match(operations.find(tool => tool.name === 'process')!.description!, /非 Codex sandbox/);
   assert.ok(!command.inputSchema.required?.includes('requestId'));
-  assert.equal(inventory.tools.find(tool => tool.name === 'codex_account')!.annotations?.readOnlyHint, true);
+  assert.equal(operations.find(tool => tool.name === 'codex_account')!.annotations?.readOnlyHint, true);
   assert.equal((await call('fs', { action: 'writeFile', params: {} })).result.state, 'completed');
   assert.equal((await call('fs', { action: 'readFile', params: {} })).response.isError, true);
   assert.equal((await call('fs', { action: 'exec', params: {} })).response.isError, true);
@@ -280,7 +294,8 @@ test('setup clipboard preserves unrelated content on extraction failure and clea
   }
 });
 
-async function ingressRpc(ingress: any, method: string, params?: unknown) {
+async function ingressRpc(ingress: any, method: string, params?: any) {
+  if (method === 'tools/call') params = opCall(params.name, params.arguments);
   const response = await fetch(`http://127.0.0.1:${ingress.config.httpsPort}/mcp`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${`test-${ingress.id}`.padEnd(40, 'x')}` },
     body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
@@ -364,7 +379,7 @@ server.listen(0, '127.0.0.1', () => fs.writeFileSync(process.argv[process.argv.i
 
 test('tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies', async () => {
   const config: ToolCatalog = await management('tool-catalog');
-  assert.deepEqual(config.tools.filter(tool => tool.available !== false).map(tool => tool.name), inventory.tools.map(tool => tool.name));
+  assert.deepEqual(config.tools.filter(tool => tool.available !== false).map(tool => tool.name), operations.map(tool => tool.name));
   assert.deepEqual(Object.keys(catalog.toolExposure.tools).sort(), config.tools.map(tool => tool.name).sort());
   for (const tool of config.tools) {
     assert.ok(config.groups.some(group => group.id === tool.group));
@@ -396,7 +411,7 @@ test('tool presets use the full registry, preserve exact allowlists and close on
   assert.equal(identifyPolicy(legacy, config), 'custom');
   assert.deepEqual(legacy, { allowlist: ['read'] });
   const future = structuredClone(config);
-  future.tools.push({ name: 'future_read', group: 'project', presets: ['readOnly'], requires: ['control_output'] });
+  future.tools.push({ name: 'future_read', description: '', via: 'query', group: 'project', presets: ['readOnly'], requires: ['control_output'] });
   assert.equal(identifyPolicy(readOnly, future), 'custom');
   assert.ok(!readOnly.allowlist.includes('future_read'));
 });
@@ -409,17 +424,17 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     assert.equal(a.toolPolicy, 'all');
     await management(`ingress/${a.id}/start`, 'POST');
     await management(`ingress/${b.id}/start`, 'POST');
-    const list = async (i: any) => (await ingressRpc(i, 'tools/list')).result.tools.map((tool: any) => tool.name);
+    const list = async (i: any) => (await ingressRpc(i, 'tools/call', {name:'guide',arguments:{}})).result.structuredContent.result.ops.map((op: any) => op.op);
     assert.deepEqual(await list(a), config.tools.filter(tool => tool.available !== false).map(tool => tool.name));
     assert.deepEqual(await list(b), b.toolPolicy.allowlist.filter((name: string) => config.tools.find(tool => tool.name === name)?.available !== false));
     assert.deepEqual((await management('tool-catalog')).tools, config.tools, 'management inventory remains unfiltered');
     for (const name of config.tools.filter(tool => !b.toolPolicy.allowlist.includes(tool.name)).map(tool => tool.name)) {
-      assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: { action: 'approve', requestId: randomUUID() } })).error.code, -32601, name);
+      assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: { action: 'approve', requestId: randomUUID() } })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE', name);
     }
     const args = { requestId: randomUUID(), method: 'fixture/counts', params: {} };
     const blocked = await ingressRpc(b, 'tools/call', { name: 'codex_call', arguments: args });
-    assert.equal(blocked.error.code, -32601);
-    assert.equal(blocked.error.message, 'tool not available');
+    assert.equal(blocked.result.isError, true);
+    assert.equal(blocked.result.structuredContent.result.error.code, 'OP_UNAVAILABLE');
     const missingReceipt = await ingressRpc(a, 'tools/call', { name: 'receipt', arguments: { requestId: args.requestId } });
     assert.equal(missingReceipt.result.structuredContent.result.state, 'not-found', 'blocked mutation did not create a receipt');
     const allowed = await ingressRpc(a, 'tools/call', { name: 'codex_call', arguments: args });
@@ -453,7 +468,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     await management(`ingress/${b.id}`, 'PUT', { toolPolicy: { allowlist: [] } });
     await management(`ingress/${b.id}/start`, 'POST');
     assert.deepEqual(await list(b), []);
-    for (const name of ['connector_verify', 'codex_wait', 'agent_wait']) assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: {} })).error.code, -32601);
+    for (const name of ['connector_verify', 'codex_wait', 'agent_wait']) assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: {} })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE');
   } finally {
     await management(`ingress/${a.id}`, 'DELETE');
     await management(`ingress/${b.id}`, 'DELETE');

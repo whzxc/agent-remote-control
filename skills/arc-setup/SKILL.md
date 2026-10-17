@@ -39,9 +39,9 @@ already given for this scope):
 
 - **chatgpt-chat:** create/reuse a tunnel, create a restricted runtime API key,
   associate the tunnel with the selected ChatGPT workspace, and allow the ARC plugin
-  to access this machine's enabled local tools.
+  to access this machine's enabled ops through the fixed guide / query / act tools.
 - **claude-loop:** create a Cloudflare tunnel and, for a fixed address, its DNS record;
-  add the Claude connector, approve ARC OAuth access to enabled local tools, and
+  add the Claude connector, approve ARC OAuth access to enabled ops through guide / query / act, and
   install/sign in to Claude Code if needed.
 
 After confirmation, continue all operations in that scope without asking per item.

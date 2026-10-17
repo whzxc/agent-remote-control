@@ -5,7 +5,7 @@
 ```text
 Claude / ChatGPT / 其他客户端
            │
-    入口 A       入口 B          认证 + 允许使用的工具
+    入口 A       入口 B          认证 + 允许使用的 op
            └──────┬──────┘
                 Core             共享项目和任务
           ┌───────┴────────┐
@@ -18,7 +18,7 @@ Claude / ChatGPT / 其他客户端
 
 ## 入口（Ingress）
 
-通往 ARC 的一条连接，有自己的传输方式、认证、工具列表和启停控制。Claude 通常使用 HTTPS + OAuth，ChatGPT 默认使用 OpenAI Secure Tunnel。停止一条入口不影响其他入口。
+通往 ARC 的一条连接，有自己的传输方式、认证、op 列表和启停控制。Claude 通常使用 HTTPS + OAuth，ChatGPT 默认使用 OpenAI Secure Tunnel。停止一条入口不影响其他入口。
 
 ## Core
 
@@ -32,10 +32,10 @@ Claude / ChatGPT / 其他客户端
 
 开启**自动打开 Codex 任务**时，新 Codex 任务由 Codex Desktop 执行；关闭后，新任务由 ARC 的后台 App Server 执行。已有任务保持原归属。Linux 上 Codex 始终在后台执行。任务回执确认派发，最终结果通过读取或等待任务获得。
 
-## 工具档位
+## 操作档位
 
-在连接编辑器选择**默认**、**只读**、**全部**或**自定义**。默认覆盖项目事实和日常 Codex 工作，全部增加高级操作，自定义逐项选择。只读用于审查，连接验证是维护例外。详见[工具参考](../reference/tools.md)。
+在连接编辑器选择**默认**、**只读**、**全部**或**自定义**。默认覆盖项目事实和日常 Codex 工作，全部增加高级操作，自定义逐项选择。只读用于审查，连接验证是维护例外。详见[操作参考](../reference/tools.md)。
 
 ## 限制
 
-工具档位控制连接暴露哪些工具，不改变 Agent 的操作系统权限。入口共享任务，不是独立用户工作区。最后一个 Core 客户端退出后，ARC 拥有的后台进程会停止；Desktop 拥有的 Codex 任务遵循 Desktop 生命周期。
+MCP 工具始终为 guide / query / act。操作档位控制 guide 索引及可调用的 op，不改变 Agent 的操作系统权限。入口共享任务，不是独立用户工作区。最后一个 Core 客户端退出后，ARC 拥有的后台进程会停止；Desktop 拥有的 Codex 任务遵循 Desktop 生命周期。

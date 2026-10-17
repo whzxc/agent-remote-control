@@ -20,7 +20,7 @@ fn next(out: &mut Value, policy: &Value, tool: &str, arguments: Value) {
         out["readNext"]
             .as_array_mut()
             .unwrap()
-            .push(json!({"tool":tool,"arguments":arguments}));
+            .push(json!({"via":"query","op":tool,"args":arguments}));
     }
 }
 fn missing(out: &mut Value, reason: &str) {
@@ -38,15 +38,13 @@ pub async fn read(
     policy: Value,
 ) -> Result<Value> {
     let catalog = catalog();
-    let spec = catalog["tools"]
+    let spec = catalog["ops"]
         .as_array()
         .unwrap()
         .iter()
         .find(|t| t["name"] == "agent_context")
         .unwrap();
-    crate::validator("tool", "agent_context", &spec["inputSchema"])?
-        .validate(&args)
-        .map_err(|e| e.to_string())?;
+    crate::egress::validate_op(spec, &args)?;
     let agent = string(&args, "agent");
     let task = string(&args, "taskId");
     let view = args["view"].as_str().unwrap_or("review");
@@ -166,7 +164,7 @@ pub async fn read(
             .as_array()
             .unwrap()
             .iter()
-            .any(|r| r["tool"] == "git")
+            .any(|r| r["op"] == "git")
     {
         out["workspace"]["readNextState"] = json!({"state":"unavailable","reason":"Use agent_read to obtain the native cwd; private absolute selectors are not embedded in summary pointers."});
     }

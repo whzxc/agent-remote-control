@@ -196,7 +196,7 @@ For OpenAI Tunnel, use controlSource chatgpt, transport openai-tunnel, auth open
 
 ## Verify from the client
 
-Read `cli onboarding` for the ingress's stage, URL/Tunnel ID, verificationPrompt, and executionPrompt. Ask the actual client to call connector_verify with the displayed code. Then dispatch a harmless task and read its final result. `--fresh` creates a new verification challenge; retain it for that client round.
+Read `cli onboarding` for the ingress's stage, URL/Tunnel ID, verificationPrompt, and executionPrompt. Ask the actual client to call `act({"op":"connector_verify","args":{"code":"<displayed code>"}})`. Then dispatch a harmless task and read its final result. `--fresh` creates a new verification challenge; retain it for that client round.
 
 For OAuth, read the pending request before deciding. [OAuth](oauth.md#local-management) specifies the request/decision fields. Token rotation prints the new Bearer secret once; redirect it to a private file with `umask 077` rather than collecting it in chat logs.
 

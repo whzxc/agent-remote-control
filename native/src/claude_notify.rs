@@ -252,14 +252,14 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     let agent = !b.agent.is_empty() && b.agent != "codex";
     let next = if kind == "needs-input" {
         if agent {
-            json!({"hint":"Read the pending interaction before responding.","tool":"agent_pending","arguments":{"agent":b.agent,"taskId":b.thread_id}})
+            json!({"hint":"Read the pending interaction before responding.","via":"query","op":"agent_pending","args":{"agent":b.agent,"taskId":b.thread_id}})
         } else {
-            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","tool":"codex_pending","arguments":{}})
+            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","via":"query","op":"codex_pending","args":{}})
         }
     } else if agent {
-        json!({"hint":"Read the result and review it against the acceptance criteria.","tool":"agent_read","arguments":{"agent":b.agent,"taskId":b.thread_id}})
+        json!({"hint":"Read the result and review it against the acceptance criteria.","via":"query","op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}})
     } else {
-        json!({"hint":"Read the result and review its changes.","tool":"codex_read","arguments":{"threadId":b.thread_id}})
+        json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
     json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"next":next})
 }
