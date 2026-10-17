@@ -20,6 +20,9 @@ To build on the matching architecture:
 cargo build --locked --manifest-path native/Cargo.toml --release --bin arc --target x86_64-unknown-linux-gnu
 npm run cache:prune
 install -Dm755 target/x86_64-unknown-linux-gnu/release/arc "$HOME/.local/bin/arc"
+mkdir -p "$HOME/.local/bin/skills"
+rm -rf "$HOME/.local/bin/skills/arc-setup"
+cp -R skills/arc-setup "$HOME/.local/bin/skills/arc-setup"
 ```
 
 Use aarch64-unknown-linux-gnu on an ARM64 host. Build tools require Rust, a C compiler/linker, Git, and Node for the repository cache helper. Running the installed Core does not need Node/npm. Cross-compilation also needs a target sysroot/linker.
@@ -70,7 +73,7 @@ The optional `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment
 
 ## Update and remove
 
-Stop the service or detached daemon, run the installer for the chosen release, then start it again. To remove a user service, disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
+Stop the service or detached daemon, run the installer for the chosen release, then start it again. To remove a user service, disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary and its adjacent skills/arc-setup directory if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
 
 ## Limits
 

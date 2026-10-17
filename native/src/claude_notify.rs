@@ -42,6 +42,8 @@ struct Delivery {
     key: String,
     session_id: String,
     state: String,
+    #[serde(default)]
+    task_state: String,
     status: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -147,7 +149,7 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
 fn notification(b: Option<Binding>) -> Value {
     b.filter(|b| b.session_id.is_some()).map(|b| json!({
         "sessionId": b.session_id,
-        "deliveries": b.deliveries.iter().filter(|d| Some(d.session_id.as_str()) == b.session_id.as_deref()).map(|d| json!({"state":d.state,"status":d.status})).collect::<Vec<_>>()
+        "deliveries": b.deliveries.iter().filter(|d| Some(d.session_id.as_str()) == b.session_id.as_deref()).map(|d| json!({"state":d.state,"taskState":d.task_state,"status":d.status})).collect::<Vec<_>>()
     })).unwrap_or(Value::Null)
 }
 pub(crate) fn read(thread: &str, turn: &str) -> Result<Value> {
@@ -362,6 +364,7 @@ async fn process(
             session_id: b.session_id.clone().unwrap(),
             key,
             state,
+            task_state: string(observation, "state").into(),
             status: "sending".into(),
         });
     }
@@ -732,7 +735,7 @@ mod tests {
         assert_eq!(report["sessionId"], "session_test");
         assert_eq!(
             report["deliveries"][2],
-            json!({"state":"完成", "status":"delivered"})
+            json!({"state":"完成", "taskState":"completed", "status":"delivered"})
         );
         assert!(b.deliveries.iter().all(|d| d.status == "delivered"));
         let calls = fake.calls.lock().unwrap();
@@ -778,7 +781,7 @@ mod tests {
         assert_eq!(other.calls.lock().unwrap()[0][3], "cse_other");
         assert_eq!(
             notification(Some(b))["deliveries"],
-            json!([{"state":"完成","status":"delivered"}])
+            json!([{"state":"完成","taskState":"completed","status":"delivered"}])
         );
     }
 
@@ -843,6 +846,7 @@ mod tests {
             key: "request:17".into(),
             session_id: "session_test".into(),
             state: "等待审批".into(),
+            task_state: "interaction-required".into(),
             status: "sending".into(),
         });
         persist(&dir.0, &b).unwrap();

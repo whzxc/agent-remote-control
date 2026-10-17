@@ -38,6 +38,7 @@ pub mod rpc;
 pub mod runtime;
 pub mod service;
 pub mod setup;
+pub mod skills;
 pub mod subscriptions;
 pub mod transport;
 pub mod waiter;

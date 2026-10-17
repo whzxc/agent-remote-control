@@ -14,6 +14,7 @@ mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
 mkdirSync(resources, { recursive: true });
 cpSync(path.join(root, 'target/dev-icon/Resources'), resources, { recursive: true });
 cpSync(path.join(root, 'dist/native'), path.join(resources, 'bin'), { recursive: true });
+cpSync(path.join(root, 'skills/arc-setup'), path.join(resources, 'skills/arc-setup'), { recursive: true });
 const executable = path.join(contents, 'MacOS', path.basename(binary));
 cpSync(binary, executable);
 const config = JSON.parse(readFileSync(path.join(root, 'desktop/tauri.dev.conf.json'), 'utf8'));

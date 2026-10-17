@@ -1,29 +1,27 @@
-# ARC setup protocol
+# Setup protocol
 
-Run `cli setup next`. If no goal is saved, ask the user to choose and submit
-`cli setup apply choose-goal --stdin` with `{"option":"claude-loop"}` or
-`{"option":"chatgpt-chat"}`. `next --goal` previews a goal without saving it.
+Run `cli setup next` and follow its current step until `complete` is true.
+`next --goal <goal>` previews without saving; submit choices through
+`cli setup apply <stepId> --stdin` with `{"option":"<option-id>"}`.
+For auto steps send `{}` unless the step requests input. Re-read next after apply.
 
-Repeat until `complete` is true:
+Repeat decide explanations and option labels verbatim and identify the recommended
+option. Never choose or skip on the user's behalf. If an auto step offers skip
+because a prerequisite is missing, explain it and ask for that choice.
 
-- `auto`: execute `apply`, passing `{}` on stdin unless the step asks for input.
-- `decide`: repeat `explain` and option labels verbatim, identify the recommended
-  option, then submit the user's choice as `{"option":"<id>"}`.
-- `authorize`: open `openUrl`; let the user perform login or consent, then wait.
-- `secret`: open `openUrl` and `credentialUrl`; the user enters credentials in ARC.
-- `remote-ui`: use browser or computer tools if available, otherwise give the URL
-  and the step explanation. Leave login, authorization and consent to the user.
+For authorize, secret, and remote-ui steps, read the matching playbook and open
+the returned URLs. Login, authorization, consent, and secret entry belong to the
+user. Secrets stay out of chat, CLI arguments, screenshots, and tool output.
+Use browser tools first, computer-use/ARC screen second, or a link plus one
+instruction when neither is available. A browser-only agent hands native dialogs
+to the user if it has no native-app tool.
 
-Never ask for secrets in chat or place them in command-line arguments. Use
-`cli setup wait --timeout 60` to observe progress. A timeout returns the current
-step and is not an error. For tunnel credentials, the non-secret Tunnel ID may
-be submitted as `{"tunnelId":"..."}`; the runtime key goes only into ARC.
-Optional readiness steps accept `{"option":"skip"}` only after the user chooses
-that option. Skipping Claude Code disables notification acceptance; the loop
-then checks the completed `ARC_ONBOARDING_OK` task and reports that limitation.
+Run `cli setup wait --timeout 60` after external actions. Timeouts return the
+current step successfully: continue waiting, do not infer completion from the UI.
+Use fresh next output when the step changes. Surface returned findings.
+For tunnel credentials only, apply accepts the non-secret `{"tunnelId":"..."}`.
 
-Read `onboarding.verificationPrompt` and `onboarding.executionPrompt` for the
-current ingress. For the Claude loop include `notifyClaudeSession` with the
-user's Claude Code cloud session when creating the task. A local probe does not
-replace remote challenge verification. Step-specific browser playbooks are
-placeholders until the skill content is delivered.
+The setup agent runs locally. Remote verification and the loop test use the
+selected remote connector; a locally created task cannot prove that path.
+For the loop test, prepare a prompt for the user to paste into the remote session,
+then wait. Follow the loop-test playbook for the goal-specific session and prompt.

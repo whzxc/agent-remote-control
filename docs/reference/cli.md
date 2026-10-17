@@ -52,7 +52,8 @@ named; select another provider in the existing connection form if needed.
 the ARC form opened by `openUrl`, never in chat or command-line arguments.
 
 `setup playbook protocol` returns bundled protocol Markdown in `result.markdown`;
-step playbooks currently return a placeholder. The local catalog exposes
+UI step IDs return their matching playbook; auto/decide-only IDs return the protocol.
+The Markdown is read from the same resources installed with the skill. The local catalog exposes
 `setup.next`, `setup.apply`, and `setup.wait`, also accessible through `cli mcp`.
 Catalog inputs follow the usual `body` wrapper; apply takes
 `{"body":{"stepId":"choose-goal","input":{"option":"claude-loop"}}}`.
@@ -64,6 +65,22 @@ setup requires a challenge newer than its saved start time and a completed task
 from the selected ingress. Claude completion additionally requires delivered
 notification evidence unless Claude Code was skipped.
 
+`cli skill install --target codex|claude-code` installs the bundled `arc-setup`
+skill to `~/.codex/skills/arc-setup/` or `~/.claude/skills/arc-setup/`, replacing
+that skill directory with the current version. This command and playbook reads
+work offline without starting Core. macOS loads Resources/skills/arc-setup;
+Windows loads skills/arc-setup under the installation directory; Linux loads
+skills/arc-setup beside arc. Debug builds fall back to the repository sources.
+
+Permissions require Full Disk Access and applicable command Full Disk Access.
+Accessibility, screen recording, and notifications are optional. Claude delivery
+records expose `taskState` (raw task state, e.g. `completed`) independently of the
+localized `state` display label and delivery `status`.
+
+The local setup agent prepares the loop-test prompt; the user sends it through
+ARC from a Claude Code cloud session or a ChatGPT conversation. Completion is
+observed with `setup wait`, not inferred from screenshots or local task creation.
+
 ## Command groups
 
 | Group | Commands after `cli` |
@@ -72,6 +89,7 @@ notification evidence unless Claude Code was skipped.
 | Invoke | call `<operation>` [--stdin], mcp |
 | App | app start/status/quit/restart |
 | Setup | setup [next] [--goal `<goal>`], setup apply `<stepId>` --stdin, setup wait [--timeout `<sec>`], setup playbook `<id>`, setup reset |
+| Skill | skill install --target codex\|claude-code |
 | Diagnose | status, doctor, onboarding, context --stdin, watch |
 | Logs | logs, logs --stdin, logs --follow, logs --offline |
 | Ingress | ingress list/presets, add --stdin, update `<id>` --stdin, remove/start/stop/restart/probe/doctor `<id>`, start-all, stop-all |

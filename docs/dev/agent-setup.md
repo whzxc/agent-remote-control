@@ -1,6 +1,6 @@
 # Agent 驱动的安装与配置（设计）
 
-状态：P0 第 1 步：setup CLI 与 catalog 已实现；skill 与 App 入口待实现 · 版本线：0.9.x patch
+状态：P0 第 1、2 步：setup CLI、catalog、skill 与安装已实现；App 入口待实现 · 版本线：0.9.x patch
 
 ## 目标
 
@@ -101,7 +101,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 | --- | --- | --- |
 | `codex-ready` | auto / authorize | `codex.login.status` 已登录；未登录时变为 authorize，`apply` = `codex.login.open` |
 | `claude-code-ready` | auto | 本机 Claude Code CLI 可用且已登录（沿用 doctor 中已有检测）；缺失时给 explain，允许跳过但闭环通知不可用 |
-| `permissions` | authorize | doctor `permissions.items` 中 P0 必需项为 granted；`openUrl` 指向 ARC Settings → Permissions & readiness；允许跳过 |
+| `permissions` | authorize | doctor `permissions.items` 中 full-disk-access 和适用时的 command-full-disk-access 为 granted；辅助功能、屏幕录制、通知可选；`openUrl` 指向 ARC Settings → Permissions & readiness；允许跳过 |
 | `choose-address` | decide | 选择已保存 |
 | `address-secret` | secret | 仅选 fixed 时出现；对应 ingress 的 `hasXxxToken` 为真 |
 | `create-ingress` | auto | ingress 存在、运行、probe 通过 |
@@ -138,6 +138,10 @@ P0 复用现有连接表单：`openUrl` 为打开该 ingress 编辑弹窗并聚�
   3. remote-ui playbook：按工具分三档——有浏览器工具（Claude in Chrome / Codex 浏览器 / IAB）则直接操作；只有 computer use / ARC screen 则截图导航；都没有则给链接和一句话指引。
 - 流程本身不写进 skill（以 `setup next` 为准）；playbook 文本与 `cli setup playbook` 共用同一份源文件。
 
+安装资源布局：macOS 为 `Contents/Resources/skills/arc-setup/`，Windows 为安装目录下的 `skills/arc-setup/`，Linux tarball 与已安装的 Core 旁为 `skills/arc-setup/`。开发构建在没有安装资源时从仓库读取。安装会替换目标 skill 目录，清除旧版本文件。
+
+通知 delivery 的 `taskState` 保存原始任务状态（如 `completed`），setup 不匹配本地化的显示文案。旧记录缺少该字段时不作为新的完成证据。permissions 只要求磁盘访问；其他权限由用户选择。闭环测试由用户在远端会话发起，本机 Agent 只准备 prompt 和等待信号。
+
 ## App：默认"交给 Agent"
 
 - 添加控制源第一屏：选择 Claude / ChatGPT（Claude 标推荐）。
@@ -165,5 +169,5 @@ ARC CLI：<绝对路径>。先运行 `<cli> cli setup playbook protocol` 了解�
 ## 分期
 
 - **P0（本次）**：`cli setup next/apply/wait/playbook/reset` 与 catalog operation；arc-setup skill 与 `cli skill install`；App 默认"发送给 Codex"入口与进度视图；文档调整。
-- **P1**：独立 secret 输入面板；macOS bootstrap 安装脚本（下载、校验、拷入 Applications、去 quarantine，然后交给 `cli setup`）；补全各远端步骤的浏览器 playbook 与完成信号。
+- **P1**：独立 secret 输入面板；macOS bootstrap 安装脚本（下载、校验、拷入 Applications、去 quarantine，然后交给 `cli setup`）。
 - **P2**：临时地址变化后的自愈（Agent 自动更新连接器 URL 并重新授权）；固定地址路径自动化；Windows / Linux bootstrap。

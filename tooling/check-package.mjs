@@ -18,6 +18,12 @@ async function inspect(dir) {
   }
 }
 await inspect(root);
+const skill = path.join(root, ...(root.endsWith('.app') ? ['Contents', 'Resources'] : []), 'skills/arc-setup');
+for (const file of ['SKILL.md', ...(await readdir(new URL('../skills/arc-setup/playbooks/', import.meta.url))).map(name => `playbooks/${name}`)]) {
+  const actual = await readFile(path.join(skill, file), 'utf8');
+  const expected = await readFile(new URL(`../skills/arc-setup/${file}`, import.meta.url), 'utf8');
+  if (actual !== expected) throw new Error(`安装包 skill 资源与源码不一致：${file}`);
+}
 if (process.platform === 'darwin' && root.endsWith('.app')) {
   const identifier = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
   if (!['com.whzxc.agent-remote-control', 'com.whzxc.agent-remote-control.dev'].includes(identifier)) throw new Error('安装包 bundle identifier 不正确。');

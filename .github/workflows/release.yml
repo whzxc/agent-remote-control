@@ -61,7 +61,9 @@ jobs:
           test "v$(target/$TARGET/release/arc --version)" = "$RELEASE_TAG"
           mkdir -p linux-package linux-artifacts
           cp "target/$TARGET/release/arc" LICENSE linux-package/
-          tar -czf "linux-artifacts/agent-remote-control-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc LICENSE
+          mkdir -p linux-package/skills
+          cp -R skills/arc-setup linux-package/skills/
+          tar -czf "linux-artifacts/agent-remote-control-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc LICENSE skills
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}

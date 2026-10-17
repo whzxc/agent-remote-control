@@ -130,13 +130,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             ),
         ));
     }
-    let permissions = [
-        "accessibility",
-        "screen-recording",
-        "full-disk-access",
-        "command-full-disk-access",
-        "notifications",
-    ];
+    let permissions = ["full-disk-access", "command-full-disk-access"];
     steps.push((
         choices["permissions"] == "skip" || permissions.iter().all(|id| granted(items, id)),
         step(
@@ -223,7 +217,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
                 locale,
                 "add-connector",
                 "remote-ui",
-                Some("https://claude.ai/settings/connectors".into()),
+                Some("https://claude.ai/".into()),
                 &[],
             ),
         ));
@@ -241,7 +235,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
                 locale,
                 "enable-in-chatgpt",
                 "remote-ui",
-                Some("https://chatgpt.com/#settings/Connectors".into()),
+                Some("https://chatgpt.com/plugins".into()),
                 &[],
             ),
         ));
@@ -266,7 +260,13 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
     ));
     steps.push((
         data["loop"]["complete"] == true,
-        step(locale, "loop-test", "remote-ui", Some(client.into()), &[]),
+        step(
+            locale,
+            "loop-test",
+            "remote-ui",
+            Some(if claude { "https://claude.ai/" } else { client }.into()),
+            &[],
+        ),
     ));
     let done = steps.iter().filter(|(done, _)| *done).count();
     let current = steps
@@ -304,7 +304,7 @@ fn loop_evidence(observed: &Value, notification: &Value, needs_notification: boo
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|d| d["state"] == "完成")
+            .filter(|d| d["taskState"] == "completed")
         {
             if delivery["status"] == "delivered" {
                 result["complete"] = json!(true);
@@ -544,18 +544,7 @@ pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -
     }
 }
 pub fn playbook(id: &str) -> Result<Value> {
-    match id {
-        "protocol" => Ok(
-            json!({"id":id,"markdown":include_str!("../../skills/arc-setup/playbooks/protocol.md")}),
-        ),
-        "choose-goal" | "codex-ready" | "claude-code-ready" | "permissions" | "choose-address"
-        | "address-secret" | "create-ingress" | "add-connector" | "consent"
-        | "verify-connector" | "loop-test" | "chatgpt-prereq" | "tunnel-credentials"
-        | "enable-in-chatgpt" => Ok(
-            json!({"id":id,"markdown":include_str!("../../skills/arc-setup/playbooks/pending.md")}),
-        ),
-        _ => Err("INVALID_ARGUMENT: unknown setup playbook".into()),
-    }
+    crate::skills::playbook(id)
 }
 
 #[cfg(test)]
@@ -611,7 +600,15 @@ mod tests {
             loop_evidence(&completed, &Value::Null, true)["complete"],
             false
         );
-        let notification = json!({"deliveries":[{"state":"完成","status":"delivered"}]});
+        assert_eq!(
+            loop_evidence(
+                &completed,
+                &json!({"deliveries":[{"state":"完成","status":"delivered"}]}),
+                true
+            )["complete"],
+            false
+        );
+        let notification = json!({"deliveries":[{"state":"Display text may change","taskState":"completed","status":"delivered"}]});
         assert_eq!(
             loop_evidence(&json!({"state":"running"}), &notification, true)["complete"],
             false
@@ -684,6 +681,17 @@ mod tests {
         assert_eq!(current(&state, &data), "claude-code-ready");
         state["choices"]["claude-code-ready"] = json!("skip");
         assert_eq!(current(&state, &data), "permissions");
+        data["permissions"]["items"] = json!([
+            {"id":"full-disk-access","state":"granted"},
+            {"id":"command-full-disk-access","state":"missing"},
+            {"id":"accessibility","state":"missing"},
+            {"id":"screen-recording","state":"missing"},
+            {"id":"notifications","state":"missing"}
+        ]);
+        assert_eq!(current(&state, &data), "permissions");
+        data["permissions"]["items"][1]["state"] = json!("not-applicable");
+        assert_eq!(current(&state, &data), "choose-address");
+        data["permissions"]["items"][0]["state"] = json!("missing");
         state["choices"]["permissions"] = json!("skip");
         assert_eq!(current(&state, &data), "choose-address");
         let start = state["startedAt"].clone();

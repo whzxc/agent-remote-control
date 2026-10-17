@@ -46,9 +46,11 @@ curl --proto '=https' --proto-redir '=https' -fsSL "$url/SHA256SUMS.txt" -o "$st
 awk -v asset="$asset" '$2 == asset {print}' "$stage/SHA256SUMS.txt" > "$stage/checksum"
 [ "$(wc -l < "$stage/checksum" | tr -d ' ')" = 1 ] || { echo 'Missing or duplicate checksum' >&2; exit 1; }
 (cd "$stage" && sha256sum -c checksum)
-tar -xzf "$stage/$asset" -C "$stage" arc
+tar -xzf "$stage/$asset" -C "$stage" arc skills/arc-setup
 [ "$("$stage/arc" --version)" = "${version#v}" ] || { echo 'Version mismatch' >&2; exit 1; }
-mkdir -p "$destination"
+mkdir -p "$destination/skills"
+rm -rf "$destination/skills/arc-setup"
+cp -R "$stage/skills/arc-setup" "$destination/skills/arc-setup"
 # Replace via rename so a running executable is never truncated.
 staged_binary=$(mktemp "$destination/.agent-remote-control.XXXXXX")
 trap 'rm -rf "$stage"; rm -f "$staged_binary"' EXIT HUP INT TERM

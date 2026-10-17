@@ -28,7 +28,8 @@
   "bundle": {
     "active": true,
     "resources": {
-      "../dist/native/": "bin/"
+      "../dist/native/": "bin/",
+      "../skills/arc-setup/": "skills/arc-setup/"
     },
     "targets": [
       "app"
