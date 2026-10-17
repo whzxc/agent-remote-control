@@ -210,7 +210,12 @@ impl SubscriptionService {
                 .filter(|w| {
                     matches!(
                         w.label.as_str(),
-                        "weekly" | "weekly_all" | "weekly_scoped" | "seven_day" | "10080 min" | "604800 s"
+                        "weekly"
+                            | "weekly_all"
+                            | "weekly_scoped"
+                            | "seven_day"
+                            | "10080 min"
+                            | "604800 s"
                     ) || w.label.starts_with("seven_day_")
                 })
                 .collect();
