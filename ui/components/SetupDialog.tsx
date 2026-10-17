@@ -7,7 +7,7 @@ import { displayMessage } from "../messages";
 import { notify, refreshConnector } from "../state/connector";
 import type { Setup, SetupGoal } from "../state/setup";
 import type { Login } from "../state/types";
-import { Button, Dialog, Icon, Loading, Notice, SingleChoice } from "./ui";
+import { Button, CopyField, Dialog, Icon, Loading, Notice, SingleChoice } from "./ui";
 
 export default function SetupDialog({ mode, setMode, snapshot, error: readError, refresh, onClose, onManual }: {
   mode: "entry" | "progress";
@@ -58,15 +58,21 @@ export default function SetupDialog({ mode, setMode, snapshot, error: readError,
       else await openUrl(url);
     } catch (e) { setError(String(e)); }
   }
-  const ready = login === "authenticated", step = snapshot?.step;
+  async function signIn() {
+    setWorking(true); setError("");
+    try { await api("codex/login", "POST"); }
+    catch (e) { setError(String(e)); }
+    finally { setWorking(false); }
+  }
+  const ready = login === "authenticated", missing = login === "unavailable", step = snapshot?.step;
   const complete = mode === "progress" && snapshot?.complete;
   return <Dialog title={t(mode === "entry" ? "setup.entryTitle" : complete ? "setup.completeTitle" : "setup.progressTitle")}
     width={640} onClose={onClose} busy={working}
     footer={mode === "entry" ? <>
       <Button variant="ghost" onClick={onManual} disabled={working}>{t("setup.manual")}</Button>
       <span className="spacer" />
-      <Button disabled={working || !snapshot} onClick={() => void start(true, true)}>{t("setup.copyOther")}</Button>
-      <Button variant="primary" busy={working} disabled={!snapshot || login === "loading"} onClick={() => void start(!ready)}>{t(ready ? "setup.sendCodex" : "setup.copyPrompt")}</Button>
+      {!missing && <Button disabled={working || !snapshot} onClick={() => void start(true, true)}>{t("setup.copyOther")}</Button>}
+      <Button variant="primary" busy={working} disabled={!snapshot || login === "loading"} onClick={() => void (ready ? start(false) : missing ? start(true, true) : signIn())}>{t(ready ? "setup.sendCodex" : missing ? "setup.copyPrompt" : "setup.signInCodex")}</Button>
     </> : <>
       {snapshot?.dispatch?.desktopUrl && <Button onClick={() => void open(snapshot.dispatch!.desktopUrl!)}><Icon icon={ExternalLink} />{t("setup.openTask")}</Button>}
       <span className="spacer" />
@@ -76,8 +82,11 @@ export default function SetupDialog({ mode, setMode, snapshot, error: readError,
     {mode === "entry" ? <div className="setup-entry">
       <SingleChoice value={goal} onChange={value => setGoal(value as SetupGoal)} label={t("setup.choose-goal.title")} disabled={working}
         options={[{ value: "claude-loop", label: t("setup.claudeRecommended") }, { value: "chatgpt-chat", label: "ChatGPT" }]} />
-      <p className="muted">{t("setup.choose-goal.explain")}</p>
-      {login !== "loading" && !ready && <Notice tone="warning">{t("setup.codexUnavailable")}</Notice>}
+      <p className="muted">{t(`setup.option.${goal}.explain`)}</p>
+      {login !== "loading" && !ready && <Notice tone="warning">
+        {t(missing ? "setup.codexMissing" : "setup.codexSignedOut")}
+        {missing && <> <a href="https://developers.openai.com/codex/app/" onClick={e => { e.preventDefault(); void open(e.currentTarget.href); }}>{t("setup.downloadCodex")}</a></>}
+      </Notice>}
       <p className="muted small">{t("setup.userRole")}</p>
     </div> : !snapshot ? <Loading /> : <div className="setup-progress">
       <p className="muted small">{t("setup.progressCount", snapshot.progress)}</p>
@@ -88,9 +97,13 @@ export default function SetupDialog({ mode, setMode, snapshot, error: readError,
           </li>)}
         </ol>
         <div className="setup-current" aria-live="polite">
-          {complete ? <><h3>{t("setup.completeTitle")}</h3><p>{t("setup.completeExplain")}</p></> : step && <>
+          {complete ? <p>{t("setup.completeExplain")}</p> : step && <>
             <span className="muted small">{t(["authorize", "secret"].includes(step.kind) ? "setup.waitingForYou" : "setup.agentContinues")}</span>
             <h3>{step.title}</h3><p>{step.explain}</p>
+            {step.id === "add-connector" && snapshot.onboarding?.url && <div className="setup-address">
+              <span className="muted small">{t("setup.connectionAddress")}</span>
+              <CopyField value={snapshot.onboarding.url} label={t("setup.connectionAddress")} />
+            </div>}
             {["authorize", "secret"].includes(step.kind) && step.openUrl && <Button variant="primary" onClick={() => void open(step.openUrl!)}>{t(step.kind === "secret" ? "setup.enterCredential" : "setup.openAction")}</Button>}
             {["decide", "remote-ui"].includes(step.kind) && <p className="muted">{t(snapshot.dispatch?.desktopUrl ? "setup.continueCodex" : "setup.continueAgent")}</p>}
           </>}

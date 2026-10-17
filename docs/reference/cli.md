@@ -38,6 +38,9 @@ The five step kinds are `auto`, `decide`, `authorize`, `secret`, and `remote-ui`
 The response includes `goal`, `progress`, `complete`, `steps` (the full selected
 sequence as `{id,title,kind,done}`), and `step` with localized
 `title`, `explain`, option labels, `apply`, `openUrl`, `doneWhen`, and `playbook`.
+Goal explanations share the App’s selected-goal copy. User-facing titles,
+explanations, and completion descriptions contain no internal field names or commands;
+use the structured fields and playbooks for execution details.
 App language preferences apply; Auto uses the locale resolved by the App, or
 terminal locale when no App locale has been saved. `onboarding` supplies the
 selected ingress URL and current verification prompt. `cliPath` and `stateDir`

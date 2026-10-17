@@ -92,7 +92,18 @@ fn step(
     options: &[(&str, bool)],
 ) -> Value {
     let t = |suffix: &str| crate::i18n::text(locale, &format!("setup.{id}.{suffix}")).to_owned();
-    json!({"id":id,"kind":kind,"title":t("title"),"explain":t("explain"),
+    let explain = if id == "choose-goal" {
+        options
+            .iter()
+            .map(|(option, _)| {
+                crate::i18n::text(locale, &format!("setup.option.{option}.explain")).to_owned()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        t("explain")
+    };
+    json!({"id":id,"kind":kind,"title":t("title"),"explain":explain,
         "options":options.iter().map(|(option,recommended)|json!({"id":option,"label":crate::i18n::text(locale,&format!("setup.option.{option}")),"recommended":recommended})).collect::<Vec<_>>(),
         "apply":if matches!(kind,"auto"|"decide") || !options.is_empty() || id == "codex-ready" {Some(format!("setup apply {id} --stdin"))}else{None},
         "openUrl":url,"doneWhen":t("done"),"playbook":id})

@@ -2,7 +2,15 @@
 
 [English](../getting-started.md) | **简体中文**
 
-## 1. 在 macOS 安装
+## 交给 Agent 配置
+
+[安装 ARC](installation.md) 后，打开**添加控制源**，选择 **Claude（推荐）**或 **ChatGPT**，点击**发送给 Codex**。ARC 会安装配置 skill 并显示进度，由 Codex 引导你完成选择、授权、凭据填写和首次远端测试。
+
+如有提示，先登录 Codex。尚未安装时，可以复制提示词给其他本机 Agent，或打开下载入口。[自动配置](auto-setup.md)提供通用提示词，以及需要你参与的步骤。稍后可从首页的**继续配置**重入；完成后点击**返回首页**查看连接拓扑。
+
+## 手动配置
+
+### 1. 在 macOS 安装
 
 从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 下载最新的 Apple Silicon DMG。把 **Agent Remote Control** 拖入 Applications，推出 DMG，再打开应用。安装 Codex Desktop 并登录。要接收自动回访，再安装并登录 Claude Code CLI。
 
@@ -12,16 +20,16 @@ macOS 拦截已核验的下载时，在**系统设置 → 隐私与安全性 →
 xattr -rd com.apple.quarantine "/Applications/Agent Remote Control.app"
 ```
 
-## 2. 接入 Claude
+### 2. 接入 Claude
 
-1. 在 ARC 首页点击**添加控制源**，选择 **Claude**。
+1. 在 ARC 首页点击**添加控制源 → 手动配置**，选择 **Claude**。
 2. 选择 **HTTPS**、**OAuth** 和隧道提供商。首次可用 Cloudflare 临时域名，长期使用选择固定地址。
 3. 保存并连接，复制显示的 MCP URL。
 4. 在 Claude 的连接器设置里添加自定义连接器，填入 URL，发起授权。
 5. 保持授权页打开，点击**打开 ARC**，在 ARC 核对请求并允许。返回 Claude，在对话中启用连接器。
 6. 复制连接的验证提示词，让 Claude 执行；它会通过刚添加的连接调用 `connector_verify`。
 
-## 3. 派任务并接收通知
+### 3. 派任务并接收通知
 
 在 claude.ai 打开 Claude Code 云端会话，发送下面的提示词。Claude 可以从自身环境读取会话 ID，例如 `CLAUDE_CODE_REMOTE_SDK_URL` 中的 `cse_…`：
 
@@ -38,10 +46,6 @@ Codex 轮次完成后，ARC 的状态通知唤醒同一 Claude 会话，让它�
 - 使用 ChatGPT Chat：[ChatGPT 指南](guides/chatgpt.md)。
 - 使用 Windows、Homebrew 或 Linux：[安装说明](installation.md)。
 
-## 限制
-
-电脑需保持唤醒、联网，ARC 需保持运行。自动回访发送到 Claude Code 云端会话，普通 Claude 聊天链接不能接收。离开电脑前，在运行 ARC 的电脑上完成首次 OAuth 同意。连接或通知失败时查看[常见问题](faq.md)。
-
 ## 检查权限与就绪
 
 远程使用前，在本机打开 ARC **设置 → 权限与就绪**，点击 **重新检测**。按需点击 **去授权**，从系统设置切回 ARC 会自动刷新。
@@ -55,3 +59,7 @@ Codex 轮次完成后，ARC 的状态通知唤醒同一 Claude 会话，让它�
 工具不会主动请求系统权限。错误包含 permissionId，请在本机权限页处理后重试。不要把 CLI 所在终端的授权当作 Core、screen helper 或 Codex 执行宿主的授权。FDA 的启发式结果不保证所有卷可访问。
 
 打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。
+
+## 限制
+
+电脑需保持唤醒、联网，ARC 需保持运行。自动回访发送到 Claude Code 云端会话，普通 Claude 聊天链接不能接收。离开电脑前，在运行 ARC 的电脑上完成首次 OAuth 同意。连接或通知失败时查看[常见问题](faq.md)。

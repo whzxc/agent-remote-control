@@ -12,6 +12,7 @@ export type Setup = {
   dispatch?: { threadId?: string; desktopUrl?: string };
   cliPath: string;
   stateDir: string;
+  onboarding?: { url?: string } | null;
   findings?: { code: string; summary: string }[];
 };
 export function useSetup(visible: boolean) {

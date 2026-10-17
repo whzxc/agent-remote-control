@@ -4,6 +4,10 @@
 
 [English](README.md) | **简体中文**
 
+[安装 ARC](docs/zh-CN/installation.md) 后，在 App 里点击**添加控制源 → 发送给 Codex**即可。也可以把这句话交给任意本机 Agent：
+
+> 帮我配置这台电脑上已安装的 Agent Remote Control：找到它的 CLI，运行 `cli skill install --target codex`（Claude Code 改用 `--target claude-code`；其他 Agent 可跳过安装），读取 `cli setup playbook protocol` 并按 `cli setup` 推进；让我做选择和授权，密钥只填在 ARC 里，最后用 `cli setup wait` 确认完成。
+
 ![ARC 首页：Claude、ChatGPT 与本机 Agents](docs/images/home-overview.png)
 
 ```text
@@ -28,12 +32,8 @@ GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两�
 ## 三步开始
 
 1. **安装。** 从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 下载最新的 macOS 应用，移入 Applications，并登录 Codex。[安装说明](docs/zh-CN/installation.md)。
-2. **接入 Claude。** 在 ARC 添加 Claude，选择 HTTPS + OAuth，把 MCP URL 添加为 Claude 自定义连接器，再到 ARC 同意授权。
+2. **接入 Claude。** 在 ARC 选择添加控制源 → 手动配置 → Claude，再选择 HTTPS + OAuth，把 MCP URL 添加为 Claude 自定义连接器，再到 ARC 同意授权。
 3. **派出首个任务。** 告诉 Claude：“通过 ARC 让 Codex 不读文件、不调用工具，只回复 ARC_LOOP_OK。把你自己的 Claude Code 云端会话设为 notifyClaudeSession。派发后结束本轮，收到通知再读取结果。”若 Claude 无法读取自身会话 ID，再手动粘贴云端会话 URL 或 ID。[逐步上手](docs/zh-CN/getting-started.md)。
-
-也可以把这段话交给本机 Codex：
-
-> 阅读 https://github.com/whzxc/agent-remote-control/blob/main/docs/zh-CN/auto-setup.md ，按 Codex → Claude 流程配置。先读取安装版的 `cli help` 和 `cli guide`，保留现有连接，协助我完成授权与一个无害首任务。
 
 ## 文档
 

@@ -1,6 +1,6 @@
 # Agent 驱动的安装与配置（设计）
 
-状态：P0 第 1–3 步：setup CLI、catalog、skill、App 入口与进度已实现；用户文档待收敛 · 版本线：0.9.x patch
+状态：P0 已完成 · 版本线：0.9.x patch
 
 ## 目标
 
@@ -27,7 +27,7 @@
 | `claude-loop` | Claude（custom connector, HTTPS + OAuth）+ Codex，含 Claude Code 云端会话完成通知 | 是 |
 | `chatgpt-chat` | ChatGPT Chat（OpenAI Secure Tunnel）+ Codex | 否；需要 OpenAI Platform 组织权限和 ChatGPT 开发者模式 |
 
-`setup next` 未指定 goal 且尚未选择时，返回一个 `decide` 步骤让用户选 goal，`explain` 说明两条路的差异和门槛。
+`setup next` 未指定 goal 且尚未选择时，返回一个 `decide` 步骤让用户选 goal，`explain` 由 `setup.option.<goal>.explain` 两条共享文案组合，说明两条路的差异和门槛；App 只显示当前选中目标的说明。
 
 ## Step 模型
 
@@ -152,8 +152,9 @@ P0 复用现有连接表单：`openUrl` 为打开该 ingress 编辑弹窗并聚�
 - 次按钮复制的提示词额外包含 `cli skill install --target claude-code`，用于 Claude Code；所有提示词都指定当前 `ARC_STATE_DIR`，保持实例隔离。
 - 文字链接：**手动配置** → 现有表单。
 - 发送后切换到进度视图：轮询 `setup.next`，展示步骤列表、当前步骤和"正在等你"的提示；authorize 步骤直接放操作按钮（例如打开 OAuth 批准、打开权限页）；提供"打开 Codex 任务"入口。决策在 Agent 对话里做，App 不重复展示选项。
-- Codex 未安装或未登录时，主按钮降级为复制，并提示先安装 / 登录 Codex。
+- Codex 已安装但未登录时，主按钮为“登录 Codex”，复用 `codex.login.open`；次按钮仍为“复制给其他 Agent”。未安装时只保留一个主按钮“复制配置提示词”，提示中提供官方下载入口。
 - 进度可见时每 2 秒读取 `setup.next`，页面隐藏时暂停；decide / remote-ui 只提示在 Agent 对话继续，secret 打开并聚焦现有凭据字段。完成态提供“返回首页”按钮。
+- 步骤列表单列竖排；添加 Claude 连接器时直接展示连接地址和复制按钮。步骤的用户文案不暴露内部字段名、命令或 JSON 键。
 - 有未完成目标时，首页提供“继续配置”；已派发任务提供“打开 Codex 任务”。
 - `setup.dispatch` 输入 goal：保存目标、安装 Codex skill、创建 `setup-workspace/`，复用现有 Codex create 和持久回执。显式发送表示该任务已获用户批准；模型、推理强度及执行所有者沿用已有默认设置。`setup.json` 中保存 `dispatch.requestId/threadId/desktopUrl`，重复派发读取同一回执，不重复创建线程。创建未确认或失败时保留回执并返回错误。
 
@@ -167,10 +168,18 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 
 ## 文档
 
-- README / README.zh-CN 顶部放一句给 Agent 的入口（安装后）："让你的 Agent 运行 ARC 的 `cli setup`"，并说明 App 内可一键发送给 Codex。
-- `docs/auto-setup.md`（及 zh-CN）：四段长 prompt 收敛为一段通用 prompt + App 一键入口说明。
-- `docs/reference/cli.md`：补 setup / skill 命令（英文）。
+- README / README.zh-CN 顶部提供安装后的“发送给 Codex”入口，以及含 `cli skill install` 和 `cli setup` 的通用本机 Agent 提示词。
+- `docs/auto-setup.md`（及 zh-CN）：一段通用提示词、App 一键入口，以及选择、登录授权、ARC 内填写凭据、远端会话测试四类用户参与步骤。
+- `docs/reference/cli.md`：维护 setup / skill 命令及 `setup.dispatch` 契约（英文）。
 - getting-started 保留手动路径，但把 Agent 路径放在前面。
+
+## P0 实现与原设计的差异
+
+- 权限必需项收窄为完全磁盘访问及适用时的命令磁盘访问；辅助功能、屏幕录制和通知为可选，避免与基本连接无关的权限阻塞配置。
+- `setup.next` 增加完整推导序列 `steps`，供 App 直接展示进度，不另存工作流状态；`cliPath/stateDir` 用于生成指向当前实例的提示词。
+- 新增 `setup.dispatch`，复用现有 Codex 任务创建和持久回执；小型状态文件同时保存派发标识与线程链接，用于重复点击复用和重入。
+- 本机 Agent 负责配置和生成测试提示词，闭环验证由用户在 Claude Code 云端会话或 ChatGPT 对话中发起，避免把本机任务误认为远端闭环。
+- 未登录和未安装采用不同入口；完成态保留“返回首页”按钮，供用户确认结果后回到拓扑。
 
 ## 分期
 

@@ -4,6 +4,10 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
+After [installing ARC](docs/installation.md), click **Add control source → Send to Codex** in the App. Or give any local Agent this prompt:
+
+> Help me configure the installed Agent Remote Control on this computer: locate its CLI, run `cli skill install --target codex` (use `--target claude-code` for Claude Code; other Agents can skip installation), read `cli setup playbook protocol`, and follow `cli setup`; ask me to choose and authorize, keep secrets in ARC, and confirm completion with `cli setup wait`.
+
 ![ARC home: Claude and ChatGPT connected to local Agents](docs/images/home-overview.png)
 
 ```text
@@ -28,12 +32,8 @@ GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connect
 ## Start in three steps
 
 1. **Install.** Download the newest macOS app from [Releases](https://github.com/whzxc/agent-remote-control/releases), move it to Applications, and sign in to Codex. [Installation](docs/installation.md).
-2. **Connect Claude.** Add Claude in ARC, choose HTTPS + OAuth, then add the MCP URL as a custom connector in Claude. Approve the request in ARC.
+2. **Connect Claude.** In ARC, choose Add control source → Manual setup → Claude, then HTTPS + OAuth, then add the MCP URL as a custom connector in Claude. Approve the request in ARC.
 3. **Send your first task.** Ask Claude: “Use ARC to ask Codex to reply ARC_LOOP_OK without reading files or using tools. Set notifyClaudeSession to your own Claude Code cloud session. End your turn after dispatching; when notified, read the result.” If Claude cannot read its session ID, paste the cloud session URL or ID instead. [Step-by-step guide](docs/getting-started.md).
-
-Prefer local Codex to configure it? Send this prompt:
-
-> Read https://github.com/whzxc/agent-remote-control/blob/main/docs/auto-setup.md and follow the Codex → Claude setup. Inspect the installed app's `cli help` and `cli guide`, preserve existing connections, and help me complete authorization and a harmless first task.
 
 ## Documentation
 
