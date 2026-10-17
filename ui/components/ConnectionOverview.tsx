@@ -233,9 +233,11 @@ export default function ConnectionOverview() {
     };
   }, []);
   const rows = Math.max(Math.max(1, sources.length) + 1, agents.length + 1);
+  // Below the 70px compact row size, scroll instead of shrinking names or
+  // the 24px minimum Agent icon; reserve room for the last utility row.
   const height = showMascot
       ? Math.max(320, rows * 84)
-      : Math.max(320, dimensions.height - 180),
+      : Math.max(320, dimensions.height - 180, rows * 70 + 64),
     leftWidth = dimensions.left,
     rightWidth = dimensions.right;
   const ringRadius = Math.max(
@@ -248,14 +250,16 @@ export default function ConnectionOverview() {
       ? ringRadius * 1.15
       : 124 + (ringRadius - 80) * 1.32
     : brandSize;
-  // Reserve 60px to the utility button plus its 16px radius below the last
-  // real node, without including that button in the centered node count.
-  const rowStep = (count: number) => showMascot ? 84 : Math.min(84, (height - 152) / Math.max(1, count - 1));
+  // Real nodes stay centered; the utility occupies the next row, with 16px
+  // below the button. Each row reserves 58px: button radius + name gap,
+  // name line height + 24px clearance. Its remaining space is the icon radius.
+  const rowStep = (count: number) => showMascot ? 84 : Math.max(
+    70, Math.min(84, (dimensions.height - 64) / Math.max(1, count + 1)),
+  );
   const layoutCount = (count: number) => showMascot ? count + 1 : count;
   const nodeStyle = (count: number) => ({
     "--graph-row-step": `${rowStep(count)}px`,
-    "--graph-node-scale": rowStep(count) / 84,
-    "--graph-utility-gap": "60px",
+    "--graph-node-scale": showMascot ? 1 : Math.min(1, (rowStep(count) - 58) / 24),
   }) as CSSProperties;
   const y = (index: number, count: number) =>
     height / 2 + (index - (count - 1) / 2) * rowStep(count);

@@ -1146,6 +1146,10 @@
 }
 
 /* The mark wears outer arcs; the mascot keeps its circular ports. */
+.brand-mode.connection-core {
+  overflow-y: auto;
+  align-items: safe center;
+}
 .brand-mode .graph-brain::before,
 .brand-mode .graph-brain::after {
   content: none;
@@ -1207,10 +1211,13 @@
 .brand-mode .graph-nodes {
   position: relative;
 }
+.brand-mode .graph-node-name {
+  line-height: 14px;
+}
 .brand-mode .graph-node.add-source,
 .brand-mode .graph-node.agents-more {
   position: absolute;
-  top: calc(100% - var(--node-size) / 2 + var(--graph-utility-gap) - 16px);
+  top: calc(100% - var(--node-size) / 2 + var(--graph-row-step) - 16px);
   width: 32px;
   height: 32px;
   border: 1px dashed var(--text-secondary);
