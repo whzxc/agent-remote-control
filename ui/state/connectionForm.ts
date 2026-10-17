@@ -5,6 +5,7 @@ export type ConnectionForm = Pick<
   | "connectionMode"
   | "httpsProvider"
   | "cloudflareMode"
+  | "cloudflareAuth"
   | "httpsHost"
   | "httpsPort"
   | "tunnelId"
@@ -30,6 +31,7 @@ export function connectionForm(config?: Config): ConnectionForm {
     domain,
     connectionMode: config?.connectionMode || "tunnel",
     httpsProvider: config?.httpsProvider || "ngrok",
+    cloudflareAuth: config?.cloudflareAuth || "token",
     cloudflareMode: config?.cloudflareMode || "quick",
     httpsHost: config?.httpsHost || String(configDefaults.httpsHost),
     httpsPort: config?.httpsPort || Number(configDefaults.httpsPort),

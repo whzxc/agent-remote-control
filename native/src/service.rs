@@ -355,6 +355,7 @@ impl Service {
         Ok(status)
     }
     pub async fn stop(&self) -> Result<()> {
+        crate::cloudflare::stop_login().await;
         let _configuration = self.configuration.lock().await;
         self.closing.store(true, Ordering::SeqCst);
         crate::logs::record("INFO", "Service stopping", None);

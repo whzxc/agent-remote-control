@@ -1,6 +1,6 @@
 # Agent 驱动的安装与配置（设计）
 
-状态：P0 已完成；P1 macOS bootstrap 已实现 · 版本线：0.9.x patch
+状态：P0 已完成；P1 bootstrap 与固定地址登录配置已实现 · 版本线：0.9.x patch
 
 ## 目标
 
@@ -71,7 +71,7 @@
 | `auto` | Agent | 直接执行 `apply`，再 `setup next` |
 | `decide` | 用户选 | 原样转述 `explain` + `options`，标出推荐项，拿到选择后执行 `apply` |
 | `authorize` | 用户点 | 打开 `openUrl`，告诉用户点哪里，然后 `setup wait` |
-| `secret` | 用户粘贴到 ARC | 打开 `openUrl`（ARC 内的输入位置）和取 token 的页面，`setup wait`；**绝不**让用户把秘钥发到聊天 |
+| `secret` | Core 从剪贴板直收 | Agent 点击官方复制按钮，再 apply clipboard；无复制按钮时用户手动复制，表单为兜底；不读取凭据或剪贴板，完成后 `setup wait` |
 | `remote-ui` | Agent 驱动浏览器，否则指引用户 | 按 playbook 用浏览器 / computer use 操作远端页面；登录、授权按钮停下交给用户；然后 `setup wait` |
 
 ## CLI
@@ -88,7 +88,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 - 同时注册 catalog operation：`setup.next`、`setup.apply`、`setup.wait`、`setup.dispatch`，`cli mcp` 自然暴露。
 - 输出沿用现有 JSON envelope。
 - `next --goal` 只预览指定目标；`setup apply choose-goal --stdin` 的 `{"option":"claude-loop"}` / `{"option":"chatgpt-chat"}` 才保存目标和首次选择的 `startedAt`。重复选择同一目标不更新时间，切换目标清除旧选择。
-- 地址选择及 ChatGPT 权限确认时先复用或创建未启动的 ingress，供后续 secret 表单编辑；`create-ingress` 负责启动及 probe。固定地址默认 Cloudflare named，可在现有表单选择其他 provider。
+- 地址选择及 ChatGPT 权限确认时先复用或创建未启动的 ingress，供后续 secret 表单编辑；`create-ingress` 负责启动及 probe。固定地址先选择 Cloudflare 登录配置或其他 provider；后者沿用现有表单。
 - readiness 步骤的跳过也作为选择保存。跳过 Claude Code 后，loop-test 只检查任务完成和 `ARC_ONBOARDING_OK` 回复，并返回通知不可用 finding。
 - `verification.firstOAuthRequestAt` 记录此入口成功接受的 DCR/authorize 请求；`firstMcpRequestAt` 记录认证后到达 MCP 分发层的请求；`lastProbe` 记录 probe 的时间、URL 和是否通过。它们随现有 verification 绑定重置，不形成事件历史。
 - deep link 契约：`agent-remote-control://ingress?id=<ingressId>&field=<credentialField>` 打开指定连接的编辑弹窗；并聚焦指定字段。权限入口为 `agent-remote-control://settings?section=permissions`。
@@ -102,10 +102,13 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 | id | kind | 完成信号（从现有数据推导） |
 | --- | --- | --- |
 | `codex-ready` | auto / authorize | `codex.login.status` 已登录；未登录时变为 authorize，`apply` = `codex.login.open` |
-| `claude-code-ready` | auto | 本机 Claude Code CLI 可用且已登录（沿用 doctor 中已有检测）；缺失时给 explain，允许跳过但闭环通知不可用 |
+| `claude-code-ready` | auto / authorize | 缺失时返回官方 installCommand，Agent 安装后 apply；已安装未登录时 ARC 打开终端运行登录。空输入不报错；沿用 doctor 登录检测，允许跳过但通知不可用 |
 | `permissions` | authorize | doctor `permissions.items` 中 full-disk-access 和适用时的 command-full-disk-access 为 granted；辅助功能、屏幕录制、通知可选；`openUrl` 指向 ARC Settings → Permissions & readiness；允许跳过 |
 | `choose-address` | decide | 选择已保存 |
-| `address-secret` | secret | 仅选 fixed 时出现；对应 ingress 的 `hasXxxToken` 为真 |
+| `choose-provider` | decide | fixed 时出现；Cloudflare（推荐，需要托管域名）或其他 provider |
+| `cloudflare-login` | authorize | Cloudflare 路径；ARC 状态目录下 origin cert 就绪 |
+| `cloudflare-tunnel` | auto | Cloudflare 路径；已绑定主机名、保存 tunnel ID 与本地凭据文件 |
+| `address-secret` | secret | 其他 provider 路径；对应 ingress 的 `hasXxxToken` 为真，自定义反向代理则检查地址配置 |
 | `create-ingress` | auto | ingress 存在、运行、probe 通过 |
 | `add-connector` | remote-ui | 该 ingress 收到 DCR 或 authorize 请求（OAuth pending request 出现） |
 | `consent` | authorize | 该 ingress 存在有效 OAuth grant |
@@ -127,9 +130,11 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 
 缺失的完成信号（例如"收到 DCR/authorize 请求""收到任意 MCP 请求"若尚无可查询字段），只补最小的可观测字段，不新建事件系统。
 
-## secret 输入（P0 做法）
+## 凭据输入
 
-P0 复用现有连接表单：`openUrl` 为打开该 ingress 编辑弹窗并聚焦对应凭据字段的 deep link（若现有 deep link 不支持则补一个最小路由）。P1 再考虑独立的轻量输入面板。
+`setup apply address-secret --stdin` 和 `setup apply tunnel-credentials --stdin` 接受 `{"source":"clipboard"}`。Core 读取并立即清空系统剪贴板，再从原始凭据、常见安装命令或 JSON 提取凭据，沿用 ingress update 保存；返回只包含 `hasXxx` 标志，不返回 next 或凭据。空剪贴板且已有凭据时重复 apply 成功；格式错误也不回显内容。随后 Agent 调用 next / wait。
+
+Agent 只点击官方复制按钮，不读剪贴板、不检查含秘钥的 DOM 或截图；没有复制按钮时请用户手动复制。现有凭据表单和聚焦 deep link 保留为兜底，不新增独立秘钥面板。编辑弹窗订阅入口更新，只同步尚未由用户编辑的字段，避免外部写入域名后表单仍为空。
 
 ## arc-setup skill
 
@@ -170,7 +175,7 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 ## 文档
 
 - README / README.zh-CN 顶部提供安装后的“发送给 Codex”入口，以及指向公开 `skills/arc-setup/SKILL.md` 的一句本机 Agent 提示词。
-- `docs/auto-setup.md`（及 zh-CN）：一段通用提示词、App 一键入口，以及选择、登录授权、ARC 内填写凭据、远端会话测试四类用户参与步骤。
+- `docs/auto-setup.md`（及 zh-CN）：一段通用提示词、App 一键入口，以及选择、登录授权、凭据复制与 ARC 内填写兜底、远端会话测试四类用户参与步骤。
 - `docs/reference/cli.md`：维护 setup / skill 命令及 `setup.dispatch` 契约（英文）。
 - getting-started 保留手动路径，但把 Agent 路径放在前面。
 
@@ -185,8 +190,8 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 ## 分期
 
 - **P0（本次）**：`cli setup next/apply/wait/playbook/reset` 与 catalog operation；arc-setup skill 与 `cli skill install`；App 默认"发送给 Codex"入口与进度视图；文档调整。
-- **P1**：macOS bootstrap 已实现；独立 secret 输入面板待实现。
-- **P2**：临时地址变化后的自愈（Agent 自动更新连接器 URL 并重新授权）；固定地址路径自动化；Windows / Linux bootstrap。
+- **P1**：macOS bootstrap、固定地址登录配置、剪贴板直收和 Claude Code 安装登录。
+- **P2**：临时地址变化后的自愈（Agent 自动更新连接器 URL 并重新授权）；Windows / Linux bootstrap。
 
 ## P1：新机器 bootstrap
 
@@ -199,3 +204,14 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 - 新的 Agent 安装会预建只有空选择的 `setup.json`，不替用户决定目标；App 因此进入进度视图，等待 Agent 继续。已有配置不覆盖。
 - 等到 App 可通过 Core 查询后，最后一行输出 `{"version":"<版本>","cliPath":"<绝对路径>","stateDir":"<绝对路径>"}`。后续命令沿用这些路径。
 - Linux 保持现有 headless tarball、checksum 与用户目录安装流程。完整 bootstrap 依赖 release 同时包含更新后的安装脚本、setup CLI、skill 资源和首次启动界面。
+
+## P1：固定地址只需登录
+
+0.9.11 新机器体验暴露的缺口是：fixed 未引导选择服务商、安装命令中的 token 需要手工截取、已打开的编辑表单没有接收 CLI 写入的域名，以及缺少 Claude Code 时只能跳过。此阶段替代原计划的独立秘钥面板，目标是用户只提供登录，Agent 和 ARC 完成配置。
+
+- 固定地址增加服务商选择；Cloudflare 需要一个已托管域名。ARC 使用托管的 cloudflared 执行登录，捕获授权 URL；用户登录并选择域名。登录 URL 只保存在当前进程，不写入 setup.json。
+- cloudflared login 不采用 origincert 参数作为输出路径，因此仅为该子进程设置独立 HOME / USERPROFILE，证书位于 `<stateDir>/cloudflare/.cloudflared/cert.pem`。后续命令通过 `TUNNEL_ORIGIN_CERT` 使用它，不改用户的默认 cloudflared 目录。
+- ARC 从授权证书取得 zone / account，查询域名，列出现有 tunnel。优先复用入口已关联或名称符合 `arc-<本机名简写>` 的本地管理 tunnel；也可复用该默认主机名已路由且本 ARC 持有凭据文件的 tunnel。否则创建并路由 DNS，默认地址为 `arc-<本机名简写>.<zone>`，结果写入 explain。
+- 已由控制台管理的同名 tunnel 保持原有路由；使用带 `-local` 后缀的本地管理 tunnel。DNS 不覆盖其他服务的记录。配置新增 `cloudflareAuth: token | login`（默认 token）和 `cloudflareTunnelId`；login 通过状态目录内凭据 JSON 和本地 ingress 配置运行，现有 token 模式保留。
+- Claude Code 缺失时按 Anthropic 官方安装命令安装；登录由 ARC 打开交互终端运行 `claude auth login`，用户完成浏览器登录或在终端输入授权码。无桌面的 Linux 由用户在自己的终端登录。显式跳过仍保留。
+- setup 仍只推导现有数据；五种 step kind 和 ingress 校验路径不变。新增的持久文件仅为 Cloudflare 自身证书、凭据和运行配置。

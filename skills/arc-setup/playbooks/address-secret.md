@@ -1,17 +1,20 @@
-# Fixed-address credentials
+# Other fixed-address providers
 
-Use `credentialUrl` for the selected provider and `openUrl` for this ingress's
-ARC editor. The deep link identifies the credential field; if not focused,
-tell the user which provider credential field to select.
+Configure the provider and non-secret fixed hostname using `cli ingress update`
+before opening the ARC fallback form. Use the provider's existing dashboard
+connection where possible. Never read its credential value.
 
-- **Browser tools (Claude in Chrome / Codex browser / IAB):** Open the provider's
-  credential page and ARC editor. Navigate non-secret setup controls, then hand
-  over before login, token revelation or copying. The user pastes the token
-  directly into ARC and saves the connection.
-- **Computer use / ARC screen only:** Navigate to the provider and ARC editor
-  using screenshots, then hand over; do not capture revealed credentials.
-- **Neither:** Give both URLs and say: “Obtain this provider's fixed-address
-  credential and paste it directly into the matching field in ARC, then save.”
+- **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `credentialUrl`.
+  Hand login and authorization to the user. Click the official credential or
+  installation-command **Copy** button without reading the value, then apply
+  `address-secret` with `{"source":"clipboard"}`.
+- **Computer use / ARC screen:** Navigate to the copy control only while the
+  credential is hidden. Click Copy, then apply the same clipboard action. Do not
+  take screenshots of a revealed credential.
+- **Neither:** Give `credentialUrl` and ask the user to copy the credential;
+  then apply the clipboard action. If no official copy button exists, ask the
+  user to copy manually instead of revealing or transcribing the value yourself.
 
-Do not read tokens through browser DOM, clipboard, screenshots, or CLI.
-Run `cli setup wait` after the secret is hidden.
+Core extracts the credential, clears the clipboard, and returns only its saved
+flag. Never read the clipboard, browser DOM, or screenshots for secrets. Use
+`openUrl` for direct entry in ARC only as a fallback. Then run `cli setup wait`.

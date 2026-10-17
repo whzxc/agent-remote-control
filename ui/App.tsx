@@ -185,6 +185,9 @@ export default function App() {
         navigate("overview");
       } else if (url.hostname === "oauth") setOauthRequest({ id: url.searchParams.get("request") ?? "" });
       else if (url.hostname === "settings") { navigate("settings"); setPermissionsOpen(true); }
+      else if (url.hostname === "setup" && ["claude-login", "cloudflare-login"].includes(url.searchParams.get("target") ?? "")) {
+        void api("setup/apply", "POST", {stepId: url.searchParams.get("target") === "claude-login" ? "claude-code-ready" : "cloudflare-login", input:{}}).catch((e: Error) => notify(e.message, true));
+      }
       else if (url.hostname === "setup" && url.searchParams.get("target") === "codex-login") {
         void api("codex/login", "POST").catch((e: Error) => notify(e.message, true));
       }

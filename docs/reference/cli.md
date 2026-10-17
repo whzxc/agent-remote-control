@@ -52,11 +52,26 @@ when setup has been sent to Codex.
 current step successfully. `setup reset` clears only setup choices, its start
 time and dispatch reference, leaving ingresses intact. Repeated apply reuses an existing matching
 ingress. Fixed-address choice and ChatGPT prerequisite confirmation prepare an
-unstarted ingress before credential entry. Fixed addresses default to Cloudflare
-named; select another provider in the existing connection form if needed.
+unstarted ingress before credential entry. Fixed addresses add `choose-provider`: `cloudflare` (recommended) or
+`other-provider`. Cloudflare uses `cloudflare-login` (apply `{}` to start
+authorization) and `cloudflare-tunnel` (apply `{}` to reuse/create a locally
+managed tunnel and route DNS). Login state is derived from the origin certificate
+in `<stateDir>/cloudflare/.cloudflared/cert.pem`; the child process has an isolated
+home directory. Other providers retain the connection form.
 `setup apply tunnel-credentials --stdin` accepts the non-secret
-`{"tunnelId":"..."}`. Users enter runtime keys and provider credentials only in
-the ARC form opened by `openUrl`, never in chat or command-line arguments.
+`{"tunnelId":"..."}`. Both `address-secret` and `tunnel-credentials` also accept
+`{"source":"clipboard"}`. Core reads and clears the system clipboard, extracts a
+credential from plain text, common provider commands or JSON, and saves it through
+ingress update. The result contains only the relevant `hasXxx` flag; call next
+again afterward. An empty clipboard with an already-saved credential is a no-op.
+Invalid input is cleared too, without echoing its content. Agents click official
+Copy controls but never inspect secrets or read the clipboard. The ARC form
+opened by `openUrl` remains a fallback. Linux requires wl-clipboard or xclip and
+an active desktop clipboard.
+
+`claude-code-ready` with `{}` returns installation guidance when the CLI is
+missing, or opens an interactive sign-in terminal when installed but signed out.
+Its step carries `installCommand` only when missing. Login remains user-driven.
 
 `setup playbook protocol` returns bundled protocol Markdown in `result.markdown`;
 UI step IDs return their matching playbook; auto/decide-only IDs return the protocol.
@@ -129,7 +144,7 @@ printf '%s\n' '{"name":"Claude","controlSource":"claude","transport":"https","au
 
 add accepts optional id and name. id is immutable; update takes it as a command argument, not in stdin. Updates partially merge settings and restart only that running ingress. Fields include controlSource, transport (`openai-tunnel` / `https`), auth (`openai` / `none` / `bearer` / `oauth`), enabled, toolPolicy (`all` or `{allowlist:[…]}`), and config.
 
-config fields include httpsProvider, cloudflareMode, httpsUrl, httpsHost, httpsPort, cloudflareToken, ngrokAuthtoken, pinggyMode, pinggyToken, localxposeMode, localxposeAccessToken, localxposeRegion, tunnelId, apiKey, and tunnelBinary. Use `cli help` for current modes and requirements. A Bearer token is at least 32 printable ASCII characters. Secret input uses stdin or a protected file; status/list do not reveal it.
+config fields include httpsProvider, cloudflareMode, cloudflareAuth (token by default, or login), cloudflareTunnelId, httpsUrl, httpsHost, httpsPort, cloudflareToken, ngrokAuthtoken, pinggyMode, pinggyToken, localxposeMode, localxposeAccessToken, localxposeRegion, tunnelId, apiKey, and tunnelBinary. Use `cli help` for current modes and requirements. A Bearer token is at least 32 printable ASCII characters. Secret input uses stdin or a protected file; status/list do not reveal it.
 
 For OpenAI Tunnel, use controlSource chatgpt, transport openai-tunnel, auth openai, and config.tunnelId/apiKey. Register the identity through the official OpenAI flow. For HTTPS, choose a client-supported auth method and [provider](../guides/connections.md).
 

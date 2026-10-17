@@ -30,10 +30,11 @@ fn source() -> Result<PathBuf> {
 
 pub fn playbook(id: &str) -> Result<Value> {
     let file = match id {
-        "protocol" | "choose-goal" | "claude-code-ready" | "choose-address" | "chatgpt-prereq"
-        | "create-ingress" => "protocol",
+        "protocol" | "choose-goal" | "choose-address" | "choose-provider" | "cloudflare-tunnel"
+        | "chatgpt-prereq" | "create-ingress" => "protocol",
         "add-connector" | "consent" | "verify-connector" | "loop-test" | "address-secret"
-        | "tunnel-credentials" | "enable-in-chatgpt" | "codex-ready" | "permissions" => id,
+        | "tunnel-credentials" | "enable-in-chatgpt" | "codex-ready" | "permissions"
+        | "cloudflare-login" | "claude-code-ready" => id,
         _ => return Err(format!("INVALID_ARGUMENT: unknown playbook {id}")),
     };
     let markdown = fs::read_to_string(source()?.join("playbooks").join(format!("{file}.md")))

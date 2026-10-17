@@ -1631,7 +1631,7 @@
       "name": "setup.apply",
       "method": "POST",
       "route": "setup/apply",
-      "description": "Submit a decision or execute the current auto step. Reuses existing ingresses. Secret entry belongs in the ARC form.",
+      "description": "Submit a decision or execute a setup action. Reuses existing ingresses. Secret steps accept source: clipboard; Core saves and clears it, returning saved flags only.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1648,7 +1648,11 @@
                   "choose-address",
                   "chatgpt-prereq",
                   "tunnel-credentials",
-                  "create-ingress"
+                  "create-ingress",
+                  "choose-provider",
+                  "cloudflare-login",
+                  "cloudflare-tunnel",
+                  "address-secret"
                 ]
               },
               "input": {
@@ -1662,6 +1666,12 @@
                   },
                   "config": {
                     "type": "object"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "clipboard"
+                    ]
                   }
                 },
                 "additionalProperties": false

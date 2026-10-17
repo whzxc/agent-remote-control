@@ -37,13 +37,15 @@ it from this skill. Read [protocol](playbooks/protocol.md) for apply/wait detail
 
 | Kind | Action |
 | --- | --- |
-| `auto` | Execute `apply` with JSON on stdin. |
+| `auto` | Read the playbook; run `installCommand` if supplied, then execute `apply` with JSON on stdin. |
 | `decide` | Repeat `explain` and option labels verbatim, mark the recommended option, and apply the user's choice. |
-| `authorize` | Open `openUrl`, tell the user where to act, then wait. |
-| `secret` | Open ARC's input and the credential source; the user enters the secret directly in ARC, then wait. |
+| `authorize` | Read the playbook; apply `{}` when requested to start login, open `openUrl`, then wait for the user. |
+| `secret` | Read the playbook; use the official Copy control, then apply `{"source":"clipboard"}`. ARC form entry is the fallback. |
 | `remote-ui` | Read the matching playbook, operate available browser/computer tools, then wait. |
 
-Never request, read, copy, or print secrets in chat or command-line arguments.
+Never request, read, or print secrets in chat or command-line arguments.
+You may click an official Copy button without reading its value, then ask ARC
+to receive it from the clipboard. Never read the clipboard yourself.
 Leave login, authorization, and consent buttons to the user. Hand over before
 credential entry or revelation; resume observation after secrets are hidden.
 Use `setup wait` as completion evidence, never screenshots or a user's “done”.
@@ -57,5 +59,7 @@ Available UI playbooks: [add-connector](playbooks/add-connector.md),
 [loop-test](playbooks/loop-test.md), [address-secret](playbooks/address-secret.md),
 [tunnel-credentials](playbooks/tunnel-credentials.md),
 [enable-in-chatgpt](playbooks/enable-in-chatgpt.md),
-[codex-ready](playbooks/codex-ready.md), [permissions](playbooks/permissions.md).
+[codex-ready](playbooks/codex-ready.md), [permissions](playbooks/permissions.md),
+[cloudflare-login](playbooks/cloudflare-login.md),
+[claude-code-ready](playbooks/claude-code-ready.md).
 Other step IDs use the protocol.

@@ -34,7 +34,7 @@ import {
 import SourceIcon from "./SourceIcon";
 import ToolPolicyField from "./ToolPolicyField";
 export default function IngressDialog({
-  ingress,
+  ingress: initialIngress,
   focusField,
   onClose,
   onSaved,
@@ -47,6 +47,8 @@ export default function IngressDialog({
   onRemoved: () => void;
 }) {
   const { status } = connector.use();
+  const ingress = status?.ingresses.find(i => i.id === initialIngress?.id) ?? initialIngress;
+  const dirty = useRef(new Set<string>());
   const [selected, setSelected] = useState(
     ingress
       ? controlSource(ingress.controlSource)?.curated
@@ -76,6 +78,26 @@ export default function IngressDialog({
   const [working, setWorking] = useState(false),
     [error, setError] = useState(""),
     [errors, setErrors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!ingress) return;
+    const incoming = connectionForm(ingress.config);
+    incoming.connectionMode = ingress.transport === "openai-tunnel" ? "tunnel" : "https";
+    setForm(old => {
+      const next = { ...old };
+      for (const key of Object.keys(incoming) as (keyof ConnectionForm)[]) {
+        if (!dirty.current.has(key)) Object.assign(next, { [key]: incoming[key] });
+      }
+      return next;
+    });
+    if (!dirty.current.has("name")) setName(ingress.name);
+    if (!dirty.current.has("source")) {
+      setSource(ingress.controlSource);
+      setSelected(controlSource(ingress.controlSource)?.curated ? ingress.controlSource : "custom");
+    }
+    if (!dirty.current.has("auth")) setAuth(ingress.auth === "oauth" ? "oauth" : ingress.auth === "bearer" ? "bearer" : "none");
+    if (!dirty.current.has("toolPolicy")) setToolPolicy(ingress.toolPolicy);
+    setErrors(old => Object.fromEntries(Object.entries(old).filter(([key]) => dirty.current.has(key))));
+  }, [ingress]);
   const pickerRef = useRef<HTMLDivElement>(null);
   const lastSelection = useRef("");
   useEffect(() => {
@@ -92,6 +114,8 @@ export default function IngressDialog({
     key: K,
     value: ConnectionForm[K],
   ) {
+    dirty.current.add(key);
+    if (["connectionMode", "httpsProvider", "cloudflareMode", "ngrokMode", "pinggyMode", "localxposeMode"].includes(key)) dirty.current.add("domain");
     setForm((old) => ({
       ...old,
       [key]: value,
@@ -115,6 +139,7 @@ export default function IngressDialog({
     f.connectionMode =
       preset?.recommendedTransport === "openai-tunnel" ? "tunnel" : "https";
     f.cloudflareMode = f.connectionMode === "tunnel" ? "quick" : "named";
+    for (const key of [...Object.keys(f), "source", "name", "auth"]) dirty.current.add(key);
     setSelected(value);
     setSource(value === "custom" ? "" : value);
     setName(
@@ -308,6 +333,7 @@ export default function IngressDialog({
         </div>
       ) : (
         <form
+          onChangeCapture={e => { const id = (e.target as HTMLElement).id; if (id.startsWith("ingress-")) dirty.current.add(id.slice(8)); }}
           className="form"
           ref={formRef}
           onSubmit={(e) => {
@@ -436,6 +462,7 @@ export default function IngressDialog({
                   />
                 </Field>
               )}
+              {form.httpsProvider === "cloudflare" && form.cloudflareAuth === "login" && <Notice>{t("setup.cloudflare-managed")}</Notice>}
               {needsCredential(form) &&
                 provider.credential &&
                 textField(
@@ -452,7 +479,7 @@ export default function IngressDialog({
               <Field label={t("authentication")}>
                 <SingleChoice
                   value={auth}
-                  onChange={setAuth}
+                  onChange={value => { dirty.current.add("auth"); setAuth(value); }}
                   label={t("authentication")}
                   disabled={working}
                   options={[
@@ -466,7 +493,7 @@ export default function IngressDialog({
           )}
           <ToolPolicyField
             value={toolPolicy}
-            onChange={setToolPolicy}
+            onChange={value => { dirty.current.add("toolPolicy"); setToolPolicy(value); }}
             disabled={working}
           />
           {error && <Notice>{displayMessage(error)}</Notice>}

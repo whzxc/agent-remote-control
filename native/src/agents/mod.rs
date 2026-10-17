@@ -164,8 +164,22 @@ impl AgentHost {
     pub async fn open_interactive(&self, _agent: &str) -> Result<Value> {
         Err("TERMINAL_UNSUPPORTED: headless Linux cannot open a terminal or Codex Desktop; run the Agent CLI in your own terminal.".into())
     }
+    pub async fn open_claude_login(&self) -> Result<Value> {
+        #[cfg(target_os = "linux")]
+        {
+            Ok(json!({"command":"claude auth login"}))
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            self.launch_interactive("claude", " auth login").await
+        }
+    }
     #[cfg(not(target_os = "linux"))]
     pub async fn open_interactive(&self, agent: &str) -> Result<Value> {
+        self.launch_interactive(agent, "").await
+    }
+    #[cfg(not(target_os = "linux"))]
+    async fn launch_interactive(&self, agent: &str, arguments: &str) -> Result<Value> {
         let driver = self.drivers.get(agent).ok_or("UNKNOWN_AGENT")?;
         if matches!(driver, AgentDriver::CodexNative) {
             crate::desktop::open_app().await?;
@@ -187,10 +201,11 @@ impl AgentHost {
             let quote =
                 |p: &std::path::Path| format!("'{}'", p.to_string_lossy().replace('\'', "'\"'\"'"));
             let content = format!(
-                "#!/bin/zsh -l\n/bin/rm -f -- {}\ncd -- {} || exit 1\n{}\n",
+                "#!/bin/zsh -l\n/bin/rm -f -- {}\ncd -- {} || exit 1\n{}{}\n",
                 quote(&script),
                 quote(&home),
-                quote(&binary)
+                quote(&binary),
+                arguments
             );
             std::fs::write(&script, content).map_err(|e| e.to_string())?;
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700))
@@ -209,9 +224,10 @@ impl AgentHost {
             let quote =
                 |p: &std::path::Path| format!("'{}'", p.to_string_lossy().replace('\'', "''"));
             let script = format!(
-                "Set-Location -LiteralPath {}; & {}",
+                "Set-Location -LiteralPath {}; & {}{}",
                 quote(&home),
-                quote(&binary)
+                quote(&binary),
+                arguments
             );
             let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
             let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);

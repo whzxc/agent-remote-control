@@ -88,6 +88,14 @@
     },
     "httpsPort": {
       "default": 8787
+    },
+    "cloudflareAuth": {
+      "default": "token",
+      "maxBytes": 16
+    },
+    "cloudflareTunnelId": {
+      "default": "",
+      "maxBytes": 36
     }
   },
   "providers": {

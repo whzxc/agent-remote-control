@@ -15,6 +15,8 @@ export interface Config {
   localxposeRegion: "us" | "eu" | "ap";
   cloudflareMode: "quick" | "named";
   hasCloudflareToken: boolean;
+  cloudflareAuth: "token" | "login";
+  cloudflareTunnelId: string;
   httpsUrl: string;
   httpsHost: string;
   httpsPort: number;

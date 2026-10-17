@@ -42,7 +42,10 @@ fn selected<'a>(state: &Value, ingresses: &'a Value) -> Option<&'a Value> {
                     crate::ingress::config::descriptor()["providers"]
                         [string(&i["config"], "httpsProvider")]["mode"]
                         .as_str()
-                        .is_some_and(|mode| i["config"][mode] == "named")
+                        .is_none_or(|mode| i["config"][mode] == "named")
+                        && (state["choices"]["choose-provider"] != "cloudflare"
+                            || i["config"]["httpsProvider"] == "cloudflare"
+                                && i["config"]["cloudflareAuth"] == "login")
                 } else {
                     i["config"]["httpsProvider"] == "cloudflare"
                         && i["config"]["cloudflareMode"] == "quick"
@@ -105,7 +108,7 @@ fn step(
     };
     json!({"id":id,"kind":kind,"title":t("title"),"explain":explain,
         "options":options.iter().map(|(option,recommended)|json!({"id":option,"label":crate::i18n::text(locale,&format!("setup.option.{option}")),"recommended":recommended})).collect::<Vec<_>>(),
-        "apply":if matches!(kind,"auto"|"decide") || !options.is_empty() || id == "codex-ready" {Some(format!("setup apply {id} --stdin"))}else{None},
+        "apply":if matches!(kind,"auto"|"decide") || !options.is_empty() || matches!(id,"codex-ready"|"cloudflare-login") || kind == "secret" {Some(format!("setup apply {id} --stdin"))}else{None},
         "openUrl":url,"doneWhen":t("done"),"playbook":id})
 }
 fn derive(state: &Value, data: &Value, locale: &str) -> Value {
@@ -131,16 +134,41 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
         ),
     ));
     if claude {
-        steps.push((
-            granted(items, "claude-code") || skip_claude,
-            step(
-                locale,
-                "claude-code-ready",
-                "auto",
-                None,
-                &[("skip", false)],
+        let installed = items
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|i| i["id"] == "claude-code" && i["installed"] == true);
+        let mut ready = step(
+            locale,
+            "claude-code-ready",
+            if installed { "authorize" } else { "auto" },
+            Some(
+                if installed {
+                    "agent-remote-control://setup?target=claude-login"
+                } else {
+                    "https://code.claude.com/docs/en/setup"
+                }
+                .into(),
             ),
+            &[("skip", false)],
+        );
+        ready["explain"] = json!(crate::i18n::text(
+            locale,
+            if installed {
+                "setup.claude-code-ready.login"
+            } else {
+                "setup.claude-code-ready.explain"
+            }
         ));
+        if !installed {
+            ready["installCommand"] = json!(if cfg!(windows) {
+                "irm https://claude.ai/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://claude.ai/install.sh | bash"
+            });
+        }
+        steps.push((granted(items, "claude-code") || skip_claude, ready));
     }
     let permissions = ["full-disk-access", "command-full-disk-access"];
     steps.push((
@@ -165,18 +193,53 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             ),
         ));
         if choices["choose-address"] == "fixed" {
-            let (field, flag) = credential(i);
-            let mut secret = step(
-                locale,
-                "address-secret",
-                "secret",
-                Some(edit_url(i, field)),
-                &[],
-            );
-            secret["credentialUrl"] = crate::ingress::config::descriptor()["providers"]
-                [string(&i["config"], "httpsProvider")]["help"]
-                .clone();
-            steps.push((i["config"][flag] == true, secret));
+            steps.push((
+                choices["choose-provider"].is_string(),
+                step(
+                    locale,
+                    "choose-provider",
+                    "decide",
+                    None,
+                    &[("cloudflare", true), ("other-provider", false)],
+                ),
+            ));
+            if choices["choose-provider"] == "cloudflare" {
+                let url = data["cloudflare"]["openUrl"]
+                    .as_str()
+                    .unwrap_or("agent-remote-control://setup?target=cloudflare-login");
+                steps.push((
+                    data["cloudflare"]["hasOriginCert"] == true,
+                    step(
+                        locale,
+                        "cloudflare-login",
+                        "authorize",
+                        Some(url.into()),
+                        &[],
+                    ),
+                ));
+                steps.push((
+                    i["config"]["configured"] == true && i["config"]["cloudflareAuth"] == "login",
+                    step(locale, "cloudflare-tunnel", "auto", None, &[]),
+                ));
+            } else if choices["choose-provider"] == "other-provider" {
+                let (field, flag) = credential(i);
+                let mut secret = step(
+                    locale,
+                    "address-secret",
+                    "secret",
+                    Some(edit_url(i, field)),
+                    &[],
+                );
+                secret["credentialUrl"] = crate::ingress::config::descriptor()["providers"]
+                    [string(&i["config"], "httpsProvider")]["help"]
+                    .clone();
+                steps.push((
+                    i["config"][flag] == true
+                        || i["config"]["httpsProvider"] == "custom"
+                            && i["config"]["configured"] == true,
+                    secret,
+                ));
+            }
         }
     } else {
         steps.push((
@@ -280,6 +343,18 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             &[],
         ),
     ));
+    if i["config"]["cloudflareAuth"] == "login" && !string(&i["config"], "httpsUrl").is_empty() {
+        for (_, step) in &mut steps {
+            if step["id"] == "create-ingress" || step["id"] == "cloudflare-tunnel" {
+                step["explain"] = json!(format!(
+                    "{} {}",
+                    string(step, "explain"),
+                    crate::i18n::text(locale, "setup.fixed-address")
+                        .replace("{url}", string(&i["config"], "httpsUrl"))
+                ));
+            }
+        }
+    }
     let done = steps.iter().filter(|(done, _)| *done).count();
     let current = steps
         .iter()
@@ -391,6 +466,9 @@ async fn next(s: &Arc<Service>, preview_goal: Option<&str>) -> Result<Value> {
     let permissions = call(s, "permissions", "GET", json!({})).await?;
     let ingresses = call(s, "ingress", "GET", json!({})).await?;
     let mut data = json!({"login":login,"permissions":permissions,"ingresses":ingresses});
+    if state["choices"]["choose-provider"] == "cloudflare" {
+        data["cloudflare"] = crate::cloudflare::status().await;
+    }
     if let Some(i) = selected(&state, &data["ingresses"]).cloned() {
         if i["auth"] == "oauth" && !string(&i, "url").is_empty() {
             data["oauth"] = call(
@@ -532,8 +610,10 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
             }
             "claude-code-ready" => {
                 let ready = call(s, "permissions", "GET", json!({})).await?;
-                if !granted(&ready["items"], "claude-code") {
-                    call(s, "agents/open", "POST", json!({"agent":"claude"})).await?;
+                if !granted(&ready["items"], "claude-code")
+                    && crate::agents::driver::discover("claude").is_some()
+                {
+                    s.agents.open_claude_login().await?;
                 }
             }
             "choose-address" => {
@@ -545,6 +625,62 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 ensure_ingress(s, &state, input.get("config").cloned().unwrap_or(json!({})))
                     .await?;
                 save(&path(), &state)?;
+            }
+            "choose-provider" => {
+                if !["cloudflare", "other-provider"].contains(&option) {
+                    return Err(
+                        "INVALID_ARGUMENT: option must be cloudflare or other-provider".into(),
+                    );
+                }
+                state["choices"][id] = json!(option);
+                let config = if option == "cloudflare" {
+                    json!({"httpsProvider":"cloudflare","cloudflareMode":"named","cloudflareAuth":"login"})
+                } else {
+                    let mut config = input.get("config").cloned().unwrap_or(json!({}));
+                    config["cloudflareAuth"] = json!("token");
+                    config
+                };
+                let i = ensure_ingress(s, &state, config.clone()).await?;
+                call(
+                    s,
+                    &format!("ingress/{}", string(&i, "id")),
+                    "PUT",
+                    json!({"config":config}),
+                )
+                .await?;
+                save(&path(), &state)?;
+            }
+            "cloudflare-login" | "cloudflare-tunnel" => {
+                let i = ensure_ingress(s, &state, json!({"cloudflareAuth":"login"})).await?;
+                if id == "cloudflare-login" {
+                    crate::cloudflare::login(&i["config"]).await?;
+                } else {
+                    let config = crate::cloudflare::provision(&i["config"]).await?;
+                    call(
+                        s,
+                        &format!("ingress/{}", string(&i, "id")),
+                        "PUT",
+                        json!({"config":config}),
+                    )
+                    .await?;
+                }
+            }
+            "address-secret" | "tunnel-credentials" if input["source"] == "clipboard" => {
+                let i = ensure_ingress(s, &state, json!({})).await?;
+                let (field, flag) = if id == "tunnel-credentials" {
+                    ("apiKey", "hasApiKey")
+                } else {
+                    credential(&i)
+                };
+                let text = crate::setup_secret::take().await?;
+                if text.trim().is_empty() && i["config"][flag] == true {
+                    return Ok(json!({flag:true}));
+                }
+                let secret = crate::setup_secret::extract(field, &text)?;
+                let patch = json!({"config":{field:secret}});
+                crate::cli::validate_ingress_input(&patch, true)?;
+                call(s, &format!("ingress/{}", string(&i, "id")), "PUT", patch).await?;
+                return Ok(json!({flag:true}));
             }
             "chatgpt-prereq" => {
                 if option == "claude-loop" {
@@ -590,6 +726,7 @@ pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -
         ("POST", "setup/apply") => apply(s, body).await,
         ("DELETE", "setup/reset") => {
             let _guard = APPLY.lock().await;
+            crate::cloudflare::stop_login().await;
             if path().exists() {
                 std::fs::remove_file(path()).map_err(|e| e.to_string())?;
             }
@@ -701,6 +838,8 @@ mod tests {
         i["config"]["cloudflareMode"] = json!("named");
         i["running"] = json!(false);
         data["ingresses"] = json!([i]);
+        assert_eq!(current(&state, &data), "choose-provider");
+        state["choices"]["choose-provider"] = json!("other-provider");
         let result = derive(&state, &data, "en");
         assert_eq!(result["step"]["kind"], "secret");
         assert_eq!(
@@ -708,6 +847,13 @@ mod tests {
             "agent-remote-control://ingress?id=existing&field=cloudflareToken"
         );
         data["ingresses"][0]["config"]["hasCloudflareToken"] = json!(true);
+        assert_eq!(current(&state, &data), "create-ingress");
+        state["choices"]["choose-provider"] = json!("cloudflare");
+        data["ingresses"][0]["config"]["cloudflareAuth"] = json!("login");
+        assert_eq!(current(&state, &data), "cloudflare-login");
+        data["cloudflare"] = json!({"hasOriginCert":true});
+        assert_eq!(current(&state, &data), "cloudflare-tunnel");
+        data["ingresses"][0]["config"]["configured"] = json!(true);
         assert_eq!(current(&state, &data), "create-ingress");
     }
     #[test]

@@ -27,11 +27,12 @@ and the [CLI reference](reference/cli.md) for executable paths.
 
 - **Choices:** Claude or ChatGPT, address type, and any optional steps. The Agent explains the options and marks the recommendation.
 - **Login and authorization:** sign in, approve connection access, and grant local permissions yourself.
-- **Credentials:** paste runtime keys or provider credentials into ARC’s form, never into chat.
+- **Fixed Cloudflare address:** choose Cloudflare and sign in to select your hosted domain. ARC creates or reuses the tunnel and binds the address; no token copying is needed.
+- **Other credentials:** the Agent clicks the provider’s Copy button and ARC receives and clears the clipboard. If there is no Copy button, copy it yourself; ARC’s form remains a fallback. Never send credentials in chat.
 - **Remote test:** the local Agent prepares a prompt; paste it into your Claude Code cloud session or ChatGPT conversation. ARC verifies the remote connection and first task before showing completion.
 
 The Agent waits for ARC’s completion signals. Keep its conversation open; the App shows the current step and actions that need your attention. **Manual setup** remains available from the entry screen.
 
 ## Limits
 
-ChatGPT setup requires OpenAI Platform organization permissions and ChatGPT developer mode. Claude’s automatic follow-ups require a signed-in local Claude Code CLI and a Claude Code cloud session; skipping Claude Code omits notification verification. A successful local command or screenshot alone does not prove the remote connection works. Keep the computer awake, online, and ARC running during setup.
+ChatGPT setup requires OpenAI Platform organization permissions and ChatGPT developer mode. If Claude Code is missing, the Agent installs it using Anthropic’s official installer; ARC opens a terminal for you to sign in. Claude’s automatic follow-ups require a signed-in local Claude Code CLI and a Claude Code cloud session; skipping Claude Code omits notification verification. A successful local command or screenshot alone does not prove the remote connection works. Keep the computer awake, online, and ARC running during setup.

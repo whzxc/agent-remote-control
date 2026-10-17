@@ -37,12 +37,17 @@ pub(crate) fn configured(s: &Value) -> bool {
     let needs_token =
         provider["tokenRequired"] == "always" || provider["tokenRequired"] == "named" && named;
     let token = provider["credential"].as_str().unwrap_or("");
+    let credential_ready = if s["httpsProvider"] == "cloudflare" && s["cloudflareAuth"] == "login" {
+        crate::cloudflare::configured(s)
+    } else {
+        !string(s, token).is_empty()
+    };
     let endpoint = if s["httpsProvider"] == "ngrok" {
         "ngrokEndpoint"
     } else {
         "httpsUrl"
     };
-    (!needs_token || !string(s, token).is_empty()) && (!named || !string(s, endpoint).is_empty())
+    (!needs_token || credential_ready) && (!named || !string(s, endpoint).is_empty())
 }
 
 pub(crate) fn binding(s: &Value) -> String {
@@ -53,6 +58,8 @@ pub(crate) fn binding(s: &Value) -> String {
                 s["httpsProvider"],
                 s["cloudflareMode"],
                 s["cloudflareToken"],
+                s["cloudflareAuth"],
+                s["cloudflareTunnelId"],
                 s["ngrokAuthtoken"],
                 s["ngrokMode"],
                 s["ngrokEndpoint"],
@@ -93,6 +100,13 @@ pub(crate) fn validate_config(s: &Value) -> Result<()> {
         return Err("连接方式无效".into());
     }
     let providers = descriptor()["providers"].as_object().unwrap();
+    if !["token", "login"].contains(&string(s, "cloudflareAuth")) {
+        return Err("Cloudflare 登录方式无效".into());
+    }
+    if !string(s, "cloudflareTunnelId").is_empty() {
+        uuid::Uuid::parse_str(string(s, "cloudflareTunnelId"))
+            .map_err(|_| "Cloudflare Tunnel ID 无效")?;
+    }
     if !providers.contains_key(string(s, "httpsProvider")) {
         return Err("HTTPS 服务商无效".into());
     }

@@ -1,5 +1,6 @@
-//! Deep links select a local request; they never authorize or fetch a remote URL.
+//! Deep links select local actions; Cloudflare and Claude authorization stays with the user.
 use serde_json::json;
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 fn open(app: &tauri::AppHandle, url: &tauri::Url) {
@@ -47,6 +48,28 @@ fn open(app: &tauri::AppHandle, url: &tauri::Url) {
                 .any(|(k, v)| k == "target" && v == "codex-login") =>
         {
             let _ = crate::windows::show(app, Some(("codex:login".into(), json!(null))));
+            return;
+        }
+        Some("setup")
+            if params.iter().any(|(k, v)| {
+                k == "target" && ["claude-login", "cloudflare-login"].contains(&v.as_ref())
+            }) =>
+        {
+            let step = if params.iter().any(|(_, v)| v == "claude-login") {
+                "claude-code-ready"
+            } else {
+                "cloudflare-login"
+            };
+            let _ = crate::windows::show(app, None);
+            let service = app
+                .state::<std::sync::Arc<arc_core::runtime::Client>>()
+                .inner()
+                .clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = service
+                    .request("setup/apply", "POST", json!({"stepId":step,"input":{}}))
+                    .await;
+            });
             return;
         }
         Some("oauth") => {}

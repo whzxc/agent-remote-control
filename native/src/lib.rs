@@ -1,6 +1,8 @@
 mod changes;
 mod claude_notify;
+mod cloudflare;
 pub mod screen;
+mod setup_secret;
 mod shell_command;
 mod text_files;
 use serde_json::{json, Value};

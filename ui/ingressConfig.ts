@@ -23,6 +23,7 @@ export function fixedDomain(form: ConnectionForm): boolean {
   return form.connectionMode === 'https' && (!provider.mode || form[provider.mode] === 'named');
 }
 export function needsCredential(form: ConnectionForm): boolean {
+  if (form.httpsProvider === "cloudflare" && form.cloudflareAuth === "login") return false;
   const provider = providers[form.httpsProvider];
   return provider.tokenRequired === 'always' || provider.tokenRequired === 'named' && fixedDomain(form);
 }

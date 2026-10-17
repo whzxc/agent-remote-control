@@ -363,7 +363,18 @@ async fn spawn(
                 "--metrics",
                 &admin,
             ]);
-            if cloudflare_named {
+            if cloudflare_named && settings["cloudflareAuth"] == "login" {
+                let tunnel = string(settings, "cloudflareTunnelId");
+                let hostname =
+                    reqwest::Url::parse(string(settings, "httpsUrl")).map_err(|e| e.to_string())?;
+                save(
+                    &config,
+                    &json!({"tunnel":tunnel,
+                    "credentials-file":crate::cloudflare::credentials(tunnel),
+                    "ingress":[{"hostname":hostname.host_str(),"service":upstream},{"service":"http_status:404"}]}),
+                )?;
+                cmd.arg("run").arg(tunnel);
+            } else if cloudflare_named {
                 let token_file = dir.join("tunnel-token");
                 crate::service::write_secret(&token_file, string(settings, "cloudflareToken"))?;
                 cmd.args(["run", "--token-file"]).arg(token_file);
@@ -601,7 +612,7 @@ async fn discover_output(
     None
 }
 
-async fn install(provider: &str, proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
+pub(crate) async fn install(provider: &str, proxy: &crate::proxy::NetworkProxy) -> Result<PathBuf> {
     static INSTALL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = INSTALL.lock().await;
     let platform = if cfg!(target_os = "macos") {

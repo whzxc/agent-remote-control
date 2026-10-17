@@ -18,11 +18,12 @@ Codex 已安装但未登录时，先点**登录 Codex**。尚未安装时，可�
 
 - **做选择：**使用 Claude 还是 ChatGPT、选择地址方式，以及是否跳过可选步骤。Agent 会解释选项并标出推荐项。
 - **登录和授权：**由你登录账号、同意连接授权并授予本机权限。
-- **填写凭据：**把运行时密钥或服务商凭据粘贴到 ARC 的表单里，不发进聊天。
+- **Cloudflare 固定地址：**选择 Cloudflare，登录并选择托管域名；ARC 自动创建或复用隧道、绑定地址，无需复制 token。
+- **其他凭据：**Agent 点击服务商的复制按钮，ARC 直接接收并清空剪贴板；没有复制按钮时请你手动复制，ARC 表单保留为兜底。不要把凭据发到聊天。
 - **远端测试：**本机 Agent 准备提示词，你把它粘贴到 Claude Code 云端会话或 ChatGPT 对话。ARC 验证远端连接与首个任务后，才显示完成。
 
 Agent 会等待 ARC 的完成信号。保持 Agent 对话打开；App 会显示当前步骤和需要你操作的按钮。入口页仍可选择**手动配置**。
 
 ## 限制
 
-ChatGPT 配置需要 OpenAI Platform 组织权限和 ChatGPT 开发者模式。Claude 自动回访需要已登录的本机 Claude Code CLI 和 Claude Code 云端会话；跳过 Claude Code 后不验证通知。本机命令成功或截图都不能单独证明远端连接可用。配置期间请保持电脑唤醒、联网，ARC 持续运行。
+ChatGPT 配置需要 OpenAI Platform 组织权限和 ChatGPT 开发者模式。未安装 Claude Code 时，Agent 会用 Anthropic 官方安装程序安装，再由 ARC 打开终端供你登录。Claude 自动回访需要已登录的本机 Claude Code CLI 和 Claude Code 云端会话；跳过 Claude Code 后不验证通知。本机命令成功或截图都不能单独证明远端连接可用。配置期间请保持电脑唤醒、联网，ARC 持续运行。

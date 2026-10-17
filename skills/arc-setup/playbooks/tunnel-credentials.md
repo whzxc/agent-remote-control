@@ -1,22 +1,17 @@
-# OpenAI Secure Tunnel credentials
+# OpenAI Tunnel credentials
 
-Use `credentialUrl` for Platform and `secretUrl` for this ingress's ARC editor.
+Open `credentialUrl` (OpenAI Platform → organization settings → Tunnels).
+The user needs organization access. Leave login, authorization and consent to
+them. The Tunnel ID is not a secret: apply it with `{"tunnelId":"tunnel_..."}`.
 
-- **Browser tools (Claude in Chrome / Codex browser / IAB):** Open Platform →
-  Organization settings → Tunnels. Guide the user to create a tunnel in the
-  organization linked to the intended ChatGPT workspace. User handles login,
-  permissions, and runtime-key creation/revelation. Read only the non-secret
-  Tunnel ID when the key is hidden, then submit
-  `cli setup apply tunnel-credentials --stdin` with `{"tunnelId":"..."}`.
-  Open `secretUrl`; the user pastes the runtime key into ARC and saves.
-- **Computer use / ARC screen only:** Navigate the same pages from screenshots;
-  hand over before any key is revealed. Read/apply the Tunnel ID only while no
-  key is visible, or let the user enter both fields in ARC.
-- **Neither:** Give both URLs and say: “Create a tunnel for your ChatGPT workspace,
-  then enter its Tunnel ID and runtime key directly in ARC and save.”
+- **Browser tools (Claude in Chrome / Codex browser / IAB):** Navigate to the
+  Tunnel and runtime-key controls. Click the official **Copy** button without
+  reading the key, then apply `tunnel-credentials` with `{"source":"clipboard"}`.
+- **Computer use / ARC screen:** Navigate while the key is hidden. Click its
+  copy control and apply clipboard; do not screenshot a revealed key.
+- **Neither:** Give the Platform link and say “Copy this Tunnel's runtime key.”
+  Then apply clipboard. Also ask for manual copying if no copy button exists.
 
-Creation needs tunnel Read + Manage; runtime use needs Read + Use. Missing access
-requires the user's organization administrator. ARC manages the tunnel client;
-do not start another client. Never inspect a revealed key. Run `cli setup wait`.
-
-[Official tunnel guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+Never read clipboard contents or secret DOM values. Core saves the key, clears
+the clipboard, and returns only `hasApiKey`. `secretUrl` opens ARC for manual
+entry as a fallback. Run `cli setup wait` for both the ID and key to be saved.
