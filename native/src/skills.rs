@@ -31,7 +31,7 @@ fn source() -> Result<PathBuf> {
 pub fn playbook(id: &str) -> Result<Value> {
     let file = match id {
         "protocol" | "choose-goal" | "choose-address" | "choose-provider" | "cloudflare-tunnel"
-        | "chatgpt-prereq" | "create-ingress" => "protocol",
+        | "chatgpt-fallback" | "create-ingress" => "protocol",
         "add-connector" | "consent" | "verify-connector" | "loop-test" | "address-secret"
         | "tunnel-credentials" | "enable-in-chatgpt" | "codex-ready" | "permissions"
         | "cloudflare-login" | "claude-code-ready" => id,

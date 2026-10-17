@@ -29,6 +29,7 @@ pub struct Ingress {
     run_dir: Mutex<Option<PathBuf>>,
     started: Mutex<Option<Instant>>,
     failure: Mutex<String>,
+    control_plane: Mutex<Value>,
     pub(crate) operation: Mutex<()>,
     pub(crate) retired: std::sync::atomic::AtomicBool,
     pub connected: std::sync::atomic::AtomicBool,
@@ -74,6 +75,7 @@ impl Ingress {
             run_dir: Mutex::new(None),
             started: Mutex::new(None),
             failure: Mutex::new(String::new()),
+            control_plane: Mutex::new(Value::Null),
             operation: Mutex::new(()),
             retired: std::sync::atomic::AtomicBool::new(false),
             connected: std::sync::atomic::AtomicBool::new(false),
@@ -168,7 +170,7 @@ impl Ingress {
         let status = self.status().await?;
         let meta = self.meta.lock().await;
         let config = status["config"].clone();
-        let mut result = json!({"health":status["tunnel"]["health"],"discoveredUrls":status["discoveredUrls"],"id":self.id,"name":meta["name"],"controlSource":meta["controlSource"],"transport":meta["transport"],"provider":config["httpsProvider"],"enabled":meta["enabled"],"auth":meta["auth"],"toolPolicy":meta["toolPolicy"],"config":config,"running":status["connection"]["running"],"state":status["tunnel"]["state"],"error":status["tunnel"]["error"],"url":status["connection"]["mcpUrl"],"verification":status["core"]["chatgpt"],"logs":status["logs"]});
+        let mut result = json!({"health":status["tunnel"]["health"],"controlPlane":status["tunnel"]["controlPlane"],"discoveredUrls":status["discoveredUrls"],"id":self.id,"name":meta["name"],"controlSource":meta["controlSource"],"transport":meta["transport"],"provider":config["httpsProvider"],"enabled":meta["enabled"],"auth":meta["auth"],"toolPolicy":meta["toolPolicy"],"config":config,"running":status["connection"]["running"],"state":status["tunnel"]["state"],"error":status["tunnel"]["error"],"url":status["connection"]["mcpUrl"],"verification":status["core"]["chatgpt"],"logs":status["logs"]});
         result["diagnostics"] = crate::diagnostics::ingress(&result);
         Ok(result)
     }
@@ -285,26 +287,53 @@ impl Ingress {
             && https_running
             && self.connected.load(std::sync::atomic::Ordering::SeqCst)
             && managed_ready;
+        let mut control_plane = self.control_plane.lock().await.clone();
         if tunnel_running {
+            ready = false;
+            if control_plane["state"] != "rejected" {
+                control_plane = Value::Null;
+            }
             if let Some(dir) = self.run_dir.lock().await.as_ref() {
                 if let Ok(url) = std::fs::read_to_string(dir.join("health.url")) {
                     if let Ok(url) = reqwest::Url::parse(url.trim()) {
                         if url.scheme() == "http" && url.host_str() == Some("127.0.0.1") {
-                            if let Ok(r) = reqwest::Client::builder()
+                            let client = reqwest::Client::builder()
                                 .no_proxy()
-                                .build()
-                                .map_err(|e| e.to_string())?
-                                .get(url.join("/readyz").map_err(|e| e.to_string())?)
                                 .timeout(Duration::from_secs(2))
+                                .build()
+                                .map_err(|e| e.to_string())?;
+                            if let Ok(r) = client
+                                .get(
+                                    url.join("/health/control-plane")
+                                        .map_err(|e| e.to_string())?,
+                                )
                                 .send()
                                 .await
                             {
-                                ready = r.status().is_success();
+                                if r.status().is_success() {
+                                    if let Ok(snapshot) = r.json::<Value>().await {
+                                        control_plane = control_plane_health(&snapshot);
+                                        *self.control_plane.lock().await = control_plane.clone();
+                                    }
+                                }
+                            }
+                            if let Ok(r) = client
+                                .get(url.join("/readyz").map_err(|e| e.to_string())?)
+                                .send()
+                                .await
+                            {
+                                ready = r.status().is_success()
+                                    && control_plane["state"] == "authenticated";
                             }
                         }
                     }
                 }
             }
+        }
+        if control_plane["state"] == "rejected" {
+            ready = false;
+            health_error =
+                crate::i18n::text(&crate::i18n::locale(), "setup.runtime-key-rejected").into();
         }
         let mut error = self.failure.lock().await.clone();
         if error.is_empty() && !starting {
@@ -318,6 +347,8 @@ impl Ingress {
             } else {
                 "error"
             }
+        } else if control_plane["state"] == "rejected" {
+            "error"
         } else if ready {
             "ready"
         } else if self
@@ -354,7 +385,7 @@ impl Ingress {
         }
         let core = json!({"chatgpt":chat,"transport":{"state":state,"error":error}});
         Ok(
-            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
+            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health,"controlPlane":control_plane},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
         )
     }
     pub async fn stop(&self) -> Result<()> {
@@ -405,6 +436,7 @@ impl Ingress {
             let _ = std::fs::remove_dir_all(dir);
         }
         *self.failure.lock().await = String::new();
+        *self.control_plane.lock().await = Value::Null;
         if was_connected {
             self.log("INFO", "Connection closed").await;
         }
@@ -597,6 +629,10 @@ impl Ingress {
                         let Some(s) = service.upgrade() else { break };
                         if s.stopping.load(std::sync::atomic::Ordering::SeqCst) {
                             continue;
+                        }
+                        if let Some(status) = rejected_control_plane_log(&entry) {
+                            *s.control_plane.lock().await =
+                                json!({"state":"rejected","httpStatus":status});
                         }
                         if matches!(
                             level.as_str(),
@@ -1041,4 +1077,65 @@ pub(crate) fn prune_tunnel_versions() -> Result<()> {
         }
     }
     Ok(())
+}
+
+// /readyz is only a startup probe. A successful poll is the authentication proof.
+fn control_plane_health(snapshot: &Value) -> Value {
+    let details = &snapshot["details"];
+    let status = details["http_status"].as_u64().unwrap_or(0);
+    json!({"state": if matches!(status, 401 | 403) { "rejected" }
+        else if details["last_success"].is_string() && snapshot["status"] == "ok" { "authenticated" }
+        else { "unknown" }, "httpStatus":status})
+}
+fn rejected_control_plane_log(entry: &Value) -> Option<u16> {
+    // Older client versions still report explicit control-plane failures in logs.
+    let detail = entry.get("error").or_else(|| entry.get("err"))?.as_str()?;
+    if !detail.contains("controlplane client:") {
+        return None;
+    }
+    [401, 403]
+        .into_iter()
+        .find(|status| detail.contains(&format!("unexpected status {status}")))
+}
+
+#[cfg(test)]
+mod control_plane_tests {
+    use super::*;
+    #[test]
+    fn authentication_requires_a_successful_poll_and_rejections_win() {
+        assert_eq!(
+            control_plane_health(&json!({"status":"ok","details":{}}))["state"],
+            "unknown"
+        );
+        assert_eq!(
+            control_plane_health(
+                &json!({"status":"ok","details":{"last_success":"2026-10-17T00:00:00Z"}})
+            )["state"],
+            "authenticated"
+        );
+        for code in [401, 403] {
+            assert_eq!(
+                control_plane_health(
+                    &json!({"status":"degraded","details":{"last_success":"earlier","http_status":code}})
+                )["state"],
+                "rejected"
+            );
+            assert_eq!(
+                rejected_control_plane_log(
+                    &json!({"msg":"poll failed", "error":format!("controlplane client: unexpected status {code}")})
+                ),
+                Some(code)
+            );
+        }
+        assert_eq!(
+            rejected_control_plane_log(&json!({"error":"MCP endpoint: unexpected status 401"})),
+            None
+        );
+        assert_eq!(
+            control_plane_health(
+                &json!({"status":"degraded","details":{"last_success":"earlier","http_status":500}})
+            )["state"],
+            "unknown"
+        );
+    }
 }

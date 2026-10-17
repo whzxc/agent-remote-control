@@ -30,12 +30,16 @@ fn choose_goal(state: &mut Value, value: &str) -> Result<()> {
     }
     Ok(())
 }
+fn uses_https(state: &Value) -> bool {
+    state["goal"] == "claude-loop" || state["choices"]["chatgpt-fallback"] == "https-oauth"
+}
 fn selected<'a>(state: &Value, ingresses: &'a Value) -> Option<&'a Value> {
     let claude = state["goal"] == "claude-loop";
+    let https = uses_https(state);
     let id = format!("setup-{}", string(state, "goal"));
     let suitable = |i: &&Value| {
-        if claude {
-            i["controlSource"] == "claude"
+        if https {
+            i["controlSource"] == if claude { "claude" } else { "chatgpt" }
                 && i["transport"] == "https"
                 && i["auth"] == "oauth"
                 && if state["choices"]["choose-address"] == "fixed" {
@@ -118,6 +122,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             "steps":[],"step":step(locale,"choose-goal","decide",None,&[("claude-loop",true),("chatgpt-chat",false)])});
     }
     let claude = goal == "claude-loop";
+    let https = uses_https(state);
     let choices = &state["choices"];
     let i = selected(state, &data["ingresses"]).unwrap_or(&Value::Null);
     let items = &data["permissions"]["items"];
@@ -181,7 +186,25 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             &[("skip", false)],
         ),
     ));
-    if claude {
+    if !claude && choices["chatgpt-blocked"].is_string() {
+        let mut fallback = step(
+            locale,
+            "chatgpt-fallback",
+            "decide",
+            None,
+            &[("https-oauth", true), ("retry", false)],
+        );
+        fallback["explain"] = json!(format!(
+            "{} {}",
+            crate::i18n::text(
+                locale,
+                &format!("setup.blocked.{}", string(choices, "chatgpt-blocked"))
+            ),
+            string(&fallback, "explain")
+        ));
+        steps.push((false, fallback));
+    }
+    if https {
         steps.push((
             choices["choose-address"].is_string(),
             step(
@@ -242,16 +265,6 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             }
         }
     } else {
-        steps.push((
-            choices["chatgpt-prereq"] == "ready",
-            step(
-                locale,
-                "chatgpt-prereq",
-                "decide",
-                None,
-                &[("ready", true), ("claude-loop", false)],
-            ),
-        ));
         let has_id = !string(&i["config"], "tunnelId").is_empty();
         let mut credentials = step(
             locale,
@@ -265,20 +278,30 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             &[],
         );
         credentials["credentialUrl"] =
-            json!("https://platform.openai.com/settings/organization/tunnels");
+            json!("https://platform.openai.com/settings/organization/api-keys");
         credentials["secretUrl"] = json!(edit_url(i, "apiKey"));
         credentials["apply"] = json!("setup apply tunnel-credentials --stdin");
-        steps.push((has_id && i["config"]["hasApiKey"] == true, credentials));
+        let rejected = i["controlPlane"]["state"] == "rejected";
+        if rejected {
+            credentials["explain"] = json!(crate::i18n::text(locale, "setup.runtime-key-rejected"));
+        }
+        steps.push((
+            has_id && i["config"]["hasApiKey"] == true && !rejected,
+            credentials,
+        ));
     }
     steps.push((
         i["running"] == true
             && i["state"] == "ready"
-            && (!claude
-                || i["verification"]["lastProbe"]["passed"] == true
-                    && i["verification"]["lastProbe"]["url"] == i["url"]),
+            && if https {
+                i["verification"]["lastProbe"]["passed"] == true
+                    && i["verification"]["lastProbe"]["url"] == i["url"]
+            } else {
+                i["controlPlane"]["state"] == "authenticated"
+            },
         step(locale, "create-ingress", "auto", None, &[]),
     ));
-    if claude {
+    if https {
         let oauth = &data["oauth"];
         let pending = oauth["pending"]
             .as_array()
@@ -292,7 +315,14 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
                 locale,
                 "add-connector",
                 "remote-ui",
-                Some("https://claude.ai/".into()),
+                Some(
+                    if claude {
+                        "https://claude.ai/"
+                    } else {
+                        "https://chatgpt.com/"
+                    }
+                    .into(),
+                ),
                 &[],
             ),
         ));
@@ -343,6 +373,17 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             &[],
         ),
     ));
+    if !https
+        && i["running"] == true
+        && i["controlPlane"]["state"] != "authenticated"
+        && i["controlPlane"]["state"] != "rejected"
+    {
+        for (_, step) in &mut steps {
+            if step["id"] == "create-ingress" {
+                step["explain"] = json!(crate::i18n::text(locale, "setup.health-unobserved"));
+            }
+        }
+    }
     if i["config"]["cloudflareAuth"] == "login" && !string(&i["config"], "httpsUrl").is_empty() {
         for (_, step) in &mut steps {
             if step["id"] == "create-ingress" || step["id"] == "cloudflare-tunnel" {
@@ -363,6 +404,19 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
     let mut result = json!({"schemaVersion":1,"goal":goal,"progress":{"done":done,"total":steps.len()},"complete":current.is_none(),"step":current,
         "steps":steps.iter().map(|(done,step)|json!({"id":step["id"],"title":step["title"],"kind":step["kind"],"done":done})).collect::<Vec<_>>(),
         "ingressId":i["id"],"onboarding":if i.is_object(){crate::cli::onboarding(i)}else{Value::Null},"findings":i["diagnostics"]["findings"].as_array().cloned().unwrap_or_default()});
+    if choices["chatgpt-blocked"].is_string() {
+        result["findings"].as_array_mut().unwrap().push(json!({"code":"CHATGPT_ACCESS_BLOCKED","severity":"error",
+            "summary":crate::i18n::text(locale, &format!("setup.blocked.{}", string(choices, "chatgpt-blocked")))}));
+    }
+    if !claude && !https {
+        result["fallback"] = step(
+            locale,
+            "chatgpt-fallback",
+            "decide",
+            None,
+            &[("https-oauth", true), ("retry", false)],
+        );
+    }
     for (active, key) in [
         (claude && skip_claude, "notification-skipped"),
         (
@@ -559,12 +613,13 @@ async fn ensure_ingress(s: &Arc<Service>, state: &Value, config: Value) -> Resul
         return Ok(i.clone());
     }
     let claude = state["goal"] == "claude-loop";
-    let mut entry = json!({"id":format!("setup-{}",string(state,"goal")),"controlSource":if claude{"claude"}else{"chatgpt"},"transport":if claude{"https"}else{"openai-tunnel"},"auth":if claude{"oauth"}else{"openai"},"config":config});
+    let https = uses_https(state);
+    let mut entry = json!({"id":format!("setup-{}",string(state,"goal")),"controlSource":if claude{"claude"}else{"chatgpt"},"transport":if https{"https"}else{"openai-tunnel"},"auth":if https{"oauth"}else{"openai"},"config":config});
     let fixed = state["choices"]["choose-address"] == "fixed";
-    if claude && entry["config"].get("httpsProvider").is_none() {
+    if https && entry["config"].get("httpsProvider").is_none() {
         entry["config"]["httpsProvider"] = json!("cloudflare");
     }
-    if claude {
+    if https {
         let provider = string(&entry["config"], "httpsProvider").to_owned();
         if let Some(mode) =
             crate::ingress::config::descriptor()["providers"][&provider]["mode"].as_str()
@@ -675,7 +730,10 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                     credential(&i)
                 };
                 let text = crate::setup_secret::read().await?;
-                if text.trim().is_empty() && i["config"][flag] == true {
+                if text.trim().is_empty()
+                    && i["config"][flag] == true
+                    && i["controlPlane"]["state"] != "rejected"
+                {
                     return Ok(json!({flag:true}));
                 }
                 let secret = crate::setup_secret::extract(field, &text)?;
@@ -685,14 +743,42 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 crate::setup_secret::clear().await?;
                 return Ok(json!({flag:true}));
             }
-            "chatgpt-prereq" => {
-                if option == "claude-loop" {
-                    choose_goal(&mut state, option)?;
-                } else if option == "ready" {
+            "chatgpt-fallback" => {
+                if state["goal"] != "chatgpt-chat" {
+                    return Err("ChatGPT goal required".into());
+                }
+                if option == "https-oauth" {
+                    if !uses_https(&state) {
+                        let rows = call(s, "ingress", "GET", json!({})).await?;
+                        if let Some(i) = selected(&state, &rows) {
+                            call(
+                                s,
+                                &format!("ingress/{}/stop", string(i, "id")),
+                                "POST",
+                                json!({}),
+                            )
+                            .await?;
+                        }
+                    }
                     state["choices"][id] = json!(option);
+                    state["choices"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("chatgpt-blocked");
                     ensure_ingress(s, &state, json!({})).await?;
+                } else if option == "retry" {
+                    state["choices"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("chatgpt-blocked");
                 } else {
-                    return Err("INVALID_ARGUMENT: option must be ready or claude-loop".into());
+                    let reason = string(input, "reason");
+                    if !["platform-denied", "chatgpt-denied", "runtime-key-rejected"]
+                        .contains(&reason)
+                    {
+                        return Err("Use option https-oauth/retry, or reason platform-denied/chatgpt-denied/runtime-key-rejected".into());
+                    }
+                    state["choices"]["chatgpt-blocked"] = json!(reason);
                 }
                 save(&path(), &state)?;
             }
@@ -713,7 +799,7 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 if i["running"] != true {
                     call(s, &format!("{prefix}/start"), "POST", json!({})).await?;
                 }
-                if state["goal"] == "claude-loop" {
+                if uses_https(&state) {
                     call(s, &format!("{prefix}/probe"), "POST", json!({})).await?;
                 }
             }
@@ -863,9 +949,8 @@ mod tests {
     }
     #[test]
     fn chatgpt_sequence_separates_credentials_mcp_and_challenge() {
-        let (mut state, mut data) = fixture("chatgpt-chat");
-        assert_eq!(current(&state, &data), "chatgpt-prereq");
-        state["choices"]["chatgpt-prereq"] = json!("ready");
+        let (state, mut data) = fixture("chatgpt-chat");
+        assert_eq!(current(&state, &data), "tunnel-credentials");
         data["ingresses"] = json!([{"id":"default","controlSource":"chatgpt","transport":"openai-tunnel","config":{}}]);
         assert_eq!(derive(&state, &data, "en")["step"]["kind"], "remote-ui");
         data["ingresses"][0]["config"]["tunnelId"] = json!("tunnel");
@@ -874,6 +959,19 @@ mod tests {
         assert_eq!(current(&state, &data), "create-ingress");
         data["ingresses"][0]["running"] = json!(true);
         data["ingresses"][0]["state"] = json!("ready");
+        assert_eq!(current(&state, &data), "create-ingress");
+        for status in [401, 403] {
+            data["ingresses"][0]["controlPlane"] = json!({"state":"rejected","httpStatus":status});
+            let result = derive(&state, &data, "en");
+            assert_eq!(result["step"]["id"], "tunnel-credentials");
+            assert!(string(&result["step"], "explain").contains("401/403"));
+            assert_eq!(result["fallback"]["kind"], "decide");
+            assert_eq!(
+                crate::diagnostics::ingress(&data["ingresses"][0])["findings"][0]["code"],
+                "RUNTIME_KEY_REJECTED"
+            );
+        }
+        data["ingresses"][0]["controlPlane"] = json!({"state":"authenticated"});
         assert_eq!(current(&state, &data), "enable-in-chatgpt");
         data["ingresses"][0]["verification"] =
             json!({"firstMcpRequestAt":"2026-10-17T00:01:00.000Z"});
@@ -925,5 +1023,41 @@ mod tests {
         assert_eq!(state["startedAt"], start);
         choose_goal(&mut state, "chatgpt-chat").unwrap();
         assert_eq!(state["choices"], json!({}));
+    }
+    #[test]
+    fn chatgpt_fallback_reuses_https_oauth_without_claude_notifications() {
+        let (mut state, mut data) = fixture("chatgpt-chat");
+        state["choices"]["chatgpt-blocked"] = json!("platform-denied");
+        assert_eq!(current(&state, &data), "chatgpt-fallback");
+        state["choices"]
+            .as_object_mut()
+            .unwrap()
+            .remove("chatgpt-blocked");
+        state["choices"]["chatgpt-fallback"] = json!("https-oauth");
+        assert_eq!(current(&state, &data), "choose-address");
+        state["choices"]["choose-address"] = json!("cf-quick");
+        let mut i = claude();
+        i["controlSource"] = json!("chatgpt");
+        data["ingresses"] = json!([i]);
+        let result = derive(&state, &data, "en");
+        assert_eq!(result["step"]["id"], "add-connector");
+        assert_eq!(result["step"]["openUrl"], "https://chatgpt.com/");
+        assert!(!result["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == "claude-code-ready"));
+        data["oauth"] = json!({"grants":[{"id":"grant"}]});
+        assert_eq!(current(&state, &data), "verify-connector");
+        data["ingresses"][0]["verification"]["challengeVerifiedAt"] =
+            json!("2026-10-17T00:02:00.000Z");
+        assert_eq!(current(&state, &data), "loop-test");
+        data["loop"] = json!({"complete":true});
+        assert_eq!(derive(&state, &data, "en")["complete"], true);
+        state["choices"]["choose-address"] = json!("fixed");
+        state["choices"]["choose-provider"] = json!("cloudflare");
+        assert_eq!(current(&state, &data), "cloudflare-login");
+        data["cloudflare"] = json!({"hasOriginCert":true});
+        assert_eq!(current(&state, &data), "cloudflare-tunnel");
     }
 }

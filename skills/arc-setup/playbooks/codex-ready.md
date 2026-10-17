@@ -2,10 +2,10 @@
 
 - **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `openUrl` in ARC,
   or execute this step's `apply` with `{}` to open the existing Codex login flow.
-  Explain where the user signs in. Leave all login and authorization buttons to
-  the user; do not read credentials or authentication codes.
+  Continue through an already signed-in authorization page. Follow the protocol
+  for missing login, password/2FA, or safety-policy exceptions.
 - **Computer use / ARC screen only:** Locate ARC's Codex login action from a
-  screenshot and point it out. The user completes sign-in privately.
+  screenshot and continue with the same protocol.
 - **Neither:** Give `openUrl` and say: “Open Codex login in ARC and finish signing
   in with your account.”
 

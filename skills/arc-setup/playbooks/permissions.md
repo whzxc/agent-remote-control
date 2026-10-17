@@ -6,11 +6,11 @@ provide notification fallback. These optional permissions do not block setup.
 
 - **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `openUrl` in ARC
   Settings → Permissions & readiness. Point out the required disk-access actions;
-  the user grants permissions in system settings. With no native-app control,
+  open the corresponding system settings. Follow the protocol for safety-policy
+  confirmations and password prompts. With no native-app control,
   guide the user using ARC's labels.
 - **Computer use / ARC screen only:** Locate those actions via screenshots and
-  navigate to system settings; the user changes permission toggles or approves
-  system prompts. Do not rely on screen tools being available yet.
+  navigate to system settings and apply the same protocol. Do not rely on screen tools being available yet.
 - **Neither:** Give `openUrl` and say: “Grant the required Full Disk Access entries
   in ARC's permissions page; enable optional screen/notification access if wanted.”
 

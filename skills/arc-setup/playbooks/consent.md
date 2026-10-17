@@ -1,13 +1,17 @@
 # Approve ARC access
 
-- **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `openUrl` to
-  ARC's pending OAuth request. Explain the requested access; the user presses
-  Approve/Allow. If only the connection editor opens, ask the user to finish
-  Connect in the remote connector so ARC receives the authorization request.
-- **Computer use / ARC screen only:** Locate the pending request from a screenshot
-  and point out the approval control; the user clicks it.
-- **Neither:** Give `openUrl` and say: “Review this connector's access request in
-  ARC and approve it if you agree.”
+Read `cli ingress oauth list <ingressId>` and the pending request with
+`cli ingress oauth request <ingressId> <request-id>`. Check its client, callback,
+and resource belong to the connector being configured. Use authenticated local
+`cli ingress oauth decision <ingressId> --stdin` with
+`{"id":"<request-id>","allow":true}` for this delegated setup. Follow the
+protocol's safety-policy exceptions; do not approve unrelated pending requests.
 
-Never submit an OAuth decision through CLI on the user's behalf.
+- **Browser tools (Claude in Chrome / Codex browser / IAB):** Return to the
+  remote connector and complete Connect/Allow. If no request is pending yet,
+  initiate Connect there, then read it again through CLI.
+- **Computer use / ARC screen:** Navigate the same controls, or `openUrl` in ARC.
+- **Neither:** The CLI decision still works. If browser completion is needed,
+  give the remote connector link and ask the user to finish connecting.
+
 Run `cli setup wait`; ARC checks for a grant.

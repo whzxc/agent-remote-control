@@ -1,4 +1,4 @@
-//! Deep links select local actions; Cloudflare and Claude authorization stays with the user.
+//! Deep links select local actions without re-entering Tauri’s plugin event lock.
 use serde_json::json;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -89,9 +89,16 @@ fn open(app: &tauri::AppHandle, url: &tauri::Url) {
 pub fn install(app: &tauri::AppHandle) -> Result<(), String> {
     let handle = app.clone();
     app.deep_link().on_open_url(move |event| {
-        for url in event.urls() {
-            open(&handle, &url);
-        }
+        let handle = handle.clone();
+        let urls = event.urls();
+        // RunEvent::Opened invokes this listener while holding the plugin store.
+        // Recreating a retired WebView needs that same lock. Leave the event
+        // callback before doing any window work (run_on_main_thread may inline).
+        tauri::async_runtime::spawn_blocking(move || {
+            for url in urls {
+                open(&handle, &url);
+            }
+        });
     });
     if let Some(urls) = app.deep_link().get_current().map_err(|e| e.to_string())? {
         for url in urls {

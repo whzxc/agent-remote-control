@@ -125,12 +125,76 @@ pub fn extract(field: &str, text: &str) -> Result<String> {
         }
     }
     let token = candidate.trim().trim_matches(['\'', '"']);
-    if !(8..=4096).contains(&token.len())
+    let (name, shape) = match field {
+        "apiKey" => (
+            "OpenAI runtime key",
+            token.starts_with("sk-") && token.len() >= 32,
+        ),
+        "cloudflareToken" => (
+            "Cloudflare Tunnel Token",
+            token.starts_with("eyJ") && token.len() >= 64,
+        ),
+        "ngrokAuthtoken" => ("ngrok Authtoken", token.len() >= 20),
+        "pinggyToken" => ("Pinggy Token", token.len() >= 16),
+        "localxposeAccessToken" => ("LocalXpose Access Token", token.len() >= 20),
+        _ => ("credential", false),
+    };
+    if !shape
+        || token.len() > 4096
         || !token
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || b"_./+=:-".contains(&c))
     {
-        return Err("Clipboard does not contain a recognized credential; copy the provider credential again or use the ARC form".into());
+        return Err(
+            crate::i18n::text(&crate::i18n::locale(), "setup.clipboard-invalid")
+                .replace("{credential}", name),
+        );
     }
     Ok(token.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn validates_each_credential_shape_without_echoing_bad_content() {
+        let key = format!("sk-{}", "a".repeat(40));
+        let token = format!("eyJ{}", "a".repeat(80));
+        for (field, text, expected) in [
+            ("apiKey", format!("OPENAI_API_KEY={key}"), key),
+            (
+                "cloudflareToken",
+                format!("cloudflared service install {token}"),
+                token,
+            ),
+            (
+                "ngrokAuthtoken",
+                format!("ngrok config add-authtoken {}", "a".repeat(24)),
+                "a".repeat(24),
+            ),
+            (
+                "pinggyToken",
+                format!("ssh {}@a.pinggy.io", "a".repeat(20)),
+                "a".repeat(20),
+            ),
+            (
+                "localxposeAccessToken",
+                format!("{{\"token\":\"{}\"}}", "a".repeat(24)),
+                "a".repeat(24),
+            ),
+        ] {
+            assert_eq!(extract(field, &text).unwrap(), expected);
+            for bad in [
+                "123456789",
+                "sk-short",
+                "eyJshort",
+                "unrelated clipboard note",
+            ] {
+                let error = extract(field, bad).unwrap_err();
+                assert!(!error.contains(bad));
+            }
+        }
+        assert!(extract("apiKey", &"a".repeat(64)).is_err());
+        assert!(extract("cloudflareToken", &"a".repeat(80)).is_err());
+    }
 }

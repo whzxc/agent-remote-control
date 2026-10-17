@@ -41,15 +41,18 @@ it from this skill. Read [protocol](playbooks/protocol.md) for apply/wait detail
 | --- | --- |
 | `auto` | Read the playbook; run `installCommand` if supplied, then execute `apply` with JSON on stdin. |
 | `decide` | Repeat `explain` and option labels verbatim, mark the recommended option, and apply the user's choice. |
-| `authorize` | Read the playbook; apply `{}` when requested to start login, open `openUrl`, then wait for the user. |
+| `authorize` | Read the playbook; apply `{}` when requested to start login, open `openUrl`, continue in the signed-in page, then wait for ARC evidence. |
 | `secret` | Read the playbook; use the official Copy control, then apply `{"source":"clipboard"}`. ARC form entry is the fallback. |
 | `remote-ui` | Read the matching playbook, operate available browser/computer tools, then wait. |
 
-Never request, read, or print secrets in chat or command-line arguments.
-You may click an official Copy button without reading its value, then ask ARC
-to receive it from the clipboard. Never read the clipboard yourself.
-Leave login, authorization, and consent buttons to the user. Hand over before
-credential entry or revelation; resume observation after secrets are hidden.
+The user delegated setup. On already signed-in pages, perform setup operations,
+including creating tunnels/API keys, risk acknowledgments, creation, authorization,
+and consent. Pause only for missing login, CAPTCHA/challenges, passwords/2FA,
+payment, or a confirmation/refusal required by your own safety policy. Never bypass
+those policies. If no usable UI tool is available, give a link and one instruction.
+
+Never read or output secret values. Transfer them by clicking the official Copy
+button and applying `{"source":"clipboard"}`; never read the clipboard yourself.
 Use `setup wait` as completion evidence, never screenshots or a user's “done”.
 Screenshots are only for navigation. Timeouts mean continue waiting, not retry
 creation. Apply skip options only when the user chooses them.

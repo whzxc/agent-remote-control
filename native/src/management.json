@@ -1653,7 +1653,7 @@
                   "claude-code-ready",
                   "permissions",
                   "choose-address",
-                  "chatgpt-prereq",
+                  "chatgpt-fallback",
                   "tunnel-credentials",
                   "create-ingress",
                   "choose-provider",
@@ -1678,6 +1678,14 @@
                     "type": "string",
                     "enum": [
                       "clipboard"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "platform-denied",
+                      "chatgpt-denied",
+                      "runtime-key-rejected"
                     ]
                   }
                 },

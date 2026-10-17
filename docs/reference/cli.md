@@ -110,9 +110,31 @@ Accessibility, screen recording, and notifications are optional. Claude delivery
 records expose `taskState` (raw task state, e.g. `completed`) independently of the
 localized `state` display label and delivery `status`.
 
-The local setup agent prepares the loop-test prompt; the user sends it through
-ARC from a Claude Code cloud session or a ChatGPT conversation. Completion is
+The local setup agent prepares and sends the loop-test prompt through ARC from
+a Claude Code cloud session or ChatGPT conversation, using the available UI
+tools. If no usable UI is available, the user sends it there. Completion is
 observed with `setup wait`, not inferred from screenshots or local task creation.
+
+### ChatGPT setup recovery
+
+ChatGPT setup assumes access and starts at Tunnel configuration; it does not
+inspect local Codex/ChatGPT credentials to probe permissions. Report an observed
+block with `setup apply chatgpt-fallback --stdin` and
+`{"reason":"platform-denied"}`, `{"reason":"chatgpt-denied"}`, or
+`{"reason":"runtime-key-rejected"}`. The returned decide offers
+`{"option":"https-oauth"}` or `{"option":"retry"}`. HTTPS keeps the ChatGPT goal
+and reuses address/provider selection, Cloudflare login, public probing and OAuth.
+It does not bypass ChatGPT workspace policy. `next.fallback` describes the
+alternative while on the Tunnel path; reports and choices live in `setup.json`.
+
+OpenAI ingress summaries include `controlPlane.state` (`unknown`, `authenticated`,
+`rejected`) and `httpStatus` when observed, or null before observation. Readiness
+requires a successful control-plane poll as well as the local startup check.
+401/403 produces `RUNTIME_KEY_REJECTED` and returns setup to `tunnel-credentials`.
+Clipboard apply checks the credential's minimum shape before saving: OpenAI
+`sk-` and 32+ characters, Cloudflare `eyJ` and 64+, ngrok/LocalXpose 20+, Pinggy
+16+. A failed extraction/save preserves the clipboard; success returns flags
+only and clears it. Empty clipboard retries do not accept a known rejected key.
 
 ## Command groups
 

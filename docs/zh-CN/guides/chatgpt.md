@@ -28,6 +28,10 @@ Tunnel 创建和使用权限属于 OpenAI Platform 组织，Developer Mode 属�
 
 让本机 Agent 协助时，查看[自动配置](../auto-setup.md)。HTTPS + OAuth 替代方案见[连接指南](connections.md)。
 
+Agent 配置默认直接尝试 Tunnel；runtime key 来自 [Platform Runtime API keys](https://platform.openai.com/settings/organization/api-keys)，需具备目标 Tunnel 的 Read + Use 权限，创建 Tunnel 另需 Read + Manage。ARC 观察到控制面认证成功才报告就绪；401/403 会退回凭据步骤。
+
+实际遇到 Tunnel 权限失败时，Agent 配置提供 HTTPS + OAuth 备选，复用 Cloudflare 固定地址或临时地址及 OAuth 步骤，保持 ChatGPT 目标。HTTPS 不能绕过工作区对自定义 MCP 的限制。
+
 ## 限制
 
 模型选项和 Developer Mode 取决于账号、工作区策略及客户端开放情况。电脑需保持唤醒，ARC 需保持连接。普通 Chat 不接收 ARC 的 Claude 云端会话通知；可回到对话询问进度，或在当前轮次内继续等待。Secure Tunnel 用于连接私有 MCP，公开插件发布另有分发流程。

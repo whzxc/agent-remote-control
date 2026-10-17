@@ -14,6 +14,16 @@ pub fn ingress(i: &Value) -> Value {
     let mut findings = Vec::new();
     let id = &i["id"];
     let state = string(i, "state");
+    if i["controlPlane"]["state"] == "rejected" {
+        findings.push(finding(
+            "RUNTIME_KEY_REJECTED",
+            "error",
+            "ingress",
+            id,
+            crate::i18n::text(&crate::i18n::locale(), "setup.runtime-key-rejected"),
+            "setup.apply",
+        ));
+    }
     if state == "stopped" && i["running"] == false {
         findings.push(finding(
             "INGRESS_STOPPED",

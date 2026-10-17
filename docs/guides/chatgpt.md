@@ -18,6 +18,8 @@ Codex offers the ordinary `gpt-6-astra` model; its model list does not expose a 
 4. Enable **Developer Mode** in ChatGPT where available. Open [Plugins](https://chatgpt.com/plugins), create a developer-mode connection, choose **Tunnel**, and select the same tunnel. Follow the current [connection instructions](https://developers.openai.com/plugins/deploy/connect-chatgpt) if the UI labels differ.
 5. Enable ARC in the Chat conversation. Run the verification prompt shown by ARC; it calls `connector_verify` with that ingress's code.
 
+The runtime API key comes from [Platform Runtime API keys](https://platform.openai.com/settings/organization/api-keys), with Tunnels Read + Use for the target tunnel. Tunnel creation requires Read + Manage. ARC requires observed control-plane authentication before reporting readiness; 401/403 returns Agent setup to the key step.
+
 Tunnel creation/use permissions belong to the OpenAI Platform organization. Developer Mode access belongs to the ChatGPT workspace. Ask the relevant administrator for the missing permission. Credentials belong in the local form or protected CLI stdin, not in a conversation.
 
 ## Reason in Chat, execute in Codex
@@ -26,7 +28,7 @@ Tunnel creation/use permissions belong to the OpenAI Platform organization. Deve
 
 Use `codex_create` for a new task, `codex_send` for another round, and `codex_wait` for progress. After a timeout, continue with the same threadId/turnId and previous snapshotHash as expectedHash. Ask Chat to review `codex_changes` and the final task output before deciding what comes next.
 
-For setup by a local Agent, use [Automatic setup](../auto-setup.md). HTTPS + OAuth is an alternative in [Connections](connections.md).
+For setup by a local Agent, use [Automatic setup](../auto-setup.md). On an actual Tunnel access failure, Agent setup offers HTTPS + OAuth with a Cloudflare fixed address or a temporary address; it keeps the ChatGPT goal and reuses the existing OAuth steps. See [Connections](connections.md). HTTPS does not bypass workspace restrictions on custom MCP connections.
 
 ## Limits
 

@@ -264,11 +264,11 @@ test('setup clipboard preserves unrelated content on extraction failure and clea
   try {
     const unrelated = 'Unrelated clipboard text — keep this note.';
     await writeFile(clipboard, unrelated);
-    await assert.rejects(apply, /Clipboard does not contain a recognized credential; copy the provider credential again or use the ARC form/);
+    await assert.rejects(apply, /Cloudflare Tunnel Token/);
     assert.equal(await readFile(clipboard, 'utf8'), unrelated);
     assert.equal((await management('ingress/setup-claude-loop')).config.hasCloudflareToken, false);
 
-    const token = 'FIXTURE_CLIPBOARD_TOKEN_123456789';
+    const token = 'eyJ' + 'a'.repeat(80);
     await writeFile(clipboard, `cloudflared service install ${token}`);
     assert.deepEqual(await apply(), { hasCloudflareToken: true });
     assert.equal(JSON.parse(await readFile(path.join(directory, 'ingresses/setup-claude-loop/secrets.json'), 'utf8')).cloudflareToken, token);
@@ -288,6 +288,78 @@ async function ingressRpc(ingress: any, method: string, params?: unknown) {
   assert.equal(response.status, 200);
   return response.json();
 }
+
+test('setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress', async () => {
+  const clipboard = path.join(directory, 'fixtures/clipboard.txt');
+  const setup = path.join(directory, 'setup.json');
+  await mkdir(path.dirname(clipboard), { recursive: true });
+  await writeFile(setup, JSON.stringify({ goal: 'chatgpt-chat', choices: {} }));
+  const apply = (stepId: string, input: object) => management('setup/apply', 'POST', { stepId, input });
+  const poll = path.join(directory, 'poll-status.json');
+  const tunnel = path.join(directory, 'tunnel-fixture');
+  await writeFile(poll, '0');
+  await writeFile(tunnel, `#!${process.execPath}
+const fs = require('node:fs');
+if (process.argv[2] === 'init') process.exit(0);
+const server = require('node:http').createServer((req, res) => {
+  if (req.url === '/readyz') return res.end('ready');
+  const code = JSON.parse(fs.readFileSync(${JSON.stringify(poll)}, 'utf8'));
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({status: code === 200 ? 'ok' : 'degraded', details: {http_status: code, ...(code === 200 ? {last_success: '2026-10-17T00:00:00Z'} : {})}}));
+});
+server.listen(0, '127.0.0.1', () => fs.writeFileSync(process.argv[process.argv.indexOf('--health.url-file') + 1], 'http://127.0.0.1:' + server.address().port));
+`);
+  await chmod(tunnel, 0o755);
+  await management('ingress', 'POST', { id: 'setup-chatgpt-chat', controlSource: 'chatgpt', transport: 'openai-tunnel', auth: 'openai', enabled: false, config: { tunnelBinary: tunnel } });
+  try {
+    await apply('tunnel-credentials', { tunnelId: 'tunnel_fixture' });
+    await writeFile(clipboard, '123456789');
+    await assert.rejects(() => apply('tunnel-credentials', { source: 'clipboard' }), /OpenAI runtime key/);
+    assert.equal(await readFile(clipboard, 'utf8'), '123456789');
+    assert.equal((await management('ingress/setup-chatgpt-chat')).config.hasApiKey, false);
+    await writeFile(clipboard, 'sk-' + 'a'.repeat(40));
+    assert.deepEqual(await apply('tunnel-credentials', { source: 'clipboard' }), { hasApiKey: true });
+    assert.equal(await readFile(clipboard, 'utf8'), '');
+    await management('ingress/setup-chatgpt-chat', 'PUT', { enabled: true });
+    await management('ingress/setup-chatgpt-chat/start', 'POST', {});
+    // /readyz deliberately returns 200 throughout; it is not authentication evidence.
+    let observed: any;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      observed = await management('ingress/setup-chatgpt-chat');
+      if (observed.controlPlane?.state === 'unknown') break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(observed.controlPlane.state, 'unknown');
+    assert.notEqual(observed.state, 'ready');
+    for (const code of [401, 403]) {
+      await writeFile(poll, JSON.stringify(code));
+      observed = await management('ingress/setup-chatgpt-chat');
+      assert.equal(observed.state, 'error');
+      assert.equal(observed.controlPlane.state, 'rejected');
+      assert.ok(observed.diagnostics.findings.some((f: any) => f.code === 'RUNTIME_KEY_REJECTED'));
+      await assert.rejects(() => apply('tunnel-credentials', { source: 'clipboard' }), /OpenAI runtime key/);
+    }
+    await writeFile(poll, '200');
+    observed = await management('ingress/setup-chatgpt-chat');
+    assert.equal(observed.state, 'ready');
+    assert.equal(observed.controlPlane.state, 'authenticated');
+    await apply('chatgpt-fallback', { reason: 'platform-denied' });
+    assert.equal(JSON.parse(await readFile(setup, 'utf8')).choices['chatgpt-blocked'], 'platform-denied');
+    await apply('chatgpt-fallback', { option: 'https-oauth' });
+    await apply('chatgpt-fallback', { option: 'https-oauth' });
+    const entries = await management('ingress');
+    const fallback = entries.filter((i: any) => i.id === 'setup-chatgpt-chat');
+    assert.equal(fallback.length, 1);
+    assert.equal(fallback[0].controlSource, 'chatgpt');
+    assert.equal(fallback[0].transport, 'https');
+    assert.equal(fallback[0].auth, 'oauth');
+    assert.equal(fallback[0].running, false);
+  } finally {
+    await management('ingress/setup-chatgpt-chat', 'DELETE').catch(() => {});
+    await rm(setup, { force: true });
+    await rm(clipboard, { force: true });
+  }
+});
 
 test('tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies', async () => {
   const config: ToolCatalog = await management('tool-catalog');

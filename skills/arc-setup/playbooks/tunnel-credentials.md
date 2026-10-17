@@ -1,17 +1,29 @@
 # OpenAI Tunnel credentials
 
-Open `credentialUrl` (OpenAI Platform → organization settings → Tunnels).
-The user needs organization access. Leave login, authorization and consent to
-them. The Tunnel ID is not a secret: apply it with `{"tunnelId":"tunnel_..."}`.
+Use [Platform Tunnels](https://platform.openai.com/settings/organization/tunnels)
+to reuse or create a tunnel associated with the intended Platform organization
+and ChatGPT workspace. Apply its non-secret ID with `{"tunnelId":"tunnel_..."}`.
+Use [Runtime API keys](https://platform.openai.com/settings/organization/api-keys)
+to create a **restricted runtime API key**, with **Tunnels Read + Use** for the
+target tunnel. Tunnel creation needs **Read + Manage** on the organization;
+ChatGPT custom-MCP access is separate. Do not use an Admin API key, Tunnel ID,
+ChatGPT session token, or locally stored Codex credentials as the runtime key.
 
-- **Browser tools (Claude in Chrome / Codex browser / IAB):** Navigate to the
-  Tunnel and runtime-key controls. Click the official **Copy** button without
-  reading the key, then apply `tunnel-credentials` with `{"source":"clipboard"}`.
-- **Computer use / ARC screen:** Navigate while the key is hidden. Click its
-  copy control and apply clipboard; do not screenshot a revealed key.
-- **Neither:** Give the Platform link and say “Copy this Tunnel's runtime key.”
-  Then apply clipboard. Also ask for manual copying if no copy button exists.
+- **Browser tools (Claude in Chrome / Codex browser / IAB):** In the signed-in
+  pages, create/reuse the tunnel and create the restricted key. Click the key's
+  official **Copy** button, then apply `tunnel-credentials` with
+  `{"source":"clipboard"}`. Follow the protocol's safety-policy exceptions.
+- **Computer use / ARC screen:** Navigate to the same controls while credentials
+  are hidden; use Copy and the same apply action without capturing the key.
+- **Neither:** Give the Runtime API keys link: “Copy the runtime key with Tunnels
+  Read + Use.” Apply clipboard after copying. Also use manual copying if no
+  Copy control exists; `secretUrl` opens ARC's fallback form.
 
-Never read clipboard contents or secret DOM values. Core saves the key, clears
-the clipboard, and returns only `hasApiKey`. `secretUrl` opens ARC for manual
-entry as a fallback. Run `cli setup wait` for both the ID and key to be saved.
+ARC checks the key's minimum shape, saves it, and only then clears the clipboard.
+A rejected copy leaves the clipboard untouched. On 401/403, replace the runtime
+key or report `runtime-key-rejected` via `chatgpt-fallback`; on a Platform access
+block report `platform-denied`. Do not ask about permissions before trying.
+Run `cli setup wait`; a saved key alone does not prove control-plane authentication.
+
+[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+· [Official onboarding / key sources](https://github.com/openai/tunnel-client/blob/master/docs/onboarding.md)
