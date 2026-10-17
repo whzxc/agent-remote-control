@@ -430,7 +430,7 @@
   "setup.choose-address.explain": "Claude 需要一个公网地址才能连到这台电脑。临时地址零配置，但 ARC 重启后会变，需要在 Claude 里重新添加连接器；固定地址一次配好长期可用，需要服务商账号。",
   "setup.choose-address.done": "已保存地址方式",
   "setup.address-secret.title": "填写固定地址凭据",
-  "setup.address-secret.explain": "Agent 会先配置服务商和固定地址，再使用官方复制按钮将凭据交给 ARC，ARC 接收后清空剪贴板并保存凭据。没有复制按钮时请手动复制，或在 ARC 表单中填写；不要把凭据发到聊天。",
+  "setup.address-secret.explain": "Agent 会先配置服务商和固定地址，再使用官方复制按钮将凭据交给 ARC，ARC 保存成功后才清空剪贴板。没有复制按钮时请手动复制，或在 ARC 表单中填写；不要把凭据发到聊天。",
   "setup.address-secret.done": "此连接已保存服务商凭据",
   "setup.create-ingress.title": "启动并检查连接",
   "setup.create-ingress.explain": "ARC 会启动已有连接，并检查 Claude 是否能访问它。检查失败时，请查看连接的诊断提示并重试。",

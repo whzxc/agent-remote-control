@@ -132,7 +132,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 
 ## 凭据输入
 
-`setup apply address-secret --stdin` 和 `setup apply tunnel-credentials --stdin` 接受 `{"source":"clipboard"}`。Core 读取并立即清空系统剪贴板，再从原始凭据、常见安装命令或 JSON 提取凭据，沿用 ingress update 保存；返回只包含 `hasXxx` 标志，不返回 next 或凭据。空剪贴板且已有凭据时重复 apply 成功；格式错误也不回显内容。随后 Agent 调用 next / wait。
+`setup apply address-secret --stdin` 和 `setup apply tunnel-credentials --stdin` 接受 `{"source":"clipboard"}`。Core 读取系统剪贴板，从原始凭据、常见安装命令或 JSON 提取凭据，沿用 ingress update 保存成功后才清空剪贴板；返回只包含 `hasXxx` 标志，不返回 next 或凭据。空剪贴板且已有凭据时重复 apply 成功；提取或保存失败保留剪贴板，返回原错误且不回显内容。随后 Agent 调用 next / wait。
 
 Agent 只点击官方复制按钮，不读剪贴板、不检查含秘钥的 DOM 或截图；没有复制按钮时请用户手动复制。现有凭据表单和聚焦 deep link 保留为兜底，不新增独立秘钥面板。编辑弹窗订阅入口更新，只同步尚未由用户编辑的字段，避免外部写入域名后表单仍为空。
 

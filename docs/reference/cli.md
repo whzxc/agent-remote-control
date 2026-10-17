@@ -60,11 +60,11 @@ in `<stateDir>/cloudflare/.cloudflared/cert.pem`; the child process has an isola
 home directory. Other providers retain the connection form.
 `setup apply tunnel-credentials --stdin` accepts the non-secret
 `{"tunnelId":"..."}`. Both `address-secret` and `tunnel-credentials` also accept
-`{"source":"clipboard"}`. Core reads and clears the system clipboard, extracts a
+`{"source":"clipboard"}`. Core reads the system clipboard, extracts a
 credential from plain text, common provider commands or JSON, and saves it through
-ingress update. The result contains only the relevant `hasXxx` flag; call next
+ingress update, then clears the clipboard only after saving succeeds. The result contains only the relevant `hasXxx` flag; call next
 again afterward. An empty clipboard with an already-saved credential is a no-op.
-Invalid input is cleared too, without echoing its content. Agents click official
+Extraction or save failures preserve the clipboard and return the original error without echoing its content. Agents click official
 Copy controls but never inspect secrets or read the clipboard. The ARC form
 opened by `openUrl` remains a fallback. Linux requires wl-clipboard or xclip and
 an active desktop clipboard.

@@ -52,13 +52,26 @@ fn clipboard_command(write: bool) -> tokio::process::Command {
         cmd
     }
 }
-pub async fn take() -> Result<String> {
+pub async fn read() -> Result<String> {
+    #[cfg(feature = "test-fixture")]
+    if root().join("fixtures/clipboard.txt").exists() {
+        return std::fs::read_to_string(root().join("fixtures/clipboard.txt"))
+            .map_err(|e| e.to_string());
+    }
     let out = clipboard_command(false)
         .output()
         .await
         .map_err(|_| "Clipboard unavailable on this machine")?;
     if !out.status.success() {
         return Err("Cannot read clipboard".into());
+    }
+    String::from_utf8(out.stdout).map_err(|_| "Clipboard must contain text".into())
+}
+pub async fn clear() -> Result<()> {
+    #[cfg(feature = "test-fixture")]
+    if root().join("fixtures/clipboard.txt").exists() {
+        return std::fs::write(root().join("fixtures/clipboard.txt"), "")
+            .map_err(|e| e.to_string());
     }
     let mut clear = clipboard_command(true)
         .stdin(Stdio::piped())
@@ -81,7 +94,7 @@ pub async fn take() -> Result<String> {
     {
         return Err("Cannot clear clipboard".into());
     }
-    String::from_utf8(out.stdout).map_err(|_| "Clipboard must contain text".into())
+    Ok(())
 }
 pub fn extract(field: &str, text: &str) -> Result<String> {
     let text = text.trim();

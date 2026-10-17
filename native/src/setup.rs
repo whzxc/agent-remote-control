@@ -672,7 +672,7 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 } else {
                     credential(&i)
                 };
-                let text = crate::setup_secret::take().await?;
+                let text = crate::setup_secret::read().await?;
                 if text.trim().is_empty() && i["config"][flag] == true {
                     return Ok(json!({flag:true}));
                 }
@@ -680,6 +680,7 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
                 let patch = json!({"config":{field:secret}});
                 crate::cli::validate_ingress_input(&patch, true)?;
                 call(s, &format!("ingress/{}", string(&i, "id")), "PUT", patch).await?;
+                crate::setup_secret::clear().await?;
                 return Ok(json!({flag:true}));
             }
             "chatgpt-prereq" => {

@@ -254,6 +254,32 @@ async function management(route: string, method = 'GET', body?: unknown) {
   assert.equal(response.status, 200, JSON.stringify(result));
   return result;
 }
+test('setup clipboard preserves unrelated content on extraction failure and clears only after saving', async () => {
+  const clipboard = path.join(directory, 'fixtures/clipboard.txt');
+  const setup = path.join(directory, 'setup.json');
+  await mkdir(path.dirname(clipboard), { recursive: true });
+  await writeFile(setup, JSON.stringify({ goal: 'claude-loop', choices: { 'choose-address': 'fixed', 'choose-provider': 'other-provider' } }));
+  await management('ingress', 'POST', { id: 'setup-claude-loop', controlSource: 'claude', transport: 'https', auth: 'oauth', enabled: false, config: { httpsProvider: 'cloudflare', cloudflareMode: 'named' } });
+  const apply = () => management('setup/apply', 'POST', { stepId: 'address-secret', input: { source: 'clipboard' } });
+  try {
+    const unrelated = 'Unrelated clipboard text — keep this note.';
+    await writeFile(clipboard, unrelated);
+    await assert.rejects(apply, /Clipboard does not contain a recognized credential; copy the provider credential again or use the ARC form/);
+    assert.equal(await readFile(clipboard, 'utf8'), unrelated);
+    assert.equal((await management('ingress/setup-claude-loop')).config.hasCloudflareToken, false);
+
+    const token = 'FIXTURE_CLIPBOARD_TOKEN_123456789';
+    await writeFile(clipboard, `cloudflared service install ${token}`);
+    assert.deepEqual(await apply(), { hasCloudflareToken: true });
+    assert.equal(JSON.parse(await readFile(path.join(directory, 'ingresses/setup-claude-loop/secrets.json'), 'utf8')).cloudflareToken, token);
+    assert.equal(await readFile(clipboard, 'utf8'), '');
+  } finally {
+    await management('ingress/setup-claude-loop', 'DELETE');
+    await rm(setup, { force: true });
+    await rm(clipboard, { force: true });
+  }
+});
+
 async function ingressRpc(ingress: any, method: string, params?: unknown) {
   const response = await fetch(`http://127.0.0.1:${ingress.config.httpsPort}/mcp`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${`test-${ingress.id}`.padEnd(40, 'x')}` },
