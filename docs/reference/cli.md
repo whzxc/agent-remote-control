@@ -1,0 +1,91 @@
+# CLI reference
+
+[Home](../../README.md) · [Automatic setup](../auto-setup.md)
+
+## Executables
+
+On macOS, use the bundled Core executable for local administration:
+
+```sh
+ARC_APP="/Applications/Agent Remote Control.app/Contents/Resources/bin/arc"
+"$ARC_APP" cli help
+"$ARC_APP" cli guide
+```
+
+ARC_APP is a shell convenience variable, not a runtime configuration field. Windows packages include `arc.exe` beside the desktop resources; use the installed executable path. Linux installs `arc` on PATH. The Desktop executable also accepts `cli <command>`.
+
+Commands return a JSON envelope: `schemaVersion: 1`, `ok: true`, and `result`; errors use `ok: false` with code/message/usage. Read `result.markdown` for the guide. Stdin accepts a JSON object up to 16 KiB. `cli guide` embeds this reference. `cli help` exposes current command grammar, input fields, presets, and operational notes. Discover operation contracts before invoking them:
+
+```sh
+"$ARC_APP" cli capabilities
+"$ARC_APP" cli schema app.status
+```
+
+Choose the operation name from capabilities; command names and catalog operation names are not interchangeable. `cli call <operation> --stdin` sends JSON input. `cli mcp` exposes the local management catalog over stdio, separate from remote execution tools.
+
+## Command groups
+
+| Group | Commands after `cli` |
+| --- | --- |
+| Discover | help, guide, capabilities, schema `<operation>` |
+| Invoke | call `<operation>` [--stdin], mcp |
+| App | app start/status/quit/restart |
+| Diagnose | status, doctor, onboarding, context --stdin, watch |
+| Logs | logs, logs --stdin, logs --follow, logs --offline |
+| Ingress | ingress list/presets, add --stdin, update `<id>` --stdin, remove/start/stop/restart/probe/doctor `<id>`, start-all, stop-all |
+| Verification | ingress verify `<id>` [--fresh], verify [--fresh] |
+| OAuth | ingress oauth list `<id>`, request `<id> <request-id>`, decision/register/revoke `<id>` --stdin |
+| Bearer | ingress token rotate `<id>` |
+| Settings | configure --stdin, network --stdin, connect, disconnect |
+| Usage | subscriptions get/set --stdin/refresh [providerId]/open [providerId] |
+| Native panel | panel get/set --stdin |
+| Storage | storage compact |
+
+help, guide, capabilities, schema, ingress presets, and logs --offline do not need Core running. Other commands use the target instance's Core/Desktop. app start can launch an installed app. Prefer ingress commands for multi-connection administration; configure/network/connect/disconnect address the primary connection projection.
+
+## Configure an ingress
+
+```sh
+printf '%s\n' '{"name":"Claude","controlSource":"claude","transport":"https","auth":"oauth","enabled":true,"config":{"httpsProvider":"cloudflare","cloudflareMode":"quick"}}' | "$ARC_APP" cli ingress add --stdin
+"$ARC_APP" cli ingress list
+"$ARC_APP" cli ingress start <returned-id>
+"$ARC_APP" cli onboarding
+```
+
+add accepts optional id and name. id is immutable; update takes it as a command argument, not in stdin. Updates partially merge settings and restart only that running ingress. Fields include controlSource, transport (`openai-tunnel` / `https`), auth (`openai` / `none` / `bearer` / `oauth`), enabled, toolPolicy (`all` or `{allowlist:[…]}`), and config.
+
+config fields include httpsProvider, cloudflareMode, httpsUrl, httpsHost, httpsPort, cloudflareToken, ngrokAuthtoken, pinggyMode, pinggyToken, localxposeMode, localxposeAccessToken, localxposeRegion, tunnelId, apiKey, and tunnelBinary. Use `cli help` for current modes and requirements. A Bearer token is at least 32 printable ASCII characters. Secret input uses stdin or a protected file; status/list do not reveal it.
+
+For OpenAI Tunnel, use controlSource chatgpt, transport openai-tunnel, auth openai, and config.tunnelId/apiKey. Register the identity through the official OpenAI flow. For HTTPS, choose a client-supported auth method and [provider](../guides/connections.md).
+
+## Verify from the client
+
+Read `cli onboarding` for the ingress's stage, URL/Tunnel ID, verificationPrompt, and executionPrompt. Ask the actual client to call connector_verify with the displayed code. Then dispatch a harmless task and read its final result. `--fresh` creates a new verification challenge; retain it for that client round.
+
+For OAuth, read the pending request before deciding. [OAuth](oauth.md#local-management) specifies the request/decision fields. Token rotation prints the new Bearer secret once; redirect it to a private file with `umask 077` rather than collecting it in chat logs.
+
+## Subscription and panel settings
+
+Read subscriptions get first. subscriptions set replaces enabled, the complete providers array, and the complete pinnedWindows map. Preserve selections you intend to keep. refresh starts an online refresh; inspect observedAt/state/error for its result. open activates Agent details.
+
+panel set partially updates preferences: autoCollapse, size, spacing, ends, horizontalPercentages, alertColor, notchFusion, dock, and resetPosition. Read help for enums. panel get does not create a window. Preferences can be saved on other platforms; the native rail is macOS-only.
+
+## State and environment
+
+| Platform / purpose | Location or variable |
+| --- | --- |
+| macOS state | `~/.local/state/agent-remote-control` |
+| Windows state | `%LOCALAPPDATA%/agent-remote-control` |
+| Linux state | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-remote-control` |
+| Linux environment file | `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment` |
+| Explicit instance | ARC_STATE_DIR; Desktop also accepts `--state-dir <path>` |
+| Development | `agent-remote-control-dev` under the platform state base |
+| Isolated preview | Set ARC_STATE_DIR to `agent-remote-control-preview` under that base |
+| Build version | ARC_BUILD_VERSION; otherwise nearest reachable v-tag, then 0.0.0 |
+| Linux installer | ARC_VERSION (v-prefixed tag), ARC_INSTALL_DIR |
+
+ARC_NATIVE_PORT, ARC_NATIVE_TOKEN, and ARC_INGRESS_ID are private forwarding-process inputs. ARC_DEV_SUPERVISED is owned by the desktop development runner; ARC_FIXTURE_* belongs to test fixtures. ARC_PLUGIN_DEV_HTML is an export helper's interface to an external plugin binary. Upstream variables such as CODEX_HOME retain their own meaning. See [Development](../dev/development.md) for builds and [Linux](linux.md) for daemon commands.
+
+## Limits
+
+Manage only the selected instance. An app restart/quit can stop the CLI's own host; reconnect before readback. Do not expose the authenticated local management API through a public tunnel. A successful settings write or local listener start still needs verification from the intended remote client.

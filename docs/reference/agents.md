@@ -1,0 +1,76 @@
+# Local Agents
+
+[Home](../../README.md) · [Tools](tools.md)
+
+ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*`; Pi and ACP Agents use `agent_*` with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed, enabled entries, with a configurable limit of 4/6/8/10.
+
+## Drivers and launch commands
+
+| Agent ID | Entry point | Execution |
+| --- | --- | --- |
+| codex | Codex App Server / Desktop IPC | Native owner; [task ownership](../concepts.md#task-ownership) |
+| pi | `pi --mode rpc` | ARC-owned process, Pi RPC |
+| opencode | `opencode acp` | ACP v1 |
+| gemini | `gemini --acp` | ACP v1 |
+| claude | Installed `claude` + ARC-managed ACP adapter | Managed ACP adapter |
+| cursor | `agent acp` | ACP v1 |
+| grok | `grok agent stdio` | ACP v1 |
+| copilot | `copilot --acp --stdio` | ACP v1 |
+| kimi | `kimi acp` | ACP v1 |
+| qwen | `qwen --acp` | ACP v1 |
+| kiro | `kiro-cli acp` | ACP v1 |
+| devin | `devin acp` | ACP v1 |
+| cline | `cline --acp` | ACP v1 |
+| junie | `junie --acp true` | ACP v1 |
+| hermes | `hermes acp` | ACP v1 |
+
+The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs.
+
+installed means an executable was found. available includes version and launch-condition checks. ready means an initialized ARC session exists. Read discoveryError for failures, and agent_capabilities with taskId for the actual negotiated initialize/session responses.
+
+## Claude adapter
+
+Install and log in to Claude Code, then enable Claude in ARC. ARC prepares its pinned ACP adapter and private Bun runtime, verifies SHA-512, probes startup, and activates the completed component. It reuses the discovered Claude executable through CLAUDE_CODE_EXECUTABLE. Ordinary discovery does not download it; enabling starts preparation, and disabling cancels unfinished preparation.
+
+Components live under `dependencies/claude-acp/<version>` in ARC state. Old completed versions remain available to running sessions and are cleaned at a later Core startup before new Agent processes. Check adapter.state for missing, preparing, ready, or failed. This adapter executes local Claude Agent tasks; the Loop's outbound cloud notification uses Claude Code CLI directly.
+
+## Create, wait, continue
+
+```text
+agent_create {"agent":"opencode","cwd":"/absolute/project","prompt":"Do not use tools or read files. Reply OK.","requestId":"<fresh UUID>"}
+agent_wait {"agent":"opencode","taskId":"<returned taskId>","timeoutMs":30000}
+agent_read {"agent":"opencode","taskId":"<returned taskId>"}
+agent_send {"agent":"opencode","taskId":"<returned taskId>","prompt":"Continue with the agreed next step.","requestId":"<fresh UUID>"}
+```
+
+taskId is ARC's persistent UUID; sessionId is the upstream session. Pi/ACP turnId identifies one submitted prompt. agent_tasks lists ARC-created tasks with pagination. Receipts and wait continuation follow [Tools](tools.md#waiting). Pi prompt acceptance and ACP prompt completion occur at different points, so use agent_wait for the task outcome.
+
+agent_pending returns ACP permission requests or Pi extension interactions. agent_respond selects the upstream optionId, or supplies the Pi value/confirmed field; cancelled declines the interaction. agent_interrupt requests cancellation; wait/read confirms the result.
+
+agent_context produces a read-only review/handoff of an existing task and current project facts. It does not execute or resume work. Keep reported Agent claims distinct from command evidence.
+
+## Sessions and archives
+
+Each Pi/ACP task owns its process. Completed/stopped sessions can resume through agent_send: Pi reuses the session file, ACP requires negotiated session/load support. Unconfirmed writes are not replayed automatically. Reads and waits never restart a process.
+
+Memory events are bounded to 2000 entries or 8 MiB. Full Pi/ACP events persist as an active JSONL tail and verified gzip segments. Tails rotate at 8 MiB; unique history is retained. `cli storage compact` losslessly compresses archives. control_output reads original content with UTF-16 offsets. ACP's recent text keeps a 256 KiB tail and marks outputTruncated; the event archive holds full output.
+
+Stopping an ingress leaves Agent processes running. Core shutdown closes ARC-owned children. Stopped task snapshots remain readable; live events and pending requests need a running process. Codex Desktop retains its own lifecycle.
+
+## Custom ACP manifests
+
+Add a local definition to `agents/manifests.json` under ARC state, then restart ARC:
+
+```json
+[
+  {"id":"custom-agent","command":"/absolute/path/to/agent","args":["acp"]}
+]
+```
+
+Required fields are id, command, and args. Optional fields include displayName, protocol (`acp-v1`), integration (native/adapter/custom), aliases, searchDirs, versionArgs, and compatibility. IDs contain only ASCII letters, digits, underscore, and hyphen and cannot collide with built-ins or other custom IDs. Unknown fields and invalid launch conditions fail validation. `versionArgs: []` skips a custom launcher's version probe; the ACP handshake still runs.
+
+compatibility can describe helpArgs/helpContains/identityContains, versionRequirement, runtime, authentication, caveats, and sources. Version requirements are descriptive; executable probes and the actual handshake determine availability. ARC does not expand shell commands or accept manifest edits over remote MCP.
+
+## Limits
+
+Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic MCP tools do not expose ACP model/mode switching, fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.

@@ -46,7 +46,7 @@ async function cask(dir) {
 
   url "https://github.com/${repo}/releases/download/v#{version}/agent-remote-control_#{version}_aarch64.dmg"
   name "Agent Remote Control"
-  desc "Connect ChatGPT to local Codex Desktop"
+  desc "Connect Claude and ChatGPT to local coding agents"
   homepage "https://github.com/${repo}"
   depends_on arch: :arm64
   auto_updates true
@@ -54,8 +54,8 @@ async function cask(dir) {
 
   caveats <<~EOS
     See the repository installation guide if macOS blocks the first launch.
-    Codex Desktop and a ChatGPT connection are required.
-    Choose OpenAI Secure MCP Tunnel or HTTPS MCP in the application.
+    Install and sign in to Codex for the default workflow.
+    Connect Claude with HTTPS + OAuth, or ChatGPT with OpenAI Secure Tunnel.
   EOS
 end
 `);
@@ -90,7 +90,7 @@ async function notes() {
   // Include the manual identity change only when upgrading from an old release.
   if (!previous || !git('show', `refs/tags/v${previous}:native/src/lib.rs`).includes('chatgpt-local-connector')) return changes;
   const migration = 'for base in "$HOME/.local/state" "${XDG_STATE_HOME:-$HOME/.local/state}" "${XDG_CONFIG_HOME:-$HOME/.config}"; do for suffix in "" -dev -preview; do old="$base/chatgpt-local-connector$suffix"; new="$base/agent-remote-control$suffix"; if [ -d "$old" ] && [ ! -e "$new" ]; then mv "$old" "$new" || exit; fi; done; done';
-  return `${changes}\n\n## Upgrading from CLC\n\nQuit ARC before installing/opening this update. On macOS/Linux, move existing state once (existing destinations are left untouched):\n\n\`\`\`sh\n${migration}\n\`\`\`\n\nOn Windows, move %LOCALAPPDATA%/chatgpt-local-connector to %LOCALAPPDATA%/agent-remote-control (and the -dev/-preview variants) before opening the new app. Re-enable login items and grant macOS permissions to the new app identity. Maintainers: move ~/.tauri/local-connector.key to ~/.tauri/agent-remote-control.key. No automatic migration is performed.\n`;
+  return `${changes}\n\n## Upgrading from CLC\n\nDisable the old login item and quit ARC before installing/opening this update. On macOS/Linux, move existing state once (existing destinations are left untouched):\n\n\`\`\`sh\n${migration}\n\`\`\`\n\nOn Windows, move %LOCALAPPDATA%/chatgpt-local-connector to %LOCALAPPDATA%/agent-remote-control (and the -dev/-preview variants) before opening the new app. Re-enable login items and grant macOS permissions to the new app identity. Maintainers: move ~/.tauri/local-connector.key to ~/.tauri/agent-remote-control.key. No automatic migration is performed.\n`;
 }
 if (mode === 'release') {
   const versionAt = args.indexOf('--version');

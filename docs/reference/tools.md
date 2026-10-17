@@ -1,0 +1,146 @@
+# MCP tools
+
+[Home](../../README.md) · [Concepts](../concepts.md) · [CLI](cli.md)
+
+## Discovery and policy
+
+The embedded [catalog](../../native/src/catalog.json) defines 48 tools and their JSON Schemas. Each ingress enforces its policy on both `tools/list` and `tools/call`. Default stores an explicit allowlist; All enables the registry; Custom stores an exact selection. Read-only excludes mutating tools except `connector_verify`, which writes the connection verification record. Saving a selection includes required receipt, status, wait, and output readers.
+
+| Group | Tools |
+| --- | --- |
+| Default (24) | `connector_verify`, `projects`, `overview`, `tree`, `search`, `read`, `git`, `command`, `codex_tasks`, `codex_read`, `codex_wait`, `codex_create`, `codex_send`, `codex_interrupt`, `receipt`, `codex_items`, `codex_pending`, `codex_respond`, `control_output`, `edit`, `write`, `codex_changes`, `logs`, `screen` |
+| Advanced (12) | `fs`, `process`, `mcp`, `codex_thread`, `codex_account`, `file_search`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_call`, `codex_events`, `git_write` |
+| Conditional default (12) | `agents`, `agent_capabilities`, `agent_tasks`, `agent_create`, `agent_read`, `agent_wait`, `agent_send`, `agent_interrupt`, `agent_events`, `agent_pending`, `agent_respond`, `agent_context` |
+
+Conditional tools appear only when at least one non-Codex Agent is available and enabled. `agent_*` requires a non-Codex Agent ID; Codex uses `codex_*`. Refresh local Agent discovery and then the client's tools when availability changes. Saved allowlists do not grow automatically; reselect a preset to adopt new tools.
+
+## Project facts and files
+
+`projects` reads the native `project/list` pages. Project selectors accept a native ID, unique name, or absolute directory; a multi-root project requires a specific directory. ID/name resolution caches the catalog for 30 seconds. Absolute `read`, `tree`, and `search` paths can omit project; relative paths require it. Git revision reads require project.
+
+`tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines; tree/search use nextOffset. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
+
+```text
+read {"path":"/absolute/project/README.md"}
+edit {"path":"/absolute/project/file.txt","edits":[{"oldText":"before","newText":"after"}],"expectedHash":"<sha256>"}
+write {"path":"/absolute/project/new.txt","content":"hello\n"}
+```
+
+`edit` applies all replacements in memory before an atomic file replacement. Empty oldText, missing matches, or ambiguous matches without replaceAll fail the whole operation. `expectedHash` checks existing content. `write` creates parent directories and creates or replaces a UTF-8 file. Existing permissions are preserved by edit. Active-task notices do not block a write.
+
+`git` reads status/history/diffs; `git_write` performs its cataloged mutations with receipts. `file_search` exposes fuzzy filename search. `fs` exposes native writes and watches with base64 contents and native path semantics; use the upstream schema for parameters.
+
+## Codex tasks
+
+```text
+codex_create {"project":"/absolute/project","prompt":"Read the project and summarize its structure.","requestId":"<fresh UUID>","mode":"read-only"}
+codex_wait {"threadId":"<returned ID>","turnId":"<returned turn>","timeoutMs":30000}
+codex_read {"threadId":"<returned ID>"}
+codex_changes {"threadId":"<returned ID>","turnId":"<returned turn>"}
+```
+
+`codex_create` accepts prompt or native input; input takes precedence. `thread` and `turn` forward native parameters. Explicit native parameters take precedence over convenience fields. Omitted model, effort, serviceTier, permissions, and approval policy inherit the native host/task settings. `mode` presets are read-only, workspace-write, or danger-full-access; the first two default networkAccess to false when selected explicitly. networkAccess alone requires a complete permission policy.
+
+`codex_send` continues the existing owner. Active-turn steering changes input only; a new turn can change settings. Desktop tasks ignore resume arguments and reject unsupported thread/turn extension operations. Background sends resume a notLoaded session before starting a new turn. Reads and waits do not resume execution. `executionOwner` is `desktop` or `connector`; Linux uses the latter.
+
+`codex_changes` compares the current worktree with the HEAD/dirty baseline captured before the turn. It includes current untracked files and pre-existing dirty changes. It returns reachable new commits and file statistics; path selects a paged diff. Missing historical baselines use fallback=true with recent commits and the current diff. The result is a live workspace comparison, not a frozen task-only snapshot.
+
+## Receipts and interactions
+
+Mutations accept a UUID requestId, generated when omitted. Retain it for retries: the same ID and arguments return the original receipt; changed arguments conflict. The default dispatch wait is 25 seconds, adjustable with waitMs from 0 to 120000. A longer dispatch returns pending. `receipt` reads the original operation or applies approve/bypass/reject to a pending ARC task approval.
+
+Receipt completion describes the operation; task completion comes from read/wait. An unconfirmed outcome needs readback using the original request/task IDs. Do not resend it with a new ID.
+
+`codex_pending` returns native requests with backendSession, id, method, and params. Respond with `codex_respond` using exactly one of result or error. Follow the upstream request schema. Desktop interactions without callback IDs must be handled in Desktop, as indicated by interactionAction. ARC task approval is separate from Codex command permissions.
+
+## Waiting
+
+Use `codex_wait` or `agent_wait` after dispatch. Both default to 30000 ms and return on a terminal state or required interaction. `codex_wait` permits 1–90000 ms; non-Codex `agent_wait` permits 1–300000 ms. Prefer 20–30-second slices for remote clients.
+
+After timeout, keep the same task/thread and turn IDs and pass the previous snapshotHash as expectedHash. It controls changed reporting, not whether a terminal result is returned. Cancellation/disconnection of a wait ends that wait, not the task. Results distinguish completed, failed, cancelled, interaction-required, timeout, and unconfirmed. Read finalResponse and the observation timestamps.
+
+## Claude follow-ups
+
+`codex_create` and `codex_send` accept notifyClaudeSession: a `session_…` / `cse_…` cloud ID or `claude.ai/code/<id>` URL. Omission retains a same-turn binding; null unbinds. New turns should bind explicitly. The immediate continuation of an interrupted turn inherits a binding only when it has no explicit binding/unbinding record.
+
+ARC observes completion, failure, cancellation, and requests for input/approval. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Each event is attempted once; uncertain/interrupted sends are not retried. Read claudeNotification on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. macOS provides a system-notification fallback. See the [workflow guide](../guides/claude.md).
+
+## Host and native operations
+
+| Tool | Operations |
+| --- | --- |
+| command | Simple cmd/cwd execution, or native exec/write/terminate/resize |
+| process | spawn, writeStdin, kill, resizePty |
+| fs | writeFile, createDirectory, remove, copy, watch, unwatch |
+| mcp | list, resource/read, tool/call, oauth/login, event/stream/start/stop |
+| codex_account | read, usage/read, rateLimits/read, workspaceMessages/read |
+| codex_schema | Native domain/method schema discovery |
+| codex_query / codex_call | Native read/mutation methods subject to task ownership |
+| screen | macOS window capture and accessibility operations; OS permissions apply |
+
+Simple `command {"cmd":"git status --short","cwd":"/absolute/project","timeoutMs":10000}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Simple fields and action/params are mutually exclusive. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
+
+Native handles for processes, watches, and MCP subscriptions belong to the current App Server connection. MCP tool/call and event/stream/start require an existing threadId. Consult codex_schema before using native parameters; top-level RPC timeoutMs is separate from params.timeoutMs.
+
+## Output, events, and logs
+
+Large JSON results over 64 KiB are stored as snapshots with outputId and nextOffset. `control_output` reads up to 65536 UTF-16 code units per page; join all text pages before parsing JSON. Snapshots expire after one hour and share a 64 MiB quota. Expired reads return OUTPUT_EXPIRED; oversized/unallocatable snapshots return OUTPUT_STORAGE_LIMIT.
+
+Codex events keep a bounded memory window of 2000 entries or 8 MiB. gap/reset reports loss or restart. Native task history remains readable on demand. Pi/ACP events additionally have durable archives; see [Agents](agents.md). `codex_items` reads original task items, including tool output. `codex_read` can include local images with includeImages and maxImages.
+
+`logs` reads retained Core and connected App Server stderr logs newest first. since uses RFC3339, level is exact, grep is a fixed string, and cursor continues a page. Retention is seven days and 16 MiB; an expired cursor reports gap.
+
+## Review views and task context
+
+For overview/tree/search/read/git, explicit `view: "review"` resolves the real workspace boundary and excludes paths outside it and ARC's own runtime state. In-root symlinks remain readable; Git renames check both paths. Default reads follow host permissions without content-based filtering.
+
+With includeSource, coverage records pagination, filtering, and skipped items. A non-null read.nextLine requires another page even if truncated is false. Search snippets cap per-file matches/characters; matchesComplete reports their completeness. Use read for the full text. tree/search can pass listingHash as expectedHash; read uses sha256. A changed hash requires restarting pagination. A listing hash does not freeze file contents.
+
+`agent_context {"agent":"pi","taskId":"<existing ID>","view":"handoff"}` reads an existing non-Codex task plus current project facts. Optional project must match the task workspace or TASK_WORKSPACE_MISMATCH is returned. Missing evidence is partial. Policy checks include agent_read and git; readNext recommends allowed tools. Codex review uses codex_read/items/changes directly.
+
+## Git mutations
+
+`git_write` uses project, operation, and a UUID requestId:
+
+| Operation | Input / scope |
+| --- | --- |
+| add / unstage | Nonempty literal relative paths or all=true, exclusively; unstage changes only the index |
+| commit | Required message; commits the current index, without amend |
+| branch | Required branch; creates a local branch from HEAD |
+| switch | Existing local branch, or create=true to create and switch |
+| stash_push | Tracked changes only; optional message |
+| stash_pop | Latest stash; Git preserves stash/conflict state on failure |
+
+Branch, commit, and stash operate on the repository. There is no fetch/pull/push, branch deletion, history rewrite, hard reset, or clean operation. Git writes run under host permissions, outside task-creation approval. Use receipt and git readback after failure or an uncertain result.
+
+Commit/stash identity comes from repository/global user.name and user.email, including include/includeIf; missing identity fails. Process GIT_AUTHOR/GIT_COMMITTER overrides are not used. Hooks, fsmonitor, external diff, configured filters, signing, automatic maintenance, and recursive submodule operations are disabled. Files requiring filters such as LFS are not converted automatically. stash_pop disables rerere and rejects external merge drivers. Commands use a 12-second timeout and 16 MiB per output stream.
+
+## Images and item pagination
+
+read detects PNG/JPEG/WebP/GIF by signature and returns MCP image blocks with source, original/returned dimensions, byte counts, hashes, and reencoded. maxEdge defaults to 1568 (1–4096); quality defaults to 80 (1–100). Originals within the pixel and 1 MiB byte limits pass through. Re-encoding uses JPEG for JPEG/opaque WebP, PNG otherwise; animation reduces to the first frame. A smaller original may be retained within the byte cap and less than 10% above maxEdge. Input reads retain the 16 MiB file limit.
+
+codex_read and codex_items accept includeImages=false and maxImages=4 (1–8). Local Markdown images must resolve inside the task project or its own CODEX_HOME/visualizations/YYYY/MM/DD/threadId directory; symlinks cannot escape. Embedded data-URL tool screenshots are supported. An unavailable image adds an explanation while preserving the text result.
+
+codex_items defaults to original oldest-first order. latest=true selects the newest turn and reads newest first; explicit turnId pins a specific turn. Continue with that turnId, nextCursor as cursor, and latest=true. A cursor with latest=true but no turnId is rejected.
+
+## macOS screen operations
+
+Core invokes the bundled arc-screen Swift helper directly. Grant ARC Screen Recording and Accessibility in macOS settings when requested. Except for windows, select app (name substring), bundleId (exact), title (substring), or windowId; combined filters all apply. Refine ambiguous targets.
+
+| Action | Result |
+| --- | --- |
+| windows | IDs, app/bundle/PID, titles, frames, visibility and foreground state |
+| capture | Window image and metadata; maxEdge/quality follow image preparation |
+| tree | Accessibility refs, roles, labels, frames; text=true includes static text; default 300, maximum 1000 entries |
+| press | AXPress by ref or label substring; nth is zero-based; visible center-click fallback when foreground use permits |
+| show | AXScrollToVisible for the selected element |
+| raise | Explicitly activate the app and raise its window |
+| key | Escape/Return/Tab/arrows, letters/digits, or combinations such as cmd+k |
+
+Read a fresh tree after structural changes; refs are window-scoped structural paths. front=auto temporarily activates/restores an inactive target only after 60 seconds without user input. Otherwise capture may report possiblyStale and foreground-dependent input returns FOREGROUND_REQUIRED. never avoids activation; always activates and leaves the target in front. raise is an explicit foreground action.
+
+press/show/raise/key can add `after: {"waitMs":200,"capture":true}` or a capture options object. Maximum wait is 10000 ms. Operation, wait, and capture share one Core lock even if the caller disconnects. If the action succeeds but capture fails, performed=true and captureError preserve the outcome; inspect before repeating the action. performed confirms input submission, so verify the visible result.
+
+## Limits
+
+Tool allowlists do not isolate users/tasks or change OS permissions. Native method availability, login, and Agent capabilities come from the actual host. Screen operations are macOS-only; Linux has no Desktop actions. Event buffers are not durable task history; consume pagination before its retention expires.

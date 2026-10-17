@@ -55,7 +55,7 @@ const COMMANDS: &[&str] = &[
     "ingress verify <id> [--fresh]",
 ];
 
-const GUIDE: &str = include_str!("../../docs/codex-setup.md");
+const GUIDE: &str = include_str!("../../docs/reference/cli.md");
 
 fn onboarding(ingress: &Value) -> Value {
     json!({"ingressId":ingress["id"],"controlSource":ingress["controlSource"],
