@@ -9,7 +9,9 @@ Let Claude inspect the project, agree on a plan with you, and delegate implement
 - Install ARC and sign in to Codex Desktop on the execution computer.
 - Install and sign in to Claude Code CLI on that computer. Its cloud messaging command delivers follow-ups.
 - Use a Claude account/workspace that can add custom connectors.
-- Open a Claude Code cloud session and copy its `claude.ai/code/<id>` URL, `session_…`, or `cse_…` ID for the notification target.
+- Open a Claude Code cloud session on claude.ai. Claude can read its own session ID from its environment, for example the `cse_…` value in `CLAUDE_CODE_REMOTE_SDK_URL`, and bind itself as the notification target.
+
+If Claude cannot read its own ID, paste the cloud session URL or ID instead.
 
 Claude on the web, mobile, and desktop can use the remote connector. Start with [Getting started](../getting-started.md) if ARC is not installed.
 
@@ -32,11 +34,13 @@ Claude's [connector documentation](https://claude.com/docs/connectors/building) 
 
 Give a project name or absolute directory. Then dispatch one concrete round:
 
-> Ask Codex to implement the agreed change in this project and run its existing checks. Use a fresh requestId. Set notifyClaudeSession to <my Claude Code cloud session ID or URL>. Keep the returned threadId and turnId. When notified, read the task and inspect its changes against our acceptance criteria.
+> Ask Codex to implement the agreed change in this project and run its existing checks. Use a fresh requestId. Set notifyClaudeSession to your own Claude Code cloud session. Keep the returned threadId and turnId. When notified, read the task and inspect its changes against our acceptance criteria.
 
 The corresponding tool call is `codex_create` with `project`, `prompt`, `requestId`, and `notifyClaudeSession`. Retain the receipt and task IDs. Use `codex_wait` for an immediate check; after a timeout, continue with the same IDs and the returned snapshotHash as expectedHash.
 
 ## Receive, review, continue
+
+After dispatching, Claude can end its turn. When Codex finishes, the notification wakes the same Claude Code cloud session to review the changes and continue.
 
 ARC sends a fixed status message when a bound turn completes, fails, is interrupted, or needs approval/input. The message identifies the project, task, and turn. Claude then reads the actual output through `codex_read` / `codex_items`, and the changes through `codex_changes` or `git`.
 

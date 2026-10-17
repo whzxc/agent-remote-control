@@ -2,11 +2,11 @@
 
 **English** | [简体中文](zh-CN/auto-setup.md)
 
-Paste one prompt into a local Codex or Claude Code session on the computer that will run ARC. Replace the project and session placeholders when asked. The Agent should use the installed app's `cli help`, `cli guide`, `cli capabilities`, and `cli schema <operation>` before changing settings. See the [CLI reference](reference/cli.md) for executable paths.
+Paste one prompt into a local Codex or Claude Code session on the computer that will run ARC. Provide the project when asked; let the Claude Code cloud session bind its own ID. The Agent should use the installed app's `cli help`, `cli guide`, `cli capabilities`, and `cli schema <operation>` before changing settings. See the [CLI reference](reference/cli.md) for executable paths.
 
 ## Codex → Claude
 
-> Set up Agent Remote Control for Claude on this computer. Read https://github.com/whzxc/agent-remote-control/blob/main/docs/getting-started.md and the installed CLI help/guide. Install the current official release if absent, verify its checksum, and preserve existing connections. Add a Claude HTTPS + OAuth ingress; use Cloudflare Temporary unless I provide a fixed domain. Guide me through the Claude custom connector and local consent. Verify from Claude with connector_verify. Check the local Claude Code CLI and ask me for the initiating Claude Code cloud session ID. From that session, create one no-tools/no-files Codex task that replies ARC_LOOP_OK with notifyClaudeSession set, then verify the notification and final output. Report any remaining step.
+> Set up Agent Remote Control for Claude on this computer. Read https://github.com/whzxc/agent-remote-control/blob/main/docs/getting-started.md and the installed CLI help/guide. Install the current official release if absent, verify its checksum, and preserve existing connections. Add a Claude HTTPS + OAuth ingress; use Cloudflare Temporary unless I provide a fixed domain. Guide me through the Claude custom connector and local consent. Verify from Claude with connector_verify. Check the local Claude Code CLI and help the initiating Claude Code cloud session read its own ID and set notifyClaudeSession; ask me to paste its URL or ID only if that is unavailable. From that session, create one no-tools/no-files Codex task that replies ARC_LOOP_OK with notifyClaudeSession set, then verify the notification and final output. Report any remaining step.
 
 ## Codex → ChatGPT
 
@@ -14,7 +14,7 @@ Paste one prompt into a local Codex or Claude Code session on the computer that 
 
 ## Claude Code → Claude
 
-> Configure Agent Remote Control on this computer for my Claude custom connector. Read https://github.com/whzxc/agent-remote-control/blob/main/docs/guides/claude.md and the installed CLI help/guide. Install the official release if needed, verify it, and preserve current connections. Add HTTPS + OAuth, use a temporary Cloudflare address unless I supply a fixed domain, and guide me through local consent. Verify the connector from Claude. Confirm this local Claude Code CLI can use my cloud session; ask for its actual ID rather than using the local session ID. Help that cloud session dispatch a harmless Codex task with notifyClaudeSession and verify both notification and result.
+> Configure Agent Remote Control on this computer for my Claude custom connector. Read https://github.com/whzxc/agent-remote-control/blob/main/docs/guides/claude.md and the installed CLI help/guide. Install the official release if needed, verify it, and preserve current connections. Add HTTPS + OAuth, use a temporary Cloudflare address unless I supply a fixed domain, and guide me through local consent. Verify the connector from Claude. Confirm this local Claude Code CLI can use my cloud session. Have the cloud session read and bind its own ID, not the local session ID; ask me to paste its URL or ID only as a fallback. Help that cloud session dispatch a harmless Codex task with notifyClaudeSession and verify both notification and result.
 
 ## Claude Code → ChatGPT
 

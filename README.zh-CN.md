@@ -7,29 +7,29 @@
 ![ARC 首页：Claude、ChatGPT 与本机 Agents](docs/images/home-overview.png)
 
 ```text
-控制源                        你的电脑                       Agents
-Claude ── HTTPS + OAuth ──┐                              ┌── Codex
-                         ├── ARC ── 实时项目事实 ────────┤
-ChatGPT ─ Secure Tunnel ──┘                              └── Pi / ACP
+控制源                        你的电脑                        Agents
+Claude -- HTTPS + OAuth --+                               +-- Codex
+                          +-- ARC -- live project facts --+
+ChatGPT - Secure Tunnel --+                               +-- Pi / ACP
 
-Codex 轮次结束 → ARC → 绑定的 Claude Code 云端会话
+Codex 轮次结束 -> ARC -> 绑定的 Claude Code 云端会话
 ```
 
 ## Claude + Codex：协作闭环（Loop）
 
-在 Claude 网页、手机或桌面里讨论和规划。Claude 通过 ARC 读取当前文件、Git 改动和 Codex 任务，再把明确的工作派给本机 Codex。一轮结束后，ARC 通知绑定的 Claude Code 云端会话，Claude 就能审查改动并派出下一轮。离开键盘，也能继续推进。
+在 claude.ai 的 Claude Code 会话里讨论和规划，网页、手机和桌面 App 都能打开。Claude 通过 ARC 读取当前文件、Git 改动和 Codex 任务，再把明确的工作派给本机 Codex。派发后 Claude 可以直接结束本轮；Codex 完成时，ARC 的通知会唤醒同一云端会话，让 Claude 审查改动并继续。离开键盘，也能继续推进。
 
 Claude 使用 HTTPS + OAuth 接入。自动回访还需要发起方的 Claude Code 云端会话 ID，以及本机已登录的 Claude Code CLI。[建立闭环](docs/zh-CN/guides/claude.md)。
 
 ## ChatGPT Chat + Codex
 
-在 Chat 模式里用 GPT-6 Astra Pro 深度推理和设计方案，再通过 ARC 交给本机 Codex。Chat 的 Pro 选项与 Codex 中可用的普通 Astra 模型不同。使用已开放该选项的 ChatGPT Pro、Business 或 Enterprise 账号，默认通过 OpenAI Secure Tunnel 连接。[接入 ChatGPT](docs/zh-CN/guides/chatgpt.md)。
+GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两者接起来：Chat 负责深度推理，Codex 负责执行。使用已开放该选项的 ChatGPT Pro、Business 或 Enterprise 账号，默认通过 OpenAI Secure Tunnel 连接。[接入 ChatGPT](docs/zh-CN/guides/chatgpt.md)。
 
 ## 三步开始
 
 1. **安装。** 从 [Releases](https://github.com/whzxc/agent-remote-control/releases/latest) 下载 macOS 应用，移入 Applications，并登录 Codex。[安装说明](docs/zh-CN/installation.md)。
 2. **接入 Claude。** 在 ARC 添加 Claude，选择 HTTPS + OAuth，把 MCP URL 添加为 Claude 自定义连接器，再到 ARC 同意授权。
-3. **派出首个任务。** 告诉 Claude：“通过 ARC 让 Codex 不读文件、不调用工具，只回复 ARC_LOOP_OK。绑定本 Claude Code 云端会话接收完成通知，再读取结果。”提供云端会话 ID。[逐步上手](docs/zh-CN/getting-started.md)。
+3. **派出首个任务。** 告诉 Claude：“通过 ARC 让 Codex 不读文件、不调用工具，只回复 ARC_LOOP_OK。把你自己的 Claude Code 云端会话设为 notifyClaudeSession。派发后结束本轮，收到通知再读取结果。”若 Claude 无法读取自身会话 ID，再手动粘贴云端会话 URL 或 ID。[逐步上手](docs/zh-CN/getting-started.md)。
 
 也可以把这段话交给本机 Codex：
 

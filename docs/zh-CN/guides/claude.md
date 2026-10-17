@@ -9,7 +9,9 @@
 - 在执行电脑安装 ARC，并登录 Codex Desktop。
 - 在同一电脑安装并登录 Claude Code CLI；回访通过它的云端消息命令送达。
 - Claude 账号或工作区需要能添加自定义连接器。
-- 打开 Claude Code 云端会话，复制 `claude.ai/code/<id>` 链接、`session_…` 或 `cse_…` 会话 ID，作为通知目标。
+- 在 claude.ai 打开 Claude Code 云端会话。Claude 可以从自身环境读取会话 ID，例如 `CLAUDE_CODE_REMOTE_SDK_URL` 中的 `cse_…`，将自己绑定为通知目标。
+
+若 Claude 无法读取自身 ID，再手动粘贴云端会话 URL 或 ID。
 
 Claude 网页、手机和桌面均可使用远程连接器。尚未安装 ARC 时，先看[上手](../getting-started.md)。
 
@@ -32,11 +34,13 @@ Claude 的[连接器文档](https://claude.com/docs/connectors/building)说明�
 
 提供项目名称或绝对目录。确定方案后，派出一轮明确工作：
 
-> 让 Codex 在该项目实现约定的改动，运行已有检查。使用新 requestId，将 notifyClaudeSession 设为 <我的 Claude Code 云端会话 ID 或 URL>。保留返回的 threadId 和 turnId。收到通知后读取任务，按验收标准审查改动。
+> 让 Codex 在该项目实现约定的改动，运行已有检查。使用新 requestId，把你自己的 Claude Code 云端会话设为 notifyClaudeSession。保留返回的 threadId 和 turnId。收到通知后读取任务，按验收标准审查改动。
 
 对应工具为 `codex_create`，主要字段是 `project`、`prompt`、`requestId` 和 `notifyClaudeSession`。保留回执和任务 ID。需要立即检查进度时使用 `codex_wait`；超时后沿用原 ID，把返回的 snapshotHash 作为 expectedHash 继续等待。
 
 ## 接收、审查、继续
+
+派发后 Claude 可以直接结束本轮。Codex 完成时，通知会唤醒同一 Claude Code 云端会话，让它审查改动并继续。
 
 绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送固定状态消息，标明项目、任务和轮次。Claude 随后通过 `codex_read` / `codex_items` 读取实际输出，通过 `codex_changes` 或 `git` 审查改动。
 

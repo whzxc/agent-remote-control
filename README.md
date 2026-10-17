@@ -7,29 +7,29 @@
 ![ARC home: Claude and ChatGPT connected to local Agents](docs/images/home-overview.png)
 
 ```text
-Control sources              Your computer                  Agents
-Claude ── HTTPS + OAuth ──┐                              ┌── Codex
-                         ├── ARC ── live project facts ──┤
-ChatGPT ─ Secure Tunnel ──┘                              └── Pi / ACP
+Control sources              Your computer                   Agents
+Claude -- HTTPS + OAuth --+                               +-- Codex
+                          +-- ARC -- live project facts --+
+ChatGPT - Secure Tunnel --+                               +-- Pi / ACP
 
-Codex turn ends → ARC → bound Claude Code cloud session
+Codex turn ends -> ARC -> bound Claude Code cloud session
 ```
 
 ## Claude + Codex: the Loop
 
-Discuss and plan in Claude on the web, phone, or desktop. Through ARC, Claude reads current files, Git changes, and Codex tasks, then sends a concrete job to Codex on your computer. When a turn ends, ARC notifies the bound Claude Code cloud session. Claude can review the changes and send the next round, while you are away from the keyboard.
+Discuss and plan in a Claude Code session on claude.ai, accessible from the web, phone, or desktop app. Through ARC, Claude reads current files, Git changes, and Codex tasks, then sends a concrete job to Codex on your computer. After dispatching, Claude can end its turn; when Codex finishes, ARC’s notification wakes the same session to review the changes and continue, while you are away from the keyboard.
 
 Connect Claude through HTTPS + OAuth. Automatic follow-ups additionally need the initiating Claude Code cloud session ID and a signed-in local Claude Code CLI. [Set up the Loop](docs/guides/claude.md).
 
 ## ChatGPT Chat + Codex
 
-Use GPT-6 Astra Pro in Chat mode for deep reasoning and design, then send the plan to local Codex through ARC. The Chat Pro option is separate from the ordinary Astra model available in Codex. Use a ChatGPT Pro, Business, or Enterprise account with that option enabled. OpenAI Secure Tunnel is the default connection. [Connect ChatGPT](docs/guides/chatgpt.md).
+GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connects them: Chat handles deep reasoning, and Codex executes. Use a ChatGPT Pro, Business, or Enterprise account with that option enabled. OpenAI Secure Tunnel is the default connection. [Connect ChatGPT](docs/guides/chatgpt.md).
 
 ## Start in three steps
 
 1. **Install.** Download the macOS app from [Releases](https://github.com/whzxc/agent-remote-control/releases/latest), move it to Applications, and sign in to Codex. [Installation](docs/installation.md).
 2. **Connect Claude.** Add Claude in ARC, choose HTTPS + OAuth, then add the MCP URL as a custom connector in Claude. Approve the request in ARC.
-3. **Send your first task.** Ask Claude: “Use ARC to ask Codex to reply ARC_LOOP_OK without reading files or using tools. Bind this Claude Code cloud session for the completion notification, then read the result.” Supply your cloud session ID. [Step-by-step guide](docs/getting-started.md).
+3. **Send your first task.** Ask Claude: “Use ARC to ask Codex to reply ARC_LOOP_OK without reading files or using tools. Set notifyClaudeSession to your own Claude Code cloud session. End your turn after dispatching; when notified, read the result.” If Claude cannot read its session ID, paste the cloud session URL or ID instead. [Step-by-step guide](docs/getting-started.md).
 
 Prefer local Codex to configure it? Send this prompt:
 
