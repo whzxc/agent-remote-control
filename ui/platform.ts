@@ -12,6 +12,10 @@ export async function desktopRequest<T>(
   });
 }
 export async function openUrl(url: string) {
+  if (url.startsWith("agent-remote-control://")) {
+    window.dispatchEvent(new CustomEvent("arc:open-url", { detail: url }));
+    return;
+  }
   if (!isDesktop) {
     window.open(url, "_blank", "noopener,noreferrer");
     return;

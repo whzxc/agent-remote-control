@@ -35,11 +35,13 @@ import SourceIcon from "./SourceIcon";
 import ToolPolicyField from "./ToolPolicyField";
 export default function IngressDialog({
   ingress,
+  focusField,
   onClose,
   onSaved,
   onRemoved,
 }: {
   ingress?: Ingress;
+  focusField?: string;
   onClose: () => void;
   onSaved: (ingress: Ingress) => void;
   onRemoved: () => void;
@@ -246,6 +248,7 @@ export default function IngressDialog({
   );
   return (
     <Dialog
+      initialFocus={focusField ? `ingress-${focusField}` : undefined}
       title={`${t(ingress ? "editControlSource" : "addControlSource")}${selected ? " · " + (preset?.displayName || t("customControlSource")) : ""}`}
       onClose={() => !ingress && selected ? setSelected("") : onClose()}
       onDismiss={onClose}

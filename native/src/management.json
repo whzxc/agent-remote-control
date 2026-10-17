@@ -1705,6 +1705,38 @@
         "additionalProperties": false
       },
       "localOnly": true
+    },
+    {
+      "name": "setup.dispatch",
+      "method": "POST",
+      "route": "setup/dispatch",
+      "description": "Choose a setup goal, install arc-setup for Codex and create or reuse its local setup task. Uses the default Codex model and reasoning settings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "goal": {
+                "type": "string",
+                "enum": [
+                  "claude-loop",
+                  "chatgpt-chat"
+                ]
+              }
+            },
+            "required": [
+              "goal"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "localOnly": true
     }
   ]
 }

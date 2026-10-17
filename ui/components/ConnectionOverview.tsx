@@ -23,6 +23,8 @@ import {
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import IngressDialog from "./IngressDialog";
+import SetupDialog from "./SetupDialog";
+import { useSetup } from "../state/setup";
 import IngressDetailsDialog from "./IngressDetailsDialog";
 import AgentsSettings, { AgentDetails } from "./AgentsSettings";
 import { Button, Icon, Notice } from "./ui";
@@ -84,18 +86,21 @@ function grownWire(
     gap: gap.length ? `M ${gap.map((p) => `${p.x} ${p.y}`).join(" L ")}` : "",
   };
 }
-export default function ConnectionOverview() {
+export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const gradientId = useId();
   const { status, busy, loading, error } = connector.use();
   agentStore.use();
   const max = maxVisibleAgents.use();
   const { snapshot } = subscriptions.use(), nav = navigation.use();
+  const [setupMode, setSetupMode] = useState<"entry" | "progress" | null>(null);
+  const [focusField, setFocusField] = useState<string>();
   const [editing, setEditing] = useState<Ingress>(),
     [formOpen, setFormOpen] = useState(false),
     [details, setDetails] = useState<Ingress>(),
     [autoConnect, setAutoConnect] = useState(false),
     [agentsOpen, setAgentsOpen] = useState(false),
     [detailAgent, setDetailAgent] = useState<Agent>();
+  const setup = useSetup(visible && !formOpen && !details && !agentsOpen && !detailAgent);
   const sources = [...(status?.ingresses || [])].sort(
     (a, b) =>
       Number(b.controlSource === "chatgpt") -
@@ -116,7 +121,8 @@ export default function ConnectionOverview() {
   const running = sources.some((i) => i.running),
     progressing =
       !!busy || sources.some((i) => ["starting", "stopping"].includes(i.state));
-  function edit(ingress?: Ingress) {
+  function edit(ingress?: Ingress, field?: string) {
+    setFocusField(field);
     setEditing(ingress);
     setFormOpen(true);
   }
@@ -124,7 +130,7 @@ export default function ConnectionOverview() {
     if (!nav.ingressEdit) return;
     const ingress = status?.ingresses.find((i) => i.id === nav.ingressEdit?.id);
     if (!ingress) return;
-    edit(ingress);
+    edit(ingress, nav.ingressEdit.field);
     navigation.set((old) => ({ ...old, ingressEdit: undefined }));
   }, [nav.ingressEdit, status?.ingresses]);
   async function toggle() {
@@ -416,7 +422,7 @@ export default function ConnectionOverview() {
               data-panel-anchor
               className="graph-node add-source"
               aria-label={t("addControlSource")}
-              onClick={() => edit()}
+              onClick={() => setSetupMode("entry")}
             >
               <span className="source-icon" data-panel-visual>
                 <Icon icon={Plus} />
@@ -456,6 +462,7 @@ export default function ConnectionOverview() {
             </div>
           </div>
         </div>
+        {setup.snapshot?.goal && !setup.snapshot.complete && <div className="setup-resume"><Button onClick={() => setSetupMode("progress")}>{t("setup.resume")}</Button></div>}
         {error && (
           <div className="graph-error">
             <Notice
@@ -470,13 +477,18 @@ export default function ConnectionOverview() {
           </div>
         )}
       </section>
+      {setupMode && visible && <SetupDialog mode={setupMode} setMode={setSetupMode} snapshot={setup.snapshot} error={setup.error} refresh={setup.refresh}
+        onClose={() => { setSetupMode(null); if (setup.snapshot?.complete) requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-source")?.focus()); }} onManual={() => { setSetupMode(null); edit(); }} />}
       {formOpen && (
         <IngressDialog
+          key={`${editing?.id ?? "new"}:${focusField ?? ""}`}
           ingress={editing}
+          focusField={focusField}
           onClose={() => setFormOpen(false)}
           onRemoved={() => { setFormOpen(false); setDetails(undefined); }}
           onSaved={(ingress) => {
             setFormOpen(false);
+            if (setupMode) { void setup.refresh(); return; }
             setAutoConnect(true);
             setDetails(ingress);
           }}

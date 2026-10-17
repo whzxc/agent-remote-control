@@ -177,6 +177,21 @@ export default function App() {
       stops.forEach((stop) => stop());
     };
   }, []);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const url = new URL((event as CustomEvent<string>).detail);
+      if (url.hostname === "ingress") {
+        navigation.set(old => ({ ...old, ingressEdit: { id: url.searchParams.get("id") ?? "", field: url.searchParams.get("field") ?? "" } }));
+        navigate("overview");
+      } else if (url.hostname === "oauth") setOauthRequest({ id: url.searchParams.get("request") ?? "" });
+      else if (url.hostname === "settings") { navigate("settings"); setPermissionsOpen(true); }
+      else if (url.hostname === "setup" && url.searchParams.get("target") === "codex-login") {
+        void api("codex/login", "POST").catch((e: Error) => notify(e.message, true));
+      }
+    };
+    window.addEventListener("arc:open-url", handle);
+    return () => window.removeEventListener("arc:open-url", handle);
+  }, []);
   const pending = taskState.records.filter(
     (r) => r.state === "awaiting-approval",
   ).length;
@@ -223,7 +238,7 @@ export default function App() {
         className="home-workspace"
         inert={page !== "overview" || layers.length > 0}
       >
-        <ConnectionOverview />
+        <ConnectionOverview visible={page === "overview"} />
       </main>
       {page !== "overview" && (
         <div

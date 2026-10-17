@@ -35,15 +35,18 @@ auto actions use `{}`. `claude-code-ready` and `permissions` accept an explicit
 checks the completed task's `ARC_ONBOARDING_OK` reply instead.
 
 The five step kinds are `auto`, `decide`, `authorize`, `secret`, and `remote-ui`.
-The response includes `goal`, `progress`, `complete`, and `step` with localized
+The response includes `goal`, `progress`, `complete`, `steps` (the full selected
+sequence as `{id,title,kind,done}`), and `step` with localized
 `title`, `explain`, option labels, `apply`, `openUrl`, `doneWhen`, and `playbook`.
 App language preferences apply; Auto uses the locale resolved by the App, or
 terminal locale when no App locale has been saved. `onboarding` supplies the
-selected ingress URL and current verification prompt.
+selected ingress URL and current verification prompt. `cliPath` and `stateDir`
+identify the current instance for copied prompts; `dispatch` contains a saved
+requestId, threadId and desktopUrl when setup has been sent to Codex.
 
 `setup wait` defaults to 60 seconds (0–3600 accepted); timeout returns the
-current step successfully. `setup reset` clears only setup choices and its start
-time, leaving ingresses intact. Repeated apply reuses an existing matching
+current step successfully. `setup reset` clears only setup choices, its start
+time and dispatch reference, leaving ingresses intact. Repeated apply reuses an existing matching
 ingress. Fixed-address choice and ChatGPT prerequisite confirmation prepare an
 unstarted ingress before credential entry. Fixed addresses default to Cloudflare
 named; select another provider in the existing connection form if needed.
@@ -54,7 +57,7 @@ the ARC form opened by `openUrl`, never in chat or command-line arguments.
 `setup playbook protocol` returns bundled protocol Markdown in `result.markdown`;
 UI step IDs return their matching playbook; auto/decide-only IDs return the protocol.
 The Markdown is read from the same resources installed with the skill. The local catalog exposes
-`setup.next`, `setup.apply`, and `setup.wait`, also accessible through `cli mcp`.
+`setup.next`, `setup.apply`, `setup.wait`, and `setup.dispatch`, also accessible through `cli mcp`.
 Catalog inputs follow the usual `body` wrapper; apply takes
 `{"body":{"stepId":"choose-goal","input":{"option":"claude-loop"}}}`.
 
@@ -64,6 +67,15 @@ DCR/authorize), `firstMcpRequestAt` (authenticated MCP dispatch), and `lastProbe
 setup requires a challenge newer than its saved start time and a completed task
 from the selected ingress. Claude completion additionally requires delivered
 notification evidence unless Claude Code was skipped.
+
+`cli call setup.dispatch --stdin` accepts `{"body":{"goal":"claude-loop"}}`
+(or `chatgpt-chat`). It saves the goal, installs the Codex skill, creates
+`setup-workspace/` under the state directory, and submits the localized setup
+prompt through the existing Codex task path. Explicit dispatch approves this task;
+model, reasoning effort and execution ownership use existing defaults. It returns
+`requestId`, `threadId` and `desktopUrl`, saved in setup.json. Repeated dispatch
+reuses its durable receipt; unconfirmed or failed creation reports an error and
+retains the requestId. Prompts specify ARC_STATE_DIR to keep the same instance.
 
 `cli skill install --target codex|claude-code` installs the bundled `arc-setup`
 skill to `~/.codex/skills/arc-setup/` or `~/.claude/skills/arc-setup/`, replacing

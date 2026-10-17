@@ -1,8 +1,9 @@
-//! A small, derived view over onboarding. Only the goal, choices and their start time persist.
+//! A small, derived view over onboarding, with goal choices and the dispatch receipt persisted.
 use crate::{service::Service, *};
 use std::time::Duration;
 
 static APPLY: Mutex<()> = Mutex::const_new(());
+static DISPATCH: Mutex<()> = Mutex::const_new(());
 fn path() -> PathBuf {
     root().join("setup.json")
 }
@@ -100,7 +101,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
     let goal = string(state, "goal");
     if goal.is_empty() {
         return json!({"schemaVersion":1,"goal":null,"progress":{"done":0,"total":1},"complete":false,
-            "step":step(locale,"choose-goal","decide",None,&[("claude-loop",true),("chatgpt-chat",false)])});
+            "steps":[],"step":step(locale,"choose-goal","decide",None,&[("claude-loop",true),("chatgpt-chat",false)])});
     }
     let claude = goal == "claude-loop";
     let choices = &state["choices"];
@@ -274,6 +275,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
         .find(|(done, _)| !done)
         .map(|(_, step)| step.clone());
     let mut result = json!({"schemaVersion":1,"goal":goal,"progress":{"done":done,"total":steps.len()},"complete":current.is_none(),"step":current,
+        "steps":steps.iter().map(|(done,step)|json!({"id":step["id"],"title":step["title"],"kind":step["kind"],"done":done})).collect::<Vec<_>>(),
         "ingressId":i["id"],"onboarding":if i.is_object(){crate::cli::onboarding(i)}else{Value::Null},"findings":i["diagnostics"]["findings"].as_array().cloned().unwrap_or_default()});
     for (active, key) in [
         (claude && skip_claude, "notification-skipped"),
@@ -370,7 +372,7 @@ async fn next(s: &Arc<Service>, preview_goal: Option<&str>) -> Result<Value> {
     }
     let locale = crate::i18n::locale();
     if state["goal"].is_null() {
-        return Ok(derive(&state, &json!({}), &locale));
+        return presentation(derive(&state, &json!({}), &locale), &state);
     }
     let login = call(s, "codex/login", "GET", json!({}))
         .await
@@ -397,7 +399,67 @@ async fn next(s: &Arc<Service>, preview_goal: Option<&str>) -> Result<Value> {
                 .unwrap_or_else(|e| json!({"error":e}));
         }
     }
-    Ok(derive(&state, &data, &locale))
+    presentation(derive(&state, &data, &locale), &state)
+}
+fn presentation(mut next: Value, state: &Value) -> Result<Value> {
+    next["cliPath"] = json!(crate::runtime::binary()?);
+    next["stateDir"] = json!(root());
+    next["dispatch"] = state["dispatch"].clone();
+    Ok(next)
+}
+fn agent_prompt(goal: &str, cli: &Path, locale: &str) -> String {
+    crate::i18n::text(locale, "setup.agentPrompt")
+        .replace("{goal}", goal)
+        .replace("{cli}", &cli.to_string_lossy())
+        .replace("{stateDir}", &root().to_string_lossy())
+}
+async fn dispatch(s: &Arc<Service>, body: Value) -> Result<Value> {
+    let _dispatch = DISPATCH.lock().await;
+    let goal = goal(string(&body, "goal"))?;
+    apply(s, json!({"stepId":"choose-goal","input":{"option":goal}})).await?;
+    crate::skills::install("codex")?;
+    let workspace = root().join("setup-workspace");
+    std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
+    let initial = state()?;
+    if initial["dispatch"]["threadId"].is_string() {
+        return Ok(initial["dispatch"].clone());
+    }
+    let receipt =
+        if let Some(request) = initial["dispatch"]["requestId"].as_str() {
+            s.control.receipt(request).await?
+        } else {
+            let request = id();
+            {
+                let _guard = APPLY.lock().await;
+                let mut saved = state()?;
+                saved["dispatch"] = json!({"requestId":request});
+                save(&path(), &saved)?;
+            }
+            s.control.mutate("create", json!({
+            "requestId":request,"approval":"approved","waitMs":60000,
+            "thread":{"cwd":workspace},
+            "title":crate::i18n::text(&crate::i18n::locale(), "setup.taskTitle"),
+            "prompt":agent_prompt(goal, &crate::runtime::binary()?, &crate::i18n::locale())
+        })).await?
+        };
+    let thread = receipt["result"]["threadId"].as_str();
+    let Some(thread) = thread else {
+        return Err(format!(
+            "setup dispatch: {} ({}) {}",
+            string(&receipt, "state"),
+            string(&receipt, "requestId"),
+            receipt["result"]["error"]
+        ));
+    };
+    let result = json!({"requestId":receipt["requestId"],"threadId":thread,"desktopUrl":format!("codex://threads/{thread}")});
+    let _guard = APPLY.lock().await;
+    let mut saved = state()?;
+    // The new agent may already have applied choices while task creation returns.
+    if saved["goal"] == initial["goal"] && saved["startedAt"] == initial["startedAt"] {
+        saved["dispatch"] = result.clone();
+        save(&path(), &saved)?;
+    }
+    Ok(result)
 }
 async fn ensure_ingress(s: &Arc<Service>, state: &Value, config: Value) -> Result<Value> {
     let ingresses = call(s, "ingress", "GET", json!({})).await?;
@@ -511,6 +573,7 @@ async fn apply(s: &Arc<Service>, body: Value) -> Result<Value> {
 }
 pub async fn request(s: &Arc<Service>, route: &str, method: &str, body: Value) -> Result<Value> {
     match (method, route) {
+        ("POST", "setup/dispatch") => dispatch(s, body).await,
         ("POST", "setup/next") => next(s, body["goal"].as_str()).await,
         ("POST", "setup/apply") => apply(s, body).await,
         ("DELETE", "setup/reset") => {

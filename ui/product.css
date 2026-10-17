@@ -1119,3 +1119,22 @@
 .elastic-panel .dialog-body:has(> .usage-overview) {
   padding: 12px;
 }
+
+.setup-entry { display: grid; gap: var(--space-4); padding: var(--space-2) 0; }
+.setup-entry p, .setup-current p { margin: 0; line-height: 1.65; }
+.setup-entry .choice { width: 100%; }
+.setup-progress { display: grid; gap: var(--space-4); }
+.setup-progress > p { margin: 0; }
+.setup-progress-columns { display: grid; grid-template-columns: minmax(170px, 0.85fr) minmax(0, 1.3fr); gap: var(--space-6); }
+.setup-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-2); align-content: start; }
+.setup-steps li { display: flex; gap: var(--space-2); align-items: center; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
+.setup-steps li > svg { flex-shrink: 0; }
+.setup-steps li[data-done="true"] > svg { color: var(--success); }
+.setup-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
+.setup-current { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+.setup-current h3 { margin: 0; font-size: var(--text-lg); }
+.setup-resume { text-align: center; margin-top: var(--space-4); }
+@media (max-width: 560px) {
+  .setup-progress-columns { grid-template-columns: 1fr; }
+  .setup-steps { grid-template-columns: 1fr 1fr; }
+}

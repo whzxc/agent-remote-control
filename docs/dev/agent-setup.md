@@ -1,6 +1,6 @@
 # Agent 驱动的安装与配置（设计）
 
-状态：P0 第 1、2 步：setup CLI、catalog、skill 与安装已实现；App 入口待实现 · 版本线：0.9.x patch
+状态：P0 第 1–3 步：setup CLI、catalog、skill、App 入口与进度已实现；用户文档待收敛 · 版本线：0.9.x patch
 
 ## 目标
 
@@ -15,7 +15,7 @@
 ## 约束（实现时必须遵守）
 
 - `setup` 是 onboarding / diagnostics 之上的薄层，**不是通用工作流引擎**。不做 DSL、不做插件化 step 注册、不做回滚框架。
-- 状态尽量**从现有数据推导**（ingress 列表、onboarding stage/findings、verification、OAuth grants、permissions、codex login、任务记录）。只有无法推导的少量信息（当前 goal、用户在 decide 步骤的选择、用于判断新验证的 startedAt）才落盘，放在 state dir 的一个小 JSON 里。
+- 状态尽量**从现有数据推导**（ingress 列表、onboarding stage/findings、verification、OAuth grants、permissions、codex login、任务记录）。只有无法推导的少量信息（当前 goal、用户在 decide 步骤的选择、用于判断新验证的 startedAt、派发回执与 Codex 线程链接）才落盘，放在 state dir 的一个小 JSON 里。
 - Step 类型只有五种，不新增。
 - 不新增防御性校验层：输入校验沿用 ingress add/update 已有逻辑。
 - 秘钥永远不经过聊天和命令行参数。
@@ -56,6 +56,8 @@
 
 字段说明：
 
+- `steps: [{id, title, kind, done}]`：当前目标的完整推导序列，供 App 展示进度；未选择目标时为空。
+- `cliPath`、`stateDir`：当前实例的 CLI 绝对路径和状态目录，供复制提示词；`dispatch`：已保存的派发回执及线程链接，未派发时为空。
 - `explain`、`title`、`label` 按 ARC 当前语言（zh-CN / en）输出，供 Agent 原样转述，保证不同 Agent 的解释一致。
 - `apply`：需要 Agent 执行的命令（auto / decide 用）。
 - `openUrl`：需要打开的页面（authorize / remote-ui / secret 用），可以是 https 链接或 `agent-remote-control://` deep link。
@@ -83,13 +85,13 @@ arc cli setup reset                                      # 清除 goal 和选择
 arc cli skill install --target codex|claude-code         # 安装 arc-setup skill
 ```
 
-- 同时注册 catalog operation：`setup.next`、`setup.apply`、`setup.wait`，`cli mcp` 自然暴露。
+- 同时注册 catalog operation：`setup.next`、`setup.apply`、`setup.wait`、`setup.dispatch`，`cli mcp` 自然暴露。
 - 输出沿用现有 JSON envelope。
 - `next --goal` 只预览指定目标；`setup apply choose-goal --stdin` 的 `{"option":"claude-loop"}` / `{"option":"chatgpt-chat"}` 才保存目标和首次选择的 `startedAt`。重复选择同一目标不更新时间，切换目标清除旧选择。
 - 地址选择及 ChatGPT 权限确认时先复用或创建未启动的 ingress，供后续 secret 表单编辑；`create-ingress` 负责启动及 probe。固定地址默认 Cloudflare named，可在现有表单选择其他 provider。
 - readiness 步骤的跳过也作为选择保存。跳过 Claude Code 后，loop-test 只检查任务完成和 `ARC_ONBOARDING_OK` 回复，并返回通知不可用 finding。
 - `verification.firstOAuthRequestAt` 记录此入口成功接受的 DCR/authorize 请求；`firstMcpRequestAt` 记录认证后到达 MCP 分发层的请求；`lastProbe` 记录 probe 的时间、URL 和是否通过。它们随现有 verification 绑定重置，不形成事件历史。
-- deep link 契约：`agent-remote-control://ingress?id=<ingressId>&field=<credentialField>` 打开指定连接的编辑弹窗；字段聚焦由 App 后续步骤完成。权限入口为 `agent-remote-control://settings?section=permissions`。
+- deep link 契约：`agent-remote-control://ingress?id=<ingressId>&field=<credentialField>` 打开指定连接的编辑弹窗；并聚焦指定字段。权限入口为 `agent-remote-control://settings?section=permissions`。
 - `setup wait` 超时不是错误，返回当前 step 原样，Agent 继续 wait。
 - `apply` 幂等：同一 step 重复 apply 不重复创建 ingress（已存在则复用）。
 
@@ -147,15 +149,19 @@ P0 复用现有连接表单：`openUrl` 为打开该 ingress 编辑弹窗并聚�
 - 添加控制源第一屏：选择 Claude / ChatGPT（Claude 标推荐）。
 - 主按钮（默认）：**发送给 Codex**。由 Core 直接创建一个 Codex 任务，prompt 为下方生成的短 prompt；工作目录使用 ARC state dir 下的 `setup-workspace/`（自动创建）；模型和推理强度不硬编码，沿用 Codex 默认配置。
 - 次按钮：**复制给其他 Agent**（Claude Code 等）。
+- 次按钮复制的提示词额外包含 `cli skill install --target claude-code`，用于 Claude Code；所有提示词都指定当前 `ARC_STATE_DIR`，保持实例隔离。
 - 文字链接：**手动配置** → 现有表单。
 - 发送后切换到进度视图：轮询 `setup.next`，展示步骤列表、当前步骤和"正在等你"的提示；authorize 步骤直接放操作按钮（例如打开 OAuth 批准、打开权限页）；提供"打开 Codex 任务"入口。决策在 Agent 对话里做，App 不重复展示选项。
 - Codex 未安装或未登录时，主按钮降级为复制，并提示先安装 / 登录 Codex。
+- 进度可见时每 2 秒读取 `setup.next`，页面隐藏时暂停；decide / remote-ui 只提示在 Agent 对话继续，secret 打开并聚焦现有凭据字段。完成态提供“返回首页”按钮。
+- 有未完成目标时，首页提供“继续配置”；已派发任务提供“打开 Codex 任务”。
+- `setup.dispatch` 输入 goal：保存目标、安装 Codex skill、创建 `setup-workspace/`，复用现有 Codex create 和持久回执。显式发送表示该任务已获用户批准；模型、推理强度及执行所有者沿用已有默认设置。`setup.json` 中保存 `dispatch.requestId/threadId/desktopUrl`，重复派发读取同一回执，不重复创建线程。创建未确认或失败时保留回执并返回错误。
 
 生成的短 prompt（按 App 语言，示例为中文）：
 
 ```text
 帮我配置 Agent Remote Control，目标：claude-loop。
-ARC CLI：<绝对路径>。先运行 `<cli> cli setup playbook protocol` 了解协议，然后循环 `<cli> cli setup next` 推进。
+ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态目录>。先运行 `"<cli>" cli setup playbook protocol` 了解协议，然后循环 `"<cli>" cli setup next` 推进。
 我只负责做选择和授权：decide 步骤把 explain 和选项转述给我；需要我操作的步骤告诉我点哪里，再用 `setup wait` 等待；不要让我把任何秘钥发到对话里。
 ```
 

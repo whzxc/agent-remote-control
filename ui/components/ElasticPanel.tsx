@@ -42,6 +42,7 @@ export default function ElasticPanel({
   headerless = false,
   width,
   depthOffset = 0,
+  initialFocus,
 }: {
   open?: boolean;
   onClose: () => void;
@@ -57,6 +58,7 @@ export default function ElasticPanel({
   headerless?: boolean;
   width?: number;
   depthOffset?: number;
+  initialFocus?: string;
 }) {
   const [node, setNode] = useState<HTMLDivElement | null>(null),
     [position, setPosition] = useState({ x: 0, y: 0 });
@@ -117,7 +119,7 @@ export default function ElasticPanel({
     const source = parent?.getBoundingClientRect() ?? visualOrigin.current?.rect ?? origin.current;
     panelLayers.set((old) => [...old, node]);
     const focusFrame = requestAnimationFrame(() =>
-      node.focus({ preventScroll: true }),
+      (initialFocus ? node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node : node).focus({ preventScroll: true }),
     );
     let rect = node.getBoundingClientRect();
     if (parent && source) {
@@ -256,7 +258,8 @@ export default function ElasticPanel({
           }
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            panelRef.current?.focus({ preventScroll: true });
+            const target = initialFocus ? panelRef.current?.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) : panelRef.current;
+            (target ?? panelRef.current)?.focus({ preventScroll: true });
           }}
           onCloseAutoFocus={(e) => {
             e.preventDefault();
