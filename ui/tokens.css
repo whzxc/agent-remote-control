@@ -40,6 +40,7 @@
   --accent: #35745a;
   --topology-ink: #1c2b24;
   --topology-green: #3e8e5e;
+  --topology-error: #c2453a;
   --success: #21714a;
   --warning: #8a5108;
   --danger: #bc2936;
@@ -76,6 +77,7 @@
   --accent: #afd1bf;
   --topology-ink: #e9efeb;
   --topology-green: #6fbf8e;
+  --topology-error: var(--danger);
   --success: #8ad8ad;
   --warning: #f0c17d;
   --danger: #ffa0a7;

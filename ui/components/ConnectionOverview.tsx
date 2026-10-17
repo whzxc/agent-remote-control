@@ -42,10 +42,17 @@ import mark from "../assets/arc/mark.svg";
 import markDark from "../assets/arc/mark-dark.svg";
 
 type Point = { x: number; y: number };
+type WireState = "normal" | "connecting" | "error" | "inactive";
+function wireState(state: string): WireState {
+  if (["connected", "agentAvailable"].includes(state)) return "normal";
+  if (["connectingLabel", "preparing"].includes(state)) return "connecting";
+  if (["connectionError", "unknown"].includes(state)) return "error";
+  return "inactive";
+}
 
 // Offset a cubic by arc length, so the root flare has the same physical reach
 // for short, long and steep connections. Widths are full widths, not radii.
-function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number) {
+function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number, state: WireState) {
   const steps = Math.max(64, Math.ceil((
     Math.hypot(c1.x - start.x, c1.y - start.y) +
     Math.hypot(c2.x - c1.x, c2.y - c1.y) +
@@ -67,13 +74,19 @@ function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number
   });
   const edges = samples.map((p) => {
     const u = p.length / (length || 1), s = length - p.length;
-    const halfWidth = scale * (3 + 3 * u ** 1.6 + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2) / 2;
+    const body = state === "connecting" ? 0 : 3 + 3 * u ** 1.6;
+    const halfWidth = scale * (body + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2) / 2;
     return [
       `${p.x + p.nx * halfWidth} ${p.y + p.ny * halfWidth}`,
       `${p.x - p.nx * halfWidth} ${p.y - p.ny * halfWidth}`,
     ];
   });
-  return `M ${edges.map(([p]) => p).join(" L ")} L ${edges.reverse().map(([, p]) => p).join(" L ")} Z`;
+  const gap = samples.filter((p) => Math.abs(p.length - length * 0.45) <= 7 * scale);
+  return {
+    outline: `M ${edges.map(([p]) => p).join(" L ")} L ${edges.reverse().map(([, p]) => p).join(" L ")} Z`,
+    centerline: `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`,
+    gap: gap.length ? `M ${gap.map((p) => `${p.x} ${p.y}`).join(" L ")}` : "",
+  };
 }
 
 export default function ConnectionOverview() {
@@ -100,7 +113,7 @@ export default function ConnectionOverview() {
       .filter((p) => p.eligible && p.selected)
       .map((p) => p.agentId) || [];
   const agents = orderedAgents()
-    .filter((a) => a.installed && a.enabled)
+    .filter((a) => a.installed && (!showMascot || a.enabled))
     .sort((a, b) => {
       const ai = providerOrder.indexOf(a.agent),
         bi = providerOrder.indexOf(b.agent);
@@ -160,6 +173,11 @@ export default function ConnectionOverview() {
     navigation.set((old) => ({ ...old, providerId: undefined }));
   }, [nav.providerId, snapshot]);
   function agentState(a: Agent) {
+    if (!showMascot) {
+      if (a.adapter?.state === "preparing") return "preparing";
+      if (a.adapter?.state === "failed") return "connectionError";
+      if (!a.installed || !a.enabled) return "disabled";
+    }
     if (a.agent === "codex") {
       const state =
         status?.autoOpenCodex === false
@@ -168,6 +186,7 @@ export default function ConnectionOverview() {
       if (state === "ready") return "connected";
       if (state === "error") return "connectionError";
       if (state === "connecting") return "preparing";
+      if (!showMascot) return "disconnected";
     }
     return a.status === "ready"
       ? "connected"
@@ -176,6 +195,7 @@ export default function ConnectionOverview() {
         : "connectionError";
   }
   function sourceState(i: Ingress) {
+    if (!showMascot && !i.enabled) return "disabled";
     return error ? "unknown" : ingressState(i);
   }
 
@@ -228,10 +248,14 @@ export default function ConnectionOverview() {
       ? ringRadius * 1.15
       : 124 + (ringRadius - 80) * 1.32
     : brandSize;
-  const rowStep = (count: number) => showMascot ? 84 : Math.min(84, height / count);
+  // Reserve 60px to the utility button plus its 16px radius below the last
+  // real node, without including that button in the centered node count.
+  const rowStep = (count: number) => showMascot ? 84 : Math.min(84, (height - 152) / Math.max(1, count - 1));
+  const layoutCount = (count: number) => showMascot ? count + 1 : count;
   const nodeStyle = (count: number) => ({
     "--graph-row-step": `${rowStep(count)}px`,
     "--graph-node-scale": rowStep(count) / 84,
+    "--graph-utility-gap": "60px",
   }) as CSSProperties;
   const y = (index: number, count: number) =>
     height / 2 + (index - (count - 1) / 2) * rowStep(count);
@@ -391,13 +415,13 @@ export default function ConnectionOverview() {
             setDetails(i);
           },
         }));
-    const count = Math.max(right ? 0 : 1, entries.length) + 1;
+    const count = showMascot ? Math.max(right ? 0 : 1, entries.length) + 1 : entries.length;
     if (!showMascot) {
       // The mark crops its 100-unit design to viewBox 4 4 92 92.
       const scale = brandSize / (92 * 2.6), radius = 130 * scale;
       const center = { x: right ? -coreColumnWidth / 2 : wireWidth(false) + coreColumnWidth / 2, y: height / 2 };
-      const connected = entries.map((entry, index) => ({ ...entry, index }))
-        .filter((entry) => ["connected", "agentAvailable"].includes(entry.state));
+      const connected = entries.map((entry, index) => ({ ...entry, index, appearance: wireState(entry.state) }))
+        .filter((entry) => entry.appearance !== "inactive");
       const halfAngle = Math.min(40, Math.max(26, (connected.length - 1) * 8 / 2 + 6));
       const spacing = connected.length > 1 ? Math.min(16, (halfAngle * 2 - 12) / (connected.length - 1)) : 0;
       const onArc = (offset: number) => {
@@ -410,25 +434,32 @@ export default function ConnectionOverview() {
         const start = { x: right ? wireWidth(true) + 12 : -3 * rowStep(count) / 84, y: y(entry.index, count) };
         const c1 = { x: start.x + (right ? -100 : 100) * scale, y: start.y };
         const c2 = { x: end.x + (end.x - center.x) * 60 / 130, y: end.y + (end.y - center.y) * 60 / 130 };
-        return { ...entry, start, end, d: grownWire(start, c1, c2, end, scale), gradient: `${gradientId}-${right ? "right" : "left"}-${index}` };
+        const span = Math.max(1, Math.hypot(end.x - start.x, end.y - start.y));
+        return { ...entry, start, end, shape: grownWire(start, c1, c2, end, scale, entry.appearance),
+          solidStop: Math.min(0.29, 10 * scale / span), flareStop: Math.min(1, 26 * scale / span),
+          gradient: `${gradientId}-${right ? "right" : "left"}-${index}` };
       });
       return (
         <div ref={right ? rightWires : leftWires} className={`graph-wires earmuff-wires ${right ? "right" : "left"}`}>
           <svg viewBox={`0 0 ${wireWidth(right)} ${height}`} preserveAspectRatio="none" aria-hidden="true">
             <defs>
               {branches.map((branch) => (
-                <linearGradient key={branch.id} id={branch.gradient} gradientUnits="userSpaceOnUse"
+                <linearGradient key={branch.id} id={branch.gradient} gradientUnits="userSpaceOnUse" data-state={branch.appearance}
                   x1={branch.end.x} y1={branch.end.y} x2={branch.start.x} y2={branch.start.y}>
                   <stop offset="0" stopOpacity="1" />
                   {/* Keep the overlap solid through the arc's outer edge. */}
-                  <stop offset={Math.min(0.29, 10 * scale / Math.max(1, Math.hypot(branch.end.x - branch.start.x, branch.end.y - branch.start.y)))} stopOpacity="1" />
-                  <stop offset="0.3" stopOpacity="0.7" />
-                  <stop offset="1" stopOpacity={right ? 0.42 : 0.32} />
+                  <stop offset={branch.solidStop} stopOpacity="1" />
+                  <stop offset={branch.appearance === "connecting" ? branch.flareStop : 0.3} stopOpacity={branch.appearance === "connecting" ? 0 : 0.7} />
+                  <stop offset="1" stopOpacity={branch.appearance === "connecting" ? 0 : right ? 0.42 : 0.32} />
                 </linearGradient>
               ))}
             </defs>
             {branches.map((branch) => (
-              <path key={branch.id} d={branch.d} className="grown-wire" style={{ fill: `url(#${branch.gradient})` }} />
+              <g key={branch.id} data-state={branch.appearance}>
+                {branch.appearance === "connecting" && <path d={branch.shape.centerline} className="connecting-wire" style={{ strokeWidth: 3 * scale }} />}
+                <path d={branch.shape.outline} className="grown-wire" style={{ fill: `url(#${branch.gradient})` }} />
+                {branch.appearance === "error" && <path d={branch.shape.gap} className="wire-break" style={{ strokeWidth: 18 * scale }} />}
+              </g>
             ))}
             <path className="earmuff" style={{ strokeWidth: 14 * scale }}
               d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 ${right ? 1 : 0} ${arcEnd.x} ${arcEnd.y}`} />
@@ -511,9 +542,6 @@ export default function ConnectionOverview() {
       </div>
     );
   };
-  const statusDot = (state: string) => !showMascot && (
-    <span className="graph-status-dot" data-state={state} aria-hidden="true" />
-  );
   return (
     <>
       <section
@@ -546,8 +574,8 @@ export default function ConnectionOverview() {
           </button>
         </div>
         <div className="connection-graph" style={{ height }}>
-          <div className="graph-nodes sources" style={nodeStyle(Math.max(1, sources.length) + 1)}>
-            {!sources.length && (
+          <div className="graph-nodes sources" data-empty={!sources.length} style={nodeStyle(layoutCount(showMascot ? Math.max(1, sources.length) : sources.length))}>
+            {showMascot && !sources.length && (
               <button
                 data-panel-anchor
                 className="graph-node"
@@ -564,6 +592,7 @@ export default function ConnectionOverview() {
                   <button
                     data-panel-anchor
                     className="graph-node"
+                    data-connection-state={wireState(sourceState(source))}
                     aria-label={showMascot ? source.name : `${source.name}: ${t(sourceState(source))}`}
                     onMouseEnter={() => setActiveTip(source.id)}
                     onMouseLeave={() => setActiveTip("")}
@@ -575,7 +604,6 @@ export default function ConnectionOverview() {
                     }}
                   >
                     <SourceIcon platform={source.controlSource} panelVisual />
-                    {statusDot(sourceState(source))}
                     <span className="graph-node-name">{source.name}</span>
                   </button>
                 </Tooltip>
@@ -611,9 +639,9 @@ export default function ConnectionOverview() {
               <img className="graph-brand" src={isDark ? markDark : mark} alt="Agent Remote Control" draggable={false} />
             )}
           </div>
-          <div className="agent-side" style={nodeStyle(agents.length + 1)}>
+          <div className="agent-side" style={nodeStyle(layoutCount(agents.length))}>
             {wires(true)}
-            <div className="graph-nodes agents">
+            <div className="graph-nodes agents" data-empty={!agents.length}>
               {agents.map((agent) => (
                 <Tooltip
                   key={agent.agent}
@@ -631,6 +659,7 @@ export default function ConnectionOverview() {
                   <button
                     data-panel-anchor
                     className="graph-node"
+                    data-connection-state={wireState(agentState(agent))}
                     aria-label={showMascot ? name(agent) : `${name(agent)}: ${t(agentState(agent))}`}
                     onMouseEnter={() => setActiveTip(agent.agent)}
                     onMouseLeave={() => setActiveTip("")}
@@ -640,7 +669,6 @@ export default function ConnectionOverview() {
                     onClick={() => setDetailAgent(agent)}
                   >
                     <AgentQuotaIcon agent={agent.agent} />
-                    {statusDot(agentState(agent))}
                     <span className="graph-node-name">{name(agent)}</span>
                   </button>
                 </Tooltip>

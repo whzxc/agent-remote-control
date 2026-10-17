@@ -1172,14 +1172,6 @@
   width: calc(38px * var(--graph-node-scale));
   height: calc(38px * var(--graph-node-scale));
 }
-.brand-mode .sources .add-source .source-icon > svg {
-  width: calc(20px * var(--graph-node-scale));
-  height: calc(20px * var(--graph-node-scale));
-}
-.brand-mode .sources .add-source .source-icon {
-  width: calc(34px * var(--graph-node-scale));
-  height: calc(34px * var(--graph-node-scale));
-}
 .brand-mode .agent-side {
   --agent-icon-size: calc(48px * var(--graph-node-scale));
 }
@@ -1206,21 +1198,62 @@
   stroke: var(--earmuff-color);
   stroke-linecap: round;
 }
-.graph-status-dot {
+/* Inactive nodes remain discoverable; quota rings retain their own meaning. */
+.brand-mode .graph-node[data-connection-state="inactive"] .source-icon,
+.brand-mode .graph-node[data-connection-state="inactive"] .agent-logo,
+.brand-mode .graph-node[data-connection-state="inactive"] .graph-node-name {
+  opacity: 0.38;
+}
+.brand-mode .graph-nodes {
+  position: relative;
+}
+.brand-mode .graph-node.add-source,
+.brand-mode .graph-node.agents-more {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: calc(18px * var(--graph-node-scale));
-  height: calc(18px * var(--graph-node-scale));
-  border: calc(3px * var(--graph-node-scale)) solid var(--graph-bg);
+  top: calc(100% - var(--node-size) / 2 + var(--graph-utility-gap) - 16px);
+  width: 32px;
+  height: 32px;
+  border: 1px dashed var(--text-secondary);
   border-radius: 50%;
-  background: var(--text-secondary);
-  pointer-events: none;
 }
-.graph-status-dot[data-state="connected"],
-.graph-status-dot[data-state="agentAvailable"] {
-  background: var(--topology-green);
+.brand-mode .graph-nodes[data-empty="true"] > .graph-node {
+  top: -16px;
 }
-.graph-status-dot[data-state="connectionError"] {
-  background: var(--danger);
+.brand-mode .graph-node.add-source {
+  right: calc((var(--node-size) - 32px) / 2);
+}
+.brand-mode .graph-node.agents-more {
+  left: calc((var(--node-size) - 32px) / 2);
+}
+.brand-mode .sources .add-source .source-icon {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.brand-mode .sources .add-source .source-icon > svg {
+  width: 16px;
+  height: 16px;
+}
+.earmuff-wires linearGradient[data-state="error"] stop {
+  stop-color: var(--topology-error);
+}
+.earmuff-wires .wire-break {
+  stroke: var(--graph-bg);
+  stroke-linecap: butt;
+}
+.earmuff-wires .connecting-wire {
+  stroke: var(--earmuff-color);
+  stroke-opacity: 0.5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 9;
+  animation: graph-connecting 1.1s linear infinite;
+}
+.earmuff-wires.right .connecting-wire {
+  animation-direction: reverse;
+}
+@keyframes graph-connecting {
+  to { stroke-dashoffset: -11; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .earmuff-wires .connecting-wire { animation: none; }
 }
