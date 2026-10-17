@@ -7,7 +7,7 @@ export function releaseSigningEnv(required = false) {
   const env = { ...process.env };
   const key = env.TAURI_SIGNING_PRIVATE_KEY;
   const keyIsPath = key && (existsSync(key) || path.isAbsolute(key) || key.startsWith('.') || key.startsWith('~'));
-  const file = keyIsPath ? key : env.TAURI_SIGNING_PRIVATE_KEY_FILE || path.join(homedir(), '.tauri/local-connector.key');
+  const file = keyIsPath ? key : env.TAURI_SIGNING_PRIVATE_KEY_FILE || path.join(homedir(), '.tauri/agent-remote-control.key');
   if (!key || keyIsPath) {
     try {
       env.TAURI_SIGNING_PRIVATE_KEY = readFileSync(file, 'utf8').trim();
@@ -19,7 +19,7 @@ export function releaseSigningEnv(required = false) {
   }
   env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';
   if (required && !env.TAURI_SIGNING_PRIVATE_KEY) {
-    throw new Error('缺少 updater 签名私钥。请设置 TAURI_SIGNING_PRIVATE_KEY，或设置 TAURI_SIGNING_PRIVATE_KEY_FILE 指向已有私钥，或自行配置 ~/.tauri/local-connector.key；加密密钥另设 TAURI_SIGNING_PRIVATE_KEY_PASSWORD。详见 docs/release.md。');
+    throw new Error('缺少 updater 签名私钥。请设置 TAURI_SIGNING_PRIVATE_KEY，或设置 TAURI_SIGNING_PRIVATE_KEY_FILE 指向已有私钥，或自行配置 ~/.tauri/agent-remote-control.key；加密密钥另设 TAURI_SIGNING_PRIVATE_KEY_PASSWORD。详见 docs/release.md。');
   }
   return env;
 }

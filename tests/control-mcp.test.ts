@@ -77,7 +77,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
   });
   client = new Client({ name: 'agent-remote-control-test', version: '1' });
-  await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, CLC_STATE_DIR: directory, CLC_FIXTURE_SCRIPT: fixture, CLC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
   inventory = await client.listTools();
 });
 after(async () => { await client?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });

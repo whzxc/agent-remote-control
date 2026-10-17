@@ -58,7 +58,7 @@ export default function App() {
     nav = navigation.use();
   updates.use();
   const [page, setPage] = useState<Page>(() => {
-    const saved = localStorage.getItem("clc-page");
+    const saved = localStorage.getItem("arc-page");
     return ["overview", "settings", "logs", "tasks"].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
@@ -67,7 +67,7 @@ export default function App() {
     sheetClosing = useRef(false),
     backdropDown = useRef(false);
   const layers = panelLayers.use();
-  useEffect(() => { localStorage.setItem("clc-page", page); }, [page]);
+  useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useEffect(() => {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.

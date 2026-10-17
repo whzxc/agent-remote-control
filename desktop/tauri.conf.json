@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Agent Remote Control",
   "version": "0.0.0",
-  "identifier": "com.whzxc.local-connector.desktop",
+  "identifier": "com.whzxc.agent-remote-control",
   "build": {
     "frontendDist": "../dist/ui"
   },
@@ -67,7 +67,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "clc"
+          "agent-remote-control"
         ]
       }
     }

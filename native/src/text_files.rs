@@ -67,7 +67,7 @@ pub async fn write(c: &control::Control, operation: &str, args: &Value) -> Resul
     }
     let parent = path.parent().ok_or("INVALID_PATH")?;
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    let temp = parent.join(format!(".clc-{}.tmp", id()));
+    let temp = parent.join(format!(".arc-{}.tmp", id()));
     let result = (|| -> Result<()> {
         let mut file = std::fs::OpenOptions::new()
             .write(true)

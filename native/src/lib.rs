@@ -57,13 +57,11 @@ pub fn num(v: &Value, key: &str, default: usize) -> usize {
     v[key].as_u64().unwrap_or(default as u64) as usize
 }
 pub fn root() -> PathBuf {
-    std::env::var_os("CLC_STATE_DIR")
+    std::env::var_os("ARC_STATE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             if cfg!(windows) {
-                dirs::data_local_dir()
-                    .unwrap()
-                    .join("chatgpt-local-connector")
+                dirs::data_local_dir().unwrap().join("agent-remote-control")
             } else if cfg!(target_os = "linux") {
                 dirs::state_dir()
                     .unwrap_or_else(|| {
@@ -71,11 +69,11 @@ pub fn root() -> PathBuf {
                             .expect("home directory")
                             .join(".local/state")
                     })
-                    .join("chatgpt-local-connector")
+                    .join("agent-remote-control")
             } else {
                 dirs::home_dir()
                     .unwrap()
-                    .join(".local/state/chatgpt-local-connector")
+                    .join(".local/state/agent-remote-control")
             }
         })
 }

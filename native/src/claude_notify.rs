@@ -479,7 +479,7 @@ mod tests {
     struct Sandbox(PathBuf);
     impl Sandbox {
         fn new() -> Self {
-            Self(std::env::temp_dir().join(format!("clc-notify-test-{}", id())))
+            Self(std::env::temp_dir().join(format!("arc-notify-test-{}", id())))
         }
     }
     impl Drop for Sandbox {

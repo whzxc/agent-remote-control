@@ -340,7 +340,7 @@ impl Control {
     pub async fn schema(&self, args: &Value) -> Result<Value> {
         let mut cache = self.schemas.lock().await;
         if cache.is_none() {
-            let dir = std::env::temp_dir().join(format!("clc-schema-{}", id()));
+            let dir = std::env::temp_dir().join(format!("arc-schema-{}", id()));
             private_dir(&dir)?;
             let result=async{output(&self.rpc_binary()?,&["app-server","generate-json-schema","--experimental","--out",dir.to_str().ok_or("invalid schema path")?]).await?;let mut responses=json!({});let server=load(&dir.join("ServerRequest.json"))?;for branch in server["oneOf"].as_array().into_iter().flatten(){let method=string(&branch["properties"]["method"]["enum"],"0");let method=branch["properties"]["method"]["enum"][0].as_str().unwrap_or(method);if let Some(param)=branch["properties"]["params"]["$ref"].as_str().and_then(|v|v.rsplit('/').next()){let file=format!("{}.json",param.trim_end_matches("Params").to_owned()+"Response");if let Ok(v)=load(&dir.join(file)){responses[method]=v;}}}Ok::<_,String>(json!({"client":load(&dir.join("ClientRequest.json"))?,"server":server,"responses":responses}))}.await;
             let _ = std::fs::remove_dir_all(dir);
@@ -1143,7 +1143,7 @@ impl Control {
                 Ok(result)
             }
             "codex_capabilities" => Ok(
-                json!({"version":env!("CLC_BUILD_VERSION"),"backendSession":self.session,"executionOwner":if self.auto_open_codex()? {"desktop"} else {"connector"},"models":self.request("model/list",json!({}),60000).await?,"configuration":self.request("config/read",json!({}),60000).await?}),
+                json!({"version":env!("ARC_BUILD_VERSION"),"backendSession":self.session,"executionOwner":if self.auto_open_codex()? {"desktop"} else {"connector"},"models":self.request("model/list",json!({}),60000).await?,"configuration":self.request("config/read",json!({}),60000).await?}),
             ),
             _ => Err("UNKNOWN_TOOL".into()),
         }

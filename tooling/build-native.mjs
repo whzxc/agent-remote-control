@@ -21,16 +21,16 @@ export async function buildNative({ release = false, target, bundled = release }
   const name = process.platform === 'win32' ? 'arc.exe' : 'arc';
   const binary = path.join(root, 'target', ...(target ? [target] : []), release ? 'release' : 'debug', name);
   if (process.platform === 'darwin') execFileSync('codesign', [
-    ...macosSigningArgs(identity, 'com.whzxc.local-connector.core'), binary,
+    ...macosSigningArgs(identity, 'com.whzxc.agent-remote-control.core'), binary,
   ], { env, stdio: 'inherit' });
   const destination = path.join(root, 'dist/native', name);
   await rm(path.dirname(destination), { recursive: true, force: true });
   await mkdir(path.dirname(destination), { recursive: true });
   await copyFile(binary, destination);
   if (process.platform === 'darwin') {
-    const helper = path.join(root, 'dist/native/clc-screen');
+    const helper = path.join(root, 'dist/native/arc-screen');
     execFileSync('xcrun', ['swiftc', '-O', '-target', `${process.arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos11.0`, path.join(root, 'native/screen/main.swift'), '-o', helper], { env, stdio: 'inherit' });
-    execFileSync('codesign', [...macosSigningArgs(identity, 'com.whzxc.local-connector.screen'), helper], { env, stdio: 'inherit' });
+    execFileSync('codesign', [...macosSigningArgs(identity, 'com.whzxc.agent-remote-control.screen'), helper], { env, stdio: 'inherit' });
   }
   execFileSync(process.execPath, [path.join(root, 'tooling/prune-build-cache.mjs'), `--keep=target/${target || (release ? 'release' : 'debug')}`], { cwd: root, stdio: 'inherit' });
   return binary;

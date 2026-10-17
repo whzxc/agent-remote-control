@@ -34,7 +34,7 @@ fn resume_path() -> std::path::PathBuf {
 }
 pub fn pending_resume() -> bool {
     connector_core::load(&resume_path())
-        .is_ok_and(|value| value["version"] == env!("CLC_BUILD_VERSION"))
+        .is_ok_and(|value| value["version"] == env!("ARC_BUILD_VERSION"))
 }
 pub fn take_resume() -> Option<Vec<String>> {
     let path = resume_path();
@@ -42,7 +42,7 @@ pub fn take_resume() -> Option<Vec<String>> {
         return None;
     };
     // A marker from a failed/interrupted install must not alter ordinary startup.
-    let resume = (value["version"] == env!("CLC_BUILD_VERSION")).then(|| {
+    let resume = (value["version"] == env!("ARC_BUILD_VERSION")).then(|| {
         value["ingresses"]
             .as_array()
             .into_iter()

@@ -85,7 +85,12 @@ function changesSince(previous) {
   return messages.split('\n').map(subject=>`- ${subject}`).join('\n');
 }
 async function notes() {
-  return changesSince(previousPublished());
+  const previous = previousPublished();
+  const changes = changesSince(previous);
+  // Include the manual identity change only when upgrading from an old release.
+  if (!previous || !git('show', `refs/tags/v${previous}:native/src/lib.rs`).includes('chatgpt-local-connector')) return changes;
+  const migration = 'for base in "$HOME/.local/state" "${XDG_STATE_HOME:-$HOME/.local/state}" "${XDG_CONFIG_HOME:-$HOME/.config}"; do for suffix in "" -dev -preview; do old="$base/chatgpt-local-connector$suffix"; new="$base/agent-remote-control$suffix"; if [ -d "$old" ] && [ ! -e "$new" ]; then mv "$old" "$new" || exit; fi; done; done';
+  return `${changes}\n\n## Upgrading from CLC\n\nQuit ARC before installing/opening this update. On macOS/Linux, move existing state once (existing destinations are left untouched):\n\n\`\`\`sh\n${migration}\n\`\`\`\n\nOn Windows, move %LOCALAPPDATA%/chatgpt-local-connector to %LOCALAPPDATA%/agent-remote-control (and the -dev/-preview variants) before opening the new app. Re-enable login items and grant macOS permissions to the new app identity. Maintainers: move ~/.tauri/local-connector.key to ~/.tauri/agent-remote-control.key. No automatic migration is performed.\n`;
 }
 if (mode === 'release') {
   const versionAt = args.indexOf('--version');
@@ -115,11 +120,11 @@ if (mode === 'release') {
     if (git('tag', '--list', tag) && git('rev-parse', `${tag}^{commit}`) !== git('rev-parse', 'HEAD')) throw new Error(`${tag} belongs to another commit`);
     sourceSha = git('rev-parse', 'HEAD');
     console.log(`Release ${tag} from ${sourceSha}; no version commit`);
-    if (!args.includes('--skip-tests')) execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['test'], { env: { ...env, CLC_BUILD_VERSION: version }, stdio: 'inherit', shell: process.platform === 'win32' });
+    if (!args.includes('--skip-tests')) execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['test'], { env: { ...env, ARC_BUILD_VERSION: version }, stdio: 'inherit', shell: process.platform === 'win32' });
   } else version = requested ?? version;
   parts(version);
-  env.CLC_BUILD_VERSION = version;
-  process.env.CLC_BUILD_VERSION = version;
+  env.ARC_BUILD_VERSION = version;
+  process.env.ARC_BUILD_VERSION = version;
   base = `https://github.com/${repo}/releases/download/v${version}`;
   let output;
   if (!ci) {

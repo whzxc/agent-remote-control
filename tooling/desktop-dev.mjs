@@ -11,7 +11,7 @@ import { buildEnv } from './build-env.mjs';
 // One development process owns the core and all desktop windows.
 const root = new URL('../', import.meta.url);
 if (process.argv.includes('--release')) throw new Error('dev 仅运行开发模式；发行构建请用 desktop:build。');
-const env = { ...buildEnv(), CLC_STATE_DIR: devStateDir };
+const env = { ...buildEnv(), ARC_STATE_DIR: devStateDir };
 let owner;
 try {
   const info = JSON.parse(readFileSync(path.join(devStateDir, 'web/native.json'), 'utf8'));
@@ -23,7 +23,7 @@ try {
   }
 } catch { /* Stale metadata does not prevent starting a new development owner. */ }
 if (owner) {
-  if (owner.owner !== 'core' || owner.version !== env.CLC_BUILD_VERSION) throw new Error('这份数据已有旧版本后台运行，请先退出旧应用，或使用另一 CLC_STATE_DIR。');
+  if (owner.owner !== 'core' || owner.version !== env.ARC_BUILD_VERSION) throw new Error('这份数据已有旧版本后台运行，请先退出旧应用，或使用另一 ARC_STATE_DIR。');
 }
 if (spawnSync('cargo', ['--version'], { env, stdio: 'ignore' }).status !== 0) {
   const cargo = spawnSync('rustup', ['which', 'cargo'], { env, encoding: 'utf8' });
@@ -53,7 +53,7 @@ if (process.platform === 'darwin') {
 const args = [fileURLToPath(new URL('node_modules/@tauri-apps/cli/tauri.js', root)), 'dev'];
 if (process.platform === 'win32') args.push('--config', 'tauri.windows.conf.json');
 args.push('--config', 'tauri.dev.conf.json');
-args.push('--config', JSON.stringify({ version: env.CLC_BUILD_VERSION }));
+args.push('--config', JSON.stringify({ version: env.ARC_BUILD_VERSION }));
 if (process.platform === 'darwin') args.push('--config', JSON.stringify({ bundle: {
   icon: ['icons/icon.png', '../target/dev-icon/Resources/Icon.icns'],
 } }));

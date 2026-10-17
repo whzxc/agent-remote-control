@@ -28,7 +28,7 @@ jobs:
         run: |
           tag=$(gh release view ${RELEASE_TAG:+"$RELEASE_TAG"} --json tagName --jq .tagName)
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "CLC_BUILD_VERSION=$tag" >> "$GITHUB_ENV"
+          echo "ARC_BUILD_VERSION=$tag" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ steps.release.outputs.tag }}

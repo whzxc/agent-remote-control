@@ -343,7 +343,7 @@ impl Service {
             for (key, _) in secrets() {
                 config.as_object_mut().unwrap().remove(key);
             }
-            json!({"config":config,"core":{"desktop":{"state":"unknown"},"appServer":{"state":"unknown"},"chatgpt":{},"logs":[]},"connection":{"running":false,"mcpUrl":""},"connector":{"state":"stopped"},"tunnel":{"state":"stopped","error":""},"logs":[],"version":env!("CLC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"taskApprovalEnabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?})
+            json!({"config":config,"core":{"desktop":{"state":"unknown"},"appServer":{"state":"unknown"},"chatgpt":{},"logs":[]},"connection":{"running":false,"mcpUrl":""},"connector":{"state":"stopped"},"tunnel":{"state":"stopped","error":""},"logs":[],"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"taskApprovalEnabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?})
         };
         let desktop = match self.control.ipc().await {
             Ok(_) => {
@@ -357,13 +357,13 @@ impl Service {
         for (key,value) in json!({"pid":std::process::id(),"activeTurns":0,"liveProcesses":0,"uncertain":false,"draining":false,"account":{"state":"unknown","observedAt":null},"lastInbound":null,"schemaDiscovered":"unknown","operationVerified":"business-delivery-not-assessed"}).as_object().unwrap() {status["core"][key]=value.clone();}
         status["core"]["desktop"] = desktop;
         status["core"]["appServer"] = json!({"state":health["appServer"],"observedAt":now(),"evidence":"native-connector","stale":false});
-        status["core"]["version"] = json!(env!("CLC_BUILD_VERSION"));
+        status["core"]["version"] = json!(env!("ARC_BUILD_VERSION"));
         status["core"]["backendSession"] = json!(self.control.session);
         status["core"]["activeWrites"] = health["activeWrites"].clone();
         status["core"]["pendingInteractions"] =
             json!(self.control.events.lock().await.pending.len());
         status["core"]["toolCount"] = json!(catalog()["tools"].as_array().unwrap().len());
-        status["core"]["package"] = json!({"version":env!("CLC_BUILD_VERSION"),"sha":"native"});
+        status["core"]["package"] = json!({"version":env!("ARC_BUILD_VERSION"),"sha":"native"});
         let mut items = Vec::new();
         for i in self.entries().await {
             items.push(i.summary().await?);
@@ -514,7 +514,7 @@ impl Service {
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
                 return Ok(
-                    json!({"state":"ready","version":env!("CLC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("web/native.json"))?["build"]}),
+                    json!({"state":"ready","version":env!("ARC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("web/native.json"))?["build"]}),
                 )
             }
             ("GET", "preferences") => return Ok(crate::preferences::read()),

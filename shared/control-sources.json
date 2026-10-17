@@ -24,7 +24,7 @@
     "customHeaders": "No general static-header configuration documented for ChatGPT HTTPS apps.",
     "capability": "Remote MCP over Streamable HTTP",
     "caveat": {
-      "en": "Prefer Secure Tunnel. HTTPS also supports OAuth with local app consent via clc:// or authenticated CLI consent. Tunnel access and client developer-mode permissions are separate.",
+      "en": "Prefer Secure Tunnel. HTTPS also supports OAuth with local app consent via agent-remote-control:// or authenticated CLI consent. Tunnel access and client developer-mode permissions are separate.",
       "zh-CN": "优先 Secure Tunnel；HTTPS 也支持本机应用确认的 OAuth。Tunnel 与客户端开发者模式权限分别管理。"
     },
     "badge": {
@@ -61,7 +61,7 @@
     "customHeaders": "Organization administrators can configure Authorization or x-api-key in static_headers beta.",
     "capability": "Remote MCP over Streamable HTTP",
     "caveat": {
-      "en": "OAuth uses local app consent via clc:// or authenticated CLI consent and DCR or preregistered client credentials. Organization static-header beta can still use Bearer. Verify the client registration flow.",
+      "en": "OAuth uses local app consent via agent-remote-control:// or authenticated CLI consent and DCR or preregistered client credentials. Organization static-header beta can still use Bearer. Verify the client registration flow.",
       "zh-CN": "OAuth 使用本机应用确认或已认证 CLI 确认，支持动态注册或预注册客户端凭据。组织静态请求头 Beta 仍可使用 Bearer；需确认客户端注册流程。"
     },
     "badge": {
@@ -204,7 +204,7 @@
     "customHeaders": "Custom headers in Slack documentation apply to identity requests, not arbitrary MCP request headers.",
     "capability": "Remote MCP over Streamable HTTP",
     "caveat": {
-      "en": "OAuth supports dynamic or local preregistration and local app consent via clc:// or authenticated CLI consent. Verify the Slack client flow. Signed Slack identity is not implemented; Bearer is not compatible.",
+      "en": "OAuth supports dynamic or local preregistration and local app consent via agent-remote-control:// or authenticated CLI consent. Verify the Slack client flow. Signed Slack identity is not implemented; Bearer is not compatible.",
       "zh-CN": "OAuth 支持动态注册或本机预注册，通过本机应用或已认证 CLI 确认，需核对 Slack 客户端流程。尚未实现 Slack 身份签名；不支持 Bearer。"
     },
     "badge": {

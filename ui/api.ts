@@ -8,7 +8,7 @@ export async function api<T = unknown>(
   if (isDesktop) return desktopRequest<T>(path, method, body);
   const response = await fetch(`/api/${path}`, {
     method,
-    headers: { "Content-Type": "application/json", "X-CLC-Request": "1" },
+    headers: { "Content-Type": "application/json", "X-ARC-Request": "1" },
     ...(method !== "GET" ? { body: JSON.stringify(body ?? {}) } : {}),
   });
   let data;

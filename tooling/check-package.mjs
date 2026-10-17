@@ -25,7 +25,7 @@ if (process.platform === 'darwin' && root.endsWith('.app')) {
   if (appVersion !== version) throw new Error('安装包版本与构建版本不一致。');
   if (execFileSync(native,['--version'],{encoding:'utf8'}).trim() !== version) throw new Error('安装包缺少同版本独立 Core。');
   execFileSync('codesign',['--verify','--strict',native],{stdio:'inherit'});
-  execFileSync('codesign',['--verify','--strict',path.join(resources, 'bin/clc-screen')],{stdio:'inherit'});
+  execFileSync('codesign',['--verify','--strict',path.join(resources, 'bin/arc-screen')],{stdio:'inherit'});
   const assets = JSON.parse(execFileSync('xcrun', ['assetutil', '--info', path.join(resources, 'Assets.car')], { encoding: 'utf8' }));
   const name = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconName', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
   const file = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();

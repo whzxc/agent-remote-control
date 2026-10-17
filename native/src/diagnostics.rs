@@ -174,7 +174,7 @@ pub async fn probe(
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| e.to_string())?;
-        let response = client.post(url.clone()).header("Accept","application/json, text/event-stream").json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"connector-doctor","version":env!("CLC_BUILD_VERSION")}}})).send().await;
+        let response = client.post(url.clone()).header("Accept","application/json, text/event-stream").json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"connector-doctor","version":env!("ARC_BUILD_VERSION")}}})).send().await;
         checks["publicMcp"] = match response {
             Ok(response) => {
                 let status = response.status().as_u16();

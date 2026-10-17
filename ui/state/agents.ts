@@ -86,10 +86,10 @@ export const name = (agent: Agent) =>
   agent.displayName ||
   { codex: "Codex", pi: "Pi", opencode: "OpenCode" }[agent.agent] ||
   agent.agent;
-const order = preference<string[]>("clc.agent-order", []);
+const order = preference<string[]>("arc.agent-order", []);
 function cachedAgents(): Agent[] {
   try {
-    const value = JSON.parse(localStorage.getItem("clc.agents") || "[]");
+    const value = JSON.parse(localStorage.getItem("arc.agents") || "[]");
     return Array.isArray(value)
       ? value.filter(
           (a) =>
@@ -142,7 +142,7 @@ export function moveAgent(from: string, to: string) {
 function persist() {
   try {
     localStorage.setItem(
-      "clc.agents",
+      "arc.agents",
       JSON.stringify(
         agents
           .get()

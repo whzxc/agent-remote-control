@@ -46,7 +46,7 @@ execFileSync(process.execPath, [path.join(root, 'tooling/check-package.mjs'), pa
 // Tauri can kill its runner during rebuilds. A private stdin pipe lets the app
 // observe that even after SIGKILL and shut down its managed tunnels normally.
 const app = spawn(executable, process.argv.slice(3), {
-  env: { ...env, CLC_DEV_SUPERVISED: '1' },
+  env: { ...env, ARC_DEV_SUPERVISED: '1' },
   stdio: ['pipe', 'inherit', 'inherit'],
 });
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.stdin.end());

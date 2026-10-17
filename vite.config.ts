@@ -36,7 +36,7 @@ export default defineConfig({
         if (request.headers.host !== '127.0.0.1:5187'
           || (request.headers.origin && request.headers.origin !== 'http://127.0.0.1:5187')
           || request.headers['sec-fetch-site'] === 'cross-site'
-          || ((request.method !== 'GET' || request.url === '/api/config/credentials') && request.headers['x-clc-request'] !== '1')) {
+          || ((request.method !== 'GET' || request.url === '/api/config/credentials') && request.headers['x-arc-request'] !== '1')) {
           response.writeHead(403, { 'Content-Type': 'application/json' });
           response.end(JSON.stringify({ error: '仅允许本机页面访问。' })); return;
         }

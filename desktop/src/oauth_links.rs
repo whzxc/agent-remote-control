@@ -3,7 +3,7 @@ use serde_json::json;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 fn open(app: &tauri::AppHandle, url: &tauri::Url) {
-    if url.scheme() != "clc"
+    if url.scheme() != "agent-remote-control"
         || url.host_str() != Some("oauth")
         || !["", "/"].contains(&url.path())
         || !url.username().is_empty()

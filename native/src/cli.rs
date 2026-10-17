@@ -445,7 +445,7 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
             owner.close().await;
             result
         }
-        [] | ["help"] | ["--help"] => Ok(json!({"version":env!("CLC_BUILD_VERSION"),
+        [] | ["help"] | ["--help"] => Ok(json!({"version":env!("ARC_BUILD_VERSION"),
             "usage":"<应用可执行文件> cli <command> [--json]",
             "capabilities":crate::management::catalog(),
             "commands":COMMANDS,
@@ -459,7 +459,7 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
             "update":"Partial merge; running ingresses are stopped, updated and restarted by the shared backend. Other ingresses remain online. Changes reset only this ingress verification.",
             "oauthDecisionInput":{"id":"pending request id from oauth list","allow":"boolean; true approves, false denies"},
             "oauthReadback":"oauth request returns pending/approved/denied/completed/expired; approved is not token exchange or task acceptance. Keep the client authorization page open for callback.",
-            "authNote":"none exposes allowed tools to anyone with network access. Prefer a fixed URL with OAuth (local app consent via clc:// or authenticated CLI consent, PKCE, DCR or preregistration) or bearer for clients that support it.",
+            "authNote":"none exposes allowed tools to anyone with network access. Prefer a fixed URL with OAuth (local app consent via agent-remote-control:// or authenticated CLI consent, PKCE, DCR or preregistration) or bearer for clients that support it.",
             "tokenDelivery":"token rotate returns the new secret once in stdout. Redirect to a protected local file (umask 077); do not capture it into chat/logs. Supply an initial bearerToken via stdin when adding.",
             "configureInput":{"tunnelId":"可选；省略保留原值","apiKey":"可选；空字符串保留原值"},
             "networkInput":{"proxyMode":"system | direct | custom","proxyUrl":"自定义 HTTP/HTTPS 地址，其余为空"},

@@ -1,6 +1,6 @@
 // Shared by the Core and Desktop build scripts. Cargo builds need no Node runtime.
 pub fn build_version() -> String {
-    println!("cargo:rerun-if-env-changed=CLC_BUILD_VERSION");
+    println!("cargo:rerun-if-env-changed=ARC_BUILD_VERSION");
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
@@ -14,7 +14,7 @@ pub fn build_version() -> String {
         "cargo:rerun-if-changed={}",
         root.join("tooling/build-version.rs").display()
     );
-    let value = std::env::var("CLC_BUILD_VERSION")
+    let value = std::env::var("ARC_BUILD_VERSION")
         .ok()
         .filter(|value| !value.is_empty())
         .or_else(|| {
@@ -37,6 +37,6 @@ pub fn build_version() -> String {
                 && (part.len() == 1 || !part.starts_with('0'))),
         "Invalid stable build version"
     );
-    println!("cargo:rustc-env=CLC_BUILD_VERSION={version}");
+    println!("cargo:rustc-env=ARC_BUILD_VERSION={version}");
     version.to_owned()
 }

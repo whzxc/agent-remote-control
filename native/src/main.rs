@@ -45,7 +45,7 @@ async fn run() -> Result<()> {
             );
         }
         ["--version"] => {
-            connector_core::output::line(env!("CLC_BUILD_VERSION"))?;
+            connector_core::output::line(env!("ARC_BUILD_VERSION"))?;
             Ok(())
         }
         _ => Err("Usage: arc [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]".into()),

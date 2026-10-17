@@ -38,7 +38,7 @@ export default function BrowserRailPreview() {
       try {
         return (
           JSON.parse(
-            localStorage.getItem("clc-dev-usage-rail-position") || "null",
+            localStorage.getItem("arc-dev-usage-rail-position") || "null",
           ) || { x: innerWidth - 96, y: 96 }
         );
       } catch {
@@ -231,7 +231,7 @@ export default function BrowserRailPreview() {
     suppressClick.current = current.moved;
     try {
       localStorage.setItem(
-        "clc-dev-usage-rail-position",
+        "arc-dev-usage-rail-position",
         JSON.stringify({ x: layout.rail.x, y: layout.rail.y }),
       );
     } catch {

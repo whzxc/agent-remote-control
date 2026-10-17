@@ -11,7 +11,7 @@ pub async fn enabled() -> bool {
         let Some(home) = dirs::home_dir() else {
             return false;
         };
-        let path = home.join("Library/LaunchAgents/com.whzxc.chatgpt-local-connector.plist");
+        let path = home.join("Library/LaunchAgents/com.whzxc.agent-remote-control.plist");
         let path = path.to_string_lossy();
         let program = output(
             "plutil",
@@ -22,7 +22,7 @@ pub async fn enabled() -> bool {
             "plutil",
             &[
                 "-extract",
-                "EnvironmentVariables.CLC_STATE_DIR",
+                "EnvironmentVariables.ARC_STATE_DIR",
                 "raw",
                 "-o",
                 "-",
@@ -46,7 +46,7 @@ pub async fn enabled() -> bool {
 #[cfg(windows)]
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 #[cfg(windows)]
-const RUN_VALUE: &str = "Local Connector";
+const RUN_VALUE: &str = "Agent Remote Control";
 #[cfg(windows)]
 fn login_command(exe: &std::path::Path) -> String {
     let quote = |path: &std::path::Path| {
@@ -63,7 +63,7 @@ pub async fn set(enabled: bool) -> Result<()> {
     {
         let path = dirs::home_dir()
             .unwrap()
-            .join("Library/LaunchAgents/com.whzxc.chatgpt-local-connector.plist");
+            .join("Library/LaunchAgents/com.whzxc.agent-remote-control.plist");
         if enabled {
             let xml = |v: &str| {
                 v.replace('&', "&amp;")
@@ -72,7 +72,7 @@ pub async fn set(enabled: bool) -> Result<()> {
                     .replace('"', "&quot;")
             };
             private_dir(path.parent().unwrap())?;
-            std::fs::write(path,format!("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.whzxc.chatgpt-local-connector</string><key>ProgramArguments</key><array><string>{}</string><string>--autostart</string></array><key>EnvironmentVariables</key><dict><key>CLC_STATE_DIR</key><string>{}</string></dict><key>RunAtLoad</key><true/></dict></plist>",xml(&exe.to_string_lossy()),xml(&root().to_string_lossy()))).map_err(|e|e.to_string())?;
+            std::fs::write(path,format!("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.whzxc.agent-remote-control</string><key>ProgramArguments</key><array><string>{}</string><string>--autostart</string></array><key>EnvironmentVariables</key><dict><key>ARC_STATE_DIR</key><string>{}</string></dict><key>RunAtLoad</key><true/></dict></plist>",xml(&exe.to_string_lossy()),xml(&root().to_string_lossy()))).map_err(|e|e.to_string())?;
         } else if path.exists() {
             std::fs::remove_file(path).map_err(|e| e.to_string())?;
         }

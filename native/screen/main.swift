@@ -233,7 +233,7 @@ func capture(_ window: Window, _ args: [String: Any], _ focus: Focus) throws -> 
     let raised = try focus.prepare(window, mode: args["front"] as? String ?? "auto", required: false)
     if raised { pause(0.2) }
     let stale = !isFront(window)
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("clc-screen-\(UUID().uuidString)")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("arc-screen-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
     defer { try? FileManager.default.removeItem(at: directory) }
     let file = directory.appendingPathComponent("capture.png")

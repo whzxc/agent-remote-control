@@ -22,7 +22,7 @@ args.push(...buildArgs);
 const debug = buildArgs.some(a => a === '--debug' || a === '-d');
 const profile = debug ? 'debug' : 'release';
 const env = buildEnv(!debug);
-args.push('--config', JSON.stringify({ version: env.CLC_BUILD_VERSION }));
+args.push('--config', JSON.stringify({ version: env.ARC_BUILD_VERSION }));
 for (const key of ['TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD']) {
   if (signing[key] !== undefined) env[key] = signing[key];
 }

@@ -15,10 +15,10 @@ const target = resolve(output);
 execFileSync(resolve(binary), ['export', target], { stdio: 'inherit' });
 if (state || devHtml) {
   const config = JSON.parse(await readFile(`${target}/.mcp.json`, 'utf8'));
-  const server = config.mcpServers.clc;
+  const server = config.mcpServers.arc;
   if (devHtml) server.command = resolve(binary);
   server.env = {};
-  if (state) server.env.CLC_STATE_DIR = resolve(state);
-  if (devHtml) server.env.CLC_PLUGIN_DEV_HTML = resolve(devHtml);
+  if (state) server.env.ARC_STATE_DIR = resolve(state);
+  if (devHtml) server.env.ARC_PLUGIN_DEV_HTML = resolve(devHtml);
   await writeFile(`${target}/.mcp.json`, JSON.stringify(config, null, 2) + '\n');
 }

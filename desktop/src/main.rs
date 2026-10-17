@@ -121,7 +121,7 @@ fn main() {
         .skip_while(|arg| arg != "--state-dir")
         .nth(1)
     {
-        std::env::set_var("CLC_STATE_DIR", state_dir);
+        std::env::set_var("ARC_STATE_DIR", state_dir);
     }
     if std::env::args().nth(1).as_deref() == Some("cli") {
         let runtime = tokio::runtime::Runtime::new().expect("CLI runtime");
@@ -170,7 +170,7 @@ fn main() {
         .setup(|app| {
             updates::start(app.handle().clone());
             #[cfg(all(debug_assertions, unix))]
-            if std::env::var_os("CLC_DEV_SUPERVISED").is_some() {
+            if std::env::var_os("ARC_DEV_SUPERVISED").is_some() {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     use std::io::Read;

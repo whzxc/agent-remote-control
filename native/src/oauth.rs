@@ -836,8 +836,10 @@ async fn route(
                 oauth.prepare(resource)?;
                 let mut state =
                     oauth.status(q.get("request").ok_or("invalid_request")?, resource)?;
-                state["openAppUrl"] =
-                    json!(format!("clc://oauth?request={}", q.get("request").unwrap()));
+                state["openAppUrl"] = json!(format!(
+                    "agent-remote-control://oauth?request={}",
+                    q.get("request").unwrap()
+                ));
                 state["connectionName"] = connection_name;
                 return Ok(response(200, state));
             }

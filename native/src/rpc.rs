@@ -26,7 +26,7 @@ impl Rpc {
     pub async fn start(binary: &Path, events: SharedEvents, session: &str) -> Result<Arc<Self>> {
         let mut command = command(binary);
         #[cfg(feature = "test-fixture")]
-        command.arg(std::env::var("CLC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
+        command.arg(std::env::var("ARC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
         #[cfg(not(feature = "test-fixture"))]
         command.arg("app-server");
         #[cfg(unix)]
@@ -121,7 +121,7 @@ impl Rpc {
             events.pending.clear();
             events.wake.notify_waiters();
         });
-        rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("CLC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
+        rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
         rpc.write(json!({"method":"initialized"})).await?;
         Ok(rpc)
     }

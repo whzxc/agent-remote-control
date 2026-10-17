@@ -62,9 +62,9 @@ ${StrLoc}
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
 ; Persistent registry identity is independent of the display name.
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Local Connector"
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
 !define MANUKEY "Software\${MANUFACTURER}"
-!define MANUPRODUCTKEY "${MANUKEY}\Local Connector"
+!define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"

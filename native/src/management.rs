@@ -85,17 +85,17 @@ async fn start_app() -> Result<Value> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let desktop = if exe
         .file_stem()
-        .is_some_and(|s| s == "local-connector-desktop")
+        .is_some_and(|s| s == "agent-remote-control-desktop")
     {
         exe
     } else if cfg!(target_os = "macos") {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../../MacOS/local-connector-desktop")
+            .join("../../MacOS/agent-remote-control-desktop")
     } else {
         exe.parent()
             .ok_or("invalid installation")?
-            .join("../local-connector-desktop.exe")
+            .join("../agent-remote-control-desktop.exe")
     };
     #[cfg(target_os = "macos")]
     {
@@ -159,7 +159,7 @@ pub async fn stdio() -> Result<()> {
 async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdout>>) -> Result<()> {
     let result: Result<Value> = match string(&request, "method") {
         "initialize" => Ok(
-            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"arc","version":env!("CLC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
+            json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
         ),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({"tools":[

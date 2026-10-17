@@ -341,7 +341,7 @@ impl Ingress {
         }
         let core = json!({"chatgpt":chat,"transport":{"state":state,"error":error}});
         Ok(
-            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health},"connector":{"state":state},"logs":logs,"version":env!("CLC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
+            json!({"discoveredUrls":urls,"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":std::env::var("HOSTNAME").unwrap_or_else(|_|"本机".into()),"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"chatgptUrl":"https://chatgpt.com/plugins"}),
         )
     }
     pub async fn stop(&self) -> Result<()> {
@@ -515,7 +515,7 @@ impl Ingress {
                 "--sample",
                 "sample_mcp_stdio_local",
                 "--profile",
-                "clc",
+                "arc",
                 "--profile-dir",
                 dir.to_str().unwrap(),
                 "--control-plane-api-key-ref",
@@ -539,7 +539,7 @@ impl Ingress {
             cmd.args([
                 "run",
                 "--profile",
-                "clc",
+                "arc",
                 "--profile-dir",
                 dir.to_str().unwrap(),
                 "--health.url-file",
@@ -552,9 +552,9 @@ impl Ingress {
                     .unwrap_or_else(|| PathBuf::from(string(&settings, "codexBinary"))),
             )
             .env("TUNNEL_CLIENT_CODEX_APP_SERVER_ARGS", "app-server")
-            .env("CLC_NATIVE_PORT", port.to_string())
-            .env("CLC_NATIVE_TOKEN", &self.token)
-            .env("CLC_INGRESS_ID", &self.id)
+            .env("ARC_NATIVE_PORT", port.to_string())
+            .env("ARC_NATIVE_TOKEN", &self.token)
+            .env("ARC_INGRESS_ID", &self.id)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -825,7 +825,7 @@ fn tunnel_command(binary: &Path) -> tokio::process::Command {
             c.env_remove(k);
         }
     }
-    c.env("CLC_STATE_DIR", root());
+    c.env("ARC_STATE_DIR", root());
     c
 }
 fn executable(name: &str) -> Option<PathBuf> {

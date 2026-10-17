@@ -127,7 +127,7 @@ pub fn systemd() -> Result<Value> {
     let binary = crate::runtime::binary()?;
     let mut unit = format!("[Unit]\nDescription=Agent Remote Control (headless)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nKillMode=mixed\nUMask=0077\nEnvironment={}\n",
         quote(binary.to_str().ok_or("Invalid binary path")?, true)?,
-        quote(&format!("CLC_STATE_DIR={}", root().display()), false)?);
+        quote(&format!("ARC_STATE_DIR={}", root().display()), false)?);
     for key in [
         "PATH",
         "XDG_CONFIG_HOME",
@@ -156,7 +156,7 @@ pub fn systemd() -> Result<Value> {
             ));
         }
     }
-    let env = config.join("chatgpt-local-connector/environment");
+    let env = config.join("agent-remote-control/environment");
     // EnvironmentFile takes a literal absolute path, not shell-style quotes.
     // Reject special characters instead of interpreting escapes, globs or specifiers.
     let env_path = env.to_str().ok_or("Invalid config path")?;

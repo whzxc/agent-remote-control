@@ -8,7 +8,7 @@ on:
         type: string
         required: true
 env:
-  CLC_BUILD_VERSION: ${{ inputs.tag }}
+  ARC_BUILD_VERSION: ${{ inputs.tag }}
 permissions:
   contents: write
 concurrency:

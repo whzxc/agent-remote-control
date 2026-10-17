@@ -11,14 +11,14 @@ for command in curl tar sha256sum awk install mktemp; do
   command -v "$command" >/dev/null || { echo "Missing command: $command" >&2; exit 1; }
 done
 repo=https://github.com/whzxc/agent-remote-control
-version=${CLC_VERSION:-}
+version=${ARC_VERSION:-}
 if [ -z "$version" ]; then
   latest=$(curl --proto '=https' --proto-redir '=https' -fsSL -o /dev/null -w '%{url_effective}' "$repo/releases/latest")
   version=${latest##*/}
 fi
-case "$version" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo 'CLC_VERSION must be a v-prefixed release tag' >&2; exit 1 ;; esac
+case "$version" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo 'ARC_VERSION must be a v-prefixed release tag' >&2; exit 1 ;; esac
 case "$version" in *[!a-zA-Z0-9._-]*) echo 'Invalid release tag' >&2; exit 1 ;; esac
-destination=${CLC_INSTALL_DIR:-"$HOME/.local/bin"}
+destination=${ARC_INSTALL_DIR:-"$HOME/.local/bin"}
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 asset=agent-remote-control-$version-linux-$arch.tar.gz

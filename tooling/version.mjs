@@ -8,7 +8,7 @@ export function stableVersion(value) {
 }
 
 export function buildVersion() {
-  if (process.env.CLC_BUILD_VERSION) return stableVersion(process.env.CLC_BUILD_VERSION);
+  if (process.env.ARC_BUILD_VERSION) return stableVersion(process.env.ARC_BUILD_VERSION);
   let tag;
   try {
     tag = execFileSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*'], {

@@ -25,7 +25,7 @@ pub async fn call(args: Value) -> Result<Value> {
 async fn invoke(args: Value) -> Result<Value> {
     use std::process::Stdio;
     use tokio::io::AsyncWriteExt;
-    let helper = crate::runtime::binary()?.with_file_name("clc-screen");
+    let helper = crate::runtime::binary()?.with_file_name("arc-screen");
     let mut child = tokio::process::Command::new(helper)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

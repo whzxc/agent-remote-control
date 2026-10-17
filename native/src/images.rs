@@ -389,7 +389,7 @@ mod tests {
     }
     #[test]
     fn thread_images_enforce_scope_and_default_is_unchanged() {
-        let root = std::env::temp_dir().join(format!("clc-images-{}", id()));
+        let root = std::env::temp_dir().join(format!("arc-images-{}", id()));
         let project = root.join("project");
         std::fs::create_dir_all(&project).unwrap();
         let inside = project.join("image.png");
