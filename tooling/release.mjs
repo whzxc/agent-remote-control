@@ -23,7 +23,11 @@ async function files(dir) {
   return out;
 }
 function verifySignatures(artifacts) {
-  execFileSync('cargo', ['run', '--quiet', '--locked', '--manifest-path', 'tooling/verifier/Cargo.toml', '--', 'desktop/tauri.conf.json', ...artifacts], { stdio: 'inherit' });
+  try {
+    execFileSync('cargo', ['run', '--quiet', '--locked', '--manifest-path', 'tooling/verifier/Cargo.toml', '--', 'desktop/tauri.conf.json', ...artifacts], { stdio: 'inherit' });
+  } finally {
+    execFileSync(process.execPath, ['tooling/prune-build-cache.mjs'], { stdio: 'inherit' });
+  }
 }
 async function validateManifest(manifest, dir, keys = Object.keys(manifest.platforms)) {
   if (manifest.version !== version || !manifest.platforms['darwin-aarch64']) throw new Error('Invalid release manifest');
@@ -96,15 +100,13 @@ if (mode === 'release') {
   const versionAt = args.indexOf('--version');
   const requested = versionAt < 0 ? undefined : stableVersion(args[versionAt + 1] || '');
   const flags = versionAt < 0 ? args : args.filter((_, index) => index !== versionAt && index !== versionAt + 1);
-  if (flags.some(arg => !['--skip-tests', '--dry-run', '--ci'].includes(arg))) throw new Error('release [--dry-run | --ci] [--skip-tests] [--version 0.8.29]');
+  if (flags.some(arg => !['--skip-tests', '--dry-run'].includes(arg))) throw new Error('release [--dry-run] [--skip-tests] [--version 0.8.29]');
   const dryRun = args.includes('--dry-run');
-  const ci = args.includes('--ci');
-  if (ci && dryRun) throw new Error('--ci 与 --dry-run 不能同时使用');
-  if (!ci && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('本地发布需要 Apple Silicon Mac；其他主机请使用 --ci');
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('发布需要在 Apple Silicon Mac 上本地构建和签名');
   // Fail before compilation, and pass credentials only in the environment.
-  const env = ci ? { ...process.env } : releaseSigningEnv(true);
+  const env = releaseSigningEnv(true);
   let sourceSha;
-  if (!ci) macosSigningIdentity(env, { release: true });
+  macosSigningIdentity(env, { release: true });
   const run = (script, ...options) => execFileSync(process.execPath, [script, ...options], { env, stdio: 'inherit' });
   if (!dryRun) {
     if (git('branch', '--show-current') !== 'main') throw new Error('Run release from main');
@@ -126,29 +128,47 @@ if (mode === 'release') {
   env.ARC_BUILD_VERSION = version;
   process.env.ARC_BUILD_VERSION = version;
   base = `https://github.com/${repo}/releases/download/v${version}`;
-  let output;
-  if (!ci) {
-    run('tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin');
-    await mkdir('release-artifacts', { recursive: true });
-    output = await mkdtemp(path.join('release-artifacts', `v${version}-`));
-    // Every child uses the same version without editing the checkout.
-    run('tooling/release.mjs', 'stage', 'darwin-aarch64', 'target/aarch64-apple-darwin/release/bundle', output);
-    run('tooling/release.mjs', 'finalize', output);
-    console.log(`Release artifacts: ${path.resolve(output)}`);
-  }
+  run('tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin');
+  await mkdir('release-artifacts', { recursive: true });
+  const output = await mkdtemp(path.join('release-artifacts', `v${version}-`));
+  run('tooling/release.mjs', 'stage', 'darwin-aarch64', 'target/aarch64-apple-darwin/release/bundle', output);
+  run('tooling/release.mjs', 'finalize', output);
+  console.log(`Release artifacts: ${path.resolve(output)}`);
   if (!dryRun) {
     if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during release; refusing to tag or publish');
     if (!git('tag', '--list', `v${version}`)) git('tag', `v${version}`);
     git('push', '--atomic', 'origin', 'main', `refs/tags/v${version}`);
-    if (ci) execFileSync('gh', ['workflow', 'run', 'release.yml', '--ref', 'main', '-f', `tag=v${version}`], { stdio: 'inherit' });
-    else {
-      const assets = (await files(output)).filter(file => path.basename(file) !== 'darwin-aarch64.json');
-      const existing = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/releases`, '--paginate', '--slurp'], { encoding: 'utf8' })).flat().find(release => release.tag_name === `v${version}`);
-      if (existing && !existing.draft) throw new Error('Release already published');
-      if (!existing) execFileSync('gh', ['release', 'create', `v${version}`, '--draft', '--verify-tag', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
-      execFileSync('gh', ['release', 'upload', `v${version}`, ...assets, '--clobber'], { stdio: 'inherit' });
-      execFileSync('gh', ['release', 'edit', `v${version}`, '--draft=false', '--latest', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
+    const tag = `v${version}`;
+    // CI only builds Windows/Linux from the same immutable tag. All publication stays local.
+    const listRuns = () => JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', 'release.yml', '--branch', tag,
+      '--event', 'workflow_dispatch', '--json', 'databaseId,headSha', '--limit', '20'], { encoding: 'utf8' }));
+    const previousRuns = new Set(listRuns().map(item => item.databaseId));
+    execFileSync('gh', ['workflow', 'run', 'release.yml', '--ref', tag, '-f', `tag=${tag}`], { stdio: 'inherit' });
+    let build;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      build = listRuns().find(item => !previousRuns.has(item.databaseId) && item.headSha === sourceSha);
+      if (build) break;
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
+    if (!build) throw new Error('CI 已触发但未取得对应 run；请检查工作流，不要重复发版');
+    const runId = String(build.databaseId);
+    console.log(`Waiting for Windows/Linux CI: ${runId}`);
+    execFileSync('gh', ['run', 'watch', runId, '--exit-status', '--interval', '15'], { stdio: 'inherit' });
+    for (const name of ['desktop-windows-x86_64', 'linux-x86_64', 'linux-aarch64']) {
+      execFileSync('gh', ['run', 'download', runId, '--name', name, '--dir', output], { stdio: 'inherit' });
+    }
+    for (const arch of ['x86_64', 'aarch64']) {
+      await readFile(path.join(output, `agent-remote-control-${tag}-linux-${arch}.tar.gz`));
+    }
+    await copyFile('tooling/install-agent-remote-control.sh', path.join(output, 'install-agent-remote-control.sh'));
+    run('tooling/release.mjs', 'merge-windows', output);
+    if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed while waiting for CI; refusing to publish');
+    const assets = (await files(output)).filter(file => !['darwin-aarch64.json', 'windows-x86_64.json'].includes(path.basename(file)));
+    const existing = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/releases`, '--paginate', '--slurp'], { encoding: 'utf8' })).flat().find(release => release.tag_name === tag);
+    if (existing && !existing.draft) throw new Error('Release already published');
+    if (!existing) execFileSync('gh', ['release', 'create', tag, '--draft', '--verify-tag', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
+    execFileSync('gh', ['release', 'upload', tag, ...assets, '--clobber'], { stdio: 'inherit' });
+    execFileSync('gh', ['release', 'edit', tag, '--draft=false', '--latest', '--notes-file', path.join(output, 'release-notes.md')], { stdio: 'inherit' });
   }
 } else if (mode === 'stage') {
   const [target, input, output] = args;
@@ -213,7 +233,7 @@ if (mode === 'release') {
     }
   }
   await writeJson(path.join(dir, 'latest.json'), manifest);
-  const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md'].includes(path.basename(f)));
+  const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md', 'install-agent-remote-control.sh'].includes(path.basename(f)));
   for (const file of assets) sums.set(path.basename(file), hash(await readFile(file)));
   await writeFile(sumsFile, [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
   console.log(windows ? 'Windows metadata merged; existing macOS entries preserved.' : 'macOS release metadata generated.');

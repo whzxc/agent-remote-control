@@ -1,5 +1,5 @@
-name: Release
-run-name: Release ${{ inputs.tag }} (macOS + Windows + Linux)
+name: Build release platforms
+run-name: Release ${{ inputs.tag }} (Windows + Linux)
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +10,7 @@ on:
 env:
   ARC_BUILD_VERSION: ${{ inputs.tag }}
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: connector-release
   cancel-in-progress: false
@@ -61,18 +61,8 @@ jobs:
           name: linux-${{ matrix.arch }}
           path: linux-artifacts/*.tar.gz
           if-no-files-found: error
-  desktop:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-latest
-            target: aarch64-apple-darwin
-            platform: darwin-aarch64
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: windows-x86_64
-    runs-on: ${{ matrix.runner }}
+  windows:
+    runs-on: windows-latest
     defaults:
       run:
         shell: bash
@@ -87,97 +77,25 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
-          targets: ${{ matrix.target }}
-      - uses: astral-sh/setup-uv@v6
+          targets: x86_64-pc-windows-msvc
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
-          shared-key: desktop-${{ matrix.target }}
+          shared-key: desktop-x86_64-pc-windows-msvc
           key: shared-target-v2
           workspaces: |
             . -> target
           cache-bin: false
           save-if: 'true'
       - run: npm ci
-      - name: Import fixed macOS signing identity
-        if: runner.os == 'macOS'
-        env:
-          ARC_MACOS_CERTIFICATE_P12: ${{ secrets.ARC_MACOS_CERTIFICATE_P12 }}
-          ARC_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.ARC_MACOS_CERTIFICATE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$ARC_MACOS_CERTIFICATE_P12" || { echo 'Missing fixed macOS signing certificate; refusing ad-hoc build'; exit 1; }
-          umask 077
-          certificate="$RUNNER_TEMP/arc-signing.p12"
-          keychain="$RUNNER_TEMP/arc-signing.keychain-db"
-          trap 'rm -f "$certificate"' EXIT
-          printf '%s' "$ARC_MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate"
-          keychain_password="$(openssl rand -hex 32)"
-          echo "::add-mask::$keychain_password"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$certificate" -k "$keychain" -P "$ARC_MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
-          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
-          node --input-type=module -e "import { macosSigningIdentity } from './tooling/macos-signing.mjs'; macosSigningIdentity(process.env, { release: true });"
       - name: Build signed desktop installers
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run desktop:build -- --release --target ${{ matrix.target }}
+        run: npm run desktop:build -- --release --target x86_64-pc-windows-msvc
       - name: Stage platform artifacts
-        run: npm run release:stage -- ${{ matrix.platform }} target/${{ matrix.target }}/release/bundle release-artifacts
+        run: npm run release:stage -- windows-x86_64 target/x86_64-pc-windows-msvc/release/bundle release-artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.platform }}
+          name: desktop-windows-x86_64
           path: release-artifacts/*
           if-no-files-found: error
-      - name: Remove temporary macOS signing keychain
-        if: always() && runner.os == 'macOS'
-        run: |
-          if [ -f "$RUNNER_TEMP/arc-signing.keychain-db" ]; then
-            security delete-keychain "$RUNNER_TEMP/arc-signing.keychain-db"
-          fi
-  release:
-    needs: [linux, desktop]
-    runs-on: macos-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: refs/tags/${{ inputs.tag }}
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-      - uses: dtolnay/rust-toolchain@1.96.0
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-          path: release-artifacts
-      - name: Generate combined metadata and verify both signatures
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          npm run release:finalize -- release-artifacts
-          node tooling/release.mjs merge-windows release-artifacts
-      - name: Add Linux installer and verify all checksums
-        run: |
-          cp tooling/install-agent-remote-control.sh release-artifacts/install-agent-remote-control.sh
-          cd release-artifacts
-          shasum -a 256 install-agent-remote-control.sh >> SHA256SUMS.txt
-          shasum -a 256 -c SHA256SUMS.txt
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          if gh release view "$RELEASE_TAG" --json isDraft > release-state.json 2>/dev/null; then
-            test "$(jq -r .isDraft release-state.json)" = true || { echo 'Release already published'; exit 1; }
-          else
-            gh release create "$RELEASE_TAG" --draft --verify-tag --notes-file release-artifacts/release-notes.md
-          fi
-          gh release upload "$RELEASE_TAG" release-artifacts/*.dmg release-artifacts/*.exe release-artifacts/*.gz release-artifacts/*.sig release-artifacts/latest.json release-artifacts/SHA256SUMS.txt release-artifacts/agent-remote-control.rb release-artifacts/release-notes.md release-artifacts/install-agent-remote-control.sh --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file release-artifacts/release-notes.md

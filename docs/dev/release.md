@@ -20,7 +20,7 @@ macOS 正式包（desktop:build，包括 debug 构建）、release、dry-run 和
 
 证书私钥保存在仓库外的钥匙串中。换构建机必须安全导入同一份证书及私钥；重新生成同名证书不能保持授权身份。正式包启用 hardened runtime，不使用 Apple 公证或时间戳，并清除子进程环境中的其他 APPLE_* 凭据。自签名不等于 Developer ID 或公证，首次安装仍可能被 Gatekeeper 拦截，操作见安装指南。开发入口 npm run dev / npm run build 保留独立的显式 APPLE_SIGNING_IDENTITY 配置，未设置时使用 ad-hoc。
 
-完整 CI 发版的 macOS runner 从 GitHub Secrets `ARC_MACOS_CERTIFICATE_P12`（原证书及私钥的 PKCS#12 文件，经 Base64 编码）和 `ARC_MACOS_CERTIFICATE_PASSWORD` 导入临时钥匙串；导入后按固定指纹检查，结束时删除临时钥匙串。维护者需单独安全配置这两个 Secret；工作流不会生成新证书，缺失时失败。不要把证书私钥、导出文件或密码提交到仓库。Updater Minisign 密钥与上述系统代码签名证书相互独立。
+macOS 正式产物只在本地构建和签名，个人证书及私钥只留在本机构建钥匙串，不导出到 GitHub Secrets。release.yml 仅构建 Windows 与 Linux；Windows updater 签名使用 TAURI_SIGNING_PRIVATE_KEY（加密密钥另设 TAURI_SIGNING_PRIVATE_KEY_PASSWORD）。Updater Minisign 密钥与 macOS 系统代码签名证书相互独立。
 
 Bundle identifiers：正式 App 为 com.whzxc.agent-remote-control，开发包加 .dev，Core 加 .core，Swift helper 加 .screen。更换身份后检查系统权限，不能把 updater 签名当作系统代码签名。
 
@@ -46,15 +46,13 @@ npm run release
 npm run release -- --skip-tests
 # 指定新版本：
 npm run release -- --version X.Y.Z
-# 交给完整 CI 构建：
-npm run release -- --ci --version X.Y.Z --skip-tests
 ```
 
 流程检查签名、工作区、分支和 gh 权限，获取远端 main/标签，依据上一公开版本选择新版本，在当前功能提交构建。默认运行 npm test。ARC_BUILD_VERSION 向前端、Core、Desktop 和安装器注入版本；源码中的 0.0.0 保持不变。
 
-产物整理到唯一 release-artifacts/v<version>-<suffix> 目录，生成 latest.json、release-notes.md、Cask 和 SHA256SUMS.txt。发布说明从上一正式 tag 到当前提交生成；上一 tag 必须是祖先。完成验签后在当前提交打 tag，原子推送 main/tag，上传草稿，再公开。
+产物整理到唯一 release-artifacts/v<version>-<suffix> 目录，生成 latest.json、release-notes.md、Cask 和 SHA256SUMS.txt。发布说明从上一正式 tag 到当前提交生成；上一 tag 必须是祖先。本地 macOS 产物完成验签后，在当前提交打 tag 并原子推送 main/tag，触发该 tag 的 release.yml。CI 只生成 Windows 安装包和两种架构的 Linux 包，不创建或公开 Release。本地等待对应 SHA 的 CI 成功、下载产物，合并 Windows updater 信息和所有平台校验和，再用 gh 上传草稿并公开完整 Release。
 
-已有 tag 必须指向同一源码。草稿可按相同版本补传，公开版本不可覆盖；源码改变后使用新版本。不要生成只改版本号的提交，也不保留源码 CHANGELOG。
+CI 或上传失败时停止，保留本地产物和已推送 tag，检查失败原因后再处理，不自动重复触发或公开缺平台的版本。已有 tag 必须指向同一源码。草稿可按相同版本补传，公开版本不可覆盖；源码改变后使用新版本。不要生成只改版本号的提交，也不保留源码 CHANGELOG。
 
 ## 演练与分阶段操作
 
@@ -62,7 +60,7 @@ npm run release -- --ci --version X.Y.Z --skip-tests
 npm run release -- --dry-run
 ```
 
-演练构建并生成发布文件，不提交、打 tag、推送或上传，也不自动运行测试。它仍需 updater 私钥和固定的 macOS 自签名证书，不执行 Apple 公证。演练链接使用选择的版本；正式发布需用目标版本重建。
+演练只构建 macOS 并生成本地发布文件，不触发 Windows/Linux CI，不提交、打 tag、推送或上传，也不自动运行测试。它仍需 updater 私钥和固定的 macOS 自签名证书，不执行 Apple 公证。演练链接使用选择的版本；正式发布需用目标版本重建。
 
 stage/finalize 用于已有产物的整理、验签和汇总；参数以 tooling/release.mjs 为准。缺失平台产物先补齐，再公开完整清单。最新下载、manifest 中的平台 URL、签名和嵌入版本必须一致。
 
