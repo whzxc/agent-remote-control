@@ -44,8 +44,9 @@ use the structured fields and playbooks for execution details.
 App language preferences apply; Auto uses the locale resolved by the App, or
 terminal locale when no App locale has been saved. `onboarding` supplies the
 selected ingress URL and current verification prompt. `cliPath` and `stateDir`
-identify the current instance for copied prompts; `dispatch` contains a saved
-requestId, threadId and desktopUrl when setup has been sent to Codex.
+identify the current instance for copied prompts; `hasState` reports whether
+`setup.json` exists; `dispatch` contains a saved requestId, threadId and desktopUrl
+when setup has been sent to Codex.
 
 `setup wait` defaults to 60 seconds (0–3600 accepted); timeout returns the
 current step successfully. `setup reset` clears only setup choices, its start

@@ -4,9 +4,11 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-After [installing ARC](docs/installation.md), click **Add control source → Send to Codex** in the App. Or give any local Agent this prompt:
+On a fresh Mac, give your local Agent this instruction to install and set up ARC:
 
-> Help me configure the installed Agent Remote Control on this computer: locate its CLI, run `cli skill install --target codex` (use `--target claude-code` for Claude Code; other Agents can skip installation), read `cli setup playbook protocol`, and follow `cli setup`; ask me to choose and authorize, keep secrets in ARC, and confirm completion with `cli setup wait`.
+> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
+
+Already installed? Click **Add control source → Send to Codex** in the App. [Installation options](docs/installation.md).
 
 ![ARC home: Claude and ChatGPT connected to local Agents](docs/images/home-overview.png)
 

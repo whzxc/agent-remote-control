@@ -4,6 +4,7 @@ import { locale } from "../i18n";
 export type SetupGoal = "claude-loop" | "chatgpt-chat";
 export type SetupStep = { id: string; title: string; kind: "auto" | "decide" | "authorize" | "secret" | "remote-ui"; done: boolean };
 export type Setup = {
+  hasState: boolean;
   goal: SetupGoal | null;
   complete: boolean;
   progress: { done: number; total: number };

@@ -413,6 +413,7 @@ async fn next(s: &Arc<Service>, preview_goal: Option<&str>) -> Result<Value> {
     presentation(derive(&state, &data, &locale), &state)
 }
 fn presentation(mut next: Value, state: &Value) -> Result<Value> {
+    next["hasState"] = json!(path().exists());
     next["cliPath"] = json!(crate::runtime::binary()?);
     next["stateDir"] = json!(root());
     next["dispatch"] = state["dispatch"].clone();

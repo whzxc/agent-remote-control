@@ -101,6 +101,13 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     [agentsOpen, setAgentsOpen] = useState(false),
     [detailAgent, setDetailAgent] = useState<Agent>();
   const setup = useSetup(visible && !formOpen && !details && !agentsOpen && !detailAgent);
+  const initialSetupShown = useRef(false);
+  useEffect(() => {
+    if (!visible || initialSetupShown.current || !status || loading || error || !setup.snapshot) return;
+    initialSetupShown.current = true;
+    if (setup.snapshot.hasState && !setup.snapshot.complete) setSetupMode("progress");
+    else if (!setup.snapshot.hasState && !status.ingresses.length) setSetupMode("entry");
+  }, [visible, status, loading, error, setup.snapshot]);
   const sources = [...(status?.ingresses || [])].sort(
     (a, b) =>
       Number(b.controlSource === "chatgpt") -

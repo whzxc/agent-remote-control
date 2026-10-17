@@ -2,21 +2,26 @@
 
 **English** | [简体中文](zh-CN/auto-setup.md)
 
-[Install ARC](installation.md) on the computer you want to control, then open the App.
+On a fresh Mac with a signed-in local Agent, start with this instruction:
 
-## Send to Codex
+> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
 
-Click **Add control source**, choose **Claude** (recommended) or **ChatGPT**, then **Send to Codex**. ARC installs its setup skill, opens a local setup task, and shows progress. Use **Open Codex task** to continue the conversation, or **Continue setup** on the home screen to return later.
+The skill detects ARC, runs the release installer when needed, installs its setup
+skill for your Agent, and continues through the local setup protocol. The macOS
+installer checks the App tarball’s checksum, installs and opens ARC, and waits
+for Core. No DMG mounting or command assembly is needed.
 
-If Codex is installed but signed out, click **Sign in to Codex** first. If it is missing, use the download link or copy the setup prompt to another local Agent.
+## Continue in the App
 
-## Use another local Agent
+If ARC is already installed, click **Add control source**, choose **Claude**
+(recommended) or **ChatGPT**, then **Send to Codex**. Use **Open Codex task** to
+continue the conversation, or **Continue setup** on the home screen to return later.
 
-Choose **Copy for another Agent** in ARC, or paste this prompt into your local Codex or Claude Code conversation:
-
-> Help me configure the installed Agent Remote Control on this computer: locate its CLI, run `cli skill install --target codex` (use `--target claude-code` for Claude Code; other Agents can skip installation), read `cli setup playbook protocol`, and follow `cli setup`; ask me to choose and authorize, keep secrets in ARC, and confirm completion with `cli setup wait`.
-
-Other local Agents can read the protocol directly without installing a skill. The [CLI reference](reference/cli.md) lists executable paths. The App’s copied prompt includes the current instance’s CLI path and state directory.
+If Codex is installed but signed out, click **Sign in to Codex** first. If it is
+missing, use the download link or copy the setup prompt to another local Agent.
+The App’s copied prompt includes the current instance’s CLI path and state directory.
+See [Installation](installation.md) for other platforms and manual installation,
+and the [CLI reference](reference/cli.md) for executable paths.
 
 ## Where the Agent waits for you
 

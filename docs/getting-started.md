@@ -4,7 +4,7 @@
 
 ## Set up with an Agent
 
-[Install ARC](installation.md), open **Add control source**, choose **Claude** (recommended) or **ChatGPT**, and click **Send to Codex**. ARC installs the setup skill and shows progress while Codex guides you through choices, authorization, credentials, and the first remote test.
+On a fresh Mac, [let a local Agent install and configure ARC](auto-setup.md). If ARC is already installed, open **Add control source**, choose **Claude** (recommended) or **ChatGPT**, and click **Send to Codex**. ARC installs the setup skill and shows progress while Codex guides you through choices, authorization, credentials, and the first remote test.
 
 If prompted, sign in to Codex first. Without Codex, copy the prompt to another local Agent or use the download link. See [Automatic setup](auto-setup.md) for the universal prompt and the steps that need you. Return through **Continue setup** on the home screen; when complete, choose **Back to home** to see your connections.
 

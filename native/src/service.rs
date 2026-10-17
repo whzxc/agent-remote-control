@@ -166,11 +166,7 @@ impl Service {
         private_dir(&root())?;
         let index = root().join("ingresses/index.json");
         if !index.exists() {
-            let entry = normalize(
-                json!({"id":"default","name":"ChatGPT","controlSource":"chatgpt","transport":"openai-tunnel","enabled":true,"auth":"openai","toolPolicy":crate::kernel::policy::default_policy(),"config":defaults()}),
-            )?;
-            store_entry(&entry)?;
-            save(&index, &json!(["default"]))?;
+            save(&index, &json!([]))?;
         }
         if let Err(error) = crate::kernel::results::prune() {
             crate::logs::record(

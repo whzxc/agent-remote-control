@@ -101,8 +101,8 @@ pre {
   border-color: transparent;
 }
 .button.primary:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--text);
+  background: color-mix(in srgb, var(--action) 90%, var(--on-action));
+  color: var(--on-action);
 }
 .button.ghost {
   background: transparent;

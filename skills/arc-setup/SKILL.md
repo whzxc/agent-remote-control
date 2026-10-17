@@ -1,9 +1,32 @@
 ---
 name: arc-setup
-description: Configure Agent Remote Control (ARC) with the local CLI, guiding the user through choices, credentials, authorization, and a verified Claude Code cloud or ChatGPT remote task. Use when asked to set up ARC, connect Claude or ChatGPT to local Codex, or resume ARC onboarding.
+description: Install and configure Agent Remote Control (ARC) with the local CLI, guiding the user through choices, credentials, authorization, and a verified Claude Code cloud or ChatGPT remote task. Use when asked to set up ARC, connect Claude or ChatGPT to local Codex, or resume ARC onboarding.
 ---
 
 # ARC setup
+
+## ARC not installed
+
+Check the supplied CLI path first, then `/Applications/Agent Remote Control.app/Contents/Resources/bin/arc`
+on macOS or `arc` on PATH on Linux. If absent, use the published installer:
+
+```sh
+installer=$(mktemp)
+curl --proto '=https' --proto-redir '=https' -fsSL https://github.com/whzxc/agent-remote-control/releases/latest/download/install-agent-remote-control.sh -o "$installer" &&
+  sh "$installer" && rm -f "$installer"
+```
+
+On macOS it verifies and installs the App tarball, opens ARC, and waits for Core.
+Read the last JSON line: use `cliPath` and set `ARC_STATE_DIR` to `stateDir` for
+all following commands. Do not download or mount a DMG. Linux installs `arc` in
+`~/.local/bin` (or `ARC_INSTALL_DIR`); Windows uses the official installer.
+
+With ARC available, run `cli skill install --target codex` when acting as Codex,
+or `cli skill install --target claude-code` when acting as Claude Code. Other
+local Agents can read `cli setup playbook protocol` directly. Continue with the
+installed protocol and `cli setup`; ask the user to choose the goal.
+
+## Configure
 
 Use the user's ARC executable (`arc`, or the supplied absolute path). Commands
 below follow that executable; installed desktop binaries also accept `cli`.

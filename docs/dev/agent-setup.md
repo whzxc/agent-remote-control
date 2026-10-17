@@ -1,6 +1,6 @@
 # Agent 驱动的安装与配置（设计）
 
-状态：P0 已完成 · 版本线：0.9.x patch
+状态：P0 已完成；P1 macOS bootstrap 已实现 · 版本线：0.9.x patch
 
 ## 目标
 
@@ -155,6 +155,7 @@ P0 复用现有连接表单：`openUrl` 为打开该 ingress 编辑弹窗并聚�
 - Codex 已安装但未登录时，主按钮为“登录 Codex”，复用 `codex.login.open`；次按钮仍为“复制给其他 Agent”。未安装时只保留一个主按钮“复制配置提示词”，提示中提供官方下载入口。
 - 进度可见时每 2 秒读取 `setup.next`，页面隐藏时暂停；decide / remote-ui 只提示在 Agent 对话继续，secret 打开并聚焦现有凭据字段。完成态提供“返回首页”按钮。
 - 步骤列表单列竖排；添加 Claude 连接器时直接展示连接地址和复制按钮。步骤的用户文案不暴露内部字段名、命令或 JSON 键。
+- 全新状态目录不再预建默认 ChatGPT 入口。App 启动时，无入口且无 `setup.json` 自动打开配置入口；有 `setup.json` 且尚未完成时直接显示进度。`setup.next.hasState` 提供文件是否存在的事实；同一窗口关闭面板后不反复自动打开。
 - 有未完成目标时，首页提供“继续配置”；已派发任务提供“打开 Codex 任务”。
 - `setup.dispatch` 输入 goal：保存目标、安装 Codex skill、创建 `setup-workspace/`，复用现有 Codex create 和持久回执。显式发送表示该任务已获用户批准；模型、推理强度及执行所有者沿用已有默认设置。`setup.json` 中保存 `dispatch.requestId/threadId/desktopUrl`，重复派发读取同一回执，不重复创建线程。创建未确认或失败时保留回执并返回错误。
 
@@ -168,7 +169,7 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 
 ## 文档
 
-- README / README.zh-CN 顶部提供安装后的“发送给 Codex”入口，以及含 `cli skill install` 和 `cli setup` 的通用本机 Agent 提示词。
+- README / README.zh-CN 顶部提供安装后的“发送给 Codex”入口，以及指向公开 `skills/arc-setup/SKILL.md` 的一句本机 Agent 提示词。
 - `docs/auto-setup.md`（及 zh-CN）：一段通用提示词、App 一键入口，以及选择、登录授权、ARC 内填写凭据、远端会话测试四类用户参与步骤。
 - `docs/reference/cli.md`：维护 setup / skill 命令及 `setup.dispatch` 契约（英文）。
 - getting-started 保留手动路径，但把 Agent 路径放在前面。
@@ -184,5 +185,17 @@ ARC CLI：<绝对路径>。执行命令时将 ARC_STATE_DIR 设为 <当前状态
 ## 分期
 
 - **P0（本次）**：`cli setup next/apply/wait/playbook/reset` 与 catalog operation；arc-setup skill 与 `cli skill install`；App 默认"发送给 Codex"入口与进度视图；文档调整。
-- **P1**：独立 secret 输入面板；macOS bootstrap 安装脚本（下载、校验、拷入 Applications、去 quarantine，然后交给 `cli setup`）。
+- **P1**：macOS bootstrap 已实现；独立 secret 输入面板待实现。
 - **P2**：临时地址变化后的自愈（Agent 自动更新连接器 URL 并重新授权）；固定地址路径自动化；Windows / Linux bootstrap。
+
+## P1：新机器 bootstrap
+
+唯一的 Agent 入口指向仓库的 `skills/arc-setup/SKILL.md`。skill 先检测本机 App / CLI，缺失时下载并运行稳定 release 地址的 `install-agent-remote-control.sh`；随后给当前 Codex 或 Claude Code 安装 skill，并进入 `cli setup`。不另维护一套安装 prompt，不挂载 DMG。
+
+同一脚本覆盖 macOS 与 Linux：
+
+- macOS 通过 `releases/latest` 重定向确定版本，或使用 `ARC_VERSION` 指定 tag；不依赖 jq。下载 `agent-remote-control_<版本>_<架构>.app.tar.gz`，用系统 `shasum` 对照 `SHA256SUMS.txt` 校验。缺少 Intel Mac 资产时明确报错。
+- 默认安装到 `/Applications/Agent Remote Control.app`；`ARC_INSTALL_DIR` 指定父目录。相同版本跳过下载和替换，其他版本先退出目标 App 再替换，移除 quarantine 并打开 App。`ARC_STATE_DIR` 指向本次实例，CLI 与 App 使用同一目录。
+- 新的 Agent 安装会预建只有空选择的 `setup.json`，不替用户决定目标；App 因此进入进度视图，等待 Agent 继续。已有配置不覆盖。
+- 等到 App 可通过 Core 查询后，最后一行输出 `{"version":"<版本>","cliPath":"<绝对路径>","stateDir":"<绝对路径>"}`。后续命令沿用这些路径。
+- Linux 保持现有 headless tarball、checksum 与用户目录安装流程。完整 bootstrap 依赖 release 同时包含更新后的安装脚本、setup CLI、skill 资源和首次启动界面。

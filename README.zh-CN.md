@@ -4,9 +4,11 @@
 
 [English](README.md) | **简体中文**
 
-[安装 ARC](docs/zh-CN/installation.md) 后，在 App 里点击**添加控制源 → 发送给 Codex**即可。也可以把这句话交给任意本机 Agent：
+全新 Mac 上，把这句话交给本机 Agent，即可从安装开始配置 ARC：
 
-> 帮我配置这台电脑上已安装的 Agent Remote Control：找到它的 CLI，运行 `cli skill install --target codex`（Claude Code 改用 `--target claude-code`；其他 Agent 可跳过安装），读取 `cli setup playbook protocol` 并按 `cli setup` 推进；让我做选择和授权，密钥只填在 ARC 里，最后用 `cli setup wait` 确认完成。
+> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
+
+已经安装？在 App 中点击**添加控制源 → 发送给 Codex**。[其他安装方式](docs/zh-CN/installation.md)。
 
 ![ARC 首页：Claude、ChatGPT 与本机 Agents](docs/images/home-overview.png)
 
