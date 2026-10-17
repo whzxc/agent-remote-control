@@ -17,7 +17,15 @@ npm run dev
 npm run dev:ui
 ```
 
-仅启动浏览器预览时，Vite 连接该开发状态目录的已有 Core；没有 owner 时显示后端不可用，不创建另一套业务连接。需要隔离预览时，为桌面与预览同时设置 ARC_STATE_DIR，使用 agent-remote-control-preview 目录。不要把开发实例指向正式状态目录。
+单独运行 Dev Web 时，Vite 默认连接安装版状态目录中的已有 Core，与安装版共享数据，页面操作直接作用于安装版后台。请先启动安装版应用；没有 owner 时显示后端不可用，不自动启动另一套 Core。
+
+Dev Web 只有在显式设置 ARC_STATE_DIR 时才连接独立数据目录。例如，在 macOS 上连接由 npm run dev 启动的开发后台：
+
+```sh
+ARC_STATE_DIR="$HOME/.local/state/agent-remote-control-dev" npm run dev:ui
+```
+
+自定义隔离预览时，为 Core 与 Dev Web 显式设置相同的 ARC_STATE_DIR。npm run dev 仍默认使用独立开发目录，并将该目录传给它启动的 Vite。不要把开发桌面或另一个 Core 指向正在使用的正式状态目录。
 
 ## 已有检查
 

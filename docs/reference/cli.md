@@ -77,7 +77,8 @@ Read subscriptions get first. subscriptions set replaces enabled, refreshMinutes
 | Linux state | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-remote-control` |
 | Linux environment file | `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment` |
 | Explicit instance | ARC_STATE_DIR; Desktop also accepts `--state-dir <path>` |
-| Development | `agent-remote-control-dev` under the platform state base |
+| Desktop development (`npm run dev`) | `agent-remote-control-dev` under the platform state base; passed to its Vite child |
+| Standalone Dev Web (`npm run dev:ui`) | Installed app state directory; connects to its existing Core and shares its data |
 | Isolated preview | Set ARC_STATE_DIR to `agent-remote-control-preview` under that base |
 | Build version | ARC_BUILD_VERSION; otherwise nearest reachable v-tag, then 0.0.0 |
 | Linux installer | ARC_VERSION (v-prefixed tag), ARC_INSTALL_DIR |

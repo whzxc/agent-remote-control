@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import path from 'node:path';
-import { devStateDir } from './tooling/dev-state.mjs';
+import { webStateDir } from './tooling/dev-state.mjs';
 
-const stateRoot = devStateDir;
+const stateRoot = webStateDir;
 const packageVersion = buildVersion();
 type Endpoint = { port: number; token: string };
 export default defineConfig({
@@ -27,8 +27,8 @@ export default defineConfig({
             const response = await fetch(`http://127.0.0.1:${info.port}/healthz`, { headers: { Authorization: `Bearer ${info.token}` }, signal: AbortSignal.timeout(500) });
             if (response.ok && (await response.json()).instance === info.instance) return info;
           }
-        } catch { /* The development owner may still be compiling or restarting. */ }
-        throw new Error('开发后台尚未就绪，请运行 npm run dev；首次编译或 Rust 重启期间请稍候。');
+        } catch { /* The selected owner may still be starting or restarting. */ }
+        throw new Error('后台尚未就绪，请启动安装版应用；指定 ARC_STATE_DIR 时请启动对应实例。');
       }
       server.middlewares.use((request, response, next) => {
         if (!request.url?.startsWith('/api/')) return next();
