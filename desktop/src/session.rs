@@ -1,5 +1,5 @@
 //! Connection state across ordinary desktop quits, separate from update handoff.
-use connector_core::{load, root, runtime::Client as Service, save};
+use arc_core::{load, root, runtime::Client as Service, save};
 use serde_json::json;
 
 pub fn restore() -> Option<Vec<String>> {

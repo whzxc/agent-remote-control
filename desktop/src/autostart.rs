@@ -1,7 +1,7 @@
 //! OS login registration belongs to the Desktop executable.
 #[cfg(target_os = "macos")]
-use connector_core::{output, private_dir};
-use connector_core::{root, Result};
+use arc_core::{output, private_dir};
+use arc_core::{root, Result};
 pub async fn enabled() -> bool {
     let Ok(exe) = std::env::current_exe() else {
         return false;

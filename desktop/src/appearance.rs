@@ -1,5 +1,5 @@
 //! macOS application entry-point visibility, owned by the desktop process.
-use connector_core::{load, root, save};
+use arc_core::{load, root, save};
 use serde_json::{json, Value};
 use tauri::Manager;
 use tokio::sync::Mutex;

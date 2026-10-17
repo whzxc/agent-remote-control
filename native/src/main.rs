@@ -1,4 +1,4 @@
-use connector_core::{runtime, Result};
+use arc_core::{runtime, Result};
 
 #[tokio::main]
 async fn main() {
@@ -16,36 +16,36 @@ async fn run() -> Result<()> {
         .collect::<Vec<_>>()
         .as_slice()
     {
-        ["stdio"] => connector_core::transport::stdio().await,
+        ["stdio"] => arc_core::transport::stdio().await,
         ["serve"] => runtime::serve().await,
         ["daemon"] => runtime::serve_mode(true).await,
         ["start"] => {
-            connector_core::output::line(connector_core::headless::start().await?)?;
+            arc_core::output::line(arc_core::headless::start().await?)?;
             Ok(())
         }
         ["stop"] => {
-            connector_core::output::line(connector_core::headless::stop().await?)?;
+            arc_core::output::line(arc_core::headless::stop().await?)?;
             Ok(())
         }
         ["status"] => {
-            connector_core::output::line(connector_core::headless::status().await?)?;
+            arc_core::output::line(arc_core::headless::status().await?)?;
             Ok(())
         }
         ["systemd", "install"] => {
-            connector_core::output::line(connector_core::headless::systemd()?)?;
+            arc_core::output::line(arc_core::headless::systemd()?)?;
             Ok(())
         }
         ["help" | "--help" | "-h"] => {
-            connector_core::output::line("arc start | stop | status | daemon | systemd install | stdio | cli <command>\nConfigure MCP with cli ingress add --stdin; see cli help. daemon runs in the foreground; start detaches.")?;
+            arc_core::output::line("arc start | stop | status | daemon | systemd install | stdio | cli <command>\nConfigure MCP with cli ingress add --stdin; see cli help. daemon runs in the foreground; start detaches.")?;
             Ok(())
         }
         ["cli", rest @ ..] => {
             std::process::exit(
-                connector_core::cli::run(rest.iter().map(|s| s.to_string()).collect()).await,
+                arc_core::cli::run(rest.iter().map(|s| s.to_string()).collect()).await,
             );
         }
         ["--version"] => {
-            connector_core::output::line(env!("ARC_BUILD_VERSION"))?;
+            arc_core::output::line(env!("ARC_BUILD_VERSION"))?;
             Ok(())
         }
         _ => Err("Usage: arc [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]".into()),

@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use connector_core::runtime::Client as Service;
+use arc_core::runtime::Client as Service;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -30,10 +30,10 @@ async fn request(
     if route == "permissions/request" && method == "POST" {
         return permissions::request(body["id"].as_str().unwrap_or("")).await;
     }
-    if connector_core::management::desktop_route(route) {
+    if arc_core::management::desktop_route(route) {
         return desktop_access::request(
             app,
-            connector_core::transport::DesktopRequest::Route(route.into(), method.into(), body),
+            arc_core::transport::DesktopRequest::Route(route.into(), method.into(), body),
         )
         .await;
     }
@@ -60,7 +60,7 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 async fn connect_service(app: &tauri::AppHandle) -> Result<Arc<Service>, String> {
-    let binary = connector_core::runtime::binary()?;
+    let binary = arc_core::runtime::binary()?;
     let service = if updates::pending_resume() {
         // Older updaters may leave a Core behind. Let its lease expire without
         // consuming the recovery marker or crashing the new Desktop.
@@ -81,7 +81,7 @@ async fn connect_service(app: &tauri::AppHandle) -> Result<Arc<Service>, String>
     };
     let attached = async {
         let (endpoint, listener) =
-            connector_core::transport::listen_desktop(Arc::new(desktop_access::Owner(app.clone())))
+            arc_core::transport::listen_desktop(Arc::new(desktop_access::Owner(app.clone())))
                 .await?;
         if let Err(error) = service.attach_desktop(endpoint).await {
             listener.abort();
@@ -106,12 +106,12 @@ fn main() {
     if std::env::args().nth(1).as_deref() == Some("cli") {
         let runtime = tokio::runtime::Runtime::new().expect("CLI runtime");
         std::process::exit(
-            runtime.block_on(connector_core::cli::run(std::env::args().skip(2).collect())),
+            runtime.block_on(arc_core::cli::run(std::env::args().skip(2).collect())),
         );
     }
     if std::env::args().nth(1).as_deref() == Some("stdio") {
         let runtime = tokio::runtime::Runtime::new().expect("MCP runtime");
-        if let Err(error) = runtime.block_on(connector_core::transport::stdio()) {
+        if let Err(error) = runtime.block_on(arc_core::transport::stdio()) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -175,11 +175,7 @@ fn main() {
             let service = match tauri::async_runtime::block_on(connect_service(app.handle())) {
                 Ok(service) => service,
                 Err(error) => {
-                    connector_core::logs::record(
-                        "ERROR",
-                        &format!("Desktop 启动失败：{error}"),
-                        None,
-                    );
+                    arc_core::logs::record("ERROR", &format!("Desktop 启动失败：{error}"), None);
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
                     }

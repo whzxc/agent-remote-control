@@ -1,5 +1,5 @@
 //! Fixed local desktop operations, shared by the frontend and authenticated CLI.
-use connector_core::transport::{DesktopAccess, DesktopRequest};
+use arc_core::transport::{DesktopAccess, DesktopRequest};
 use serde_json::{json, Value};
 use tauri::Manager;
 
@@ -37,7 +37,7 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
             ("POST", "permissions/notify") => return crate::permissions::notify(app, body).await,
             ("GET", "app") => {
                 return Ok(
-                    json!({"pid":std::process::id(),"version":env!("ARC_BUILD_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":connector_core::runtime::build_id(&std::env::current_exe().map_err(|e|e.to_string())?)?}),
+                    json!({"pid":std::process::id(),"version":env!("ARC_BUILD_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":arc_core::runtime::build_id(&std::env::current_exe().map_err(|e|e.to_string())?)?}),
                 )
             }
             ("GET", "updates") => return Ok(crate::updates::snapshot(app)),
@@ -63,7 +63,7 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
             ("POST", "app/quit" | "app/restart") => {
                 let restart = route == "app/restart";
                 let service = app
-                    .state::<std::sync::Arc<connector_core::runtime::Client>>()
+                    .state::<std::sync::Arc<arc_core::runtime::Client>>()
                     .inner()
                     .clone();
                 crate::session::remember(&service).await?;
@@ -115,7 +115,7 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
                 .filter(|id| !id.is_empty())
                 .ok_or("unknown subscription provider")?;
             let service = app
-                .state::<std::sync::Arc<connector_core::runtime::Client>>()
+                .state::<std::sync::Arc<arc_core::runtime::Client>>()
                 .inner()
                 .clone();
             let snapshot = service.subscriptions().await?;

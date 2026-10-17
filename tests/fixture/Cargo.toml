@@ -5,6 +5,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-connector-core = { path = "../../native", features = ["test-fixture"] }
+arc-core = { path = "../../native", features = ["test-fixture"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

@@ -18,7 +18,7 @@ impl Default for UpdateState {
         Self {
             install: Mutex::new(()),
             status: std::sync::Mutex::new(
-                connector_core::load(&connector_core::root().join("update-status.json"))
+                arc_core::load(&arc_core::root().join("update-status.json"))
                     .unwrap_or(json!({"phase":"idle"})),
             ),
             downloaded: Mutex::new(None),
@@ -30,15 +30,14 @@ impl Default for UpdateState {
     }
 }
 fn resume_path() -> std::path::PathBuf {
-    connector_core::root().join("update-resume.json")
+    arc_core::root().join("update-resume.json")
 }
 pub fn pending_resume() -> bool {
-    connector_core::load(&resume_path())
-        .is_ok_and(|value| value["version"] == env!("ARC_BUILD_VERSION"))
+    arc_core::load(&resume_path()).is_ok_and(|value| value["version"] == env!("ARC_BUILD_VERSION"))
 }
 pub fn take_resume() -> Option<Vec<String>> {
     let path = resume_path();
-    let Ok(value) = connector_core::load(&path) else {
+    let Ok(value) = arc_core::load(&path) else {
         return None;
     };
     // A marker from a failed/interrupted install must not alter ordinary startup.
@@ -58,7 +57,7 @@ async fn updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater
         return Err("当前应用不支持自动更新，请从下载页获取安装包。".into());
     }
     let service = app
-        .try_state::<std::sync::Arc<connector_core::runtime::Client>>()
+        .try_state::<std::sync::Arc<arc_core::runtime::Client>>()
         .ok_or("Core 尚未就绪")?;
     let proxy = service.network_proxy().await?;
     app.updater_builder()
@@ -71,7 +70,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Value, String> {
     let state = app.state::<UpdateState>();
     let _guard = state.install.try_lock().map_err(|_| "已有更新正在进行")?;
     progress(&app, json!({"phase":"checking","error":null}));
-    if let Some(service) = app.try_state::<std::sync::Arc<connector_core::runtime::Client>>() {
+    if let Some(service) = app.try_state::<std::sync::Arc<arc_core::runtime::Client>>() {
         let _ = service
             .request(
                 "preferences",
@@ -107,7 +106,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Value, String> {
     };
     progress(
         &app,
-        json!({"phase":"idle","update":result,"checkedAt":connector_core::now()}),
+        json!({"phase":"idle","update":result,"checkedAt":arc_core::now()}),
     );
     Ok(result)
 }
@@ -183,7 +182,7 @@ pub async fn install_update(app: tauri::AppHandle, version: String) -> Result<Va
     let _reset = Reset(&state);
     progress(&app, json!({"phase":"installing"}));
     let service = app
-        .state::<std::sync::Arc<connector_core::runtime::Client>>()
+        .state::<std::sync::Arc<arc_core::runtime::Client>>()
         .inner()
         .clone();
     // Download and signature verification finish before any connection is stopped.
@@ -195,7 +194,7 @@ pub async fn install_update(app: tauri::AppHandle, version: String) -> Result<Va
         .filter(|i| i["running"] == true)
         .filter_map(|i| i["id"].as_str().map(str::to_owned))
         .collect();
-    connector_core::save(
+    arc_core::save(
         &resume_path(),
         &json!({"version":version,"ingresses":running}),
     )?;
@@ -238,8 +237,8 @@ fn progress(app: &tauri::AppHandle, patch: Value) {
     for (k, v) in patch.as_object().unwrap() {
         status[k] = v.clone();
     }
-    status["observedAt"] = json!(connector_core::now());
-    let _ = connector_core::save(&connector_core::root().join("update-status.json"), &status);
+    status["observedAt"] = json!(arc_core::now());
+    let _ = arc_core::save(&arc_core::root().join("update-status.json"), &status);
     let _ = app.emit("update-progress", patch);
 }
 
@@ -266,7 +265,7 @@ pub fn start(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         loop {
-            let prefs = connector_core::preferences::read();
+            let prefs = arc_core::preferences::read();
             let previous = prefs["update-last-check"]
                 .as_str()
                 .unwrap_or("0")

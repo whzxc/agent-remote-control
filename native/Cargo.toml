@@ -1,5 +1,5 @@
 [package]
-name = "connector-core"
+name = "arc-core"
 version = "0.0.0"
 edition = "2021"
 license = "MIT"
@@ -21,8 +21,6 @@ chrono = "0.4"
 sha2 = "0.10"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
-minisign-verify = "0.2"
-semver = "1"
 dirs = "6"
 reqwest = { version = "0.13", default-features = false, features = ["json", "form", "query", "rustls-no-provider"] }
 jsonschema = { version = "0.33", default-features = false }

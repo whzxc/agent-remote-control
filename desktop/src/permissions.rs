@@ -73,9 +73,9 @@ pub async fn request(id: &str) -> Result<Value, String> {
             notification(true).await?;
         }
         if matches!(id, "accessibility" | "screen-recording") {
-            connector_core::screen::call(json!({"action":"request","permissionId":id})).await?;
+            arc_core::screen::call(json!({"action":"request","permissionId":id})).await?;
         }
-        connector_core::command("/usr/bin/open")
+        arc_core::command("/usr/bin/open")
             .arg(format!("x-apple.systempreferences:{panel}"))
             .status()
             .await

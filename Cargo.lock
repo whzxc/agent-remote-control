@@ -12,8 +12,8 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 name = "agent-remote-control"
 version = "0.0.0"
 dependencies = [
+ "arc-core",
  "block2",
- "connector-core",
  "dirs 6.0.0",
  "objc2",
  "objc2-app-kit",
@@ -114,6 +114,32 @@ dependencies = [
  "windows-sys 0.60.2",
  "wl-clipboard-rs",
  "x11rb",
+]
+
+[[package]]
+name = "arc-core"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "dirs 6.0.0",
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "image",
+ "jsonschema",
+ "libc",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -607,34 +633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "connector-core"
-version = "0.0.0"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "dirs 6.0.0",
- "flate2",
- "http-body-util",
- "hyper",
- "hyper-util",
- "image",
- "jsonschema",
- "libc",
- "minisign-verify",
- "regex",
- "reqwest",
- "rusqlite",
- "rustls",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "uuid",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -658,7 +656,7 @@ dependencies = [
 name = "contract-fixture"
 version = "0.1.0"
 dependencies = [
- "connector-core",
+ "arc-core",
  "serde_json",
  "tokio",
 ]
