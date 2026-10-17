@@ -84,7 +84,7 @@ pub(crate) fn command_line(args: &[&str], input: Option<&Value>) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     let command = if cfg!(windows) {
-        format!("& {{ $env:ARC_STATE_DIR = {state}; & {executable} cli {args} }}")
+        format!("& {{ $env:ARC_STATE_DIR = {state}; $input | & {executable} cli {args} }}")
     } else {
         format!("ARC_STATE_DIR={state} {executable} cli {args}")
     };
