@@ -65,7 +65,7 @@ For OAuth, read the pending request before deciding. [OAuth](oauth.md#local-mana
 
 ## Subscription settings
 
-Read subscriptions get first. subscriptions set replaces enabled, refreshMinutes (1/3/5/10), the complete providers array, and the complete pinnedWindows map. Preserve selections you intend to keep. refresh starts an online refresh; inspect observedAt/state/error for its result. open activates Agent details.
+Read subscriptions get first. subscriptions set replaces enabled and refreshMinutes (1/3/5/10; defaults to 3). Providers participate automatically with their Agent; home rings use weekly quota windows. refresh starts an online refresh; inspect observedAt/state/error for its result. open activates Agent details.
 
 
 ## State and environment

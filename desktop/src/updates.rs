@@ -273,12 +273,9 @@ pub fn start(app: tauri::AppHandle) {
                 .parse::<u128>()
                 .unwrap_or(0);
             let current = chrono_now_millis().parse::<u128>().unwrap_or(0);
-            if prefs["update-auto-check"] != "off" && current.saturating_sub(previous) >= 3600000 {
+            if current.saturating_sub(previous) >= 3600000 {
                 if let Ok(update) = check_update(app.clone()).await {
-                    if update["available"] == true
-                        && prefs["update-auto-download"] != "off"
-                        && update["ready"] != true
-                    {
+                    if update["available"] == true && update["ready"] != true {
                         if let Some(version) = update["version"].as_str() {
                             let _ = download_update(app.clone(), version.into()).await;
                         }

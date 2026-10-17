@@ -75,4 +75,4 @@ Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该�
 
 打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。
 
-Core 的 SubscriptionService 统一调度各 provider 额度，保存启用、刷新间隔、来源选择与固定窗口。原生凭据读取和上游响应归各 provider；成功读数缓存到 subscriptions/readings，恢复后标记 stale，失败退避，过期窗口隐藏。桌面 subscriptions:changed 与浏览器 /api/subscriptions/events 共用快照。旧缓存里的 history 字段读取时移除，不再采集本地用量、汇总 Token 或读取价格。
+Core 的 SubscriptionService 统一调度各 provider 额度，保存启用与刷新间隔，额度来源随 Agent 自动参与，不保存来源选择或固定窗口；首页圆环固定使用上游周额度，详情保留其他额度窗口。原生凭据读取和上游响应归各 provider；成功读数缓存到 subscriptions/readings，恢复后标记 stale，失败退避，过期窗口隐藏。桌面 subscriptions:changed 与浏览器 /api/subscriptions/events 共用快照。旧缓存里的 history 字段读取时移除，不再采集本地用量、汇总 Token 或读取价格。

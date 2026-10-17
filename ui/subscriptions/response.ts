@@ -1,4 +1,5 @@
 import type { ProviderSnapshot } from './types';
+import { isWeekly } from './labels';
 
 const object = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -66,6 +67,7 @@ export function presentSubscription(provider: ProviderSnapshot): ProviderSnapsho
       .map(r => ({label:names[r.product as string] ?? r.product as string, percent:r.usagePercent as number}))};
   }
   if (plan?.trim().toLowerCase() === 'free') plan = 'Free';
-  const displayWindowId = windows.some(w => w.id === provider.displayWindowId) ? provider.displayWindowId : windows[0]?.id;
+  const weekly = windows.filter(w => isWeekly(w.label));
+  const displayWindowId = weekly.find(w => w.id === provider.displayWindowId)?.id ?? weekly[0]?.id;
   return {...provider, windows, displayWindowId, plan, availableResetCount, creditBalance, resetCredits, productUsage};
 }

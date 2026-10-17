@@ -58,12 +58,9 @@ export function AgentQuotaIcon({ agent }: { agent: string }) {
   quotaDisplay.use();
   const provider = snapshot?.settings.enabled
     ? snapshot.providers.find(
-        (p) => p.agentId === agent && p.eligible && p.selected,
+        (p) => p.agentId === agent && p.eligible,
       )
     : undefined;
-  const pool = provider?.windows.find(
-    (w) => w.id === provider.displayWindowId,
-  )?.poolId;
   const windows =
     provider && ["ready", "stale"].includes(provider.state)
       ? provider.windows.filter(
@@ -72,11 +69,7 @@ export function AgentQuotaIcon({ agent }: { agent: string }) {
             (!w.resetsAt || Date.parse(w.resetsAt) > now),
         )
       : [];
-  const weekly = windows.filter((w) =>
-    ["weekly", "weekly_all", "seven_day", "10080 min", "604800 s"].includes(w.label),
-  );
-  const current = weekly.find((w) => w.poolId === pool) || weekly[0]
-    || windows.find((w) => w.id === provider?.displayWindowId) || windows[0],
+  const current = windows.find((w) => w.id === provider?.displayWindowId),
     running = active.includes(agent),
     label = current
       ? `${windowLabel(current.label)} · ${quotaLabel()} ${quotaPercent(current)}`

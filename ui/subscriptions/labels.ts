@@ -2,6 +2,7 @@ import { quotaDisplay } from './displayPreferences';
 import { t } from '../i18n';
 import type { ProviderSnapshot } from './types';
 import { duration as readableDuration } from './presentation';
+export const isWeekly = (value: string) => ['weekly', 'weekly_all', 'weekly_scoped', '10080 min', '604800 s'].includes(value) || value === 'seven_day' || value.startsWith('seven_day_');
 export const isFiveHour = (value:string) => ['rolling','five_hour','session','300 min','18000 s'].includes(value);
 export function windowLabel(value: string) {
   const suffix = quotaDisplay.get() === 'used' ? 'Limit' : '';

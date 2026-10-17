@@ -10,15 +10,10 @@ export const theme = preference<Theme>(
 );
 export const themeColors = {
   arc: { label: "themeArc", light: "#5B5FF5", dark: "#7A7DFF" },
-  forest: { label: "themeForest", light: "#6f9d89", dark: "#afd1bf" },
-  blue: { label: "themeBlue", light: "#007aff", dark: "#0a84ff" },
-  purple: { label: "themePurple", light: "#943d96", dark: "#bf5af2" },
-  pink: { label: "themePink", light: "#f8509e", dark: "#ff375f" },
-  red: { label: "themeRed", light: "#e1393e", dark: "#ff453a" },
-  orange: { label: "themeOrange", light: "#f78218", dark: "#ff9f0a" },
-  yellow: { label: "themeYellow", light: "#ffc626", dark: "#ffd60a" },
-  green: { label: "themeGreen", light: "#63ba47", dark: "#32d74b" },
-  gray: { label: "themeGray", light: "#999998", dark: "#98989d" },
+  blue: { label: "themeBlue", sourceLight: "#00a6c7", sourceDark: "#64d2ff", light: "#007aff", dark: "#0a84ff" },
+  purple: { label: "themePurple", sourceLight: "#f8509e", sourceDark: "#ff75b5", light: "#943d96", dark: "#bf5af2" },
+  orange: { label: "themeOrange", sourceLight: "#e1393e", sourceDark: "#ff453a", light: "#f78218", dark: "#ff9f0a" },
+  green: { label: "themeGreen", sourceLight: "#e0b219", sourceDark: "#ffd60a", light: "#339a55", dark: "#32d74b" },
 } as const;
 export const themeColor = preference<keyof typeof themeColors>(
   "theme-color",
@@ -46,6 +41,9 @@ function applyTheme() {
     resolved ? color.dark : color.light,
   );
   document.documentElement.style.setProperty("--accent-dark", color.dark);
+  if ("sourceLight" in color)
+    document.documentElement.style.setProperty("--theme-source", resolved ? color.sourceDark : color.sourceLight);
+  else document.documentElement.style.removeProperty("--theme-source");
   if (isDesktop && navigator.platform.toLowerCase().includes("win"))
     void import("@tauri-apps/api/core")
       .then(({ invoke }) =>

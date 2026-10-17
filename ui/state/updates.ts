@@ -10,18 +10,6 @@ export type Update = {
   restarting?: boolean;
   ready?: boolean;
 };
-export const autoCheck = preference(
-  "update-auto-check",
-  true,
-  (value) => value !== "off",
-  (value) => (value ? "on" : "off"),
-);
-export const autoDownload = preference(
-  "update-auto-download",
-  true,
-  (value) => value !== "off",
-  (value) => (value ? "on" : "off"),
-);
 export const skipped = preference(
   "update-skipped-version",
   "",
@@ -52,7 +40,7 @@ export const available = () =>
   !!updates.get().update?.available &&
   updates.get().update?.version !== skipped.get();
 export const updateVisible = () =>
-  available() && (!autoDownload.get() || !!updates.get().update?.ready);
+  available() && !!updates.get().update?.ready;
 let dismissedVersion = "",
   directRequested = false;
 export function showUpdate() {
@@ -76,7 +64,7 @@ export async function checkUpdate(manual = true) {
     const update = await api<Update>("updates/check","POST");
     patch({ update, error: "", message: "" });
     preferenceStorage.setItem("update-last-check", String(Date.now()));
-    if (available() && autoDownload.get() && !update.ready)
+    if (available() && !update.ready)
       await transfer(false);
     if (updateVisible() && (manual || update.version !== dismissedVersion))
       showUpdate();
@@ -153,13 +141,6 @@ export function skipUpdate() {
   if (updates.get().phase !== "idle") return;
   skipped.set(updates.get().update?.version || "");
   dismissUpdate();
-}
-export function setAutoDownload(value: boolean) {
-  autoDownload.set(value);
-  if (value && updates.get().phase === "idle") {
-    patch({ dialogOpen: false });
-    void checkUpdate(false);
-  }
 }
 export async function openDownloads() {
   try {

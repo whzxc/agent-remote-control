@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { windowLabel } from "../subscriptions/labels";
 import { t } from "../i18n";
 import { subscriptions, saveSubscriptions } from "../state/subscriptions";
 import {
@@ -8,7 +7,6 @@ import {
   maxVisibleAgents,
 } from "../subscriptions/displayPreferences";
 import {
-  Checkbox,
   Dialog,
   Group,
   Row,
@@ -102,30 +100,6 @@ export default function AgentDisplaySettings({
             }))}
           />
         </Row>
-      </Group>
-      <Group title={t("usageProviders")}>
-        {snapshot?.providers.map((provider) => (
-          <Row key={provider.providerId} title={provider.name}>
-            <div className="quota-provider-controls">
-            <Checkbox checked={provider.selected} disabled={saving}
-              onChange={(selected) => void save(() => saveSubscriptions({
-                providers: selected ? [...snapshot.settings.providers, provider.providerId]
-                  : snapshot.settings.providers.filter(id => id !== provider.providerId),
-              }))}>{t("usageProviderSelected")}</Checkbox>
-            <SingleChoice label={t("usagePinnedWindow")} disabled={saving || !provider.selected}
-              value={snapshot.settings.pinnedWindows[provider.providerId] ?? "auto"}
-              options={[{ value: "auto", label: t("usageAutomaticWindow") }, ...provider.windows.map(w => ({
-                value: w.id, label: `${w.scope ? w.scope + " · " : ""}${windowLabel(w.label)}`,
-              })), ...(provider.pinUnavailable ? [{ value: snapshot.settings.pinnedWindows[provider.providerId]!, label: t("usagePinUnavailable") }] : [])]}
-              onChange={(value) => void save(() => {
-                const pinnedWindows = { ...snapshot.settings.pinnedWindows };
-                if (value !== "auto") pinnedWindows[provider.providerId] = value;
-                else delete pinnedWindows[provider.providerId];
-                return saveSubscriptions({ pinnedWindows });
-              })} />
-            </div>
-          </Row>
-        ))}
       </Group>
     </Dialog>
   );

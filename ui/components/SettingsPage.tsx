@@ -92,11 +92,12 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
   }} />;
   return (
     <div className="settings-page">
-      <Group title={t("permissionsTitle")}>
-        <Row title={t("permissionsTitle")} description={t("permissionsSummary")}>
+      <section className="settings-group">
+        <div className="settings-group-heading">
+          <h2>{t("permissionsTitle")}</h2>
           <Button ref={permissionsTrigger} onClick={() => setPermissionsOpen(true)}>{t("permissionsOpen")}</Button>
-        </Row>
-      </Group>
+        </div>
+      </section>
       <Group title={t("behavior")}>
         <Row
           title={t("automaticallyOpenCodexTasks")}
@@ -176,7 +177,7 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
             options={Object.entries(themeColors).map(([value, color]) => ({
               value,
               label: t(color.label),
-              color: value === "arc" ? "linear-gradient(90deg, var(--brand-orange) 0% 50%, var(--brand-agent-start) 50%, var(--brand-agent-end) 100%)" : color.light,
+              color: value === "arc" ? "linear-gradient(90deg, var(--brand-orange) 0% 50%, var(--brand-agent-start) 50%, var(--brand-agent-end) 100%)" : `linear-gradient(90deg, ${"sourceLight" in color ? color.sourceLight : color.light} 0% 50%, ${color.light} 50% 100%)`,
             }))}
           />
         </Row>

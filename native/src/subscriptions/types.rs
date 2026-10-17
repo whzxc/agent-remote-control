@@ -1,13 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 #[derive(Clone, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub enabled: bool,
     #[serde(default = "default_refresh_minutes")]
     pub refresh_minutes: u64,
-    pub providers: Vec<String>,
-    pub pinned_windows: BTreeMap<String, String>,
 }
 fn default_refresh_minutes() -> u64 {
     3
@@ -17,11 +14,6 @@ impl Default for Settings {
         Self {
             enabled: true,
             refresh_minutes: default_refresh_minutes(),
-            providers: super::providers::REGISTRY
-                .iter()
-                .map(|r| r.id.to_owned())
-                .collect(),
-            pinned_windows: BTreeMap::new(),
         }
     }
 }
@@ -64,7 +56,6 @@ pub struct ProviderSnapshot {
     pub agent_id: String,
     pub name: String,
     pub eligible: bool,
-    pub selected: bool,
     pub state: String,
     pub refreshing: bool,
     pub raw_usage: serde_json::Value,
@@ -79,7 +70,6 @@ pub struct ProviderSnapshot {
     pub has_credential: bool,
     pub accepts_key: bool,
     pub credential_source: Option<String>,
-    pub pin_unavailable: bool,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

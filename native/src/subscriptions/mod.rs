@@ -35,17 +35,11 @@ pub struct SubscriptionService {
 impl SubscriptionService {
     pub fn new(control: Arc<Control>, agents: Arc<AgentHost>) -> Result<Arc<Self>> {
         let path = root().join("subscriptions/settings.json");
-        let mut settings: Settings = if path.exists() {
+        let settings: Settings = if path.exists() {
             serde_json::from_value(load(&path)?).map_err(|_| "invalid subscription settings")?
         } else {
             Settings::default()
         };
-        // Repair the former first-run defaults, which had no UI path to enable monitoring.
-        if !settings.enabled && settings.providers.is_empty() {
-            settings.enabled = true;
-            settings.providers = Settings::default().providers;
-            save(&path, &serde_json::to_value(&settings).unwrap())?;
-        }
         validate(&settings)?;
         let mut slots: BTreeMap<String, Slot> = REGISTRY
             .iter()
@@ -58,7 +52,6 @@ impl SubscriptionService {
                             agent_id: r.agent.into(),
                             name: r.name.into(),
                             eligible: false,
-                            selected: settings.providers.iter().any(|id| id == r.id),
                             state: "idle".into(),
                             refreshing: false,
                             raw_usage: Value::Null,
@@ -80,7 +73,6 @@ impl SubscriptionService {
                             } else {
                                 None
                             },
-                            pin_unavailable: false,
                         },
                         generation: 0,
                         due: Instant::now(),
@@ -93,7 +85,7 @@ impl SubscriptionService {
             .collect();
         // Serve the last successful reading before potentially slow Agent discovery.
         // Inventory reconciles eligibility in the background; cached values remain stale.
-        for slot in slots.values_mut().filter(|slot| slot.view.selected) {
+        for slot in slots.values_mut() {
             cache::restore(slot);
             slot.view.eligible = slot.view.observed_at.is_some();
         }
@@ -147,8 +139,7 @@ impl SubscriptionService {
                     let mut ids = vec![];
                     for (id, slot) in &mut state.slots {
                         expire(slot);
-                        if enabled && slot.view.selected && slot.view.eligible && slot.job.is_none()
-                        {
+                        if enabled && slot.view.eligible && slot.job.is_none() {
                             let reset = slot
                                 .view
                                 .windows
@@ -183,41 +174,6 @@ impl SubscriptionService {
             }
         });
     }
-    pub async fn agent_enabled(&self, agent: &str, enabled: bool) -> Result<()> {
-        let mut state = self.state.lock().await;
-        let ids: Vec<String> = state
-            .slots
-            .iter()
-            .filter(|(_, slot)| slot.view.agent_id == agent)
-            .map(|(id, _)| id.clone())
-            .collect();
-        let mut settings = state.settings.clone();
-        settings.providers.retain(|id| !ids.contains(id));
-        for id in &ids {
-            settings.pinned_windows.remove(id);
-        }
-        if enabled {
-            settings.providers.extend(ids.iter().cloned());
-        }
-        save(
-            &root().join("subscriptions/settings.json"),
-            &serde_json::to_value(&settings).unwrap(),
-        )?;
-        state.settings = settings;
-        for id in &ids {
-            if let Some(slot) = state.slots.get_mut(id) {
-                slot.view.selected = enabled;
-                invalidate(slot);
-                if !enabled {
-                    cache::remove(id);
-                }
-            }
-        }
-        self.publish(&mut state);
-        drop(state);
-        self.wake.notify_one();
-        Ok(())
-    }
     pub async fn inventory(&self, inventory: &Value) {
         let mut state = self.state.lock().await;
         for slot in state.slots.values_mut() {
@@ -246,19 +202,18 @@ impl SubscriptionService {
             .iter()
             .map(|r| state.slots[r.id].view.clone())
             .collect();
-        rows.sort_by_key(|p| {
-            state
-                .settings
-                .providers
-                .iter()
-                .position(|id| *id == p.provider_id)
-                .unwrap_or(usize::MAX)
-        });
         for p in &mut rows {
-            let pin = state.settings.pinned_windows.get(&p.provider_id);
-            let valid: Vec<_> = p.windows.iter().filter(|w| active(w)).collect();
-            let pinned = pin.and_then(|pin| valid.iter().find(|w| w.id == *pin).copied());
-            p.pin_unavailable = pin.is_some() && pinned.is_none();
+            p.windows.retain(active);
+            let valid: Vec<_> = p
+                .windows
+                .iter()
+                .filter(|w| {
+                    matches!(
+                        w.label.as_str(),
+                        "weekly" | "weekly_all" | "weekly_scoped" | "seven_day" | "10080 min" | "604800 s"
+                    ) || w.label.starts_with("seven_day_")
+                })
+                .collect();
             let pool = REGISTRY
                 .iter()
                 .find(|r| r.id == p.provider_id)
@@ -269,20 +224,16 @@ impl SubscriptionService {
             } else {
                 valid.iter().map(|w| w.pool_id.as_str()).min()
             };
-            p.display_window_id = pinned
-                .or_else(|| {
-                    valid
-                        .iter()
-                        .filter(|w| Some(w.pool_id.as_str()) == default)
-                        .copied()
-                        .min_by(|a, b| {
-                            b.used_percent
-                                .total_cmp(&a.used_percent)
-                                .then(a.id.cmp(&b.id))
-                        })
+            p.display_window_id = valid
+                .iter()
+                .filter(|w| Some(w.pool_id.as_str()) == default)
+                .copied()
+                .min_by(|a, b| {
+                    b.used_percent
+                        .total_cmp(&a.used_percent)
+                        .then(a.id.cmp(&b.id))
                 })
                 .map(|w| w.id.clone());
-            p.windows.retain(active);
         }
         let previous = self.changed.borrow();
         if serde_json::to_value(&rows).ok() == serde_json::to_value(&previous.providers).ok()
@@ -341,12 +292,10 @@ impl SubscriptionService {
                         slot.due =
                             Instant::now() + Duration::from_secs(settings.refresh_minutes * 60);
                     }
-                    let selected = settings.providers.contains(id);
-                    if enabled_changed || selected != slot.view.selected {
+                    if enabled_changed {
                         invalidate(slot)
                     }
-                    slot.view.selected = selected;
-                    if !settings.enabled || !selected {
+                    if !settings.enabled {
                         cache::remove(id);
                     }
                 }
@@ -361,15 +310,15 @@ impl SubscriptionService {
                     let state = self.state.lock().await;
                     if let Some(id) = body["providerId"].as_str() {
                         let slot = state.slots.get(id).ok_or("unknown subscription provider")?;
-                        if !slot.view.eligible || !slot.view.selected {
-                            return Err("provider is not selected or eligible".into());
+                        if !slot.view.eligible {
+                            return Err("provider is not eligible".into());
                         }
                         vec![id.to_owned()]
                     } else {
                         state
                             .slots
                             .iter()
-                            .filter(|(_, s)| s.view.selected && s.view.eligible)
+                            .filter(|(_, s)| s.view.eligible)
                             .map(|(id, _)| id.clone())
                             .collect()
                     }
@@ -430,7 +379,7 @@ impl SubscriptionService {
         let Some(slot) = state.slots.get_mut(id) else {
             return;
         };
-        if slot.job.is_some() || !slot.view.eligible || !slot.view.selected {
+        if slot.job.is_some() || !slot.view.eligible {
             return;
         }
         if slot
@@ -540,17 +489,6 @@ fn expire(s: &mut Slot) {
 fn validate(s: &Settings) -> Result<()> {
     if ![1, 3, 5, 10].contains(&s.refresh_minutes) {
         return Err("invalid subscription refresh interval".into());
-    }
-    let mut seen = std::collections::HashSet::new();
-    for id in &s.providers {
-        if !REGISTRY.iter().any(|r| r.id == id) || !seen.insert(id) {
-            return Err("invalid subscription provider selection".into());
-        }
-    }
-    for (id, pin) in &s.pinned_windows {
-        if !REGISTRY.iter().any(|r| r.id == id) || pin.is_empty() || pin.len() > 256 {
-            return Err("invalid subscription pin".into());
-        }
     }
     Ok(())
 }

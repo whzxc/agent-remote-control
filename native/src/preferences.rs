@@ -5,20 +5,11 @@ fn lock() -> &'static std::sync::Mutex<()> {
     &LOCK
 }
 pub fn defaults() -> Value {
-    json!({"theme":"system","theme-color":"arc","language":"auto","notifications":"on","update-auto-check":"on","update-auto-download":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","agents-max-visible":"4"})
+    json!({"theme":"system","theme-color":"arc","language":"auto","notifications":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","agents-max-visible":"4"})
 }
 fn stored() -> Value {
     let path = root().join("ui-preferences.json");
-    let mut value = load(&path).unwrap_or(json!({"values":{},"imported":false}));
-    if value["arc-palette"] != true {
-        if value["values"]["theme-color"] == "forest" {
-            value["values"]["theme-color"] = json!("arc");
-        }
-        value["arc-palette"] = json!(true);
-        // Persist the migration even if the user later selects forest again.
-        let _ = save(&path, &value);
-    }
-    value
+    load(&path).unwrap_or(json!({"values":{},"imported":false}))
 }
 fn effective(stored: &Value) -> Value {
     let mut values = defaults();
@@ -62,14 +53,7 @@ fn change(body: Value, importing: bool) -> Result<Value> {
         if value.is_null() {
             values.remove(key);
         } else {
-            values.insert(
-                key.clone(),
-                if importing && key == "theme-color" && value == "forest" {
-                    json!("arc")
-                } else {
-                    value.clone()
-                },
-            );
+            values.insert(key.clone(), value.clone());
         }
     }
     if importing {

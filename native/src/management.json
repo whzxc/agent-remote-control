@@ -648,12 +648,6 @@
               "enabled": {
                 "type": "boolean"
               },
-              "providers": {
-                "type": "array"
-              },
-              "pinnedWindows": {
-                "type": "object"
-              },
               "refreshMinutes": {
                 "type": "integer",
                 "minimum": 1
@@ -661,9 +655,7 @@
             },
             "additionalProperties": false,
             "required": [
-              "enabled",
-              "providers",
-              "pinnedWindows"
+              "enabled"
             ]
           }
         },

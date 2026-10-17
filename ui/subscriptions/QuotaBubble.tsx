@@ -28,12 +28,10 @@ import UsageHistory from "./UsageHistory";
 import "./bubble.css";
 export default function QuotaBubble({
   provider,
-  detailPlacement = "left",
   onRefresh,
   link = true,
 }: {
   provider: ProviderSnapshot;
-  detailPlacement?: "left" | "right" | "bottom";
   onRefresh?: () => Promise<void>;
   link?: boolean;
 }) {
@@ -51,7 +49,6 @@ export default function QuotaBubble({
         t(errorLabels[provider.error.code] || "usageUnavailable"),
     );
   if (provider.rawUsage?.sharedUsageError) notices.push(t("usageSharedUnavailable"));
-  if (provider.pinUnavailable) notices.push(t("usagePinUnavailable"));
   if (provider.accountBlocked) notices.push(t("usageAccountBlocked"));
   if (provider.state === "stale") notices.push(t("usageStale"));
   for (const w of provider.windows)
@@ -139,7 +136,6 @@ export default function QuotaBubble({
   return (
     <div className="quota-bubble embedded">
       <UsageHistory
-        side={detailPlacement}
         detail={detail}
       >
         {({ register, hover, focus, expanded, displayed, highlighted }) => (
@@ -199,7 +195,7 @@ export default function QuotaBubble({
                 size={16}
                 label={t("usageRefresh")}
                 busy={requesting || provider.refreshing}
-                disabled={!provider.eligible || !provider.selected}
+                disabled={!provider.eligible}
                 onClick={() => void refresh()}
               />
             </header>

@@ -5,7 +5,6 @@ import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
 import { Button, Group, Icon, IconButton, Tooltip } from "./ui";
 import { connector, notify } from "../state/connector";
-import { useNow } from "../state/hooks";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import IngressDetailsDialog from "./IngressDetailsDialog";
@@ -26,7 +25,6 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
   const [editing, setEditing] = useState<Ingress>();
   const { status } = connector.use();
   const currentLocale = locale.use();
-  const now = useNow();
   const generation = useRef(0);
   const back = useRef<HTMLButtonElement>(null);
   const refresh = async () => {
@@ -63,12 +61,6 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
   const mac = status?.platform === "darwin";
   const visible = rows.filter(row => row.state !== "not-applicable" && (mac || !systemIds.includes(row.id)));
   const connections = (status?.ingresses ?? []).map(entry => ({ entry, state: find("ingress:" + entry.id)?.state ?? "unknown" }));
-  const missing = visible.filter(row => row.state === "missing").length + connections.filter(row => row.state === "missing").length;
-  const unknown = visible.some(row => row.state === "unknown") || connections.some(row => row.state === "unknown");
-  const minutes = data ? Math.max(0, Math.floor((now - Date.parse(data.observedAt)) / 60000)) : 0;
-  const relative = minutes < 1 ? t("permissionsJustChecked") : t("permissionsCheckedAgo", {
-    time: new Intl.RelativeTimeFormat(currentLocale).format(-Math.floor(minutes < 60 ? minutes : minutes < 1440 ? minutes / 60 : minutes / 1440), minutes < 60 ? "minute" : minutes < 1440 ? "hour" : "day"),
-  });
   async function act(id: string) {
     if (id === "codex" || id === "claude-code") {
       await openUrl("https://github.com/whzxc/agent-remote-control/blob/main/docs/" + (currentLocale === "zh-CN" ? "zh-CN/" : "") + "getting-started.md");
@@ -112,7 +104,6 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
       <div><IconButton ref={back} icon={ArrowLeft} label={t("permissionsBack")} onClick={onBack} /><h2>{t("permissionsTitle")}</h2></div>
       <Button busy={busy} onClick={() => void refresh()}>{!busy && <Icon icon={RefreshCw} />}{t("permissionsRefresh")}</Button>
     </header>
-    <p className="permissions-summary" role="status">{!data ? t("permissionsLoading") : `${missing ? t("permissionsNeedAttention", {count: missing}) : t(unknown ? "permissionsSomeUnknown" : "permissionsAllReady")} · ${relative}`}</p>
     {data && <>
       {mac && <Group title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
       <Group title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>

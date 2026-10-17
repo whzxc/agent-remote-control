@@ -4,14 +4,11 @@ import { isDesktop, openUrl } from "../platform";
 import { connector, notify } from "../state/connector";
 import {
   updates,
-  autoCheck,
-  autoDownload,
   available,
   updateVisible,
   checkUpdate,
   showUpdate,
   dismissUpdate,
-  setAutoDownload,
   installUpdate,
   cancelUpdate,
   skipUpdate,
@@ -22,7 +19,6 @@ import {
   Dialog,
   Group,
   Row,
-  Switch,
   Notice,
   Progress,
   Icon,
@@ -32,9 +28,7 @@ export function AppUpdate() {
   const { status } = connector.use(),
     state = updates.use(),
     checking = state.checking,
-    active = state.phase !== "idle",
-    automatic = autoCheck.use(),
-    download = autoDownload.use();
+    active = state.phase !== "idle";
   return (
     <Group title={t("aboutApp")}>
       <Row title={`Agent Remote Control v${status?.version ?? "—"}`}>
@@ -45,22 +39,6 @@ export function AppUpdate() {
         >
           {t("checkForUpdates")}
         </Button>
-      </Row>
-      {isDesktop && (
-        <Row title={t("automaticallyCheckForUpdates")} description={t("autoCheckDescription")}>
-          <Switch
-            label={t("automaticallyCheckForUpdates")}
-            checked={automatic}
-            onChange={autoCheck.set}
-          />
-        </Row>
-      )}
-      <Row title={t("automaticallyDownloadUpdates")}>
-        <Switch
-          label={t("automaticallyDownloadUpdates")}
-          checked={download}
-          onChange={setAutoDownload}
-        />
       </Row>
       {updateVisible() && (
         <Row title={t("newVersionValue", { version: state.update?.version })}>

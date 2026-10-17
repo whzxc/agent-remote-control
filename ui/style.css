@@ -538,7 +538,14 @@ pre {
 .settings-group + .settings-group {
   margin-top: 32px;
 }
-.settings-group > h2 {
+.settings-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.settings-group > h2,
+.settings-group-heading > h2 {
   padding: 0 2px;
 }
 .settings-row {
@@ -1022,19 +1029,6 @@ pre {
   border-radius: var(--radius-row);
   padding: 12px;
   color: var(--text);
-}
-.usage-overview-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-top: 8px;
-  margin-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.usage-overview-actions .button {
-  min-height: 32px;
-  padding: 5px 8px;
-  font-size: 12px;
 }
 .row-control:has(.choice) {
   width: 340px;

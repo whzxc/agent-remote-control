@@ -68,7 +68,7 @@ macOS 使用 Icon Composer 文档、actool 生成的 Assets.car 和静态 ICNS �
 
 ## 订阅额度开发
 
-Core 负责订阅额度读取、刷新调度和当前读数缓存；React 共享 QuotaBubble、QuotaRing、悬停详情和额度分享卡。桌面通过 subscriptions:changed 收到更新；浏览器通过 Vite 转发的已认证 /api/subscriptions/events 接收快照。流断开后重新跟随当前 owner，轮询仅作回退。
+Core 负责订阅额度读取、刷新调度和当前读数缓存；React 共享 QuotaBubble、QuotaRing 和悬停详情。桌面通过 subscriptions:changed 收到更新；浏览器通过 Vite 转发的已认证 /api/subscriptions/events 接收快照。流断开后重新跟随当前 owner，轮询仅作回退。
 
 额度来源、缓存与节奏规则见[订阅参考](../reference/subscriptions.md)。原生登录、桌面事件与浏览器事件流分别验证。不采集本地用量日志，不维护 Token 统计或价格数据。
 

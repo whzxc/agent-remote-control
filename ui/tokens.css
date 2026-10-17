@@ -105,7 +105,7 @@
 }
 
 :root {
-  --topology-source: var(--brand-ink);
+  --topology-source: var(--theme-source, var(--brand-ink));
   --topology-agent: var(--accent);
   --mark-agent-start: var(--accent);
   --mark-agent-end: var(--accent);

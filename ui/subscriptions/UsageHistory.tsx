@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type CSSProperties,
 } from "react";
 import { Popover } from "radix-ui";
 import { useGeometrySpring } from "../motion/geometry";
@@ -20,11 +19,9 @@ export type BubbleControls = {
 export default function UsageHistory({
   children,
   detail,
-  side = "left",
 }: {
   children: (controls: BubbleControls) => ReactNode;
   detail: (key: string) => ReactNode;
-  side?: "left" | "right" | "bottom";
 }) {
   const [pointed, setPointed] = useState("");
   const [expanded, setExpanded] = useState(false),
@@ -49,14 +46,13 @@ export default function UsageHistory({
     if (node) triggers.current.set(key, node);
     else triggers.current.delete(key);
   };
-  const compact = (key: string) => key.startsWith("product:") || key === "productRemaining";
   const geometry = (key: string) => {
     const trigger = triggers.current.get(key);
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     return [
       rect.left,
-      compact(key) ? rect.top : rect.top + rect.height / 2,
+      rect.top,
       Math.min(
         content.current?.scrollHeight || 80,
         Math.min(360, innerHeight * 0.6),
@@ -138,18 +134,13 @@ export default function UsageHistory({
         <Popover.Portal>
           <Popover.Content
             ref={card}
-            className={`history-popover ${compact(displayed) ? "product-popover" : ""}`}
-            side={compact(displayed) ? "top" : side}
+            className="history-popover"
+            side="top"
             align="center"
-            sideOffset={compact(displayed) ? 8 : 28}
+            sideOffset={8}
             collisionPadding={12}
             updatePositionStrategy="always"
-            style={
-              {
-                height: compact(displayed) ? "auto" : motion.value[2]! + 36,
-                "--tail-span": `${Math.max(12, Math.min(80, motion.value[2]! - 4))}px`,
-              } as CSSProperties
-            }
+            style={{ height: motion.value[2]! + 16 }}
             onInteractOutside={(e) => {
               const target = e.target;
               if (target instanceof Node && [...triggers.current.values()].some(node => node.contains(target))) e.preventDefault();
@@ -173,15 +164,6 @@ export default function UsageHistory({
                 {detail(displayed)}
               </div>
             </div>
-            <svg
-              className="usage-detail-tail"
-              viewBox="0 0 20 80"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <path d="M20 0 C20 28.8 8.4 31.2 0 40 C8.4 48.8 20 51.2 20 80 Z" />
-              <path className="usage-detail-tail-outline" d="M20 0 C20 28.8 8.4 31.2 0 40 C8.4 48.8 20 51.2 20 80" vectorEffect="non-scaling-stroke" />
-            </svg>
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>

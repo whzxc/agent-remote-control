@@ -20,13 +20,13 @@ Display grouping puts Cursor Agent under Cursor, Gemini under Antigravity, and G
 
 ## Refresh and cached readings
 
-Successful quota readings persist in private ARC state. Startup restores them as stale while refresh runs. Failed requests retain the last reading and retry with backoff; 401/403 remain upstream errors. Readings become stale after 15 minutes; expired windows are hidden. Disabling a provider/monitoring or explicitly removing credentials clears its quota cache.
+Successful quota readings persist in private ARC state. Startup restores them as stale while refresh runs. Failed requests retain the last reading and retry with backoff; 401/403 remain upstream errors. Readings become stale after 15 minutes; expired windows are hidden. Disabling an Agent or monitoring or explicitly removing credentials clears its quota cache.
 
 Codex obtains a native account reader on refresh. Cursor prefers its desktop token, falling back to Keychain when absent. Antigravity token renewal belongs to Antigravity.
 
 ## Display and controls
 
-Agent settings offer 4/6/8/10 home entries, Remaining/Used display, countdown/date reset preferences, and refresh intervals of 1/3/5/10 minutes. Monitoring, provider selection, and pinned windows are saved in Core. Agents also provides the quota overview and quota-readout image export.
+Agent settings offer 4/6/8/10 home entries, Remaining/Used display, countdown/date reset preferences, and refresh intervals of 1/3/5/10 minutes. Monitoring and refresh intervals are saved in Core. Eligible providers participate automatically with their Agent; there are no per-provider display switches or window selectors. Home rings always use weekly quota and remain absent when no weekly window is reported. The quota overview and Agent details retain other reported windows.
 
 An Agent's switch controls managed requests, monitoring and related displays. Disabling cancels refresh and clears current readings; it does not terminate a running Agent task. Codex's dedicated codex_* execution path is independent. Enabled installed entries appear first, preserving manual ordering.
 

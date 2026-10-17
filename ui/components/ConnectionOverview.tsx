@@ -25,7 +25,7 @@ import SourceIcon from "./SourceIcon";
 import IngressDialog from "./IngressDialog";
 import IngressDetailsDialog from "./IngressDetailsDialog";
 import AgentsSettings, { AgentDetails } from "./AgentsSettings";
-import { Button, Icon, Notice, Tooltip } from "./ui";
+import { Button, Icon, Notice } from "./ui";
 import themedMark from "../assets/arc/mark-theme.svg?raw";
 type Point = {
   x: number;
@@ -103,7 +103,7 @@ export default function ConnectionOverview() {
   );
   const providerOrder =
     snapshot?.providers
-      .filter((p) => p.eligible && p.selected)
+      .filter((p) => p.eligible)
       .map((p) => p.agentId) || [];
   const agents = orderedAgents()
     .filter((a) => a.installed)
@@ -291,10 +291,11 @@ export default function ConnectionOverview() {
         return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
       };
       const arcStart = onArc(-halfAngle), arcEnd = onArc(halfAngle);
+      const nodeGap = 8;
       const branches = connected.map((entry, index) => {
         const end = onArc((index - (connected.length - 1) / 2) * spacing);
         const start = {
-          x: right ? wireWidth(true) + 12 : (-3 * rowStep(count)) / 84,
+          x: right ? wireWidth(true) + 12 - nodeGap : (-3 * rowStep(count)) / 84 + nodeGap,
           y: y(entry.index, count),
         };
         const c1 = { x: start.x + (right ? -100 : 100) * scale, y: start.y };
@@ -389,21 +390,19 @@ export default function ConnectionOverview() {
           >
             {sources.map((source) => (
               <div key={source.id} className="graph-node-wrap">
-                <Tooltip text={t(sourceState(source))} side="right">
-                  <button
-                    data-panel-anchor
-                    className="graph-node"
-                    data-connection-state={wireState(sourceState(source))}
-                    aria-label={`${source.name}: ${t(sourceState(source))}`}
-                    onClick={() => {
-                      setAutoConnect(false);
-                      setDetails(source);
-                    }}
-                  >
-                    <SourceIcon platform={source.controlSource} panelVisual />
-                    <span className="graph-node-name">{source.name}</span>
-                  </button>
-                </Tooltip>
+                <button
+                  data-panel-anchor
+                  className="graph-node"
+                  data-connection-state={wireState(sourceState(source))}
+                  aria-label={`${source.name}: ${t(sourceState(source))}`}
+                  onClick={() => {
+                    setAutoConnect(false);
+                    setDetails(source);
+                  }}
+                >
+                  <SourceIcon platform={source.controlSource} panelVisual />
+                  <span className="graph-node-name">{source.name}</span>
+                </button>
               </div>
             ))}
             <button
@@ -426,31 +425,18 @@ export default function ConnectionOverview() {
             {wires(true)}
             <div className="graph-nodes agents" data-empty={!agents.length}>
               {agents.map((agent) => (
-                <Tooltip
+                <button
                   key={agent.agent}
-                  hoverOnly
-                  side="left"
-                  text={
-                    <>
-                      {<div>{t(agentState(agent))}</div>}
-                      {agent.version && (
-                        <div className="status-hint">{agent.version}</div>
-                      )}
-                    </>
-                  }
+                  data-panel-anchor
+                  className="graph-node"
+                  data-connection-state={wireState(agentState(agent))}
+                  aria-label={`${name(agent)}: ${t(agentState(agent))}`}
+                  aria-haspopup="dialog"
+                  onClick={() => setDetailAgent(agent)}
                 >
-                  <button
-                    data-panel-anchor
-                    className="graph-node"
-                    data-connection-state={wireState(agentState(agent))}
-                    aria-label={`${name(agent)}: ${t(agentState(agent))}`}
-                    aria-haspopup="dialog"
-                    onClick={() => setDetailAgent(agent)}
-                  >
-                    <AgentQuotaIcon agent={agent.agent} />
-                    <span className="graph-node-name">{name(agent)}</span>
-                  </button>
-                </Tooltip>
+                  <AgentQuotaIcon agent={agent.agent} />
+                  <span className="graph-node-name">{name(agent)}</span>
+                </button>
               ))}
               <button
                 data-panel-anchor
