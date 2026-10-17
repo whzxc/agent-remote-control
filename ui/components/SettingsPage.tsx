@@ -1,6 +1,6 @@
 import PermissionsPage from "./PermissionsPage";
 import { notificationsPreference, mascotPreference } from "../state/store";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Monitor, Sun, Moon } from "lucide-react";
 import { t, language, languageOptions, setLanguage } from "../i18n";
 import { theme, themeColor, themeColors, type Theme } from "../theme";
@@ -11,9 +11,9 @@ import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
 import { AppUpdate } from "./AppUpdate";
-export default function SettingsPage() {
+export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { permissionsOpen: boolean; setPermissionsOpen: (open: boolean) => void }) {
   const { status, busy } = connector.use();
-  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const permissionsTrigger = useRef<HTMLButtonElement>(null);
   const currentTheme = theme.use(),
     color = themeColor.use(),
     currentLanguage = language.use();
@@ -87,15 +87,15 @@ export default function SettingsPage() {
       await refreshConnector();
     });
   }
-  if (permissionsOpen) return <div className="settings-page">
-    <Button onClick={() => setPermissionsOpen(false)}>{t("permissionsBack")}</Button>
-    <PermissionsPage />
-  </div>;
+  if (permissionsOpen) return <PermissionsPage onBack={() => {
+    setPermissionsOpen(false);
+    requestAnimationFrame(() => permissionsTrigger.current?.focus());
+  }} />;
   return (
     <div className="settings-page">
       <Group title={t("permissionsTitle")}>
         <Row title={t("permissionsTitle")} description={t("permissionsSummary")}>
-          <Button onClick={() => setPermissionsOpen(true)}>{t("permissionsOpen")}</Button>
+          <Button ref={permissionsTrigger} onClick={() => setPermissionsOpen(true)}>{t("permissionsOpen")}</Button>
         </Row>
       </Group>
       <Group title={t("behavior")}>

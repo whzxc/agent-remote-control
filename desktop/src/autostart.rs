@@ -87,6 +87,15 @@ pub async fn set(enabled: bool) -> Result<()> {
             };
             private_dir(path.parent().unwrap())?;
             std::fs::write(path,format!("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.whzxc.agent-remote-control</string><key>ProgramArguments</key><array><string>{}</string><string>--autostart</string></array><key>EnvironmentVariables</key><dict><key>ARC_STATE_DIR</key><string>{}</string></dict><key>RunAtLoad</key><true/></dict></plist>",xml(&exe.to_string_lossy()),xml(&root().to_string_lossy()))).map_err(|e|e.to_string())?;
+            let uid = output("id", &["-u"]).await?;
+            output(
+                "launchctl",
+                &[
+                    "enable",
+                    &format!("gui/{}/com.whzxc.agent-remote-control", uid.trim()),
+                ],
+            )
+            .await?;
         } else if path.exists() {
             std::fs::remove_file(path).map_err(|e| e.to_string())?;
         }

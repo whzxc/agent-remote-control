@@ -69,9 +69,9 @@ pub async fn status() -> Value {
     json!({"observedAt":now(),"items":items})
 }
 
-pub fn check_path(path: &Path) -> Result<()> {
+pub fn protected_path(path: &Path) -> bool {
     if !cfg!(target_os = "macos") {
-        return Ok(());
+        return false;
     }
     let mut normalized = PathBuf::new();
     for component in path.components() {
@@ -85,7 +85,7 @@ pub fn check_path(path: &Path) -> Result<()> {
     }
     let path = normalized.as_path();
     let home = dirs::home_dir().unwrap_or_default();
-    let protected = [
+    [
         "Desktop",
         "Documents",
         "Downloads",
@@ -95,8 +95,11 @@ pub fn check_path(path: &Path) -> Result<()> {
     ]
     .iter()
     .any(|name| path.starts_with(home.join(name)))
-        || path.starts_with("/Volumes");
-    if protected && full_disk_access() != "granted" {
+        || path.starts_with("/Volumes")
+}
+
+pub fn check_path(path: &Path) -> Result<()> {
+    if protected_path(path) && full_disk_access() != "granted" {
         return Err(json!({"code":"PERMISSION_REQUIRED","permissionId":"full-disk-access",
             "message":"Open ARC Settings → Permissions & readiness to grant Full Disk Access. / 打开 ARC 设置 → 权限与就绪开启完全磁盘访问。"}).to_string());
     }

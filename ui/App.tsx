@@ -59,6 +59,7 @@ export default function App() {
     taskState = tasks.use(),
     nav = navigation.use();
   updates.use();
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [permissionMissing, setPermissionMissing] = useState(false);
   useEffect(() => {
     let active = true;
@@ -69,7 +70,8 @@ export default function App() {
         (["accessibility","screen-recording"].includes(i.id) && permits("screen")) ||
         (i.id === "full-disk-access" && ["read","tree","search","edit","write"].some(permits)) ||
         (i.id === "command-full-disk-access" && permits("command")) ||
-        (i.id === "notifications" && enabled.length > 0)
+        (i.id === "notifications" && enabled.length > 0) ||
+        (["codex-desktop", "codex-login", "claude-code", "login-start"].includes(i.id))
       )));
     }).catch(() => {});
     refresh();
@@ -81,6 +83,7 @@ export default function App() {
     const saved = localStorage.getItem("arc-page");
     return ["overview", "settings", "logs", "tasks"].includes(saved ?? "") ? saved as Page : "overview";
   });
+  useEffect(() => { if (page !== "settings") setPermissionsOpen(false); }, [page]);
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
     lastPage = useRef<Page>("tasks"),
@@ -262,7 +265,7 @@ export default function App() {
           aria-label={pages.find((item) => item.id === page)?.label}
         >
           <div className="page-sheet-content">
-            <header className="sheet-header">
+            {!(page === "settings" && permissionsOpen) && <header className="sheet-header">
               <h1 className="capsule-title" tabIndex={-1}>
                 {pages.find((item) => item.id === page)?.label}
                 {page === "logs" && (
@@ -284,7 +287,7 @@ export default function App() {
                 label={t("backToHome")}
                 onClick={() => void closeSheet()}
               />
-            </header>
+            </header>}
             <main
               className={`workspace ${page === "logs" ? "records-workspace" : ""}`}
             >
@@ -294,7 +297,7 @@ export default function App() {
                 <RecordsPage />
               ) : (
                 <Suspense fallback={<Loading />}>
-                  <SettingsPage />
+                  <SettingsPage permissionsOpen={permissionsOpen} setPermissionsOpen={setPermissionsOpen} />
                 </Suspense>
               )}
             </main>

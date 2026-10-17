@@ -152,9 +152,11 @@ Tool allowlists do not isolate users/tasks or change OS permissions. Native meth
 | screen tree, press, show, key, raise | Accessibility / arc-screen |
 | screen capture, windows titles | Screen recording / arc-screen |
 | read, tree, search, edit, write, git | Full Disk Access for protected locations / Core |
-| command | Full Disk Access / Codex app-server execution host |
+| command | Full Disk Access when cwd is protected / Codex app-server execution host |
 | Closed-loop notification fallback | Notifications / ARC Desktop |
 
-Missing screen permission returns `PERMISSION_REQUIRED`, `permissionId` and local settings guidance without prompting. File protection uses an FDA heuristic; unknown is not granted. Arbitrary shell commands require a successful executor FDA probe because their accessed paths cannot be inferred reliably. Screen-recording grants may require reopening ARC.
+Missing screen permission returns `PERMISSION_REQUIRED`, `permissionId` and local settings guidance without prompting. File protection uses an FDA heuristic; unknown is not granted. command requires a successful executor FDA probe only when cwd is in a protected location. Screen-recording grants may require reopening ARC.
 
 For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.
+
+Paths referenced in command arguments are not inspected; enabling Full Disk Access can prevent permission dialogs during calls.

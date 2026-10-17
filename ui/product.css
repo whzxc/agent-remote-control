@@ -1265,5 +1265,31 @@
   .earmuff-wires .connecting-wire { animation: none; }
 }
 
-.permission-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
-.permission-observed { color: var(--text-secondary); font-size: var(--text-xs); }
+
+.permissions-page { container-type: inline-size; }
+.permissions-header, .permissions-header > div { display: flex; align-items: center; gap: var(--space-2); }
+.permissions-header { justify-content: space-between; gap: var(--space-3); }
+.permissions-header h2 { margin: 0; font-size: var(--text-lg); }
+.permissions-summary { color: var(--text-secondary); font-size: var(--text-xs); margin: var(--space-2) 0 var(--space-6); }
+.permission-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; }
+.permission-row + .permission-row { border-top: 1px solid var(--border); }
+.permission-symbol { display: flex; color: var(--text-secondary); }
+.permission-symbol .source-icon, .permission-symbol .source-icon > span, .permission-symbol svg { width: 20px; height: 20px; }
+.permission-copy h3 { margin: 0; font-size: var(--text-sm); font-weight: 600; }
+.permission-copy p { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.5; }
+.permission-copy .permission-hint, .permission-hint { color: var(--text-tertiary); font-size: var(--text-xs); }
+.permission-actions { display: flex; align-items: center; gap: var(--space-3); }
+.permission-badge { display: inline-flex; gap: var(--space-1); align-items: center; white-space: nowrap; font-size: var(--text-xs); color: var(--text-secondary); padding: var(--space-1) var(--space-2); border-radius: var(--radius-pill); background: var(--surface-subtle); }
+.permission-badge[data-state="granted"] { color: var(--success); background: var(--success-soft); }
+.permission-badge[data-state="missing"] { color: var(--warning); background: var(--warning-soft); }
+.permission-badge:not([data-state="granted"]) .icon { width: 6px; height: 6px; fill: currentColor; }
+@container (max-width: 560px) {
+  .permission-row { grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
+  .permission-actions { grid-column: 2; justify-content: space-between; }
+  .permissions-header { align-items: flex-start; }
+  .permissions-header h2 { line-height: 1.4; }
+  .permissions-header > .button { flex-shrink: 0; }
+}
+.permissions-page .settings-group { gap: 0; }
+.permissions-page .settings-group > h2 { font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); margin: 0 0 var(--space-1); }
+.permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }

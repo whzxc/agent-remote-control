@@ -1,9 +1,20 @@
 //! Shell convenience form over the existing native command executor.
 use crate::*;
 pub async fn run(c: &control::Control, args: &Value) -> Result<Value> {
-    crate::permissions::require_command_access(crate::permissions::command_disk_access(c).await)?;
     let cwd = Path::new(string(args, "cwd"));
-    if !cwd.is_absolute() || !cwd.is_dir() {
+    if !cwd.is_absolute() {
+        return Err("ABSOLUTE_CWD_REQUIRED".into());
+    }
+    if crate::permissions::protected_path(cwd)
+        || cwd
+            .canonicalize()
+            .is_ok_and(|path| crate::permissions::protected_path(&path))
+    {
+        crate::permissions::require_command_access(
+            crate::permissions::command_disk_access(c).await,
+        )?;
+    }
+    if !cwd.is_dir() {
         return Err("ABSOLUTE_CWD_REQUIRED".into());
     }
     #[cfg(unix)]
