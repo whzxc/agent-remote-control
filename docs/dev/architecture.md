@@ -13,7 +13,7 @@ CLI / 管理 MCP ──────── 本机认证管理 API ─────
                                                   └─ AgentHost → Pi / ACP
 ```
 
-React 在系统 WebView 中渲染。Desktop 管理主窗口、托盘、原生面板、权限与更新。runtime 为每个状态目录维护一个文件锁保护的 Core；Desktop、CLI 等本机入口持有租约。不同构建不能共享同一个活动 owner。最后一个租约释放后 Core 退出；daemon 模式可独立常驻。
+React 在系统 WebView 中渲染。Desktop 管理主窗口、托盘、原生面板、权限与更新。arc-core 提供共享业务与运行时能力。runtime 为每个状态目录维护一个文件锁保护的 Core；Desktop、CLI 等本机入口持有租约。不同构建不能共享同一个活动 owner。最后一个租约释放后 Core 退出；daemon 模式可独立常驻。
 
 service::Service 拥有唯一的 Control、AgentHost、execution::Execution 和入口集合。Execution 负责业务组合；kernel 保存与提供商无关的来源、工具策略、回执、结果和事件存储。传输层处理请求与结果封装，egress 统一投影错误和输出。
 
@@ -63,7 +63,7 @@ claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定�
 
 ## 状态与构建边界
 
-状态目录名统一 agent-remote-control；开发使用 -dev，隔离预览显式使用 -preview。身份、环境变量和 deep link 不保留旧名 alias 或自动迁移。应用包只包含原生程序与静态资源，Node/npm 属于构建工具。CLI guide 与工具目录在构建时嵌入，改动后需要重新构建才能进入新产物。
+状态目录名统一 agent-remote-control；开发使用 -dev，隔离预览显式使用 -preview。身份、环境变量和 deep link 不保留旧名 alias 或自动迁移。app/ 保存 preferences.json 等应用设置和 native.json 运行时元数据。Core 在取得状态目录文件锁后、读取元数据前，将旧 web/ 整体重命名为 app/；两者都存在时保留 app/ 并删除 web/。正式、-dev 与 -preview 使用同一启动路径。应用包只包含原生程序与静态资源，Node/npm 属于构建工具。CLI guide 与工具目录在构建时嵌入，改动后需要重新构建才能进入新产物。
 
 ## 权限与就绪
 

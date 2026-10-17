@@ -14,7 +14,7 @@ if (process.argv.includes('--release')) throw new Error('dev 仅运行开发模�
 const env = { ...buildEnv(), ARC_STATE_DIR: devStateDir };
 let owner;
 try {
-  const info = JSON.parse(readFileSync(path.join(devStateDir, 'web/native.json'), 'utf8'));
+  const info = JSON.parse(readFileSync(path.join(devStateDir, 'app/native.json'), 'utf8'));
   if (Number.isInteger(info.port) && info.port > 0 && info.port <= 65535 && typeof info.token === 'string') {
     const response = await fetch(`http://127.0.0.1:${info.port}/healthz`, {
       headers: { Authorization: `Bearer ${info.token}` }, signal: AbortSignal.timeout(1000),

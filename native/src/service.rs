@@ -129,7 +129,7 @@ fn normalize(mut entry: Value) -> Result<Value> {
         }
     }
     let mut config = defaults();
-    if let Ok(prefs) = load(&root().join("web/preferences.json")) {
+    if let Ok(prefs) = load(&root().join("app/preferences.json")) {
         for key in ["proxyMode", "proxyUrl"] {
             if let Some(v) = prefs.get(key) {
                 config[key] = v.clone();
@@ -166,39 +166,11 @@ impl Service {
         private_dir(&root())?;
         let index = root().join("ingresses/index.json");
         if !index.exists() {
-            let old = root().join("web/settings.json");
-            let legacy = if old.exists() { load(&old)? } else { json!({}) };
-            let mut config = defaults();
-            for (k, v) in legacy.as_object().ok_or("invalid legacy config")? {
-                if config.get(k).is_some() {
-                    config[k] = v.clone();
-                }
-            }
-            if legacy.get("httpsProvider").is_none() && !string(&legacy, "httpsUrl").is_empty() {
-                config["httpsProvider"] = json!("custom");
-            }
-            let https = config["connectionMode"] == "https";
             let entry = normalize(
-                json!({"id":"default","name":"ChatGPT","controlSource":"chatgpt","transport":if https {"https"}else{"openai-tunnel"},"enabled":true,"auth":if https {"none"}else{"openai"},"toolPolicy":crate::kernel::policy::default_policy(),"config":config}),
+                json!({"id":"default","name":"ChatGPT","controlSource":"chatgpt","transport":"openai-tunnel","enabled":true,"auth":"openai","toolPolicy":crate::kernel::policy::default_policy(),"config":defaults()}),
             )?;
             store_entry(&entry)?;
-            save(
-                &root().join("web/preferences.json"),
-                &json!({"proxyMode":entry["config"]["proxyMode"],"proxyUrl":entry["config"]["proxyUrl"]}),
-            )?;
-            if let Ok(v) = load(&root().join("web/chatgpt.json")) {
-                save(&root().join("ingresses/default/verification.json"), &v)?;
-            }
             save(&index, &json!(["default"]))?;
-            for path in [
-                old,
-                root().join("web/chatgpt.json"),
-                root().join("web/connection-logs.json"),
-            ] {
-                if path.exists() {
-                    std::fs::remove_file(path).map_err(|e| e.to_string())?;
-                }
-            }
         }
         if let Err(error) = crate::kernel::results::prune() {
             crate::logs::record(
@@ -323,7 +295,7 @@ impl Service {
     }
     pub async fn network_proxy(&self) -> Result<crate::proxy::NetworkProxy> {
         crate::proxy::NetworkProxy::resolve(
-            &load(&root().join("web/preferences.json")).unwrap_or_else(|_| defaults()),
+            &load(&root().join("app/preferences.json")).unwrap_or_else(|_| defaults()),
         )
         .await
     }
@@ -530,14 +502,14 @@ impl Service {
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
                 return Ok(
-                    json!({"state":"ready","version":env!("ARC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("web/native.json"))?["build"]}),
+                    json!({"state":"ready","version":env!("ARC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("app/native.json"))?["build"]}),
                 )
             }
             ("GET", "preferences") => return Ok(crate::preferences::read()),
             ("PUT", "preferences") => return crate::preferences::write(body),
             ("POST", "preferences/import") => return crate::preferences::import(body),
             ("GET", "network") => {
-                return Ok(load(&root().join("web/preferences.json"))
+                return Ok(load(&root().join("app/preferences.json"))
                     .unwrap_or(json!({"proxyMode":"system","proxyUrl":""})))
             }
             ("POST", "logs/query") => return crate::logs::query(&body),
@@ -1073,7 +1045,7 @@ impl Service {
                 let mode = body["proxyMode"].as_str().ok_or("invalid proxy mode")?;
                 let url = body["proxyUrl"].as_str().ok_or("invalid proxy URL")?;
                 crate::proxy::validate(mode, url)?;
-                save(&root().join("web/preferences.json"), &body)?;
+                save(&root().join("app/preferences.json"), &body)?;
                 for ingress in self.entries().await {
                     ingress.request("network", "PUT", body.clone()).await?;
                 }

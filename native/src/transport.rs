@@ -124,7 +124,7 @@ pub async fn listen(
         .store(port, std::sync::atomic::Ordering::SeqCst);
     let build = crate::runtime::build_id(&std::env::current_exe().map_err(|e| e.to_string())?)?;
     save(
-        &root().join("web/native.json"),
+        &root().join("app/native.json"),
         &json!({"port":port,"pid":std::process::id(),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("ARC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
     )?;
     Ok(tokio::spawn(async move {
@@ -306,7 +306,7 @@ async fn local_request(
             mcp_ingress(&ingress, body).await
         } else if method == "GET" && path == "/healthz" {
             Ok(
-                json!({"runtime":"rust","instance":s.control.session,"pid":std::process::id(),"owner":"core","version":env!("ARC_BUILD_VERSION"),"build":load(&root().join("web/native.json"))?["build"]}),
+                json!({"runtime":"rust","instance":s.control.session,"pid":std::process::id(),"owner":"core","version":env!("ARC_BUILD_VERSION"),"build":load(&root().join("app/native.json"))?["build"]}),
             )
         } else if let Some(route) = path.strip_prefix("/api/") {
             if method != "GET" {
@@ -536,7 +536,7 @@ pub async fn stdio() -> Result<()> {
 pub async fn forward_request(route: &str, method: &str, body: Value) -> Result<Value> {
     crate::init_crypto();
     let unavailable = "无法连接本机 Core，请重新运行 CLI 或打开 Agent Remote Control。";
-    let info = load(&root().join("web/native.json")).map_err(|_| unavailable)?;
+    let info = load(&root().join("app/native.json")).map_err(|_| unavailable)?;
     let port = info["port"]
         .as_u64()
         .filter(|p| *p > 0 && *p <= 65535)

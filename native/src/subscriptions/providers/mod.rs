@@ -117,7 +117,7 @@ pub async fn read(
     Ok((reading, c.source))
 }
 async fn client() -> std::result::Result<reqwest::Client, Failure> {
-    let settings = load(&root().join("web/preferences.json"))
+    let settings = load(&root().join("app/preferences.json"))
         .unwrap_or(json!({"proxyMode":"system","proxyUrl":""}));
     let proxy = crate::proxy::NetworkProxy::resolve(&settings)
         .await

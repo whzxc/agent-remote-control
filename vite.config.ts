@@ -17,12 +17,12 @@ export default defineConfig({
     name: 'connector-native-preview',
     configureServer(server) {
       function ownerIdentity() {
-        try { return readFileSync(path.join(stateRoot, 'web/native.json'), 'utf8'); }
+        try { return readFileSync(path.join(stateRoot, 'app/native.json'), 'utf8'); }
         catch { return ''; }
       }
       async function endpoint(): Promise<Endpoint> {
         try {
-          const info = JSON.parse(readFileSync(path.join(stateRoot, 'web/native.json'), 'utf8'));
+          const info = JSON.parse(readFileSync(path.join(stateRoot, 'app/native.json'), 'utf8'));
           if (Number.isInteger(info.port) && info.port > 0 && info.port <= 65535 && typeof info.token === 'string') {
             const response = await fetch(`http://127.0.0.1:${info.port}/healthz`, { headers: { Authorization: `Bearer ${info.token}` }, signal: AbortSignal.timeout(500) });
             if (response.ok && (await response.json()).instance === info.instance) return info;

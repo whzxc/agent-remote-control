@@ -245,7 +245,7 @@ test('running owner retains startup package identity when the package manifest i
 });
 
 async function management(route: string, method = 'GET', body?: unknown) {
-  const endpoint = JSON.parse(await readFile(path.join(directory, 'web/native.json'), 'utf8'));
+  const endpoint = JSON.parse(await readFile(path.join(directory, 'app/native.json'), 'utf8'));
   const response = await fetch(`http://127.0.0.1:${endpoint.port}/api/${route}`, {
     method, headers: { Authorization: `Bearer ${endpoint.token}`, 'Content-Type': 'application/json' },
     ...(method === 'GET' ? {} : { body: JSON.stringify(body ?? {}) }),

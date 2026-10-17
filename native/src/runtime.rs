@@ -151,7 +151,7 @@ pub fn build_id(binary: &Path) -> Result<String> {
 }
 
 pub(crate) async fn owner(build: &str) -> Result<Option<Value>> {
-    let Ok(info) = load(&root().join("web/native.json")) else {
+    let Ok(info) = load(&root().join("app/native.json")) else {
         return Ok(None);
     };
     let Some(port) = info["port"].as_u64().filter(|p| *p > 0 && *p <= 65535) else {
@@ -314,7 +314,7 @@ impl Client {
     }
     pub async fn network_proxy(&self) -> Result<crate::proxy::NetworkProxy> {
         crate::proxy::NetworkProxy::resolve(
-            &load(&root().join("web/preferences.json")).unwrap_or_else(|_| json!({})),
+            &load(&root().join("app/preferences.json")).unwrap_or_else(|_| json!({})),
         )
         .await
     }
@@ -393,6 +393,16 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     if lock.try_lock().is_err() {
         return Ok(());
     }
+    // Only the Core lock owner may move runtime metadata or remove old state.
+    let old = root().join("web");
+    let app = root().join("app");
+    if old.exists() {
+        if app.exists() {
+            std::fs::remove_dir_all(&old).map_err(|e| e.to_string())?;
+        } else {
+            std::fs::rename(&old, &app).map_err(|e| e.to_string())?;
+        }
+    }
     // A pre-upgrade Desktop may not use the lock. Never overwrite its live owner.
     if owner(&build_id(
         &std::env::current_exe().map_err(|e| e.to_string())?,
@@ -453,7 +463,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     monitor.abort();
     let result = service.stop().await;
     listener.abort();
-    let metadata = root().join("web/native.json");
+    let metadata = root().join("app/native.json");
     if load(&metadata).is_ok_and(|v| v["pid"] == std::process::id()) {
         let _ = std::fs::remove_file(metadata);
     }

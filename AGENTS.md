@@ -2,7 +2,7 @@
 
 - 采用 MIT 许可证。公开源码与桌面产物在 GitHub 维护。推送与发布必须获得用户授权；本项目不发布公共 npm 包。
 - 使用 macOS 与 Windows 桌面及 Linux x86_64 / aarch64 无界面核心；业务代码不依赖其他项目或个人环境。采用 Tauri + Rust 原生桌面，Node/npm 仅用于开发构建；本机 Tunnel Client 的安装、配置与生命周期由产品管理，Tunnel 身份申请和服务端仍使用官方方案。
-- 不使用 Git worktree，不保留旧实现的 alias、shim 或迁移兼容层。
+- 不使用 Git worktree。允许有明确目的的一次性状态迁移，迁移完成后删除旧文件，不长期保留旧实现的 alias、shim 或兼容层。
 - 外部数据读取以当前原生登录和上游响应为准，不额外核验账号、凭据有效期或内容敏感性，不以本地推断拒绝读取或改写结果。保留 MCP OAuth、入口授权、任务关联及资源边界等自身功能必需的校验。
 - 不新增测试文件或用例；迁移已有测试不扩大覆盖。运行已有检查和真实验收。
 - 直接调用 cargo 构建或测试后，运行 `npm run cache:prune` 检查编译缓存预算。
@@ -23,7 +23,7 @@
 
 - 门面层：README.md 与 README.zh-CN.md，围绕 Claude + Codex Loop 和 ChatGPT Chat + Codex，保持简短。
 - 上手与指南层：docs/getting-started.md、concepts.md、guides/、auto-setup.md、faq.md、installation.md、story.md 使用英文主文件，并在 docs/zh-CN/ 保留路径对应的完整中文版；内容同步。
-- 参考层：docs/reference/ 只用英文，集中维护工具、Agents、CLI、OAuth 与 Linux 的精确契约。
+- 参考层：docs/reference/ 只用英文，集中维护工具、Agents、CLI、OAuth、Linux 与 subscriptions（订阅额度）的精确契约。
 - 维护层：docs/dev/ 只用中文，描述开发、发布、架构和 UI；内部生命周期归入架构。
 - 用户指南按任务组织，短句、先操作；真实限制集中在篇末 Limits / 限制，不反复防御性说明。
 - 事实以当前源码、cli help 与 cli guide 为准。更新路径时同步内部链接、应用/CLI URL 和 README 的 Agent 提示词；cli guide 内嵌 docs/reference/cli.md。
