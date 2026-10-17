@@ -57,3 +57,11 @@ Tools never request system consent. The error includes permissionId; use the loc
 For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.
 
 Paths referenced in command arguments are not inspected; enabling Full Disk Access can prevent permission dialogs during calls.
+
+### Why does screen recording still show “Not authorized” after I enable it?
+
+Reopen ARC, then choose **Check again**. ARC checks the access available to its screen helper; an enabled switch in System Settings alone does not establish that the running app has access.
+
+After an application identity change, macOS can display an old authorization under the same app name. Current ARC uses `com.whzxc.agent-remote-control`; older builds used `com.whzxc.local-connector.desktop`. If removing and granting again has no effect, stop repeating it and check the identity receiving the authorization. Old application copies registered with LaunchServices and a long-running system authorization prompt process can retain the old identity.
+
+Troubleshooting should unregister only confirmed old copies, register the current installation, fully quit System Settings, and, when logs identify it as the source, restart the system authorization prompt process. Keep backups and existing authorization records. Grant access again only after checking that the stale registrations and processes are gone, then verify ARC's status. ARC does not reset the permission database or manage these system processes automatically.
