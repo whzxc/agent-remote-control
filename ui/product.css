@@ -1145,7 +1145,7 @@
   user-select: none;
 }
 
-/* The brand connects through its two dots; the mascot keeps its circular ports. */
+/* The mark wears outer arcs; the mascot keeps its circular ports. */
 .brand-mode .graph-brain::before,
 .brand-mode .graph-brain::after {
   content: none;
@@ -1189,35 +1189,22 @@
 .brand-mode .agents .graph-node {
   --agent-quota-size: var(--node-size);
 }
-.bundle-wires {
-  --bundle-color: var(--topology-ink);
-  --bundle-opacity: 0.4;
+.earmuff-wires {
+  --earmuff-color: var(--topology-ink);
   pointer-events: none;
 }
-.bundle-wires.right {
-  --bundle-color: var(--topology-green);
-  --bundle-opacity: 0.6;
+.earmuff-wires.right {
+  --earmuff-color: var(--topology-green);
 }
-.bundle-wires path {
-  stroke: var(--bundle-color);
+.earmuff-wires stop {
+  stop-color: var(--earmuff-color);
+}
+.earmuff-wires .grown-wire {
+  stroke: none;
+}
+.earmuff-wires .earmuff {
+  stroke: var(--earmuff-color);
   stroke-linecap: round;
-}
-.bundle-wires .bundle-branch {
-  stroke-width: calc(3px * var(--graph-brand-scale));
-  stroke-opacity: var(--bundle-opacity);
-}
-.bundle-wires .bundle-branch.inactive {
-  stroke: var(--topology-inactive);
-  stroke-opacity: 1;
-  stroke-dasharray: 2 8;
-}
-.bundle-wires .bundle-trunk {
-  stroke-width: calc(8px * var(--graph-brand-scale));
-}
-.bundle-hub {
-  fill: var(--bundle-color);
-  stroke: var(--graph-bg);
-  stroke-width: calc(3px * var(--graph-brand-scale));
 }
 .graph-status-dot {
   position: absolute;

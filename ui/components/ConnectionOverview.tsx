@@ -3,6 +3,7 @@ import {
   useState,
   useRef,
   useLayoutEffect,
+  useId,
   type CSSProperties,
 } from "react";
 import {
@@ -39,7 +40,44 @@ import { mascotPreference } from "../state/store";
 import { dark } from "../theme";
 import mark from "../assets/arc/mark.svg";
 import markDark from "../assets/arc/mark-dark.svg";
+
+type Point = { x: number; y: number };
+
+// Offset a cubic by arc length, so the root flare has the same physical reach
+// for short, long and steep connections. Widths are full widths, not radii.
+function grownWire(start: Point, c1: Point, c2: Point, end: Point, scale: number) {
+  const steps = Math.max(64, Math.ceil((
+    Math.hypot(c1.x - start.x, c1.y - start.y) +
+    Math.hypot(c2.x - c1.x, c2.y - c1.y) +
+    Math.hypot(end.x - c2.x, end.y - c2.y)
+  ) / Math.max(0.5, scale)));
+  let length = 0;
+  const samples = Array.from({ length: steps + 1 }, (_, i) => {
+    const t = i / steps, v = 1 - t;
+    const x = v ** 3 * start.x + 3 * v * v * t * c1.x + 3 * v * t * t * c2.x + t ** 3 * end.x;
+    const y = v ** 3 * start.y + 3 * v * v * t * c1.y + 3 * v * t * t * c2.y + t ** 3 * end.y;
+    const dx = 3 * v * v * (c1.x - start.x) + 6 * v * t * (c2.x - c1.x) + 3 * t * t * (end.x - c2.x);
+    const dy = 3 * v * v * (c1.y - start.y) + 6 * v * t * (c2.y - c1.y) + 3 * t * t * (end.y - c2.y);
+    const speed = Math.hypot(dx, dy) || 1;
+    return { x, y, nx: -dy / speed, ny: dx / speed, length: 0 };
+  });
+  samples.forEach((p, i) => {
+    if (i) length += Math.hypot(p.x - samples[i - 1].x, p.y - samples[i - 1].y);
+    p.length = length;
+  });
+  const edges = samples.map((p) => {
+    const u = p.length / (length || 1), s = length - p.length;
+    const halfWidth = scale * (3 + 3 * u ** 1.6 + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2) / 2;
+    return [
+      `${p.x + p.nx * halfWidth} ${p.y + p.ny * halfWidth}`,
+      `${p.x - p.nx * halfWidth} ${p.y - p.ny * halfWidth}`,
+    ];
+  });
+  return `M ${edges.map(([p]) => p).join(" L ")} L ${edges.reverse().map(([, p]) => p).join(" L ")} Z`;
+}
+
 export default function ConnectionOverview() {
+  const gradientId = useId();
   const { status, busy, loading, error } = connector.use();
   const inventory = agentStore.use();
   const showMascot = mascotPreference.use(), isDark = dark.use();
@@ -355,32 +393,45 @@ export default function ConnectionOverview() {
         }));
     const count = Math.max(right ? 0 : 1, entries.length) + 1;
     if (!showMascot) {
-      const scale = brandSize / 240;
-      // mark.svg has viewBox 4 4 92 92, with dot centers at (18, 50) and (82, 50).
-      const inset = brandSize * (14 / 92);
-      const dotX = right ? -inset : wireWidth(false) + inset;
-      const hubX = dotX + (right ? 87 : -87) * scale;
-      const hubY = height / 2;
-      const branch = (index: number) => {
-        const nodeY = y(index, count);
-        const nodeX = right
-          ? wireWidth(true) + 12
-          : -(index === count - 1 ? 5 : 3) * rowStep(count) / 84;
-        return right
-          ? `M ${hubX} ${hubY} C ${hubX + 80 * scale} ${hubY}, ${nodeX - 108 * scale} ${nodeY}, ${nodeX} ${nodeY}`
-          : `M ${nodeX} ${nodeY} C ${nodeX + 108 * scale} ${nodeY}, ${hubX - 80 * scale} ${hubY}, ${hubX} ${hubY}`;
+      // The mark crops its 100-unit design to viewBox 4 4 92 92.
+      const scale = brandSize / (92 * 2.6), radius = 130 * scale;
+      const center = { x: right ? -coreColumnWidth / 2 : wireWidth(false) + coreColumnWidth / 2, y: height / 2 };
+      const connected = entries.map((entry, index) => ({ ...entry, index }))
+        .filter((entry) => ["connected", "agentAvailable"].includes(entry.state));
+      const halfAngle = Math.min(40, Math.max(26, (connected.length - 1) * 8 / 2 + 6));
+      const spacing = connected.length > 1 ? Math.min(16, (halfAngle * 2 - 12) / (connected.length - 1)) : 0;
+      const onArc = (offset: number) => {
+        const angle = (right ? offset : 180 - offset) * Math.PI / 180;
+        return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
       };
+      const arcStart = onArc(-halfAngle), arcEnd = onArc(halfAngle);
+      const branches = connected.map((entry, index) => {
+        const end = onArc((index - (connected.length - 1) / 2) * spacing);
+        const start = { x: right ? wireWidth(true) + 12 : -3 * rowStep(count) / 84, y: y(entry.index, count) };
+        const c1 = { x: start.x + (right ? -100 : 100) * scale, y: start.y };
+        const c2 = { x: end.x + (end.x - center.x) * 60 / 130, y: end.y + (end.y - center.y) * 60 / 130 };
+        return { ...entry, start, end, d: grownWire(start, c1, c2, end, scale), gradient: `${gradientId}-${right ? "right" : "left"}-${index}` };
+      });
       return (
-        <div ref={right ? rightWires : leftWires} className={`graph-wires bundle-wires ${right ? "right" : "left"}`}>
+        <div ref={right ? rightWires : leftWires} className={`graph-wires earmuff-wires ${right ? "right" : "left"}`}>
           <svg viewBox={`0 0 ${wireWidth(right)} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-            {entries.map((entry, index) => (
-              <path key={entry.id} d={branch(index)}
-                className={`bundle-branch ${["connected", "agentAvailable"].includes(entry.state) ? "" : "inactive"} ${activeTip === entry.id ? "hovered" : ""}`} />
+            <defs>
+              {branches.map((branch) => (
+                <linearGradient key={branch.id} id={branch.gradient} gradientUnits="userSpaceOnUse"
+                  x1={branch.end.x} y1={branch.end.y} x2={branch.start.x} y2={branch.start.y}>
+                  <stop offset="0" stopOpacity="1" />
+                  {/* Keep the overlap solid through the arc's outer edge. */}
+                  <stop offset={Math.min(0.29, 10 * scale / Math.max(1, Math.hypot(branch.end.x - branch.start.x, branch.end.y - branch.start.y)))} stopOpacity="1" />
+                  <stop offset="0.3" stopOpacity="0.7" />
+                  <stop offset="1" stopOpacity={right ? 0.42 : 0.32} />
+                </linearGradient>
+              ))}
+            </defs>
+            {branches.map((branch) => (
+              <path key={branch.id} d={branch.d} className="grown-wire" style={{ fill: `url(#${branch.gradient})` }} />
             ))}
-            {!right && !entries.length && <path d={branch(0)} className="bundle-branch inactive" />}
-            <path d={branch(count - 1)} className="bundle-branch inactive" />
-            <path d={`M ${dotX} ${hubY} H ${hubX}`} className="bundle-trunk" />
-            <circle cx={hubX} cy={hubY} r={8 * scale} className="bundle-hub" />
+            <path className="earmuff" style={{ strokeWidth: 14 * scale }}
+              d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 ${right ? 1 : 0} ${arcEnd.x} ${arcEnd.y}`} />
           </svg>
         </div>
       );
@@ -473,7 +524,6 @@ export default function ConnectionOverview() {
             "--graph-ring-radius": `${ringRadius}px`,
             "--graph-core-width": `${coreColumnWidth}px`,
             "--graph-brand-size": `${brandSize}px`,
-            "--graph-brand-scale": brandSize / 240,
           } as CSSProperties
         }
         aria-label={t("connectionStatus")}
