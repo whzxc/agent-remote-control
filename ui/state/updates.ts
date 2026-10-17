@@ -125,7 +125,7 @@ async function transfer(installing: boolean, direct = false) {
     if (!restarting) patch({ phase: "idle" });
   }
 }
-export const installUpdate = () => transfer(true, directRequested);
+export const installUpdate = () => transfer(updates.get().update?.ready === true, directRequested);
 export const installDirect = () => {
   directRequested = true;
   return transfer(true, true);

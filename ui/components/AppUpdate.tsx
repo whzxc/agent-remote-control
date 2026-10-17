@@ -68,7 +68,20 @@ export function AppUpdate() {
 }
 export function AppUpdateDialogs() {
   const s = updates.use(),
-    active = s.phase !== "idle";
+    active = s.phase !== "idle",
+    downloading = s.phase === "downloading",
+    progress = s.total ? Math.max(0, Math.min(100, s.downloaded / s.total * 100)) : 0;
+  const actionLabel = s.phase === "installing"
+    ? t("installingRestartingSoon")
+    : downloading
+      ? s.total
+        ? t("updateDownloadSizeProgress", {
+            size: (s.downloaded / 1048576).toFixed(1),
+            total: (s.total / 1048576).toFixed(1),
+            percent: Math.floor(progress),
+          })
+        : t("downloadingValueMb", { size: (s.downloaded / 1048576).toFixed(1) })
+      : t(s.update?.ready ? "updateDownloadedInstall" : "downloadUpdate");
   return (
     <>
       <Dialog
@@ -97,11 +110,15 @@ export function AppUpdateDialogs() {
             {available() && (
               <Button
                 variant="primary"
-                busy={active}
-                disabled={s.checking}
+                className="update-action"
+                data-phase={s.phase}
+                busy={s.phase === "installing"}
+                aria-busy={active}
+                disabled={active || s.checking}
                 onClick={() => void installUpdate()}
               >
-                {t(s.update?.ready ? "installUpdate" : "downloadAndInstall")}
+                {downloading && <Progress label={t("updateDownloadProgress")} value={progress} color="var(--on-action)" />}
+                <span className="update-action-label" aria-live="polite">{actionLabel}</span>
               </Button>
             )}
           </>
@@ -117,21 +134,6 @@ export function AppUpdateDialogs() {
               {s.update?.notes || t("aNewVersionIsReadyToDownloadAnd")}
             </pre>
           </>
-        )}
-        {active && (
-          <div role="status">
-            <p>
-              {s.phase === "installing"
-                ? t("installingRestartingSoon")
-                : t("downloadingValueMb", {
-                    size: (s.downloaded / 1048576).toFixed(1),
-                  })}
-            </p>
-            <Progress
-              label={t("updateDownloadProgress")}
-              value={s.total ? (s.downloaded / s.total) * 100 : 0}
-            />
-          </div>
         )}
         {s.error && (
           <Notice

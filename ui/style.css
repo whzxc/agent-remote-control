@@ -88,6 +88,7 @@ pre {
   cursor: pointer;
   transition:
     background var(--duration),
+    color var(--duration),
     border-color var(--duration);
   white-space: normal;
 }
@@ -100,7 +101,8 @@ pre {
   border-color: transparent;
 }
 .button.primary:hover:not(:disabled) {
-  opacity: 0.88;
+  background: var(--hover);
+  color: var(--text);
 }
 .button.ghost {
   background: transparent;
@@ -1092,3 +1094,31 @@ pre {
 .input.mono::placeholder { font-family: var(--font-ui); }
 .source-choices .button { justify-content: flex-start; }
 .source-choices .button > span:last-child { height: 2.8em; line-height: 1.4; display: flex; align-items: center; justify-content: center; }
+
+.update-action {
+  position: relative;
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.update-action[data-phase="downloading"] {
+  opacity: 1;
+  cursor: progress;
+}
+.update-action > .progress {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: transparent;
+  opacity: 0.2;
+  pointer-events: none;
+}
+.update-action > .progress > div {
+  border-radius: 0;
+  transition: width var(--duration) linear;
+}
+.update-action-label {
+  position: relative;
+}
