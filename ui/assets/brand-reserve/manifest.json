@@ -396,6 +396,7 @@
     }
   ],
   "controlSourceUsage": {
+    "gemini": "agents/gemini/color.svg",
     "chatgpt": "control-sources/chatgpt/mono.svg",
     "claude": "agents/claude/color.svg",
     "microsoft-copilot": "agents/copilot/color.svg",

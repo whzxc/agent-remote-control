@@ -47,6 +47,8 @@ Slack 品牌要求参见 [官方媒体资料](https://slack.com/media-kit) 与 [
 
 ChatGPT、Notion、Slack 复用各自 control-sources 资源；Claude、Cursor、Microsoft Copilot 分别复用 agents/claude/color.svg、agents/cursor/mono.svg、agents/copilot/color.svg 的原始字节，语义由独立 control-sources/index.ts 管理。注意 agents/copilot 是 Microsoft 的彩色标志，不是 GitHub Copilot。
 
+Gemini 复用 agents/gemini/color.svg。
+
 GitHub Copilot 使用 control-sources/github-copilot/mono.svg，来自同版本 Lobe Icons 1.95.1（MIT，沿用 licenses/lobe-icons-MIT.txt）。Raycast 使用 control-sources/raycast/mono.svg，来自 Simple Icons 固定提交 b86d5c9a0bdd4f3f5c30898a63654dd32f39fd76（CC0-1.0，licenses/simple-icons-CC0.txt）；许可证原文来自该提交的 LICENSE.md。文件来源、SHA-256 见 manifest。商标权均归原权利人，不表示背书。没有复制字体文件。
 
 新增单色图形按主题使用 currentColor；彩色图形保留原色。两种用途共享底层资产，不将 Agent 实例或能力当成 Control Source。

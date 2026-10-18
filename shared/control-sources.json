@@ -75,6 +75,38 @@
     ]
   },
   {
+    "id": "gemini",
+    "displayName": "Gemini",
+    "shortName": "Gemini",
+    "icon": "gemini",
+    "curated": true,
+    "recommendedTransport": "https",
+    "recommendedAuth": "oauth",
+    "httpsAuth": "oauth",
+    "supportedAuth": [
+      "oauth"
+    ],
+    "remoteMcp": "supported",
+    "status": "conditional",
+    "clientAuth": [
+      "oauth"
+    ],
+    "customHeaders": "Gemini Apps custom app setup does not document static Authorization headers.",
+    "capability": "Remote MCP over Streamable HTTP",
+    "caveat": {
+      "en": "In Gemini web, open Settings → Connected Apps → Custom apps and enter the MCP URL. Complete OAuth with local ARC consent. Availability depends on Google account, region and language requirements.",
+      "zh-CN": "在 Gemini 网页版打开 Settings → Connected Apps → Custom apps，填写 MCP URL，并在本机 ARC 确认 OAuth 授权。可用性取决于 Google 的账号、地区和语言要求。"
+    },
+    "badge": {
+      "en": "OAuth · Local consent",
+      "zh-CN": "OAuth · 本机授权"
+    },
+    "homeUrl": "https://gemini.google.com/",
+    "docs": [
+      "https://support.google.com/gemini/answer/17209137"
+    ]
+  },
+  {
     "id": "grok",
     "displayName": "Grok",
     "shortName": "Grok",

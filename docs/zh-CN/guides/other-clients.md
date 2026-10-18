@@ -6,6 +6,7 @@
 
 | 客户端 | 预设传输 / 认证 | ARC 预设状态 | 配置方式 |
 | --- | --- | --- | --- |
+| Gemini (`gemini`) | https / oauth | conditional | Settings → Connected Apps → Custom apps；OAuth |
 | Grok (`grok`) | https / oauth | conditional | Plugins → New Connector → Custom；OAuth |
 | Microsoft Copilot (`microsoft-copilot`) | https / bearer | conditional | Copilot Studio：Authorization 头或已注册 OAuth 客户端 |
 | Notion (`notion`) | https / bearer | supported | Custom Agents；需工作区权限 |
@@ -22,3 +23,5 @@ Bearer 连接把入口令牌填到客户端的 `Authorization: Bearer <token>` �
 ## 限制
 
 supported 表示 ARC 有对应传输与认证路径；conditional 还需要客户端注册、租户或请求头配置。客户端套餐和管理员策略仍适用。ARC 不实现 Slack 身份签名、任意 API-key 头或 query token。不同连接共享任务空间。
+
+Gemini 自定义应用在网页版添加，连接后可在网页和手机端使用。Google 当前要求美国地区的成年用户、个人账号、英文及开启 Keep Activity；工作和学校账号暂不可用。详见 [Google 自定义应用要求](https://support.google.com/gemini/answer/17209137)。

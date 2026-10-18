@@ -6,6 +6,7 @@ Add the client from ARC's home screen, choose the matching authentication, then 
 
 | Client | Preset transport / auth | ARC preset status | Setup |
 | --- | --- | --- | --- |
+| Gemini (`gemini`) | https / oauth | conditional | Settings → Connected Apps → Custom apps; OAuth |
 | Grok (`grok`) | https / oauth | conditional | Plugins → New Connector → Custom; OAuth |
 | Microsoft Copilot (`microsoft-copilot`) | https / bearer | conditional | Copilot Studio: Authorization header or registered OAuth client |
 | Notion (`notion`) | https / bearer | supported | Custom Agents; workspace access required |
@@ -22,3 +23,5 @@ Use Custom when your client is not listed. Multiple connections of the same kind
 ## Limits
 
 Supported means ARC has the corresponding transport/auth path; conditional entries need the client's registration, tenant, or header setup. Client plans and administrator policy still apply. Slack identity signatures and arbitrary API-key headers/query tokens are not implemented. Separate connections share the same task namespace.
+
+Gemini custom apps are added in the web app and can then be used on web and mobile. Google currently requires an adult personal account in the US, English, and Keep Activity enabled; work and school accounts are unavailable. See [Google’s custom app requirements](https://support.google.com/gemini/answer/17209137).
