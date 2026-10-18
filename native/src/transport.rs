@@ -462,6 +462,7 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
         &s.id,
         &reads,
         s.origin().await["controlSource"] == "claude",
+        args["notify"]["target"].as_str(),
     )
     .await
     {

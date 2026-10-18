@@ -1,5 +1,8 @@
 //! Turn-scoped control-source events, inboxes and fixed notification channels.
 use crate::*;
+mod governance;
+use governance::State;
+pub(crate) use governance::{notify_control, notify_status};
 use serde::{Deserialize, Serialize};
 use std::{future::Future, time::Duration};
 
@@ -79,6 +82,14 @@ struct Delivery {
     task_error: Value,
     #[serde(default)]
     timing: DeliveryTiming,
+    #[serde(default)]
+    token_charged: bool,
+    #[serde(default)]
+    failures: u32,
+    #[serde(default)]
+    next_attempt_at: i64,
+    #[serde(default)]
+    digest: bool,
 }
 impl Delivery {
     fn urgent(&self) -> bool {
@@ -108,6 +119,8 @@ struct Binding {
     deliveries: Vec<Delivery>,
     #[serde(default)]
     continuation_bound: bool,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    caused_by: Value,
 }
 fn directory() -> PathBuf {
     root().join("notifications")
@@ -154,6 +167,7 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
         waiting: vec![],
         deliveries: vec![],
         continuation_bound: false,
+        caused_by: Value::Null,
     });
     b.target = (!session.is_empty()).then(|| session.to_owned());
     persist(dir, &b)
@@ -175,13 +189,20 @@ pub(crate) fn normalize(args: &mut Value) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn bind(args: &Value, thread: &str, turn: &str, cwd: &str) -> Result<()> {
+pub(crate) async fn bind(
+    args: &Value,
+    thread: &str,
+    turn: &str,
+    cwd: &str,
+    cause: Value,
+) -> Result<()> {
     if turn.is_empty() {
         return Ok(());
     } // Thread-only create has no event yet.
     let _guard = LOCK.lock().await;
     let dir = directory();
-    if binding(&dir, thread, turn)?.is_none() {
+    let created = binding(&dir, thread, turn)?.is_none();
+    if created {
         bind_in(&dir, Some(""), thread, turn, cwd)?;
     }
     let mut b = binding(&dir, thread, turn)?.unwrap();
@@ -215,6 +236,13 @@ pub(crate) async fn bind(args: &Value, thread: &str, turn: &str, cwd: &str) -> R
             .filter(|v| !v.is_empty())
             .unwrap_or(&b.project)
             .into();
+    }
+    if created && cause.is_object() {
+        b.caused_by = cause;
+    }
+    let state = State::load(&dir)?;
+    if let Some(rule) = state.rule(&b) {
+        governance::apply_rebind(&mut b, rule);
     }
     persist(&dir, &b)
 }
@@ -296,7 +324,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn literal(value: &Value) -> String {
     value
@@ -520,12 +548,21 @@ fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
     events.dedup();
     events
 }
-trait Executor {
+trait Executor: Sync {
     fn send(&self, args: Vec<String>) -> impl Future<Output = Result<Vec<u8>>> + Send;
-    fn fallback(&self, body: String) -> impl Future<Output = ()> + Send;
+    fn escalate(&self, body: String) -> impl Future<Output = Result<()>> + Send;
 }
 struct Cli;
 impl Executor for Cli {
+    async fn escalate(&self, body: String) -> Result<()> {
+        crate::transport::forward_request(
+            "permissions/notify",
+            "POST",
+            json!({"title":"ARC 通知需要处理", "body":body}),
+        )
+        .await
+        .map(|_| ())
+    }
     async fn send(&self, args: Vec<String>) -> Result<Vec<u8>> {
         if settings()?["notificationsEnabled"] == false {
             return Err("NOTIFICATIONS_DISABLED".into());
@@ -556,21 +593,6 @@ impl Executor for Cli {
         }
         Ok(output.stdout)
     }
-    async fn fallback(&self, body: String) {
-        if !settings().is_ok_and(|s| s["notificationsEnabled"] != false) {
-            return;
-        }
-        if let Err(error) =
-            crate::transport::forward_request("permissions/notify", "POST", json!({"body":body}))
-                .await
-        {
-            crate::logs::record(
-                "WARN",
-                &format!("Claude notification fallback unavailable: {error}"),
-                None,
-            );
-        }
-    }
 }
 async fn deliver_message(executor: &impl Executor, b: &Binding, body: &str) -> &'static str {
     let session = b.target.as_deref().unwrap();
@@ -599,14 +621,7 @@ async fn deliver_message(executor: &impl Executor, b: &Binding, body: &str) -> &
     );
     #[cfg(test)]
     let _ = error;
-    executor.fallback(fallback_body(b)).await;
     "failed"
-}
-fn fallback_body(b: &Binding) -> String {
-    format!(
-        "项目 {}，线程 {}，轮次 {} 的 Claude 通知未送达，请检查。",
-        b.project, b.thread_id, b.turn_id
-    )
 }
 fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
     let retry = |d: &Delivery| {
@@ -621,6 +636,11 @@ fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
         for d in &mut b.deliveries {
             if retry(d) {
                 d.status = "pending".into();
+                d.token_charged = d.attempted_at > 0;
+                d.failures = d.failures.saturating_add(1);
+                d.next_attempt_at = chrono::Utc::now()
+                    .timestamp()
+                    .saturating_add(governance::retry_seconds(d.failures));
                 d.error = Some("restart-delivery-unconfirmed".into());
             }
         }
@@ -728,6 +748,10 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             batch: String::new(),
             attempted_at: 0,
             attempts: vec![],
+            token_charged: false,
+            failures: 0,
+            next_attempt_at: 0,
+            digest: false,
             error: None,
             final_response: if observation["state"] == "completed" {
                 observation["finalResponse"].clone()
@@ -764,9 +788,13 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
                 if let Some(d) = b.deliveries.iter().find(|d| row["eventId"] == d.event_id) {
                     let read = row["read"].clone();
                     let attached = row["attached"].clone();
+                    let read_at = row["readAt"].clone();
                     *row = event(b, d);
                     if !attached.is_null() {
                         row["attached"] = attached;
+                    }
+                    if !read_at.is_null() {
+                        row["readAt"] = read_at;
                     }
                     if !read.is_null() {
                         row["read"] = read;
@@ -808,9 +836,26 @@ pub(crate) async fn inbox(
     ingress: &str,
     reads: &[(String, String)],
     claude: bool,
+    caller_target: Option<&str>,
 ) -> Result<Value> {
     let _guard = LOCK.lock().await;
-    inbox_in(&directory(), ingress, reads, claude)
+    let mut result = inbox_in(&directory(), ingress, reads, claude)?;
+    for event in result
+        .get_mut("events")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        if let Some(target) = event["target"].as_str() {
+            let notice = match caller_target {
+                Some(caller) if caller != target => "绑定其他会话",
+                Some(_) => "绑定当前会话",
+                None => "会话归属待核对：仅 target 对应会话处理",
+            };
+            event["bindingNotice"] = json!(notice);
+        }
+    }
+    Ok(result)
 }
 fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool) -> Result<Value> {
     let path = inbox_path(dir, ingress);
@@ -818,14 +863,33 @@ fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool)
         return Ok(Value::Null);
     }
     let mut rows = load(&path)?;
-    let bindings = if claude { records(dir)? } else { vec![] };
+    let bindings = records(dir)?;
+    let mut state = State::load(dir)?;
+    let now = chrono::Utc::now().timestamp();
+    let mut acknowledged = false;
     let mut events = Vec::new();
     let mut unread = 0;
     for row in rows.as_array_mut().ok_or("INVALID_INBOX")? {
-        if reads.iter().any(|(task, turn)| {
-            (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
-        }) {
+        let bound = bindings.iter().find(|b| {
+            b.ingress == ingress
+                && b.turn_id == string(row, "turnId")
+                && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
+        });
+        if let Some(b) = bound {
+            row["target"] = json!(b.target);
+            row["channel"] = json!(b.channel);
+        }
+        if row["read"] != true
+            && reads.iter().any(|(task, turn)| {
+                (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
+            })
+        {
             row["read"] = json!(true);
+            row["readAt"] = json!(now);
+            if let Some(b) = bound {
+                state.thread(b, now).last_ack_at = Some(now);
+                acknowledged = true;
+            }
         }
         if row["read"] == true {
             continue;
@@ -860,6 +924,9 @@ fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool)
         }
     }
     save(&path, &rows)?;
+    if acknowledged {
+        state.save(dir)?;
+    }
     Ok(if events.is_empty() {
         Value::Null
     } else {
@@ -881,6 +948,9 @@ fn acknowledge_in(dir: &Path, ingress: &str, args: &Value) -> Result<Value> {
     }
     let mut rows = load(&path)?;
     let mut count = 0;
+    let bindings = records(dir)?;
+    let mut state = State::load(dir)?;
+    let now = chrono::Utc::now().timestamp();
     for row in rows.as_array_mut().ok_or("INVALID_INBOX")? {
         if row["read"] != true
             && (args["all"] == true
@@ -889,10 +959,19 @@ fn acknowledge_in(dir: &Path, ingress: &str, args: &Value) -> Result<Value> {
                     .is_some_and(|ids| ids.contains(&row["eventId"])))
         {
             row["read"] = json!(true);
+            row["readAt"] = json!(now);
+            if let Some(b) = bindings.iter().find(|b| {
+                b.ingress == ingress
+                    && row["turnId"] == b.turn_id
+                    && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
+            }) {
+                state.thread(b, now).last_ack_at = Some(now);
+            }
             count += 1;
         }
     }
     save(&path, &rows)?;
+    state.save(dir)?;
     Ok(json!({"markedRead":count}))
 }
 
@@ -935,23 +1014,85 @@ pub(crate) fn settings() -> Result<Value> {
     } else {
         json!({})
     };
-    if settings["enabled"].is_null() {
-        settings["enabled"] = json!(false);
+    // One-time rename. The old default becomes the new default; custom positive
+    // values become burst capacity. Zero maps to the existing global switch.
+    let migrated = settings
+        .as_object_mut()
+        .and_then(|s| s.remove("notificationWakeLimit"));
+    if let Some(old) = &migrated {
+        if settings["notificationBucketCapacity"].is_null() {
+            settings["notificationBucketCapacity"] = json!(match old.as_u64() {
+                Some(n) if n > 0 && n != 20 => n.min(1000),
+                _ => 10,
+            });
+        }
+        if old == 0 {
+            settings["notificationsEnabled"] = json!(false);
+        }
     }
-    if settings["autoOpenCodex"].is_null() {
-        settings["autoOpenCodex"] = json!(!cfg!(target_os = "linux"));
+    for (key, value) in [
+        ("enabled", json!(false)),
+        ("autoOpenCodex", json!(!cfg!(target_os = "linux"))),
+        ("notificationsEnabled", json!(true)),
+        ("notificationBucketCapacity", json!(10)),
+        ("notificationRefillSeconds", json!(60)),
+        ("notificationEscalationSeconds", json!(900)),
+    ] {
+        if settings[key].is_null() {
+            settings[key] = value;
+        }
     }
-    if settings["notificationsEnabled"].is_null() {
-        settings["notificationsEnabled"] = json!(true);
-    }
-    if settings["notificationWakeLimit"].is_null() {
-        settings["notificationWakeLimit"] = json!(20);
+    if migrated.is_some() {
+        save(&path, &settings)?;
     }
     Ok(settings)
 }
 
-// The two delivery loops reserve disjoint lanes under the same lock. Network
-// sends release it, so ordinary batches cannot hold up required interactions.
+fn queued(d: &mut Delivery, reason: &str) {
+    if d.timing.queue_reason.as_deref() != Some(reason) {
+        d.timing.queue_reason = Some(reason.into());
+        #[cfg(not(test))]
+        crate::logs::record(
+            "INFO",
+            &format!("Notification queued: event={} reason={reason}", d.event_id),
+            None,
+        );
+    }
+}
+fn health(b: &Binding, d: &Delivery, wakes: usize, tokens: u64, capacity: u64) -> String {
+    let mut parts = Vec::new();
+    if d.urgent() {
+        let count = b
+            .deliveries
+            .iter()
+            .take_while(|row| row.event_id != d.event_id)
+            .filter(|row| row.urgent() && row.state == d.state)
+            .count()
+            + 1;
+        parts.push(format!(
+            "本轮第 {count} 次{}",
+            if d.state == "等待输入" {
+                "提问"
+            } else {
+                "审批"
+            }
+        ));
+    }
+    parts.push(format!("近 10 分钟尝试唤醒本目标 {wakes} 次（含重试）"));
+    if let (Some(op), Some(at)) = (b.caused_by["op"].as_str(), b.caused_by["at"].as_str()) {
+        if let Ok(time) = chrono::DateTime::parse_from_rfc3339(at) {
+            parts.push(format!(
+                "由 {} {op} 触发",
+                time.with_timezone(&chrono::Local).format("%H:%M")
+            ));
+        }
+    }
+    parts.push(format!("桶余量 {tokens}/{capacity}"));
+    parts.join(" · ")
+}
+
+// One target bucket and one scheduling path for every kind. Retried events have
+// already paid; new events join a retry only when a token is available for them.
 async fn flush(
     executor: &impl Executor,
     dir: &Path,
@@ -959,127 +1100,305 @@ async fn flush(
     now: i64,
     window: i64,
     settings: &Value,
-    urgent: bool,
 ) -> Result<()> {
     let guard = lock.lock().await;
     let mut all = records(dir)?;
+    let original = all
+        .iter()
+        .map(|b| serde_json::to_value(b).unwrap())
+        .collect::<Vec<_>>();
+    let mut state = State::load(dir)?;
     let mut targets = Vec::new();
-    for b in &all {
+    for b in &mut all {
+        if let Some(rule) = state.rule(b) {
+            governance::apply_rebind(b, rule);
+        }
         for d in &b.deliveries {
-            if d.status == "pending"
-                && d.urgent() == urgent
-                && !targets.contains(&(d.channel, d.target.clone()))
-            {
+            if d.status == "pending" && !targets.contains(&(d.channel, d.target.clone())) {
                 targets.push((d.channel, d.target.clone()));
             }
         }
     }
+    for t in &state.targets {
+        if !targets.contains(&(t.channel, t.target.clone())) {
+            targets.push((t.channel, t.target.clone()));
+        }
+    }
     let mut batches = Vec::new();
+    let mut alerts = Vec::new();
     for (channel, target) in targets {
-        let wakes: std::collections::HashSet<_> = all
-            .iter()
-            .flat_map(|b| &b.deliveries)
-            .filter(|d| !d.urgent() && d.channel == channel && d.target == target)
-            .flat_map(|d| {
-                d.attempts
-                    .iter()
-                    .map(|(batch, time)| (batch, *time))
-                    .chain(std::iter::once((&d.batch, d.attempted_at)))
-            })
-            .filter(|(batch, time)| !batch.is_empty() && *time > now.saturating_sub(3600))
-            .map(|(batch, _)| batch)
-            .collect();
-        let window_ready = urgent
-            || all.iter().flat_map(|b| &b.deliveries).any(|d| {
-                d.status == "pending"
-                    && !d.urgent()
-                    && d.channel == channel
-                    && d.target == target
-                    && now - d.created_at >= window
-            });
-        let reason = if settings["notificationsEnabled"] == false {
-            Some("disabled")
-        } else if target.is_empty() {
-            Some("unbound")
-        } else if channel != Channel::ClaudeSession {
-            Some("channel-unavailable-in-P0")
-        } else if !urgent
-            && wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize
-        {
-            Some("wake-limit")
-        } else if !window_ready {
-            Some("batch-window")
-        } else {
-            None
+        let (breaker, tokens) = {
+            let t = state.target(channel, &target, now, settings);
+            (t.breaker, t.tokens)
         };
-        let batch = id();
-        let mut reserved = Vec::new();
-        for b in &mut all {
-            let mut selected = b.clone();
-            selected.target = Some(target.clone());
-            selected.channel = channel;
-            selected.deliveries.clear();
-            let mut changed = false;
-            for d in &mut b.deliveries {
-                if d.channel != channel
-                    || d.target != target
-                    || d.status != "pending"
-                    || d.urgent() != urgent
-                {
+        let mut eligible = Vec::new();
+        for (bi, b) in all.iter_mut().enumerate() {
+            let rule = state.rule(b);
+            let mode = rule.map(|r| r.mode(now)).unwrap_or("normal");
+            let digest_due = rule.is_some_and(|r| now.saturating_sub(r.digest_at) >= 3600);
+            for (di, d) in b.deliveries.iter_mut().enumerate() {
+                if d.status != "pending" || d.channel != channel || d.target != target {
                     continue;
                 }
-                let reason = reason.or_else(|| {
-                    (d.attempted_at != 0 && now - d.attempted_at < 10).then_some("retry-backoff")
-                });
+                let reason = if settings["notificationsEnabled"] == false {
+                    Some("disabled")
+                } else if target.is_empty() {
+                    Some("unbound")
+                } else if channel != Channel::ClaudeSession {
+                    Some("channel-unavailable-in-P0")
+                } else if breaker {
+                    Some("breaker")
+                } else if mode == "mute" {
+                    Some("muted")
+                } else if mode == "digest" && !digest_due {
+                    Some("digest-wait")
+                } else if d.next_attempt_at != 0 && now <= d.next_attempt_at {
+                    Some("retry-backoff")
+                } else {
+                    None
+                };
                 if let Some(reason) = reason {
-                    if d.timing.queue_reason.as_deref() != Some(reason) {
-                        d.timing.queue_reason = Some(reason.into());
-                        changed = true;
-                        #[cfg(not(test))]
-                        crate::logs::record(
-                            "INFO",
-                            &format!("Notification queued: event={} reason={reason}", d.event_id),
-                            None,
-                        );
-                    }
-                    if matches!(reason, "unbound" | "channel-unavailable-in-P0") {
+                    queued(d, reason);
+                    if reason == "channel-unavailable-in-P0" {
                         d.status = "failed".into();
                         d.error = Some(reason.into());
-                        changed = true;
                     }
-                    continue;
+                } else {
+                    eligible.push((bi, di, mode == "digest"));
                 }
-                d.status = "sending".into();
-                d.error = None;
-                d.attempts
-                    .retain(|(_, time)| *time > now.saturating_sub(3600));
-                if !d.batch.is_empty() {
-                    d.attempts.push((d.batch.clone(), d.attempted_at));
-                }
-                d.batch = batch.clone();
-                d.attempted_at = now;
-                selected.deliveries.push(d.clone());
-                changed = true;
-            }
-            if changed {
-                persist(dir, b)?;
-            }
-            if !selected.deliveries.is_empty() {
-                reserved.push(selected);
             }
         }
-        if !reserved.is_empty() {
-            batches.push(reserved);
+        let window_ready = eligible.iter().any(|(bi, di, digest)| {
+            let d = &all[*bi].deliveries[*di];
+            *digest
+                || d.urgent()
+                || d.token_charged
+                || now.saturating_sub(d.created_at) >= window
+                || d.timing.queue_reason.as_deref() == Some("token-wait")
+        });
+        let waiting = window_ready
+            && eligible
+                .iter()
+                .any(|(bi, di, _)| !all[*bi].deliveries[*di].token_charged)
+            && tokens == 0;
+        if settings["notificationsEnabled"] != false {
+            let t = state.target(channel, &target, now, settings);
+            if let Some(reason) = t.anomaly(now, waiting, settings) {
+                let threads = all
+                    .iter()
+                    .filter(|b| b.channel == channel && b.target.as_deref() == Some(&target))
+                    .map(|b| b.thread_id.clone())
+                    .collect::<std::collections::BTreeSet<_>>();
+                let pending = all
+                    .iter()
+                    .flat_map(|b| &b.deliveries)
+                    .filter(|d| d.channel == channel && d.target == target && d.status == "pending")
+                    .count();
+                alerts.push((channel,target.clone(),format!("目标 {target}；原因 {reason}；待投递 {pending} 条；线程 {}。请查看 ARC notify_status。",threads.into_iter().collect::<Vec<_>>().join(", "))));
+            }
+        }
+        let mut selected = Vec::new();
+        for (bi, di, digest) in eligible {
+            let d = &mut all[bi].deliveries[di];
+            if !window_ready {
+                queued(d, "batch-window");
+                continue;
+            }
+            if !d.token_charged && tokens == 0 {
+                queued(d, "token-wait");
+                continue;
+            }
+            selected.push((bi, di, digest));
+        }
+        if selected.is_empty() {
+            continue;
+        }
+        let charged = selected
+            .iter()
+            .any(|(bi, di, _)| !all[*bi].deliveries[*di].token_charged);
+        let throttled = selected.iter().any(|(bi, di, _)| {
+            all[*bi].deliveries[*di].timing.queue_reason.as_deref() == Some("token-wait")
+        });
+        let batch = id();
+        let mut kinds = std::collections::BTreeMap::new();
+        let mut thread_ids = std::collections::BTreeSet::new();
+        for (bi, di, _) in &selected {
+            let b = &all[*bi];
+            *kinds
+                .entry(string(&event(b, &b.deliveries[*di]), "kind").to_owned())
+                .or_insert(0) += 1;
+            thread_ids.insert(b.thread_id.clone());
+        }
+        let (remaining, wakes) = {
+            let t = state.target(channel, &target, now, settings);
+            if charged {
+                t.tokens -= 1;
+            }
+            t.batches.push(governance::Batch {
+                id: batch.clone(),
+                at: now,
+                kinds,
+                threads: thread_ids.into_iter().collect(),
+                status: "sending".into(),
+                charged,
+            });
+            (
+                t.tokens,
+                t.batches
+                    .iter()
+                    .filter(|b| b.at > now.saturating_sub(600) && b.status != "cancelled")
+                    .count(),
+            )
+        };
+        let mut reserved = Vec::<Binding>::new();
+        let mut blocks = Vec::new();
+        for (bi, di, digest) in &selected {
+            let b = &mut all[*bi];
+            let d = &mut b.deliveries[*di];
+            d.status = "sending".into();
+            d.error = None;
+            d.token_charged = true;
+            d.digest = *digest;
+            d.attempts
+                .retain(|(_, time)| *time > now.saturating_sub(3600));
+            if !d.batch.is_empty() {
+                d.attempts.push((d.batch.clone(), d.attempted_at));
+            }
+            d.batch = batch.clone();
+            d.attempted_at = now;
+            let mut single = b.clone();
+            single.deliveries = vec![b.deliveries[*di].clone()];
+            if !*digest {
+                blocks.push(format!(
+                    "{}\n{}",
+                    message(&single),
+                    health(
+                        b,
+                        &b.deliveries[*di],
+                        wakes,
+                        remaining,
+                        governance::capacity(settings)
+                    )
+                ));
+            }
+            if let Some(r) = reserved
+                .iter_mut()
+                .find(|r| r.thread_id == b.thread_id && r.turn_id == b.turn_id)
+            {
+                r.deliveries.push(b.deliveries[*di].clone());
+            } else {
+                reserved.push(single);
+            }
+        }
+        for r in &reserved {
+            let ds = r.deliveries.iter().filter(|d| d.digest).collect::<Vec<_>>();
+            if let Some(last) = ds.last() {
+                let mut counts = std::collections::BTreeMap::<String, usize>::new();
+                for d in &ds {
+                    *counts
+                        .entry(string(&event(r, d), "kind").into())
+                        .or_default() += 1;
+                }
+                let full = all
+                    .iter()
+                    .find(|b| b.thread_id == r.thread_id && b.turn_id == r.turn_id)
+                    .unwrap();
+                blocks.push(format!(
+                    "[ARC] digest · {} · {}\nthread={} turn={}\ncounts: {}\n{}",
+                    r.project,
+                    r.title,
+                    r.thread_id,
+                    r.turn_id,
+                    json!(counts),
+                    health(full, last, wakes, remaining, governance::capacity(settings))
+                ));
+            }
+        }
+        if throttled {
+            blocks.push(format!("节流中，已合并 {} 条", selected.len()));
+        }
+        batches.push((reserved, blocks.join("\n\n")));
+    }
+    // Charge before reserving event records: a crash may lose one token, but
+    // never duplicates an event or permits an uncharged burst after restart.
+    state.save(dir)?;
+    for (b, old) in all.iter().zip(original) {
+        if serde_json::to_value(b).unwrap() != old {
+            persist(dir, b)?;
         }
     }
     drop(guard);
-    for batch in batches {
-        let body = batch.iter().map(message).collect::<Vec<_>>().join("\n\n");
+    for (channel, target, body) in alerts {
+        if let Err(error) = executor.escalate(body).await {
+            let _guard = lock.lock().await;
+            let mut state = State::load(dir)?;
+            state
+                .target(channel, &target, now, settings)
+                .escalation_error = Some(error.clone());
+            state.save(dir)?;
+            #[cfg(not(test))]
+            crate::logs::record(
+                "WARN",
+                &format!("Notification escalation failed: {error}"),
+                None,
+            );
+        }
+    }
+    for (batch, body) in batches {
         let started_at = chrono::Utc::now().timestamp_millis();
-        // Persist actual start separately from reservation, including the time
-        // spent behind other targets in this lane.
         {
             let _guard = lock.lock().await;
+            let mut state = State::load(dir)?;
+            let breaker = state.targets.iter().any(|t| {
+                t.channel == batch[0].channel
+                    && Some(t.target.as_str()) == batch[0].target.as_deref()
+                    && t.breaker
+            });
+            let mut current_batch = Vec::new();
+            let mut deferred = breaker;
+            for reserved in &batch {
+                if let Some(current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
+                    let mode = state
+                        .rule(&current)
+                        .map(|r| r.mode(chrono::Utc::now().timestamp()))
+                        .unwrap_or("normal");
+                    deferred |= current.target != reserved.target
+                        || current.channel != reserved.channel
+                        || mode == "mute"
+                        || (mode == "digest" && reserved.deliveries.iter().any(|d| !d.digest));
+                    current_batch.push(current);
+                }
+            }
+            if deferred {
+                for mut current in current_batch {
+                    for d in &mut current.deliveries {
+                        if d.batch == batch[0].deliveries[0].batch && d.status == "sending" {
+                            d.status = "pending".into();
+                            queued(
+                                d,
+                                if breaker {
+                                    "breaker"
+                                } else {
+                                    "control-changed"
+                                },
+                            );
+                        }
+                    }
+                    if let Some(rule) = state.rule(&current) {
+                        governance::apply_rebind(&mut current, rule);
+                    }
+                    persist(dir, &current)?;
+                }
+                for t in &mut state.targets {
+                    for record in &mut t.batches {
+                        if record.id == batch[0].deliveries[0].batch {
+                            record.status = "cancelled".into();
+                        }
+                    }
+                }
+                state.save(dir)?;
+                continue;
+            }
             for reserved in &batch {
                 if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
                     for d in &mut current.deliveries {
@@ -1103,34 +1422,124 @@ async fn flush(
         let send_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
         let finished_at = chrono::Utc::now().timestamp_millis();
         let _guard = lock.lock().await;
+        let mut state = State::load(dir)?;
+        if let Some(t) = state.targets.iter_mut().find(|t| {
+            t.channel == batch[0].channel && Some(t.target.as_str()) == batch[0].target.as_deref()
+        }) {
+            if let Some(record) = t
+                .batches
+                .iter_mut()
+                .find(|b| b.id == batch[0].deliveries[0].batch)
+            {
+                record.status = status.into();
+            }
+        }
         for reserved in batch {
             if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
+                let mut digested = false;
+                let mut delivered = false;
                 for d in &mut current.deliveries {
                     if d.batch == reserved.deliveries[0].batch && d.status == "sending" {
-                        d.status = if status == "failed" {
-                            "pending"
-                        } else {
-                            status
-                        }
-                        .into();
                         d.timing.finished_at = Some(finished_at);
                         d.timing.send_ms = Some(send_ms);
                         if status == "failed" {
+                            d.status = "pending".into();
+                            d.failures = d.failures.saturating_add(1);
+                            d.next_attempt_at = now
+                                .saturating_add((send_ms / 1000) as i64)
+                                .saturating_add(governance::retry_seconds(d.failures));
                             d.error = Some("delivery-failed-or-unconfirmed".into());
+                        } else {
+                            d.status = if d.digest { "digested" } else { "delivered" }.into();
+                            delivered = true;
+                            digested |= d.digest;
+                            d.next_attempt_at = 0;
                         }
-                        #[cfg(not(test))]
-                        crate::logs::record("INFO", &format!("Notification delivery: event={} status={status} queueMs={} sendMs={send_ms} queueReason={}", d.event_id, d.timing.queue_ms.unwrap_or(0), d.timing.queue_reason.as_deref().unwrap_or("none")), None);
+                        #[cfg(not(test))] crate::logs::record("INFO",&format!("Notification delivery: event={} status={status} queueMs={} sendMs={send_ms} queueReason={}",d.event_id,d.timing.queue_ms.unwrap_or(0),d.timing.queue_reason.as_deref().unwrap_or("none")),None);
                     }
+                }
+                if delivered {
+                    let rule = state.thread(&current, now);
+                    rule.last_delivered_at = Some(finished_at / 1000);
+                    if digested {
+                        rule.digest_at = now;
+                    }
+                }
+                // A rebind made during a send governs its retry, never rewrites
+                // the successful delivery to the previous target.
+                if let Some(rule) = state.rule(&current) {
+                    governance::apply_rebind(&mut current, rule);
                 }
                 persist(dir, &current)?;
             }
         }
+        state.save(dir)?;
     }
     Ok(())
 }
 
 pub(crate) async fn migrate() -> Result<()> {
     let _guard = LOCK.lock().await;
+    settings()?;
+    let state_path = directory().join("control/state.json");
+    if !state_path.exists() {
+        let now = chrono::Utc::now().timestamp();
+        let settings = settings()?;
+        let mut state = State::default();
+        for mut b in records(&directory())? {
+            for d in &mut b.deliveries {
+                if d.attempted_at > 0 {
+                    d.token_charged = true;
+                }
+            }
+            for d in &b.deliveries {
+                if d.target.is_empty() {
+                    continue;
+                }
+                let target = state.target(d.channel, &d.target, now, &settings);
+                for (id, at) in d
+                    .attempts
+                    .iter()
+                    .map(|(id, at)| (id, *at))
+                    .chain(std::iter::once((&d.batch, d.attempted_at)))
+                {
+                    if id.is_empty() || at <= now.saturating_sub(3600) {
+                        continue;
+                    }
+                    let index = target
+                        .batches
+                        .iter()
+                        .position(|batch| batch.id == *id)
+                        .unwrap_or_else(|| {
+                            target.batches.push(governance::Batch {
+                                id: id.clone(),
+                                at,
+                                kinds: Default::default(),
+                                threads: vec![],
+                                status: if *id == d.batch && d.status == "delivered" {
+                                    "delivered"
+                                } else {
+                                    "unknown"
+                                }
+                                .into(),
+                                charged: false,
+                            });
+                            target.batches.len() - 1
+                        });
+                    let batch = &mut target.batches[index];
+                    *batch
+                        .kinds
+                        .entry(string(&event(&b, d), "kind").into())
+                        .or_default() += 1;
+                    if !batch.threads.contains(&b.thread_id) {
+                        batch.threads.push(b.thread_id.clone());
+                    }
+                }
+            }
+            persist(&directory(), &b)?;
+        }
+        state.save(&directory())?;
+    }
     let old = root().join("claude-notifications");
     if !old.exists() {
         return Ok(());
@@ -1186,7 +1595,7 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
     let agents = Arc::downgrade(agents);
     let weak = Arc::downgrade(control);
     let (ready, delivery_ready) = tokio::sync::watch::channel(false);
-    for urgent in [true, false] {
+    {
         let mut delivery_ready = delivery_ready.clone();
         let mut delivery_shutdown = control.shutdown.subscribe();
         let wake = control.events.clone();
@@ -1201,7 +1610,6 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                         chrono::Utc::now().timestamp(),
                         30,
                         &settings()?,
-                        urgent,
                     )
                     .await
                 };
@@ -1242,11 +1650,10 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                         if remove_expired(&directory(), &b, chrono::Utc::now().timestamp())? {
                             continue;
                         }
-                        let fallback = recovering && recover(&directory(), &mut b)?;
-                        drop(_guard);
-                        if fallback && settings()?["notificationsEnabled"] != false {
-                            Cli.fallback(fallback_body(&b)).await;
+                        if recovering {
+                            recover(&directory(), &mut b)?;
                         }
+                        drop(_guard);
                         let interrupted = b.deliveries.iter().any(|d| d.state == "中断");
                         if b.terminal && (!interrupted || b.continuation_bound) {
                             continue;
@@ -1335,8 +1742,9 @@ mod tests {
             self.calls.lock().unwrap().push(args);
             self.result.clone()
         }
-        async fn fallback(&self, body: String) {
+        async fn escalate(&self, body: String) -> Result<()> {
             self.fallbacks.lock().unwrap().push(body);
+            Ok(())
         }
     }
     async fn process(
@@ -1346,25 +1754,22 @@ mod tests {
         observation: &Value,
     ) -> Result<()> {
         super::process(dir, &Mutex::new(()), b, observation).await?;
-        for urgent in [true, false] {
+        {
             flush(
                 executor,
                 dir,
                 &Mutex::new(()),
                 i64::MAX,
                 0,
-                &json!({"notificationWakeLimit":100}),
-                urgent,
+                &json!({"notificationBucketCapacity":100}),
             )
             .await?;
         }
         *b = binding(dir, &b.thread_id, &b.turn_id)?.unwrap();
         Ok(())
     }
-    async fn recover(executor: &impl Executor, dir: &Path, b: &mut Binding) -> Result<()> {
-        if super::recover(dir, b)? {
-            executor.fallback(fallback_body(b)).await;
-        }
+    async fn recover(_executor: &impl Executor, dir: &Path, b: &mut Binding) -> Result<()> {
+        super::recover(dir, b)?;
         Ok(())
     }
     fn fixture(dir: &Path) -> Binding {
@@ -1381,6 +1786,251 @@ mod tests {
     fn interaction(id: Value) -> Value {
         json!({"state":"interaction-required", "interaction":[{"id":id,"method":"item/commandExecution/requestApproval","params":{"command":"SECRET_COMMAND"}}],"activeFlags":["waitingOnApproval"],"finalResponse":"SECRET_OUTPUT","error":"SECRET_ERROR"})
     }
+    async fn enqueue(dir: &Path, thread: &str, observation: Value, at: i64) -> Binding {
+        bind_in(
+            dir,
+            Some("session_test"),
+            thread,
+            "turn-1",
+            "/projects/sample",
+        )
+        .unwrap();
+        let mut b = binding(dir, thread, "turn-1").unwrap().unwrap();
+        b.ingress = "claude".into();
+        b.created_at = at;
+        b.caused_by =
+            json!({"op":"codex_send","at":"2026-10-01T00:00:00Z","requestId":"request-test"});
+        persist(dir, &b).unwrap();
+        super::process(dir, &Mutex::new(()), &mut b, &observation)
+            .await
+            .unwrap();
+        for d in &mut b.deliveries {
+            d.created_at = at;
+        }
+        persist(dir, &b).unwrap();
+        b
+    }
+    #[tokio::test]
+    async fn bucket_refill_batches_interactions_and_survives_reload() {
+        let dir = Sandbox::new();
+        let fake = Fake::success();
+        let lock = Mutex::new(());
+        let s = json!({"notificationBucketCapacity":1,"notificationRefillSeconds":60});
+        enqueue(&dir.0, "question", interaction(json!(1)), 100).await;
+        flush(&fake, &dir.0, &lock, 100, 30, &s).await.unwrap();
+        assert_eq!(State::load(&dir.0).unwrap().targets[0].tokens, 0);
+        enqueue(&dir.0, "approval", interaction(json!(2)), 101).await;
+        enqueue(
+            &dir.0,
+            "completed",
+            json!({"state":"completed","finalResponse":"done"}),
+            101,
+        )
+        .await;
+        flush(&fake, &dir.0, &lock, 101, 30, &s).await.unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        assert_eq!(
+            binding(&dir.0, "approval", "turn-1")
+                .unwrap()
+                .unwrap()
+                .deliveries[0]
+                .timing
+                .queue_reason
+                .as_deref(),
+            Some("token-wait")
+        );
+        flush(&fake, &dir.0, &lock, 159, 30, &s).await.unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        flush(&fake, &dir.0, &lock, 160, 30, &s).await.unwrap();
+        let calls = fake.calls.lock().unwrap();
+        assert_eq!(calls.len(), 2);
+        assert!(calls[1][1].contains("节流中，已合并 2 条"));
+        assert!(calls[1][1].contains("桶余量 0/1"));
+        assert!(calls[1][1].contains("codex_send 触发"));
+        let state = State::load(&dir.0).unwrap();
+        assert_eq!(state.targets[0].tokens, 0);
+        assert_eq!(state.targets[0].batches[1].kinds["needs-input"], 1);
+        assert_eq!(state.targets[0].batches[1].kinds["completed"], 1);
+    }
+    #[tokio::test]
+    async fn exponential_retries_keep_token_credit_and_event_id() {
+        let dir = Sandbox::new();
+        let failed = Fake::new(Err("offline".into()));
+        let lock = Mutex::new(());
+        let s = json!({"notificationBucketCapacity":1,"notificationRefillSeconds":60});
+        let b = enqueue(&dir.0, "retry", interaction(json!(1)), 100).await;
+        let event = b.deliveries[0].event_id.clone();
+        flush(&failed, &dir.0, &lock, 100, 30, &s).await.unwrap();
+        flush(&failed, &dir.0, &lock, 109, 30, &s).await.unwrap();
+        assert_eq!(failed.calls.lock().unwrap().len(), 1);
+        flush(&failed, &dir.0, &lock, 111, 30, &s).await.unwrap();
+        assert_eq!(failed.calls.lock().unwrap().len(), 2);
+        let d = &binding(&dir.0, "retry", "turn-1")
+            .unwrap()
+            .unwrap()
+            .deliveries[0];
+        assert_eq!(d.next_attempt_at, 131);
+        assert_eq!(d.failures, 2);
+        enqueue(&dir.0, "fresh", interaction(json!(2)), 112).await;
+        let success = Fake::success();
+        flush(&success, &dir.0, &lock, 132, 30, &s).await.unwrap();
+        assert_eq!(success.calls.lock().unwrap().len(), 1);
+        assert!(success.calls.lock().unwrap()[0][1].contains(&event));
+        assert_eq!(
+            binding(&dir.0, "fresh", "turn-1")
+                .unwrap()
+                .unwrap()
+                .deliveries[0]
+                .status,
+            "pending"
+        );
+        let state = State::load(&dir.0).unwrap();
+        assert_eq!(state.targets[0].tokens, 0);
+        assert_eq!(
+            state.targets[0]
+                .batches
+                .iter()
+                .filter(|b| b.charged)
+                .count(),
+            1
+        );
+        assert_eq!(
+            [1, 2, 3, 4, 5, 6, 20].map(governance::retry_seconds),
+            [10, 20, 40, 80, 160, 300, 300]
+        );
+    }
+    #[tokio::test]
+    async fn breaker_and_starvation_escalate_once_then_rearm() {
+        let dir = Sandbox::new();
+        let fake = Fake::success();
+        let lock = Mutex::new(());
+        let s = json!({"notificationBucketCapacity":1,"notificationRefillSeconds":3600,"notificationEscalationSeconds":900});
+        enqueue(&dir.0, "blocked", interaction(json!(1)), 100).await;
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"breaker","target":"session_test","enabled":true}),
+            100,
+            &s,
+        )
+        .unwrap();
+        flush(&fake, &dir.0, &lock, 100, 0, &s).await.unwrap();
+        flush(&fake, &dir.0, &lock, 200, 0, &s).await.unwrap();
+        assert!(fake.calls.lock().unwrap().is_empty());
+        assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
+        assert!(fake.fallbacks.lock().unwrap()[0].contains("blocked"));
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"breaker","target":"session_test","enabled":false}),
+            201,
+            &s,
+        )
+        .unwrap();
+        flush(&fake, &dir.0, &lock, 201, 0, &s).await.unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        enqueue(&dir.0, "starved", interaction(json!(2)), 202).await;
+        flush(&fake, &dir.0, &lock, 202, 0, &s).await.unwrap();
+        flush(&fake, &dir.0, &lock, 1101, 0, &s).await.unwrap();
+        assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
+        flush(&fake, &dir.0, &lock, 1102, 0, &s).await.unwrap();
+        flush(&fake, &dir.0, &lock, 1103, 0, &s).await.unwrap();
+        assert_eq!(fake.fallbacks.lock().unwrap().len(), 2);
+        flush(&fake, &dir.0, &lock, 3801, 0, &s).await.unwrap();
+        assert!(!State::load(&dir.0).unwrap().targets[0].escalated);
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"breaker","target":"session_test","enabled":true}),
+            3802,
+            &s,
+        )
+        .unwrap();
+        flush(&fake, &dir.0, &lock, 3802, 0, &s).await.unwrap();
+        assert_eq!(fake.fallbacks.lock().unwrap().len(), 3);
+    }
+    #[tokio::test]
+    async fn notification_controls_are_scoped_persistent_and_reversible() {
+        let dir = Sandbox::new();
+        let fake = Fake::success();
+        let lock = Mutex::new(());
+        let s = json!({});
+        enqueue(&dir.0, "thread", interaction(json!(1)), 100).await;
+        assert!(governance::control_in(
+            &dir.0,
+            "other",
+            &json!({"action":"mute","threadId":"thread"}),
+            100,
+            &s
+        )
+        .is_err());
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"mute","threadId":"thread","mode":"digest"}),
+            100,
+            &s,
+        )
+        .unwrap();
+        flush(&fake, &dir.0, &lock, 3699, 0, &s).await.unwrap();
+        assert!(fake.calls.lock().unwrap().is_empty());
+        flush(&fake, &dir.0, &lock, 3700, 0, &s).await.unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        assert!(fake.calls.lock().unwrap()[0][1].contains("[ARC] digest"));
+        assert_eq!(
+            inbox_in(&dir.0, "claude", &[], true).unwrap()["events"][0]["target"],
+            "session_test"
+        );
+        acknowledge_in(&dir.0, "claude", &json!({"all":true})).unwrap();
+        let status = governance::status_in(&dir.0, "claude", &json!({}), 3701, &s).unwrap();
+        assert!(status["threads"][0]["lastAckAt"].is_number());
+        assert!(status["threads"][0]["lastDeliveredAt"].is_number());
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"unmute","threadId":"thread"}),
+            3701,
+            &s,
+        )
+        .unwrap();
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"rebind","threadId":"thread","target":null}),
+            3701,
+            &s,
+        )
+        .unwrap();
+        assert!(binding(&dir.0, "thread", "turn-1")
+            .unwrap()
+            .unwrap()
+            .target
+            .is_none());
+        governance::control_in(
+            &dir.0,
+            "claude",
+            &json!({"action":"rebind","threadId":"thread","target":"session_test"}),
+            3702,
+            &s,
+        )
+        .unwrap();
+        assert_eq!(
+            binding(&dir.0, "thread", "turn-1")
+                .unwrap()
+                .unwrap()
+                .target
+                .as_deref(),
+            Some("session_test")
+        );
+        assert_eq!(State::load(&dir.0).unwrap().threads[0].mode, "normal");
+        assert!(
+            governance::status_in(&dir.0, "other", &json!({}), 3702, &s).unwrap()["targets"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
+
     #[tokio::test]
     async fn actionable_notification_rendering() {
         let dir = Sandbox::new();
@@ -1634,11 +2284,12 @@ mod tests {
                     Ok(br#"{"ok":true,"session_id":"session_test"}"#.to_vec())
                 }
             }
-            async fn fallback(&self, _: String) {
+            async fn escalate(&self, _: String) -> Result<()> {
                 let _guard = self
                     .lock
                     .try_lock()
-                    .expect("fallback must not hold binding lock");
+                    .expect("escalation must not hold binding lock");
+                Ok(())
             }
         }
         for fail in [false, true] {
@@ -1653,7 +2304,7 @@ mod tests {
             super::process(&dir.0, &lock, &mut b, &interaction(json!(17)))
                 .await
                 .unwrap();
-            flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}), true)
+            flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}))
                 .await
                 .unwrap();
             let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
@@ -1798,8 +2449,7 @@ mod tests {
                 .unwrap();
             }
             assert_eq!(fake.calls.lock().unwrap().len(), 1);
-            assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
-            assert!(!fake.fallbacks.lock().unwrap()[0].contains("SECRET"));
+            assert!(fake.fallbacks.lock().unwrap().is_empty());
             assert_eq!(b.deliveries[0].status, "pending");
             assert_eq!(b.deliveries[0].state, "失败");
         }
@@ -1817,6 +2467,10 @@ mod tests {
             batch: String::new(),
             attempted_at: 0,
             attempts: vec![],
+            token_charged: false,
+            failures: 0,
+            next_attempt_at: 0,
+            digest: false,
             error: None,
             key: "request:17".into(),
             target: "session_test".into(),
@@ -1835,7 +2489,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(fake.calls.lock().unwrap().len(), 1);
-        assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
+        assert!(fake.fallbacks.lock().unwrap().is_empty());
         process(&fake, &dir.0, &mut b, &json!({"state":"cancelled"}))
             .await
             .unwrap();
@@ -1856,26 +2510,12 @@ pub(crate) fn push_available(notification: &Value) -> bool {
     {
         return false;
     }
-    let Ok(all) = records(&directory()) else {
+    let Ok(state) = State::load(&directory()) else {
         return false;
     };
-    let now = chrono::Utc::now().timestamp();
-    let wakes: std::collections::HashSet<_> = all
-        .iter()
-        .flat_map(|b| &b.deliveries)
-        .filter(|d| {
-            !d.urgent() && d.channel == Channel::ClaudeSession && notification["target"] == d.target
-        })
-        .flat_map(|d| {
-            d.attempts
-                .iter()
-                .map(|(batch, time)| (batch, *time))
-                .chain(std::iter::once((&d.batch, d.attempted_at)))
-        })
-        .filter(|(batch, time)| !batch.is_empty() && *time > now.saturating_sub(3600))
-        .map(|(batch, _)| batch)
-        .collect();
-    wakes.len() < settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize
+    !state.targets.iter().any(|t| {
+        t.channel == Channel::ClaudeSession && notification["target"] == t.target && t.breaker
+    })
 }
 
 pub(crate) async fn observe(thread: &str, turn: &str, observed: &Value) -> Result<()> {

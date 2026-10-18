@@ -3712,6 +3712,255 @@
       "example": {
         "all": true
       }
+    },
+    {
+      "name": "notify_status",
+      "description": "查看当前入口所绑定目标的令牌桶、待投递事件、近一小时批次与唤醒最多的线程、绑定及最近投递/已读时间。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Claude session ID or URL"
+          },
+          "threadId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {},
+      "guideParameters": [
+        "target",
+        "threadId"
+      ]
+    },
+    {
+      "name": "notify_control",
+      "description": "持久化控制当前入口的通知：线程 mute/digest、unmute、rebind（target=null 解绑），或目标 breaker。只影响通知，不取消或回复任务。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "mute",
+              "unmute",
+              "rebind",
+              "breaker"
+            ]
+          },
+          "threadId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "mute",
+              "digest"
+            ],
+            "default": "mute"
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC3339 expiry; omit for indefinite"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "action": {
+                "const": "mute"
+              }
+            },
+            "required": [
+              "threadId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "target"
+                  ]
+                },
+                {
+                  "required": [
+                    "enabled"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "unmute"
+              }
+            },
+            "required": [
+              "threadId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "target"
+                  ]
+                },
+                {
+                  "required": [
+                    "enabled"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "mode"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "rebind"
+              }
+            },
+            "required": [
+              "threadId",
+              "target"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "enabled"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "mode"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "breaker"
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "target",
+              "enabled"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "threadId"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "mode"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {
+        "action": "mute",
+        "threadId": "<threadId>",
+        "mode": "digest"
+      },
+      "guideParameters": [
+        "action",
+        "threadId",
+        "target",
+        "mode",
+        "until",
+        "enabled"
+      ]
     }
   ],
   "domains": {
@@ -4522,6 +4771,25 @@
         "requires": [],
         "tier": "default",
         "conditional": false
+      },
+      "notify_status": {
+        "group": "host",
+        "presets": [
+          "common",
+          "readOnly"
+        ],
+        "requires": [],
+        "tier": "default",
+        "conditional": false
+      },
+      "notify_control": {
+        "group": "host",
+        "presets": [
+          "common"
+        ],
+        "requires": [],
+        "tier": "default",
+        "conditional": false
       }
     }
   },
@@ -4533,7 +4801,7 @@
         "chatgpt": "P0: ChatGPT web wakeup and auto binding codes are not available. Keep short tasks in this turn using segmented query codex_wait; on timeout pass snapshotHash as expectedHash with the same threadId and turnId. For long tasks, retain the IDs and check again when the user returns. Watch arcInbox on every tool response. Do not promise an automatic ChatGPT wakeup. On needs-input, inspect the displayed interaction content, refresh codex_pending for that thread, then codex_respond as described in approvals; do not resend the task.",
         "other": "Use segmented query codex_wait (query agent_wait for other agents), preserving task/turn IDs and passing snapshotHash as expectedHash. Read arcInbox on every tool response; review results before continuing. On needs-input, inspect the displayed interaction content, refresh codex_pending for that thread, then codex_respond as described in approvals; do not resend the task."
       },
-      "notify": "claude-session sends plain event blocks with full thread/task, turn and event IDs. needs-input includes respond={op,args}; use act with those args plus the required result. Async questions use result:{answer:\"...\"}; synchronous multi-question requests require one combined answers map keyed by all question IDs. Approvals include native content and decision values. No preliminary pending query is needed for a valid callback. If stale, refresh pending. Desktop callbacks saved for this ingress can survive ARC restart: ARC revalidates them with the live owner; app-server callbacks remain session-bound. completed includes the last message verbatim up to 2000 Unicode characters; truncated=yes includes a full-text query. failed/interrupted include the native error when available. Claude ingress + claude-session bound events are attached in arcInbox at most once; delivered events are excluded, including existing records. This does not mark them read. act notification_ack({eventIds:[...]}) or ({all:true}) marks only the current ingress inbox read and is always available. ChatGPT and other events keep existing unread behavior. Bindings, pending deliveries and final text survive restart. Ordinary notifications merge for 30 seconds. needs-input and approvals use an independent immediate delivery loop, bypass the merge window and ordinary quota, and do not consume it. The notification switch and ten-second retry backoff still apply. Failed or uncertain sends retry with the same eventId; deduplicate on reception. The ordinary rolling limit is 20 attempted batches per target/hour, including retries; disabled/capped deliveries remain pending. Notification deliveries expose timing: queuedAt/startedAt/finishedAt are Unix milliseconds; queueMs is elapsed time from event creation to the latest attempt and sendMs is that attempt duration. queueReason retains the last blocking reason (batch-window, wake-limit, disabled or retry-backoff). Missing timestamps on older records are unknown. These times measure ARC and CLI confirmation, not receiver display. Finished records expire after seven days; unfinished and undelivered records remain.",
+      "notify": "claude-session sends plain event blocks with full thread/task, turn and event IDs. needs-input includes respond={op,args}; use act with those args plus the required result. Async questions use result:{answer:\"...\"}; synchronous multi-question requests require one combined answers map keyed by all question IDs. Approvals include native content and decision values. No preliminary pending query is needed for a valid callback. If stale, refresh pending. Desktop callbacks saved for this ingress can survive ARC restart: ARC revalidates them with the live owner; app-server callbacks remain session-bound. completed includes the last message verbatim up to 2000 Unicode characters; truncated=yes includes a full-text query. failed/interrupted include the native error when available. Claude ingress + claude-session bound events are attached in arcInbox at most once; delivered events are excluded, including existing records. This does not mark them read. act notification_ack({eventIds:[...]}) or ({all:true}) marks only the current ingress inbox read and is always available. ChatGPT and other events keep existing unread behavior. Bindings, pending deliveries and final text survive restart. All event kinds share one persisted token bucket per channel+target: notificationBucketCapacity=10, notificationRefillSeconds=60, configurable in task-settings. Each batch containing new events costs one token; retries cost none. Ordinary events merge for 30 seconds; needs-input/approvals bypass only that window. An empty bucket retains and merges pending events until refill, using timing.queueReason=token-wait and a merged-count line. Failed/unconfirmed sends reuse eventId with exponential backoff of 10,20,40,80,160,300 seconds, capped at 300. Health lines report per-turn questions/approvals, target send attempts over ten minutes (including retries), remaining tokens, and causedBy op/time when recorded; causedBy also preserves requestId. No source is inferred for old or owner-created turns. Inbox events include the complete bound target; a known different caller target is labeled as another session, otherwise ownership must be checked against target. query notify_status({target?,threadId?}) returns this ingress's buckets, pending events, last-hour batch compositions, most-woken threads, bindings and last delivery/ack times. act notify_control supports {action:\"mute\",threadId,mode?:\"mute\"|\"digest\",until?:RFC3339}, {action:\"unmute\",threadId}, {action:\"rebind\",threadId,target:session|null}, and {action:\"breaker\",target,enabled:boolean}. Controls persist across restart; thread rules apply to future turns. Mute retains events in the inbox; digest sends only hourly count summaries. Rebind moves pending events, null unbinds; breaker stops target wakes and retains inbox events. Already-started sends cannot be recalled. notify_status is always available; enable notify_control in the ingress tool policy if unavailable. For self-correction, inspect notify_status when the factual health summary looks unusual. If the Agent is looping, use codex_send to ask it to combine questions or decide within its existing authority. Use mute, rebind or breaker as needed; if unresolved, escalate to the user. ARC attempts one local system notification per breaker episode or after an empty bucket with waiting events persists for notificationEscalationSeconds=900; recovery rearms it. Notification permission or delivery failure appears as escalationError, not confirmed human receipt. The notification master switch applies. Per-delivery timing has Unix-millisecond queuedAt/startedAt/finishedAt, total queueMs before the latest attempt, sendMs, and the last queueReason. These measure ARC/CLI, not receiver display. Finished records expire after seven days; unfinished and undelivered records remain.",
       "review": "Use query codex_read, query codex_items and query codex_changes against the user’s acceptance criteria; query agent_read and query agent_events expose other agents’ results. Operation completed does not mean the task is done: confirm with query codex_wait or query agent_wait. Report unresolved evidence, then continue only within the user’s authorized scope.",
       "approvals": "ARC awaiting-approval uses act receipt with the original requestId and the user’s approve/bypass/reject decision. For Codex needs-input, use the included respond parameters with result directly; if missing or stale, query codex_pending({threadId}), then act codex_respond({id:responseId,backendSession,result,requestId}). Async Desktop questions use result:{answer:\"option or free text\"}; command/file approvals use result:{decision:\"accept\"|\"decline\"|\"cancel\"}; permissions, user-input and MCP elicitation use their native response schema (query codex_schema direction=server). canRespond=false, including Desktop user verification and unsupported pickers, requires Desktop. A Desktop response is confirmed by reading the owner again; unconfirmed requires readback, not replay. After ARC restart, saved Desktop notification callbacks are freshly revalidated; other callbacks require current backendSession. Resolved requests disappear from pending; never answer them again. Other agents use agent_pending/agent_respond. Supply the user’s decision; ARC never auto-approves."
     },
@@ -4544,7 +4812,7 @@
         "chatgpt": "P0 尚无 ChatGPT 网页唤醒与 auto 绑定码。短任务在当前回合分段 query codex_wait；超时沿用 threadId、turnId，把 snapshotHash 作为 expectedHash 续等。长任务保留标识，用户回到对话时再查。每次工具响应关注 arcInbox，不承诺自动唤醒 ChatGPT。 收到 needs-input 时查看通知中的交互内容，按 approvals 流程刷新该线程的 codex_pending 后用 codex_respond 代答，不重发任务。",
         "other": "使用分段 query codex_wait（其他 Agent 用 query agent_wait），保留任务和轮次标识，把 snapshotHash 作为 expectedHash 续等。每次工具响应关注 arcInbox，读取并审查结果再继续。 收到 needs-input 时查看通知中的交互内容，按 approvals 流程刷新该线程的 codex_pending 后用 codex_respond 代答，不重发任务。"
       },
-      "notify": "claude-session 使用纯文本事件块，包含完整线程/任务、轮次和事件 ID。needs-input 携带 respond={op,args}，在 args 中补入 result 后直接用 act 回复，无需先查 pending。异步问题传 result:{answer:\"...\"}；同步多问题请求须按所有问题 ID 一次提交 answers 映射，不能逐题提交。审批携带原始内容及 decision 值。仅回调过期或缺失时刷新 pending。已为当前入口保存的 Desktop 回调可跨 ARC 重启使用，由实时 owner 重新校验；app-server 回调仍绑定原会话。completed 携带最后消息原文，最多 2000 个 Unicode 字符，truncated=yes 时附全文 query。failed/interrupted 携带原始错误（若上游提供）。仅 Claude 入口中绑定 claude-session 的事件改为 arcInbox 附带一次，成功推送的事件不再附带，包括已有记录；附带不等于已读。act notification_ack({eventIds:[...]}) 或 ({all:true}) 标记当前入口收件箱已读，该 op 始终可用。ChatGPT 与其他事件维持原有未读行为。绑定、待投递事件及最终文本跨重启保留。普通通知合并窗口为 30 秒；needs-input 和审批由独立即时投递循环处理，跳过合并窗口和普通通知额度，也不消耗该额度；总开关及十秒失败重试间隔仍生效。失败或不确定发送沿用 eventId 重试，接收方去重。普通通知默认每目标滚动一小时最多尝试 20 批（含重试），关闭或限额时保留 pending。通知投递结果的 timing 中，queuedAt/startedAt/finishedAt 为 Unix 毫秒；queueMs 为事件产生至最近一次发送开始的总时长，sendMs 为该次发送耗时；queueReason 保留最近一次阻塞原因（batch-window、wake-limit、disabled、retry-backoff）。旧记录缺失的时间表示未知；这些时间度量 ARC 与 CLI 确认，不代表接收端显示时间。已完成记录七天后清理，未完成和未投递记录保留。",
+      "notify": "claude-session 使用纯文本事件块，包含完整线程/任务、轮次和事件 ID。needs-input 携带 respond={op,args}，在 args 中补入 result 后直接用 act 回复，无需先查 pending。异步问题传 result:{answer:\"...\"}；同步多问题请求须按所有问题 ID 一次提交 answers 映射，不能逐题提交。审批携带原始内容及 decision 值。仅回调过期或缺失时刷新 pending。已为当前入口保存的 Desktop 回调可跨 ARC 重启使用，由实时 owner 重新校验；app-server 回调仍绑定原会话。completed 携带最后消息原文，最多 2000 个 Unicode 字符，truncated=yes 时附全文 query。failed/interrupted 携带原始错误（若上游提供）。仅 Claude 入口中绑定 claude-session 的事件改为 arcInbox 附带一次，成功推送的事件不再附带，包括已有记录；附带不等于已读。act notification_ack({eventIds:[...]}) 或 ({all:true}) 标记当前入口收件箱已读，该 op 始终可用。ChatGPT 与其他事件维持原有未读行为。绑定、待投递事件及最终文本跨重启保留。所有事件按 channel+target 共用持久化令牌桶：task-settings 默认 notificationBucketCapacity=10、notificationRefillSeconds=60，可配置。含新事件的一批扣一个令牌，重试不扣。普通事件合并 30 秒，needs-input/审批只跳过合并窗口，仍扣令牌。桶空时保留并累积事件，补充后合并发送，timing.queueReason=token-wait，附“节流中，已合并 N 条”。失败/不确定发送沿用 eventId，按 10、20、40、80、160、300 秒指数退避，封顶 300 秒。健康行只陈述本轮提问/审批次数、近十分钟本目标投递尝试次数（含重试）、桶余量以及已记录的 causedBy op/时间；causedBy 同时保留 requestId。旧轮次或 owner 自发轮次缺少来源时省略，不猜测。收件箱事件附完整 target；明确知道调用方目标且不同才标“绑定其他会话”，否则提示按 target 核对归属。query notify_status({target?,threadId?}) 返回当前入口可见目标的桶、待投递事件、近一小时批次构成、唤醒最多线程、绑定及最近成功投递/已读时间。act notify_control 支持 {action:\"mute\",threadId,mode?:\"mute\"|\"digest\",until?:RFC3339}、{action:\"unmute\",threadId}、{action:\"rebind\",threadId,target:会话|null}、{action:\"breaker\",target,enabled:boolean}。控制跨重启保留，线程规则覆盖后续轮次。mute 事件只进收件箱；digest 按小时仅发计数汇总；rebind 改绑待投递事件，null 解绑；breaker 停止该目标唤醒，保留收件箱。已经开始的发送无法撤回。notify_status 始终可用；notify_control 不可用时在入口工具策略中启用。自纠流程：健康摘要看起来异常时，先用 notify_status 看清情况；若 Agent 在循环，用 codex_send 要求合并问题或在既有授权内自行决定；需要时用 mute、rebind、breaker，处理不了则交给人。熔断开启，或桶空且有待投递事件持续 notificationEscalationSeconds=900 秒时，ARC 每次异常尝试一条本机系统通知，恢复后重置。权限或通知失败记为 escalationError，不视为已通知到人。通知总开关仍生效。timing 的 queuedAt/startedAt/finishedAt 为 Unix 毫秒，queueMs 为产生至最近发送开始的累计时长，sendMs 为最近发送耗时，queueReason 保留最近阻塞原因；均不代表接收端显示时间。已完成记录七天后清理，未完成和未投递记录保留。",
       "review": "用 query codex_read、query codex_items、query codex_changes 对照用户验收标准审查；其他 Agent 用 query agent_read、query agent_events。操作 completed 不代表任务完成，使用 query codex_wait 或 query agent_wait 确认。说明未解决的证据，再在用户授权内续轮。",
       "approvals": "ARC awaiting-approval 用原 requestId 调用 act receipt，按用户意图 approve/bypass/reject。Codex needs-input 有通知 respond 参数时直接补入 result 调用；缺失或过期时先 query codex_pending({threadId})，再 act codex_respond({id:responseId,backendSession,result,requestId})。Desktop 异步问题传 result:{answer:\"选项或自由文本\"}；命令/文件审批传 result:{decision:\"accept\"|\"decline\"|\"cancel\"}；权限、用户输入和 MCP elicitation 遵循原生响应 schema（query codex_schema direction=server）。canRespond=false（包括 Desktop 用户身份验证和未支持的选项选择器）需在 Desktop 中处理。代答后回读 Desktop 确认，unconfirmed 先查状态，不重放。ARC 重启后已保存的 Desktop 通知回调由实时 owner 重新校验，其他回调需当前 backendSession。已解决请求从 pending 消失，不重复回答。其他 Agent 使用 agent_pending/agent_respond。答复由控制源按用户意图决定，ARC 不自动批准。"
     }

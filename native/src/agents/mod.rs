@@ -730,7 +730,9 @@ impl AgentHost {
         };
         match name {
             "agent_create" if string(args, "prompt").is_empty() => Ok(p.state.lock().await.clone()),
-            "agent_create" | "agent_send" => driver.prompt(&p, string(args, "prompt"), args).await,
+            "agent_create" | "agent_send" => {
+                driver.prompt(&p, string(args, "prompt"), args, name).await
+            }
             "agent_interrupt" => driver.interrupt(&p).await,
             "agent_respond" => driver.respond(&p, args).await,
             _ => Err("UNKNOWN_TOOL".into()),

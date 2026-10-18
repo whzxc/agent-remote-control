@@ -1012,9 +1012,21 @@ impl Service {
                             settings[key] = json!(value.as_bool().ok_or("invalid task setting")?);
                         }
                     }
-                    if let Some(value) = body.get("notificationWakeLimit") {
-                        settings["notificationWakeLimit"] =
-                            json!(value.as_u64().ok_or("invalid notification wake limit")?);
+                    if body.get("notificationWakeLimit").is_some() {
+                        return Err("RETIRED_SETTING: use notificationBucketCapacity and notificationRefillSeconds".into());
+                    }
+                    for (key, max) in [
+                        ("notificationBucketCapacity", 1000),
+                        ("notificationRefillSeconds", 86400),
+                        ("notificationEscalationSeconds", 86400),
+                    ] {
+                        if let Some(value) = body.get(key) {
+                            let value = value
+                                .as_u64()
+                                .filter(|n| *n >= 1 && *n <= max)
+                                .ok_or("invalid notification setting")?;
+                            settings[key] = json!(value);
+                        }
                     }
                     save(&root().join("task-settings.json"), &settings)?;
                     Ok(settings)

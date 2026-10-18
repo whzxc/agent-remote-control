@@ -157,7 +157,13 @@ impl AgentDriver {
         }
         Ok(p)
     }
-    pub async fn prompt(&self, p: &Arc<Process>, text: &str, args: &Value) -> Result<Value> {
+    pub async fn prompt(
+        &self,
+        p: &Arc<Process>,
+        text: &str,
+        args: &Value,
+        op: &str,
+    ) -> Result<Value> {
         {
             let mut t = p.state.lock().await;
             if !matches!(
@@ -183,6 +189,7 @@ impl AgentDriver {
                 string(&t, "taskId"),
                 string(&t, "turnId"),
                 string(&t, "cwd"),
+                json!({"op":op,"at":now(),"requestId":args["requestId"]}),
             )
             .await;
             crate::claude_notify::record_binding(&mut t, result);

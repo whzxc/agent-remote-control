@@ -712,7 +712,7 @@ impl Control {
                 let result = self.ipc().await?.respond(key, &args["result"]).await?;
                 if let Some(turn) = result["nextTurnId"].as_str() {
                     let thread = string(&result, "threadId");
-                    crate::claude_notify::bind(&json!({}), thread, turn, "").await?;
+                    crate::claude_notify::bind(&json!({}), thread, turn, "", Value::Null).await?;
                     crate::claude_notify::inherit(thread, string(&result, "answeredTurnId"), turn)
                         .await?;
                 }
@@ -802,6 +802,7 @@ impl Control {
                 thread,
                 string(r, "turnId"),
                 string(&result["thread"], "cwd"),
+                json!({"op":"codex_create","at":r["createdAt"],"requestId":r["requestId"]}),
             )
             .await;
             crate::claude_notify::record_binding(r, notification_binding);
@@ -910,6 +911,7 @@ impl Control {
                 string(r, "threadId"),
                 turn,
                 string(&r["task"], "directory"),
+                json!({"op":"codex_send","at":r["createdAt"],"requestId":r["requestId"]}),
             )
             .await;
             crate::claude_notify::record_binding(r, notification_binding);
@@ -1000,6 +1002,8 @@ impl Control {
                     .await
                 }
             }
+            "notify_status" => crate::claude_notify::notify_status(&args).await,
+            "notify_control" => crate::claude_notify::notify_control(&args).await,
             "notification_ack" => crate::claude_notify::acknowledge(&args).await,
             "codex_pending" => {
                 if let Some(thread) = args["threadId"].as_str() {

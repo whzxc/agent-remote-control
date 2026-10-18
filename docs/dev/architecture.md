@@ -41,7 +41,7 @@ Pi/ACP 每个任务拥有独立进程，AgentHost 保存 ARC taskId 与上游 se
 
 waiter 通过事件唤醒和真实状态复核判断轮次，默认 30 秒切片，取消等待只释放等待，不取消任务。Codex 保持原 owner，Pi/ACP 使用其存活进程状态。等待不持有全局锁，也不恢复已停止的执行进程。
 
-claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化状态与待处理交互投递记录。完成、失败、中断、等待输入或审批触发通知。发送期间释放记录锁，返回后合并；needs-input 与审批在独立投递循环中即时发送，不等待普通通知的 30 秒合并窗口、普通发送或小时额度，也不消耗普通额度；观察与两类投递独立运行，总开关仍生效。重启后未确认的 sending 记录恢复 pending，失败至少间隔十秒重试并沿用 eventId，普通通知限流计入历次普通尝试。投递记录及日志保留最近排队原因、事件入队与实际发送起止时间、累计排队时长和最近发送耗时；CLI 确认时间不代表接收端显示时间。已回答交互取消未发送通知，未完成绑定与待投递记录保留。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。macOS 系统通知作为失败回退。行为与调用参数见[工具参考](../reference/tools.md#control-source-notifications)。
+claude_notify 按 thread/turn 持久化绑定、实际派发来源与投递记录。governance 只保存每目标令牌桶、近期批次和可撤销的线程/目标通知控制；不判断任务是否循环。所有事件统一调度，needs-input 与审批只跳过 30 秒合并窗口，仍扣令牌；观察与发送独立，网络期间释放记录锁。重试按 10 秒至 5 分钟指数退避并保留扣费资格与 eventId。静音、小时摘要、改绑、熔断只影响通知；按入口隔离查询与管理。熔断或持续缺令牌触发单次本机系统升级，恢复后重置。投递 timing 记录排队原因及起止耗时，CLI 确认不代表接收端显示。已回答交互取消未发送通知，未完成绑定与待投递记录保留。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。行为与参数见[工具参考](../reference/tools.md#control-source-notifications)。
 
 ## 数据与观察
 

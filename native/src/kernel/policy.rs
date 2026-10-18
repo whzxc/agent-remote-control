@@ -1,6 +1,6 @@
 use crate::*;
 pub fn allows(policy: &Value, name: &str) -> bool {
-    matches!(name, "guide" | "notification_ack")
+    matches!(name, "guide" | "notification_ack" | "notify_status")
         || policy == "all"
         || policy["allowlist"]
             .as_array()

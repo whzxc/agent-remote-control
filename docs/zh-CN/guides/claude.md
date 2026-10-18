@@ -48,11 +48,13 @@ Claude 的[连接器文档](https://claude.com/docs/connectors/building)说明�
 
 让 Claude 对照验收标准判断结果，说明剩余问题，再用 `act codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。被中断轮次紧接的续轮可以继承绑定，显式绑定或解除优先。
 
-任务结果的 `notification` 显示投递状态。绑定失败会在派发回执中标为 `bind-failed`。投递失败时查看**记录**；macOS 上 ARC 还会尝试发送系统通知。
+任务结果的 `notification` 显示投递状态。绑定失败会在派发回执中标为 `bind-failed`。投递失败时查看**记录**；ARC 会退避重试，熔断或持续缺令牌时尝试一次系统通知升级。
 
 ## 推荐工作方式
 
 先约定范围、已有检查和哪些操作需要你决定。让 Claude 读完仓库再规划，每轮给 Codex 明确任务，审查 diff 后再继续。保留审批和提问，通过原任务的交互入口回答。电脑保持可用时，你可以在手机继续跟进。
+
+通知的健康摘要只提供计数。发现异常先用 `query notify_status` 查看桶、积压、近期批次和线程归属；需要时用 `codex_send` 要求 Agent 合并问题或在既有授权内自行决定。`act notify_control` 可静音线程、改为小时摘要、改绑/解绑或对目标熔断，也可撤销这些控制。详情见[工具参考](../reference/tools.md#control-source-notifications)。
 
 ## 限制
 

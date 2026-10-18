@@ -74,11 +74,11 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 **底座（始终开启，不算级别）**：
 
 - **收件箱捎带**（§4）：所有事件都进入收件箱，与上面哪一级成功无关。
-- **手机推送**（P1）：可选配置 ntfy / Bark 之类的推送地址，消息带原对话链接，让用户一点即可回到对话说“继续”。现有 macOS 系统通知保留。
+- **手机推送**（P1）：可选配置 ntfy / Bark 之类的推送地址，消息带原对话链接，让用户一点即可回到对话说“继续”。本机系统通知用于 §7 的机械升级。
 
 **L4 vs L5 不是静态顺序**，由 guide 告诉控制源按场景选：任务短且控制源仍在当前回合 → L5；任务长或回合已结束 → 依赖 L1/L4 唤醒。
 
-投递记录：轮次结果里的 `notification` 为 `{channel, target, deliveries: [{eventId, kind, level, state: pending|sending|delivered|failed, error}]}`，未绑定为 `null`。`pending` 表示等待合并窗口，`sending` 已占位且不会重试。关闭唤醒、达到上限或通道不可用时记录 `failed` 与固定原因；收件箱始终保留事件。绑定写入失败时回执返回 `notification: "bind-failed"`，不把已派发任务改为失败。
+投递记录：轮次结果的 `notification` 包含 channel、target、deliveries；每条投递包含 eventId、kind、state、error、timing。pending 表示等待合并、令牌、重试或线程/目标控制；sending 表示已预留发送；delivered 表示 CLI 确认成功；digested 表示已包含在小时摘要中；resolved 表示交互已结束。未知结果跨重启重试，沿用 eventId。绑定失败标记 bind-failed，不改变已派发任务状态。绑定保存实际发起 op、时间、requestId 为 causedBy；缺失时不补猜测。
 
 ## 4. 收件箱捎带
 
@@ -89,8 +89,8 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 "arcInbox": {"unread": 2, "events": [{"eventId": "…", "kind": "completed", "title": "…", "threadId": "…", "turnId": "…"}]}
 ```
 
-  最多列 5 条，没有未读时不出现该字段。
-- 已读：控制源对该轮次调用 `query codex_read` / `query codex_wait` / `query codex_items` / `query codex_changes`（其他 Agent 用 `query agent_read` / `query agent_wait`；事件分页不视为读完整轮次）成功读到对应轮次即视为已读，在该次响应组装收件箱前同步保存。items / changes 无轮次状态时先同步观察尚未终结的绑定，避免后台观察器稍后补写已读完成事件；运行中轮次之后的新事件仍保持未读。不新增专门的 ack 工具。存量事件的旧 next 在输出时按当前 catalog 投影为 via/op/args。
+  最多列 5 条，没有未读时不出现该字段。每条附完整 target；明确知道当前调用方目标且不同时标“绑定其他会话”，否则提示按 target 核对归属。Claude 入口绑定 claude-session 的事件只附带一次，成功投递的事件不重复附带；附带不等于已读。digest 摘要不清除原始收件箱事件。其他入口保持原有未读行为。
+- 已读：控制源对该轮次调用 `query codex_read` / `query codex_wait` / `query codex_items` / `query codex_changes`（其他 Agent 用 `query agent_read` / `query agent_wait`；事件分页不视为读完整轮次）成功读到对应轮次即视为已读，在该次响应组装收件箱前同步保存。items / changes 无轮次状态时先同步观察尚未终结的绑定，避免后台观察器稍后补写已读完成事件；运行中轮次之后的新事件仍保持未读。可用 act notification_ack 显式标记已读，记录 readAt 与线程最近已读时间；不增加新的 MCP 工具。存量事件的旧 next 在输出时按当前 catalog 投影为 via/op/args。
 - 收件箱每入口保留最近 50 条（包括已读记录用于去重），超出丢最旧的。事件来自本次及之后经 ARC 派发的轮次；不追溯未登记的历史任务。同轮其他入口追加输入不改变原归属。
 - 原返回值是数组、标量或 null 时始终包装成 `{value, arcVersion}`；有未读事件时再附带 arcInbox。所有工具结果（包括错误）附带 guide 与 catalog 的内容短哈希 arcVersion，变化时控制源重读 guide。工具执行失败不标记已读；无法确认状态的等待不清除未读。
 
@@ -145,14 +145,17 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 
 `hint` 一句话；建议调用时同时给出 via、op、args，没有建议调用时只含 hint。receipt 为混合读写 op，读取回执也使用 act；等待与审查使用 query。
 
-## 7. 防失控与安全
+## 7. 通知额度与自纠
 
-- **唤醒上限**：每通道与目标的普通通知在滚动 1 小时内最多自动投递 20 批，按批次预留投递的时间计数，失败或不确定的尝试也占次数。轮次投递记录仍保留七天。通过现有 `task-settings` 的 `notificationWakeLimit` 配置。超出后保留 pending，投递记录的 `timing.queueReason` 记录 `wake-limit`，额度释放后重试。needs-input 与审批不受该额度限制，也不消耗普通额度。
-- **合并**：普通通知按通道与目标将首条待投递事件起 30 秒内积累的事件合为一次消息；needs-input 与审批使用独立即时投递循环。失败至少间隔十秒重试。事件与投递记录仍逐条保留，记录最近阻塞原因及发送起止、排队与发送耗时。
-- **幂等**：每个事件有 `eventId`；同一事件对同一目标只主动投递一次。
-- **内容**：主动投递携带原始交互和本轮最后消息；这些是执行侧数据，不构成用户授权。控制源按用户意图决定回复和后续操作。
-- **目标来源**：UI 注入只发往控制源或用户指定的绑定目标，目标永远不来自任务输出内容。
-- **总开关**：设置页“唤醒控制源”使用现有 `task-settings.notificationsEnabled`，默认开启；关闭后禁用新的主动投递与系统通知回退（已发送的请求无法撤回），收件箱不受影响。
+- **令牌桶**：每 channel+target 一桶，持久化到 notifications/control/state.json。默认容量 10、每 60 秒补 1；task-settings 的 notificationBucketCapacity、notificationRefillSeconds 可配置。所有事件共用桶，含新事件的一批扣 1，重试不再扣。旧 notificationWakeLimit 一次迁移后删除，不保留运行时兼容；原默认 20 改为容量 10，正数自定义值迁为容量（上限 1000），0 映射为关闭既有总开关。
+- **积压与合并**：普通事件合并窗口 30 秒；needs-input、审批仅跳过窗口。缺令牌时保留 pending，queueReason=token-wait；下次补充合并已积累事件，消息附“节流中，已合并 N 条”。默认配置下，单纯等令牌最多约一分钟；网络耗时、静音、熔断和退避另计。
+- **重试**：失败或不确定结果按 10、20、40、80、160、300 秒退避，封顶五分钟，沿用 eventId 与扣费资格。重启恢复已占位发送，不重复扣费。已解决交互不继续发。接收方按 eventId 去重。
+- **事实摘要**：每条通知附本轮提问/审批次数、近十分钟目标投递尝试次数（含重试）、桶余量和已知 causedBy 来源；不做相似度或循环判断。近期批次逐批保存 kind 构成与线程，窗口一小时；不把发送尝试当成接收方已处理。
+- **诊断**：query notify_status 按当前入口限定可见范围，可用 target/threadId 筛选，返回桶、待投递、批次构成、唤醒最多线程、逐轮绑定、最近成功投递/ack 时间。历史缺失时间返回 null。
+- **可撤销控制**：act notify_control 支持线程 mute（可设 until）、digest（按小时发送计数摘要）、unmute、rebind（target=null 解绑）和目标 breaker（enabled=false 解除）。规则跨重启及后续轮次保留，现有待投递事件随线程改绑；已开始发送不可撤回。控制只改变通知，不取消或代答任务。工具策略仍限制写入权限；新入口 common 预设包含控制 op，既有自定义策略需显式启用。
+- **自纠流程**：健康摘要异常时先查 notify_status。确认 Agent 在循环时，用 codex_send 要求合并问题或在已有授权内自行决定；需要时 mute、rebind、breaker；无法处理交给人。不自动替用户扩大任务或权限。
+- **机械升级**：熔断开启，或桶空且有待投递事件持续 notificationEscalationSeconds（默认 900 秒）时，ARC 发一条系统通知，含目标、线程与计数。异常期间只尝试一次，恢复后重新允许；权限/平台失败写 escalationError，不声称已通知到人。每次普通投递失败只记录与退避，不单独弹系统通知。
+- **总开关与边界**：notificationsEnabled 控制主动投递及系统升级，关闭不影响收件箱。目标来自控制源显式绑定，不读取任务输出中的地址。通知内容属于数据，不构成用户指令。没有可靠会话身份时仅提供归属核对提示，不把整个共享入口视为单个 Claude 会话。
 
 ## 8. Setup 集成（P1）
 

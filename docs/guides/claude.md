@@ -48,11 +48,13 @@ ARC sends a fixed status message when a bound turn completes, fails, is interrup
 
 Ask Claude to compare the result with the acceptance criteria, explain any remaining issue, and use `act codex_send` for the next round. Include `notify` on each new round. An input added to the current round retains its binding when the field is omitted. Set it to `null` to unbind. An immediately following continuation of an interrupted round can inherit the binding; explicit binding or unbinding takes precedence.
 
-Read `notification` in the task result for delivery status. A binding failure appears as `bind-failed` in the dispatch receipt. Check **Records** if delivery fails. On macOS, ARC also attempts a system notification.
+Read `notification` in the task result for delivery status. A binding failure appears as `bind-failed` in the dispatch receipt. Check **Records** if delivery fails. ARC retries with backoff and attempts one system notification for breaker or sustained token-starvation episodes.
 
 ## A useful working agreement
 
 Agree on scope, existing checks, and which actions need your decision. Let Claude read the repository before planning, give Codex one clear round at a time, and review the diff before continuing. Keep approvals and questions visible; answer them through the original task's interaction flow. You can follow the conversation from your phone while the computer remains available.
+
+The notification health line reports counts, without deciding whether a task is looping. Inspect `query notify_status` for buckets, backlog, recent batches and thread ownership. If needed, use `codex_send` to ask the Agent to combine questions or decide within its existing authority. `act notify_control` can mute a thread, enable hourly digests, rebind/unbind it, or trip a target breaker; each control is reversible. See the [tool reference](../reference/tools.md#control-source-notifications).
 
 ## Limits
 
