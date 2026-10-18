@@ -9,16 +9,17 @@ import type { Setup, SetupGoal } from "../state/setup";
 import type { Login } from "../state/types";
 import { Button, CopyField, Dialog, Icon, Loading, Notice, SingleChoice } from "./ui";
 
-export default function SetupDialog({ mode, setMode, snapshot, error: readError, refresh, onClose, onManual }: {
+export default function SetupDialog({ mode, setMode, fixedGoal, snapshot, error: readError, refresh, onClose, onManual }: {
   mode: "entry" | "progress";
   setMode: (mode: "entry" | "progress") => void;
+  fixedGoal?: SetupGoal;
   snapshot?: Setup;
   error: string;
   refresh: () => Promise<Setup>;
   onClose: () => void;
   onManual: () => void;
 }) {
-  const [goal, setGoal] = useState<SetupGoal>("claude-loop");
+  const [goal, setGoal] = useState<SetupGoal>(fixedGoal ?? "claude-loop");
   const [login, setLogin] = useState<string>("loading");
   const [working, setWorking] = useState(false), [error, setError] = useState("");
   useEffect(() => {
@@ -52,6 +53,16 @@ export default function SetupDialog({ mode, setMode, snapshot, error: readError,
     } catch (e) { setError(String(e)); }
     finally { setWorking(false); }
   }
+  async function cancel() {
+    if (working) return;
+    setWorking(true); setError("");
+    try {
+      await api("setup/reset", "DELETE");
+      await refresh();
+      onClose();
+    } catch (e) { setError(String(e)); }
+    finally { setWorking(false); }
+  }
   async function open(url: string) {
     try {
       if (url.startsWith("codex://threads/")) await api("tasks/open", "POST", { threadId: new URL(url).pathname.slice(1) });
@@ -76,12 +87,15 @@ export default function SetupDialog({ mode, setMode, snapshot, error: readError,
     </> : <>
       {snapshot?.dispatch?.desktopUrl && <Button onClick={() => void open(snapshot.dispatch!.desktopUrl!)}><Icon icon={ExternalLink} />{t("setup.openTask")}</Button>}
       <span className="spacer" />
-      <Button variant={complete ? "primary" : "secondary"} onClick={() => { if (complete) void refreshConnector(); onClose(); }}>{t(complete ? "backToHome" : "close")}</Button>
+      <Button variant={complete ? "primary" : "secondary"} disabled={working} onClick={() => {
+        if (complete) { void refreshConnector(); onClose(); }
+        else void cancel();
+      }}>{t(complete ? "backToHome" : "setup.cancel")}</Button>
     </>}>
     {(error || readError) && <Notice tone="danger">{displayMessage(error || readError)}</Notice>}
     {mode === "entry" ? <div className="setup-entry">
-      <SingleChoice value={goal} onChange={value => setGoal(value as SetupGoal)} label={t("setup.choose-goal.title")} disabled={working}
-        options={[{ value: "claude-loop", label: t("setup.claudeRecommended") }, { value: "chatgpt-chat", label: "ChatGPT" }]} />
+      {!fixedGoal && <SingleChoice value={goal} onChange={value => setGoal(value as SetupGoal)} label={t("setup.choose-goal.title")} disabled={working}
+        options={[{ value: "claude-loop", label: t("setup.claudeRecommended") }, { value: "chatgpt-chat", label: "ChatGPT" }]} />}
       <p className="muted">{t(`setup.option.${goal}.explain`)}</p>
       {login !== "loading" && !ready && <Notice tone="warning">
         {t(missing ? "setup.codexMissing" : "setup.codexSignedOut")}

@@ -112,8 +112,8 @@ export default function ElasticPanel({
   }, [open]);
   useLayoutEffect(() => {
     if (!node || !open) return;
-    const previous = panelLayers.get().at(-1);
-    const parent = parentPanel.current ?? previous;
+    const previous = panelLayers.get().filter(panel => panel.isConnected && panel !== node).at(-1);
+    const parent = parentPanel.current?.isConnected ? parentPanel.current : previous;
     parentPanel.current = parent;
     setBaseDepth(parent ? Number(parent.dataset.panelDepth || 1) + 1 : 1);
     const source = parent?.getBoundingClientRect() ?? visualOrigin.current?.rect ?? origin.current;

@@ -463,6 +463,7 @@
   "setup.entryTitle": "Set up with an Agent",
   "setup.progressTitle": "Setup progress",
   "setup.claudeRecommended": "Claude · Recommended",
+  "setup.cancel": "Cancel setup",
   "setup.manual": "Manual setup",
   "setup.copyOther": "Copy for another Agent",
   "setup.sendCodex": "Send to Codex",

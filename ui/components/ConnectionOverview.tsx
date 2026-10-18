@@ -24,7 +24,7 @@ import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import IngressDialog from "./IngressDialog";
 import SetupDialog from "./SetupDialog";
-import { useSetup } from "../state/setup";
+import { useSetup, type SetupGoal } from "../state/setup";
 import IngressDetailsDialog from "./IngressDetailsDialog";
 import AgentsSettings, { AgentDetails } from "./AgentsSettings";
 import { Button, Icon, Notice } from "./ui";
@@ -93,6 +93,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const max = maxVisibleAgents.use();
   const { snapshot } = subscriptions.use(), nav = navigation.use();
   const [setupMode, setSetupMode] = useState<"entry" | "progress" | null>(null);
+  const [setupGoal, setSetupGoal] = useState<SetupGoal>();
+  const [initialSource, setInitialSource] = useState<string>();
+  const [manualSetup, setManualSetup] = useState(false);
   const [focusField, setFocusField] = useState<string>();
   const [editing, setEditing] = useState<Ingress>(),
     [formOpen, setFormOpen] = useState(false),
@@ -130,6 +133,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       !!busy || sources.some((i) => ["starting", "stopping"].includes(i.state));
   function edit(ingress?: Ingress, field?: string) {
     setFocusField(field);
+    setInitialSource(undefined);
+    setManualSetup(false);
     setEditing(ingress);
     setFormOpen(true);
   }
@@ -429,7 +434,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
               data-panel-anchor
               className="graph-node add-source"
               aria-label={t("addControlSource")}
-              onClick={() => setSetupMode("entry")}
+              onClick={() => {
+                if (!sources.length) { setSetupGoal(undefined); setSetupMode("entry"); }
+                else edit();
+              }}
             >
               <span className="source-icon" data-panel-visual>
                 <Icon icon={Plus} />
@@ -484,13 +492,27 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
-      {setupMode && visible && <SetupDialog mode={setupMode} setMode={setSetupMode} snapshot={setup.snapshot} error={setup.error} refresh={setup.refresh}
-        onClose={() => { setSetupMode(null); if (setup.snapshot?.complete) requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-source")?.focus()); }} onManual={() => { setSetupMode(null); edit(); }} />}
+      {setupMode && visible && <SetupDialog mode={setupMode} setMode={setSetupMode} fixedGoal={setupGoal} snapshot={setup.snapshot} error={setup.error} refresh={setup.refresh}
+        onClose={() => { setSetupMode(null); if (setup.snapshot?.complete) requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-source")?.focus()); }} onManual={() => {
+          setSetupMode(null);
+          edit();
+          setManualSetup(true);
+          setInitialSource(setupGoal === "claude-loop" ? "claude" : setupGoal === "chatgpt-chat" ? "chatgpt" : undefined);
+        }} />}
       {formOpen && (
         <IngressDialog
           key={`${editing?.id ?? "new"}:${focusField ?? ""}`}
           ingress={editing}
           focusField={focusField}
+          initialSource={initialSource}
+          onGuided={manualSetup ? undefined : source => {
+            const goal = source === "claude" ? "claude-loop" : source === "chatgpt" ? "chatgpt-chat" : undefined;
+            if (!goal) return false;
+            setSetupGoal(goal);
+            setFormOpen(false);
+            setSetupMode("entry");
+            return true;
+          }}
           onClose={() => setFormOpen(false)}
           onRemoved={() => { setFormOpen(false); setDetails(undefined); }}
           onSaved={(ingress) => {

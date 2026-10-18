@@ -463,6 +463,7 @@
   "setup.entryTitle": "交给 Agent 配置",
   "setup.progressTitle": "配置进度",
   "setup.claudeRecommended": "Claude · 推荐",
+  "setup.cancel": "取消配置",
   "setup.manual": "手动配置",
   "setup.copyOther": "复制给其他 Agent",
   "setup.sendCodex": "发送给 Codex",
