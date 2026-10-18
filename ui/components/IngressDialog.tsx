@@ -204,7 +204,7 @@ export default function IngressDialog({
       for (const { key } of secretFields) if (!config[key]) delete config[key];
       const bearer = https && auth === "bearer";
       const metadata = {
-        toolPolicy,
+        ...(!ingress ? { toolPolicy } : {}),
         name: name.trim(),
         controlSource: selected === "custom" ? source : selected,
         auth: https ? auth : "openai",
@@ -491,11 +491,11 @@ export default function IngressDialog({
               </Field>
             </>
           )}
-          <ToolPolicyField
+          {!ingress && <ToolPolicyField
             value={toolPolicy}
             onChange={value => { dirty.current.add("toolPolicy"); setToolPolicy(value); }}
             disabled={working}
-          />
+          />}
           {error && <Notice>{displayMessage(error)}</Notice>}
         </form>
       )}

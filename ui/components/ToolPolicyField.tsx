@@ -48,6 +48,9 @@ export default function ToolPolicyField({
   useEffect(() => {
     void load();
   }, []);
+  useEffect(() => {
+    if (catalog && !open) setMode(identifyPolicy(value, catalog));
+  }, [value, catalog, disabled, open]);
   const selected =
     value === "all"
       ? (catalog?.tools.map((tool) => tool.name) ?? [])
@@ -64,12 +67,15 @@ export default function ToolPolicyField({
   function choose(next: string) {
     if (!catalog) return;
     setMode(next as ToolMode);
+    if (next === "custom") {
+      setDraft([...selected]);
+      setOpen(true);
+      return;
+    }
     onChange(
       next === "all"
         ? "all"
-        : next === "custom"
-          ? { allowlist: normalizeSelection(selected, catalog) }
-          : presetPolicy(next as "common" | "readOnly", catalog),
+        : presetPolicy(next as "common" | "readOnly", catalog),
     );
   }
   const exposed =
@@ -135,7 +141,10 @@ export default function ToolPolicyField({
       </Field>
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          if (catalog) setMode(identifyPolicy(value, catalog));
+        }}
         title={`${t("toolList")} · ${options.find((option) => option.value === mode)?.label}`}
         footer={
           <>

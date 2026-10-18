@@ -925,6 +925,21 @@ impl Service {
                     return Err("cannot change ingress id".into());
                 }
                 let entry = normalize(entry)?;
+                // Metadata and startup preferences apply to the existing runtime. In
+                // particular, policy changes must preserve OAuth and active requests.
+                let mut old_runtime = previous["config"].clone();
+                let mut new_runtime = entry["config"].clone();
+                old_runtime.as_object_mut().unwrap().remove("autoStart");
+                new_runtime.as_object_mut().unwrap().remove("autoStart");
+                let runtime_changed = old_runtime != new_runtime
+                    || ["transport", "enabled", "auth", "bearerToken"]
+                        .iter()
+                        .any(|key| previous[*key] != entry[*key]);
+                if !runtime_changed {
+                    store_entry(&entry)?;
+                    i.update_entry(entry).await;
+                    return i.summary().await;
+                }
                 i.stop().await?;
                 if let Err(error) = store_entry(&entry) {
                     if restart {
@@ -938,7 +953,8 @@ impl Service {
                     || ["transport", "controlSource", "auth", "bearerToken"]
                         .iter()
                         .any(|key| previous[*key] != entry[*key]);
-                if identity_changed || previous["toolPolicy"] != entry["toolPolicy"] {
+                if previous["auth"] != entry["auth"] || previous["transport"] != entry["transport"]
+                {
                     next.oauth.lock().await.reset()?;
                 }
                 if identity_changed {

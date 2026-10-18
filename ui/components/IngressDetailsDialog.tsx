@@ -14,6 +14,8 @@ import {
   Status,
 } from "./ui";
 import OAuthGrants from "./OAuthGrants";
+import ToolPolicyField from "./ToolPolicyField";
+import type { ToolPolicy } from "../toolPolicy";
 export default function IngressDetailsDialog({
   ingress,
   autoConnect = false,
@@ -66,6 +68,25 @@ export default function IngressDetailsDialog({
       } catch {
         endpoint = "";
       }
+    }
+  }
+  async function updateToolPolicy(toolPolicy: ToolPolicy) {
+    if (connecting) return;
+    setWorking(true);
+    setError("");
+    try {
+      const saved = await api<Ingress>(`ingress/${entry.id}`, "PUT", { toolPolicy });
+      connector.set(old => ({
+        ...old,
+        status: old.status && {
+          ...old.status,
+          ingresses: old.status.ingresses.map(i => i.id === saved.id ? saved : i),
+        },
+      }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWorking(false);
     }
   }
   async function readCredentials() {
@@ -244,6 +265,11 @@ export default function IngressDetailsDialog({
               />
             </Field>
           )}
+        <ToolPolicyField
+          value={entry.toolPolicy}
+          onChange={value => void updateToolPolicy(value)}
+          disabled={connecting}
+        />
         {(error || entry.error) && (
           <Notice>{displayMessage(error || entry.error)}</Notice>
         )}

@@ -107,6 +107,10 @@ impl Ingress {
         *self.meta.lock().await = entry;
         Ok(())
     }
+    pub(crate) async fn update_entry(&self, entry: Value) {
+        *self.settings.lock().await = entry["config"].clone();
+        *self.meta.lock().await = entry;
+    }
     pub async fn persist(&self, config: &Value) -> Result<()> {
         let mut entry = self.meta.lock().await.clone();
         entry["config"] = config.clone();
