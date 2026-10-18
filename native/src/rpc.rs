@@ -86,7 +86,7 @@ impl Rpc {
                 };
                 if msg.get("method").is_some() {
                     if let Some(key) = msg.get("id") {
-                        events.lock().await.pending.insert(key.to_string(),json!({"id":key,"method":msg["method"],"params":msg["params"],"backendSession":session}));
+                        events.lock().await.pending.insert(key.to_string(),json!({"id":key,"responseId":key.to_string(),"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":"connector-app-server","canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":key.to_string(),"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}}));
                     }
                     if string(&msg, "method") == "serverRequest/resolved" {
                         events

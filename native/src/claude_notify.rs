@@ -266,7 +266,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
         if agent {
             json!({"hint":"Read the pending interaction before responding.","via":"query","op":"agent_pending","args":{"agent":b.agent,"taskId":b.thread_id}})
         } else {
-            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","via":"query","op":"codex_pending","args":{"threadId":b.thread_id}})
+            json!({"hint":"Read the pending interaction before responding; if no request is exposed, 需在 Desktop 中处理 / handle in Codex Desktop.","via":"query","op":"codex_pending","args":{"threadId":b.thread_id}})
         }
     } else if agent {
         json!({"hint":"Read the result and review it against the acceptance criteria.","via":"query","op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}})
@@ -457,7 +457,7 @@ fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
             || (d.status == "failed"
                 && matches!(
                     d.error.as_deref(),
-                    None | Some("delivery-failed-or-unconfirmed")
+                    None | Some("delivery-failed-or-unconfirmed" | "wake-limit" | "disabled")
                 ))
     };
     if b.deliveries.iter().any(retry) {
@@ -515,6 +515,14 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     let mut resolved = false;
     if observation["state"] != "unconfirmed" {
         for d in &mut b.deliveries {
+            if d.task_state == "interaction-required"
+                && d.interaction.is_null()
+                && d.status == "pending"
+                && observation["state"] != "interaction-required"
+            {
+                d.status = "resolved".into();
+                resolved = true;
+            }
             if d.status == "pending" {
                 if let Some(current) = observation["interaction"]
                     .as_array()
