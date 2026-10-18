@@ -61,6 +61,10 @@ struct Delivery {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     interaction: Value,
     status: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    final_response: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    task_error: Value,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -275,158 +279,149 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     };
     json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
-// Keep the persisted event lossless; render only the outbound notification here.
-fn notification_block(text: &str, language: &str) -> String {
-    let longest = text.split(|c| c != '`').map(str::len).max().unwrap_or(0);
-    let fence = "`".repeat(3.max(longest + 1));
-    format!("{fence}{language}\n{text}\n{fence}")
+fn literal(value: &Value) -> String {
+    value
+        .as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| value.to_string())
 }
-fn notification_value(value: &Value) -> String {
-    if let Some(text) = value.as_str() {
-        // Quoting keeps upstream text visibly separate from ARC's own guidance.
-        text.split('\n')
-            .map(|line| format!("> {line}"))
-            .collect::<Vec<_>>()
-            .join("\n")
-    } else {
-        notification_block(
-            &serde_json::to_string_pretty(value).unwrap_or_default(),
-            "json",
+fn question_lines(question: &Value) -> String {
+    let text = question
+        .get("question")
+        .or_else(|| question.get("title"))
+        .unwrap_or(&Value::Null);
+    let options = question["options"]
+        .as_array()
+        .filter(|v| !v.is_empty())
+        .map(|options| {
+            options
+                .iter()
+                .enumerate()
+                .map(|(i, option)| format!("{}) {}", i + 1, literal(option)))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .unwrap_or_else(|| "(free text)".into());
+    // Option objects retain labels, descriptions and any upstream extension fields.
+    let mut lines = format!("question: {}\noptions: {options}", literal(text));
+    let mut extra = question.clone();
+    if let Some(fields) = extra.as_object_mut() {
+        for key in ["question", "title", "options"] {
+            fields.remove(key);
+        }
+        if !fields.is_empty() {
+            lines.push_str(&format!("\nquestionDetails: {extra}"));
+        }
+    }
+    lines
+}
+fn response_call(b: &Binding, r: &Value) -> Option<Value> {
+    if r["canRespond"] == false {
+        return None;
+    }
+    if r["next"]["via"] == "act" && r["next"]["args"].is_object() {
+        return Some(json!({"op":r["next"]["op"],"args":r["next"]["args"]}));
+    }
+    let key = r.get("responseId").or_else(|| r.get("id"))?;
+    if !b.agent.is_empty() && b.agent != "codex" {
+        Some(
+            json!({"op":"agent_respond","args":{"agent":b.agent,"taskId":b.thread_id,"interactionId":r.get("interactionId").unwrap_or(key),"backendSession":r["backendSession"]}}),
         )
+    } else if !r["backendSession"].is_null() {
+        Some(
+            json!({"op":"codex_respond","args":{"backendSession":r["backendSession"],"id":literal(key)}}),
+        )
+    } else {
+        None
     }
 }
-fn interaction_text(interaction: &Value) -> String {
-    let mut params = interaction.get("params").cloned().unwrap_or_else(|| {
-        let mut content = interaction.clone();
-        if let Some(fields) = content.as_object_mut() {
-            for key in [
-                "id",
-                "responseId",
-                "interactionId",
-                "nativeId",
-                "backendSession",
-                "owner",
-                "canRespond",
-                "next",
-                "resolved",
-                "jsonrpc",
-            ] {
-                fields.remove(key);
-            }
-        }
-        content
-    });
+fn interaction_text(b: &Binding, r: &Value) -> String {
+    let respond = response_call(b, r)
+        .map(|call| format!("respond={call}"))
+        .unwrap_or_else(|| "respond: unavailable (handle in task owner)".into());
+    let method = string(r, "method");
+    let mut params = r.get("params").cloned().unwrap_or_else(|| r.clone());
     if let Some(fields) = params.as_object_mut() {
-        // These are routing metadata, never approval or question content.
-        for key in ["threadId", "turnId", "questionItemId"] {
+        for key in [
+            "threadId",
+            "turnId",
+            "questionItemId",
+            "id",
+            "backendSession",
+            "interactionId",
+        ] {
             fields.remove(key);
         }
     }
-    let mut sections = Vec::new();
-    if let Some(fields) = params.as_object_mut() {
-        for (key, label) in [
-            ("question", "需要确认"),
-            ("questions", "需要确认"),
-            ("message", "说明"),
-            ("command", "待执行命令"),
-            ("cwd", "工作目录"),
-            ("reason", "原因"),
-            ("options", "可选回答"),
-        ] {
-            if let Some(value) = fields.remove(key) {
-                let body = if key == "options" {
-                    value
-                        .as_array()
-                        .map(|options| {
-                            options
-                                .iter()
-                                .enumerate()
-                                .map(|(i, option)| {
-                                    format!(
-                                        "{}. {}",
-                                        i + 1,
-                                        notification_value(option).replace('\n', "\n   ")
-                                    )
-                                })
-                                .collect::<Vec<_>>()
-                                .join("\n\n")
-                        })
-                        .unwrap_or_else(|| notification_value(&value))
-                } else if key == "questions" && value.is_array() {
-                    value
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .enumerate()
-                        .map(|(i, question)| {
-                            format!(
-                                "**问题 {}**\n\n{}",
-                                i + 1,
-                                interaction_text(&json!({"params": question}))
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n\n")
-                } else {
-                    notification_value(&value)
-                };
-                sections.push(format!("**{label}**\n\n{body}"));
+    if method == "request_user_input_async" {
+        return format!(
+            "{respond}\n{}\nresult: {{\"answer\":\"<answer>\"}}",
+            question_lines(&params)
+        );
+    }
+    if method == "item/tool/requestUserInput" {
+        let mut answers = serde_json::Map::new();
+        let mut blocks = Vec::new();
+        for q in params["questions"].as_array().into_iter().flatten() {
+            answers.insert(string(q, "id").into(), json!({"answers":["<answer>"]}));
+            blocks.push(format!("{respond}\n{}", question_lines(q)));
+        }
+        blocks.push(format!(
+            "result (submit all question IDs together): {}",
+            json!({"answers":answers})
+        ));
+        if let Some(fields) = params.as_object_mut() {
+            fields.remove("questions");
+            if !fields.is_empty() {
+                blocks.push(format!("details: {params}"));
             }
         }
+        return blocks.join("\n");
     }
-    if !params.is_null() && params.as_object().is_none_or(|fields| !fields.is_empty()) {
-        sections.push(format!("**交互详情**\n\n{}", notification_value(&params)));
+    let mut lines = format!("{respond}\nmethod: {method}\napproval/input: {params}");
+    if matches!(
+        method,
+        "item/commandExecution/requestApproval" | "item/fileChange/requestApproval"
+    ) {
+        let decisions = params
+            .get("availableDecisions")
+            .filter(|v| v.is_array())
+            .cloned()
+            .unwrap_or_else(|| json!(["accept", "acceptForSession", "decline", "cancel"]));
+        lines.push_str(&format!(
+            "\ndecisions: {decisions}\nresult: {{\"decision\":\"<decision>\"}}"
+        ));
+    } else if method == "item/permissions/requestApproval" {
+        lines.push_str("\nresult fields: permissions (approved subset of requested permissions), scope (turn|session)");
+    } else if method == "mcpServer/elicitation/request" {
+        lines.push_str("\nresult fields: action (accept|decline|cancel), content (values matching requestedSchema when accepted)");
     }
-    sections.join("\n\n")
+    lines
 }
 fn message(b: &Binding) -> String {
     b.deliveries.iter().map(|d| {
+        let event = event(b, d);
         let agent = !b.agent.is_empty() && b.agent != "codex";
-        let pending = !matches!(d.task_state.as_str(), "completed" | "failed" | "cancelled");
-        let status = match d.task_state.as_str() {
-            "completed" => "本轮完成",
-            "failed" => "执行失败",
-            "cancelled" => "已中断",
-            _ if d.state == "等待审批" => "等待审批",
-            _ => "等待输入",
-        };
-        let title = if b.title.is_empty() { "未命名任务" } else { &b.title };
-        let mut sections = vec![format!("[ARC] {status}\n\n**任务**\n\n{}\n\n项目：{} · Agent：{}",
-            notification_value(&json!(title)), b.project, if agent { &b.agent } else { "Codex" })];
-        if pending {
-            let content = interaction_text(&d.interaction);
-            if !content.is_empty() { sections.push(content); }
-            if let Some(method) = d.interaction["method"].as_str() {
-                sections.push(format!("交互类型：{method}"));
-            }
-            if d.interaction["method"] == "request_user_input_async" {
-                sections.push("支持选项或自由文本回复。".into());
-            }
+        let mut lines = vec![format!("[ARC] {} · {} · {}", string(&event,"kind"), b.project, b.title),
+            format!("{}={} turn={} event={}", if agent {"task"} else {"thread"}, b.thread_id, b.turn_id, d.event_id)];
+        if agent { lines.push(format!("agent={}",b.agent)); }
+        match string(&event,"kind") {
+            "completed" => {
+                let text = d.final_response.as_str().or_else(|| d.final_response["text"].as_str());
+                if let Some(text) = text {
+                    let truncated = text.chars().count() > 2000 || d.final_response["textTruncated"] == true;
+                    lines.push(format!("final (truncated={}):\n{}", if truncated {"yes"} else {"no"}, text.chars().take(2000).collect::<String>()));
+                    if !truncated { return lines.join("\n"); }
+                } else { lines.push("final: unavailable".into()); }
+                let call = if agent { json!({"op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}}) }
+                    else { json!({"op":"codex_items","args":{"threadId":b.thread_id,"turnId":b.turn_id,"latest":true,"limit":1,"length":65536}}) };
+                lines.push(format!("query={call}"));
+            },
+            "failed" | "interrupted" => lines.push(format!("error: {}", if d.task_error.is_null() {"(not provided by task owner)".into()} else {literal(&d.task_error)})),
+            _ => lines.push(interaction_text(b, &d.interaction)),
         }
-        let op = match (agent, pending) {
-            (true, true) => "agent_pending",
-            (true, false) => "agent_read",
-            (false, true) => "codex_pending",
-            (false, false) => "codex_read",
-        };
-        let args = if agent { json!({"agent":b.agent,"taskId":b.thread_id}) }
-            else { json!({"threadId":b.thread_id}) };
-        let hint = if pending && d.interaction["canRespond"] == false {
-            "此交互不能远程回复，需在原任务所属应用中处理；可查询最新状态。"
-        } else if pending {
-            "先查询最新待处理交互，按原任务的交互契约回复；不要重发任务。若没有可回复请求，需在原任务所属应用中处理。"
-        } else if d.task_state == "completed" {
-            "读取本轮结果并对照要求验收；本轮完成不代表验收通过。"
-        } else {
-            "读取任务结果，检查原因与当前进度。"
-        };
-        sections.push(format!("**下一步**\n\n{hint}\n\n调用 query：\n\n{}", notification_block(
-            &json!({"op":op,"args":args}).to_string(), "json")));
-        // IDs occur once in the query above or in this footer, without abbreviation.
-        sections.push(format!("**定位信息**\n\n{}", notification_block(
-            &format!("turnId: {}\neventId: {}", b.turn_id, d.event_id), "text")));
-        sections.join("\n\n")
-    }).collect::<Vec<_>>().join("\n\n---\n\n")
+        lines.join("\n")
+    }).collect::<Vec<_>>().join("\n\n")
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
@@ -711,6 +706,16 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             attempted_at: 0,
             attempts: vec![],
             error: None,
+            final_response: if observation["state"] == "completed" {
+                observation["finalResponse"].clone()
+            } else {
+                Value::Null
+            },
+            task_error: if matches!(string(observation, "state"), "failed" | "cancelled") {
+                observation["error"].clone()
+            } else {
+                Value::Null
+            },
             interaction: observation["interaction"]
                 .as_array()
                 .into_iter()
@@ -735,7 +740,11 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             for row in rows.as_array_mut().into_iter().flatten() {
                 if let Some(d) = b.deliveries.iter().find(|d| row["eventId"] == d.event_id) {
                     let read = row["read"].clone();
+                    let attached = row["attached"].clone();
                     *row = event(b, d);
+                    if !attached.is_null() {
+                        row["attached"] = attached;
+                    }
                     if !read.is_null() {
                         row["read"] = read;
                     }
@@ -772,58 +781,116 @@ fn inbox_append(dir: &Path, ingress: &str, event: Value) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) async fn inbox(ingress: &str, reads: &[(String, String)]) -> Result<Value> {
+pub(crate) async fn inbox(
+    ingress: &str,
+    reads: &[(String, String)],
+    claude: bool,
+) -> Result<Value> {
     let _guard = LOCK.lock().await;
-    let path = inbox_path(&directory(), ingress);
+    inbox_in(&directory(), ingress, reads, claude)
+}
+fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool) -> Result<Value> {
+    let path = inbox_path(dir, ingress);
     if !path.exists() {
         return Ok(Value::Null);
     }
     let mut rows = load(&path)?;
-    if let Some(rows) = rows.as_array_mut() {
-        for row in rows {
-            if reads.iter().any(|(task, turn)| {
-                (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
-            }) {
-                row["read"] = json!(true);
+    let bindings = if claude { records(dir)? } else { vec![] };
+    let mut events = Vec::new();
+    let mut unread = 0;
+    for row in rows.as_array_mut().ok_or("INVALID_INBOX")? {
+        if reads.iter().any(|(task, turn)| {
+            (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
+        }) {
+            row["read"] = json!(true);
+        }
+        if row["read"] == true {
+            continue;
+        }
+        // Only Claude-owned ingress events with an actual session binding change behavior.
+        // Looking up existing records also suppresses pre-upgrade delivered events.
+        let delivery = bindings
+            .iter()
+            .filter(|b| b.ingress == ingress)
+            .flat_map(|b| &b.deliveries)
+            .find(|d| {
+                row["eventId"] == d.event_id
+                    && d.channel == Channel::ClaudeSession
+                    && !d.target.is_empty()
+            });
+        let incremental = claude && (delivery.is_some() || row["attached"] == true);
+        if incremental
+            && (row["attached"] == true
+                || delivery.is_some_and(|d| matches!(d.status.as_str(), "delivered" | "resolved")))
+        {
+            row["attached"] = json!(true);
+            continue;
+        }
+        unread += 1;
+        if events.len() < 5 {
+            if incremental {
+                row["attached"] = json!(true);
             }
+            let mut event = row.clone();
+            event.as_object_mut().unwrap().remove("attached");
+            events.push(event);
         }
     }
-    if !reads.is_empty() {
-        save(&path, &rows)?;
-    }
-    let unread: Vec<_> = rows
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|v| v["read"] != true)
-        .cloned()
-        .map(|mut row| {
-            // Stored events predate the frozen surface; project their next call
-            // through the current catalog without rewriting notification history.
-            if let Some(op) = row["next"]["tool"].as_str().map(str::to_owned) {
-                let mut next = row["next"].take();
-                if let Some(spec) = catalog()["ops"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .find(|s| s["name"] == op)
-                {
-                    next["via"] = json!(crate::egress::via(spec));
-                    next["op"] = json!(op);
-                    next["args"] = next["arguments"].take();
-                }
-                next.as_object_mut().unwrap().remove("tool");
-                next.as_object_mut().unwrap().remove("arguments");
-                row["next"] = next;
-            }
-            row
-        })
-        .collect();
-    Ok(if unread.is_empty() {
+    save(&path, &rows)?;
+    Ok(if events.is_empty() {
         Value::Null
     } else {
-        json!({"unread":unread.len(),"events":unread.into_iter().take(5).collect::<Vec<_>>()})
+        json!({"unread":unread,"events":events})
     })
+}
+pub(crate) async fn acknowledge(args: &Value) -> Result<Value> {
+    let ingress = string(&crate::kernel::origin::current_origin(), "ingressId").to_owned();
+    if ingress.is_empty() {
+        return Err("INGRESS_REQUIRED".into());
+    }
+    let _guard = LOCK.lock().await;
+    acknowledge_in(&directory(), &ingress, args)
+}
+fn acknowledge_in(dir: &Path, ingress: &str, args: &Value) -> Result<Value> {
+    let path = inbox_path(dir, ingress);
+    if !path.exists() {
+        return Ok(json!({"markedRead":0}));
+    }
+    let mut rows = load(&path)?;
+    let mut count = 0;
+    for row in rows.as_array_mut().ok_or("INVALID_INBOX")? {
+        if row["read"] != true
+            && (args["all"] == true
+                || args["eventIds"]
+                    .as_array()
+                    .is_some_and(|ids| ids.contains(&row["eventId"])))
+        {
+            row["read"] = json!(true);
+            count += 1;
+        }
+    }
+    save(&path, &rows)?;
+    Ok(json!({"markedRead":count}))
+}
+
+// An old Desktop callback is eligible only if this ingress was actually given it.
+// The Desktop owner still freshly verifies the request before applying any answer.
+pub(crate) fn recoverable_response(key: &str, session: &str) -> Result<bool> {
+    let origin = crate::kernel::origin::current_origin();
+    recoverable_response_in(&directory(), string(&origin, "ingressId"), key, session)
+}
+fn recoverable_response_in(dir: &Path, ingress: &str, key: &str, session: &str) -> Result<bool> {
+    Ok(!ingress.is_empty()
+        && records(dir)?
+            .iter()
+            .filter(|b| b.ingress == ingress)
+            .any(|b| {
+                b.deliveries.iter().any(|d| {
+                    d.interaction["owner"] == "desktop"
+                        && d.interaction["id"] == key
+                        && d.interaction["backendSession"] == session
+                })
+            }))
 }
 
 fn records(dir: &Path) -> Result<Vec<Binding>> {
@@ -975,7 +1042,7 @@ async fn flush(
             .iter()
             .map(|b| message(b))
             .collect::<Vec<_>>()
-            .join("\n");
+            .join("\n\n");
         let status = deliver_message(executor, &batch[0], &body).await;
         let _guard = lock.lock().await;
         for reserved in batch {
@@ -1250,6 +1317,121 @@ mod tests {
     fn interaction(id: Value) -> Value {
         json!({"state":"interaction-required", "interaction":[{"id":id,"method":"item/commandExecution/requestApproval","params":{"command":"SECRET_COMMAND"}}],"activeFlags":["waitingOnApproval"],"finalResponse":"SECRET_OUTPUT","error":"SECRET_ERROR"})
     }
+    #[tokio::test]
+    async fn actionable_notification_rendering() {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        let fake = Fake::success();
+        let request = json!({"id":"[\"desktop\",\"thread-1\",0]","owner":"desktop","backendSession":"old-session","method":"request_user_input_async","canRespond":true,"params":{"question":"原文\n第二行","options":["保持原样","继续"]}});
+        process(
+            &fake,
+            &dir.0,
+            &mut b,
+            &json!({"state":"interaction-required","interaction":[request]}),
+        )
+        .await
+        .unwrap();
+        b.ingress = "caller".into();
+        persist(&dir.0, &b).unwrap();
+        assert!(
+            recoverable_response_in(&dir.0, "caller", string(&request, "id"), "old-session")
+                .unwrap()
+        );
+        assert!(
+            !recoverable_response_in(&dir.0, "other", string(&request, "id"), "old-session")
+                .unwrap()
+        );
+        assert!(!recoverable_response_in(
+            &dir.0,
+            "caller",
+            string(&request, "id"),
+            "unknown-session"
+        )
+        .unwrap());
+        let body = message(&b);
+        assert!(body.starts_with("[ARC] needs-input · "));
+        assert!(body.contains("question: 原文\n第二行\noptions: 1) 保持原样 | 2) 继续"));
+        let call: Value = serde_json::from_str(
+            body.lines()
+                .find_map(|s| s.strip_prefix("respond="))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(call["args"]["id"], request["id"]);
+        assert_eq!(call["args"]["backendSession"], "old-session");
+        let sync = json!({"id":"sync","backendSession":"session","method":"item/tool/requestUserInput","params":{"questions":[{"id":"a","question":"甲","options":[]},{"id":"b","question":"乙"}]}});
+        let text = interaction_text(&b, &sync);
+        assert_eq!(text.matches("respond=").count(), 2);
+        assert_eq!(text.matches("options: (free text)").count(), 2);
+        assert!(text.contains("submit all question IDs together"));
+        let approval = json!({"id":"approval","backendSession":"session","method":"item/commandExecution/requestApproval","params":{"command":"echo \"quoted\"","availableDecisions":["decline","cancel"]}});
+        assert!(interaction_text(&b, &approval).contains("decisions: [\"decline\",\"cancel\"]"));
+        process(&fake, &dir.0, &mut b, &json!({"state":"completed","finalResponse":{"text":"🙂".repeat(2001),"textTruncated":false}})).await.unwrap();
+        let mut terminal = b.clone();
+        terminal.deliveries = vec![b.deliveries.last().unwrap().clone()];
+        let text = message(&terminal);
+        assert!(text.contains("final (truncated=yes):"));
+        assert_eq!(text.matches('🙂').count(), 2000);
+        assert!(text.contains("query={"));
+        terminal.deliveries[0].final_response = json!({"text":"完整原文\n下一行"});
+        assert!(message(&terminal).ends_with("final (truncated=no):\n完整原文\n下一行"));
+        for state in ["failed", "cancelled"] {
+            terminal.deliveries[0].task_state = state.into();
+            terminal.deliveries[0].task_error = json!("原始错误\n详情");
+            assert!(message(&terminal).ends_with("error: 原始错误\n详情"));
+        }
+        assert!(!message(&b).contains("**任务**"));
+    }
+    #[tokio::test]
+    async fn inbox_session_dedup_and_scoped_ack() {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        b.ingress = "claude".into();
+        persist(&dir.0, &b).unwrap();
+        let fake = Fake::success();
+        process(
+            &fake,
+            &dir.0,
+            &mut b,
+            &json!({"state":"completed","finalResponse":"done"}),
+        )
+        .await
+        .unwrap();
+        assert!(inbox_in(&dir.0, "claude", &[], true).unwrap().is_null());
+        assert_eq!(
+            inbox_in(&dir.0, "claude", &[], false).unwrap()["events"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        b.deliveries[0].event_id = "fresh".into();
+        b.deliveries[0].status = "pending".into();
+        persist(&dir.0, &b).unwrap();
+        inbox_append(&dir.0, "claude", event(&b, &b.deliveries[0])).unwrap();
+        assert_eq!(
+            inbox_in(&dir.0, "claude", &[], true).unwrap()["events"][0]["eventId"],
+            "fresh"
+        );
+        assert!(inbox_in(&dir.0, "claude", &[], true).unwrap().is_null());
+        inbox_append(&dir.0, "chatgpt", event(&b, &b.deliveries[0])).unwrap();
+        assert_eq!(
+            acknowledge_in(&dir.0, "claude", &json!({"all":true})).unwrap()["markedRead"],
+            2
+        );
+        assert_eq!(
+            acknowledge_in(&dir.0, "claude", &json!({"all":true})).unwrap()["markedRead"],
+            0
+        );
+        assert_eq!(
+            inbox_in(&dir.0, "chatgpt", &[], false).unwrap()["unread"],
+            1
+        );
+        assert_eq!(
+            inbox_in(&dir.0, "chatgpt", &[], false).unwrap()["unread"],
+            1
+        );
+    }
     #[test]
     fn session_forms_and_turn_isolation() {
         for input in [
@@ -1469,11 +1651,11 @@ mod tests {
             &calls[0][2..],
             ["--cloud", "session_test", "--output-format", "json"]
         );
-        assert!(!serde_json::to_string(&*calls)
+        assert!(serde_json::to_string(&*calls)
             .unwrap()
             .contains("SECRET_OUTPUT"));
         assert!(
-            !std::fs::read_to_string(path_in(&dir.0, "thread-1", "turn-1"))
+            std::fs::read_to_string(path_in(&dir.0, "thread-1", "turn-1"))
                 .unwrap()
                 .contains("SECRET_OUTPUT")
         );
@@ -1577,6 +1759,8 @@ mod tests {
             task_state: "interaction-required".into(),
             interaction: Value::Null,
             status: "sending".into(),
+            final_response: Value::Null,
+            task_error: Value::Null,
         });
         persist(&dir.0, &b).unwrap();
         let mut b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
@@ -1681,7 +1865,7 @@ pub(crate) async fn read_turns(
         // Item/change pages identify the read turn but carry no lifecycle state.
         // Reconcile a pending binding now, before inbox() acknowledges it, so the
         // observer cannot append an already-read completion on its next cycle.
-        if matches!(name, "codex_items" | "codex_changes")
+        if matches!(name, "codex_read" | "codex_items" | "codex_changes")
             && binding(&directory(), task, turn)?.is_some_and(|b| !b.terminal)
         {
             match tokio::time::timeout(
@@ -1701,7 +1885,8 @@ pub(crate) async fn read_turns(
         if observation["title"].is_null() {
             observation["title"] = value["title"].clone();
         }
-        if name == "codex_read" || name == "agent_read" {
+        if name == "agent_read" {
+            observation["finalResponse"] = value["output"].clone();
             observation["state"] = json!(match t["recordedStatus"]
                 .as_str()
                 .or_else(|| t["status"].as_str())

@@ -56,4 +56,4 @@ Claude 的[连接器文档](https://claude.com/docs/connectors/building)说明�
 
 ## 限制
 
-自动回访需要 Claude Code 云端会话，以及支持云端消息且已登录的本机 CLI；普通 `claude.ai/chat/…` 链接不能作为目标。待投递事件跨重启保留，不确定发送沿用同一 eventId 重试；重复 ID 跳过。needs-input 通知携带问题、选项或审批详情。先用 codex_pending 刷新该线程，再用返回的 responseId、backendSession 调用 codex_respond；异步问题传 result: {answer: "答案"}。按 canRespond 和 next 行动，不支持的交互需回 Desktop。完成通知携带状态，完整 diff 由 Claude 读取审查；云端会话也需具备继续执行的条件。ARC、连接和电脑需保持运行。
+自动回访需要 Claude Code 云端会话，以及支持云端消息且已登录的本机 CLI；普通 `claude.ai/chat/…` 链接不能作为目标。待投递事件跨重启保留，不确定发送沿用同一 eventId 重试；重复 ID 跳过。needs-input 通知携带问题、选项或审批详情。使用通知的 respond 参数补入 result 直接回复；参数缺失或过期时再用 codex_pending 刷新该线程；异步问题传 result: {answer: "答案"}。按 canRespond 和 next 行动，不支持的交互需回 Desktop。完成通知携带最后消息原文，截断时附全文查询；完整 diff 按需读取审查；云端会话也需具备继续执行的条件。ARC、连接和电脑需保持运行。

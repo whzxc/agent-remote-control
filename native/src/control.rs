@@ -671,10 +671,20 @@ impl Control {
             return crate::projects::write(self, args).await;
         }
         if operation == "respond" {
-            if args["backendSession"] != self.session {
+            let key = string(args, "id");
+            let recovered = args["backendSession"] != self.session;
+            if recovered
+                && !crate::claude_notify::recoverable_response(key, string(args, "backendSession"))?
+            {
                 return Err("STALE_INTERACTION".into());
             }
-            let key = string(args, "id");
+            // Refresh the Desktop snapshot after restart; never depend on an empty pending cache.
+            if let Ok(identity) = serde_json::from_str::<Value>(key) {
+                if identity[0] == "desktop" {
+                    let thread = identity[1].as_str().ok_or("STALE_INTERACTION")?;
+                    self.ipc().await?.read(thread, true).await?;
+                }
+            }
             let _interaction_guard = self.requests.lock(&format!("interaction:{key}")).await;
             let pending = self
                 .events
@@ -684,6 +694,9 @@ impl Control {
                 .get(key)
                 .cloned()
                 .ok_or("STALE_INTERACTION")?;
+            if recovered && pending["owner"] != "desktop" {
+                return Err("STALE_INTERACTION".into());
+            }
             if args.get("result").is_some() == args.get("error").is_some() {
                 return Err("provide exactly one of result/error".into());
             }
@@ -987,6 +1000,7 @@ impl Control {
                     .await
                 }
             }
+            "notification_ack" => crate::claude_notify::acknowledge(&args).await,
             "codex_pending" => {
                 if let Some(thread) = args["threadId"].as_str() {
                     if !self.background(thread)? {

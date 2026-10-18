@@ -458,7 +458,13 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
         let available = crate::claude_notify::push_available(&value["notification"]);
         crate::egress::next(&mut value, name, &args, available);
     }
-    let inbox = match crate::claude_notify::inbox(&s.id, &reads).await {
+    let inbox = match crate::claude_notify::inbox(
+        &s.id,
+        &reads,
+        s.origin().await["controlSource"] == "claude",
+    )
+    .await
+    {
         Ok(inbox) => inbox,
         Err(error) => {
             crate::logs::record("WARN", &format!("Inbox unavailable: {error}"), None);
