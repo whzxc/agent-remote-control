@@ -36,6 +36,18 @@ pub(crate) fn session_id(value: &str) -> Result<String> {
     Ok(id.into())
 }
 
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct DeliveryTiming {
+    queued_at: Option<i64>,
+    started_at: Option<i64>,
+    finished_at: Option<i64>,
+    queue_ms: Option<i64>,
+    send_ms: Option<u64>,
+    // Last observed blocking reason; retained after delivery for diagnosis.
+    queue_reason: Option<String>,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Delivery {
@@ -65,6 +77,13 @@ struct Delivery {
     final_response: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     task_error: Value,
+    #[serde(default)]
+    timing: DeliveryTiming,
+}
+impl Delivery {
+    fn urgent(&self) -> bool {
+        self.task_state == "interaction-required"
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -252,7 +271,7 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
 fn notification(b: Option<Binding>) -> Value {
     b.filter(|b| b.target.is_some()).map(|b| json!({
         "channel": b.channel, "target": b.target,
-        "deliveries": b.deliveries.iter().filter(|d| d.channel == b.channel && Some(d.target.as_str()) == b.target.as_deref()).map(|d| json!({"eventId":d.event_id,"kind":event(&b,d)["kind"],"level":if b.channel==Channel::ClaudeSession {"L1"}else{"L4"},"state":d.status,"error":d.error})).collect::<Vec<_>>()
+        "deliveries": b.deliveries.iter().filter(|d| d.channel == b.channel && Some(d.target.as_str()) == b.target.as_deref()).map(|d| json!({"eventId":d.event_id,"kind":event(&b,d)["kind"],"level":if b.channel==Channel::ClaudeSession {"L1"}else{"L4"},"state":d.status,"error":d.error,"timing":d.timing})).collect::<Vec<_>>()
     })).unwrap_or(Value::Null)
 }
 pub(crate) fn read(thread: &str, turn: &str) -> Result<Value> {
@@ -702,6 +721,10 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             target: b.target.clone().unwrap_or_default(),
             event_id: hash(json!([b.agent, b.thread_id, b.turn_id, key]).to_string()),
             created_at: chrono::Utc::now().timestamp(),
+            timing: DeliveryTiming {
+                queued_at: Some(chrono::Utc::now().timestamp_millis()),
+                ..Default::default()
+            },
             batch: String::new(),
             attempted_at: 0,
             attempts: vec![],
@@ -927,8 +950,8 @@ pub(crate) fn settings() -> Result<Value> {
     Ok(settings)
 }
 
-// A batch is reserved under the existing lock, sent outside it, then merged.
-// Only pending records are eligible; sending records never retry after restart.
+// The two delivery loops reserve disjoint lanes under the same lock. Network
+// sends release it, so ordinary batches cannot hold up required interactions.
 async fn flush(
     executor: &impl Executor,
     dir: &Path,
@@ -936,6 +959,7 @@ async fn flush(
     now: i64,
     window: i64,
     settings: &Value,
+    urgent: bool,
 ) -> Result<()> {
     let guard = lock.lock().await;
     let mut all = records(dir)?;
@@ -943,8 +967,7 @@ async fn flush(
     for b in &all {
         for d in &b.deliveries {
             if d.status == "pending"
-                && (d.task_state == "interaction-required" || now - d.created_at >= window)
-                && (d.attempted_at == 0 || now - d.attempted_at >= 10)
+                && d.urgent() == urgent
                 && !targets.contains(&(d.channel, d.target.clone()))
             {
                 targets.push((d.channel, d.target.clone()));
@@ -956,7 +979,7 @@ async fn flush(
         let wakes: std::collections::HashSet<_> = all
             .iter()
             .flat_map(|b| &b.deliveries)
-            .filter(|d| d.channel == channel && d.target == target)
+            .filter(|d| !d.urgent() && d.channel == channel && d.target == target)
             .flat_map(|d| {
                 d.attempts
                     .iter()
@@ -966,20 +989,29 @@ async fn flush(
             .filter(|(batch, time)| !batch.is_empty() && *time > now.saturating_sub(3600))
             .map(|(batch, _)| batch)
             .collect();
+        let window_ready = urgent
+            || all.iter().flat_map(|b| &b.deliveries).any(|d| {
+                d.status == "pending"
+                    && !d.urgent()
+                    && d.channel == channel
+                    && d.target == target
+                    && now - d.created_at >= window
+            });
         let reason = if settings["notificationsEnabled"] == false {
             Some("disabled")
         } else if target.is_empty() {
             Some("unbound")
         } else if channel != Channel::ClaudeSession {
             Some("channel-unavailable-in-P0")
-        } else if wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize {
+        } else if !urgent
+            && wakes.len() >= settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize
+        {
             Some("wake-limit")
+        } else if !window_ready {
+            Some("batch-window")
         } else {
             None
         };
-        if reason == Some("wake-limit") || reason == Some("disabled") {
-            continue;
-        }
         let batch = id();
         let mut reserved = Vec::new();
         for b in &mut all {
@@ -987,81 +1019,107 @@ async fn flush(
             selected.target = Some(target.clone());
             selected.channel = channel;
             selected.deliveries.clear();
+            let mut changed = false;
             for d in &mut b.deliveries {
-                if d.channel == channel && d.target == target && d.status == "pending" {
-                    if d.attempted_at != 0 && now - d.attempted_at < 10 {
-                        continue;
-                    }
-                    d.status = if reason.is_some() {
-                        "failed"
-                    } else {
-                        "sending"
-                    }
-                    .into();
-                    d.error = reason.map(str::to_owned);
-                    if reason.is_none() {
-                        d.attempts
-                            .retain(|(_, time)| *time > now.saturating_sub(3600));
-                        if !d.batch.is_empty() {
-                            d.attempts.push((d.batch.clone(), d.attempted_at));
-                        }
-                        d.batch = batch.clone();
-                        d.attempted_at = now;
-                    }
-                    selected.deliveries.push(d.clone());
+                if d.channel != channel
+                    || d.target != target
+                    || d.status != "pending"
+                    || d.urgent() != urgent
+                {
+                    continue;
                 }
+                let reason = reason.or_else(|| {
+                    (d.attempted_at != 0 && now - d.attempted_at < 10).then_some("retry-backoff")
+                });
+                if let Some(reason) = reason {
+                    if d.timing.queue_reason.as_deref() != Some(reason) {
+                        d.timing.queue_reason = Some(reason.into());
+                        changed = true;
+                        #[cfg(not(test))]
+                        crate::logs::record(
+                            "INFO",
+                            &format!("Notification queued: event={} reason={reason}", d.event_id),
+                            None,
+                        );
+                    }
+                    if matches!(reason, "unbound" | "channel-unavailable-in-P0") {
+                        d.status = "failed".into();
+                        d.error = Some(reason.into());
+                        changed = true;
+                    }
+                    continue;
+                }
+                d.status = "sending".into();
+                d.error = None;
+                d.attempts
+                    .retain(|(_, time)| *time > now.saturating_sub(3600));
+                if !d.batch.is_empty() {
+                    d.attempts.push((d.batch.clone(), d.attempted_at));
+                }
+                d.batch = batch.clone();
+                d.attempted_at = now;
+                selected.deliveries.push(d.clone());
+                changed = true;
+            }
+            if changed {
+                persist(dir, b)?;
             }
             if !selected.deliveries.is_empty() {
-                persist(dir, b)?;
-                if reason == Some("wake-limit") && !b.ingress.is_empty() {
-                    let path = inbox_path(dir, &b.ingress);
-                    if path.exists() {
-                        let mut rows = load(&path)?;
-                        for row in rows.as_array_mut().into_iter().flatten() {
-                            if selected
-                                .deliveries
-                                .iter()
-                                .any(|d| row["eventId"] == d.event_id)
-                            {
-                                row["notificationError"] = json!("wake-limit");
-                            }
-                        }
-                        save(&path, &rows)?;
-                    }
-                }
                 reserved.push(selected);
             }
         }
-        if reason.is_none() {
+        if !reserved.is_empty() {
             batches.push(reserved);
         }
     }
     drop(guard);
     for batch in batches {
-        let body = batch
-            .iter()
-            .map(|b| message(b))
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let body = batch.iter().map(message).collect::<Vec<_>>().join("\n\n");
+        let started_at = chrono::Utc::now().timestamp_millis();
+        // Persist actual start separately from reservation, including the time
+        // spent behind other targets in this lane.
+        {
+            let _guard = lock.lock().await;
+            for reserved in &batch {
+                if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
+                    for d in &mut current.deliveries {
+                        if d.batch == reserved.deliveries[0].batch && d.status == "sending" {
+                            let queued_at = *d
+                                .timing
+                                .queued_at
+                                .get_or_insert(d.created_at.saturating_mul(1000));
+                            d.timing.started_at = Some(started_at);
+                            d.timing.finished_at = None;
+                            d.timing.send_ms = None;
+                            d.timing.queue_ms = Some(started_at.saturating_sub(queued_at).max(0));
+                        }
+                    }
+                    persist(dir, &current)?;
+                }
+            }
+        }
+        let started = std::time::Instant::now();
         let status = deliver_message(executor, &batch[0], &body).await;
+        let send_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        let finished_at = chrono::Utc::now().timestamp_millis();
         let _guard = lock.lock().await;
         for reserved in batch {
             if let Some(mut current) = binding(dir, &reserved.thread_id, &reserved.turn_id)? {
                 for d in &mut current.deliveries {
-                    if reserved
-                        .deliveries
-                        .iter()
-                        .any(|r| r.event_id == d.event_id && r.target == d.target)
-                    {
+                    if d.batch == reserved.deliveries[0].batch && d.status == "sending" {
                         d.status = if status == "failed" {
                             "pending"
                         } else {
                             status
                         }
                         .into();
+                        d.timing.finished_at = Some(finished_at);
+                        d.timing.send_ms = Some(send_ms);
                         if status == "failed" {
                             d.error = Some("delivery-failed-or-unconfirmed".into());
                         }
+                        #[cfg(not(test))]
+                        crate::logs::record("INFO", &format!("Notification delivery: event={} status={status} queueMs={} sendMs={send_ms} queueReason={}", d.event_id, d.timing.queue_ms.unwrap_or(0), d.timing.queue_reason.as_deref().unwrap_or("none")), None);
                     }
                 }
                 persist(dir, &current)?;
@@ -1127,36 +1185,39 @@ pub(crate) async fn migrate() -> Result<()> {
 pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents::AgentHost>) {
     let agents = Arc::downgrade(agents);
     let weak = Arc::downgrade(control);
-    let ready = Arc::new(tokio::sync::Notify::new());
-    let delivery_ready = ready.clone();
-    let mut delivery_shutdown = control.shutdown.subscribe();
-    let wake = control.events.clone();
-    tokio::spawn(async move {
-        tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.notified() => {} }
-        loop {
-            let result = async {
-                flush(
-                    &Cli,
-                    &directory(),
-                    &LOCK,
-                    chrono::Utc::now().timestamp(),
-                    30,
-                    &settings()?,
-                )
-                .await
-            };
-            tokio::select! {
-                _ = delivery_shutdown.changed() => break,
-                result = result => if let Err(error) = result { crate::logs::record("WARN", &format!("Notification delivery: {error}"), None); },
+    let (ready, delivery_ready) = tokio::sync::watch::channel(false);
+    for urgent in [true, false] {
+        let mut delivery_ready = delivery_ready.clone();
+        let mut delivery_shutdown = control.shutdown.subscribe();
+        let wake = control.events.clone();
+        tokio::spawn(async move {
+            tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.wait_for(|ready| *ready) => {} }
+            loop {
+                let result = async {
+                    flush(
+                        &Cli,
+                        &directory(),
+                        &LOCK,
+                        chrono::Utc::now().timestamp(),
+                        30,
+                        &settings()?,
+                        urgent,
+                    )
+                    .await
+                };
+                tokio::select! {
+                    _ = delivery_shutdown.changed() => break,
+                    result = result => if let Err(error) = result { crate::logs::record("WARN", &format!("Notification delivery: {error}"), None); },
+                }
+                let wake = wake.lock().await.wake.clone();
+                tokio::select! {
+                    _ = delivery_shutdown.changed() => break,
+                    _ = tokio::time::sleep(Duration::from_secs(1)) => {},
+                    _ = wake.notified() => {},
+                }
             }
-            let wake = wake.lock().await.wake.clone();
-            tokio::select! {
-                _ = delivery_shutdown.changed() => break,
-                _ = tokio::time::sleep(Duration::from_secs(1)) => {},
-                _ = wake.notified() => {},
-            }
-        }
-    });
+        });
+    }
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
         crate::logs::record("INFO", "Control-source notification observer started", None);
@@ -1223,7 +1284,7 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                 result = cycle => if let Err(error) = result { crate::logs::record("WARN", &format!("Control-source notification persistence/observation failed: {error}"), None); },
             }
             if recovering {
-                ready.notify_one();
+                let _ = ready.send(true);
             }
             recovering = false;
             let wake = control.events.lock().await.wake.clone();
@@ -1285,15 +1346,18 @@ mod tests {
         observation: &Value,
     ) -> Result<()> {
         super::process(dir, &Mutex::new(()), b, observation).await?;
-        flush(
-            executor,
-            dir,
-            &Mutex::new(()),
-            i64::MAX,
-            0,
-            &json!({"notificationWakeLimit":100}),
-        )
-        .await?;
+        for urgent in [true, false] {
+            flush(
+                executor,
+                dir,
+                &Mutex::new(()),
+                i64::MAX,
+                0,
+                &json!({"notificationWakeLimit":100}),
+                urgent,
+            )
+            .await?;
+        }
         *b = binding(dir, &b.thread_id, &b.turn_id)?.unwrap();
         Ok(())
     }
@@ -1589,7 +1653,7 @@ mod tests {
             super::process(&dir.0, &lock, &mut b, &interaction(json!(17)))
                 .await
                 .unwrap();
-            flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}))
+            flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}), true)
                 .await
                 .unwrap();
             let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
@@ -1641,7 +1705,7 @@ mod tests {
         assert_eq!(report["target"], "session_test");
         assert_eq!(
             report["deliveries"][2],
-            json!({"eventId":b.deliveries[2].event_id,"kind":"completed","level":"L1","state":"delivered","error":null})
+            json!({"eventId":b.deliveries[2].event_id,"kind":"completed","level":"L1","state":"delivered","error":null,"timing":b.deliveries[2].timing})
         );
         assert!(b.deliveries.iter().all(|d| d.status == "delivered"));
         let calls = fake.calls.lock().unwrap();
@@ -1684,7 +1748,7 @@ mod tests {
         assert_eq!(other.calls.lock().unwrap()[0][3], "cse_other");
         assert_eq!(
             notification(Some(b.clone()))["deliveries"],
-            json!([{"eventId":b.deliveries[1].event_id,"kind":"completed","level":"L1","state":"delivered","error":null}])
+            json!([{"eventId":b.deliveries[1].event_id,"kind":"completed","level":"L1","state":"delivered","error":null,"timing":b.deliveries[1].timing}])
         );
     }
 
@@ -1749,6 +1813,7 @@ mod tests {
             channel: Channel::ClaudeSession,
             event_id: "event-17".into(),
             created_at: 0,
+            timing: DeliveryTiming::default(),
             batch: String::new(),
             attempted_at: 0,
             attempts: vec![],
@@ -1798,7 +1863,9 @@ pub(crate) fn push_available(notification: &Value) -> bool {
     let wakes: std::collections::HashSet<_> = all
         .iter()
         .flat_map(|b| &b.deliveries)
-        .filter(|d| d.channel == Channel::ClaudeSession && notification["target"] == d.target)
+        .filter(|d| {
+            !d.urgent() && d.channel == Channel::ClaudeSession && notification["target"] == d.target
+        })
         .flat_map(|d| {
             d.attempts
                 .iter()
