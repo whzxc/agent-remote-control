@@ -254,17 +254,6 @@ export default function IngressDetailsDialog({
             {credentialError}
           </Notice>
         )}
-        {https &&
-          (c.httpsProvider === "custom" ||
-            (c.httpsProvider === "cloudflare" &&
-              c.cloudflareMode === "named")) && (
-            <Field label={t("httpReverseProxyTarget")}>
-              <CopyField
-                value={`http://${c.httpsHost.includes(":") ? `[${c.httpsHost}]` : c.httpsHost}:${c.httpsPort}/mcp`}
-                label={t("httpReverseProxyTarget")}
-              />
-            </Field>
-          )}
         <ToolPolicyField
           value={entry.toolPolicy}
           onChange={value => void updateToolPolicy(value)}

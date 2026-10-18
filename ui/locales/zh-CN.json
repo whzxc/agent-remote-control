@@ -73,7 +73,6 @@
   "getApiKey": "获取 API Key",
   "getCredentials": "获取凭据",
   "pasteRuntimeKey": "粘贴运行密钥",
-  "httpReverseProxyTarget": "HTTP 反向代理目标",
   "copied": "已复制",
   "copy": "复制",
   "all": "全部",
@@ -517,6 +516,5 @@
   "setup.clipboard-invalid": "剪贴板里不是 {credential}，请点击 {credential} 旁边的复制按钮。",
   "setup.health-unobserved": "尚未观察到 OpenAI 控制面认证成功。请保持客户端运行；若诊断报告错误，按其下一步操作处理。",
   "controlSourceNotifications": "唤醒控制源",
-  "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。",
-  "toolSurfaceFixed": "MCP 工具固定为 guide / query（只读）/ act（写入）。档位作用于 op；只读档保留经 act 执行的连接验证。"
+  "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。"
 }

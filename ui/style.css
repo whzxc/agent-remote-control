@@ -717,6 +717,10 @@ pre {
   overflow-wrap: anywhere;
 }
 .oauth-grants { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px; }
+.oauth-grant-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-row); background: var(--surface-subtle); }
+.oauth-grant-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oauth-grant-time { flex-shrink: 0; white-space: nowrap; }
+.oauth-grant-row > button { flex-shrink: 0; margin-left: auto; }
 .oauth-grant-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--border); border-radius: var(--radius-row); padding: 16px; background: var(--surface-subtle); }
 .oauth-grant-identity { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 .oauth-grant-card > button { flex-shrink: 0; }

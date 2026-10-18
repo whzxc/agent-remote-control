@@ -106,27 +106,24 @@ export default function ToolPolicyField({
           options={options}
           disabled={disabled || !catalog}
         />
-        <span className="muted small">{t("toolSurfaceFixed")}</span>
-        {catalog && (
-          <div className="actions">
-            <span className="muted small">
-              {t("toolSelectionCount", {
-                groups: new Set(exposed.map((tool) => tool.group)).size,
-                count: exposed.length,
-              })}
-            </span>
-            <Button
-              variant="ghost"
-              disabled={disabled}
-              onClick={() => {
-                setDraft([...selected]);
-                setOpen(true);
-              }}
-            >
-              {t("toolViewAll")}
-            </Button>
-          </div>
-        )}
+        <div className="actions" style={{ visibility: catalog ? "visible" : "hidden" }} aria-hidden={!catalog}>
+          <span className="muted small">
+            {t("toolSelectionCount", {
+              groups: new Set(exposed.map((tool) => tool.group)).size,
+              count: exposed.length,
+            })}
+          </span>
+          <Button
+            variant="ghost"
+            disabled={disabled || !catalog}
+            onClick={() => {
+              setDraft([...selected]);
+              setOpen(true);
+            }}
+          >
+            {t("toolViewAll")}
+          </Button>
+        </div>
         {failure && (
           <Notice
             action={

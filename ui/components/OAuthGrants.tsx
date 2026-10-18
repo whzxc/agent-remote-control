@@ -80,21 +80,15 @@ export default function OAuthGrants({
         const timestamp = grant.connectedAt ?? grant.registeredAt;
         const date = timestamp == null ? null : new Date(timestamp * 1000);
         return (
-          <div className="oauth-grant-card" key={grant.id}>
-            <div className="oauth-grant-identity">
-              <strong>{grant.clientName}</strong>
-              <span className="muted small">
-                {t("oauthClientId")}: {grant.clientId}
-              </span>
-              <span className="muted small">
-                {t(grant.connectedAt == null ? "oauthRegisteredAt" : "oauthConnectedAt")}: {date ? (
-                  <time dateTime={date.toISOString()}>
-                    {date.toLocaleString(locale.get(), { hour12: false })}
-                  </time>
-                ) : t("oauthTimeUnknown")}
-                {grant.connectedAt == null && ` · ${t("oauthConnectionTimeNotRecorded")}`}
-              </span>
-            </div>
+          <div className="oauth-grant-row" key={grant.id}>
+            <strong className="oauth-grant-name" title={grant.clientName}>{grant.clientName}</strong>
+            <span className="muted small oauth-grant-time" title={t(grant.connectedAt == null ? "oauthRegisteredAt" : "oauthConnectedAt")}>
+              {date ? (
+                <time dateTime={date.toISOString()}>
+                  {date.toLocaleString(locale.get(), { hour12: false })}
+                </time>
+              ) : t("oauthTimeUnknown")}
+            </span>
             <Button
               disabled={busy || disabled || !running}
               onClick={() => void action("revoke", { id: grant.id })}

@@ -17,6 +17,8 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
   let goal: Surface = {};
   let rendered: Surface = {};
   let active = false;
+  let retained = false;
+  let settledSize = node.getBoundingClientRect();
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const save = (surface: Surface) => {
     for (const key of Object.keys(surface)) {
@@ -35,12 +37,29 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
     }
   };
   reduced.addEventListener("change", settle);
-  return {
+  const sizeChanged = (a: DOMRect, b: DOMRect) =>
+    Math.abs(a.width - b.width) > 0.5 || Math.abs(a.height - b.height) > 0.5;
+  const resize = (from: DOMRect, to: DOMRect): AnimationPlaybackControlsWithThen => motion.to(
+    { width: `${to.width}px`, height: `${to.height}px` },
+    { from: { width: `${from.width}px`, height: `${from.height}px` } },
+  );
+  // The content lays out independently of the animated shell. Observe it so
+  // asynchronous data and view changes resize the shell before the next paint.
+  const observer = new ResizeObserver(() => {
+    if (active || retained || !node.isConnected) return;
+    const next = node.getBoundingClientRect();
+    if (!reduced.matches && sizeChanged(settledSize, next)) {
+      void resize(settledSize, next);
+    } else settledSize = next;
+  });
+  if (content) observer.observe(content);
+  const motion = {
     get running() { return active; },
     to(target: Surface, { from, retain = false }: {
       from?: Surface; retain?: boolean;
-    } = {}) {
+    } = {}): AnimationPlaybackControlsWithThen {
       const id = ++generation;
+      retained = retain;
       save(target);
       goal = { ...goal, ...target };
       cancelAnimationFrame(startFrame ?? 0);
@@ -100,12 +119,24 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
       void controls.then(() => {
         if (id !== generation) return;
         active = false;
-        if (!retain) restore();
+        if (!retain) {
+          const end = node.getBoundingClientRect();
+          restore();
+          rendered = {};
+          goal = {};
+          const natural = node.getBoundingClientRect();
+          // Content may have changed during opening. Continue from the visible
+          // size instead of snapping when explicit dimensions are released.
+          if (!reduced.matches && sizeChanged(end, natural)) {
+            void resize(end, natural);
+          } else settledSize = natural;
+        }
       });
       return controls;
     },
     dispose() {
       ++generation;
+      observer.disconnect();
       active = false;
       cancelAnimationFrame(startFrame ?? 0);
       controls?.stop();
@@ -113,4 +144,5 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
       reduced.removeEventListener("change", settle);
     },
   };
+  return motion;
 }
