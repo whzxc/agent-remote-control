@@ -871,6 +871,9 @@ pre {
   max-height: 40dvh;
   overflow: auto;
 }
+.agent-section-title {
+  margin-bottom: var(--space-3);
+}
 .agent-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));

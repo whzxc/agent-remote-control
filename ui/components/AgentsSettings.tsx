@@ -88,7 +88,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
         }
       >
         {!state.loaded && state.loading && <Loading />}
-        <h3>{t("installedAgents")}</h3>
+        <h3 className="agent-section-title">{t("installedAgents")}</h3>
         <div className="agent-grid">
           {items.filter(agent => agent.installed).map((agent) => (
             <article
@@ -202,7 +202,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
             </article>
           ))}
         </div>
-        <h3>{t("notInstalledAgents")}</h3>
+        <h3 className="agent-section-title">{t("notInstalledAgents")}</h3>
         <div className="uninstalled-agents">{items.filter(agent => !agent.installed).map(agent => <button key={agent.agent} className="agent-uninstalled" onClick={() => setDetail(agent)} aria-haspopup="dialog"><AgentQuotaIcon agent={agent.agent} /><span>{name(agent)}</span></button>)}</div>
         {(error || state.error) && <Notice>{error || state.error}</Notice>}
       </Dialog>

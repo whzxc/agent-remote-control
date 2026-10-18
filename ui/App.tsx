@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -41,11 +39,11 @@ import OAuthApproval from "./components/OAuthApproval";
 import ConnectionOverview from "./components/ConnectionOverview";
 import TasksPage from "./components/TasksPage";
 import RecordsPage from "./components/RecordsPage";
+import SettingsPage from "./components/SettingsPage";
 import { AppUpdateDialogs } from "./components/AppUpdate";
-import { Icon, IconButton, Loading, Notice, HoverScope } from "./components/ui";
+import { Icon, IconButton, Notice, HoverScope } from "./components/ui";
 import { api } from "./api";
 import type { Readiness } from "./components/PermissionsPage";
-const SettingsPage = lazy(() => import("./components/SettingsPage"));
 export default function App() {
   locale.use();
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
@@ -307,9 +305,7 @@ export default function App() {
               ) : page === "logs" ? (
                 <RecordsPage />
               ) : (
-                <Suspense fallback={<Loading />}>
-                  <SettingsPage permissionsOpen={permissionsOpen} setPermissionsOpen={setPermissionsOpen} />
-                </Suspense>
+                <SettingsPage permissionsOpen={permissionsOpen} setPermissionsOpen={setPermissionsOpen} />
               )}
             </main>
 
