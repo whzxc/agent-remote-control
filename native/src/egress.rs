@@ -45,6 +45,9 @@ pub fn receipt(value: Value) -> Value {
         "error",
         "notification",
         "notificationError",
+        "executionOwner",
+        "failureStage",
+        "cleanup",
         "next",
     ] {
         if !value[key].is_null() {

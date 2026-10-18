@@ -619,12 +619,16 @@ pub async fn reveal(ipc: &Ipc, thread: &str) -> Result<Value> {
                     json!({"state":"owner-confirmed","sharedBackend":false,"url":opened["url"]}),
                 )
             }
-            Err(e) if e.contains("no-client-found") && tokio::time::Instant::now() < deadline => {
+            Err(e) if owner_missing(&e) && tokio::time::Instant::now() < deadline => {
                 tokio::time::sleep(Duration::from_millis(250)).await
             }
             Err(e) => return Err(e),
         }
     }
+}
+
+pub(crate) fn owner_missing(error: &str) -> bool {
+    error == "DESKTOP_OWNER_NOT_FOUND" || error == "DESKTOP_REJECTED:\"no-client-found\""
 }
 
 pub async fn open_app() -> Result<()> {
@@ -648,5 +652,23 @@ async fn open_url(url: Option<&str>) -> Result<()> {
         }
         output("/usr/bin/open", &args).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_definite_missing_owner_allows_loading_fallback() {
+        assert!(owner_missing("DESKTOP_REJECTED:\"no-client-found\""));
+        assert!(owner_missing("DESKTOP_OWNER_NOT_FOUND"));
+        for error in [
+            "SUBMISSION_UNCONFIRMED: no-client-found",
+            "DESKTOP_DISCONNECTED",
+            "DESKTOP_REQUEST_TIMEOUT: thread-follower-start-turn",
+            "DESKTOP_REJECTED: permission denied",
+        ] {
+            assert!(!owner_missing(error));
+        }
     }
 }

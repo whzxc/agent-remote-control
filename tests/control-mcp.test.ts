@@ -33,6 +33,9 @@ before(async () => {
   const fixture = path.join(directory, 'app-server.mjs');
   await writeFile(fixture, `
 import { createInterface } from 'node:readline';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+const fixtureState = process.env.ARC_STATE_DIR + '/dispatch-fixture.json';
 const counts = new Map();
 const emit = value => process.stdout.write(JSON.stringify(value) + '\\n');
 for await (const line of createInterface({ input: process.stdin })) {
@@ -45,6 +48,40 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (method === 'fixture/counts') return emit({ id, result: Object.fromEntries(counts) });
     if (method === 'fixture/null') return emit({ id, result: null });
     if (method === 'fixture/array') return emit({ id, result: [null, 1, { native: true }] });
+    const saved = existsSync(fixtureState) ? JSON.parse(readFileSync(fixtureState, 'utf8')) : {};
+    if (method === 'thread/start' && params.model?.startsWith('fixture-dispatch')) {
+      const thread = {id:randomUUID(),cwd:params.cwd,path:process.env.ARC_STATE_DIR+'/seed-'+randomUUID()+'.jsonl'};
+      writeFileSync(thread.path, '{}');
+      saved[thread.id] = {thread,model:params.model,turns:[],metadataReads:0,archived:false};
+      writeFileSync(fixtureState, JSON.stringify(saved));
+      return emit({id,result:{thread,model:params.model}});
+    }
+    if (saved[params?.threadId]) {
+      const row = saved[params.threadId];
+      if (method === 'thread/read') {
+        if (params.includeTurns) return emit({id,error:{code:-32601,message:'list_turns is not supported yet'}});
+        row.metadataReads++;
+        writeFileSync(fixtureState,JSON.stringify(saved));
+        return emit({id,result:{thread:{...row.thread,status:{type:'idle'}}}});
+      }
+      if (method === 'turn/start') {
+        if (row.model === 'fixture-dispatch-reject') return emit({id,error:{code:-32602,message:'invalid turn configuration'}});
+        row.turns.push({id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:'pong'}]});
+        writeFileSync(fixtureState,JSON.stringify(saved));
+        if (row.model === 'fixture-dispatch-uncertain') return process.exit(0);
+        return emit({id,result:{turn:row.turns.at(-1)}});
+      }
+      if (method === 'thread/turns/list') {
+        const rows = [...row.turns];
+        if(params.sortDirection === 'desc') rows.reverse();
+        const offset = Number(params.cursor || 0);
+        return emit({id,result:{data:rows.slice(offset,offset+1),nextCursor:offset+1<rows.length?String(offset+1):null}});
+      }
+      if (method === 'thread/archive') {
+        row.archived=true;writeFileSync(fixtureState,JSON.stringify(saved));
+        return emit({id,result:{}});
+      }
+    }
     if (params?.threadId === 'image-pagination' || params?.threadId === 'empty-images') {
       if (method === 'thread/turns/list') return emit({id,result:{data:params.threadId === 'empty-images' ? [] : [{id:'turn-latest',items:[]}],nextCursor:null}});
       if (method === 'thread/items/list') {
@@ -62,7 +99,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{data:rows.slice(offset,end),nextCursor:end<rows.length?JSON.stringify({binding,offset:end}):null}});
       }
     }
-    if (method === 'model/list' || method === 'thread/list') return emit({ id, result: { data: [], nextCursor: null } });
+    if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });
     if (method === 'process/spawn') {
       emit({ method: 'process/outputDelta', params: { processHandle: params.processHandle, stream: 'stdout', deltaBase64: 'b2s=' } });
       emit({ method: 'process/exited', params: { processHandle: params.processHandle, exitCode: 0 } });
@@ -101,8 +138,8 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 }
 async function completed(name: string, args: Record<string, unknown>) {
   let { result } = await call(name, args);
-  const deadline = Date.now() + 5000;
-  while (['pending', 'reserved', 'submitting'].includes(result.state)) {
+  const deadline = Date.now() + 15000;
+  while (['pending', 'reserved', 'submitting', 'thread-submitting', 'thread-created', 'turn-submitting'].includes(result.state)) {
     assert.ok(Date.now() < deadline, 'receipt completed before deadline');
     await new Promise(resolve => setTimeout(resolve, 20));
     result = (await call('receipt', { requestId: args.requestId })).result;
@@ -632,4 +669,39 @@ test('latest items pin the newest turn and preserve explicit turn and native cur
   assert.deepEqual(empty.items, []);
   assert.equal(empty.nextCursor, null);
   assert.equal(empty.turnId, null);
+});
+
+test('creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions', async () => {
+  const create = async (model: string) => completed('codex_create', {
+    project: directory, prompt: 'ping', thread: { model }, requestId: randomUUID(), waitMs: 1000,
+  });
+  const accepted = await create('fixture-dispatch');
+  assert.equal(accepted.state, 'completed');
+  assert.ok(accepted.threadId && accepted.turnId);
+  // Exercise the real background waiter against paginated history, including
+  // a requested older turn on the second page.
+  await mkdir(path.join(directory, 'execution'), {recursive:true});
+  await writeFile(path.join(directory, 'execution', accepted.threadId+'.json'), JSON.stringify({owner:'connector'}));
+  const nextReceipt = await completed('codex_call', {method:'turn/start',params:{threadId:accepted.threadId,input:[]},requestId:randomUUID()});
+  assert.equal(nextReceipt.state, 'completed');
+  const latest = (await call('codex_wait', {threadId:accepted.threadId,timeoutMs:1000})).result;
+  assert.equal(latest.state, 'completed');
+  assert.equal(latest.turnId, nextReceipt.turnId);
+  const earlier = (await call('codex_wait', {threadId:accepted.threadId,turnId:accepted.turnId,timeoutMs:1000})).result;
+  assert.equal(earlier.state, 'completed');
+  assert.equal(earlier.turnId, accepted.turnId);
+  assert.equal(earlier.finalResponse.text, 'pong');
+  const rejected = await create('fixture-dispatch-reject');
+  assert.equal(rejected.state, 'rejected');
+  assert.equal(rejected.cleanup.archived, true);
+  assert.equal(rejected.failureStage, 'turn-submitting');
+  const uncertain = await create('fixture-dispatch-uncertain');
+  assert.equal(uncertain.state, 'unconfirmed');
+  assert.equal(uncertain.cleanup, undefined);
+  const saved = JSON.parse(await readFile(path.join(directory, 'dispatch-fixture.json'), 'utf8'));
+  assert.equal(saved[accepted.threadId].turns.length, 2);
+  if (process.platform !== 'linux') assert.ok(saved[accepted.threadId].metadataReads > 0);
+  assert.equal(saved[rejected.threadId].archived, true);
+  assert.equal(saved[uncertain.threadId].turns.length, 1);
+  assert.equal(saved[uncertain.threadId].archived, false);
 });

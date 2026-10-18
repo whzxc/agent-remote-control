@@ -29,7 +29,7 @@ OpenAI Tunnel 使用官方身份和客户端，其 stdio adapter 携带 ARC_NATI
 
 ## 任务归属与执行
 
-默认新 Codex 任务由 Desktop 执行。关闭自动打开后，新任务交给 ARC App Server；切换设置不迁移历史任务。Linux 始终使用后台 App Server。Desktop resume 不把任务加载到 ARC 的 App Server。后台发送仅在 notLoaded 时恢复，在活跃轮次上追加输入。
+默认新 Codex 任务由 Desktop 执行。关闭自动打开后，新任务交给 ARC App Server；切换设置不迁移历史任务。Linux 始终使用后台 App Server。Desktop 未加载的线程在显式发送/resume 时先导航加载并等待 owner；等待后仍明确无 owner 才由 ARC App Server 恢复同一线程，不新建替代线程。断连、超时和提交不确定不触发二次派发。后台发送仅在 notLoaded 时以 excludeTurns 恢复，在活跃轮次上追加输入。创建种子仅读元数据；明确创建失败且确认没有轮次时归档，清理失败及阶段保留在回执中。
 
 Control 共享 Desktop IPC 连接，使用 macOS Unix socket 或 Windows named pipe，并检查用户、owner 和响应来源。断线后按需重连，owner 变化或断线清空快照。快照最长复用四秒；发送先轻量读取，选择 steer/start 并复用实际任务配置。Windows 从当前用户的 Store Codex 安装发现 CLI，按内容哈希缓存运行所需文件。
 
@@ -39,7 +39,7 @@ Pi/ACP 每个任务拥有独立进程，AgentHost 保存 ARC taskId 与上游 se
 
 写入先按 UUID 保留幂等回执，再派发。重复 ID 与相同参数回读原操作，冲突参数拒绝。请求等待超时返回 pending，提交后失联返回 unconfirmed；两者都保留原标识供回读。
 
-waiter 通过事件唤醒和真实状态复核判断轮次，默认 30 秒切片，取消等待只释放等待，不取消任务。Codex 保持原 owner，Pi/ACP 使用其存活进程状态。等待不持有全局锁，也不恢复已停止的执行进程。
+waiter 通过事件唤醒和真实状态复核判断轮次，默认 30 秒切片，取消等待只释放等待，不取消任务。Codex 保持原 owner，Pi/ACP 使用其存活进程状态。等待不持有全局锁，也不恢复已停止的执行进程。ARC app-server 的等待器读取元数据和分页轮次，按需读到指定轮次，不使用旧的完整历史读取接口。
 
 claude_notify 按 thread/turn 持久化绑定、实际派发来源与投递记录。governance 只保存每目标令牌桶、近期批次和可撤销的线程/目标通知控制；不判断任务是否循环。所有事件统一调度，needs-input 与审批只跳过 30 秒合并窗口，仍扣令牌；观察与发送独立，网络期间释放记录锁。重试按 10 秒至 5 分钟指数退避并保留扣费资格与 eventId。静音、小时摘要、改绑、熔断只影响通知；按入口隔离查询与管理。熔断或持续缺令牌触发单次本机系统升级，恢复后重置。投递 timing 记录排队原因及起止耗时，CLI 确认不代表接收端显示。已回答交互取消未发送通知，未完成绑定与待投递记录保留。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。行为与参数见[工具参考](../reference/tools.md#control-source-notifications)。
 

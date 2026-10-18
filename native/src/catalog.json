@@ -1751,7 +1751,7 @@
     },
     {
       "name": "codex_send",
-      "description": "向任务发送文本，活动轮次 steer，否则开始新轮次；turn 参数透传。Desktop 不恢复到后台，不打开窗口。 编排流程见 guide。",
+      "description": "向任务发送文本，活动轮次 steer，否则开始新轮次；turn 参数透传。未加载线程先由 Desktop 打开恢复；明确无 owner 时回退到 ARC App Server。 编排流程见 guide。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2287,7 +2287,7 @@
     },
     {
       "name": "codex_call",
-      "description": "透传原生方法和 params，返回精简回执；协议见 codex_schema。Desktop 任务保持 Desktop 所有权，不在后台恢复。",
+      "description": "透传原生方法和 params，返回精简回执；协议见 codex_schema。已加载 Desktop 任务保持所有权；显式新轮次或 resume 可加载历史线程，明确无 owner 时回退到 ARC App Server。",
       "inputSchema": {
         "type": "object",
         "properties": {

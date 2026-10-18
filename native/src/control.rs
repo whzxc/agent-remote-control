@@ -151,8 +151,16 @@ impl Control {
         }
         Ok(result)
     }
-    async fn background_request(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
+    async fn background_request(
+        &self,
+        method: &str,
+        mut args: Value,
+        timeout: u64,
+    ) -> Result<Value> {
         let rpc = self.utility().await?;
+        if method == "thread/resume" && args.get("excludeTurns").is_none() {
+            args["excludeTurns"] = json!(true);
+        }
         // Resume only an explicit new-turn write; reads and interrupts never restart a task.
         if method == "turn/start" {
             let state = rpc
@@ -163,8 +171,12 @@ impl Control {
                 )
                 .await?;
             if state["thread"]["status"]["type"] == "notLoaded" {
-                rpc.call("thread/resume", json!({"threadId":args["threadId"]}), 60000)
-                    .await?;
+                rpc.call(
+                    "thread/resume",
+                    json!({"threadId":args["threadId"],"excludeTurns":true}),
+                    60000,
+                )
+                .await?;
             }
         }
         let mut result = rpc.call(method, args, timeout).await?;
@@ -174,6 +186,7 @@ impl Control {
         Ok(result)
     }
     async fn seed(&self, args: Value, title: &str, receipt: Option<&mut Value>) -> Result<Value> {
+        #[cfg(not(feature = "test-fixture"))]
         self.ipc().await?;
         if args["ephemeral"] == true {
             return Err("DESKTOP_TASK_MUST_PERSIST".into());
@@ -202,7 +215,7 @@ impl Control {
             }
             seed.call(
                 "thread/read",
-                json!({"threadId":thread,"includeTurns":true}),
+                json!({"threadId":thread,"includeTurns":false}),
                 60000,
             )
             .await?;
@@ -224,6 +237,75 @@ impl Control {
         .await;
         seed.close().await;
         result
+    }
+    // Only an explicit write may load a persisted thread. Never retry a turn
+    // submission on another owner: its acceptance may already be unknown.
+    async fn prepare_thread(&self, thread: &str) -> Result<()> {
+        #[cfg(feature = "test-fixture")]
+        {
+            let _ = thread;
+            return Ok(());
+        }
+        #[allow(unreachable_code)]
+        if self.background(thread)? {
+            return Ok(());
+        }
+        let ipc = self.ipc().await?;
+        match ipc.owner(thread).await {
+            Ok(_) => return Ok(()),
+            Err(e) if desktop::owner_missing(&e) => (),
+            Err(e) => return Err(e),
+        }
+        // Validate existence before navigation; metadata needs no history API.
+        let rpc = self.utility().await?;
+        rpc.call(
+            "thread/read",
+            json!({"threadId":thread,"includeTurns":false}),
+            60000,
+        )
+        .await?;
+        match desktop::reveal(&ipc, thread).await {
+            Ok(_) => Ok(()),
+            Err(e) if desktop::owner_missing(&e) => {
+                // The bounded Desktop load still has no owner, and no turn has
+                // been submitted. Resume this same thread, never create another.
+                rpc.call(
+                    "thread/resume",
+                    json!({"threadId":thread,"excludeTurns":true}),
+                    60000,
+                )
+                .await
+                .map_err(|fallback| {
+                    format!("THREAD_LOAD_FAILED: desktop={e}; app-server={fallback}")
+                })?;
+                save(
+                    &root().join("execution").join(format!("{thread}.json")),
+                    &json!({"owner":"connector","reason":"desktop-load-no-owner"}),
+                )?;
+                crate::logs::record("WARN", &format!("Thread {thread} resumed in ARC app-server after Desktop load found no owner"), None);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+    async fn archive_empty_creation(&self, thread: &str) -> Result<bool> {
+        let rpc = self.utility().await?;
+        let history = rpc
+            .call(
+                "thread/turns/list",
+                json!({"threadId":thread,"limit":1,"itemsView":"notLoaded"}),
+                10000,
+            )
+            .await?;
+        if history["data"]
+            .as_array()
+            .is_none_or(|rows| !rows.is_empty())
+        {
+            return Ok(false);
+        }
+        rpc.call("thread/archive", json!({"threadId":thread}), 10000)
+            .await?;
+        Ok(true)
     }
     pub async fn request(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
         if method == "turn/start" {
@@ -257,6 +339,9 @@ impl Control {
             return self.utility().await?.call(method, args, timeout).await;
         }
         #[allow(unreachable_code)]
+        if method == "turn/start" || method == "thread/resume" {
+            self.prepare_thread(string(&args, "threadId")).await?;
+        }
         if self.background(string(&args, "threadId"))? {
             return self.background_request(method, args, timeout).await;
         }
@@ -273,9 +358,8 @@ impl Control {
             return Ok(result);
         }
         if method == "thread/resume" {
-            // Desktop retains execution ownership; never load its task in our app-server.
             return Ok(
-                json!({"threadId":args["threadId"],"executionOwner":"desktop","resumed":false,"reason":"desktop-resume-ignored"}),
+                json!({"threadId":args["threadId"],"executionOwner":"desktop","resumed":true,"reason":"desktop-owner-confirmed"}),
             );
         }
         if matches!(
@@ -463,6 +547,19 @@ impl Control {
                     receipt["state"] = json!("completed")
                 }
                 Err(err) => {
+                    // A definite pre-acceptance create failure must not leave an
+                    // apparently usable empty task. Unknown submissions are retained.
+                    if op == "create"
+                        && receipt["threadId"].is_string()
+                        && !err.starts_with("SUBMISSION_UNCONFIRMED:")
+                    {
+                        let thread = string(&receipt, "threadId");
+                        let cleanup = c.archive_empty_creation(thread).await;
+                        receipt["cleanup"] = match cleanup {
+                            Ok(archived) => json!({"archived":archived}),
+                            Err(error) => json!({"archived":false,"error":error}),
+                        };
+                    }
                     receipt["failureStage"] = receipt["state"].clone();
                     receipt["state"] = json!(crate::kernel::receipts::failure_state(&err));
                     receipt["result"] = json!({"error":crate::egress::failure(&err)});
@@ -782,20 +879,15 @@ impl Control {
             )
             .await;
             r["turnBaseline"] = baseline.clone();
+            self.prepare_thread(thread).await?;
+            let background = self.background(thread)?;
+            r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["state"] = json!("turn-submitting");
             self.checkpoint(r)?;
-            let out = if background {
-                self.request_inner("turn/start", turn, timeout).await?
-            } else {
-                // Prepare the input before navigation and keep the same IPC connection
-                // through owner discovery and submission to shorten the empty-page interval.
-                let ipc = self.ipc().await?;
-                desktop::reveal(&ipc, thread).await?;
-                let out = ipc.mutate("turn/start", &turn).await?;
-                // Monitoring is best effort after acceptance, never a submission failure.
+            let out = self.request_inner("turn/start", turn, timeout).await?;
+            if !background {
                 let _ = self.follow(thread).await;
-                out
-            };
+            }
             r["turnId"] = out["turn"]["id"].clone();
             let notification_binding = crate::claude_notify::bind(
                 args,
@@ -824,6 +916,12 @@ impl Control {
                 resume["threadId"] = json!(thread);
                 self.request("thread/resume", resume, timeout).await?;
             }
+            self.prepare_thread(thread).await?;
+            r["executionOwner"] = json!(if self.background(thread)? {
+                "connector"
+            } else {
+                "desktop"
+            });
             let state = if self.background(thread)? {
                 let mut state = self
                     .request(
@@ -841,11 +939,7 @@ impl Control {
                 state
             } else {
                 // Refresh missing/expired snapshots once; mutate reuses the IPC cache.
-                self.ipc()
-                    .await?
-                    .read(thread, false)
-                    .await
-                    .unwrap_or(Value::Null)
+                self.ipc().await?.read(thread, false).await?
             };
             let active = state["turnHistory"]["history"]["entitiesByKey"]
                 .as_object()

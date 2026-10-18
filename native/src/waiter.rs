@@ -232,12 +232,15 @@ enum CodexOwner {
 struct CodexSource {
     owner: CodexOwner,
     thread: String,
+    turn: Option<String>,
     desktop_owner: Option<String>,
     events: SharedEvents,
 }
 impl WaitSource for CodexSource {
     fn classify(&mut self, observation: &Value, selected: &mut Option<String>) -> Value {
-        classify(observation, selected)
+        let result = classify(observation, selected);
+        self.turn = selected.clone();
+        result
     }
     fn alive(&self) -> bool {
         match &self.owner {
@@ -251,10 +254,40 @@ impl WaitSource for CodexSource {
                 let mut v = r
                     .call(
                         "thread/read",
-                        json!({"threadId":self.thread,"includeTurns":true}),
+                        json!({"threadId":self.thread,"includeTurns":false}),
                         10000,
                     )
                     .await?;
+                // Paginated threads do not support the legacy full-history read.
+                // Keep newer turns for latest/next-turn semantics, stopping once
+                // the selected turn is found instead of loading all history.
+                let mut turns = Vec::new();
+                let mut cursor = Value::Null;
+                loop {
+                    let page = r.call("thread/turns/list", json!({"threadId":self.thread,"cursor":cursor,"limit":100,"sortDirection":"desc","itemsView":"full"}), 10000).await?;
+                    turns.extend(
+                        page["data"]
+                            .as_array()
+                            .ok_or("native-turns-missing")?
+                            .iter()
+                            .cloned(),
+                    );
+                    let next = page["nextCursor"].clone();
+                    if next.is_null()
+                        || self
+                            .turn
+                            .as_ref()
+                            .is_none_or(|id| turns.iter().any(|t| t["id"] == *id))
+                    {
+                        break;
+                    }
+                    if next == cursor {
+                        return Err("native-turn-cursor-repeated".into());
+                    }
+                    cursor = next;
+                }
+                turns.reverse();
+                v["thread"]["turns"] = json!(turns);
                 v["thread"]["runtimeSource"] = json!("connector-app-server");
                 v
             }
@@ -286,6 +319,7 @@ async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSourc
     Ok::<_, String>(CodexSource {
         owner,
         thread: string(args, "threadId").into(),
+        turn: args["turnId"].as_str().map(str::to_owned),
         desktop_owner: None,
         events: control.events.clone(),
     })
