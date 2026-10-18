@@ -301,6 +301,50 @@ pub(super) fn status_in(
             threads.push(json!({"threadId":b.thread_id,"title":latest.title,"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by})).collect::<Vec<_>>()}));
         }
     }
+    let total_targets = targets.len();
+    let total_threads = threads.len();
+    let compact = args["all"] != true && args["target"].is_null() && args["threadId"].is_null();
+    if compact {
+        targets.retain(|t| {
+            !t["recentBatches"].as_array().unwrap().is_empty()
+                || !t["pending"].as_array().unwrap().is_empty()
+                || t["breaker"] == true
+                || !t["emptySince"].is_null()
+                || t["escalated"] == true
+        });
+        threads.retain(|t| {
+            t["mode"] != "normal"
+                || ranks.contains_key(string(t, "threadId"))
+                || bindings
+                    .iter()
+                    .filter(|b| b.thread_id == t["threadId"])
+                    .any(|b| {
+                        b.deliveries.iter().any(|d| {
+                            matches!(d.status.as_str(), "pending" | "sending")
+                                || d.attempted_at > now.saturating_sub(3600)
+                                || d.timing
+                                    .finished_at
+                                    .is_some_and(|at| at / 1000 > now.saturating_sub(3600))
+                        })
+                    })
+        });
+        for t in &mut threads {
+            let latest = bindings
+                .iter()
+                .filter(|b| b.thread_id == t["threadId"])
+                .max_by_key(|b| b.created_at)
+                .unwrap();
+            t["turns"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|turn| turn["turnId"] == latest.turn_id);
+        }
+    }
+    let shown_bindings: usize = threads
+        .iter()
+        .map(|t| t["turns"].as_array().unwrap().len())
+        .sum();
+    let summary = json!({"totalTargets":total_targets,"totalThreads":total_threads,"totalBindings":bindings.len(),"hidden":{"targets":total_targets-targets.len(),"threads":total_threads-threads.len(),"bindings":bindings.len()-shown_bindings}});
     let mut ranking = ranks
         .into_iter()
         .map(|(thread_id, wakes)| json!({"threadId":thread_id,"wakes":wakes}))
@@ -308,7 +352,7 @@ pub(super) fn status_in(
     ranking.sort_by_key(|v| std::cmp::Reverse(v["wakes"].as_u64().unwrap_or(0)));
     let unbound_pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.target.is_empty() && d.status=="pending").map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"timing":d.timing}))).collect::<Vec<_>>();
     Ok(
-        json!({"at":now,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
+        json!({"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
     )
 }
 pub(crate) async fn notify_control(args: &Value) -> Result<Value> {

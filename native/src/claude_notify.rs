@@ -2032,6 +2032,107 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn notification_status_defaults_to_activity_and_expands_explicit_scope() {
+        let dir = Sandbox::new();
+        let settings = json!({});
+        let now = 10000;
+        let mut state = State::default();
+        for name in [
+            "idle",
+            "recent",
+            "pending",
+            "muted",
+            "breaker",
+            "empty",
+            "escalated",
+            "batch",
+        ] {
+            let mut b = enqueue(&dir.0, name, interaction(json!(name)), 100).await;
+            b.target = Some(format!("session_{name}"));
+            let d = &mut b.deliveries[0];
+            d.target = b.target.clone().unwrap();
+            d.status = if name == "pending" {
+                "pending"
+            } else {
+                "delivered"
+            }
+            .into();
+            d.attempted_at = 100;
+            let target = state.target(b.channel, b.target.as_ref().unwrap(), now, &settings);
+            match name {
+                "breaker" => target.breaker = true,
+                "empty" => target.empty_since = Some(now - 60),
+                "escalated" => target.escalated = true,
+                "recent" | "batch" => target.batches.push(governance::Batch {
+                    id: name.into(),
+                    at: now - 1,
+                    kinds: [("needs-input".into(), 1)].into(),
+                    threads: vec![name.into()],
+                    status: "delivered".into(),
+                    charged: true,
+                }),
+                _ => {}
+            }
+            if name == "muted" {
+                state.thread(&b, now).mode = "mute".into();
+            }
+            persist(&dir.0, &b).unwrap();
+            if name == "recent" {
+                b.turn_id = "turn-2".into();
+                b.created_at = now - 1;
+                b.deliveries[0].attempted_at = now - 1;
+                persist(&dir.0, &b).unwrap();
+            }
+        }
+        state.save(&dir.0).unwrap();
+        let compact = governance::status_in(&dir.0, "claude", &json!({}), now, &settings).unwrap();
+        assert_eq!(
+            compact["summary"],
+            json!({"totalTargets":8,"totalThreads":8,"totalBindings":9,"hidden":{"targets":2,"threads":4,"bindings":5}})
+        );
+        let recent = compact["threads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["threadId"] == "recent")
+            .unwrap();
+        assert_eq!(recent["turns"].as_array().unwrap().len(), 1);
+        assert_eq!(recent["turns"][0]["turnId"], "turn-2");
+        assert_eq!(recent["turns"][0]["causedBy"]["requestId"], "request-test");
+        for args in [
+            json!({"all":true}),
+            json!({"target":"session_recent"}),
+            json!({"threadId":"recent"}),
+        ] {
+            let full = governance::status_in(&dir.0, "claude", &args, now, &settings).unwrap();
+            assert_eq!(
+                full["summary"]["hidden"],
+                json!({"targets":0,"threads":0,"bindings":0})
+            );
+            let recent = full["threads"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["threadId"] == "recent")
+                .unwrap();
+            assert_eq!(recent["turns"].as_array().unwrap().len(), 2);
+        }
+        let idle = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"threadId":"idle","all":false}),
+            now,
+            &settings,
+        )
+        .unwrap();
+        assert_eq!(idle["targets"].as_array().unwrap().len(), 1);
+        assert_eq!(idle["threads"].as_array().unwrap().len(), 1);
+        let other =
+            governance::status_in(&dir.0, "other", &json!({"all":true}), now, &settings).unwrap();
+        assert_eq!(other["summary"]["totalBindings"], 0);
+    }
+
+    #[tokio::test]
     async fn actionable_notification_rendering() {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
