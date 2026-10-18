@@ -178,7 +178,9 @@ fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
         })
         .cloned()
         .map(|mut r| {
-            r["responseId"] = json!(r["id"].to_string());
+            if r["responseId"].is_null() {
+                r["responseId"] = json!(r["id"].to_string());
+            }
             r
         })
         .collect();
@@ -197,14 +199,14 @@ fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
         ("unconfirmed", "runtime-ownership-unknown")
     } else if turn.is_null() {
         ("unconfirmed", "turn-not-found")
+    } else if !interactions.is_empty() || blocked {
+        ("interaction-required", "native-interaction")
     } else if recorded == "completed" {
         ("completed", "native-turn-terminal")
     } else if recorded == "failed" {
         ("failed", "native-turn-terminal")
     } else if matches!(recorded, "interrupted" | "cancelled") {
         ("cancelled", "native-turn-terminal")
-    } else if !interactions.is_empty() || blocked {
-        ("interaction-required", "native-interaction")
     } else if recorded == "inProgress" && runtime == "active" {
         ("running", "native-turn-active")
     } else {

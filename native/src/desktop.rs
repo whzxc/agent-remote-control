@@ -12,6 +12,7 @@ use tokio::net::UnixStream;
 type DesktopStream = UnixStream;
 #[cfg(windows)]
 type DesktopStream = tokio::net::windows::named_pipe::NamedPipeClient;
+mod interactions;
 #[cfg(windows)]
 mod windows;
 use tokio::{
@@ -66,6 +67,8 @@ pub struct Ipc {
     wake: Arc<Notify>,
     pub(crate) changes: Arc<Notify>,
     client: String,
+    session: String,
+    events: SharedEvents,
     reader: tokio::task::JoinHandle<()>,
     alive: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -113,7 +116,11 @@ impl Ipc {
             alive.clone(),
         );
         let session = session.to_owned();
+        let reader_session = session.clone();
+        let reader_events = events.clone();
         let reader = tokio::spawn(async move {
+            let session = reader_session;
+            let events = reader_events;
             let mut revisions = HashMap::new();
             loop {
                 let Ok(len) = rd.read_u32_le().await else {
@@ -173,6 +180,12 @@ impl Ipc {
                             continue;
                         }
                         if params["change"]["type"] == "snapshot" {
+                            interactions::sync(
+                                &events,
+                                &params["change"]["conversationState"],
+                                &session,
+                            )
+                            .await;
                             s.lock().await.insert(
                                 thread.into(),
                                 Snapshot {
@@ -224,6 +237,8 @@ impl Ipc {
             wake,
             changes,
             client: String::new(),
+            session,
+            events,
             reader,
             alive,
         };
@@ -270,6 +285,11 @@ impl Ipc {
                 "thread-follower-start-turn"
                     | "thread-follower-steer-turn"
                     | "thread-follower-interrupt-turn"
+                    | "thread-follower-command-approval-decision"
+                    | "thread-follower-file-approval-decision"
+                    | "thread-follower-permissions-request-approval-response"
+                    | "thread-follower-submit-user-input"
+                    | "thread-follower-submit-mcp-server-elicitation-response"
             ) && !e.starts_with("DESKTOP_REJECTED")
                 && e != "DESKTOP_RESPONSE_OWNER_MISMATCH"
             {
@@ -284,7 +304,12 @@ impl Ipc {
             "thread-owner-discovery"
             | "thread-stream-following-changed"
             | "thread-follower-steer-turn"
-            | "thread-follower-load-complete-history" => 1,
+            | "thread-follower-load-complete-history"
+            | "thread-follower-command-approval-decision"
+            | "thread-follower-file-approval-decision"
+            | "thread-follower-permissions-request-approval-response"
+            | "thread-follower-submit-user-input"
+            | "thread-follower-submit-mcp-server-elicitation-response" => 1,
             "thread-follower-start-turn" | "thread-follower-update-thread-settings" => 2,
             "thread-follower-interrupt-turn" => 4,
             _ => 0,

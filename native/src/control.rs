@@ -675,6 +675,7 @@ impl Control {
                 return Err("STALE_INTERACTION".into());
             }
             let key = string(args, "id");
+            let _interaction_guard = self.requests.lock(&format!("interaction:{key}")).await;
             let pending = self
                 .events
                 .lock()
@@ -685,6 +686,24 @@ impl Control {
                 .ok_or("STALE_INTERACTION")?;
             if args.get("result").is_some() == args.get("error").is_some() {
                 return Err("provide exactly one of result/error".into());
+            }
+            if pending["owner"] == "desktop" {
+                if args.get("error").is_some() {
+                    return Err(
+                        "Desktop responses require result; use the native decline/cancel response"
+                            .into(),
+                    );
+                }
+                r["state"] = json!("responding");
+                self.checkpoint(r)?;
+                let result = self.ipc().await?.respond(key, &args["result"]).await?;
+                if let Some(turn) = result["nextTurnId"].as_str() {
+                    let thread = string(&result, "threadId");
+                    crate::claude_notify::bind(&json!({}), thread, turn, "").await?;
+                    crate::claude_notify::inherit(thread, string(&result, "answeredTurnId"), turn)
+                        .await?;
+                }
+                return Ok(result);
             }
             let rpc = self.utility().await?;
             r["state"] = json!("responding");
@@ -968,9 +987,31 @@ impl Control {
                     .await
                 }
             }
-            "codex_pending" => Ok(
-                json!({"backendSession":self.session,"requests":self.events.lock().await.pending.values().cloned().collect::<Vec<_>>() }),
-            ),
+            "codex_pending" => {
+                if let Some(thread) = args["threadId"].as_str() {
+                    if !self.background(thread)? {
+                        self.ipc().await?.read(thread, true).await?;
+                    }
+                }
+                let requests: Vec<_> = self
+                    .events
+                    .lock()
+                    .await
+                    .pending
+                    .values()
+                    .filter(|r| {
+                        args["threadId"].is_null() || r["params"]["threadId"] == args["threadId"]
+                    })
+                    .cloned()
+                    .map(|mut r| {
+                        if r["responseId"].is_null() {
+                            r["responseId"] = json!(r["id"].to_string());
+                        }
+                        r
+                    })
+                    .collect();
+                Ok(json!({"backendSession":self.session,"requests":requests}))
+            }
             "codex_respond" => self.mutate("respond", args).await,
             "codex_events" => {
                 let e = self.events.lock().await;

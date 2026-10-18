@@ -41,7 +41,7 @@ Pi/ACP 每个任务拥有独立进程，AgentHost 保存 ARC taskId 与上游 se
 
 waiter 通过事件唤醒和真实状态复核判断轮次，默认 30 秒切片，取消等待只释放等待，不取消任务。Codex 保持原 owner，Pi/ACP 使用其存活进程状态。等待不持有全局锁，也不恢复已停止的执行进程。
 
-claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化固定状态投递记录。完成、失败、中断、等待输入或审批触发通知。发送期间释放记录锁，返回后合并；每条只尝试一次，重启后未确认的 sending 记录转为失败。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。macOS 系统通知作为失败回退。行为与调用参数见[工具参考](../reference/tools.md#control-source-notifications)。
+claude_notify 按 thread/turn 绑定 Claude Code 云端会话，持久化状态与待处理交互投递记录。完成、失败、中断、等待输入或审批触发通知。发送期间释放记录锁，返回后合并；needs-input 不等待完成事件的 30 秒合并窗口；观察与投递独立运行。重启后未确认的 sending 记录恢复 pending，失败至少间隔十秒重试并沿用 eventId，限流计入历次尝试。已回答交互取消未发送通知，未完成绑定与待投递记录保留。成功要求 Claude CLI JSON 的 ok=true 与同一 session_id。macOS 系统通知作为失败回退。行为与调用参数见[工具参考](../reference/tools.md#control-source-notifications)。
 
 ## 数据与观察
 
@@ -76,3 +76,5 @@ Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该�
 打包 Desktop 的启动链中，完全磁盘访问授权对象为 ARC App：Core 及其启动的 Codex app-server 子进程继承该应用身份。终端单独启动 Core 可能继承终端身份，不能用它的探测结果证明 App 已就绪。
 
 Core 的 SubscriptionService 统一调度各 provider 额度，保存启用与刷新间隔，额度来源随 Agent 自动参与，不保存来源选择或固定窗口；首页圆环固定使用上游周额度，详情保留其他额度窗口。原生凭据读取和上游响应归各 provider；成功读数缓存到 subscriptions/readings，恢复后标记 stale，失败退避，过期窗口隐藏。桌面 subscriptions:changed 与浏览器 /api/subscriptions/events 共用快照。旧缓存里的 history 字段读取时移除，不再采集本地用量、汇总 Token 或读取价格。
+
+Desktop 交互复用线程 IPC 快照和变化广播，观察器以两秒刷新兜底；异步 questions 按原始 questionItemId 关联已接受的 question-reply 消息。代答复用 codex_respond：异步问题发送 Desktop 原生回复文本，审批、输入和 elicitation 通过对应 follower 响应接口交给原执行者，再回读确认请求消失。用户身份验证和未公开响应路径的交互仅通知并提示回 Desktop；不接管线程，不自动批准。

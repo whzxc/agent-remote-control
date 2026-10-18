@@ -52,10 +52,14 @@ struct Delivery {
     #[serde(default)]
     attempted_at: i64,
     #[serde(default)]
+    attempts: Vec<(String, i64)>,
+    #[serde(default)]
     error: Option<String>,
     state: String,
     #[serde(default)]
     task_state: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    interaction: Value,
     status: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -200,6 +204,9 @@ pub(crate) async fn inherit(thread: &str, previous: &str, turn: &str) -> Result<
         if !next.explicit && !old.continuation_bound {
             next.target = old.target.clone();
             next.channel = old.channel;
+            next.ingress = old.ingress.clone();
+            next.title = old.title.clone();
+            next.project = old.project.clone();
             for d in &mut next.deliveries {
                 if d.status == "pending" && d.target.is_empty() {
                     d.target = old.target.clone().unwrap_or_default();
@@ -227,7 +234,12 @@ pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
 }
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
 fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
-    if now - b.created_at <= RETENTION_SECONDS {
+    if !b.terminal
+        || b.deliveries
+            .iter()
+            .any(|d| matches!(d.status.as_str(), "pending" | "sending"))
+        || now - b.created_at <= RETENTION_SECONDS
+    {
         return Ok(false);
     }
     std::fs::remove_file(path_in(dir, &b.thread_id, &b.turn_id)).map_err(|e| e.to_string())?;
@@ -254,14 +266,14 @@ fn event(b: &Binding, d: &Delivery) -> Value {
         if agent {
             json!({"hint":"Read the pending interaction before responding.","via":"query","op":"agent_pending","args":{"agent":b.agent,"taskId":b.thread_id}})
         } else {
-            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","via":"query","op":"codex_pending","args":{}})
+            json!({"hint":"Read the pending interaction before responding; if none is exposed, use Codex Desktop.","via":"query","op":"codex_pending","args":{"threadId":b.thread_id}})
         }
     } else if agent {
         json!({"hint":"Read the result and review it against the acceptance criteria.","via":"query","op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}})
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"next":next})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn message(b: &Binding) -> String {
     format!(
@@ -279,7 +291,7 @@ fn arguments(session: &str, message: &str) -> Vec<String> {
         .to_vec()
 }
 
-// Only state/IDs reach the persisted delivery or message, never owner text.
+// Persist the exact interaction alongside its stable event ID for restart recovery.
 fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
     if b.terminal {
         return vec![];
@@ -305,14 +317,17 @@ fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
     let mut waiting = vec![];
     for request in observed["interaction"].as_array().into_iter().flatten() {
         let method = string(request, "method");
-        let state = if method.contains("requestUserInput") {
+        let state = if method.contains("requestUserInput")
+            || method == "request_user_input_async"
+            || method.contains("elicitation")
+        {
             "等待输入"
         } else if method.contains("Approval") || method.contains("approval") {
             "等待审批"
         } else if !b.agent.is_empty() && b.agent != "codex" {
             "等待输入"
         } else {
-            continue;
+            "等待输入"
         };
         waiting.push(state.to_owned());
         if !request["id"].is_null() {
@@ -437,10 +452,19 @@ fn fallback_body(b: &Binding) -> String {
     )
 }
 fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
-    if b.deliveries.iter().any(|d| d.status == "sending") {
+    let retry = |d: &Delivery| {
+        d.status == "sending"
+            || (d.status == "failed"
+                && matches!(
+                    d.error.as_deref(),
+                    None | Some("delivery-failed-or-unconfirmed")
+                ))
+    };
+    if b.deliveries.iter().any(retry) {
         for d in &mut b.deliveries {
-            if d.status == "sending" {
-                d.status = "failed".into();
+            if retry(d) {
+                d.status = "pending".into();
+                d.error = Some("restart-delivery-unconfirmed".into());
             }
         }
         persist(dir, b)?;
@@ -488,9 +512,41 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             persist(dir, b)?;
         }
     }
+    let mut resolved = false;
+    if observation["state"] != "unconfirmed" {
+        for d in &mut b.deliveries {
+            if d.status == "pending" {
+                if let Some(current) = observation["interaction"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|r| r["id"] == d.interaction["id"])
+                {
+                    if d.interaction != *current {
+                        d.interaction = current.clone();
+                        resolved = true;
+                    }
+                }
+            }
+            if !d.interaction.is_null()
+                && d.interaction["resolved"] != true
+                && !observation["interaction"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|r| r["id"] == d.interaction["id"])
+            {
+                d.interaction["resolved"] = json!(true);
+                if d.status == "pending" {
+                    d.status = "resolved".into();
+                }
+                resolved = true;
+            }
+        }
+    }
     let previous_waiting = b.waiting.clone();
     let events = transitions(b, observation);
-    if events.is_empty() && b.waiting == previous_waiting {
+    if events.is_empty() && b.waiting == previous_waiting && !resolved {
         return Ok(());
     }
     let first = b.deliveries.len();
@@ -502,7 +558,15 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             created_at: chrono::Utc::now().timestamp(),
             batch: String::new(),
             attempted_at: 0,
+            attempts: vec![],
             error: None,
+            interaction: observation["interaction"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|r| key == format!("request:{}", r["id"]))
+                .cloned()
+                .unwrap_or(Value::Null),
             key,
             state,
             task_state: string(observation, "state").into(),
@@ -512,6 +576,22 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     // Append first: a crash between writes is reconciled by deterministic event IDs.
     for d in &b.deliveries[first..] {
         inbox_append(dir, &b.ingress, event(b, d))?;
+    }
+    if resolved && !b.ingress.is_empty() {
+        let path = inbox_path(dir, &b.ingress);
+        if path.exists() {
+            let mut rows = load(&path)?;
+            for row in rows.as_array_mut().into_iter().flatten() {
+                if let Some(d) = b.deliveries.iter().find(|d| row["eventId"] == d.event_id) {
+                    let read = row["read"].clone();
+                    *row = event(b, d);
+                    if !read.is_null() {
+                        row["read"] = read;
+                    }
+                }
+            }
+            save(&path, &rows)?;
+        }
     }
     persist(dir, b)?;
     drop(guard);
@@ -645,7 +725,8 @@ async fn flush(
     for b in &all {
         for d in &b.deliveries {
             if d.status == "pending"
-                && now - d.created_at >= window
+                && (d.task_state == "interaction-required" || now - d.created_at >= window)
+                && (d.attempted_at == 0 || now - d.attempted_at >= 10)
                 && !targets.contains(&(d.channel, d.target.clone()))
             {
                 targets.push((d.channel, d.target.clone()));
@@ -656,14 +737,16 @@ async fn flush(
     for (channel, target) in targets {
         let wakes: std::collections::HashSet<_> = all
             .iter()
-            .flat_map(|b| b.deliveries.iter())
-            .filter(|d| {
-                d.channel == channel
-                    && d.target == target
-                    && !d.batch.is_empty()
-                    && d.attempted_at > now.saturating_sub(3600)
+            .flat_map(|b| &b.deliveries)
+            .filter(|d| d.channel == channel && d.target == target)
+            .flat_map(|d| {
+                d.attempts
+                    .iter()
+                    .map(|(batch, time)| (batch, *time))
+                    .chain(std::iter::once((&d.batch, d.attempted_at)))
             })
-            .map(|d| d.batch.clone())
+            .filter(|(batch, time)| !batch.is_empty() && *time > now.saturating_sub(3600))
+            .map(|(batch, _)| batch)
             .collect();
         let reason = if settings["notificationsEnabled"] == false {
             Some("disabled")
@@ -676,6 +759,9 @@ async fn flush(
         } else {
             None
         };
+        if reason == Some("wake-limit") || reason == Some("disabled") {
+            continue;
+        }
         let batch = id();
         let mut reserved = Vec::new();
         for b in &mut all {
@@ -685,6 +771,9 @@ async fn flush(
             selected.deliveries.clear();
             for d in &mut b.deliveries {
                 if d.channel == channel && d.target == target && d.status == "pending" {
+                    if d.attempted_at != 0 && now - d.attempted_at < 10 {
+                        continue;
+                    }
                     d.status = if reason.is_some() {
                         "failed"
                     } else {
@@ -693,6 +782,11 @@ async fn flush(
                     .into();
                     d.error = reason.map(str::to_owned);
                     if reason.is_none() {
+                        d.attempts
+                            .retain(|(_, time)| *time > now.saturating_sub(3600));
+                        if !d.batch.is_empty() {
+                            d.attempts.push((d.batch.clone(), d.attempted_at));
+                        }
                         d.batch = batch.clone();
                         d.attempted_at = now;
                     }
@@ -741,7 +835,12 @@ async fn flush(
                         .iter()
                         .any(|r| r.event_id == d.event_id && r.target == d.target)
                     {
-                        d.status = status.into();
+                        d.status = if status == "failed" {
+                            "pending"
+                        } else {
+                            status
+                        }
+                        .into();
                         if status == "failed" {
                             d.error = Some("delivery-failed-or-unconfirmed".into());
                         }
@@ -810,6 +909,36 @@ pub(crate) async fn migrate() -> Result<()> {
 pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents::AgentHost>) {
     let agents = Arc::downgrade(agents);
     let weak = Arc::downgrade(control);
+    let ready = Arc::new(tokio::sync::Notify::new());
+    let delivery_ready = ready.clone();
+    let mut delivery_shutdown = control.shutdown.subscribe();
+    let wake = control.events.clone();
+    tokio::spawn(async move {
+        tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.notified() => {} }
+        loop {
+            let result = async {
+                flush(
+                    &Cli,
+                    &directory(),
+                    &LOCK,
+                    chrono::Utc::now().timestamp(),
+                    30,
+                    &settings()?,
+                )
+                .await
+            };
+            tokio::select! {
+                _ = delivery_shutdown.changed() => break,
+                result = result => if let Err(error) = result { crate::logs::record("WARN", &format!("Notification delivery: {error}"), None); },
+            }
+            let wake = wake.lock().await.wake.clone();
+            tokio::select! {
+                _ = delivery_shutdown.changed() => break,
+                _ = tokio::time::sleep(Duration::from_secs(1)) => {},
+                _ = wake.notified() => {},
+            }
+        }
+    });
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
         crate::logs::record("INFO", "Control-source notification observer started", None);
@@ -868,15 +997,6 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                     let mut b = old;
                     process(&directory(), &LOCK, &mut b, &observed).await?;
                 }
-                flush(
-                    &Cli,
-                    &directory(),
-                    &LOCK,
-                    chrono::Utc::now().timestamp(),
-                    30,
-                    &settings()?,
-                )
-                .await?;
                 Ok::<_, String>(())
             };
             tokio::select! {
@@ -884,11 +1004,16 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                 _ = shutdown.changed() => break,
                 result = cycle => if let Err(error) = result { crate::logs::record("WARN", &format!("Control-source notification persistence/observation failed: {error}"), None); },
             }
+            if recovering {
+                ready.notify_one();
+            }
             recovering = false;
+            let wake = control.events.lock().await.wake.clone();
             drop(control);
             tokio::select! {
                 _ = shutdown.changed() => break,
                 _ = tokio::time::sleep(Duration::from_secs(2)) => {},
+                _ = wake.notified() => {},
             }
         }
     });
@@ -1068,20 +1193,26 @@ mod tests {
         assert_eq!(receipt["notification"], "bind-failed");
     }
     #[test]
-    fn seven_day_cleanup_covers_terminal_and_unfinished_records() {
+    fn seven_day_cleanup_preserves_unfinished_records() {
         for terminal in [false, true] {
             let dir = Sandbox::new();
             let mut b = fixture(&dir.0);
             b.terminal = terminal;
             b.created_at = 100;
             persist(&dir.0, &b).unwrap();
-            // A later rebind/write must not extend the observation lifetime.
+            // Rebinding preserves the original creation time.
             bind_in(&dir.0, Some("cse_other"), "thread-1", "turn-1", "").unwrap();
             let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
             assert_eq!(b.created_at, 100);
             assert!(!remove_expired(&dir.0, &b, 100 + RETENTION_SECONDS).unwrap());
-            assert!(remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS).unwrap());
-            assert!(binding(&dir.0, "thread-1", "turn-1").unwrap().is_none());
+            assert_eq!(
+                remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS).unwrap(),
+                terminal
+            );
+            assert_eq!(
+                binding(&dir.0, "thread-1", "turn-1").unwrap().is_none(),
+                terminal
+            );
         }
     }
     #[tokio::test]
@@ -1133,7 +1264,7 @@ mod tests {
             assert_eq!(b.deliveries[0].target, "session_test");
             assert_eq!(
                 b.deliveries[0].status,
-                if fail { "failed" } else { "delivered" }
+                if fail { "pending" } else { "delivered" }
             );
             assert_eq!(notification(Some(b))["deliveries"], json!([]));
         }
@@ -1187,11 +1318,13 @@ mod tests {
             &calls[0][2..],
             ["--cloud", "session_test", "--output-format", "json"]
         );
-        assert!(!serde_json::to_string(&*calls).unwrap().contains("SECRET"));
+        assert!(!serde_json::to_string(&*calls)
+            .unwrap()
+            .contains("SECRET_OUTPUT"));
         assert!(
             !std::fs::read_to_string(path_in(&dir.0, "thread-1", "turn-1"))
                 .unwrap()
-                .contains("SECRET")
+                .contains("SECRET_OUTPUT")
         );
     }
     #[tokio::test]
@@ -1246,7 +1379,7 @@ mod tests {
         assert_eq!(b.deliveries[0].state, "等待输入");
     }
     #[tokio::test]
-    async fn failures_fallback_once_without_retry_including_unknown_results() {
+    async fn failures_remain_pending_during_retry_backoff() {
         for result in [
             Err("timeout".into()),
             Err("not installed".into()),
@@ -1270,12 +1403,12 @@ mod tests {
             assert_eq!(fake.calls.lock().unwrap().len(), 1);
             assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
             assert!(!fake.fallbacks.lock().unwrap()[0].contains("SECRET"));
-            assert_eq!(b.deliveries[0].status, "failed");
+            assert_eq!(b.deliveries[0].status, "pending");
             assert_eq!(b.deliveries[0].state, "失败");
         }
     }
     #[tokio::test]
-    async fn interrupted_delivery_recovers_as_failed_without_resending() {
+    async fn interrupted_delivery_recovers_with_same_event_id() {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -1285,11 +1418,13 @@ mod tests {
             created_at: 0,
             batch: String::new(),
             attempted_at: 0,
+            attempts: vec![],
             error: None,
             key: "request:17".into(),
             target: "session_test".into(),
             state: "等待审批".into(),
             task_state: "interaction-required".into(),
+            interaction: Value::Null,
             status: "sending".into(),
         });
         persist(&dir.0, &b).unwrap();
@@ -1299,12 +1434,12 @@ mod tests {
         process(&fake, &dir.0, &mut b, &interaction(json!(17)))
             .await
             .unwrap();
-        assert!(fake.calls.lock().unwrap().is_empty());
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
         assert_eq!(fake.fallbacks.lock().unwrap().len(), 1);
         process(&fake, &dir.0, &mut b, &json!({"state":"cancelled"}))
             .await
             .unwrap();
-        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        assert_eq!(fake.calls.lock().unwrap().len(), 2);
         assert_eq!(b.deliveries[1].state, "中断");
     }
 }
@@ -1327,14 +1462,16 @@ pub(crate) fn push_available(notification: &Value) -> bool {
     let now = chrono::Utc::now().timestamp();
     let wakes: std::collections::HashSet<_> = all
         .iter()
-        .flat_map(|b| b.deliveries.iter())
-        .filter(|d| {
-            d.channel == Channel::ClaudeSession
-                && notification["target"] == d.target
-                && !d.batch.is_empty()
-                && d.attempted_at > now.saturating_sub(3600)
+        .flat_map(|b| &b.deliveries)
+        .filter(|d| d.channel == Channel::ClaudeSession && notification["target"] == d.target)
+        .flat_map(|d| {
+            d.attempts
+                .iter()
+                .map(|(batch, time)| (batch, *time))
+                .chain(std::iter::once((&d.batch, d.attempted_at)))
         })
-        .map(|d| &d.batch)
+        .filter(|(batch, time)| !batch.is_empty() && *time > now.saturating_sub(3600))
+        .map(|(batch, _)| batch)
         .collect();
     wakes.len() < settings["notificationWakeLimit"].as_u64().unwrap_or(20) as usize
 }

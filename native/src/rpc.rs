@@ -118,7 +118,7 @@ impl Rpc {
                 let _ = tx.send(Err("TRANSPORT_CLOSED: execution state unknown".into()));
             }
             let mut events = events.lock().await;
-            events.pending.clear();
+            events.pending.retain(|_, r| r["owner"] == "desktop");
             events.wake.notify_waiters();
         });
         rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
