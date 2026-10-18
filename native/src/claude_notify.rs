@@ -275,15 +275,158 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     };
     json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
-fn message(b: &Binding) -> String {
-    format!(
-        "[ARC] {}",
-        b.deliveries
-            .iter()
-            .map(|d| event(b, d).to_string())
+// Keep the persisted event lossless; render only the outbound notification here.
+fn notification_block(text: &str, language: &str) -> String {
+    let longest = text.split(|c| c != '`').map(str::len).max().unwrap_or(0);
+    let fence = "`".repeat(3.max(longest + 1));
+    format!("{fence}{language}\n{text}\n{fence}")
+}
+fn notification_value(value: &Value) -> String {
+    if let Some(text) = value.as_str() {
+        // Quoting keeps upstream text visibly separate from ARC's own guidance.
+        text.split('\n')
+            .map(|line| format!("> {line}"))
             .collect::<Vec<_>>()
             .join("\n")
-    )
+    } else {
+        notification_block(
+            &serde_json::to_string_pretty(value).unwrap_or_default(),
+            "json",
+        )
+    }
+}
+fn interaction_text(interaction: &Value) -> String {
+    let mut params = interaction.get("params").cloned().unwrap_or_else(|| {
+        let mut content = interaction.clone();
+        if let Some(fields) = content.as_object_mut() {
+            for key in [
+                "id",
+                "responseId",
+                "interactionId",
+                "nativeId",
+                "backendSession",
+                "owner",
+                "canRespond",
+                "next",
+                "resolved",
+                "jsonrpc",
+            ] {
+                fields.remove(key);
+            }
+        }
+        content
+    });
+    if let Some(fields) = params.as_object_mut() {
+        // These are routing metadata, never approval or question content.
+        for key in ["threadId", "turnId", "questionItemId"] {
+            fields.remove(key);
+        }
+    }
+    let mut sections = Vec::new();
+    if let Some(fields) = params.as_object_mut() {
+        for (key, label) in [
+            ("question", "需要确认"),
+            ("questions", "需要确认"),
+            ("message", "说明"),
+            ("command", "待执行命令"),
+            ("cwd", "工作目录"),
+            ("reason", "原因"),
+            ("options", "可选回答"),
+        ] {
+            if let Some(value) = fields.remove(key) {
+                let body = if key == "options" {
+                    value
+                        .as_array()
+                        .map(|options| {
+                            options
+                                .iter()
+                                .enumerate()
+                                .map(|(i, option)| {
+                                    format!(
+                                        "{}. {}",
+                                        i + 1,
+                                        notification_value(option).replace('\n', "\n   ")
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n\n")
+                        })
+                        .unwrap_or_else(|| notification_value(&value))
+                } else if key == "questions" && value.is_array() {
+                    value
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, question)| {
+                            format!(
+                                "**问题 {}**\n\n{}",
+                                i + 1,
+                                interaction_text(&json!({"params": question}))
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n")
+                } else {
+                    notification_value(&value)
+                };
+                sections.push(format!("**{label}**\n\n{body}"));
+            }
+        }
+    }
+    if !params.is_null() && params.as_object().is_none_or(|fields| !fields.is_empty()) {
+        sections.push(format!("**交互详情**\n\n{}", notification_value(&params)));
+    }
+    sections.join("\n\n")
+}
+fn message(b: &Binding) -> String {
+    b.deliveries.iter().map(|d| {
+        let agent = !b.agent.is_empty() && b.agent != "codex";
+        let pending = !matches!(d.task_state.as_str(), "completed" | "failed" | "cancelled");
+        let status = match d.task_state.as_str() {
+            "completed" => "本轮完成",
+            "failed" => "执行失败",
+            "cancelled" => "已中断",
+            _ if d.state == "等待审批" => "等待审批",
+            _ => "等待输入",
+        };
+        let title = if b.title.is_empty() { "未命名任务" } else { &b.title };
+        let mut sections = vec![format!("[ARC] {status}\n\n**任务**\n\n{}\n\n项目：{} · Agent：{}",
+            notification_value(&json!(title)), b.project, if agent { &b.agent } else { "Codex" })];
+        if pending {
+            let content = interaction_text(&d.interaction);
+            if !content.is_empty() { sections.push(content); }
+            if let Some(method) = d.interaction["method"].as_str() {
+                sections.push(format!("交互类型：{method}"));
+            }
+            if d.interaction["method"] == "request_user_input_async" {
+                sections.push("支持选项或自由文本回复。".into());
+            }
+        }
+        let op = match (agent, pending) {
+            (true, true) => "agent_pending",
+            (true, false) => "agent_read",
+            (false, true) => "codex_pending",
+            (false, false) => "codex_read",
+        };
+        let args = if agent { json!({"agent":b.agent,"taskId":b.thread_id}) }
+            else { json!({"threadId":b.thread_id}) };
+        let hint = if pending && d.interaction["canRespond"] == false {
+            "此交互不能远程回复，需在原任务所属应用中处理；可查询最新状态。"
+        } else if pending {
+            "先查询最新待处理交互，按原任务的交互契约回复；不要重发任务。若没有可回复请求，需在原任务所属应用中处理。"
+        } else if d.task_state == "completed" {
+            "读取本轮结果并对照要求验收；本轮完成不代表验收通过。"
+        } else {
+            "读取任务结果，检查原因与当前进度。"
+        };
+        sections.push(format!("**下一步**\n\n{hint}\n\n调用 query：\n\n{}", notification_block(
+            &json!({"op":op,"args":args}).to_string(), "json")));
+        // IDs occur once in the query above or in this footer, without abbreviation.
+        sections.push(format!("**定位信息**\n\n{}", notification_block(
+            &format!("turnId: {}\neventId: {}", b.turn_id, d.event_id), "text")));
+        sections.join("\n\n")
+    }).collect::<Vec<_>>().join("\n\n---\n\n")
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
