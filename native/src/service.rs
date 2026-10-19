@@ -245,7 +245,7 @@ impl Service {
             i.execution = service_mut.execution.clone();
             i.connected.store(true, Ordering::SeqCst);
         }
-        crate::claude_notify::start(&service.control, &service.agents);
+        crate::claude_notify::start(&service);
         crate::dispatch_queue::start(&service.control);
         Ok(service)
     }

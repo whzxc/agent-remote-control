@@ -115,7 +115,6 @@ pub async fn listen(
     desktop: Option<Arc<dyn DesktopAccess>>,
 ) -> Result<tokio::task::JoinHandle<()>> {
     service.subscriptions.start();
-    crate::claude_notify::mcp_events::start(&service);
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| e.to_string())?;

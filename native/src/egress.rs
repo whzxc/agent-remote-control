@@ -247,7 +247,7 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
             entry
         })
         .collect();
-    json!({"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":index})
+    json!({"events":crate::claude_notify::subscriptions::guide(),"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":index})
 }
 
 /// Only suggest reads or waits; a suggested next step never authorizes a write.

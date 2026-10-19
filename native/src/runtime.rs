@@ -422,7 +422,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
         .map_err(|e| e.to_string())?;
     crate::claude_notify::migrate().await?;
     let listener = crate::transport::listen(service.clone(), None).await?;
-    crate::claude_notify::start(&service.control, &service.agents);
+    crate::claude_notify::start(&service);
     crate::dispatch_queue::start(&service.control);
     let startup_service = service.clone();
     let startup = tokio::spawn(async move {

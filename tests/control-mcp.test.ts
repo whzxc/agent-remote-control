@@ -790,7 +790,7 @@ test('capacity failures retry same model without replaying input, suppress inter
   await eventually(fixtureRows,v=>v[created.threadId].turns.length===3);
   let rows=await fixtureRows();assert.equal(rows[created.threadId].turns[2].status,'completed');
   assert.ok(rows[created.threadId].turns.slice(1).every((t:any)=>t.model==='fixture-dispatch-overload'&&t.input[0].text.includes('从中断处继续')&&!t.input[0].text.includes('harmless fixture')));
-  const bindings=async(thread:string)=>{const {readdir}=await import('node:fs/promises');return Promise.all((await readdir(path.join(directory,'notifications'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications',f),'utf8')))).then(bs=>bs.filter(b=>b.threadId===thread));};
+  const bindings=async(thread:string)=>{const {readdir}=await import('node:fs/promises');return Promise.all((await readdir(path.join(directory,'notifications','tasks'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications','tasks',f),'utf8')))).then(bs=>bs.filter(b=>b.threadId===thread));};
   let bs=await bindings(created.threadId);assert.ok(bs.every(b=>b.target===null));assert.ok(bs.every(b=>b.deliveries.every((d:any)=>d.taskState!=='failed')));
   const exhausted=await dispatchFixture('fixture-dispatch-overload-exhausted');
   bs=await eventually(()=>bindings(exhausted.threadId),bs=>bs.some(b=>b.terminal&&b.retry?.status==='exhausted'));
@@ -829,7 +829,7 @@ test('completed notification freezes bounded Git changes with attribution and fu
   const waited=(await call('codex_wait',{threadId:r.threadId,turnId:r.turnId,timeoutMs:1000})).result;
   assert.equal(waited.state,'completed');
   const {readdir}=await import('node:fs/promises');
-  const load=async()=>Promise.all((await readdir(path.join(directory,'notifications'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications',f),'utf8'))));
+  const load=async()=>Promise.all((await readdir(path.join(directory,'notifications','tasks'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications','tasks',f),'utf8'))));
   const bs=await eventually(load,bs=>bs.some(b=>b.threadId===r.threadId&&b.deliveries.some((d:any)=>d.changes)));
   const d=bs.find(b=>b.threadId===r.threadId).deliveries.find((d:any)=>d.taskState==='completed');
   assert.equal(d.changes.commitCount,6);assert.equal(d.changes.commits.length,5);assert.equal(d.changes.truncated,true);

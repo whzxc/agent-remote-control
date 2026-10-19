@@ -4,62 +4,13 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use ring::hmac;
 use std::net::{IpAddr, SocketAddr};
 
-const NAME: &str = "task.status";
+pub(super) const NAME: &str = "notification";
 const LIMIT: usize = 256 * 1024;
 const TTL_MS: i64 = 86_400_000;
-const MAX_ATTEMPTS: u32 = 6;
-// Serializes lifecycle changes with sends: after unsubscribe returns no send can start.
-static OPERATION: Mutex<()> = Mutex::const_new(());
+// Lifecycle calls and the shared sender serialize; unsubscribe cannot race a new send.
+pub(super) static OPERATION: Mutex<()> = Mutex::const_new(());
+use super::subscriptions::{Subscription, Webhook};
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Subscription {
-    id: String,
-    ingress: String,
-    principal: String,
-    arguments: Value,
-    url: String,
-    secret: String,
-    previous_secret: Option<String>,
-    rotate_until: i64,
-    verified_until: i64,
-    created_at: i64,
-    expires_at: i64,
-}
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Pending {
-    subscription: String,
-    ingress: String,
-    thread: String,
-    body: Value,
-    status: String,
-    attempts: u32,
-    charged: bool,
-    next_attempt_at: i64,
-    error: Option<String>,
-    timing: DeliveryTiming,
-}
-#[derive(Default, Serialize, Deserialize)]
-struct Store {
-    subscriptions: Vec<Subscription>,
-    deliveries: Vec<Pending>,
-}
-impl Store {
-    fn load(dir: &Path) -> Result<Self> {
-        let path = dir.join("mcp-events/state.json");
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-        serde_json::from_value(load(&path)?).map_err(|e| e.to_string())
-    }
-    fn save(&self, dir: &Path) -> Result<()> {
-        save(
-            &dir.join("mcp-events/state.json"),
-            &serde_json::to_value(self).map_err(|e| e.to_string())?,
-        )
-    }
-}
 fn rpc(code: i64, reason: &str) -> String {
     json!({"code":code,"message":if code == -32015 {"CallbackEndpointError"} else {"Invalid event request"},"data":{"reason":reason}}).to_string()
 }
@@ -123,7 +74,8 @@ async fn post(s: &Subscription, id: &str, body: &[u8]) -> Result<(u16, Vec<u8>)>
         return Err("payload_too_large".into());
     }
     tokio::time::timeout(Duration::from_secs(10), async {
-        let url = callback_url(&s.url).map_err(|_| "invalid_url")?;
+        let url = callback_url(&s.webhook.as_ref().ok_or("missing_webhook")?.url)
+            .map_err(|_| "invalid_url")?;
         let host = url
             .host_str()
             .ok_or("invalid_url")?
@@ -150,9 +102,14 @@ async fn post(s: &Subscription, id: &str, body: &[u8]) -> Result<(u16, Vec<u8>)>
             .build()
             .map_err(|_| "client_failed")?;
         let at = chrono::Utc::now().timestamp();
-        let mut sig = signature(&s.secret, id, at, body)?;
-        if s.rotate_until > at {
-            if let Some(old) = &s.previous_secret {
+        let mut sig = signature(
+            &s.webhook.as_ref().ok_or("missing_webhook")?.secret,
+            id,
+            at,
+            body,
+        )?;
+        if s.webhook.as_ref().ok_or("missing_webhook")?.rotate_until > at {
+            if let Some(old) = &s.webhook.as_ref().ok_or("missing_webhook")?.previous_secret {
                 sig.push(' ');
                 sig.push_str(&signature(old, id, at, body)?);
             }
@@ -226,9 +183,9 @@ async fn authorized(s: &crate::ingress::Ingress, principal: &str) -> bool {
     }
 }
 pub(crate) fn list() -> Value {
-    json!({"events":[{"name":NAME,"description":"ARC task completed, failed, interrupted, or needs input. Only tasks dispatched through this ingress. Subscribe in Work Cloud; read full results with query.","delivery":["webhook"],
-        "inputSchema":{"type":"object","properties":{"threadId":{"type":"string","minLength":1},"taskId":{"type":"string","minLength":1}},"additionalProperties":false},
-        "payloadSchema":{"type":"object","properties":{"kind":{"type":"string","enum":["completed","failed","interrupted","needs-input"]},"summary":{"type":"string"},"threadId":{"type":["string","null"]},"taskId":{"type":["string","null"]},"turnId":{"type":"string"},"agent":{"type":"string"},"project":{"type":"string"},"title":{"type":"string"},"query":{"type":"object"}},"required":["kind","summary","threadId","taskId","turnId","agent","project","title","query"],"additionalProperties":false}}]})
+    json!({"events":[{"name":NAME,"description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status reports completed, failed, interrupted or needs-input for tasks from this ingress. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
+        "inputSchema":subscriptions::guide()["inputSchema"],
+        "payloadSchema":{"type":"object","properties":{"op":{"type":"string"},"kind":{"type":"string"},"summary":{"type":"string"},"threadId":{"type":["string","null"]},"taskId":{"type":["string","null"]},"turnId":{"type":"string"},"agent":{"type":"string"},"project":{"type":"string"},"title":{"type":"string"},"query":{"type":"object"}},"required":["op","kind","summary","threadId","taskId","turnId","agent","project","title","query"],"additionalProperties":false}}]})
 }
 pub(crate) async fn request(
     s: &crate::ingress::Ingress,
@@ -256,35 +213,28 @@ pub(crate) async fn request(
         return Ok(list());
     }
     if params["name"] != NAME || params["delivery"]["mode"] != "webhook" {
-        return Err(invalid("unsupported_event_or_delivery"));
+        return Err(invalid("Use name=notification, delivery.mode=webhook and arguments={op:task_status,args:{}}; see guide({topic:notify})"));
     }
-    let args = params.get("arguments").cloned().unwrap_or(json!({}));
-    crate::validator("event", NAME, &list()["events"][0]["inputSchema"])?
-        .validate(&args)
-        .map_err(|_| invalid("invalid_arguments"))?;
-    // Explicit order also works when a desktop dependency enables preserve_order.
-    let mut canonical = serde_json::Map::new();
-    for field in ["taskId", "threadId"] {
-        if let Some(value) = args.get(field) {
-            canonical.insert(field.into(), value.clone());
-        }
-    }
-    let args = Value::Object(canonical);
+    let args = subscriptions::validate(&params["arguments"])?;
     let url = callback_url(string(&params["delivery"], "url"))?.to_string();
     let sub_id = format!(
         "sub_{}",
         hash(json!([s.id, principal, NAME, args, url]).to_string())
     );
     let _operation = OPERATION.lock().await;
+    let _guard = LOCK.lock().await;
     let dir = directory();
-    let mut store = Store::load(&dir)?;
+    let mut store = State::load(&dir)?;
     if method == "events/unsubscribe" {
         store.subscriptions.retain(|s| s.id != sub_id);
-        for d in &mut store.deliveries {
-            if d.subscription == sub_id && matches!(d.status.as_str(), "pending" | "sending") {
-                d.status = "unsubscribed".into();
-                d.timing.finished_at = Some(chrono::Utc::now().timestamp_millis());
+        for mut b in records(&dir)? {
+            for d in &mut b.deliveries {
+                if d.subscription == sub_id && matches!(d.status.as_str(), "pending" | "sending") {
+                    d.status = "unsubscribed".into();
+                    d.timing.finished_at = Some(chrono::Utc::now().timestamp_millis());
+                }
             }
+            persist(&dir, &b)?;
         }
         store.save(&dir)?;
         return Ok(json!({}));
@@ -305,43 +255,55 @@ pub(crate) async fn request(
     let now_ms = chrono::Utc::now().timestamp_millis();
     let now = now_ms / 1000;
     let old = store.subscriptions.iter().find(|s| s.id == sub_id);
-    let mut sub = Subscription {
-        id: sub_id.clone(),
-        ingress: s.id.clone(),
+    let mut webhook = Webhook {
         principal: principal.clone(),
-        arguments: args,
         url,
         secret,
-        previous_secret: None,
-        rotate_until: 0,
-        verified_until: 0,
-        created_at: now_ms,
-        expires_at: now_ms + ttl,
+        ..Default::default()
     };
+    let mut created_at = now_ms;
     if let Some(old) = old {
-        if old.expires_at > now_ms {
-            sub.created_at = old.created_at;
+        if old.active(now_ms) {
+            created_at = old.created_at;
         }
-        if old.secret != sub.secret {
-            sub.previous_secret = Some(old.secret.clone());
-            sub.rotate_until = now + 300;
-        } else {
-            sub.previous_secret = old.previous_secret.clone();
-            sub.rotate_until = old.rotate_until;
+        if let Some(w) = &old.webhook {
+            if w.secret != webhook.secret {
+                webhook.previous_secret = Some(w.secret.clone());
+                webhook.rotate_until = now + 300;
+            } else {
+                webhook.previous_secret = w.previous_secret.clone();
+                webhook.rotate_until = w.rotate_until;
+            }
         }
     }
     let verified_until = store
         .subscriptions
         .iter()
-        .filter(|v| {
-            v.principal == principal
-                && v.ingress == s.id
-                && v.url == sub.url
-                && v.secret == sub.secret
+        .filter_map(|v| {
+            v.webhook.as_ref().filter(|w| {
+                v.ingress == s.id
+                    && w.principal == principal
+                    && w.url == webhook.url
+                    && w.secret == webhook.secret
+            })
         })
-        .map(|v| v.verified_until)
+        .map(|w| w.verified_until)
         .max()
         .unwrap_or(0);
+    let mut sub = Subscription {
+        id: sub_id.clone(),
+        ingress: s.id.clone(),
+        channel: Channel::McpEvents,
+        target: sub_id.clone(),
+        op: "task_status".into(),
+        args: args["args"].clone(),
+        turn: None,
+        created_at,
+        expires_at: Some(now_ms + ttl),
+        webhook: Some(webhook),
+        muted: old.is_some_and(|s| s.muted),
+        until: old.and_then(|s| s.until),
+    };
     if verified_until <= now {
         let challenge = id() + &id();
         let body =
@@ -350,7 +312,10 @@ pub(crate) async fn request(
             .await
             .map_err(|e| rpc(-32015, &e))?;
         let response: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-        let compare_key = hmac::Key::new(hmac::HMAC_SHA256, &key(&sub.secret)?);
+        let compare_key = hmac::Key::new(
+            hmac::HMAC_SHA256,
+            &key(&sub.webhook.as_ref().unwrap().secret)?,
+        );
         let expected = hmac::sign(&compare_key, challenge.as_bytes());
         if !(200..300).contains(&status)
             || hmac::verify(
@@ -363,7 +328,7 @@ pub(crate) async fn request(
             return Err(rpc(-32015, "challenge_failed"));
         }
     }
-    sub.verified_until = if verified_until > now {
+    sub.webhook.as_mut().unwrap().verified_until = if verified_until > now {
         verified_until
     } else {
         now + 300
@@ -372,8 +337,8 @@ pub(crate) async fn request(
         return Err(rpc(-32001, "access_revoked"));
     }
     // Expiration is granted after callback verification, including very short requested TTLs.
-    sub.expires_at = chrono::Utc::now().timestamp_millis() + ttl;
-    let expiration = chrono::DateTime::from_timestamp_millis(sub.expires_at)
+    sub.expires_at = Some(chrono::Utc::now().timestamp_millis() + ttl);
+    let expiration = chrono::DateTime::from_timestamp_millis(sub.expires_at.unwrap())
         .unwrap()
         .to_rfc3339();
     store.subscriptions.retain(|s| s.id != sub_id);
@@ -382,283 +347,64 @@ pub(crate) async fn request(
     Ok(json!({"id":sub_id,"refreshBefore":expiration,"cursor":null,"truncated":false}))
 }
 
-pub(super) fn owns(dir: &Path, ingress: &str, target: &str) -> Result<bool> {
-    Ok(Store::load(dir)?
-        .subscriptions
-        .iter()
-        .any(|s| s.ingress == ingress && s.id == target))
-}
-pub(super) fn status(dir: &Path, ingress: &str, args: &Value) -> Result<Value> {
-    let store = Store::load(dir)?;
-    let matches = |id: &str, thread: Option<&str>| {
-        args["target"].as_str().is_none_or(|t| t == id)
-            && args["threadId"]
-                .as_str()
-                .is_none_or(|t| thread.is_none_or(|v| v == t))
+// Channel adapter only: routing, dedup, controls, buckets and retries belong to the shared sender.
+pub(super) async fn send(
+    service: &crate::service::Service,
+    sub: &Subscription,
+    b: &Binding,
+    d: &Delivery,
+) -> SendOutcome {
+    let Some(w) = &sub.webhook else {
+        return SendOutcome::failed("missing_webhook", false);
     };
-    let now = chrono::Utc::now().timestamp_millis();
-    let mut state = State::load(dir)?;
-    let settings = settings()?;
-    let ids: std::collections::BTreeSet<_> = store
-        .subscriptions
-        .iter()
-        .filter(|s| s.ingress == ingress && matches(&s.id, s.arguments["threadId"].as_str()))
-        .map(|s| s.id.clone())
-        .chain(
-            store
-                .deliveries
-                .iter()
-                .filter(|d| d.ingress == ingress && matches(&d.subscription, Some(&d.thread)))
-                .map(|d| d.subscription.clone()),
-        )
-        .collect();
-    let buckets = ids.iter().map(|id| { let target = state.target(Channel::McpEvents,id,now/1000,&settings); json!({"subscriptionId":id,"tokens":target.tokens,"capacity":governance::capacity(&settings),"refillSeconds":governance::refill_seconds(&settings),"breaker":target.breaker,"recentBatches":target.batches}) }).collect::<Vec<_>>();
-    Ok(
-        json!({"buckets":buckets,"channel":"mcp-events","subscriptions":store.subscriptions.iter().filter(|s|s.ingress == ingress && matches(&s.id,s.arguments["threadId"].as_str())).map(|s|json!({"id":s.id,"arguments":s.arguments,"refreshBefore":chrono::DateTime::from_timestamp_millis(s.expires_at).map(|d|d.to_rfc3339()),"active":s.expires_at > now})).collect::<Vec<_>>(),
-        "deliveries":store.deliveries.iter().filter(|d|d.ingress == ingress && matches(&d.subscription,Some(&d.thread))).map(|d|json!({"subscriptionId":d.subscription,"eventId":d.body["eventId"],"kind":d.body["data"]["kind"],"threadId":d.body["data"]["threadId"],"taskId":d.body["data"]["taskId"],"state":d.status,"attempts":d.attempts,"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing})).collect::<Vec<_>>()}),
-    )
-}
-
-async fn flush(service: &crate::service::Service) -> Result<()> {
-    let _operation = OPERATION.lock().await;
-    let dir = directory();
-    let mut store = Store::load(&dir)?;
-    if store.subscriptions.is_empty() && store.deliveries.is_empty() {
-        return Ok(());
-    }
-    let now = chrono::Utc::now().timestamp();
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    let mut active = Vec::new();
-    for sub in &store.subscriptions {
-        let Ok(ingress) = service.ingress(&sub.ingress).await else {
-            continue;
-        };
-        if sub.expires_at > now_ms && authorized(&ingress, &sub.principal).await {
-            active.push(sub.id.clone());
-        }
-    }
-    store.subscriptions.retain(|s| active.contains(&s.id));
-    for sub in &mut store.subscriptions {
-        if sub.rotate_until <= now {
-            sub.previous_secret = None;
-        }
-    }
-    let bindings = {
-        let _guard = LOCK.lock().await;
-        records(&dir)?
+    let Ok(ingress) = service.ingress(&sub.ingress).await else {
+        return SendOutcome::failed("access_revoked", false);
     };
-    for sub in &store.subscriptions {
-        for b in &bindings {
-            if b.ingress != sub.ingress {
-                continue;
-            }
-            for d in &b.deliveries {
-                let event = event(b, d);
-                if d.timing.queued_at.unwrap_or(d.created_at * 1000) < sub.created_at
-                    || d.status == "resolved"
-                    || event["interaction"]["resolved"] == true
-                    || ["threadId", "taskId"]
-                        .iter()
-                        .any(|k| sub.arguments[*k].as_str().is_some_and(|v| event[*k] != v))
-                    || store
-                        .deliveries
-                        .iter()
-                        .any(|p| p.subscription == sub.id && p.body["eventId"] == d.event_id)
-                {
-                    continue;
-                }
-                let mut data = json!({});
-                for k in [
-                    "kind", "summary", "threadId", "taskId", "turnId", "agent", "project", "title",
-                ] {
-                    data[k] = event[k].clone();
-                }
-                let agent = !b.agent.is_empty() && b.agent != "codex";
-                let pending = event["kind"] == "needs-input";
-                data["query"] = if agent {
-                    json!({"op":if pending {"agent_pending"} else {"agent_read"},"args":{"agent":b.agent,"taskId":b.thread_id}})
-                } else {
-                    json!({"op":if pending {"codex_pending"} else {"codex_read"},"args":{"threadId":b.thread_id}})
-                };
-                store.deliveries.push(Pending { subscription:sub.id.clone(),ingress:sub.ingress.clone(),thread:b.thread_id.clone(),body:json!({"eventId":d.event_id,"name":NAME,"timestamp":chrono::DateTime::from_timestamp(d.created_at,0).unwrap().to_rfc3339(),"data":data,"cursor":null}),status:"pending".into(),attempts:0,charged:false,next_attempt_at:0,error:None,timing:DeliveryTiming {queued_at:d.timing.queued_at,..Default::default()} });
-            }
+    if !sub.active(chrono::Utc::now().timestamp_millis())
+        || !authorized(&ingress, &w.principal).await
+    {
+        return SendOutcome {
+            remove_subscription: true,
+            ..SendOutcome::failed("access_revoked", false)
+        };
+    }
+    if !ingress.connected.load(std::sync::atomic::Ordering::SeqCst) {
+        return SendOutcome::failed("ingress_disconnected", true);
+    }
+    let event = event(b, d);
+    let agent = !b.agent.is_empty() && b.agent != "codex";
+    let pending = event["kind"] == "needs-input";
+    let query = if agent {
+        json!({"op":if pending {"agent_pending"} else {"agent_read"},"args":{"agent":b.agent,"taskId":b.thread_id}})
+    } else {
+        json!({"op":if pending {"codex_pending"} else {"codex_read"},"args":{"threadId":b.thread_id}})
+    };
+    if !ingress.allows(string(&query, "op")).await {
+        return SendOutcome::failed("access_revoked", false);
+    }
+    let mut data = json!({"op":sub.op,"query":query});
+    for k in [
+        "kind", "summary", "threadId", "taskId", "turnId", "agent", "project", "title",
+    ] {
+        data[k] = event[k].clone();
+    }
+    let body = json!({"eventId":d.event_id,"name":NAME,"timestamp":chrono::DateTime::from_timestamp(d.created_at,0).unwrap().to_rfc3339(),"data":data,"cursor":null});
+    match post(sub, &d.event_id, &serde_json::to_vec(&body).unwrap()).await {
+        Ok((code, _)) if (200..300).contains(&code) => SendOutcome::success("callback-accepted"),
+        Ok((410, _)) => SendOutcome {
+            remove_subscription: true,
+            ..SendOutcome::failed("http_410", false)
+        },
+        Ok((code, _)) => SendOutcome::failed(
+            &format!("http_{code}"),
+            code != 413 && (code == 408 || code == 429 || code >= 500),
+        ),
+        Err(error) => {
+            let retry = matches!(
+                error.as_str(),
+                "timeout" | "connection_failed" | "dns_failed" | "response_failed"
+            );
+            SendOutcome::failed(&error, retry)
         }
     }
-    // Keep dedup records as long as their source records can be scanned.
-    store.deliveries.retain(|d| {
-        matches!(d.status.as_str(), "pending" | "sending")
-            || store.subscriptions.iter().any(|s| s.id == d.subscription)
-            || d.timing.finished_at.unwrap_or(now_ms) >= now_ms - RETENTION_SECONDS * 1000
-    });
-    store.save(&dir)?;
-    for i in 0..store.deliveries.len() {
-        let d = &store.deliveries[i];
-        if !matches!(d.status.as_str(), "pending" | "sending") {
-            continue;
-        }
-        let sub = store
-            .subscriptions
-            .iter()
-            .find(|s| s.id == d.subscription)
-            .cloned();
-        let Some(sub) = sub else {
-            store.deliveries[i].status = "subscription-ended".into();
-            store.deliveries[i].timing.finished_at = Some(now_ms);
-            continue;
-        };
-        let ingress = service.ingress(&sub.ingress).await?;
-        if !ingress.connected.load(std::sync::atomic::Ordering::SeqCst)
-            || !authorized(&ingress, &sub.principal).await
-            || sub.expires_at <= chrono::Utc::now().timestamp_millis()
-        {
-            continue;
-        }
-        if !ingress.allows(string(&d.body["data"]["query"], "op")).await {
-            store.deliveries[i].status = "access-revoked".into();
-            store.deliveries[i].timing.finished_at = Some(now_ms);
-            continue;
-        }
-        if d.next_attempt_at > now {
-            continue;
-        }
-        if d.attempts >= MAX_ATTEMPTS {
-            store.deliveries[i].status = "failed".into();
-            store.deliveries[i].timing.finished_at = Some(now_ms);
-            continue;
-        }
-        let Some(binding) = bindings.iter().find(|b| {
-            b.thread_id == d.thread && b.deliveries.iter().any(|e| e.event_id == d.body["eventId"])
-        }) else {
-            continue;
-        };
-        if binding.deliveries.iter().any(|e| {
-            e.event_id == d.body["eventId"]
-                && (e.status == "resolved" || e.interaction["resolved"] == true)
-        }) {
-            store.deliveries[i].status = "resolved".into();
-            store.deliveries[i].timing.finished_at = Some(now_ms);
-            continue;
-        }
-        let settings = settings()?;
-        {
-            let _guard = LOCK.lock().await;
-            let mut state = State::load(&dir)?;
-            let mode = state
-                .rule(binding)
-                .map(|r| r.mode(now))
-                .unwrap_or("normal")
-                .to_owned();
-            let target = state.target(Channel::McpEvents, &sub.id, now, &settings);
-            let reason = if settings["notificationsEnabled"] == false {
-                Some("disabled")
-            } else if target.breaker {
-                Some("breaker")
-            } else if mode == "mute" {
-                Some("muted")
-            } else if mode == "digest" && now - d.timing.queued_at.unwrap_or(now_ms) / 1000 < 3600 {
-                Some("digest-wait")
-            } else if !d.charged && target.tokens == 0 {
-                Some("token-wait")
-            } else {
-                None
-            };
-            if let Some(reason) = reason {
-                store.deliveries[i].timing.queue_reason = Some(reason.into());
-                state.save(&dir)?;
-                continue;
-            }
-            let charged = !d.charged;
-            if charged {
-                target.tokens -= 1;
-            }
-            target.batches.push(governance::Batch {
-                id: format!("{}:{}", d.body["eventId"], d.attempts + 1),
-                at: now,
-                kinds: std::collections::BTreeMap::from([(
-                    string(&d.body["data"], "kind").into(),
-                    1,
-                )]),
-                threads: vec![d.thread.clone()],
-                status: "sending".into(),
-                charged,
-            });
-            state.save(&dir)?;
-        }
-        let d = &mut store.deliveries[i];
-        d.charged = true;
-        d.attempts += 1;
-        d.status = "sending".into();
-        let started = chrono::Utc::now().timestamp_millis();
-        d.timing.started_at = Some(started);
-        d.timing.queue_ms = d.timing.queued_at.map(|t| started.saturating_sub(t));
-        let body = serde_json::to_vec(&d.body).map_err(|e| e.to_string())?;
-        let event_id = string(&d.body, "eventId").to_owned();
-        store.save(&dir)?;
-        let response = post(&sub, &event_id, &body).await;
-        let d = &mut store.deliveries[i];
-        let finished = chrono::Utc::now().timestamp_millis();
-        d.timing.finished_at = Some(finished);
-        d.timing.send_ms = Some((finished - started).max(0) as u64);
-        match response {
-            Ok((code, _)) if (200..300).contains(&code) => {
-                d.status = "callback-accepted".into();
-                d.error = None;
-                d.next_attempt_at = 0;
-            }
-            Ok((410, _)) => {
-                d.status = "subscription-gone".into();
-                d.error = Some("http_410".into());
-                store.subscriptions.retain(|s| s.id != sub.id);
-            }
-            result => {
-                let (error, retry) = match result {
-                    Ok((code, _)) => (
-                        format!("http_{code}"),
-                        code != 413 && (code == 408 || code == 429 || code >= 500),
-                    ),
-                    Err(error) => {
-                        let retry = matches!(
-                            error.as_str(),
-                            "timeout" | "connection_failed" | "dns_failed" | "response_failed"
-                        );
-                        (error, retry)
-                    }
-                };
-                d.status = if retry && d.attempts < MAX_ATTEMPTS {
-                    "pending"
-                } else {
-                    "failed"
-                }
-                .into();
-                d.error = Some(error);
-                d.next_attempt_at = finished / 1000 + governance::retry_seconds(d.attempts);
-            }
-        }
-        {
-            let _guard = LOCK.lock().await;
-            let mut state = State::load(&dir)?;
-            let target = state.target(Channel::McpEvents, &sub.id, now, &settings);
-            if let Some(batch) = target.batches.last_mut() {
-                batch.status = d.status.clone();
-            }
-            state.save(&dir)?;
-        }
-        store.save(&dir)?;
-        break; // Bound lifecycle RPC latency to one callback timeout.
-    }
-    store.save(&dir)
-}
-pub(crate) fn start(service: &Arc<crate::service::Service>) {
-    let weak = Arc::downgrade(service);
-    let mut shutdown = service.control.shutdown.subscribe();
-    tokio::spawn(async move {
-        loop {
-            let Some(service) = weak.upgrade() else {
-                break;
-            };
-            tokio::select! { _ = shutdown.changed() => break, result = flush(&service) => if result.is_err() {crate::logs::record("WARN","MCP event delivery cycle failed",None);} }
-            drop(service);
-            tokio::select! { _ = shutdown.changed() => break, _ = tokio::time::sleep(Duration::from_secs(1)) => {} }
-        }
-    });
 }

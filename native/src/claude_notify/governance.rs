@@ -99,11 +99,12 @@ impl Thread {
 #[serde(default, rename_all = "camelCase")]
 pub(super) struct State {
     pub targets: Vec<Target>,
+    pub subscriptions: Vec<subscriptions::Subscription>,
     pub threads: Vec<Thread>,
 }
 impl State {
     pub fn load(dir: &Path) -> Result<Self> {
-        let path = dir.join("control/state.json");
+        let path = dir.join("subscriptions/state.json");
         if !path.exists() {
             return Ok(Self::default());
         }
@@ -111,7 +112,7 @@ impl State {
     }
     pub fn save(&self, dir: &Path) -> Result<()> {
         save(
-            &dir.join("control/state.json"),
+            &dir.join("subscriptions/state.json"),
             &serde_json::to_value(self).map_err(|e| e.to_string())?,
         )
     }
@@ -223,8 +224,12 @@ pub(super) fn status_in(
     now: i64,
     settings: &Value,
 ) -> Result<Value> {
-    let bindings = records(dir)?
-        .into_iter()
+    let all = records(dir)?;
+    let mut state = State::load(dir)?;
+    subscriptions::sync(&mut state, &all);
+    let bindings = all
+        .iter()
+        .cloned()
         .filter(|b| {
             b.ingress == ingress
                 && args["threadId"].as_str().is_none_or(|id| id == b.thread_id)
@@ -234,7 +239,6 @@ pub(super) fn status_in(
                 })
         })
         .collect::<Vec<_>>();
-    let mut state = State::load(dir)?;
     let mut targets = Vec::new();
     let mut threads = Vec::new();
     let mut ranks = std::collections::BTreeMap::<String, usize>::new();
@@ -295,12 +299,43 @@ pub(super) fn status_in(
             let historical = bs
                 .iter()
                 .flat_map(|b| &b.deliveries)
-                .filter(|d| matches!(d.status.as_str(), "delivered" | "digested"))
+                .filter(|d| {
+                    matches!(
+                        d.status.as_str(),
+                        "delivered" | "digested" | "callback-accepted"
+                    )
+                })
                 .filter_map(|d| d.timing.finished_at.map(|ms| ms / 1000))
                 .max();
             threads.push(json!({"threadId":b.thread_id,"title":latest.title,"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by})).collect::<Vec<_>>()}));
         }
     }
+    let subscriptions = state
+        .subscriptions
+        .iter()
+        .filter(|s| {
+            s.ingress == ingress
+                && args["target"]
+                    .as_str()
+                    .is_none_or(|t| t == s.target || t == s.id)
+                && args["threadId"].as_str().is_none_or(|t| {
+                    s.args["threadId"]
+                        .as_str()
+                        .or(s.args["taskId"].as_str())
+                        .is_none_or(|id| id == t)
+                })
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    for s in &subscriptions {
+        if !targets.iter().any(|t| {
+            t["target"] == s.target && t["channel"] == serde_json::to_value(s.channel).unwrap()
+        }) {
+            let t = state.target(s.channel, &s.target, now, settings);
+            targets.push(json!({"channel":s.channel,"target":s.target,"tokens":t.tokens,"capacity":capacity(settings),"refillSeconds":refill_seconds(settings),"breaker":t.breaker,"pending":[],"recentBatches":t.batches,"emptySince":t.empty_since,"escalated":t.escalated,"escalationError":t.escalation_error}));
+        }
+    }
+    let deliveries=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|args["target"].as_str().is_none_or(|t|d.target==t || d.subscription==t)).map(|d|json!({"subscriptionId":d.subscription,"channel":d.channel,"target":d.target,"op":"task_status","eventId":d.event_id,"kind":event(b,d)["kind"],"threadId":event(b,d)["threadId"],"taskId":event(b,d)["taskId"],"turnId":b.turn_id,"state":d.status,"attempts":d.failures+u32::from(matches!(d.status.as_str(),"sending"|"delivered"|"digested"|"callback-accepted")),"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing}))).collect::<Vec<_>>();
     let total_targets = targets.len();
     let total_threads = threads.len();
     let compact = args["all"] != true && args["target"].is_null() && args["threadId"].is_null();
@@ -352,7 +387,7 @@ pub(super) fn status_in(
     ranking.sort_by_key(|v| std::cmp::Reverse(v["wakes"].as_u64().unwrap_or(0)));
     let unbound_pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.target.is_empty() && d.status=="pending").map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"timing":d.timing}))).collect::<Vec<_>>();
     Ok(
-        json!({"mcpEvents":super::mcp_events::status(dir, ingress, args)?,"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
+        json!({"subscriptions":subscriptions.iter().map(|s|s.public(now)).collect::<Vec<_>>(),"deliveries":deliveries,"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
     )
 }
 pub(crate) async fn notify_control(args: &Value) -> Result<Value> {
@@ -376,33 +411,39 @@ pub(super) fn control_in(
     let mut all = records(dir)?;
     let mut state = State::load(dir)?;
     let action = string(args, "action");
+    subscriptions::sync(&mut state, &all);
+    if let Some(id) = args["subscriptionId"].as_str() {
+        let index = state
+            .subscriptions
+            .iter()
+            .position(|s| s.ingress == ingress && s.id == id)
+            .ok_or("NOTIFICATION_SUBSCRIPTION_NOT_OWNED_BY_INGRESS")?;
+        let sub = &mut state.subscriptions[index];
+        let previous = sub.public(now);
+        match action {
+            "mute" => {
+                if args["mode"].as_str().is_some_and(|m|m!="mute") { return Err("Subscription mute supports mode=mute; use threadId for digest".into()); }
+                sub.muted=true;
+                sub.until=match args["until"].as_str() {Some(at)=>Some(chrono::DateTime::parse_from_rfc3339(at).map_err(|_|"until must be RFC3339")?.timestamp()),None=>None};
+                if sub.until.is_some_and(|at|at<=now) {return Err("until must be in the future".into());}
+            },
+            "unmute" => {sub.muted=false;sub.until=None;},
+            _ => return Err("Use subscriptionId with mute/unmute; use target for breaker; webhook destinations change only through events/subscribe".into()),
+        }
+        let result = json!({"action":action,"subscription":sub.public(now),"previous":previous});
+        state.save(dir)?;
+        return Ok(result);
+    }
     if action == "breaker" {
         let raw = string(args, "target");
-        let events = super::mcp_events::owns(dir, ingress, raw)?;
-        let target = if events {
-            raw.to_owned()
-        } else {
-            session_id(raw)?
-        };
-        if !events
-            && !all.iter().any(|b| {
-                b.ingress == ingress
-                    && b.channel == Channel::ClaudeSession
-                    && b.target.as_deref() == Some(&target)
-            })
-        {
-            return Err("NOTIFICATION_TARGET_NOT_BOUND_TO_INGRESS".into());
-        }
-        let t = state.target(
-            if events {
-                Channel::McpEvents
-            } else {
-                Channel::ClaudeSession
-            },
-            &target,
-            now,
-            settings,
-        );
+        let target = session_id(raw).unwrap_or_else(|_| raw.into());
+        let channel = state
+            .subscriptions
+            .iter()
+            .find(|s| s.ingress == ingress && s.target == target)
+            .map(|s| s.channel)
+            .ok_or("NOTIFICATION_TARGET_NOT_BOUND_TO_INGRESS")?;
+        let t = state.target(channel, &target, now, settings);
         let previous = t.breaker;
         t.breaker = args["enabled"].as_bool().ok_or("enabled is required")?;
         if previous && !t.breaker {
@@ -482,9 +523,10 @@ pub(super) fn apply_rebind(b: &mut Binding, rule: &Thread) {
         b.target = rebind.target.clone();
         b.channel = rebind.channel;
         for d in &mut b.deliveries {
-            if d.status == "pending"
-                || (d.status == "failed"
-                    && matches!(d.error.as_deref(), Some("unbound" | "binding-changed")))
+            if d.channel == Channel::ClaudeSession
+                && (d.status == "pending"
+                    || (d.status == "failed"
+                        && matches!(d.error.as_deref(), Some("unbound" | "binding-changed"))))
             {
                 let target = rebind.target.clone().unwrap_or_default();
                 if d.target != target || d.channel != rebind.channel {

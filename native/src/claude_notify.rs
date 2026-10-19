@@ -3,6 +3,7 @@ use crate::*;
 mod governance;
 pub(crate) mod mcp_events;
 mod retry;
+pub(crate) mod subscriptions;
 use governance::State;
 pub(crate) use governance::{notify_control, notify_status};
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,8 @@ struct DeliveryTiming {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Delivery {
+    #[serde(default)]
+    subscription: String,
     #[serde(default)]
     channel: Channel,
     key: String,
@@ -132,7 +135,8 @@ fn directory() -> PathBuf {
     root().join("notifications")
 }
 fn path_in(dir: &Path, thread: &str, turn: &str) -> PathBuf {
-    dir.join(format!("{}.json", hash(json!([thread, turn]).to_string())))
+    dir.join("tasks")
+        .join(format!("{}.json", hash(json!([thread, turn]).to_string())))
 }
 fn persist(dir: &Path, b: &Binding) -> Result<()> {
     save(
@@ -221,7 +225,7 @@ pub(crate) async fn bind(
             || serde_json::to_value(b.channel).unwrap() != notify["channel"]
         {
             for d in &mut b.deliveries {
-                if d.status == "pending" {
+                if d.channel == Channel::ClaudeSession && d.status == "pending" {
                     d.status = "failed".into();
                     d.error = Some("binding-changed".into());
                 }
@@ -663,12 +667,57 @@ fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
     events.dedup();
     events
 }
+struct SendOutcome {
+    status: &'static str,
+    error: Option<String>,
+    retry: bool,
+    remove_subscription: bool,
+}
+impl SendOutcome {
+    fn success(status: &'static str) -> Self {
+        Self {
+            status,
+            error: None,
+            retry: false,
+            remove_subscription: false,
+        }
+    }
+    fn failed(error: &str, retry: bool) -> Self {
+        Self {
+            status: "failed",
+            error: Some(error.into()),
+            retry,
+            remove_subscription: false,
+        }
+    }
+}
 trait Executor: Sync {
+    fn webhook(
+        &self,
+        _sub: &subscriptions::Subscription,
+        _b: &Binding,
+        _d: &Delivery,
+    ) -> impl Future<Output = SendOutcome> + Send {
+        async { SendOutcome::failed("webhook_unavailable", false) }
+    }
     fn send(&self, args: Vec<String>) -> impl Future<Output = Result<Vec<u8>>> + Send;
     fn escalate(&self, body: String) -> impl Future<Output = Result<()>> + Send;
 }
-struct Cli;
+struct Cli {
+    service: std::sync::Weak<crate::service::Service>,
+}
 impl Executor for Cli {
+    async fn webhook(
+        &self,
+        sub: &subscriptions::Subscription,
+        b: &Binding,
+        d: &Delivery,
+    ) -> SendOutcome {
+        match self.service.upgrade() {
+            Some(service) => mcp_events::send(&service, sub, b, d).await,
+            None => SendOutcome::failed("service_stopped", true),
+        }
+    }
     async fn escalate(&self, body: String) -> Result<()> {
         crate::transport::forward_request(
             "permissions/notify",
@@ -740,19 +789,20 @@ async fn deliver_message(executor: &impl Executor, b: &Binding, body: &str) -> &
 }
 fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
     let retry = |d: &Delivery| {
-        d.status == "sending"
+        (d.status == "sending"
             || (d.status == "failed"
                 && matches!(
                     d.error.as_deref(),
                     None | Some("delivery-failed-or-unconfirmed" | "wake-limit" | "disabled")
-                ))
+                )))
+            && d.failures < 6
     };
     if b.deliveries.iter().any(retry) {
         for d in &mut b.deliveries {
             if retry(d) {
-                d.status = "pending".into();
-                d.token_charged = d.attempted_at > 0;
                 d.failures = d.failures.saturating_add(1);
+                d.status = if d.failures < 6 { "pending" } else { "failed" }.into();
+                d.token_charged = d.attempted_at > 0;
                 d.next_attempt_at = chrono::Utc::now()
                     .timestamp()
                     .saturating_add(governance::retry_seconds(d.failures));
@@ -858,6 +908,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     let first = b.deliveries.len();
     for (key, state) in events {
         b.deliveries.push(Delivery {
+            subscription: String::new(),
             channel: b.channel,
             target: b.target.clone().unwrap_or_default(),
             event_id: hash(json!([b.agent, b.thread_id, b.turn_id, key]).to_string()),
@@ -1156,10 +1207,11 @@ fn recoverable_response_in(dir: &Path, ingress: &str, key: &str, session: &str) 
 }
 
 fn records(dir: &Path) -> Result<Vec<Binding>> {
-    if !dir.exists() {
+    let tasks = dir.join("tasks");
+    if !tasks.exists() {
         return Ok(vec![]);
     }
-    std::fs::read_dir(dir)
+    std::fs::read_dir(tasks)
         .map_err(|e| e.to_string())?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
@@ -1263,6 +1315,7 @@ async fn flush(
     window: i64,
     settings: &Value,
 ) -> Result<()> {
+    let _operation = mcp_events::OPERATION.lock().await;
     let guard = lock.lock().await;
     let mut all = records(dir)?;
     let original = all
@@ -1270,6 +1323,18 @@ async fn flush(
         .map(|b| serde_json::to_value(b).unwrap())
         .collect::<Vec<_>>();
     let mut state = State::load(dir)?;
+    subscriptions::sync(&mut state, &all);
+    state
+        .subscriptions
+        .retain(|s| s.active(now.saturating_mul(1000)));
+    for s in &mut state.subscriptions {
+        if let Some(w) = &mut s.webhook {
+            if w.rotate_until <= now {
+                w.previous_secret = None;
+            }
+        }
+    }
+    subscriptions::route(&state, &mut all, now);
     let mut targets = Vec::new();
     for b in &mut all {
         if let Some(rule) = state.rule(b) {
@@ -1306,13 +1371,22 @@ async fn flush(
                     Some("disabled")
                 } else if target.is_empty() {
                     Some("unbound")
-                } else if channel != Channel::ClaudeSession {
-                    Some("subscription-managed")
+                } else if state
+                    .subscriptions
+                    .iter()
+                    .find(|s| s.id == d.subscription)
+                    .is_some_and(|s| s.muted(now))
+                {
+                    Some("subscription-muted")
+                } else if !d.subscription.is_empty()
+                    && !state.subscriptions.iter().any(|s| s.id == d.subscription)
+                {
+                    Some("subscription-ended")
                 } else if breaker {
                     Some("breaker")
                 } else if mode == "mute" {
                     Some("muted")
-                } else if mode == "digest" && !digest_due {
+                } else if mode == "digest" && !digest_due && !d.digest {
                     Some("digest-wait")
                 } else if d.next_attempt_at != 0 && now <= d.next_attempt_at {
                     Some("retry-backoff")
@@ -1321,7 +1395,7 @@ async fn flush(
                 };
                 if let Some(reason) = reason {
                     queued(d, reason);
-                    if reason == "subscription-managed" {
+                    if reason == "subscription-ended" {
                         d.status = "failed".into();
                         d.error = Some(reason.into());
                     }
@@ -1332,7 +1406,8 @@ async fn flush(
         }
         let window_ready = eligible.iter().any(|(bi, di, digest)| {
             let d = &all[*bi].deliveries[*di];
-            *digest
+            channel == Channel::McpEvents
+                || *digest
                 || d.urgent()
                 || d.token_charged
                 || now.saturating_sub(d.created_at) >= window
@@ -1368,6 +1443,12 @@ async fn flush(
             }
             if !d.token_charged && tokens == 0 {
                 queued(d, "token-wait");
+                continue;
+            }
+            if channel == Channel::McpEvents && !selected.is_empty() {
+                if digest {
+                    d.digest = true;
+                }
                 continue;
             }
             selected.push((bi, di, digest));
@@ -1430,6 +1511,8 @@ async fn flush(
             d.attempted_at = now;
             let mut single = b.clone();
             single.deliveries = vec![b.deliveries[*di].clone()];
+            single.channel = channel;
+            single.target = Some(target.clone());
             if !*digest {
                 let mut block = message(&single);
                 if throttled || remaining <= (governance::capacity(settings) / 5).max(1) {
@@ -1534,8 +1617,14 @@ async fn flush(
                         .rule(&current)
                         .map(|r| r.mode(chrono::Utc::now().timestamp()))
                         .unwrap_or("normal");
-                    deferred |= current.target != reserved.target
-                        || current.channel != reserved.channel
+                    deferred |= (reserved.channel == Channel::ClaudeSession
+                        && (current.target != reserved.target
+                            || current.channel != reserved.channel))
+                        || !state.subscriptions.iter().any(|s| {
+                            s.id == reserved.deliveries[0].subscription
+                                && s.active(chrono::Utc::now().timestamp_millis())
+                                && !s.muted(chrono::Utc::now().timestamp())
+                        })
                         || mode == "mute"
                         || (mode == "digest" && reserved.deliveries.iter().any(|d| !d.digest));
                     current_batch.push(current);
@@ -1590,11 +1679,38 @@ async fn flush(
             }
         }
         let started = std::time::Instant::now();
-        let status = deliver_message(executor, &batch[0], &body).await;
+        let outcome = if batch[0].channel == Channel::McpEvents {
+            let sub = {
+                let _guard = lock.lock().await;
+                State::load(dir)?
+                    .subscriptions
+                    .into_iter()
+                    .find(|s| s.id == batch[0].deliveries[0].subscription)
+            };
+            match sub {
+                Some(sub) => {
+                    executor
+                        .webhook(&sub, &batch[0], &batch[0].deliveries[0])
+                        .await
+                }
+                None => SendOutcome::failed("subscription-ended", false),
+            }
+        } else {
+            match deliver_message(executor, &batch[0], &body).await {
+                "delivered" => SendOutcome::success("delivered"),
+                _ => SendOutcome::failed("delivery-failed-or-unconfirmed", true),
+            }
+        };
+        let status = outcome.status;
         let send_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
         let finished_at = chrono::Utc::now().timestamp_millis();
         let _guard = lock.lock().await;
         let mut state = State::load(dir)?;
+        if outcome.remove_subscription {
+            state
+                .subscriptions
+                .retain(|s| s.id != batch[0].deliveries[0].subscription);
+        }
         if let Some(t) = state.targets.iter_mut().find(|t| {
             t.channel == batch[0].channel && Some(t.target.as_str()) == batch[0].target.as_deref()
         }) {
@@ -1615,14 +1731,25 @@ async fn flush(
                         d.timing.finished_at = Some(finished_at);
                         d.timing.send_ms = Some(send_ms);
                         if status == "failed" {
-                            d.status = "pending".into();
                             d.failures = d.failures.saturating_add(1);
-                            d.next_attempt_at = now
-                                .saturating_add((send_ms / 1000) as i64)
-                                .saturating_add(governance::retry_seconds(d.failures));
-                            d.error = Some("delivery-failed-or-unconfirmed".into());
+                            let retry = outcome.retry && d.failures < 6;
+                            d.status = if retry { "pending" } else { "failed" }.into();
+                            d.next_attempt_at = if retry {
+                                now.saturating_add((send_ms / 1000) as i64)
+                                    .saturating_add(governance::retry_seconds(d.failures))
+                            } else {
+                                0
+                            };
+                            d.error = outcome.error.clone();
                         } else {
-                            d.status = if d.digest { "digested" } else { "delivered" }.into();
+                            d.status = if d.channel == Channel::McpEvents {
+                                "callback-accepted"
+                            } else if d.digest {
+                                "digested"
+                            } else {
+                                "delivered"
+                            }
+                            .into();
                             delivered = true;
                             digested |= d.digest;
                             d.next_attempt_at = 0;
@@ -1653,117 +1780,98 @@ async fn flush(
 pub(crate) async fn migrate() -> Result<()> {
     let _guard = LOCK.lock().await;
     settings()?;
-    let state_path = directory().join("control/state.json");
-    if !state_path.exists() {
-        let now = chrono::Utc::now().timestamp();
-        let settings = settings()?;
-        let mut state = State::default();
-        for mut b in records(&directory())? {
-            for d in &mut b.deliveries {
-                if d.attempted_at > 0 {
-                    d.token_charged = true;
-                }
-            }
-            for d in &b.deliveries {
-                if d.target.is_empty() {
-                    continue;
-                }
-                let target = state.target(d.channel, &d.target, now, &settings);
-                for (id, at) in d
-                    .attempts
-                    .iter()
-                    .map(|(id, at)| (id, *at))
-                    .chain(std::iter::once((&d.batch, d.attempted_at)))
-                {
-                    if id.is_empty() || at <= now.saturating_sub(3600) {
-                        continue;
-                    }
-                    let index = target
-                        .batches
-                        .iter()
-                        .position(|batch| batch.id == *id)
-                        .unwrap_or_else(|| {
-                            target.batches.push(governance::Batch {
-                                id: id.clone(),
-                                at,
-                                kinds: Default::default(),
-                                threads: vec![],
-                                status: if *id == d.batch && d.status == "delivered" {
-                                    "delivered"
-                                } else {
-                                    "unknown"
-                                }
-                                .into(),
-                                charged: false,
-                            });
-                            target.batches.len() - 1
-                        });
-                    let batch = &mut target.batches[index];
-                    *batch
-                        .kinds
-                        .entry(string(&event(&b, d), "kind").into())
-                        .or_default() += 1;
-                    if !batch.threads.contains(&b.thread_id) {
-                        batch.threads.push(b.thread_id.clone());
-                    }
-                }
-            }
-            persist(&directory(), &b)?;
-        }
-        state.save(&directory())?;
-    }
-    let old = root().join("claude-notifications");
-    if !old.exists() {
-        return Ok(());
-    }
-    for entry in std::fs::read_dir(&old)
+    let dir = directory();
+    std::fs::create_dir_all(dir.join("tasks")).map_err(|e| e.to_string())?;
+    // Write destinations first. Re-running after a crash never replaces migrated state.
+    let old_tasks = std::fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
         .flatten()
-    {
-        if !entry.path().extension().is_some_and(|v| v == "json") {
-            continue;
+        .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
+        .map(|e| e.path())
+        .collect::<Vec<_>>();
+    for path in &old_tasks {
+        let b: Binding = serde_json::from_value(load(path)?).map_err(|e| e.to_string())?;
+        if !path_in(&dir, &b.thread_id, &b.turn_id).exists() {
+            persist(&dir, &b)?;
         }
-        let mut v = load(&entry.path())?;
-        v["target"] = v["sessionId"].take();
-        v["channel"] = json!("claude-session");
-        v["explicit"] = json!(true);
-        v["agent"] = json!("codex");
-        // Recover the original ingress from existing dispatch receipts once.
-        for receipt in std::fs::read_dir(root())
-            .map_err(|e| e.to_string())?
-            .flatten()
-        {
-            if !receipt.path().extension().is_some_and(|ext| ext == "json") {
-                continue;
-            }
-            if let Ok(r) = load(&receipt.path()) {
-                if r["threadId"] == v["threadId"] && r["turnId"] == v["turnId"] {
-                    v["ingress"] = json!(string(&r["origin"], "ingressId"));
-                    v["title"] = json!(string(&r["task"], "title"));
-                    break;
+    }
+    let old_control = dir.join("control/state.json");
+    let new_control = dir.join("subscriptions/state.json");
+    let mut state = if !new_control.exists() && old_control.exists() {
+        serde_json::from_value(load(&old_control)?).map_err(|e| e.to_string())?
+    } else {
+        State::load(&dir)?
+    };
+    let old_events = dir.join("mcp-events/state.json");
+    let mut all = records(&dir)?;
+    if old_events.exists() {
+        let old = load(&old_events)?;
+        for row in old["deliveries"].as_array().into_iter().flatten() {
+            let thread = string(row, "thread");
+            let turn = string(&row["body"]["data"], "turnId");
+            if let Some(b) = all
+                .iter_mut()
+                .find(|b| b.thread_id == thread && b.turn_id == turn)
+            {
+                let event_id = string(&row["body"], "eventId");
+                let sub = string(row, "subscription");
+                if b.deliveries
+                    .iter()
+                    .any(|d| d.subscription == sub && d.event_id == event_id)
+                {
+                    continue;
+                }
+                if let Some(source) = b.deliveries.iter().find(|d| d.event_id == event_id) {
+                    let mut d = source.clone();
+                    d.subscription = sub.into();
+                    d.channel = Channel::McpEvents;
+                    d.target = sub.into();
+                    d.status = if matches!(string(row, "status"), "pending" | "sending") {
+                        "subscription-ended"
+                    } else {
+                        string(row, "status")
+                    }
+                    .into();
+                    d.error = row["error"].as_str().map(str::to_owned);
+                    d.token_charged = row["charged"] == true;
+                    let attempts = row["attempts"].as_u64().unwrap_or(0) as u32;
+                    d.failures =
+                        attempts.saturating_sub(u32::from(d.status == "callback-accepted"));
+                    d.next_attempt_at = 0;
+                    d.timing =
+                        serde_json::from_value(row["timing"].clone()).map_err(|e| e.to_string())?;
+                    b.deliveries.push(d);
                 }
             }
         }
-        if let Some(ds) = v["deliveries"].as_array_mut() {
-            for d in ds {
-                d["target"] = d["sessionId"].take();
-            }
-        }
-        let mut b: Binding = serde_json::from_value(v).map_err(|e| e.to_string())?;
-        for d in &mut b.deliveries {
-            d.event_id = hash(json!([b.agent, b.thread_id, b.turn_id, d.key]).to_string());
-            d.batch = d.event_id.clone();
-        }
-        if binding(&directory(), &b.thread_id, &b.turn_id)?.is_none() {
-            persist(&directory(), &b)?;
-        }
-        std::fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
     }
-    std::fs::remove_dir(&old).map_err(|e| e.to_string())?;
+    subscriptions::sync(&mut state, &all);
+    // Populate stable IDs without creating any subscription to the retired event name.
+    subscriptions::route(&state, &mut all, chrono::Utc::now().timestamp());
+    state.save(&dir)?;
+    for b in &all {
+        persist(&dir, b)?;
+    }
+    for path in old_tasks.into_iter().chain([old_control, old_events]) {
+        if path.exists() {
+            std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        }
+    }
+    for name in ["control", "mcp-events"] {
+        let p = dir.join(name);
+        if p.exists() {
+            std::fs::remove_dir(p).map_err(|e| e.to_string())?;
+        }
+    }
     Ok(())
 }
 
-pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents::AgentHost>) {
+pub(crate) fn start(service: &Arc<crate::service::Service>) {
+    let control = &service.control;
+    let agents = &service.agents;
+    let executor = Cli {
+        service: Arc::downgrade(service),
+    };
     let agents = Arc::downgrade(agents);
     let weak = Arc::downgrade(control);
     let (ready, delivery_ready) = tokio::sync::watch::channel(false);
@@ -1776,7 +1884,7 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
             loop {
                 let result = async {
                     flush(
-                        &Cli,
+                        &executor,
                         &directory(),
                         &LOCK,
                         chrono::Utc::now().timestamp(),
@@ -1811,7 +1919,7 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
             };
             let cycle = async {
                 let mut reads = tokio::task::JoinSet::new();
-                if let Ok(entries) = std::fs::read_dir(directory()) {
+                if let Ok(entries) = std::fs::read_dir(directory().join("tasks")) {
                     for entry in entries
                         .flatten()
                         .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
@@ -2867,6 +2975,7 @@ mod tests {
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
         b.deliveries.push(Delivery {
+            subscription: String::new(),
             channel: Channel::ClaudeSession,
             event_id: "event-17".into(),
             created_at: 0,
