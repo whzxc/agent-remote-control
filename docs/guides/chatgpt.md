@@ -36,10 +36,12 @@ For setup by a local Agent, use [Automatic setup](../auto-setup.md). On an actua
 
 For proactive wakeup, use a Work chat on the web or select **Work → Cloud** in the desktop app. Rescan the ARC plugin and confirm that `task.status` appears beside its tools. Enable plugin events and event-triggered tasks in workspace settings if required.
 
-Ask the chat to subscribe to `task.status` filtered by the dispatched `threadId`, read the result when notified, and review it before continuing. For short tasks, create an empty thread, subscribe, then send the task. Other Agents use `taskId`. Without filters, the subscription covers tasks dispatched through this ingress. The chat supplies its callback and signing key; do not paste credentials into messages. Ask it to stop monitoring to unsubscribe.
+Start a new Work Cloud chat after enabling the plugin's events. Ask it to subscribe to `task.status` filtered by the dispatched `threadId`, read the result when notified, and review it before continuing. Desktop requires text when creating a task. For tasks that may finish before you can subscribe, first subscribe without filters, then dispatch and narrow monitoring to the returned thread. Other Agents use `taskId`. Without filters, the subscription covers tasks dispatched through this ingress. The chat supplies its callback and signing key; do not paste credentials into messages. Ask it to stop monitoring to unsubscribe.
 
 Use `query notify_status` to inspect subscriptions and deliveries. `callback-accepted` means the webhook was received; confirm separately that the Work chat started a turn and handled it. Write operations remain subject to ChatGPT confirmation and the existing ingress policy.
 
 ## Limits
 
 Model options and Developer Mode depend on your account, workspace policy, and client rollout. Keep the computer awake and ARC connected. Ordinary Chat does not support proactive wakeup: use segmented waits and the inbox, or return and ask for progress. Work subscriptions expire unless refreshed and do not replay missed events. Secure Tunnel connects private MCP servers; publishing a public plugin uses a separate distribution flow.
+
+Callback DNS must resolve to real public addresses. Fake-IP DNS can cause `non_public_address`; configure real DNS for the callback hostname instead of relaxing the callback address checks. Diagnostic logs contain the rejected hostname and resolved addresses, never the callback path or signing secret.
