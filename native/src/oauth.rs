@@ -175,6 +175,20 @@ impl OAuth {
             .iter()
             .any(|g| g.resource == resource && g.access == digest && g.access_expires > clock())
     }
+    pub(crate) fn event_principal(&self, header: &str) -> Option<String> {
+        let digest = hash(header.strip_prefix("Bearer ")?);
+        self.stored
+            .grants
+            .iter()
+            .find(|g| g.access == digest && g.access_expires > clock())
+            .map(|g| g.id.clone())
+    }
+    pub(crate) fn event_grant_active(&self, principal: &str, resource: &str) -> bool {
+        self.stored
+            .grants
+            .iter()
+            .any(|g| g.id == principal && (resource.is_empty() || g.resource == resource))
+    }
     pub fn register(
         &mut self,
         body: &Value,

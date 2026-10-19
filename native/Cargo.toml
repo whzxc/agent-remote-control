@@ -29,6 +29,7 @@ libc = "0.2"
 flate2 = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+ring = "0.17"
 
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }

@@ -189,6 +189,7 @@ export default function IngressDetailsDialog({
       }
     >
       <div className="form">
+        <p className="form-subtitle">{t(entry.controlSource === "claude" ? "wakeClaude" : entry.controlSource === "chatgpt" ? "wakeChatgpt" : "wakeOther")}</p>
         <Field
           label={https ? "MCP URL" : "Tunnel ID"}
           help={

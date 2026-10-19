@@ -517,5 +517,8 @@
   "setup.clipboard-invalid": "剪贴板里不是 {credential}，请点击 {credential} 旁边的复制按钮。",
   "setup.health-unobserved": "尚未观察到 OpenAI 控制面认证成功。请保持客户端运行；若诊断报告错误，按其下一步操作处理。",
   "controlSourceNotifications": "唤醒控制源",
-  "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。"
+  "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。",
+  "wakeClaude": "主动唤醒：支持",
+  "wakeChatgpt": "Work：支持，需在聊天中订阅。Chat：不支持，使用等待加收件箱。",
+  "wakeOther": "主动唤醒：不支持，使用等待加收件箱"
 }

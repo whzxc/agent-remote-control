@@ -349,6 +349,7 @@ export default function IngressDialog({
           }}
           noValidate
         >
+          <p className="form-subtitle">{t(selected === "claude" ? "wakeClaude" : selected === "chatgpt" ? "wakeChatgpt" : "wakeOther")}</p>
           {https &&
             auth === "bearer" &&
             preset &&

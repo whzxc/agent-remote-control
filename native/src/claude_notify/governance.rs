@@ -352,7 +352,7 @@ pub(super) fn status_in(
     ranking.sort_by_key(|v| std::cmp::Reverse(v["wakes"].as_u64().unwrap_or(0)));
     let unbound_pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.target.is_empty() && d.status=="pending").map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"timing":d.timing}))).collect::<Vec<_>>();
     Ok(
-        json!({"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
+        json!({"mcpEvents":super::mcp_events::status(dir, ingress, args)?,"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
     )
 }
 pub(crate) async fn notify_control(args: &Value) -> Result<Value> {
@@ -377,15 +377,32 @@ pub(super) fn control_in(
     let mut state = State::load(dir)?;
     let action = string(args, "action");
     if action == "breaker" {
-        let target = session_id(string(args, "target"))?;
-        if !all.iter().any(|b| {
-            b.ingress == ingress
-                && b.channel == Channel::ClaudeSession
-                && b.target.as_deref() == Some(&target)
-        }) {
+        let raw = string(args, "target");
+        let events = super::mcp_events::owns(dir, ingress, raw)?;
+        let target = if events {
+            raw.to_owned()
+        } else {
+            session_id(raw)?
+        };
+        if !events
+            && !all.iter().any(|b| {
+                b.ingress == ingress
+                    && b.channel == Channel::ClaudeSession
+                    && b.target.as_deref() == Some(&target)
+            })
+        {
             return Err("NOTIFICATION_TARGET_NOT_BOUND_TO_INGRESS".into());
         }
-        let t = state.target(Channel::ClaudeSession, &target, now, settings);
+        let t = state.target(
+            if events {
+                Channel::McpEvents
+            } else {
+                Channel::ClaudeSession
+            },
+            &target,
+            now,
+            settings,
+        );
         let previous = t.breaker;
         t.breaker = args["enabled"].as_bool().ok_or("enabled is required")?;
         if previous && !t.breaker {

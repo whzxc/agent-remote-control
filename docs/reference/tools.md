@@ -103,7 +103,7 @@ After timeout, keep the same task/thread and turn IDs and pass the previous snap
 
 ## Control-source notifications
 
-`codex_create` and `codex_send` accept `notify: {channel: "claude-session", target: "…"}`. The target is a `session_…` / `cse_…` cloud ID or `claude.ai/code/<id>` URL. `agent_create` and `agent_send` accept the same binding. `chatgpt-web` is accepted as an unavailable channel in P0; use segmented waits and the inbox until P1. Omission retains a same-turn binding; null unbinds. New turns should bind explicitly. The immediate continuation of an interrupted turn inherits a binding only when it has no explicit binding/unbinding record.
+`codex_create` and `codex_send` accept `notify: {channel: "claude-session", target: "…"}`. The target is a `session_…` / `cse_…` cloud ID or `claude.ai/code/<id>` URL. `agent_create` and `agent_send` accept the same binding. ChatGPT Work uses independent MCP Events subscriptions; no per-turn notify target is needed. Ordinary Chat cannot be proactively woken; use segmented waits and the inbox. Omission retains a same-turn binding; null unbinds. New turns should bind explicitly. The immediate continuation of an interrupted turn inherits a binding only when it has no explicit binding/unbinding record.
 
 ARC observes completion, failure, cancellation, and requests for input/approval. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Pending and interrupted deliveries survive restart. Failed or uncertain sends retry with the same eventId, with exponential backoff starting at ten seconds and capped at five minutes; consumers deduplicate eventId. Read `notification` (channel, target, deliveries with eventId, kind, level, state and error) on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. ARC escalates breaker and sustained token-starvation episodes through a local system notification. See the [workflow guide](../guides/claude.md).
 
@@ -231,3 +231,17 @@ Missing screen permission returns `PERMISSION_REQUIRED`, `permissionId` and loca
 For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.
 
 Paths referenced in command arguments are not inspected; enabling Full Disk Access can prevent permission dialogs during calls.
+
+## MCP Events
+
+The same authenticated endpoint supports `server/discover` for MCP 2.0 (`2026-07-28`), advertising `tools` and `events`. Legacy `initialize` retains the requested supported 2024/2025 protocol and tools-only capabilities. The three tool schemas are unchanged.
+
+`events/list` exposes `task.status`, with optional string `threadId` and `taskId` filters (both must match if supplied). No filters means all tasks dispatched through this ingress. Kinds are `completed`, `failed`, `interrupted`, and `needs-input`. Payload data contains kind, summary, project, title, agent, threadId, taskId, turnId and query. The signed envelope contains eventId, name, timezone-qualified timestamp and cursor:null.
+
+`events/subscribe` accepts name, arguments, delivery:{mode:"webhook",url,secret}, optional ttlMs and cursor:null. Identity includes authenticated principal, ingress, URL, name and canonical arguments. Default and maximum TTL are 24 hours; positive ttlMs grants no more than requested, and null receives the finite default. Successful responses contain id, refreshBefore, cursor:null and truncated:false. Refresh rotates secrets with a five-minute dual-signature window. No historical replay is available.
+
+Callbacks require HTTPS, public destination addresses at connection time, no redirects, and a `whsec_` signing key decoding to 24–64 bytes. Signed verification must return 2xx with the matching challenge. Failures return -32015 with data.reason. Successful verification is cached for at most five minutes for the same principal, callback and key.
+
+`events/unsubscribe` accepts the original name, arguments and delivery:{mode:"webhook",url}; it is idempotent. Expiration, ingress revocation or OAuth grant removal stops delivery. Only the owning principal can refresh or cancel a subscription. The notification master switch and thread mute apply; digest delays individual events one hour, since each callback carries one event. `notify_control` breaker accepts an owned subscription ID; rebind applies only to Claude session bindings.
+
+Events use the existing persisted channel/target token bucket. Each event pays once; transient failures retry with 10/20/40/80/160-second backoff, at most six attempts. 410 removes the subscription; 410/413 are never retried. Bodies are limited to 256 KiB. `notify_status.mcpEvents` exposes subscriptions, buckets and delivery history without callback URLs or keys. `callback-accepted` means HTTP receipt only, never model processing. Inbox read state is independent.

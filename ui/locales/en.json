@@ -517,5 +517,8 @@
   "setup.clipboard-invalid": "The clipboard does not contain {credential}. Click the Copy button next to {credential}.",
   "setup.health-unobserved": "OpenAI control-plane authentication has not been observed yet. Keep the client running and follow the diagnostic next action if an error is reported.",
   "controlSourceNotifications": "Wake control sources",
-  "controlSourceNotificationsDescription": "Send task status notifications to bound control sources. Inboxes remain available when disabled."
+  "controlSourceNotificationsDescription": "Send task status notifications to bound control sources. Inboxes remain available when disabled.",
+  "wakeClaude": "Proactive wakeup: supported",
+  "wakeChatgpt": "Work: supported with an in-chat subscription. Chat: use waits and inbox; no proactive wakeup.",
+  "wakeOther": "No proactive wakeup. Use waits and inbox."
 }

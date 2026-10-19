@@ -115,6 +115,7 @@ pub async fn listen(
     desktop: Option<Arc<dyn DesktopAccess>>,
 ) -> Result<tokio::task::JoinHandle<()>> {
     service.subscriptions.start();
+    crate::claude_notify::mcp_events::start(&service);
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| e.to_string())?;
@@ -499,7 +500,17 @@ pub async fn mcp(s: &Arc<Service>, request: Value) -> Result<Value> {
     mcp_ingress(&s.primary().await?, request).await
 }
 pub async fn mcp_ingress(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Value> {
-    let origin = s.origin().await;
+    mcp_ingress_authenticated(s, request, None).await
+}
+pub(crate) async fn mcp_ingress_authenticated(
+    s: &Arc<crate::ingress::Ingress>,
+    request: Value,
+    header: Option<&str>,
+) -> Result<Value> {
+    let mut origin = s.origin().await;
+    if let Ok(principal) = crate::claude_notify::mcp_events::principal(s, header).await {
+        origin["eventPrincipal"] = json!(principal);
+    }
     crate::kernel::origin::ORIGIN
         .scope(origin, dispatch(s, request))
         .await
@@ -511,13 +522,48 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     s.observe_request("firstMcpRequestAt").await?;
     let id = request.get("id").cloned();
     let method = string(&request, "method");
+    if matches!(
+        method,
+        "server/discover"
+            | "initialize"
+            | "tools/list"
+            | "events/list"
+            | "events/subscribe"
+            | "events/unsubscribe"
+    ) {
+        let version = string(&request["params"], "protocolVersion");
+        let version = if [
+            "2024-11-05",
+            "2025-03-26",
+            "2025-06-18",
+            "2025-11-25",
+            "2026-07-28",
+        ]
+        .contains(&version)
+        {
+            version
+        } else {
+            "unspecified"
+        };
+        s.log(
+            "INFO",
+            &format!("MCP protocol request: {method}; version={version}"),
+        )
+        .await;
+    }
     let result = match method {
+        "server/discover" => Ok(
+            json!({"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{},"events":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
+        ),
+        "events/list" | "events/subscribe" | "events/unsubscribe" if id.is_some() => {
+            crate::claude_notify::mcp_events::request(s, method, &request["params"]).await
+        }
         "initialize" => {
             let protocol = request["params"]["protocolVersion"]
                 .as_str()
                 .unwrap_or("2025-03-26");
             Ok(
-                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":{"tools":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
+                json!({"protocolVersion":if ["2024-11-05","2025-03-26","2025-06-18","2025-11-25","2026-07-28"].contains(&protocol){protocol}else{"2025-03-26"},"capabilities":if protocol == "2026-07-28" {json!({"tools":{},"events":{}})} else {json!({"tools":{}})},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
             )
         }
         "ping" => Ok(json!({})),
@@ -570,7 +616,8 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     Ok(match result {
         Ok(v) => json!({"jsonrpc":"2.0","id":id,"result":v}),
         Err(e) => {
-            json!({"jsonrpc":"2.0","id":id,"error":{"code":if e=="method not found"{-32601}else{-32603},"message":e,"data":{"arcVersion":crate::egress::arc_version()}}})
+            let error = serde_json::from_str::<Value>(&e).ok().filter(|e|e["code"].is_i64() && e["message"].is_string()).unwrap_or_else(||json!({"code":if e=="method not found"{-32601}else{-32603},"message":e,"data":{"arcVersion":crate::egress::arc_version()}}));
+            json!({"jsonrpc":"2.0","id":id,"error":error})
         }
     })
 }

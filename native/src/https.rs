@@ -121,6 +121,12 @@ async fn handle(
     if request.uri().path() != "/mcp" || request.uri().query().is_some() {
         return error(404, "not found");
     }
+    let event_header = request
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_owned();
     if !service
         .authenticate(
             request
@@ -175,10 +181,16 @@ async fn handle(
         return error(415, "expected application/json");
     }
     if let Some(version) = request.headers().get("mcp-protocol-version") {
-        if !version
-            .to_str()
-            .is_ok_and(|v| ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"].contains(&v))
-        {
+        if !version.to_str().is_ok_and(|v| {
+            [
+                "2024-11-05",
+                "2025-03-26",
+                "2025-06-18",
+                "2025-11-25",
+                "2026-07-28",
+            ]
+            .contains(&v)
+        }) {
             return error(400, "unsupported protocol version");
         }
     }
@@ -226,7 +238,7 @@ async fn handle(
         }
         return Ok(reply(202, None));
     }
-    match crate::transport::mcp_ingress(&service, value).await {
+    match crate::transport::mcp_ingress_authenticated(&service, value, Some(&event_header)).await {
         Ok(value) => Ok(reply(200, Some(value))),
         Err(_) => error(400, "invalid MCP request"),
     }

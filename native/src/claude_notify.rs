@@ -1,6 +1,7 @@
 //! Turn-scoped control-source events, inboxes and fixed notification channels.
 use crate::*;
 mod governance;
+pub(crate) mod mcp_events;
 mod retry;
 use governance::State;
 pub(crate) use governance::{notify_control, notify_status};
@@ -185,7 +186,7 @@ pub(crate) static LOCK: Mutex<()> = Mutex::const_new(());
 enum Channel {
     #[default]
     ClaudeSession,
-    ChatgptWeb,
+    McpEvents,
 }
 
 pub(crate) fn normalize(args: &mut Value) -> Result<()> {
@@ -311,7 +312,7 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
 fn notification(b: Option<Binding>) -> Value {
     b.filter(|b| b.target.is_some()).map(|b| json!({
         "channel": b.channel, "target": b.target,
-        "deliveries": b.deliveries.iter().filter(|d| d.channel == b.channel && Some(d.target.as_str()) == b.target.as_deref()).map(|d| json!({"eventId":d.event_id,"kind":event(&b,d)["kind"],"level":if b.channel==Channel::ClaudeSession {"L1"}else{"L4"},"state":d.status,"error":d.error,"timing":d.timing})).collect::<Vec<_>>()
+        "deliveries": b.deliveries.iter().filter(|d| d.channel == b.channel && Some(d.target.as_str()) == b.target.as_deref()).map(|d| json!({"eventId":d.event_id,"kind":event(&b,d)["kind"],"level":if b.channel==Channel::ClaudeSession {"L1"}else{"L2"},"state":d.status,"error":d.error,"timing":d.timing})).collect::<Vec<_>>()
     })).unwrap_or(Value::Null)
 }
 pub(crate) fn read(thread: &str, turn: &str) -> Result<Value> {
@@ -1306,7 +1307,7 @@ async fn flush(
                 } else if target.is_empty() {
                     Some("unbound")
                 } else if channel != Channel::ClaudeSession {
-                    Some("channel-unavailable-in-P0")
+                    Some("subscription-managed")
                 } else if breaker {
                     Some("breaker")
                 } else if mode == "mute" {
@@ -1320,7 +1321,7 @@ async fn flush(
                 };
                 if let Some(reason) = reason {
                     queued(d, reason);
-                    if reason == "channel-unavailable-in-P0" {
+                    if reason == "subscription-managed" {
                         d.status = "failed".into();
                         d.error = Some(reason.into());
                     }

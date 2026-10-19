@@ -132,6 +132,7 @@ dependencies = [
  "libc",
  "regex",
  "reqwest",
+ "ring",
  "rusqlite",
  "rustls",
  "serde",

@@ -34,6 +34,14 @@ Agent 配置默认直接尝试 Tunnel；runtime key 来自 [Platform Runtime API
 
 实际遇到 Tunnel 权限失败时，Agent 配置提供 HTTPS + OAuth 备选，复用 Cloudflare 固定地址或临时地址及 OAuth 步骤，保持 ChatGPT 目标。HTTPS 不能绕过工作区对自定义 MCP 的限制。
 
+## 在 Work 中订阅
+
+需要主动唤醒时，使用网页 Work 聊天，或在桌面选择 **Work → Cloud**。重新扫描 ARC 插件，确认工具旁出现 `task.status`；工作区有相关限制时，启用插件事件及事件触发任务。
+
+让聊天订阅 `task.status`，按派发后的 `threadId` 过滤，收到事件后读取结果并审查，再决定续轮。短任务先建空线程、订阅，再发送任务。其他 Agent 使用 `taskId`。不传过滤条件时，订阅覆盖该入口派发的任务。回调地址与签名密钥由聊天提供，不要把凭据粘贴到消息中。让聊天停止监控即可取消订阅。
+
+使用 `query notify_status` 查看订阅与投递。`callback-accepted` 只表示回调已接收；还需确认 Work 聊天自动开启一轮并处理事件。写操作仍受 ChatGPT 确认及既有入口策略限制。
+
 ## 限制
 
-模型选项和 Developer Mode 取决于账号、工作区策略及客户端开放情况。电脑需保持唤醒，ARC 需保持连接。普通 Chat 不接收 ARC 的 Claude 云端会话通知；可回到对话询问进度，或在当前轮次内继续等待。Secure Tunnel 用于连接私有 MCP，公开插件发布另有分发流程。
+模型选项和 Developer Mode 取决于账号、工作区策略及客户端开放情况。电脑需保持唤醒，ARC 需保持连接。普通 Chat 不支持主动唤醒：使用分段等待加收件箱，或回来询问进度。Work 订阅到期需刷新，不回放错过的事件。Secure Tunnel 用于连接私有 MCP，公开插件发布另有分发流程。
