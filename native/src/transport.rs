@@ -556,7 +556,21 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
             json!({"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{},"events":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
         ),
         "events/list" | "events/subscribe" | "events/unsubscribe" if id.is_some() => {
-            crate::claude_notify::mcp_events::request(s, method, &request["params"]).await
+            let result =
+                crate::claude_notify::mcp_events::request(s, method, &request["params"]).await;
+            let outcome = match &result {
+                Ok(_) => "accepted".to_owned(),
+                Err(error) => serde_json::from_str::<Value>(error)
+                    .ok()
+                    .and_then(|v| v["data"]["reason"].as_str().map(str::to_owned))
+                    .unwrap_or_else(|| "internal_error".into()),
+            };
+            s.log(
+                "INFO",
+                &format!("MCP event operation: {method}; result={outcome}"),
+            )
+            .await;
+            result
         }
         "initialize" => {
             let protocol = request["params"]["protocolVersion"]
