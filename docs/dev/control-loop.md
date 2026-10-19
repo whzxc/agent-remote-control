@@ -125,10 +125,12 @@ ARC 只适配控制源提供的可控外部途径，不使用 computer use、浏
 - 缓存的 guide schema 不接受 op 时，通过 `query({op:"guide",args:{topic?,op?}})` 读取同一指南；该 op 始终可用，不改动工具参数结构。
 - 默认返回编排内容、常用 query / act 调用示例与当前入口启用的 op 一行索引；op 名沿用原工具名。其他操作均通过 `query({op,args})` 或 `act({op,args,requestId?})` 调用。
 - **按控制源返回不同内容**：根据请求所在入口判断控制源类型（Claude、ChatGPT、其他），返回该控制源能用的 Loop 路径。
-- 内容放在 catalog（或与 catalog 同级的本地化文案）里，随版本发布，每个 topic 保持短小（编排文案目标 40 行以内，目录和单个 op schema 按需返回）。中英文按现有 locale 机制。
+- 内容放在 catalog（或与 catalog 同级的本地化文案）里，随版本发布，每个 topic 的编排正文（含附加通用要点）不超过 40 行；参数签名、示例与 op 索引不计入，单个 op schema 按需返回。中英文按现有 locale 机制。
+- topic 只保留派发/绑定、结束回合、事件审查/续轮、respond 直接代答、异常先查 notify_status、权限边界和 arcVersion 刷新。Work 约五分钟延迟及长任务适用性属于决策信息，须保留。
+- 诊断字段与过滤规则归 notify_status，治理行为归 notify_control，队列归 codex_queue/codex_queue_control，容量恢复归 codex_wait，交互契约归 codex_respond；通过 guide({op}) 按需读取。令牌桶配置、退避/合并调度、健康行、清理等没有直接操作入口的实现规则只留维护文档，不注入 topic。
 - 各控制源的 `loop` 要点：
   - **Claude**：派发时用 `notify` 绑定自己的云端会话 → 结束回合 → 收到 `[ARC]` 消息后用 `query codex_read` / `query codex_items` / `query codex_changes` 对照验收标准审查 → `act codex_send` 续轮并再次绑定。短任务可直接分段 `query codex_wait`。无法读取自己会话 ID 时请用户粘贴会话链接。
-  - **ChatGPT Work**：派发后在聊天中订阅 notification（op=task_status），在 args 中按 threadId 过滤；订阅生效后可结束回合。事件到达后按 query 读取、审查，再按用户授权续轮。
+  - **ChatGPT Work**：派发后在聊天中订阅 notification（op=task_status），在 args 中按 threadId 过滤；订阅生效后可结束回合；约五分钟平台延迟，适合长任务，短循环用分段等待。事件到达后按 query 读取、审查，再按用户授权续轮。
   - **ChatGPT Chat**：不支持主动唤醒；分段 query codex_wait，保留标识，用户回来后续查 arcInbox。
   - **其他**：分段 `query codex_wait` + 关注 `arcInbox`。
 - 派发 `act codex_create` / `act codex_send` / `act agent_create` / `act agent_send` 时，除非用户在当前对话里明确要求，否则不要显式传 `mode`、`approval` 等权限参数，沿用本机默认配置。本机默认已经体现了用户的选择；显式提权容易被控制源侧的安全审查拦截。
@@ -154,6 +156,7 @@ ARC 只适配控制源提供的可控外部途径，不使用 computer use、浏
 - **令牌桶**：每 channel+target 一桶，持久化到 notifications/subscriptions/state.json。默认容量 10、每 60 秒补 1；task-settings 的 notificationBucketCapacity、notificationRefillSeconds 可配置。所有事件共用桶，含新事件的一批扣 1，重试不再扣。旧 notificationWakeLimit 一次迁移后删除，不保留运行时兼容；原默认 20 改为容量 10，正数自定义值迁为容量（上限 1000），0 映射为关闭既有总开关。
 - **积压与合并**：Claude 普通事件合并窗口 30 秒；needs-input、审批仅跳过窗口。MCP 每请求一个事件，不等待该窗口。缺令牌时保留 pending，queueReason=token-wait；下次补充合并已积累事件，消息附“节流中，已合并 N 条”。默认配置下，单纯等令牌最多约一分钟；网络耗时、静音、熔断和退避另计。
 - **重试**：可重试的失败或不确定结果按 10、20、40、80、160 秒退避，最多六次尝试，沿用 eventId 与扣费资格。重启恢复已占位发送，不重复扣费。已解决交互不继续发。接收方按 eventId 去重。
+- **清理**：轮次绑定创建超过七天、任务已终结且没有 pending/sending 投递时清理；未终结或仍待投递的记录保留。
 - **事实摘要**：桶余量低于阈值或发生节流时，通知附本轮提问/审批次数、近十分钟目标投递尝试次数（含重试）、桶余量和已知 causedBy 来源；不做相似度或循环判断。近期批次逐批保存 kind 构成与线程，窗口一小时；不把发送尝试当成接收方已处理。
 - **诊断**：query notify_status 按当前入口限定可见范围，可用 target/threadId 筛选，返回桶、待投递、批次构成、唤醒最多线程、逐轮绑定、最近成功投递/ack 时间。历史缺失时间返回 null。默认仅列近一小时有批次/投递、待投递或需关注状态的目标与线程，线程仅带最新轮次；summary 报告范围总数与省略数。all=true 或 target/threadId 筛选返回范围内全量历史轮次。
 - **可撤销控制**：act notify_control 支持线程 mute（可设 until）、digest（Claude 按小时发送计数摘要，MCP 到小时窗口后逐事件发送）、unmute、rebind（target=null 解绑）和目标 breaker（enabled=false 解除）。规则跨重启及后续轮次保留，现有待投递 Claude 事件随线程改绑；已开始发送不可撤回。控制只改变通知，不取消或代答任务。工具策略仍限制写入权限；新入口 common 预设包含控制 op，既有自定义策略需显式启用。

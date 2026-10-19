@@ -96,6 +96,9 @@ async function notes() {
   const previous = previousPublished();
   let changes = changesSince(previous);
   const previousCatalog = previous && JSON.parse(git('show', `refs/tags/v${previous}:native/src/catalog.json`));
+  if (previousCatalog && !previousCatalog.guides?.en?.loop?.chatgpt?.includes('notification')) {
+    changes += '\n\n## MCP Events / 事件升级\n\n- ChatGPT Work now supports proactive wakeup through MCP Events, with about five minutes of platform latency. Ordinary Chat does not support proactive wakeup.\n- The event surface is frozen as notification. Refresh the ARC plugin in ChatGPT once and recreate old event subscriptions.\n- Claude tool parameters are unchanged.\n\n- 新增 ChatGPT Work 的 MCP Events 主动唤醒，平台侧延迟约五分钟；普通 Chat 不支持主动唤醒。\n- 事件面已冻结为 notification。请在 ChatGPT 刷新一次 ARC 插件，旧的事件订阅需要重建。\n- Claude 侧工具参数不变。';
+  }
   if (previousCatalog && !previousCatalog.tools.some(tool => tool.name === 'query')) {
     changes += '\n\n## MCP tool refresh / 工具刷新\n\nThis release consolidates MCP tools into guide / query / act. Refresh tools once and reauthorize ARC in your client. These three tool names and parameter structures are now frozen; future capabilities are disclosed through ops and guide.\n\n本版把 MCP 工具收敛为 guide / query / act。请在控制端刷新一次工具并重新授权 ARC。之后三个工具的名称和参数结构不再变化，能力更新通过 op 与 guide 披露。';
   }
