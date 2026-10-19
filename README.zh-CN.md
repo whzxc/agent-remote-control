@@ -4,6 +4,10 @@
 
 [English](README.md) | **简体中文**
 
+[![ARC Loop：Claude 派发，Codex 执行，ARC 唤醒 Claude 审查](docs/media/arc-loop.gif)](docs/media/arc-promo.mp4)
+
+▶ [观看 30 秒介绍视频（有声）](docs/media/arc-promo.mp4)
+
 全新 Mac 上，把这句话交给本机 Agent，即可从安装开始配置 ARC：
 
 > 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。

@@ -4,6 +4,10 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
+[![The ARC Loop: Claude dispatches, Codex executes, ARC wakes Claude to review](docs/media/arc-loop.gif)](docs/media/arc-promo.mp4)
+
+▶ [Watch the 30-second intro with sound](docs/media/arc-promo.mp4)
+
 On a fresh Mac, give your local Agent this instruction to install and set up ARC:
 
 > Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md

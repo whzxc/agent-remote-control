@@ -1,0 +1,354 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ARC Promo v2</title>
+<style>
+@font-face{font-family:Geist;src:url(fonts/Geist-Regular.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(fonts/Geist-Medium.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(fonts/Geist-SemiBold.woff2);font-weight:600}
+@font-face{font-family:Geist;src:url(fonts/Geist-Bold.woff2);font-weight:700}
+@font-face{font-family:GeistMono;src:url(fonts/GeistMono-Regular.woff2);font-weight:400}
+@font-face{font-family:GeistMono;src:url(fonts/GeistMono-Medium.woff2);font-weight:500}
+:root{--o:#D97757;--b:#3F63FF;--bs:#5B5FF5;--ink:#1D1D1F;--mut:#6E6E73;--bg:#F6F4F0}
+html,body{margin:0;background:#111}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:var(--bg);font-family:Geist,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#stage:before{content:"";position:absolute;inset:0;background-image:radial-gradient(#00000012 1.2px,transparent 1.3px);background-size:32px 32px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 80%)}
+.abs{position:absolute}
+.h1{font-size:66px;font-weight:600;letter-spacing:-0.03em;line-height:1.12;text-align:center;left:0;right:0}
+.sub{font-size:30px;font-weight:400;color:var(--mut);letter-spacing:-0.01em;text-align:center;left:0;right:0}
+.cap{position:absolute;left:0;right:0;top:960px;text-align:center;font-size:34px;font-weight:500;letter-spacing:-0.015em}
+.mono{font-family:GeistMono,monospace}
+.phone{position:absolute;border-radius:58px;background:#151517;padding:12px;box-shadow:0 40px 90px rgba(60,40,20,.20),0 6px 18px rgba(60,40,20,.10);box-sizing:border-box}
+.screen{position:relative;width:100%;height:100%;border-radius:46px;background:#FFF;overflow:hidden;display:flex;flex-direction:column}
+.appbar{height:100px;padding:46px 26px 0;display:flex;align-items:center;gap:10px;font-weight:600;font-size:22px;border-bottom:1px solid #EFEDEA;box-sizing:border-box;flex:none}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--o);flex:none}
+.msgs{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 20px 8px;overflow:hidden}
+.m{overflow:hidden;flex:none}
+.m>div{padding-top:16px}
+.ub{margin-left:auto;max-width:80%;background:#F0EEEA;border-radius:22px 22px 6px 22px;padding:14px 18px;font-size:19px;line-height:1.38;width:fit-content}
+.ab{font-size:19px;line-height:1.45;color:#29292b}
+.ghost{color:transparent}
+.composer{flex:none;margin:10px 16px 26px;border:1px solid #E5E3DF;border-radius:26px;min-height:58px;padding:16px 20px;font-size:19px;box-sizing:border-box;color:#222;line-height:1.35}
+.caret{display:inline-block;width:2px;height:22px;background:var(--o);vertical-align:-4px;margin-left:1px}
+.mac{position:absolute;width:360px;height:120px;border-radius:30px;background:linear-gradient(180deg,#FFFFFF,#E9E6E1);box-shadow:0 30px 60px rgba(60,40,20,.14),inset 0 -6px 0 rgba(0,0,0,.04);border:1px solid #E2DED7}
+.mac .led{position:absolute;right:34px;bottom:30px;width:12px;height:12px;border-radius:50%;background:#C9C6C0}
+.lbl{position:absolute;text-align:center;font-size:24px;font-weight:600}
+.lbl small{display:block;font-family:GeistMono;font-weight:400;font-size:16px;color:var(--mut);margin-top:6px}
+/* topology */
+.node{position:absolute;width:84px;height:84px;text-align:center}
+.node .c{position:relative;width:76px;height:76px;margin:4px auto 0;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:28px;box-sizing:border-box}
+.node .t{margin-top:10px;font-size:19px;font-weight:500;white-space:nowrap;margin-left:-40px;margin-right:-40px}
+.rip{position:absolute;left:4px;top:4px;width:76px;height:76px;border-radius:50%;box-sizing:border-box;opacity:0}
+.spin{position:absolute;left:-4px;top:-4px;width:92px;height:92px;border-radius:50%;box-sizing:border-box;border:4px solid transparent;border-top-color:#5B5FF5;border-right-color:#5B5FF588;opacity:0}
+.bub{position:absolute;width:290px;background:#fff;border:1px solid #E7E4DE;border-radius:18px;padding:14px 18px;box-sizing:border-box;box-shadow:0 18px 40px rgba(60,40,20,.10)}
+.bub .hd{font-family:GeistMono;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8a8a90;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.bub .tx{font-size:20px;font-weight:500;line-height:1.3;letter-spacing:-0.01em}
+.bub .pill{font-family:Geist;letter-spacing:0;text-transform:none;font-size:13px;font-weight:600;background:#1d1d1f;color:#fff;border-radius:999px;padding:3px 9px}
+.plabel{position:absolute;font-family:GeistMono;font-size:16px;padding:7px 11px;border-radius:9px;color:#fff;white-space:nowrap}
+.tag{display:inline-flex;align-items:center;font-size:20px;font-weight:500;padding:9px 16px;border-radius:999px;background:#fff;border:1px solid #E7E4DE;color:#3a3a3c}
+#done{position:absolute;left:610px;width:700px;top:818px;height:118px;background:#fff;border-radius:26px;border:1px solid #E7E4DE;box-shadow:0 30px 70px rgba(60,40,20,.16);display:flex;align-items:center;gap:22px;padding:0 30px;box-sizing:border-box}
+#done .ck{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#9C8CFF,#3F63FF);display:flex;align-items:center;justify-content:center;flex:none}
+</style></head>
+<body>
+<div id="stage">
+  <svg id="ov" class="abs" width="1920" height="1080" viewBox="0 0 1920 1080" style="left:0;top:0;overflow:visible">
+    <g id="s1gap"><path id="gapPath" d="M 730 640 C 880 560, 1050 690, 1180 600" fill="none" stroke="#B9B4AC" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round"/></g>
+    <g id="heat"><path id="heatO" fill="none" stroke="#D97757" stroke-width="7" stroke-linecap="round" opacity="0"/><path id="heatB" fill="none" stroke="#5B5FF5" stroke-width="7" stroke-linecap="round" opacity="0"/></g>
+    <g id="topo"></g>
+    <g id="measure" style="visibility:hidden"></g>
+  </svg>
+
+  <!-- Scene 1 -->
+  <div id="s1">
+    <div class="abs h1" id="s1a" style="top:96px">Plans happen anywhere.</div>
+    <div class="abs h1" id="s1b" style="top:172px;color:var(--mut)">Code runs on your Mac.</div>
+    <div class="phone" id="ph1" style="left:380px;top:300px;width:340px;height:690px">
+      <div class="screen">
+        <div class="appbar"><span class="dot"></span>Claude</div>
+        <div class="msgs">
+          <div class="m" id="p1m1"><div><div class="ub">Refactor the auth module and add tests.</div></div></div>
+          <div class="m" id="p1m2"><div><div class="ab" id="p1m2t"></div></div></div>
+        </div>
+        <div class="composer" id="p1comp"></div>
+      </div>
+    </div>
+    <div class="mac" id="mac" style="left:1190px;top:540px"><div class="led"></div></div>
+    <div class="lbl" id="maclbl" style="left:1190px;width:360px;top:690px">Your Mac<small>codex · waiting for work</small></div>
+    <div class="abs mono" id="s1relay" style="left:760px;width:400px;top:700px;text-align:center;font-size:21px;color:#8a857d">copy · paste · wait · check</div>
+  </div>
+
+  <!-- Mark -->
+  <div id="markwrap" class="abs" style="left:0;top:0;width:100px;height:100px">
+    <svg viewBox="4 4 92 92" width="100%" height="100%" style="overflow:visible">
+      <defs><linearGradient id="mg" gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="92" y2="50"><stop stop-color="#9C8CFF"/><stop offset="1" stop-color="#3F63FF"/></linearGradient></defs>
+      <path id="mUp" d="M23.35 32.29 A32 32 0 0 1 76.65 32.29" pathLength="1" fill="none" stroke="#D97757" stroke-width="9" stroke-linecap="round"/>
+      <path id="mDn" d="M76.65 67.71 A32 32 0 0 1 23.35 67.71" pathLength="1" fill="none" stroke="url(#mg)" stroke-width="9" stroke-linecap="round"/>
+      <circle id="mL" cx="18" cy="50" r="10" fill="#D97757"/>
+      <circle id="mR" cx="82" cy="50" r="10" fill="url(#mg)"/>
+    </svg>
+  </div>
+
+  <!-- comets above the mark -->
+  <svg id="ov2" class="abs" width="1920" height="1080" viewBox="0 0 1920 1080" style="left:0;top:0;overflow:visible">
+    <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <g id="cometO"><path class="cg" fill="none" stroke="#D97757" stroke-width="16" stroke-linecap="round" filter="url(#glow)"/><path class="cc" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><circle class="h1g" r="20" fill="#D97757" filter="url(#glow)"/><circle class="h1c" r="8" fill="#fff" stroke="#D97757" stroke-width="3"/></g>
+    <g id="cometB"><path class="cg" fill="none" stroke="#5B5FF5" stroke-width="16" stroke-linecap="round" filter="url(#glow)"/><path class="cc" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><circle class="h1g" r="20" fill="#5B5FF5" filter="url(#glow)"/><circle class="h1c" r="8" fill="#fff" stroke="#5B5FF5" stroke-width="3"/></g>
+  </svg>
+
+  <!-- Scene 2 / topology HTML -->
+  <div id="s2">
+    <div class="abs" id="wm" style="left:0;right:0;top:700px;text-align:center">
+      <div style="font-size:88px;font-weight:700;letter-spacing:-0.02em">Agent Remote Control</div>
+      <div class="mono" style="font-size:22px;letter-spacing:.14em;color:var(--mut);margin-top:14px">ARC · CLOUD CHATS ⟷ LOCAL AGENTS</div>
+    </div>
+    <div id="nodes"></div>
+    <div class="abs" id="sideL" style="left:350px;width:300px;top:150px;text-align:center;font-family:GeistMono;font-size:18px;letter-spacing:.12em;color:#B4644A">CONTROL SOURCES</div>
+    <div class="abs" id="sideR" style="left:1270px;width:300px;top:150px;text-align:center;font-family:GeistMono;font-size:18px;letter-spacing:.12em;color:#3F55D8">LOCAL AGENTS</div>
+    <div class="abs mono" id="counter" style="left:900px;width:120px;top:525px;text-align:center;font-size:24px;font-weight:500;color:#3a3a3c"></div>
+    <div class="bub" id="bubL"><div class="hd" id="bubLh">Claude</div><div class="tx" id="bubLt"></div></div>
+    <div class="bub" id="bubR"><div class="hd">Codex · your Mac</div><div class="tx" id="bubRt"></div></div>
+  </div>
+
+  <canvas id="fx" class="abs" width="1920" height="1080" style="left:0;top:0"></canvas>
+  <div class="plabel" id="lblO" style="background:#D97757"></div>
+  <div class="plabel" id="lblB" style="background:#5B5FF5"></div>
+
+  <div id="done">
+    <div class="ck"><svg width="34" height="34" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div><div style="font-size:34px;font-weight:700;letter-spacing:-0.02em">Delivered.</div>
+    <div class="mono" style="font-size:17px;color:#6E6E73;margin-top:4px">refactor auth + tests · 8 turns · 129 tests passing</div></div>
+  </div>
+
+  <!-- Scene 4 -->
+  <div id="s4">
+    <div class="abs h1" id="s4a" style="top:40px;font-size:56px">Need deeper reasoning first?</div>
+    <div class="abs sub" id="s4b" style="top:116px">GPT-6 Astra Pro lives in ChatGPT Chat, not in Codex. ARC connects them.</div>
+    <div class="abs" id="also" style="left:0;right:0;top:880px;text-align:center">
+      <div class="mono" style="font-size:17px;letter-spacing:.12em;color:#8a857d;margin-bottom:16px">ALSO WORKS WITH</div>
+      <div id="tags" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;max-width:1500px;margin:0 auto"></div>
+    </div>
+  </div>
+
+  <!-- Scene 5 -->
+  <div id="s5">
+    <div class="abs" id="e1" style="left:0;right:0;top:590px;text-align:center;font-size:92px;font-weight:700;letter-spacing:-0.025em">Agent Remote Control</div>
+    <div class="abs" id="e2" style="left:0;right:0;top:712px;text-align:center;font-size:34px;font-weight:500;letter-spacing:-0.015em">Plan in Claude. Let local Codex execute.</div>
+    <div class="abs" id="e3" style="left:0;right:0;top:760px;text-align:center;font-size:34px;font-weight:400;color:var(--mut);letter-spacing:-0.015em">Close the loop without relaying messages yourself.</div>
+    <div class="abs" id="e4" style="left:0;right:0;top:860px;text-align:center">
+      <span class="mono" style="font-size:26px;background:#fff;border:1px solid #E7E4DE;border-radius:14px;padding:14px 22px">github.com/whzxc/agent-remote-control</span>
+      <div class="mono" style="font-size:17px;letter-spacing:.12em;color:#8a857d;margin-top:30px">OPEN SOURCE · MIT</div>
+    </div>
+  </div>
+  <div id="caps"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const eo=x=>1-Math.pow(1-x,3);
+const ei=x=>x*x*x;
+const back=x=>{const c1=1.6,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);};
+const lerp=(a,b,x)=>a+(b-a)*x;
+function track(t,k){if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++){const[t0,v0]=k[i],[t1,v1]=k[i+1];if(t<=t1)return lerp(v0,v1,eio(P(t,t0,t1)));}return k[k.length-1][1];}
+function show(el,o,dy=0,s=1,dx=0){el.style.opacity=o;el.style.transform=`translate(${dx}px,${dy}px) scale(${s})`;el.style.visibility=o<=0.002?'hidden':'visible';}
+function enter(el,t,a,b=1e9,dist=26,fi=.45){const i=eo(P(t,a,a+fi));show(el,Math.min(i,1-P(t,b-.35,b)),(1-i)*dist);}
+function grp(el,o){el.style.opacity=o;el.style.visibility=o<=0.002?'hidden':'visible';}
+function dash(el,x){el.setAttribute('stroke-dasharray',`${x} 1`);el.style.visibility=x<=0.002?'hidden':'visible';}
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function typeG(el,text,x){const n=Math.round(text.length*clamp(x));el.innerHTML=esc(text.slice(0,n))+'<span class="ghost">'+esc(text.slice(n))+'</span>';}
+function grow(el,t,a){const x=eo(P(t,a,a+.3));const inner=el.firstElementChild;el.style.height=(inner.offsetHeight*x)+'px';inner.style.opacity=P(t,a+.05,a+.3);}
+
+/* ---------------- geometry ---------------- */
+const MC={x:960,y:540},ER=118,MS=200,SC=MS/92,AR=32*SC;
+const arcPt=(deg,r=ER)=>[MC.x+r*Math.cos(deg*Math.PI/180),MC.y+r*Math.sin(deg*Math.PI/180)];
+function arcD(a0,a1,r=ER){const p0=arcPt(a0,r),p1=arcPt(a1,r);return `M ${p0[0]} ${p0[1]} A ${r} ${r} 0 0 ${a1>a0?1:0} ${p1[0]} ${p1[1]}`;}
+const NY=[-195,-65,65,195],NXL=500,NXR=1420;
+const angL=[200,188,172,160],angR=[-20,-8,8,20];
+const L=[['Claude','C'],['ChatGPT','G'],['Gemini','✦'],['Grok','X']];
+const R=[['Codex','&lt;/&gt;'],['Pi','π'],['OpenCode','{ }'],['ACP agents','+']];
+const mpt=(ux,uy)=>[MC.x+(ux-50)*SC,MC.y+(uy-50)*SC];
+const UP0=mpt(23.35,32.29),UP1=mpt(76.65,32.29),DN0=mpt(76.65,67.71),DN1=mpt(23.35,67.71);
+const RE=ER+4;
+function outPath(i,j){const ny=MC.y+NY[i],p=arcPt(angL[i],RE),q=arcPt(angR[j],RE),ry=MC.y+NY[j];
+  return `M ${NXL+46} ${ny} C ${NXL+190} ${ny}, ${p[0]-150} ${p[1]}, ${p[0]} ${p[1]} L ${UP0[0]} ${UP0[1]} A ${AR} ${AR} 0 0 1 ${UP1[0]} ${UP1[1]} L ${q[0]} ${q[1]} C ${q[0]+150} ${q[1]}, ${NXR-190} ${ry}, ${NXR-46} ${ry}`;}
+function backPath(i,j){const ny=MC.y+NY[i],p=arcPt(angL[i],RE),q=arcPt(angR[j],RE),ry=MC.y+NY[j];const qa=arcPt(30,RE),pa=arcPt(150,RE);
+  const s1=angR[j]<30?`A ${RE} ${RE} 0 0 1 ${qa[0]} ${qa[1]}`:'';const s2=angL[i]>150?`A ${RE} ${RE} 0 0 1 ${p[0]} ${p[1]}`:`L ${p[0]} ${p[1]}`;
+  return `M ${NXR-46} ${ry} C ${NXR-190} ${ry}, ${q[0]+150} ${q[1]}, ${q[0]} ${q[1]} ${s1} L ${DN0[0]} ${DN0[1]} A ${AR} ${AR} 0 0 1 ${DN1[0]} ${DN1[1]} L ${pa[0]} ${pa[1]} ${s2} C ${p[0]-150} ${p[1]}, ${NXL+190} ${ny}, ${NXL+46} ${ny}`;}
+
+/* ---------------- build ---------------- */
+let topo=`<path id="emL" d="${arcD(212,148)}" pathLength="1" fill="none" stroke="#D97757" stroke-width="14" stroke-linecap="round"/><path id="emR" d="${arcD(-32,32)}" pathLength="1" fill="none" stroke="#5B5FF5" stroke-width="14" stroke-linecap="round"/>`;
+NY.forEach((dy,i)=>{const p=arcPt(angL[i],RE),ny=MC.y+dy;
+  topo+=`<path id="lnL${i}" d="M ${p[0]} ${p[1]} C ${p[0]-150} ${p[1]}, ${NXL+190} ${ny}, ${NXL+46} ${ny}" pathLength="1" fill="none" stroke="#D97757" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>`;
+  const q=arcPt(angR[i],RE);
+  topo+=`<path id="lnR${i}" d="M ${q[0]} ${q[1]} C ${q[0]+150} ${q[1]}, ${NXR-190} ${ny}, ${NXR-46} ${ny}" pathLength="1" fill="none" stroke="#5B5FF5" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>`;});
+$('topo').innerHTML=topo;
+let nh='';
+NY.forEach((dy,i)=>{
+  nh+=`<div class="node" id="nL${i}" style="left:${NXL-42}px;top:${MC.y+dy-42}px"><div class="c" id="cL${i}" style="border:3px solid #F0C9B9;color:#B4644A"><div class="rip" id="rL${i}" style="border:3px solid #D97757"></div>${L[i][1]}</div><div class="t">${L[i][0]}</div></div>`;
+  nh+=`<div class="node" id="nR${i}" style="left:${NXR-42}px;top:${MC.y+dy-42}px"><div class="c" id="cR${i}" style="border:3px solid #C9CCFF;color:#3F55D8;font-size:${R[i][1].length>2?20:28}px"><div class="rip" id="rR${i}" style="border:3px solid #5B5FF5"></div><div class="spin" id="sR${i}"></div>${R[i][1]}</div><div class="t">${R[i][0]}</div></div>`;});
+$('nodes').innerHTML=nh;
+$('tags').innerHTML=['Grok','Gemini','Cursor','Notion','Slack','Raycast','GitHub Copilot','Custom MCP','Pi','OpenCode','ACP agents'].map((s,i)=>`<span class="tag" id="tg${i}">${s}</span>`).join('');
+// measuring paths
+const PATHS={};
+function getPath(key,d){if(!PATHS[key]){const el=document.createElementNS('http://www.w3.org/2000/svg','path');el.setAttribute('d',d);$('measure').appendChild(el);PATHS[key]={d,el,len:el.getTotalLength()};}return PATHS[key];}
+
+/* ---------------- loop schedule ---------------- */
+function buildLoop(start,cyc,src,agent,labels){let t=start;const legs=[],works=[];
+  cyc.forEach((c,k)=>{legs.push({a:t,b:t+c[0],dir:'O',k,src,agent,label:labels[k]?labels[k][0]:''});t+=c[0];works.push({a:t,b:t+c[1],k,agent});t+=c[1];
+    legs.push({a:t,b:t+c[2],dir:'B',k,src,agent,label:labels[k]?labels[k][1]:''});t+=c[2]+c[3];});
+  return {legs,works,end:t-cyc[cyc.length-1][3],n:cyc.length};}
+const LOOP=buildLoop(9.3,[[1.0,.6,1.0,.45],[.75,.35,.75,.25],[.52,.18,.52,.12],[.4,.1,.4,.07],[.31,.07,.31,.05],[.25,.05,.25,.04],[.2,.035,.2,.03],[.17,.03,.17,.02]],0,0,
+  [['codex_create · refactor auth + tests','completed → wake Claude'],['codex_send · fix token refresh','completed → wake Claude']]);
+const BINGO=LOOP.end; // ~19.4
+const LOOP2=buildLoop(BINGO+3.0,[[.55,.25,.55,.2],[.4,.15,.4,.1]],1,0,[['plan → Codex','done → ChatGPT']]);
+const S4END=LOOP2.end+0.9, S5=S4END, DUR=S5+4.6;
+const ALLLEGS=[...LOOP.legs,...LOOP2.legs];
+
+/* bubbles: [time, text] */
+const BL=[[8.9,'Plan ready. Sending to Codex.'],[LOOP.legs[0].a+.15,'Dispatched. Ending my turn.'],[LOOP.legs[1].b,'Reviewing… expired tokens never refresh.'],[LOOP.legs[2].a+.1,'Follow-up sent.'],[LOOP.legs[3].b,'Reviewing turn 2…']];
+for(let k=2;k<LOOP.n;k++)BL.push([LOOP.legs[2*k+1].b,`Reviewing turn ${k+1}…`]);
+BL.push([BINGO,'✓ Ready to merge.']);
+const BR=[];LOOP.works.forEach((w,k)=>{BR.push([w.a,k===0?'Running · 5 steps':(k===1?'Running follow-up':`Running turn ${k+1}`)]);BR.push([w.b,k===0?'✓ +214 −87 · 128 passed':(k===1?'✓ 129 passed':`✓ turn ${k+1} green`)]);});
+BR.push([BINGO,'✓ All checks green.']);
+const BL2=[[BINGO+2.4,'Thinking with GPT-6 Astra Pro…'],[LOOP2.legs[0].a,'Plan ready → Codex'],[LOOP2.legs[1].b,'Reviewed. One more pass.'],[LOOP2.legs[3].b,'✓ Migration verified.']];
+const BR2=[[LOOP2.works[0].a,'Migrating sync engine…'],[LOOP2.works[0].b,'✓ 3 adapters moved'],[LOOP2.works[1].a,'Running checks…'],[LOOP2.works[1].b,'✓ Suite green']];
+function pick(list,t){let cur=null;for(const e of list)if(t>=e[0])cur=e;return cur;}
+
+/* captions */
+const CAPS=[[7.7,9.2,'Cloud chats on one side. Local agents on the other.'],
+ [9.3,LOOP.works[0].b,'Claude plans. ARC carries the job to Codex on your Mac.'],
+ [LOOP.works[0].b,16.2,'Codex finishes. ARC wakes Claude. Claude reviews.'],
+ [16.2,BINGO-.05,'Again and again. Nobody relaying in between.']];
+$('caps').innerHTML=CAPS.map((c,i)=>`<div class="cap" id="cap${i}">${c[2]}</div>`).join('');
+
+/* confetti (deterministic) */
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+const CONF=[];for(let i=0;i<110;i++){const a=rnd()*Math.PI*2,sp=380+rnd()*900;CONF.push({vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-420,rot:rnd()*6,vr:(rnd()-.5)*14,w:8+rnd()*10,h:4+rnd()*6,c:['#D97757','#E8865E','#9C8CFF','#5B5FF5','#3F63FF','#F2C14E'][i%6],d:rnd()*0.08});}
+
+/* ---------------- sound events (consumed by the renderer) ---------------- */
+const SFX=[];
+(function(){const msg='Refactor the auth module and add tests.';for(let k=0;k<msg.length;k+=2)SFX.push({t:0.5+0.8*k/msg.length,type:'key'});
+ SFX.push({t:1.3,type:'send'},{t:1.7,type:'msg'},{t:3.75,type:'whoosh',d:.9},{t:4.45,type:'shimmer'},{t:5.25,type:'logo'},{t:6.9,type:'whoosh',d:.6});
+ for(let i=0;i<4;i++){SFX.push({t:7.45+i*.12+.4,type:'pop',n:i},{t:7.55+i*.12+.5,type:'pop',n:i+4});}
+ ALLLEGS.forEach(l=>{SFX.push({t:l.a,type:'zip',d:l.b-l.a,dir:l.dir,k:l.k});SFX.push({t:l.b,type:'arrive',dir:l.dir,k:l.k});});
+ SFX.push({t:BINGO,type:'bingo'});
+ for(let i=0;i<11;i++)SFX.push({t:LOOP2.end+.15+i*.05,type:'tick',n:i});
+ SFX.push({t:S5+.3,type:'end'});})();
+
+/* ---------------- render ---------------- */
+function nodeEl(side,i){return $((side==='L'?'n':'n')+side+i);}
+function lastArrival(side,i,t){let last=-99;ALLLEGS.forEach(l=>{if(l.b<=t){if(l.dir==='O'&&side==='R'&&l.agent===i)last=Math.max(last,l.b);if(l.dir==='B'&&side==='L'&&l.src===i)last=Math.max(last,l.b);}});return last;}
+function setComet(id,lbl,leg,t){const g=$(id),lb=$(lbl);
+  if(!leg){grp(g,0);lb.style.visibility='hidden';return;}
+  const pth=leg.dir==='O'?getPath('O'+leg.src+leg.agent,outPath(leg.src,leg.agent)):getPath('B'+leg.src+leg.agent,backPath(leg.src,leg.agent));
+  const x=P(t,leg.a,leg.b),head=pth.len*(leg.k<2?eio(x):x),seg=lerp(150,420,clamp(leg.k/6));
+  g.querySelectorAll('path').forEach(p=>{p.setAttribute('d',pth.d);p.setAttribute('stroke-dasharray',`${seg} ${pth.len*3}`);p.setAttribute('stroke-dashoffset',seg-head);});
+  const pt=pth.el.getPointAtLength(head);g.querySelectorAll('circle').forEach(c=>{c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);});
+  grp(g,Math.min(P(t,leg.a-.04,leg.a+.04),1-P(t,leg.b+.02,leg.b+.12)));
+  if(leg.label){lb.textContent=leg.label;lb.style.visibility='visible';lb.style.opacity=Math.min(P(t,leg.a,leg.a+.15),1-P(t,leg.b-.12,leg.b));lb.style.left=(pt.x-lb.offsetWidth/2)+'px';lb.style.top=(pt.y-58)+'px';}else lb.style.visibility='hidden';}
+
+function render(t){
+  // ---------- Scene 1 (0–4.3)
+  grp($('s1'),1-P(t,3.7,4.3));grp($('s1gap'),(1-P(t,3.7,4.3))*P(t,2.3,2.8));
+  enter($('s1a'),t,0.1);enter($('s1b'),t,1.2);
+  const phIn=eo(P(t,0,0.45));show($('ph1'),phIn,(1-phIn)*60,1-0.06*eo(P(t,3.7,4.3)));
+  const macIn=eo(P(t,0.35,0.85));show($('mac'),macIn,(1-macIn)*40,1-0.06*eo(P(t,3.7,4.3)));show($('maclbl'),macIn,(1-macIn)*40);
+  const msg='Refactor the auth module and add tests.';
+  if(t<1.3){const n=Math.round(msg.length*P(t,0.5,1.3));$('p1comp').innerHTML=esc(msg.slice(0,n))+'<span class="caret"></span>';$('p1comp').style.color='#222';}
+  else{$('p1comp').innerHTML='Reply to Claude…';$('p1comp').style.color='#aaa';}
+  grow($('p1m1'),t,1.3);grow($('p1m2'),t,1.7);
+  typeG($('p1m2t'),'Plan’s ready — but your code and Codex live on your Mac.',P(t,1.75,2.55));
+  enter($('s1relay'),t,2.5,1e9,10);$('gapPath').setAttribute('stroke-dashoffset',-t*24);
+
+  // ---------- Mark
+  const size=track(t,[[0,330],[6.8,330],[7.4,MS],[S5-.2,MS],[S5+.6,250]]);
+  const cy=track(t,[[0,430],[6.8,430],[7.4,540],[S5-.2,540],[S5+.6,400]]);
+  const cx=960;const mw=$('markwrap');mw.style.width=mw.style.height=size+'px';mw.style.left=(cx-size/2)+'px';mw.style.top=(cy-size/2)+'px';mw.style.visibility=t>=3.7?'visible':'hidden';
+  const sc=size/92,fly=eio(P(t,3.75,4.6));
+  const tgtL=[cx-32*sc,cy],tgtR=[cx+32*sc,cy],srcL=[420,346],srcR=[1510,624];
+  $('mL').setAttribute('transform',`translate(${(srcL[0]-tgtL[0])/sc*(1-fly)},${(srcL[1]-tgtL[1])/sc*(1-fly)})`);$('mL').setAttribute('r',lerp(2.4,10,fly));
+  $('mR').setAttribute('transform',`translate(${(srcR[0]-tgtR[0])/sc*(1-fly)},${(srcR[1]-tgtR[1])/sc*(1-fly)})`);$('mR').setAttribute('r',lerp(1.6,10,fly));
+  dash($('mUp'),eio(P(t,4.45,5.05)));dash($('mDn'),eio(P(t,4.7,5.3)));
+  // pulses: logo close, every arrival through the mark, bingo
+  let pulse=1+0.07*Math.sin(Math.PI*P(t,5.25,5.6));
+  ALLLEGS.forEach(l=>{const mid=(l.a+l.b)/2;pulse+=0.035*Math.max(0,1-Math.abs(t-mid)/Math.max(.08,(l.b-l.a)*.25));});
+  pulse+=0.22*Math.sin(Math.PI*P(t,BINGO,BINGO+.5));
+  mw.style.transform=`scale(${pulse})`;
+
+  // ---------- Scene 2 / topology
+  grp($('s2'),t>=3.7&&t<S5+.6?1:0);
+  enter($('wm'),t,5.3,6.9,20);
+  const topoFade=1-P(t,S5-.3,S5+.2);
+  ['emL','emR'].forEach((id,i)=>dash($(id),eio(P(t,7.2+i*.08,7.6+i*.08))));$('topo').style.opacity=topoFade;
+  // dim non-active nodes during loops
+  const loopFocus=P(t,8.8,9.2)*(1-P(t,BINGO+.6,BINGO+1.2));
+  const chatFocus=P(t,BINGO+2.0,BINGO+2.5)*(1-P(t,LOOP2.end+.1,LOOP2.end+.5));
+  for(let i=0;i<4;i++){const a=7.35+i*.12;
+    dash($('lnL'+i),eio(P(t,a,a+.45)));dash($('lnR'+i),eio(P(t,a+.08,a+.53)));
+    const actL=(i===0?loopFocus:0)+(i===1?chatFocus:0),actR=(i===0?Math.max(loopFocus,chatFocus):0);
+    const dimL=1-0.65*Math.max(loopFocus,chatFocus)*(1-actL),dimR=1-0.65*Math.max(loopFocus,chatFocus)*(1-actR);
+    $('lnL'+i).style.opacity=dimL;$('lnR'+i).style.opacity=dimR;
+    const xl=back(P(t,a+.35,a+.7)),xr=back(P(t,a+.45,a+.8));
+    show($('nL'+i),clamp(P(t,a+.35,a+.55))*topoFade*dimL,0,xl*(1+.12*actL));
+    show($('nR'+i),clamp(P(t,a+.45,a+.65))*topoFade*dimR,0,xr*(1+.12*actR));
+    $('cL'+i).style.borderColor=actL>.5?'#D97757':'#F0C9B9';$('cR'+i).style.borderColor=actR>.5?'#5B5FF5':'#C9CCFF';
+    // ripples
+    ['L','R'].forEach(s=>{const la=lastArrival(s,i,t),x=P(t,la,la+.55);const r=$('r'+s+i);r.style.opacity=t-la<.55?(1-x)*.8:0;r.style.transform=`scale(${1+x*.9})`;});
+    // working spinner
+    const sp=$('sR'+i);const w=[...LOOP.works,...LOOP2.works].find(w=>w.agent===i&&t>=w.a-.02&&t<=w.b);sp.style.opacity=w&&i===0?1:0;sp.style.transform=`rotate(${t*720}deg)`;}
+  const sideO=Math.min(P(t,7.6,8.0),1-P(t,BINGO+1.6,BINGO+2.0));show($('sideL'),sideO);show($('sideR'),sideO);
+  CAPS.forEach((c,i)=>enter($('cap'+i),t,c[0],c[1],12,.35));
+
+  // comets
+  const legO=ALLLEGS.find(l=>l.dir==='O'&&t>=l.a-.04&&t<=l.b+.12),legB=ALLLEGS.find(l=>l.dir==='B'&&t>=l.a-.04&&t<=l.b+.12);
+  setComet('cometO','lblO',legO,t);setComet('cometB','lblB',legB,t);
+  // heat: loop path warms up with each turn, flashes at bingo
+  const hO=getPath('O00',outPath(0,0)),hB=getPath('B00',backPath(0,0));
+  $('heatO').setAttribute('d',hO.d);$('heatB').setAttribute('d',hB.d);
+  const doneLegs=LOOP.legs.filter(l=>l.b<=t).length;
+  let heat=t<BINGO?Math.min(.5,doneLegs*.035):lerp(1,.0,P(t,BINGO+.1,BINGO+1.6));
+  $('heatO').setAttribute('opacity',heat*topoFade);$('heatB').setAttribute('opacity',heat*topoFade);
+  $('heatO').setAttribute('stroke-width',7+6*Math.sin(Math.PI*P(t,BINGO,BINGO+.6)));$('heatB').setAttribute('stroke-width',7+6*Math.sin(Math.PI*P(t,BINGO,BINGO+.6)));
+  // counter
+  const ctr=$('counter');const turns=LOOP.legs.filter(l=>l.dir==='B'&&l.b<=t).length;
+  if(t<BINGO){ctr.textContent=turns>0?'×'+turns:'';ctr.style.color='#3a3a3c';}else{ctr.textContent='';}
+  const lastB=LOOP.legs.filter(l=>l.dir==='B'&&l.b<=t).pop();const bump=lastB?Math.sin(Math.PI*P(t,lastB.b,lastB.b+.18)):0;
+  show(ctr,P(t,LOOP.legs[1].b-.05,LOOP.legs[1].b+.1)*(1-P(t,BINGO-.02,BINGO+.05)),0,1+.3*bump);
+  // bubbles
+  const bL=$('bubL'),bR=$('bubR');
+  const inS4=t>=BINGO+2.2;const srcI=inS4?1:0;
+  bL.style.left=(NXL-60-290)+'px';bL.style.top=(MC.y+NY[srcI]-46)+'px';bR.style.left=(NXR+60)+'px';bR.style.top=(MC.y+NY[0]-46)+'px';
+  $('bubLh').innerHTML=inS4?'ChatGPT · Chat <span class="pill">GPT-6 Astra Pro</span>':'Claude';
+  const eL=pick(inS4?BL2:BL,t),eR=pick(inS4?BR2:BR,t);
+  const oL=inS4?Math.min(P(t,BINGO+2.4,BINGO+2.8),1-P(t,S4END-.35,S4END)):Math.min(P(t,8.9,9.25),1-P(t,BINGO+1.5,BINGO+1.9));
+  const oR=inS4?Math.min(P(t,LOOP2.works[0].a,LOOP2.works[0].a+.2),1-P(t,S4END-.35,S4END)):Math.min(P(t,LOOP.works[0].a,LOOP.works[0].a+.25),1-P(t,BINGO+1.5,BINGO+1.9));
+  if(eL)$('bubLt').textContent=eL[1];if(eR)$('bubRt').textContent=eR[1];
+  const kL=eL?1+.05*Math.sin(Math.PI*P(t,eL[0],eL[0]+.2)):1,kR=eR?1+.05*Math.sin(Math.PI*P(t,eR[0],eR[0]+.2)):1;
+  show(bL,eL?oL:0,0,kL);show(bR,eR?oR:0,0,kR);
+  $('bubRt').style.color=eR&&eR[1][0]==='✓'?'#3340B8':'#1d1d1f';$('bubLt').style.color=eL&&eL[1][0]==='✓'?'#3340B8':'#1d1d1f';
+
+  // bingo fx
+  const cv=$('fx'),g=cv.getContext('2d');g.clearRect(0,0,1920,1080);
+  const bt=t-BINGO;
+  if(bt>=0&&bt<2.4){
+    for(let r=0;r<3;r++){const x=P(bt,r*.12,r*.12+.9);if(x>0&&x<1){g.beginPath();g.arc(MC.x,MC.y,lerp(110,720,eo(x)),0,Math.PI*2);g.strokeStyle=r%2?'rgba(91,95,245,'+(1-x)*.5+')':'rgba(217,119,87,'+(1-x)*.5+')';g.lineWidth=lerp(10,1,x);g.stroke();}}
+    CONF.forEach(c=>{const dt=bt-c.d;if(dt<0)return;const x=MC.x+c.vx*dt*Math.exp(-dt*.9),y=MC.y+c.vy*dt*Math.exp(-dt*.9)+520*dt*dt;const o=1-P(dt,1.4,2.2);if(o<=0)return;
+      g.save();g.translate(x,y);g.rotate(c.rot+c.vr*dt);g.globalAlpha=o;g.fillStyle=c.c;g.fillRect(-c.w/2,-c.h/2,c.w,c.h);g.restore();});
+    const fl=1-P(bt,0,.35);if(fl>0){const gr=g.createRadialGradient(MC.x,MC.y,0,MC.x,MC.y,420);gr.addColorStop(0,'rgba(255,255,255,'+.9*fl+')');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,1920,1080);}
+  }
+  const dn=$('done');const di=back(P(t,BINGO+.12,BINGO+.55));show(dn,clamp(P(t,BINGO+.12,BINGO+.3))*(1-P(t,BINGO+1.7,BINGO+2.0)),(1-clamp(di))*30,lerp(.85,1,di));
+
+  // ---------- Scene 4
+  const s4on=t>=BINGO+1.9&&t<S4END+.1;grp($('s4'),s4on?1:0);
+  enter($('s4a'),t,BINGO+2.0,S4END);enter($('s4b'),t,BINGO+2.25,S4END);
+  enter($('also'),t,LOOP2.end+.05,S4END,10);for(let i=0;i<11;i++)enter($('tg'+i),t,LOOP2.end+.15+i*.05,S4END,10,.3);
+
+  // ---------- Scene 5
+  grp($('s5'),t>=S5?1:0);
+  enter($('e1'),t,S5+.45,1e9,20);enter($('e2'),t,S5+.8,1e9,14);enter($('e3'),t,S5+1.05,1e9,14);enter($('e4'),t,S5+1.4,1e9,14);
+}
+window.render=render;window.DUR=DUR;window.SFX=SFX;window.MARKS={BINGO,S5,DUR,LOOP2END:LOOP2.end};
+if(location.hash==='#play'){const t0=performance.now();(function f(){render(((performance.now()-t0)/1000)%DUR);requestAnimationFrame(f);})();}
+else render(parseFloat(location.hash.slice(1))||0);
+</script>
+</body></html>

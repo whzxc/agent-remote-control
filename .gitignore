@@ -17,3 +17,7 @@ release-artifacts/
 
 # Local working material
 /tmp/
+
+# promo video build inputs/outputs
+assets/promo/fonts/
+assets/promo/out/
