@@ -134,6 +134,11 @@ async fn post(s: &Subscription, id: &str, body: &[u8]) -> Result<(u16, Vec<u8>)>
             .map_err(|_| "dns_failed")?
             .collect();
         if addresses.is_empty() || addresses.iter().any(|a| !public_ip(a.ip())) {
+            crate::logs::record(
+                "WARN",
+                &format!("MCP callback DNS rejected: host={host}; addresses={addresses:?}"),
+                Some(&s.ingress),
+            );
             return Err("non_public_address".to_owned());
         }
         // No environment proxy or connection pool: DNS validation also governs the actual socket.
