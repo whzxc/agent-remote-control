@@ -18,6 +18,12 @@ const version = buildVersion();
 
 let directory: string;
 let client: Client;
+let fixtureCommand: string;
+let fixtureEnv: Record<string,string>;
+async function connectFixture() {
+  client = new Client({name:"agent-remote-control-test",version:"1"});
+  await client.connect(new StdioClientTransport({command:fixtureCommand,env:fixtureEnv,stderr:"pipe"}));
+}
 let inventory: Awaited<ReturnType<Client['listTools']>>;
 let operations: typeof inventory.tools;
 before(async () => {
@@ -39,7 +45,13 @@ const fixtureState = process.env.ARC_STATE_DIR + '/dispatch-fixture.json';
 const counts = new Map();
 const emit = value => process.stdout.write(JSON.stringify(value) + '\\n');
 for await (const line of createInterface({ input: process.stdin })) {
-  const { id, method, params } = JSON.parse(line);
+  const { id, method, params, result } = JSON.parse(line);
+  if (!method && result) {
+    const saved = JSON.parse(readFileSync(fixtureState,'utf8'));
+    const row = Object.values(saved).find(r=>r.pendingId===id);
+    if(row){row.answer=result;row.turns.at(-1).status='completed';delete row.pendingId;writeFileSync(fixtureState,JSON.stringify(saved));}
+    continue;
+  }
   if (id === undefined) continue;
   const calls = (counts.get(method) || 0) + 1; counts.set(method, calls);
   const reply = () => {
@@ -62,15 +74,19 @@ for await (const line of createInterface({ input: process.stdin })) {
         if (params.includeTurns) return emit({id,error:{code:-32601,message:'list_turns is not supported yet'}});
         row.metadataReads++;
         writeFileSync(fixtureState,JSON.stringify(saved));
-        return emit({id,result:{thread:{...row.thread,status:{type:'idle'}}}});
+        return emit({id,result:{thread:{...row.thread,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
       }
       if (method === 'turn/start') {
         if (row.model === 'fixture-dispatch-reject') return emit({id,error:{code:-32602,message:'invalid turn configuration'}});
-        row.turns.push({id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:'pong'}]});
+        const overload=row.model.includes('overload') && (row.model.includes('exhausted') || row.model.includes('side-effect') || row.turns.length<2);
+        row.turns.push({id:randomUUID(),status:overload?'failed':(row.model.includes('queue')||(row.model.includes('question')&&row.turns.length===0))?'inProgress':'completed',error:overload?{codexErrorInfo:'serverOverloaded',message:'Selected model is at capacity'}:null,items:overload?(row.model.includes('side-effect')?[{type:'commandExecution',status:'completed'}]:[]):[{id:randomUUID(),type:'agentMessage',text:'pong'}],input:params.input,model:params.model||row.model});
         writeFileSync(fixtureState,JSON.stringify(saved));
+        if(row.model.includes('question')&&row.turns.length===1) {row.pendingId='question:'+params.threadId;writeFileSync(fixtureState,JSON.stringify(saved));emit({id:row.pendingId,method:'item/tool/requestUserInput',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,questions:[{id:'q',question:'2+2?',options:[]}]}});}
         if (row.model === 'fixture-dispatch-uncertain') return process.exit(0);
         return emit({id,result:{turn:row.turns.at(-1)}});
       }
+      if (method === 'turn/steer') { row.steers=(row.steers||0)+1;writeFileSync(fixtureState,JSON.stringify(saved));return emit({id,result:{turnId:row.turns.at(-1).id}}); }
+      if (method === 'fixture/finish-turn') { row.turns.at(-1).status=params.status||'completed';writeFileSync(fixtureState,JSON.stringify(saved));return emit({id,result:{}}); }
       if (method === 'thread/turns/list') {
         const rows = [...row.turns];
         if(params.sortDirection === 'desc') rows.reverse();
@@ -114,8 +130,9 @@ for await (const line of createInterface({ input: process.stdin })) {
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
     cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
   });
-  client = new Client({ name: 'agent-remote-control-test', version: '1' });
-  await client.connect(new StdioClientTransport({ command: path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : '')), env: { ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string, string>, stderr: 'pipe' }));
+  fixtureCommand=path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : ''));
+  fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;
+  await connectFixture();
   inventory = await client.listTools();
   const index = (await call('guide')).result.ops;
   operations = await Promise.all(index.map(async ({op}: {op: string}) => {
@@ -152,7 +169,7 @@ test('MCP lists frozen tools and guide exposes existing ops and native domains w
   const status = await call('notify_status');
   assert.equal(status.response.isError, false);
   assert.equal(status.result.arcInbox, undefined);
-  const existing = ['notify_status', 'notify_control', 'notification_ack', 'guide', 'edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
+  const existing = ['codex_queue', 'codex_queue_control', 'notify_status', 'notify_control', 'notification_ack', 'guide', 'edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
   assert.deepEqual(operations.map(tool => tool.name).sort(), [...existing, 'agents', 'agent_capabilities', 'agent_tasks', 'agent_create', 'agent_read', 'agent_context', 'agent_wait', 'agent_send', 'agent_interrupt', 'agent_events', 'agent_pending', 'agent_respond', 'fs', 'command', 'process', 'mcp', 'file_search', 'codex_thread', 'codex_account'].filter(name => !name.startsWith('agent') || operations.some(tool => tool.name === 'agents')).sort());
   for (const tool of operations) {
     assert.equal(tool.inputSchema.type, 'object');
@@ -704,4 +721,72 @@ test('creation starts its first turn without legacy history reads, cleans defini
   assert.equal(saved[rejected.threadId].archived, true);
   assert.equal(saved[uncertain.threadId].turns.length, 1);
   assert.equal(saved[uncertain.threadId].archived, false);
+});
+
+async function eventually<T>(read: () => Promise<T>, accept: (value:T)=>boolean, timeout=40000): Promise<T> {
+  const deadline=Date.now()+timeout;let value:T;
+  do {value=await read();if(accept(value))return value;await new Promise(r=>setTimeout(r,100));}while(Date.now()<deadline);
+  assert.fail('Timed out: '+JSON.stringify(value));
+}
+async function dispatchFixture(model: string) {
+  await writeFile(path.join(directory,'task-settings.json'),JSON.stringify({autoOpenCodex:false,codexRetryMaxAttempts:3,codexRetryInitialSeconds:1}));
+  const r=await completed('codex_create',{project:directory,prompt:'harmless fixture',thread:{model},purpose:'self-test',requestId:randomUUID(),waitMs:1000});assert.equal(r.state,'completed');return r;
+}
+const fixtureRows = async () => JSON.parse(await readFile(path.join(directory,'dispatch-fixture.json'),'utf8'));
+
+test('respond tokens preserve legacy responses, bind thread and reject reuse', async () => {
+  const created=await dispatchFixture('fixture-dispatch-question');
+  const pending=await eventually(async()=>(await call('codex_pending',{threadId:created.threadId})).result,v=>v.requests?.length>0);
+  const request=pending.requests.find((r:any)=>r.params.threadId===created.threadId);
+  assert.equal(request.respondToken.length,22);
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
+  const queued=await completed('codex_send',{threadId:created.threadId,prompt:'after answer',sendMode:'queue',purpose:'self-test',requestId:randomUUID()});
+  await eventually(async()=>(await call('codex_queue',{queueId:queued.queueId})).result,v=>v.items[0]?.reason==='waiting-input');
+  assert.equal((await fixtureRows())[created.threadId].turns.length,1);
+  const wrong=await completed('codex_respond',{respondToken:request.respondToken,threadId:randomUUID(),result:{answers:{q:{answers:['4']}}},requestId:randomUUID()});assert.equal(wrong.state,'failed');
+  const answered=await completed('codex_respond',{respondToken:request.respondToken,result:{answers:{q:{answers:['4']}}},requestId:randomUUID()});assert.equal(answered.state,'completed');
+  assert.equal((await fixtureRows())[created.threadId].answer.answers.q.answers[0],'4');
+  const again=await completed('codex_respond',{respondToken:request.respondToken,result:{answers:{}},requestId:randomUUID()});assert.equal(again.state,'failed');
+  await eventually(fixtureRows,v=>v[created.threadId].turns.length===2);
+  const legacy=await dispatchFixture('fixture-dispatch-question');
+  const raw=await eventually(async()=>(await call('codex_pending',{threadId:legacy.threadId})).result,v=>v.requests?.length>0);
+  const q=raw.requests.find((r:any)=>r.params.threadId===legacy.threadId);
+  assert.equal((await completed('codex_respond',{backendSession:raw.backendSession,id:q.responseId,result:{answers:{q:{answers:['4']}}},requestId:randomUUID()})).state,'completed');
+});
+
+test('FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state', async () => {
+  const created=await dispatchFixture('fixture-dispatch-queue');
+  const steered=await completed('codex_send',{threadId:created.threadId,prompt:'steer',requestId:randomUUID()});assert.equal(steered.dispatchMode,'steered');assert.equal(steered.turnId,created.turnId);
+  const enqueue=async(prompt:string)=>completed('codex_send',{threadId:created.threadId,prompt,sendMode:'queue',purpose:'self-test',requestId:randomUUID()});
+  const a=await enqueue('first'),b=await enqueue('cancel-me'),c=await enqueue('third');assert.equal(a.dispatchMode,'queued');assert.ok(a.queueId);
+  await new Promise(r=>setTimeout(r,1200));assert.equal((await fixtureRows())[created.threadId].turns.length,1);
+  await client.close();await connectFixture();
+  const restored=(await call('codex_queue',{threadId:created.threadId})).result;assert.equal(restored.total,3);assert.ok(restored.items.every((r:any)=>r.state==='queued'));
+  assert.equal((await call('codex_queue_control',{threadId:created.threadId,queueId:b.queueId,action:'cancel'})).result.changed,1);
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
+  await eventually(fixtureRows,v=>v[created.threadId].turns.length===2);
+  assert.equal((await fixtureRows())[created.threadId].turns[1].input[0].text,'first');
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId,status:'failed'},requestId:randomUUID()});
+  const query=async()=>(await call('codex_queue',{threadId:created.threadId})).result;
+  await eventually(query,v=>v.items.find((r:any)=>r.queueId===c.queueId)?.state==='blocked');
+  assert.equal((await call('codex_queue_control',{threadId:created.threadId,action:'resume'})).result.changed,1);
+  await eventually(fixtureRows,v=>v[created.threadId].turns.length===3);
+  const rows=await fixtureRows();assert.equal(rows[created.threadId].turns[2].input[0].text,'third');assert.equal(rows[created.threadId].steers,1);
+  const saved=JSON.parse(await readFile(path.join(directory,'send-queue',a.queueId+'.json'),'utf8'));assert.equal(saved.args.prompt,'first');assert.ok(saved.dispatchRequestId);
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
+});
+
+test('capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects', async () => {
+  const created=await dispatchFixture('fixture-dispatch-overload');
+  await eventually(fixtureRows,v=>v[created.threadId].turns.length===3);
+  let rows=await fixtureRows();assert.equal(rows[created.threadId].turns[2].status,'completed');
+  assert.ok(rows[created.threadId].turns.slice(1).every((t:any)=>t.model==='fixture-dispatch-overload'&&t.input[0].text.includes('从中断处继续')&&!t.input[0].text.includes('harmless fixture')));
+  const bindings=async(thread:string)=>{const {readdir}=await import('node:fs/promises');return Promise.all((await readdir(path.join(directory,'notifications'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications',f),'utf8')))).then(bs=>bs.filter(b=>b.threadId===thread));};
+  let bs=await bindings(created.threadId);assert.ok(bs.every(b=>b.target===null));assert.ok(bs.every(b=>b.deliveries.every((d:any)=>d.taskState!=='failed')));
+  const exhausted=await dispatchFixture('fixture-dispatch-overload-exhausted');
+  bs=await eventually(()=>bindings(exhausted.threadId),bs=>bs.some(b=>b.terminal&&b.retry?.status==='exhausted'));
+  rows=await fixtureRows();assert.equal(rows[exhausted.threadId].turns.length,4);assert.equal(bs.flatMap(b=>b.deliveries).filter(d=>d.taskState==='failed').length,1);assert.ok(bs.some(b=>b.retry.attempts===3));
+  const unsafe=await dispatchFixture('fixture-dispatch-overload-side-effect');
+  await eventually(()=>bindings(unsafe.threadId),bs=>bs.some(b=>b.terminal&&b.retry?.status==='skipped'));
+  assert.equal((await fixtureRows())[unsafe.threadId].turns.length,1);
 });

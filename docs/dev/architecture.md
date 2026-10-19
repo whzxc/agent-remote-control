@@ -78,3 +78,5 @@ Core 汇总只读 permissions 状态，CLI doctor 与现有 overview 复用该�
 Core 的 SubscriptionService 统一调度各 provider 额度，保存启用与刷新间隔，额度来源随 Agent 自动参与，不保存来源选择或固定窗口；首页圆环固定使用上游周额度，详情保留其他额度窗口。原生凭据读取和上游响应归各 provider；成功读数缓存到 subscriptions/readings，恢复后标记 stale，失败退避，过期窗口隐藏。桌面 subscriptions:changed 与浏览器 /api/subscriptions/events 共用快照。旧缓存里的 history 字段读取时移除，不再采集本地用量、汇总 Token 或读取价格。
 
 Desktop 交互复用线程 IPC 快照和变化广播，观察器以两秒刷新兜底；异步 questions 按原始 questionItemId 关联已接受的 question-reply 消息。代答复用 codex_respond：异步问题发送 Desktop 原生回复文本，审批、输入和 elicitation 通过对应 follower 响应接口交给原执行者，再回读确认请求消失。用户身份验证和未公开响应路径的交互仅通知并提示回 Desktop；不接管线程，不自动批准。
+
+线程队列由 `dispatch_queue` 保存待发送参数与独立派发回执，线程级写锁保护检查与提交；通知观察器内的容量恢复只对无工具活动的 serverOverloaded 失败续轮。两者使用持久 requestId 消除 Core 重启后的盲目重发。`respond_tokens` 仅为原交互提供有期限的入口隔离别名，不替代原 owner 的回复校验。

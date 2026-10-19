@@ -245,6 +245,8 @@ impl Service {
             i.execution = service_mut.execution.clone();
             i.connected.store(true, Ordering::SeqCst);
         }
+        crate::claude_notify::start(&service.control, &service.agents);
+        crate::dispatch_queue::start(&service.control);
         Ok(service)
     }
     pub async fn ingress(&self, id: &str) -> Result<Arc<Ingress>> {
@@ -1026,6 +1028,18 @@ impl Service {
                                 .filter(|n| *n >= 1 && *n <= max)
                                 .ok_or("invalid notification setting")?;
                             settings[key] = json!(value);
+                        }
+                    }
+                    for (key, min, max) in [
+                        ("codexRetryMaxAttempts", 0, 10),
+                        ("codexRetryInitialSeconds", 1, 3600),
+                    ] {
+                        if let Some(value) = body.get(key) {
+                            let n = value
+                                .as_u64()
+                                .filter(|n| *n >= min && *n <= max)
+                                .ok_or("invalid retry setting")?;
+                            settings[key] = json!(n);
                         }
                     }
                     save(&root().join("task-settings.json"), &settings)?;

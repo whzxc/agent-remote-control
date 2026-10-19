@@ -445,13 +445,26 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
             .as_str()
             .or_else(|| value["taskId"].as_str())
             .or_else(|| args["taskId"].as_str())
-            .unwrap_or("");
-        let turn = value["turnId"].as_str().unwrap_or("");
+            .unwrap_or("")
+            .to_owned();
+        let turn = value["turnId"].as_str().unwrap_or("").to_owned();
         if !task.is_empty() && !turn.is_empty() && value["notification"] != "bind-failed" {
-            match crate::claude_notify::read(task, turn) {
+            let since = if matches!(string(&value, "operation"), "send" | "create") {
+                value["createdAt"].as_str()
+            } else {
+                None
+            };
+            match crate::claude_notify::read_since(&task, &turn, since) {
                 Ok(notification) => value["notification"] = notification,
                 Err(error) => {
                     value["notificationError"] = json!(error);
+                }
+            }
+        }
+        if !task.is_empty() && !turn.is_empty() {
+            if let Ok(retry) = crate::claude_notify::retry_status(&task, &turn) {
+                if !retry.is_null() {
+                    value["retry"] = retry;
                 }
             }
         }

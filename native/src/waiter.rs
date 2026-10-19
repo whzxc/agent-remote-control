@@ -305,7 +305,18 @@ impl WaitSource for CodexSource {
             return Err("native-thread-id-mismatch".into());
         }
         let events = self.events.lock().await;
-        value["pending"] = json!(events.pending.values().cloned().collect::<Vec<_>>());
+        let mut pending = events
+            .pending
+            .values()
+            .filter(|r| r["params"]["threadId"] == self.thread)
+            .cloned()
+            .collect::<Vec<_>>();
+        drop(events);
+        let origin = crate::kernel::origin::current_origin();
+        for request in &mut pending {
+            crate::respond_tokens::issue(string(&origin, "ingressId"), request)?;
+        }
+        value["pending"] = json!(pending);
         Ok(value)
     }
 }

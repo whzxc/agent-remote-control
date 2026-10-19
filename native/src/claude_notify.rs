@@ -1,6 +1,7 @@
 //! Turn-scoped control-source events, inboxes and fixed notification channels.
 use crate::*;
 mod governance;
+mod retry;
 use governance::State;
 pub(crate) use governance::{notify_control, notify_status};
 use serde::{Deserialize, Serialize};
@@ -121,6 +122,8 @@ struct Binding {
     continuation_bound: bool,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     caused_by: Value,
+    #[serde(default)]
+    retry: Value,
 }
 fn directory() -> PathBuf {
     root().join("notifications")
@@ -168,6 +171,7 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
         deliveries: vec![],
         continuation_bound: false,
         caused_by: Value::Null,
+        retry: Value::Null,
     });
     b.target = (!session.is_empty()).then(|| session.to_owned());
     persist(dir, &b)
@@ -183,6 +187,9 @@ enum Channel {
 }
 
 pub(crate) fn normalize(args: &mut Value) -> Result<()> {
+    if args["purpose"] == "self-test" && args.get("notify").is_none() {
+        args["notify"] = Value::Null;
+    }
     if args["notify"]["channel"] == "claude-session" {
         args["notify"]["target"] = json!(session_id(string(&args["notify"], "target"))?);
     }
@@ -237,8 +244,11 @@ pub(crate) async fn bind(
             .unwrap_or(&b.project)
             .into();
     }
-    if created && cause.is_object() {
-        b.caused_by = cause;
+    if created {
+        if cause.is_object() {
+            b.caused_by = cause;
+        }
+        b.retry = json!({"model":args["_retryModel"],"turn":args["_retryTurn"],"attempts":args["_retryAttempt"].as_u64().unwrap_or(0),"origin":crate::kernel::origin::current_origin()});
     }
     let state = State::load(&dir)?;
     if let Some(rule) = state.rule(&b) {
@@ -303,7 +313,39 @@ fn notification(b: Option<Binding>) -> Value {
     })).unwrap_or(Value::Null)
 }
 pub(crate) fn read(thread: &str, turn: &str) -> Result<Value> {
-    Ok(notification(binding(&directory(), thread, turn)?))
+    read_since(thread, turn, None)
+}
+pub(crate) fn read_since(thread: &str, turn: &str, since: Option<&str>) -> Result<Value> {
+    Ok(notification_since(
+        binding(&directory(), thread, turn)?,
+        since,
+    ))
+}
+fn notification_since(mut b: Option<Binding>, since: Option<&str>) -> Value {
+    if let (Some(b), Some(at)) = (
+        &mut b,
+        since.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok()),
+    ) {
+        b.deliveries
+            .retain(|d| d.timing.queued_at.unwrap_or(d.created_at * 1000) >= at.timestamp_millis());
+    }
+    notification(b)
+}
+pub(crate) fn retry_pending(thread: &str, turn: &str) -> Result<bool> {
+    Ok(binding(&directory(), thread, turn)?.is_some_and(|b| {
+        !b.terminal && matches!(string(&b.retry, "status"), "scheduled" | "submitting")
+    }))
+}
+pub(crate) fn retry_status(thread: &str, turn: &str) -> Result<Value> {
+    let Some(b) = binding(&directory(), thread, turn)? else {
+        return Ok(Value::Null);
+    };
+    if b.retry["status"].is_null() && b.retry["attempts"].as_u64().unwrap_or(0) == 0 {
+        return Ok(Value::Null);
+    }
+    Ok(
+        json!({"status":b.retry["status"],"attempts":b.retry["attempts"],"nextAttempt":b.retry["nextAttempt"],"notBefore":b.retry["notBefore"],"reason":b.retry["reason"],"successorTurnId":b.retry["successorTurnId"]}),
+    )
 }
 fn event(b: &Binding, d: &Delivery) -> Value {
     let kind = match d.task_state.as_str() {
@@ -365,6 +407,9 @@ fn question_lines(question: &Value) -> String {
 fn response_call(b: &Binding, r: &Value) -> Option<Value> {
     if r["canRespond"] == false {
         return None;
+    }
+    if r["respondToken"].is_string() && (b.agent.is_empty() || b.agent == "codex") {
+        return Some(json!({"op":"codex_respond","args":{"respondToken":r["respondToken"]}}));
     }
     if r["next"]["via"] == "act" && r["next"]["args"].is_object() {
         return Some(json!({"op":r["next"]["op"],"args":r["next"]["args"]}));
@@ -464,7 +509,10 @@ fn message(b: &Binding) -> String {
                     else { json!({"op":"codex_items","args":{"threadId":b.thread_id,"turnId":b.turn_id,"latest":true,"limit":1,"length":65536}}) };
                 lines.push(format!("query={call}"));
             },
-            "failed" | "interrupted" => lines.push(format!("error: {}", if d.task_error.is_null() {"(not provided by task owner)".into()} else {literal(&d.task_error)})),
+            "failed" | "interrupted" => {
+                lines.push(format!("error: {}", if d.task_error.is_null() {"(not provided by task owner)".into()} else {literal(&d.task_error)}));
+                if !b.retry["status"].is_null() || b.retry["attempts"].as_u64().unwrap_or(0)>0 { lines.push(format!("retry: attempts={} status={}{}",b.retry["attempts"].as_u64().unwrap_or(0),b.retry["status"].as_str().unwrap_or("none"),if b.retry["reason"].is_null(){String::new()}else{format!(" reason={}",literal(&b.retry["reason"]))})); }
+            },
             _ => lines.push(interaction_text(b, &d.interaction)),
         }
         lines.join("\n")
@@ -943,36 +991,74 @@ pub(crate) async fn acknowledge(args: &Value) -> Result<Value> {
 }
 fn acknowledge_in(dir: &Path, ingress: &str, args: &Value) -> Result<Value> {
     let path = inbox_path(dir, ingress);
-    if !path.exists() {
-        return Ok(json!({"markedRead":0}));
-    }
-    let mut rows = load(&path)?;
-    let mut count = 0;
+    let mut rows = if path.exists() {
+        load(&path)?
+    } else {
+        json!([])
+    };
     let bindings = records(dir)?;
     let mut state = State::load(dir)?;
     let now = chrono::Utc::now().timestamp();
-    for row in rows.as_array_mut().ok_or("INVALID_INBOX")? {
-        if row["read"] != true
-            && (args["all"] == true
-                || args["eventIds"]
-                    .as_array()
-                    .is_some_and(|ids| ids.contains(&row["eventId"])))
-        {
-            row["read"] = json!(true);
-            row["readAt"] = json!(now);
-            if let Some(b) = bindings.iter().find(|b| {
-                b.ingress == ingress
-                    && row["turnId"] == b.turn_id
-                    && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
-            }) {
-                state.thread(b, now).last_ack_at = Some(now);
-            }
-            count += 1;
+    let ids: std::collections::BTreeSet<String> = if args["all"] == true {
+        rows.as_array()
+            .ok_or("INVALID_INBOX")?
+            .iter()
+            .filter_map(|r| r["eventId"].as_str().map(str::to_owned))
+            .collect()
+    } else {
+        args["eventIds"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect()
+    };
+    let (mut marked, mut already) = (0, 0);
+    let mut missing = Vec::new();
+    for id in ids {
+        let bound = bindings
+            .iter()
+            .filter(|b| b.ingress == ingress)
+            .find_map(|b| {
+                b.deliveries
+                    .iter()
+                    .find(|d| d.event_id == id)
+                    .map(|d| (b, d))
+            });
+        let index = rows
+            .as_array()
+            .unwrap()
+            .iter()
+            .position(|r| r["eventId"] == id);
+        if index.is_none() && bound.is_none() {
+            missing.push(id);
+            continue;
+        }
+        let read = index.is_some_and(|i| rows[i]["read"] == true)
+            || bound.is_some_and(|(_, d)| {
+                matches!(d.status.as_str(), "delivered" | "digested" | "resolved")
+            });
+        if read {
+            already += 1;
+        } else {
+            marked += 1;
+        }
+        let index = index.unwrap_or_else(|| {
+            let (b, d) = bound.unwrap();
+            rows.as_array_mut().unwrap().push(event(b, d));
+            rows.as_array().unwrap().len() - 1
+        });
+        rows[index]["read"] = json!(true);
+        rows[index]["readAt"] = json!(now);
+        if let Some((b, _)) = bound {
+            state.thread(b, now).last_ack_at = Some(now);
         }
     }
     save(&path, &rows)?;
     state.save(dir)?;
-    Ok(json!({"markedRead":count}))
+    Ok(
+        json!({"markedRead":marked,"alreadyRead":already,"notFound":missing.len(),"notFoundEventIds":missing}),
+    )
 }
 
 // An old Desktop callback is eligible only if this ingress was actually given it.
@@ -1037,6 +1123,8 @@ pub(crate) fn settings() -> Result<Value> {
         ("notificationBucketCapacity", json!(10)),
         ("notificationRefillSeconds", json!(60)),
         ("notificationEscalationSeconds", json!(900)),
+        ("codexRetryMaxAttempts", json!(3)),
+        ("codexRetryInitialSeconds", json!(30)),
     ] {
         if settings[key].is_null() {
             settings[key] = value;
@@ -1269,17 +1357,20 @@ async fn flush(
             let mut single = b.clone();
             single.deliveries = vec![b.deliveries[*di].clone()];
             if !*digest {
-                blocks.push(format!(
-                    "{}\n{}",
-                    message(&single),
-                    health(
-                        b,
-                        &b.deliveries[*di],
-                        wakes,
-                        remaining,
-                        governance::capacity(settings)
-                    )
-                ));
+                let mut block = message(&single);
+                if throttled || remaining <= (governance::capacity(settings) / 5).max(1) {
+                    block.push_str(&format!(
+                        "\n{}",
+                        health(
+                            b,
+                            &b.deliveries[*di],
+                            wakes,
+                            remaining,
+                            governance::capacity(settings)
+                        )
+                    ));
+                }
+                blocks.push(block);
             }
             if let Some(r) = reserved
                 .iter_mut()
@@ -1304,13 +1395,20 @@ async fn flush(
                     .find(|b| b.thread_id == r.thread_id && b.turn_id == r.turn_id)
                     .unwrap();
                 blocks.push(format!(
-                    "[ARC] digest · {} · {}\nthread={} turn={}\ncounts: {}\n{}",
+                    "[ARC] digest · {} · {}\nthread={} turn={}\ncounts: {}{}",
                     r.project,
                     r.title,
                     r.thread_id,
                     r.turn_id,
                     json!(counts),
-                    health(full, last, wakes, remaining, governance::capacity(settings))
+                    if throttled || remaining <= (governance::capacity(settings) / 5).max(1) {
+                        format!(
+                            "\n{}",
+                            health(full, last, wakes, remaining, governance::capacity(settings))
+                        )
+                    } else {
+                        String::new()
+                    }
                 ));
             }
         }
@@ -1664,7 +1762,12 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                             let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
                             let result = tokio::time::timeout(Duration::from_secs(10), async {
                                 if b.agent.is_empty() || b.agent == "codex" {
-                                    crate::waiter::codex_observe(&c, &args).await
+                                    crate::kernel::origin::ORIGIN
+                                        .scope(
+                                            json!({"ingressId":b.ingress}),
+                                            crate::waiter::codex_observe(&c, &args),
+                                        )
+                                        .await
                                 } else {
                                     agents
                                         .observe_notification(&b.agent, &b.thread_id, &b.turn_id)
@@ -1681,6 +1784,21 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                         continue;
                     };
                     let mut b = old;
+                    let mut observed = observed;
+                    for request in observed["interaction"].as_array_mut().into_iter().flatten() {
+                        crate::respond_tokens::issue(&b.ingress, request)?;
+                    }
+                    match retry::handle(&control, &mut b, &observed).await {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(error) => {
+                            // Fail closed: incomplete history must not hide a failure indefinitely.
+                            b.retry["status"] = json!("skipped");
+                            b.retry["reason"] = json!(error);
+                            let retry = b.retry.clone();
+                            retry::update(&mut b, retry, false).await?;
+                        }
+                    }
                     process(&directory(), &LOCK, &mut b, &observed).await?;
                 }
                 Ok::<_, String>(())
@@ -2196,6 +2314,69 @@ mod tests {
             assert!(message(&terminal).ends_with("error: 原始错误\n详情"));
         }
         assert!(!message(&b).contains("**任务**"));
+    }
+    #[tokio::test]
+    async fn quiet_receipts_health_and_ack_distinguish_consumed_events() {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        b.ingress = "claude".into();
+        persist(&dir.0, &b).unwrap();
+        let fake = Fake::success();
+        super::process(
+            &dir.0,
+            &Mutex::new(()),
+            &mut b,
+            &json!({"state":"completed","finalResponse":{"text":"done"}}),
+        )
+        .await
+        .unwrap();
+        flush(
+            &fake,
+            &dir.0,
+            &Mutex::new(()),
+            chrono::Utc::now().timestamp() + 31,
+            30,
+            &json!({"notificationBucketCapacity":10}),
+        )
+        .await
+        .unwrap();
+        let calls = fake.calls.lock().unwrap();
+        assert!(!calls[0][1].contains("桶余量"));
+        assert!(!calls[0][1].contains("近 10 分钟"));
+        drop(calls);
+        b = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
+        let e = b.deliveries[0].event_id.clone();
+        let ack = acknowledge_in(&dir.0, "claude", &json!({"eventIds":[e,e,"missing"]})).unwrap();
+        assert_eq!(ack["markedRead"], 0);
+        assert_eq!(ack["alreadyRead"], 1);
+        assert_eq!(ack["notFound"], 1);
+        assert_eq!(
+            acknowledge_in(&dir.0, "other", &json!({"eventIds":[e]})).unwrap()["notFound"],
+            1
+        );
+        let since =
+            chrono::DateTime::from_timestamp_millis(b.deliveries[0].timing.queued_at.unwrap() + 1)
+                .unwrap()
+                .to_rfc3339();
+        assert_eq!(
+            notification_since(Some(b.clone()), Some(&since))["deliveries"],
+            json!([])
+        );
+        assert_eq!(
+            notification(Some(b))["deliveries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let mut args = json!({"purpose":"self-test"});
+        normalize(&mut args).unwrap();
+        assert!(args.get("notify").is_some_and(Value::is_null));
+        let request = json!({"respondToken":"abcdefghijklmnopqrstuv","backendSession":"session","id":"legacy","method":"request_user_input_async","params":{"question":"原文","options":[]}});
+        let rendered = interaction_text(&fixture(&dir.0), &request);
+        assert!(rendered.contains("respondToken"));
+        assert!(!rendered.contains("backendSession"));
+        assert!(rendered.contains("question: 原文"));
     }
     #[tokio::test]
     async fn inbox_session_dedup_and_scoped_ack() {

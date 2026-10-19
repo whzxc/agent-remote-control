@@ -755,7 +755,29 @@ impl Control {
         }
         Ok(snapshot)
     }
+    pub(crate) async fn thread_lock(&self, thread: &str) -> tokio::sync::OwnedMutexGuard<()> {
+        self.requests.lock(&format!("thread-write:{thread}")).await
+    }
     async fn perform(&self, operation: &str, args: &Value, r: &mut Value) -> Result<Value> {
+        if operation == "send" && args["sendMode"] == "queue" {
+            return crate::dispatch_queue::enqueue(args, r).await;
+        }
+        let thread_key = args["threadId"]
+            .as_str()
+            .or_else(|| args["params"]["threadId"].as_str())
+            .unwrap_or("");
+        let _thread_guard = if !thread_key.is_empty()
+            && (matches!(operation, "send" | "interrupt")
+                || (operation == "native"
+                    && matches!(
+                        string(args, "method"),
+                        "turn/start" | "turn/steer" | "turn/interrupt" | "thread/resume"
+                    ))) {
+            Some(self.thread_lock(thread_key).await)
+        } else {
+            None
+        };
+
         if matches!(operation, "edit" | "write") {
             return crate::text_files::write(self, operation, args).await;
         }
@@ -768,9 +790,27 @@ impl Control {
             return crate::projects::write(self, args).await;
         }
         if operation == "respond" {
+            let token_request = if args["respondToken"].is_string() {
+                Some(crate::respond_tokens::resolve(args)?)
+            } else {
+                None
+            };
+            let mut resolved = args.clone();
+            if let Some(pending) = &token_request {
+                let key = pending.get("responseId").unwrap_or(&pending["id"]);
+                resolved["id"] = json!(key
+                    .as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| key.to_string()));
+                resolved["backendSession"] = pending["backendSession"].clone();
+            }
+            let args = &resolved;
             let key = string(args, "id");
             let recovered = args["backendSession"] != self.session;
             if recovered
+                && !token_request
+                    .as_ref()
+                    .is_some_and(|r| r["owner"] == "desktop")
                 && !crate::claude_notify::recoverable_response(key, string(args, "backendSession"))?
             {
                 return Err("STALE_INTERACTION".into());
@@ -791,6 +831,16 @@ impl Control {
                 .get(key)
                 .cloned()
                 .ok_or("STALE_INTERACTION")?;
+            if let Some(expected) = &token_request {
+                if pending["params"]["threadId"] != expected["params"]["threadId"]
+                    || pending["params"]["turnId"] != expected["params"]["turnId"]
+                {
+                    return Err("RESPOND_TOKEN_SCOPE_MISMATCH".into());
+                }
+            }
+            let _thread_guard = self
+                .thread_lock(string(&pending["params"], "threadId"))
+                .await;
             if recovered && pending["owner"] != "desktop" {
                 return Err("STALE_INTERACTION".into());
             }
@@ -813,6 +863,9 @@ impl Control {
                     crate::claude_notify::inherit(thread, string(&result, "answeredTurnId"), turn)
                         .await?;
                 }
+                crate::respond_tokens::consume(args).map_err(|e| {
+                    format!("SUBMISSION_UNCONFIRMED: response sent; token persistence failed: {e}")
+                })?;
                 return Ok(result);
             }
             let rpc = self.utility().await?;
@@ -829,8 +882,12 @@ impl Control {
                 .await
                 .map_err(|e| format!("SUBMISSION_UNCONFIRMED: {e}"))?;
             self.events.lock().await.pending.remove(key);
+            crate::respond_tokens::consume(args).map_err(|e| {
+                format!("SUBMISSION_UNCONFIRMED: response sent; token persistence failed: {e}")
+            })?;
             return Ok(json!({"responseSent":true,"backendSession":self.session,"id":key}));
         }
+        let mut retry_args = args.clone();
         let mut params = args["params"].clone();
         let mut method = string(args, "method").to_owned();
         let timeout = args["timeoutMs"].as_u64().unwrap_or(86400000);
@@ -884,13 +941,20 @@ impl Control {
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["state"] = json!("turn-submitting");
             self.checkpoint(r)?;
+            retry_args["_retryModel"] = turn
+                .get("model")
+                .filter(|m| m.is_string())
+                .cloned()
+                .unwrap_or_else(|| result["model"].clone());
+            retry_args["_retryTurn"] = retry_turn(&turn);
             let out = self.request_inner("turn/start", turn, timeout).await?;
+            r["dispatchMode"] = json!("new-turn");
             if !background {
                 let _ = self.follow(thread).await;
             }
             r["turnId"] = out["turn"]["id"].clone();
             let notification_binding = crate::claude_notify::bind(
-                args,
+                &retry_args,
                 thread,
                 string(r, "turnId"),
                 string(&result["thread"], "cwd"),
@@ -951,10 +1015,37 @@ impl Control {
             params["threadId"] = json!(thread);
             params["input"] = input;
             r["task"]["directory"] = state["cwd"].clone();
+            if args["_newTurn"] == true {
+                if active.is_some() {
+                    return Err(
+                        "QUEUED_OR_RETRY_THREAD_ADVANCED: thread is active; no message submitted"
+                            .into(),
+                    );
+                }
+                if args.get("_expectedPreviousTurn").is_some() {
+                    let latest=self.request("thread/turns/list",json!({"threadId":thread,"limit":1,"sortDirection":"desc","itemsView":"notLoaded"}),10000).await?;
+                    let turns = latest["data"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
+                    if turns.first().map(|t| &t["id"]).unwrap_or(&Value::Null)
+                        != &args["_expectedPreviousTurn"]
+                    {
+                        return Err("QUEUED_OR_RETRY_THREAD_ADVANCED: no message submitted".into());
+                    }
+                }
+            }
+            retry_args["_retryModel"] = params
+                .get("model")
+                .filter(|m| m.is_string())
+                .or_else(|| state.get("model").filter(|m| m.is_string()))
+                .or_else(|| state.get("latestModel").filter(|m| m.is_string()))
+                .cloned()
+                .unwrap_or(Value::Null);
+            retry_args["_retryTurn"] = retry_turn(&params);
             if let Some(active) = active {
+                r["dispatchMode"] = json!("steered");
                 method = "turn/steer".into();
                 params["expectedTurnId"] = active.get("turnId").unwrap_or(&active["id"]).clone();
             } else {
+                r["dispatchMode"] = json!("new-turn");
                 method = "turn/start".into();
                 r["turnBaseline"] = crate::changes::capture(
                     params["cwd"]
@@ -1001,7 +1092,7 @@ impl Control {
                 .unwrap_or("");
             r["turnId"] = json!(turn);
             let notification_binding = crate::claude_notify::bind(
-                args,
+                &retry_args,
                 string(r, "threadId"),
                 turn,
                 string(&r["task"], "directory"),
@@ -1074,6 +1165,8 @@ impl Control {
             "codex_changes" => crate::changes::query(self, &args).await,
             "codex_create" => self.mutate("create", args).await,
             "codex_send" => self.mutate("send", args).await,
+            "codex_queue" => crate::dispatch_queue::query(&args).await,
+            "codex_queue_control" => crate::dispatch_queue::control(self, &args).await,
             "codex_interrupt" => self.mutate("interrupt", args).await,
             "codex_call" => self.mutate("native", args).await,
             "codex_query" => {
@@ -1105,7 +1198,7 @@ impl Control {
                         self.ipc().await?.read(thread, true).await?;
                     }
                 }
-                let requests: Vec<_> = self
+                let mut requests: Vec<_> = self
                     .events
                     .lock()
                     .await
@@ -1122,6 +1215,10 @@ impl Control {
                         r
                     })
                     .collect();
+                let origin = crate::kernel::origin::current_origin();
+                for request in &mut requests {
+                    crate::respond_tokens::issue(string(&origin, "ingressId"), request)?;
+                }
                 Ok(json!({"backendSession":self.session,"requests":requests}))
             }
             "codex_respond" => self.mutate("respond", args).await,
@@ -1201,6 +1298,8 @@ impl Control {
                     for turn in turns {
                         turn["notification"] =
                             crate::claude_notify::read(id, string(turn, "turnId"))?;
+                        turn["retry"] =
+                            crate::claude_notify::retry_status(id, string(turn, "turnId"))?;
                     }
                 }
                 Ok(result)
@@ -1347,6 +1446,15 @@ fn task_input(args: &Value) -> Result<Value> {
             .cloned()
             .unwrap_or_else(|| json!([{"type":"text","text":args["prompt"]}])),
     )
+}
+fn retry_turn(params: &Value) -> Value {
+    let mut params = params.clone();
+    if let Some(p) = params.as_object_mut() {
+        for key in ["input", "threadId", "expectedTurnId"] {
+            p.remove(key);
+        }
+    }
+    params
 }
 fn configured(args: &Value, cwd: &str) -> Result<Value> {
     let mut p = json!({});

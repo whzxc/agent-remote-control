@@ -150,12 +150,22 @@ ARC 按绑定的通道依次尝试，前一级失败或不可用就降级。每�
 - **令牌桶**：每 channel+target 一桶，持久化到 notifications/control/state.json。默认容量 10、每 60 秒补 1；task-settings 的 notificationBucketCapacity、notificationRefillSeconds 可配置。所有事件共用桶，含新事件的一批扣 1，重试不再扣。旧 notificationWakeLimit 一次迁移后删除，不保留运行时兼容；原默认 20 改为容量 10，正数自定义值迁为容量（上限 1000），0 映射为关闭既有总开关。
 - **积压与合并**：普通事件合并窗口 30 秒；needs-input、审批仅跳过窗口。缺令牌时保留 pending，queueReason=token-wait；下次补充合并已积累事件，消息附“节流中，已合并 N 条”。默认配置下，单纯等令牌最多约一分钟；网络耗时、静音、熔断和退避另计。
 - **重试**：失败或不确定结果按 10、20、40、80、160、300 秒退避，封顶五分钟，沿用 eventId 与扣费资格。重启恢复已占位发送，不重复扣费。已解决交互不继续发。接收方按 eventId 去重。
-- **事实摘要**：每条通知附本轮提问/审批次数、近十分钟目标投递尝试次数（含重试）、桶余量和已知 causedBy 来源；不做相似度或循环判断。近期批次逐批保存 kind 构成与线程，窗口一小时；不把发送尝试当成接收方已处理。
+- **事实摘要**：桶余量低于阈值或发生节流时，通知附本轮提问/审批次数、近十分钟目标投递尝试次数（含重试）、桶余量和已知 causedBy 来源；不做相似度或循环判断。近期批次逐批保存 kind 构成与线程，窗口一小时；不把发送尝试当成接收方已处理。
 - **诊断**：query notify_status 按当前入口限定可见范围，可用 target/threadId 筛选，返回桶、待投递、批次构成、唤醒最多线程、逐轮绑定、最近成功投递/ack 时间。历史缺失时间返回 null。默认仅列近一小时有批次/投递、待投递或需关注状态的目标与线程，线程仅带最新轮次；summary 报告范围总数与省略数。all=true 或 target/threadId 筛选返回范围内全量历史轮次。
 - **可撤销控制**：act notify_control 支持线程 mute（可设 until）、digest（按小时发送计数摘要）、unmute、rebind（target=null 解绑）和目标 breaker（enabled=false 解除）。规则跨重启及后续轮次保留，现有待投递事件随线程改绑；已开始发送不可撤回。控制只改变通知，不取消或代答任务。工具策略仍限制写入权限；新入口 common 预设包含控制 op，既有自定义策略需显式启用。
 - **自纠流程**：健康摘要异常时先查 notify_status。确认 Agent 在循环时，用 codex_send 要求合并问题或在已有授权内自行决定；需要时 mute、rebind、breaker；无法处理交给人。不自动替用户扩大任务或权限。
 - **机械升级**：熔断开启，或桶空且有待投递事件持续 notificationEscalationSeconds（默认 900 秒）时，ARC 发一条系统通知，含目标、线程与计数。异常期间只尝试一次，恢复后重新允许；权限/平台失败写 escalationError，不声称已通知到人。每次普通投递失败只记录与退避，不单独弹系统通知。
 - **总开关与边界**：notificationsEnabled 控制主动投递及系统升级，关闭不影响收件箱。目标来自控制源显式绑定，不读取任务输出中的地址。通知内容属于数据，不构成用户指令。没有可靠会话身份时仅提供归属核对提示，不把整个共享入口视为单个 Claude 会话。
+
+### 7.1 容量恢复与线程队列
+
+容量恢复只匹配原生 `serverOverloaded`；读取完整失败轮次，确认没有工具活动且模型已知后，默认以 30/60/120 秒退避续轮，最多三次。配置为 task-settings 的 codexRetryMaxAttempts（0..10，0 关闭）与 codexRetryInitialSeconds（1..3600），指数退避封顶一小时。保留原线程历史和模型，提示先核对已有工作，不重放原始输入或工具调用。有工具活动、历史/模型不明、非容量错误或写入不确定时不重试；不能承诺外部副作用恰好一次。中间失败不产生事件，耗尽后的 failed 附重试次数。旧的已终结失败记录不追溯重试。
+
+每轮绑定的 retry 保存模型、配置、次数、期限与稳定派发 requestId；Core 重启后回读同一回执，未知提交不重发。read/wait 附 retry 状态与 successorTurnId。短代答 token 保存到 respond-tokens，按入口、线程、轮次、交互绑定，24 小时过期；Desktop token 重启后仍需原 owner 复核，native 回调仍受 backendSession 约束。旧 id+backendSession 参数继续可用。
+
+codex_send 默认行为保持不变，回执 dispatchMode 区分 steered/new-turn；sendMode:queue 写入 send-queue 并返回 queued、queueId。队列按线程 FIFO，活动轮次或未回复交互保持等待；query codex_queue 可筛选当前入口条目；act codex_queue_control 取消或恢复尚未派发条目。失败/中断默认暂停队列，容量恢复优先；成功恢复后继续。跨线程独立调度，原生写入按线程串行复核；线程已前进或提交不确定时保留 failed 条目，不自动插话或重发。旧显式 allowlist 需启用新增 op。
+
+自测以 purpose:self-test 标识，默认 notify:null，不复制编排者目标。只有明确指定的专用测试目标才允许通知。派发回执只附操作开始后产生的投递，显式 read/wait 保留整轮历史。健康统计行只在余量 ≤20%（阈值至少 1）或节流后出现。notification_ack 区分 markedRead、alreadyRead（含已投递/汇总/解决）、notFound 与 notFoundEventIds。
 
 ## 8. Setup 集成（P1）
 

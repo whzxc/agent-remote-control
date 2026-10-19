@@ -36,6 +36,9 @@ pub fn receipt(value: Value) -> Value {
     let mut out = json!({});
     for key in [
         "requestId",
+        "createdAt",
+        "dispatchMode",
+        "queueId",
         "state",
         "operation",
         "threadId",
