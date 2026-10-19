@@ -1137,3 +1137,20 @@
 @media (max-width: 560px) {
   .setup-progress-columns { grid-template-columns: 1fr; }
 }
+
+.update-check {
+  display: inline-grid;
+}
+.update-check > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.update-check-size {
+  visibility: hidden;
+}
+.update-check-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 0;
+  min-width: 100%;
+}

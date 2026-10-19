@@ -47,6 +47,7 @@
   "appUpdates": "App updates",
   "aboutApp": "About",
   "checkingLabel": "Checking…",
+  "updateCheckRetry": "Check failed · Retry",
   "checkForUpdates": "Check for updates",
   "newVersionValue": "New version {version}",
   "viewUpdate": "View update",

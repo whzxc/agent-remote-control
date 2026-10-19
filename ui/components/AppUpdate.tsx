@@ -22,34 +22,47 @@ import {
   Notice,
   Progress,
   Icon,
+  Tooltip,
 } from "./ui";
 import { displayMessage } from "../messages";
 export function AppUpdate() {
   const { status } = connector.use(),
     state = updates.use(),
     checking = state.checking,
-    active = state.phase !== "idle";
+    active = state.phase !== "idle",
+    feedback = !state.dialogOpen && (state.error || state.message),
+    label = checking
+      ? t("checkingLabel")
+      : feedback
+        ? state.error ? t("updateCheckRetry") : displayMessage(state.message)
+        : t("checkForUpdates");
   return (
     <Group title={t("aboutApp")}>
       <Row title={`Agent Remote Control v${status?.version ?? "—"}`}>
-        <Button
-          busy={checking}
-          disabled={!isDesktop || active}
-          onClick={() => void checkUpdate()}
-        >
-          {t("checkForUpdates")}
-        </Button>
+        <Tooltip text={feedback ? displayMessage(feedback) : label}>
+          <Button
+            className="update-check"
+            aria-busy={checking}
+            disabled={!isDesktop || active || checking}
+            onClick={() => void checkUpdate()}
+          >
+            <span className="update-check-size" aria-hidden="true">
+              {t("checkForUpdates")}
+            </span>
+            <span className="update-check-size" aria-hidden="true">
+              {t("youAreUpToDate")}
+            </span>
+            <span className="update-check-size" aria-hidden="true">
+              {t("updateCheckRetry")}
+            </span>
+            <span className="update-check-label" aria-live="polite">{label}</span>
+          </Button>
+        </Tooltip>
       </Row>
       {updateVisible() && (
         <Row title={t("newVersionValue", { version: state.update?.version })}>
           <Button onClick={showUpdate}>{t("viewUpdate")}</Button>
         </Row>
-      )}
-      {!state.dialogOpen && state.error && (
-        <Notice>{displayMessage(state.error)}</Notice>
-      )}
-      {!state.dialogOpen && state.message && (
-        <Notice tone="success">{displayMessage(state.message)}</Notice>
       )}
       <Row title="whzxc/agent-remote-control">
         <Button

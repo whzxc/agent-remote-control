@@ -47,6 +47,7 @@
   "appUpdates": "应用更新",
   "aboutApp": "关于",
   "checkingLabel": "检查中…",
+  "updateCheckRetry": "检查失败 · 重试",
   "checkForUpdates": "检查更新",
   "newVersionValue": "新版本 {version}",
   "viewUpdate": "查看更新",
