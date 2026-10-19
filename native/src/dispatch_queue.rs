@@ -68,6 +68,22 @@ pub(crate) async fn enqueue(args: &Value, receipt: &mut Value) -> Result<Value> 
     receipt["dispatchMode"] = json!("queued");
     Ok(json!({"accepted":true,"queueId":row["queueId"],"status":row["state"]}))
 }
+pub(crate) async fn counts() -> Result<std::collections::HashMap<String, Value>> {
+    let _guard = LOCK.lock().await;
+    let mut counts = std::collections::HashMap::new();
+    for row in records()?.into_iter().filter(|r| {
+        visible(r) && matches!(string(r, "state"), "queued" | "blocked" | "dispatching")
+    }) {
+        let entry = counts
+            .entry(string(&row, "threadId").to_owned())
+            .or_insert(json!({"pending":0,"blocked":0}));
+        entry["pending"] = json!(entry["pending"].as_u64().unwrap() + 1);
+        if row["state"] == "blocked" {
+            entry["blocked"] = json!(entry["blocked"].as_u64().unwrap() + 1);
+        }
+    }
+    Ok(counts)
+}
 pub(crate) async fn query(args: &Value) -> Result<Value> {
     let _guard = LOCK.lock().await;
     let rows = records()?

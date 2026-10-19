@@ -80,6 +80,8 @@ struct Delivery {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     final_response: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
+    changes: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
     task_error: Value,
     #[serde(default)]
     timing: DeliveryTiming,
@@ -490,6 +492,70 @@ fn interaction_text(b: &Binding, r: &Value) -> String {
     }
     lines
 }
+fn changes_text(b: &Binding, changes: &Value) -> Vec<String> {
+    let query = json!({"op":"codex_changes","args":{"threadId":b.thread_id,"turnId":b.turn_id}});
+    if changes.is_null() || !changes["unavailable"].is_null() {
+        return vec![
+            format!(
+                "changes: unavailable ({})",
+                changes["unavailable"]
+                    .as_str()
+                    .unwrap_or("not captured for this event")
+            ),
+            format!("query={query}"),
+        ];
+    }
+    let stats = &changes["summary"];
+    let fallback = changes["fallback"] == true;
+    let mut lines = vec![format!(
+        "changes (truncated={}, scope={}): {} files, +{} -{}, {} binary/unreadable",
+        if changes["truncated"] == true {
+            "yes"
+        } else {
+            "no"
+        },
+        if fallback {
+            "current-workspace; turn baseline unavailable"
+        } else {
+            "workspace since turn start"
+        },
+        stats["files"],
+        stats["added"],
+        stats["removed"],
+        stats["binaryOrUnreadable"]
+    )];
+    lines.push("attribution: may include other tasks and pre-existing dirty files; not exclusively attributable to this task".into());
+    lines.push(format!(
+        "changes observedAt={}",
+        string(changes, "observedAt")
+    ));
+    if !fallback {
+        lines.push(format!("commits: {}", changes["commitCount"]));
+        for commit in changes["commits"].as_array().into_iter().flatten() {
+            lines.push(format!(
+                "{} {}",
+                string(commit, "sha").chars().take(8).collect::<String>(),
+                string(commit, "title")
+            ));
+        }
+    }
+    if fallback || changes["truncated"] == true {
+        lines.push(format!("query={query}"));
+    }
+    lines
+}
+fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
+    observed["state"] == "completed"
+        && (b.agent.is_empty() || b.agent == "codex")
+        && observed["finalResponse"]
+            .as_str()
+            .or_else(|| observed["finalResponse"]["text"].as_str())
+            .is_none_or(|s| s.trim().is_empty())
+        && (b.continuation_bound
+            || b.deliveries
+                .iter()
+                .any(|d| d.interaction["method"] == "request_user_input_async"))
+}
 fn message(b: &Binding) -> String {
     b.deliveries.iter().map(|d| {
         let event = event(b, d);
@@ -500,14 +566,14 @@ fn message(b: &Binding) -> String {
         match string(&event,"kind") {
             "completed" => {
                 let text = d.final_response.as_str().or_else(|| d.final_response["text"].as_str());
-                if let Some(text) = text {
-                    let truncated = text.chars().count() > 2000 || d.final_response["textTruncated"] == true;
-                    lines.push(format!("final (truncated={}):\n{}", if truncated {"yes"} else {"no"}, text.chars().take(2000).collect::<String>()));
-                    if !truncated { return lines.join("\n"); }
-                } else { lines.push("final: unavailable".into()); }
-                let call = if agent { json!({"op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}}) }
-                    else { json!({"op":"codex_items","args":{"threadId":b.thread_id,"turnId":b.turn_id,"latest":true,"limit":1,"length":65536}}) };
-                lines.push(format!("query={call}"));
+                let truncated=text.is_none_or(|text|text.chars().count()>2000 || d.final_response["textTruncated"]==true);
+                if let Some(text)=text {lines.push(format!("final (truncated={}):\n{}",if truncated{"yes"}else{"no"},text.chars().take(2000).collect::<String>()));}
+                else {lines.push("final: unavailable".into());}
+                if truncated {
+                    let call=if agent {json!({"op":"agent_read","args":{"agent":b.agent,"taskId":b.thread_id}})}else{json!({"op":"codex_items","args":{"threadId":b.thread_id,"turnId":b.turn_id,"latest":true,"limit":1,"length":65536}})};
+                    lines.push(format!("query={call}"));
+                }
+                if !agent {lines.extend(changes_text(b,&d.changes));}
             },
             "failed" | "interrupted" => {
                 lines.push(format!("error: {}", if d.task_error.is_null() {"(not provided by task owner)".into()} else {literal(&d.task_error)}));
@@ -778,8 +844,14 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         }
     }
     let previous_waiting = b.waiting.clone();
-    let events = transitions(b, observation);
-    if events.is_empty() && b.waiting == previous_waiting && !resolved {
+    let was_terminal = b.terminal;
+    let suppress_empty = empty_answered_completion(b, observation);
+    let mut events = transitions(b, observation);
+    if suppress_empty {
+        events.clear();
+    }
+    if events.is_empty() && b.waiting == previous_waiting && b.terminal == was_terminal && !resolved
+    {
         return Ok(());
     }
     let first = b.deliveries.len();
@@ -806,6 +878,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             } else {
                 Value::Null
             },
+            changes: observation["changes"].clone(),
             task_error: if matches!(string(observation, "state"), "failed" | "cancelled") {
                 observation["error"].clone()
             } else {
@@ -1775,6 +1848,13 @@ pub(crate) fn start(control: &Arc<control::Control>, agents: &Arc<crate::agents:
                                 }
                             })
                             .await;
+                            let result = match result {
+                                Ok(Ok(mut observed)) => {
+                                    enrich_completion(&c, &b, &mut observed).await;
+                                    Ok(Ok(observed))
+                                }
+                                other => other,
+                            };
                             (b, result)
                         });
                     }
@@ -1927,6 +2007,50 @@ mod tests {
         }
         persist(dir, &b).unwrap();
         b
+    }
+    #[tokio::test]
+    async fn empty_async_completion_is_suppressed_and_changes_are_bounded_in_message() {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        let fake = Fake::success();
+        process(&fake,&dir.0,&mut b,&json!({"state":"interaction-required","interaction":[{"id":"q","method":"request_user_input_async","params":{"question":"2+2?"}}]})).await.unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        process(
+            &fake,
+            &dir.0,
+            &mut b,
+            &json!({"state":"completed","finalResponse":{"text":"  "},"interaction":[]}),
+        )
+        .await
+        .unwrap();
+        assert!(b.terminal);
+        assert_eq!(b.deliveries.len(), 1);
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        let dir2 = Sandbox::new();
+        let mut b = fixture(&dir2.0);
+        let changes = json!({"summary":{"files":2,"added":4,"removed":1,"binaryOrUnreadable":0},"commits":[{"sha":"abcdef123456","title":"feat: sample"}],"commitCount":8,"fallback":false,"truncated":true,"observedAt":"2026-01-01T00:00:00Z"});
+        process(
+            &fake,
+            &dir2.0,
+            &mut b,
+            &json!({"state":"completed","finalResponse":{"text":"done"},"changes":changes}),
+        )
+        .await
+        .unwrap();
+        let body = message(&b);
+        assert!(body.contains("final (truncated=no):\ndone"));
+        assert!(body.contains("abcdef12 feat: sample"));
+        assert!(body.contains("2 files, +4 -1"));
+        assert!(body.contains("other tasks"));
+        assert!(body.contains("codex_changes"));
+        assert!(body.contains("truncated=yes"));
+        b.deliveries[0].changes = json!({"unavailable":"not a repository"});
+        assert!(message(&b).contains("not a repository"));
+        b.deliveries[0].changes = changes;
+        b.deliveries[0].changes["fallback"] = json!(true);
+        let body = message(&b);
+        assert!(body.contains("turn baseline unavailable"));
+        assert!(!body.contains("abcdef12"));
     }
     #[tokio::test]
     async fn bucket_refill_batches_interactions_and_survives_reload() {
@@ -2307,7 +2431,7 @@ mod tests {
         assert_eq!(text.matches('🙂').count(), 2000);
         assert!(text.contains("query={"));
         terminal.deliveries[0].final_response = json!({"text":"完整原文\n下一行"});
-        assert!(message(&terminal).ends_with("final (truncated=no):\n完整原文\n下一行"));
+        assert!(message(&terminal).contains("final (truncated=no):\n完整原文\n下一行"));
         for state in ["failed", "cancelled"] {
             terminal.deliveries[0].task_state = state.into();
             terminal.deliveries[0].task_error = json!("原始错误\n详情");
@@ -2761,6 +2885,7 @@ mod tests {
             interaction: Value::Null,
             status: "sending".into(),
             final_response: Value::Null,
+            changes: Value::Null,
             task_error: Value::Null,
         });
         persist(&dir.0, &b).unwrap();
@@ -2798,6 +2923,18 @@ pub(crate) fn push_available(notification: &Value) -> bool {
     !state.targets.iter().any(|t| {
         t.channel == Channel::ClaudeSession && notification["target"] == t.target && t.breaker
     })
+}
+
+// Both explicit reads and the background observer can publish the first terminal
+// event. Collect its snapshot on either path, before process freezes the delivery.
+async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observed: &mut Value) {
+    if !b.terminal
+        && observed["state"] == "completed"
+        && (b.agent.is_empty() || b.agent == "codex")
+        && !empty_answered_completion(b, observed)
+    {
+        observed["changes"] = crate::changes::notification(control, &b.thread_id, &b.turn_id).await;
+    }
 }
 
 pub(crate) async fn observe(thread: &str, turn: &str, observed: &Value) -> Result<()> {
@@ -2886,6 +3023,9 @@ pub(crate) async fn read_turns(
                 "cancelled" | "interrupted" => "cancelled",
                 _ => "unconfirmed",
             });
+        }
+        if let Some(b) = binding(&directory(), task, turn)? {
+            enrich_completion(control, &b, &mut observation).await;
         }
         observe(task, turn, &observation).await?;
         reads.push((task.into(), turn.into()));

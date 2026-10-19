@@ -115,6 +115,15 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{data:rows.slice(offset,end),nextCursor:end<rows.length?JSON.stringify({binding,offset:end}):null}});
       }
     }
+    if (method === 'thread/list' && params.searchTerm === 'fixture-overview') {
+      if ('view' in params) return emit({id,error:{message:'ARC view leaked to native API'}});
+      return emit({id,result:{data:[{id:'overview-live',name:'Live',cwd:'/fixture',preview:'x'.repeat(77000),updatedAt:123,status:{type:'notLoaded'}},{id:'overview-unloaded',name:'Unloaded',cwd:'/fixture',preview:'history',status:{type:'notLoaded'}},{id:'overview-unavailable',name:'Unavailable',cwd:'/fixture',status:{type:'notLoaded'}}],nextCursor:'native-cursor'}});
+    }
+    if (params?.threadId?.startsWith('overview-')) {
+      if(params.threadId==='overview-unavailable' && method==='thread/read')return emit({id,error:{code:-32000,message:'owner unavailable'}});
+      if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',updatedAt:124,model:'fixture-model',status:{type:params.threadId==='overview-live'?'active':'notLoaded'}}}});
+      if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId==='overview-live'?'inProgress':'completed'}],nextCursor:null}});
+    }
     if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });
     if (method === 'process/spawn') {
       emit({ method: 'process/outputDelta', params: { processHandle: params.processHandle, stream: 'stdout', deltaBase64: 'b2s=' } });
@@ -789,4 +798,44 @@ test('capacity failures retry same model without replaying input, suppress inter
   const unsafe=await dispatchFixture('fixture-dispatch-overload-side-effect');
   await eventually(()=>bindings(unsafe.threadId),bs=>bs.some(b=>b.terminal&&b.retry?.status==='skipped'));
   assert.equal((await fixtureRows())[unsafe.threadId].turns.length,1);
+});
+
+
+test('task overview defaults to compact live evidence and full view retains preview and cursor', async()=>{
+  const compact=(await call('codex_tasks',{searchTerm:'fixture-overview'})).result;
+  assert.equal(compact.view,'compact');assert.equal(compact.nextCursor,'native-cursor');
+  assert.equal(compact.tasks[0].status,'running');assert.equal(compact.tasks[0].title,'Live');
+  assert.equal(compact.tasks[0].model,'fixture-model');assert.equal(compact.tasks[0].currentTurn.turnId,'current-turn');
+  assert.equal(compact.tasks[1].status,'unconfirmed');assert.match(compact.tasks[1].statusReason,/no live owner/);
+  assert.equal(compact.tasks[2].status,'unconfirmed');assert.match(compact.tasks[2].statusReason,/owner unavailable/);assert.equal(compact.tasks[2].currentTurn.turnId,'current-turn');assert.equal(compact.tasks[2].currentTurn.source,'persisted-history');
+  assert.ok(compact.tasks.every((t:any)=>!('preview' in t)));assert.ok(JSON.stringify(compact.tasks).length<2000);
+  const paged=(await call('codex_tasks',{searchTerm:'fixture-overview',view:'full'})).result;
+  assert.ok(paged.outputId);let text=paged.text,offset=paged.nextOffset;
+  while(offset!==null){const page=(await call('control_output',{outputId:paged.outputId,offset,length:30000})).result;text+=page.text;offset=page.nextOffset;}
+  const full=JSON.parse(text);
+  assert.equal(full.tasks[0].preview.length,77000);assert.ok(full.tasks[0].configuration);assert.equal(full.nextCursor,'native-cursor');
+});
+
+test('completed notification freezes bounded Git changes with attribution and full-query pagination',async()=>{
+  const repo=path.join(directory,'notification-repo');await mkdir(repo);
+  const git=(...args:string[])=>execFileSync('git',['-c','commit.gpgSign=false','-c','user.name=ARC Fixture','-c','user.email=fixture@example.invalid',...args],{cwd:repo,encoding:'utf8'});
+  git('init','--quiet');git('commit','--quiet','--allow-empty','-m','chore: initial');
+  const r=await completed('codex_create',{project:repo,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',requestId:randomUUID()});assert.equal(r.state,'completed');
+  for(let i=0;i<6;i++){await writeFile(path.join(repo,'sample.txt'),'line\n'.repeat(i+1));git('add','sample.txt');git('commit','--quiet','-m','feat: '+String(i)+' '+ 'title'.repeat(30));}
+  // Finish directly, then read immediately: codex_wait can publish completion
+  // before the background observer and must freeze the same Git snapshot.
+  const fixture=await fixtureRows();fixture[r.threadId].turns.at(-1).status='completed';
+  await writeFile(path.join(directory,'dispatch-fixture.json'),JSON.stringify(fixture));
+  const waited=(await call('codex_wait',{threadId:r.threadId,turnId:r.turnId,timeoutMs:1000})).result;
+  assert.equal(waited.state,'completed');
+  const {readdir}=await import('node:fs/promises');
+  const load=async()=>Promise.all((await readdir(path.join(directory,'notifications'))).filter(f=>f.endsWith('.json')).map(async f=>JSON.parse(await readFile(path.join(directory,'notifications',f),'utf8'))));
+  const bs=await eventually(load,bs=>bs.some(b=>b.threadId===r.threadId&&b.deliveries.some((d:any)=>d.changes)));
+  const d=bs.find(b=>b.threadId===r.threadId).deliveries.find((d:any)=>d.taskState==='completed');
+  assert.equal(d.changes.commitCount,6);assert.equal(d.changes.commits.length,5);assert.equal(d.changes.truncated,true);
+  assert.equal(d.changes.summary.files,1);assert.equal(d.changes.summary.added,6);assert.equal(d.changes.fallback,false);
+  assert.match(d.changes.attribution,/other tasks/);assert.ok(d.changes.commits.every((c:any)=>c.title.length<=120));
+  await writeFile(path.join(repo,'sample.txt'),'changed after observation');
+  const reread=(await load()).find(b=>b.threadId===r.threadId).deliveries.find((d:any)=>d.taskState==='completed');assert.deepEqual(reread.changes,d.changes);
+  const full=(await call('codex_changes',{threadId:r.threadId,turnId:r.turnId,limit:100})).result;assert.equal(full.commits.length,6);
 });

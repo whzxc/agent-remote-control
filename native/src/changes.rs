@@ -139,7 +139,7 @@ pub async fn query(c: &control::Control, args: &Value) -> Result<Value> {
         files.push(json!({"path":file,"added":text.as_ref().filter(|s| !s.contains('\0')).map(|s|s.lines().count()),"removed":0,"untracked":true,"binary":text.as_ref().is_none_or(|s|s.contains('\0'))}));
     }
     let summary = json!({"files":files.len(),"added":files.iter().filter_map(|f|f["added"].as_u64()).sum::<u64>(),"removed":files.iter().filter_map(|f|f["removed"].as_u64()).sum::<u64>(),"binaryOrUnreadable":files.iter().filter(|f| f["binary"] == true).count()});
-    let mut result = json!({"threadId":thread,"turnId":turn,"baseline":baseline,"fallback":!valid,"mode":if valid{"since-turn-start"}else{"recent-commits-and-current-workspace"},"reason":if valid{Value::Null}else{json!("baseline missing, unavailable or workspace changed")},"head":head,"commits":commits.iter().skip(if args["path"].is_string(){0}else{offset}).take(limit).collect::<Vec<_>>(),"nextOffset":if args["path"].is_null() && offset+limit<commits.len(){Some(offset+limit)}else{None},"files":files,"summary":summary,"root":cwd,"attribution":"workspace changes may include other tasks and pre-existing dirty files","observedAt":now()});
+    let mut result = json!({"threadId":thread,"turnId":turn,"baseline":baseline,"fallback":!valid,"mode":if valid{"since-turn-start"}else{"recent-commits-and-current-workspace"},"reason":if valid{Value::Null}else{json!("baseline missing, unavailable or workspace changed")},"head":head,"commitCount":commits.len(),"commits":commits.iter().skip(if args["path"].is_string(){0}else{offset}).take(limit).collect::<Vec<_>>(),"nextOffset":if args["path"].is_null() && offset+limit<commits.len(){Some(offset+limit)}else{None},"files":files,"summary":summary,"root":cwd,"attribution":"workspace changes may include other tasks and pre-existing dirty files","observedAt":now()});
     if let Some(file) = args["path"].as_str() {
         let mut diff = git(
             cwd,
@@ -168,4 +168,32 @@ pub async fn query(c: &control::Control, args: &Value) -> Result<Value> {
         result["diff"] = json!({"path":file,"text":String::from_utf16_lossy(&units[offset.min(end)..end]),"offset":offset,"nextOffset":if end<units.len(){Some(end)}else{None},"characters":units.len(),"sha256":hash(&diff)});
     }
     Ok(result)
+}
+
+// Freeze a small factual summary for a completed notification, never the full diff.
+pub(crate) async fn notification(c: &control::Control, thread: &str, turn: &str) -> Value {
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        query(c, &json!({"threadId":thread,"turnId":turn,"limit":5})),
+    )
+    .await;
+    match result {
+        Ok(Ok(v)) => {
+            let mut truncated = v["nextOffset"].is_number();
+            let commits = v["commits"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|c| {
+                    let title = string(c, "title");
+                    truncated |= title.chars().count() > 120;
+                    json!({"sha":c["sha"],"title":title.chars().take(120).collect::<String>()})
+                })
+                .collect::<Vec<_>>();
+            json!({"commits":commits,"commitCount":v["commitCount"],"summary":v["summary"],"fallback":v["fallback"],"truncated":truncated,"observedAt":v["observedAt"],"attribution":v["attribution"]})
+        }
+        other => {
+            json!({"unavailable":match other {Ok(Err(e))=>e.chars().take(200).collect::<String>(),_=>"change-summary-timeout (5s)".into()},"observedAt":now()})
+        }
+    }
 }

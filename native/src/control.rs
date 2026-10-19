@@ -854,11 +854,29 @@ impl Control {
                             .into(),
                     );
                 }
+                let baseline = if pending["method"] == "request_user_input_async" {
+                    match self
+                        .request(
+                            "thread/read",
+                            json!({"threadId":pending["params"]["threadId"],"includeTurns":false}),
+                            10000,
+                        )
+                        .await
+                    {
+                        Ok(t) => crate::changes::capture(string(&t["thread"], "cwd")).await,
+                        Err(e) => json!({"unavailable":e}),
+                    }
+                } else {
+                    Value::Null
+                };
                 r["state"] = json!("responding");
                 self.checkpoint(r)?;
                 let result = self.ipc().await?.respond(key, &args["result"]).await?;
                 if let Some(turn) = result["nextTurnId"].as_str() {
                     let thread = string(&result, "threadId");
+                    if let Err(e) = crate::changes::record(thread, turn, &baseline) {
+                        crate::logs::record("WARN", &e, None);
+                    }
                     crate::claude_notify::bind(&json!({}), thread, turn, "", Value::Null).await?;
                     crate::claude_notify::inherit(thread, string(&result, "answeredTurnId"), turn)
                         .await?;
@@ -1230,19 +1248,7 @@ impl Control {
                 )
             }
             "control_output" => crate::kernel::results::read_output(&args),
-            "codex_tasks" => {
-                let mut params = args.clone();
-                params.as_object_mut().unwrap().remove("project");
-                params["sortKey"] = json!("updated_at");
-                params["sortDirection"] = json!("desc");
-                if let Some(p) = args["project"].as_str() {
-                    params["cwd"] = json!([crate::projects::resolve(self, p).await?["root"]]);
-                }
-                let page = self.request("thread/list", params, 60000).await?;
-                Ok(
-                    json!({"observedAt":now(),"tasks":page["data"].as_array().into_iter().flatten().map(summary).collect::<Vec<_>>(),"nextCursor":page["nextCursor"]}),
-                )
-            }
+            "codex_tasks" => crate::task_overview::list(self, &args).await,
             "codex_wait" => crate::waiter::codex_wait(self, &args).await,
             "codex_read" => {
                 let id = string(&args, "threadId");
@@ -1528,7 +1534,7 @@ fn page(kind: &str, args: &Value, data: Vec<Value>) -> Result<Value> {
         json!({"data":data.iter().skip(offset).take(limit).collect::<Vec<_>>(),"nextCursor":if end<data.len(){Some(format!("desktop:{}",URL_SAFE_NO_PAD.encode(json!({"binding":binding,"offset":end}).to_string())))}else{None}}),
     )
 }
-fn summary(t: &Value) -> Value {
+pub(crate) fn summary(t: &Value) -> Value {
     let state = match t["status"]["type"].as_str() {
         Some("notLoaded") | None => "unknown",
         Some(v) => v,

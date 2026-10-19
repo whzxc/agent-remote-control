@@ -4,6 +4,7 @@ mod cloudflare;
 pub mod screen;
 mod setup_secret;
 mod shell_command;
+mod task_overview;
 mod text_files;
 mod uninstall;
 use serde_json::{json, Value};

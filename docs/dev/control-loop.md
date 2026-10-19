@@ -167,6 +167,12 @@ codex_send 默认行为保持不变，回执 dispatchMode 区分 steered/new-tur
 
 自测以 purpose:self-test 标识，默认 notify:null，不复制编排者目标。只有明确指定的专用测试目标才允许通知。派发回执只附操作开始后产生的投递，显式 read/wait 保留整轮历史。健康统计行只在余量 ≤20%（阈值至少 1）或节流后出现。notification_ack 区分 markedRead、alreadyRead（含已投递/汇总/解决）、notFound 与 notFoundEventIds。
 
+### 7.2 紧凑总览与完成改动摘要
+
+codex_tasks 默认 view:compact，仅含标题、threadId、项目、status、updatedAt（Unix 秒）、currentTurn 和 model/modelSource，不附提示词。view:full 保留原完整字段与原生提示词预览，并补同样的实时状态。筛选和分页不变。只读不恢复任务，实时补读每页最多八秒。status 为 running、idle、needs-input、failed、retrying、queued 或带具体 statusReason 的 unconfirmed；优先级为等输入、重试中、运行中、失败、有排队、空闲，队列计数可与运行/失败同时显示。只有持久化历史、原生状态矛盾或读取不可用时明确说明无法确认；currentTurn 是最近观测的轮次，不等于正在运行；实时检查失败时仍保留已读历史轮次，source:persisted-history 明确其来源。模型缺失返回 null 与 modelSource:not-reported-by-owner。依赖 preview/configuration/actions 的旧调用方需显式 view:full。
+
+Codex completed 通知附检测到完成时保存的改动摘要（采集最多五秒）：最多五条提交、八位短哈希、每标题最多 120 字符，以及文件/增删行/二进制统计。按轮次基线比较工作区，可能包含其他任务与既有未提交改动，始终标明不能独占归属。基线缺失时只标当前工作区统计，不把最近提交称为本轮提交。截断、缺基线或采集失败时附带完整 threadId/turnId 的 codex_changes 查询；该查询是实时且可分页的，与已保存摘要的观测时刻不同。投递重试复用保存的摘要。异步问题代答后，原提问轮的空 completed 不生成事件；有实际回复或续轮完成仍正常通知，其他完成事件保留。
+
 ## 8. Setup 集成（P1）
 
 - `chatgpt-chat` 目标增加“通知通道”步骤：确认执行电脑上的浏览器已登录 ChatGPT（只需用户登录，其余由 Agent 完成），并跑一次注入自检。
