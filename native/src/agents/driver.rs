@@ -257,16 +257,16 @@ impl AgentDriver {
             _ => {}
         }
         t["updatedAt"] = json!(now());
-        crate::dispatch_policy::agent_observe(
-            &t,
-            Some(if result.is_ok() {
-                "accepted"
-            } else if t["status"] == "unknown" {
-                "unconfirmed"
-            } else {
-                "rejected"
-            }),
-        )?;
+        let submission = if result.is_ok() {
+            "accepted"
+        } else if t["status"] == "unknown" {
+            "unconfirmed"
+        } else {
+            "rejected"
+        };
+        t["dispatch"]["submission"] = json!(submission);
+        t["dispatch"]["turnEvidence"] = t["turnEvidence"].clone();
+        crate::dispatch_policy::agent_observe(&t, Some(submission))?;
         save_task(&t)?;
         if let Err(error) = crate::claude_notify::observe(
             string(&t, "taskId"),

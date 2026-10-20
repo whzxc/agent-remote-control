@@ -197,6 +197,7 @@ impl Process {
                     }
                 }
                 if method == "agent_settled" {
+                    state["dispatch"]["submission"] = json!("accepted");
                     if let Err(error) =
                         crate::dispatch_policy::agent_observe(&state, Some("accepted"))
                     {
