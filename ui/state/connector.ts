@@ -1,4 +1,4 @@
-import { createStore, acceptPreferences, preparePreferences } from "./store";
+import { createStore, acceptPreferences, preparePreferences, preference } from "./store";
 import { api } from "../api";
 import { t } from "../i18n";
 import { isDesktop, notifyNative } from "../platform";
@@ -17,6 +17,23 @@ export const connector = createStore<{
 });
 const patch = (next: Partial<ReturnType<typeof connector.get>>) =>
   connector.set((old) => ({ ...old, ...next }));
+const sourceOrder = preference<string[]>("arc.source-order", []);
+sourceOrder.subscribe(() => patch({}));
+export function orderedSources() {
+  const order = sourceOrder.get();
+  return [...(connector.get().status?.ingresses || [])].sort((a, b) => {
+    const ai = order.indexOf(a.id), bi = order.indexOf(b.id);
+    if (ai >= 0 || bi >= 0) return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+    return Number(b.controlSource === "chatgpt") - Number(a.controlSource === "chatgpt") || a.name.localeCompare(b.name);
+  });
+}
+export function reorderSources(ids: string[]) {
+  const current = orderedSources().map(source => source.id);
+  const next = ids.filter(id => current.includes(id));
+  next.push(...current.filter(id => !next.includes(id)));
+  if (next.every((id, index) => id === current[index])) return;
+  sourceOrder.set(next);
+}
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 export function notify(text: string, error = false) {
   clearTimeout(feedbackTimer);

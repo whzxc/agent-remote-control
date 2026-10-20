@@ -65,6 +65,11 @@
 .graph-node:hover {
   background: transparent;
 }
+.graph-node[data-reorderable] {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
 .sources {
   align-items: flex-end;
 }
@@ -1154,5 +1159,3 @@
   width: 0;
   min-width: 100%;
 }
-
-.agent-entry { overflow-wrap: anywhere; text-align: right; }

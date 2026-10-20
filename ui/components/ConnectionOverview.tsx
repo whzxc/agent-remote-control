@@ -3,6 +3,7 @@ import { subscriptions } from "../state/subscriptions";
 import { navigation } from "../state/navigation";
 import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import {
+  useCallback,
   useEffect,
   useState,
   useRef,
@@ -10,18 +11,23 @@ import {
   useId,
   type CSSProperties,
 } from "react";
+import { motion, Reorder } from "motion/react";
 import { Plus, Power, Ellipsis, LoaderCircle } from "lucide-react";
 import { t } from "../i18n";
 import { api } from "../api";
-import { ingressState, connector, run, refreshConnector } from "../state/connector";
+import { ingressState, connector, run, refreshConnector, orderedSources, reorderSources } from "../state/connector";
 import {
   agents as agentStore,
   orderedAgents,
+  moveAgent,
+  reorderAgents,
   name,
   type Agent,
 } from "../state/agents";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
+import GraphNode from "./GraphNode";
+import ConnectionWires, { type ConnectionWiresHandle, type WireState } from "./ConnectionWires";
 import IngressDialog from "./IngressDialog";
 import SetupDialog from "./SetupDialog";
 import { useSetup, type SetupGoal } from "../state/setup";
@@ -29,62 +35,11 @@ import IngressDetailsDialog from "./IngressDetailsDialog";
 import AgentsSettings, { AgentDetails } from "./AgentsSettings";
 import { Button, Icon, Notice } from "./ui";
 import themedMark from "../assets/arc/mark-theme.svg?raw";
-type Point = {
-  x: number;
-  y: number;
-};
-type WireState = "normal" | "connecting" | "error" | "inactive";
 function wireState(state: string): WireState {
   if (["connected", "agentAvailable"].includes(state)) return "normal";
   if (["connectingLabel", "preparing"].includes(state)) return "connecting";
   if (["connectionError", "unknown"].includes(state)) return "error";
   return "inactive";
-}
-// Offset a cubic by arc length, so the root flare has the same physical reach
-// for short, long and steep connections. Widths are full widths, not radii.
-function grownWire(
-  start: Point,
-  c1: Point,
-  c2: Point,
-  end: Point,
-  scale: number,
-  state: WireState,
-) {
-  const steps = Math.max(64, Math.ceil((
-    Math.hypot(c1.x - start.x, c1.y - start.y) +
-    Math.hypot(c2.x - c1.x, c2.y - c1.y) +
-    Math.hypot(end.x - c2.x, end.y - c2.y)
-  ) / Math.max(0.5, scale)));
-  let length = 0;
-  const samples = Array.from({ length: steps + 1 }, (_, i) => {
-    const t = i / steps, v = 1 - t;
-    const x = v ** 3 * start.x + 3 * v * v * t * c1.x + 3 * v * t * t * c2.x + t ** 3 * end.x;
-    const y = v ** 3 * start.y + 3 * v * v * t * c1.y + 3 * v * t * t * c2.y + t ** 3 * end.y;
-    const dx = 3 * v * v * (c1.x - start.x) + 6 * v * t * (c2.x - c1.x) + 3 * t * t * (end.x - c2.x);
-    const dy = 3 * v * v * (c1.y - start.y) + 6 * v * t * (c2.y - c1.y) + 3 * t * t * (end.y - c2.y);
-    const speed = Math.hypot(dx, dy) || 1;
-    return { x, y, nx: -dy / speed, ny: dx / speed, length: 0 };
-  });
-  samples.forEach((p, i) => {
-    if (i) length += Math.hypot(p.x - samples[i - 1].x, p.y - samples[i - 1].y);
-    p.length = length;
-  });
-  const edges = samples.map((p) => {
-    const u = p.length / (length || 1), s = length - p.length;
-    const body = state === "connecting" ? 0 : 3 + 3 * u ** 1.6;
-    const halfWidth =
-      (scale * (body + 12 * Math.max(0, 1 - s / (26 * scale)) ** 2)) / 2;
-    return [
-      `${p.x + p.nx * halfWidth} ${p.y + p.ny * halfWidth}`,
-      `${p.x - p.nx * halfWidth} ${p.y - p.ny * halfWidth}`,
-    ];
-  });
-  const gap = samples.filter((p) => Math.abs(p.length - length * 0.45) <= 7 * scale);
-  return {
-    outline: `M ${edges.map(([p]) => p).join(" L ")} L ${edges.reverse().map(([, p]) => p).join(" L ")} Z`,
-    centerline: `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`,
-    gap: gap.length ? `M ${gap.map((p) => `${p.x} ${p.y}`).join(" L ")}` : "",
-  };
 }
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const gradientId = useId();
@@ -111,11 +66,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     if (setup.snapshot.hasState && !setup.snapshot.complete) setSetupMode("progress");
     else if (!setup.snapshot.hasState && !status.ingresses.length) setSetupMode("entry");
   }, [visible, status, loading, error, setup.snapshot]);
-  const sources = [...(status?.ingresses || [])].sort(
-    (a, b) =>
-      Number(b.controlSource === "chatgpt") -
-        Number(a.controlSource === "chatgpt") || a.name.localeCompare(b.name),
-  );
+  const sources = orderedSources();
   const agents = orderedAgents()
     .filter((a) => a.installed)
     .slice(0, [4, 6, 8, 10].includes(max) ? max : 4);
@@ -211,8 +162,14 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     return error ? "unknown" : ingressState(i);
   }
   const core = useRef<HTMLElement>(null),
-    leftWires = useRef<HTMLDivElement>(null),
-    rightWires = useRef<HTMLDivElement>(null);
+    leftWires = useRef<ConnectionWiresHandle>(null),
+    rightWires = useRef<ConnectionWiresHandle>(null);
+  const sourceNodes = useRef(new Map<string, HTMLButtonElement>());
+  const agentNodes = useRef(new Map<string, HTMLButtonElement>());
+  const followWires = useCallback(() => {
+    leftWires.current?.follow();
+    rightWires.current?.follow();
+  }, []);
   const [dimensions, setDimensions] = useState({
       width: 1000,
       height: 650,
@@ -224,15 +181,15 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       setDimensions({
         width: core.current?.clientWidth || 1000,
         height: core.current?.clientHeight || 650,
-        left: leftWires.current?.clientWidth || 1,
-        right: rightWires.current?.clientWidth || 1,
+        left: leftWires.current?.element?.clientWidth || 1,
+        right: rightWires.current?.element?.clientWidth || 1,
       });
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
     });
-    [core.current, leftWires.current, rightWires.current].forEach(
+    [core.current, leftWires.current?.element, rightWires.current?.element].forEach(
       (el) => el && observer.observe(el),
     );
     measure();
@@ -260,116 +217,33 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     Math.max(
     70, Math.min(84, (dimensions.height - 64) / Math.max(1, count + 1)),
   );
-  const layoutCount = (count: number) => count;
   const nodeStyle = (count: number) =>
     ({
       "--graph-row-step": `${rowStep(count)}px`,
       "--graph-node-scale": Math.min(1, (rowStep(count) - 58) / 24),
     }) as CSSProperties;
-  const y = (index: number, count: number) =>
-    height / 2 + (index - (count - 1) / 2) * rowStep(count);
   const [switchOn, setSwitchOn] = useState<boolean>();
   useEffect(() => { if (!progressing && status) setSwitchOn(running); }, [running, progressing, status]);
-  const wireWidth = (right: boolean) =>
-    Math.max(1, right ? rightWidth : leftWidth);
-  const wires = (right = false) => {
-    const entries = right
-      ? agents.map((a) => ({
-          id: a.agent,
-          label: name(a),
-          state: agentState(a),
-          open: () => setAgentsOpen(true),
-        }))
-      : sources.map((i) => ({
-          id: i.id,
-          label: i.name,
-          state: sourceState(i),
-          open: () => {
-            setAutoConnect(false);
-            setDetails(i);
-          },
-        }));
-    const count = entries.length;
-    {
-      // The mark crops its 100-unit design to viewBox 4 4 92 92.
-      const scale = brandSize / (92 * 2.6), radius = 130 * scale;
-      const center = { x: right ? -coreColumnWidth / 2 : wireWidth(false) + coreColumnWidth / 2, y: height / 2 };
-      const connected = entries.map((entry, index) => ({ ...entry, index, appearance: wireState(entry.state) }))
-        .filter((entry) => entry.appearance !== "inactive");
-      const halfAngle = Math.min(
-        40,
-        Math.max(26, ((connected.length - 1) * 8) / 2 + 6),
-      );
-      const spacing = connected.length > 1 ? Math.min(16, (halfAngle * 2 - 12) / (connected.length - 1)) : 0;
-      const onArc = (offset: number) => {
-        const angle = ((right ? offset : 180 - offset) * Math.PI) / 180;
-        return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
-      };
-      const arcStart = onArc(-halfAngle), arcEnd = onArc(halfAngle);
-      const nodeGap = 8;
-      const branches = connected.map((entry, index) => {
-        const end = onArc((index - (connected.length - 1) / 2) * spacing);
-        const start = {
-          x: right ? wireWidth(true) + 12 - nodeGap : (-3 * rowStep(count)) / 84 + nodeGap,
-          y: y(entry.index, count),
-        };
-        const c1 = { x: start.x + (right ? -100 : 100) * scale, y: start.y };
-        const c2 = {
-          x: end.x + ((end.x - center.x) * 60) / 130,
-          y: end.y + ((end.y - center.y) * 60) / 130,
-        };
-        const span = Math.max(1, Math.hypot(end.x - start.x, end.y - start.y));
-        return {
-          ...entry,
-          start,
-          end,
-          shape: grownWire(start, c1, c2, end, scale, entry.appearance),
-          solidStop: Math.min(0.29, (10 * scale) / span),
-          flareStop: Math.min(1, (26 * scale) / span),
-          gradient: `${gradientId}-${right ? "right" : "left"}-${index}`,
-        };
-      });
-      return (
-        <div ref={right ? rightWires : leftWires} className={`graph-wires earmuff-wires ${right ? "right" : "left"}`}>
-          <svg
-          viewBox={`0 0 ${wireWidth(right)} ${height}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-            <defs>
-              {branches.map((branch) => (
-                <linearGradient key={branch.id} id={branch.gradient} gradientUnits="userSpaceOnUse" data-state={branch.appearance}
-                  x1={branch.end.x} y1={branch.end.y} x2={branch.start.x} y2={branch.start.y}>
-                  <stop offset="0" stopOpacity="1" />
-                  {/* Keep the overlap solid through the arc's outer edge. */}
-                  <stop offset={branch.solidStop} stopOpacity="1" />
-                  <stop offset={branch.appearance === "connecting" ? branch.flareStop : 0.3} stopOpacity={branch.appearance === "connecting" ? 0 : 0.7} />
-                  <stop offset="1" stopOpacity={branch.appearance === "connecting" ? 0 : right ? 0.42 : 0.32} />
-                </linearGradient>
-              ))}
-            </defs>
-            {branches.map((branch) => (
-              <g key={branch.id} data-state={branch.appearance}>
-                {branch.appearance === "connecting" && (
-                  <path d={branch.shape.centerline} className="connecting-wire" style={{ strokeWidth: 3 * scale }} />
-                )}
-                <path d={branch.shape.outline} className="grown-wire" style={{ fill: `url(#${branch.gradient})` }} />
-                {branch.appearance === "error" && (
-                  <path d={branch.shape.gap} className="wire-break" style={{ strokeWidth: 18 * scale }} />
-                )}
-              </g>
-            ))}
-            <path className="earmuff" style={{ strokeWidth: 14 * scale }}
-              d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 ${right ? 1 : 0} ${arcEnd.x} ${arcEnd.y}`} />
-          </svg>
-        </div>
-      );
-    }
-  };
+  function moveSource(id: string, by: number) {
+    const ids = sources.map(source => source.id);
+    const index = ids.indexOf(id), target = index + by;
+    if (index < 0 || target < 0 || target >= ids.length) return;
+    ids.splice(index, 1);
+    ids.splice(target, 0, id);
+    reorderSources(ids);
+  }
+  function moveVisibleAgent(id: string, by: number) {
+    const enabled = agents.filter(agent => agent.enabled);
+    const index = enabled.findIndex(agent => agent.agent === id);
+    const target = enabled[index + by];
+    if (index >= 0 && target) moveAgent(id, target.agent);
+  }
   return (
     <>
-      <section
+      <motion.section
         ref={core}
+        layoutScroll
+        onScrollCapture={followWires}
         className={`connection-core ${"brand-mode"}`}
         style={
           {
@@ -398,27 +272,24 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </button>
         </div>
         <div className="connection-graph" style={{ height }}>
-          <div
+          <Reorder.Group
+            as="div"
+            axis="y"
             className="graph-nodes sources"
             data-empty={!sources.length}
-            style={nodeStyle(layoutCount(sources.length))}
+            style={nodeStyle(sources.length)}
+            values={sources.map(source => source.id)}
+            onReorder={reorderSources}
           >
-            {sources.map((source) => (
-              <div key={source.id} className="graph-node-wrap">
-                <button
-                  data-panel-anchor
-                  className="graph-node"
-                  data-connection-state={wireState(sourceState(source))}
-                  aria-label={`${source.name}: ${t(sourceState(source))}`}
-                  onClick={() => {
-                    setAutoConnect(false);
-                    setDetails(source);
-                  }}
-                >
-                  <SourceIcon platform={source.controlSource} panelVisual />
-                  <span className="graph-node-name">{source.name}</span>
-                </button>
-              </div>
+            {sources.map(source => (
+              <GraphNode key={source.id} id={source.id}
+                label={`${source.name}: ${t(sourceState(source))}`}
+                state={wireState(sourceState(source))} nodes={sourceNodes.current}
+                onMove={by => moveSource(source.id, by)} onMotion={followWires}
+                onOpen={() => { setAutoConnect(false); setDetails(source); }}>
+                <SourceIcon platform={source.controlSource} panelVisual />
+                <span className="graph-node-name">{source.name}</span>
+              </GraphNode>
             ))}
             <button
               data-panel-anchor
@@ -433,28 +304,29 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
                 <Icon icon={Plus} />
               </span>
             </button>
-          </div>
-          {wires()}
+          </Reorder.Group>
+          <ConnectionWires ref={leftWires} nodes={sourceNodes.current}
+            entries={sources.map(source => ({ id: source.id, state: wireState(sourceState(source)) }))}
+            width={leftWidth} height={height} brandSize={brandSize} coreColumnWidth={coreColumnWidth} />
           <div className="graph-brain">
             <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control"
                 dangerouslySetInnerHTML={{ __html: themedMark.replace(/^<svg[^>]*>|<\/svg>$/g, "").replaceAll("agent-theme", `${gradientId}-mark`) }} />
           </div>
-          <div className="agent-side" style={nodeStyle(layoutCount(agents.length))}>
-            {wires(true)}
-            <div className="graph-nodes agents" data-empty={!agents.length}>
-              {agents.map((agent) => (
-                <button
-                  key={agent.agent}
-                  data-panel-anchor
-                  className="graph-node"
-                  data-connection-state={wireState(agentState(agent))}
-                  aria-label={`${name(agent)}: ${t(agentState(agent))}`}
-                  aria-haspopup="dialog"
-                  onClick={() => setDetailAgent(agent)}
-                >
+          <div className="agent-side" style={nodeStyle(agents.length)}>
+            <ConnectionWires ref={rightWires} nodes={agentNodes.current} right
+              entries={agents.map(agent => ({ id: agent.agent, state: wireState(agentState(agent)) }))}
+              width={rightWidth} height={height} brandSize={brandSize} coreColumnWidth={coreColumnWidth} />
+            <Reorder.Group as="div" axis="y" className="graph-nodes agents" data-empty={!agents.length}
+              values={agents.filter(agent => agent.enabled).map(agent => agent.agent)} onReorder={reorderAgents}>
+              {agents.map(agent => (
+                <GraphNode key={agent.agent} id={agent.agent}
+                  label={`${name(agent)}: ${t(agentState(agent))}`}
+                  state={wireState(agentState(agent))} nodes={agentNodes.current}
+                  onMove={agent.enabled ? by => moveVisibleAgent(agent.agent, by) : undefined}
+                  onMotion={followWires} onOpen={() => setDetailAgent(agent)}>
                   <AgentQuotaIcon agent={agent.agent} />
                   <span className="graph-node-name">{name(agent)}</span>
-                </button>
+                </GraphNode>
               ))}
               <button
                 data-panel-anchor
@@ -464,7 +336,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
               >
                 <Icon icon={Ellipsis} size={20} />
               </button>
-            </div>
+            </Reorder.Group>
           </div>
         </div>
         {setup.snapshot?.goal && !setup.snapshot.complete && <div className="setup-resume"><Button onClick={() => setSetupMode("progress")}>{t("setup.resume")}</Button></div>}
@@ -481,7 +353,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             </Notice>
           </div>
         )}
-      </section>
+      </motion.section>
       {setupMode && visible && <SetupDialog mode={setupMode} setMode={setSetupMode} fixedGoal={setupGoal} snapshot={setup.snapshot} error={setup.error} refresh={setup.refresh}
         onClose={() => { setSetupMode(null); if (setup.snapshot?.complete) requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-source")?.focus()); }} onManual={() => {
           setSetupMode(null);

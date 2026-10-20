@@ -99,6 +99,7 @@ export const agents = createStore({
 });
 const patch = (next: Partial<ReturnType<typeof agents.get>>) =>
   agents.set((old) => ({ ...old, ...next }));
+order.subscribe(() => patch({}));
 export function orderedAgents() {
   return [...agents.get().items].sort((a, b) => {
     const priority =
@@ -125,8 +126,16 @@ export function moveAgent(from: string, to: string) {
   if (start < 0 || end < 0 || start === end) return;
   ids.splice(start, 1);
   ids.splice(end, 0, from);
-  order.set(ids);
-  patch({});
+  reorderAgents(ids);
+}
+export function reorderAgents(ids: string[]) {
+  const enabled = orderedAgents()
+    .filter((agent) => agent.installed && agent.enabled)
+    .map((agent) => agent.agent);
+  const next = ids.filter((id) => enabled.includes(id));
+  next.push(...enabled.filter((id) => !next.includes(id)));
+  if (next.every((id, index) => id === enabled[index])) return;
+  order.set(next);
 }
 function persist() {
   try {

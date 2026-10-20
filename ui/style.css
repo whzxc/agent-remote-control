@@ -885,6 +885,7 @@ pre {
   margin-bottom: 16px;
 }
 .agent-card {
+  position: relative;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 8px 12px;
@@ -892,12 +893,12 @@ pre {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-row);
+  background: var(--surface);
 }
-.agent-card.dragging {
-  opacity: 0.5;
-}
-.agent-card.drop-target {
-  border-color: var(--accent);
+.agent-card[data-reorderable] {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 .agent-copy {
   min-width: 0;

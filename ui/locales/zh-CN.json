@@ -217,6 +217,7 @@
   "ngrokMode": "域名模式",
   "temporaryDomain": "临时域名",
   "reorderAgent": "调整 {agent} 的排序",
+  "reorderNodeHint": "拖动调整顺序，或聚焦后使用上、下方向键排序。",
   "agentNotInstalled": "未安装",
   "themeColor": "主题色",
   "themeArc": "ARC",
@@ -520,6 +521,5 @@
   "controlSourceNotificationsDescription": "向绑定的控制源发送任务状态通知。关闭后仍保留收件箱。",
   "wakeClaude": "主动唤醒：支持",
   "wakeChatgpt": "Work：支持，需在聊天中订阅。Chat：不支持，使用等待加收件箱。",
-  "wakeOther": "主动唤醒：不支持，使用等待加收件箱",
-  "agentExecutionEntry": "执行入口"
+  "wakeOther": "主动唤醒：不支持，使用等待加收件箱"
 }

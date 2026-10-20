@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { motion, Reorder, useDragControls, useReducedMotion } from "motion/react";
 import { RefreshCw, Settings, Gauge } from "lucide-react";
 import { t } from "../i18n";
 import { openUrl } from "../platform";
@@ -6,6 +7,7 @@ import {
   agents,
   orderedAgents,
   moveAgent,
+  reorderAgents,
   name,
   agentLinks,
   toggleAgent,
@@ -17,7 +19,60 @@ import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Dialog, IconButton, Switch, Notice, Loading, Row } from "./ui";
+import { springTransition } from "../motion/geometry";
+import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
+
+const canReorder = (agent: Agent) =>
+  agent.installed === true && agent.enabled === true;
+
+function AgentCard({ agent, onMove, children }: {
+  agent: Agent;
+  onMove: (by: number) => void;
+  children: ReactNode;
+}) {
+  const controls = useDragControls();
+  const reduced = useReducedMotion();
+  const transition = reduced ? { duration: 0 } : springTransition(0.3, 0.9);
+  if (!canReorder(agent)) {
+    return <motion.article className="agent-card" layout="position" transition={transition}>
+      {children}
+    </motion.article>;
+  }
+  return (
+    <Reorder.Item
+      as="article"
+      value={agent.agent}
+      className="agent-card"
+      data-reorderable
+      tabIndex={0}
+      aria-label={t("reorderAgent", { agent: name(agent) })}
+      layout="position"
+      transition={transition}
+      dragListener={false}
+      dragControls={controls}
+      dragMomentum={false}
+      dragElastic={!reduced}
+      whileDrag={{ cursor: "grabbing", boxShadow: "var(--shadow)" }}
+      onPointerDown={(event) => {
+        if (event.button !== 0 || !event.isPrimary ||
+          (event.target as Element).closest("button, a, input, select, textarea, [role='button'], [role='switch']")) return;
+        event.preventDefault();
+        event.currentTarget.focus({ preventScroll: true });
+        controls.start(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(event.key)) {
+          event.preventDefault();
+          onMove(["ArrowUp", "ArrowLeft"].includes(event.key) ? -1 : 1);
+        }
+      }}
+    >
+      {children}
+    </Reorder.Item>
+  );
+}
+
 export function AgentDetails({
   agent: selected,
   onClose,
@@ -45,13 +100,8 @@ export function AgentDetails({
         </div>
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
-      {agent.installed !== undefined && <>
-        {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
-          <Notice>{agent.discoveryError}</Notice>}
-        {agent.descriptor?.command && <Row title={t("agentExecutionEntry")}>
-          <code className="agent-entry">{[agent.descriptor.command, ...(agent.descriptor.args || [])].join(" ")}</code>
-        </Row>}
-      </>}
+      {agent.installed !== undefined && agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
+        <Notice>{agent.discoveryError}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
@@ -62,11 +112,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
   const [detail, setDetail] = useState<Agent>(),
     [display, setDisplay] = useState(false),
     [overview, setOverview] = useState(false),
-    [dragging, setDragging] = useState(""),
-    [dropTarget, setDropTarget] = useState(""),
     [error, setError] = useState("");
-  const canReorder = (agent: Agent) =>
-    agent.installed === true && agent.enabled === true;
   function move(id: string, by: number) {
     const list = items.filter(canReorder),
       index = list.findIndex((a) => a.agent === id);
@@ -99,54 +145,18 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
         {!state.loaded && state.loading && <Loading />}
         {items.some((agent) => agent.installed) && <>
         <h3 className="agent-section-title">{t("installedAgents")}</h3>
-        <div className="agent-grid">
+        <Reorder.Group
+          as="div"
+          axis="xy"
+          className="agent-grid"
+          values={items.filter(canReorder).map(agent => agent.agent)}
+          onReorder={reorderAgents}
+        >
           {items.filter(agent => agent.installed).map((agent) => (
-            <article
+            <AgentCard
               key={agent.agent}
-              className={`agent-card ${dragging === agent.agent ? "dragging" : ""} ${dropTarget === agent.agent ? "drop-target" : ""}`}
-              tabIndex={canReorder(agent) ? 0 : -1}
-              aria-label={
-                canReorder(agent)
-                  ? t("reorderAgent", { agent: name(agent) })
-                  : name(agent)
-              }
-              draggable={canReorder(agent)}
-              onKeyDown={(e) => {
-                if (e.target !== e.currentTarget) return;
-                if (
-                  ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(
-                    e.key,
-                  )
-                ) {
-                  e.preventDefault();
-                  move(
-                    agent.agent,
-                    ["ArrowUp", "ArrowLeft"].includes(e.key) ? -1 : 1,
-                  );
-                }
-              }}
-              onDragStart={(e) => {
-                setDragging(agent.agent);
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", agent.agent);
-              }}
-              onDragEnd={() => {
-                setDragging("");
-                setDropTarget("");
-              }}
-              onDragOver={(e) => {
-                if (dragging && canReorder(agent)) {
-                  e.preventDefault();
-                  setDropTarget(agent.agent);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragging && canReorder(agent))
-                  moveAgent(dragging, agent.agent);
-                setDragging("");
-                setDropTarget("");
-              }}
+              agent={agent}
+              onMove={by => move(agent.agent, by)}
             >
               <button
                 type="button"
@@ -209,9 +219,9 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
                       ` · ${t({ CLAUDE_ADAPTER_DOWNLOAD_FAILED: "agentAdapterDownloadFailed", CLAUDE_ADAPTER_CHECKSUM_FAILED: "agentAdapterChecksumFailed", CLAUDE_ADAPTER_EXTRACT_FAILED: "agentAdapterExtractFailed", CLAUDE_ADAPTER_PROBE_FAILED: "agentAdapterProbeFailed" }[agent.adapter.error] || "agentAdapterSetupFailed")}`}
                   </p>
                 )}
-            </article>
+            </AgentCard>
           ))}
-        </div>
+        </Reorder.Group>
         </>}
         {items.some((agent) => !agent.installed) && <>
         <h3 className="agent-section-title">{t("notInstalledAgents")}</h3>
