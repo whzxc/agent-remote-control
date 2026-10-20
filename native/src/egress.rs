@@ -115,6 +115,13 @@ pub fn receipt(value: Value) -> Value {
                         "outputTruncated",
                         "error",
                         "stopReason",
+                        "dispatch",
+                        "review",
+                        "promptSubmitted",
+                        "configurationError",
+                        "configurationState",
+                        "sessionConfirmation",
+                        "turnEvidence",
                     ]
                     .contains(&key.as_str())
                 });

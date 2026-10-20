@@ -665,6 +665,9 @@ pub(crate) fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()
             row["terminal"] =
                 json!({"state":state,"observedAt":end.to_rfc3339(),"observedDurationMs":elapsed});
         }
+        if task["turnEvidence"].is_object() {
+            row["turnEvidence"] = task["turnEvidence"].clone();
+        }
         if task["agent"] == "pi"
             && task["lastMessage"]["model"].is_string()
             && task["lastMessage"]["provider"].is_string()

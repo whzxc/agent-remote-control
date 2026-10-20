@@ -183,6 +183,7 @@ impl AgentDriver {
             t.as_object_mut().unwrap().remove("notification");
             t.as_object_mut().unwrap().remove("notificationError");
             t["lastMessage"] = Value::Null;
+            t["turnEvidence"] = Value::Null;
             t["error"] = Value::Null;
             t["stopReason"] = Value::Null;
             t["outputTruncated"] = json!(false);
@@ -228,6 +229,20 @@ impl AgentDriver {
                     "completed"
                 });
                 t["stopReason"] = v["stopReason"].clone();
+                // The managed Claude adapter reports per-prompt model usage, including
+                // internal calls. It is not proof of effort, fast mode or a single main model.
+                if t["agent"] == "claude" {
+                    let models = v["_meta"]["quota"]["model_usage"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|row| row["model"].as_str())
+                        .collect::<Vec<_>>();
+                    if !models.is_empty() {
+                        t["turnEvidence"] = json!({"models":models,"source":"claude-acp-prompt-model-usage",
+                            "scope":"turn-including-internal-calls","observedAt":now()});
+                    }
+                }
             }
             Err(e) => {
                 t["status"] = json!(

@@ -764,6 +764,16 @@ impl AgentHost {
                         task["dispatch"] = selection;
                     }
                     Err(error) => {
+                        let unconfirmed =
+                            crate::kernel::receipts::failure_state(&error) == "unconfirmed";
+                        if unconfirmed {
+                            // No prompt was sent, but a timed-out setter must not race a later prompt.
+                            p.close().await;
+                            let mut state = p.state.lock().await;
+                            state["status"] = json!("unknown");
+                            state["configurationError"] = json!(error);
+                            save_task(&state)?;
+                        }
                         let snapshot = p.state.lock().await.clone();
                         let facts = self
                             .session_dispatch_facts(&snapshot, true)
@@ -771,7 +781,7 @@ impl AgentHost {
                             .unwrap_or_else(|e| json!({"unavailable":e}));
                         return Ok(
                             json!({"taskId":task,"agent":agent,"configurationError":error,
-                            "promptSubmitted":false,"sessionConfirmation":dispatch::current_configuration(&facts)}),
+                            "promptSubmitted":false,"configurationState":if unconfirmed{"unconfirmed"}else{"confirmed"},"sessionConfirmation":dispatch::current_configuration(&facts)}),
                         );
                     }
                 }

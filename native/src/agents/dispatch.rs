@@ -109,6 +109,9 @@ impl AgentHost {
         }
         let model = args["model"].as_str().or(policy.model.as_deref());
         if let Some(model) = model {
+            if task["agent"] == "cursor" {
+                return Err("UNSUPPORTED_DISPATCH_MODEL: Cursor's native setter persists user defaults; session-only model selection is not integrated".into());
+            }
             if !facts["models"]
                 .as_array()
                 .is_some_and(|rows| rows.iter().any(|r| r["model"] == model))
@@ -260,6 +263,9 @@ impl AgentHost {
                 })
             }]);
             return Ok(facts);
+        }
+        if task["agent"] == "cursor" {
+            facts["modelSelectionUnavailable"] = json!("native-setter-persists-user-defaults");
         }
         let configs = metadata["configOptions"].as_array();
         let mut models = Vec::new();
