@@ -111,10 +111,18 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{}});
       }
     }
+    if (params?.threadId === 'response-size') {
+      const thread={id:'response-size',name:'Response size fixture',cwd:'/fixture/response-size',status:{type:'idle'},model:'fixture-model'};
+      const items=[{id:'user',type:'userMessage',content:[{type:'text',text:'Inspect this change and explain the result. '.repeat(3)}]},...Array.from({length:8},(_,i)=>({id:'reason-'+i,type:'reasoning',summary:[],content:[]})),{id:'command',type:'commandExecution',command:'git diff --stat',exitCode:0,aggregatedOutput:' src/example.rs | 4 ++--\\n'.repeat(12),status:'completed'},{id:'change',type:'fileChange',status:'completed',changes:[{path:'src/example.rs',kind:{type:'update'},diff:'@@ -1 +1 @@\\n-old\\n+new'}]},{id:'agent',type:'agentMessage',text:'The change is complete and the checks passed. '.repeat(9)}];
+      const turns=Array.from({length:6},(_,i)=>({id:'size-turn-'+i,status:'completed',items}));
+      if(method==='thread/read')return emit({id,result:{thread}});
+      if(method==='thread/turns/list')return emit({id,result:{data:turns.slice(0,params.limit||6),nextCursor:null}});
+      if(method==='thread/items/list')return emit({id,result:{data:items.map(item=>({turnId:'size-turn-0',item})),nextCursor:null}});
+    }
     if (params?.threadId === 'image-pagination' || params?.threadId === 'empty-images') {
       if (method === 'thread/turns/list') return emit({id,result:{data:params.threadId === 'empty-images' ? [] : [{id:'turn-latest',items:[]}],nextCursor:null}});
       if (method === 'thread/items/list') {
-        if ('latest' in params || 'includeImages' in params || 'maxImages' in params) return emit({id,error:{message:'connector parameters leaked'}});
+        if ('view' in params || 'latest' in params || 'includeImages' in params || 'maxImages' in params) return emit({id,error:{message:'connector parameters leaked'}});
         const binding = (params.turnId || 'all') + ':' + params.sortDirection;
         const rows = [{turnId:'turn-old',item:{id:'old-first',type:'agentMessage',text:'old first'}},{turnId:'turn-latest',item:{id:'latest-first',type:'agentMessage',text:'latest first'}},{turnId:'turn-latest',item:{id:'latest-last',type:'agentMessage',text:'latest last'}}].filter(r=>!params.turnId || r.turnId===params.turnId);
         if(params.sortDirection === 'desc') rows.reverse();
@@ -691,19 +699,19 @@ test('Git writes use durable receipts, isolated identity and safe local workflow
 
 test('latest items pin the newest turn and preserve explicit turn and native cursor semantics', async () => {
   const threadId = 'image-pagination';
-  const old = (await call('codex_items', {threadId})).result;
+  const old = (await call('codex_items', {threadId,view:'full'})).result;
   assert.equal(old.items[0].itemId, 'old-first');
   assert.equal(old.turnId, undefined);
-  const first = (await call('codex_items', {threadId, latest:true})).result;
+  const first = (await call('codex_items', {threadId, view:'full', latest:true})).result;
   assert.equal(first.turnId, 'turn-latest');
   assert.equal(first.items[0].itemId, 'latest-last');
   assert.ok(first.nextCursor);
-  const next = (await call('codex_items', {threadId, latest:true, turnId:first.turnId, cursor:first.nextCursor})).result;
+  const next = (await call('codex_items', {threadId, view:'full', latest:true, turnId:first.turnId, cursor:first.nextCursor})).result;
   assert.equal(next.items[0].itemId, 'latest-first');
   assert.equal(next.nextCursor, null);
-  const explicit = (await call('codex_items', {threadId, latest:true, turnId:'turn-old'})).result;
+  const explicit = (await call('codex_items', {threadId, view:'full', latest:true, turnId:'turn-old'})).result;
   assert.equal(explicit.items[0].itemId, 'old-first');
-  const legacyNext = (await call('codex_items', {threadId, cursor:old.nextCursor})).result;
+  const legacyNext = (await call('codex_items', {threadId, view:'full', cursor:old.nextCursor})).result;
   assert.equal(legacyNext.items[0].itemId, 'latest-first');
   assert.equal((await call('codex_items', {threadId,latest:true,cursor:first.nextCursor})).response.isError, true);
   const empty = (await call('codex_items', {threadId:'empty-images',latest:true})).result;
@@ -950,4 +958,69 @@ test('Desktop seed is named before independent metadata read even with null roll
     const row=(await fixtureRows())[r.threadId];
     assert.equal(row.thread.path,null);assert.equal(row.named,true);assert.equal(row.independentReader,true);assert.equal(row.unsubscribed,true);assert.equal(row.turns.length,1);
   } finally {if(original===null)await rm(settings);else await writeFile(settings,original);}
+});
+
+
+test('response size fixtures measure guide, six-turn read and fifty search matches', async () => {
+  await completed('notification_ack',{all:true});
+  const project=path.join(directory,'response-size');await mkdir(project);
+  execFileSync('git',['init',project],{stdio:'pipe'});
+  await Promise.all(Array.from({length:50},(_,i)=>writeFile(path.join(project,`file-${String(i).padStart(2,'0')}.txt`),'needle: matching source line\ncontext line\n')));
+  const guide=await call('guide',{topic:'loop'});
+  const read=await call('codex_read',{threadId:'response-size',limit:6});
+  const search=await call('search',{project,query:'needle',limit:50});
+  for(const result of [guide,read,search])assert.equal(result.response.isError,false);
+  assert.ok(guide.result.ops.every((op:any)=>op.signature&&!op.description));
+  assert.equal(read.result.turns.length,6);
+  assert.ok(read.result.turns.every((turn:any)=>turn.items.length===4&&!turn.effectiveConfiguration));
+  const items=read.result.turns[0].items;
+  assert.ok(Array.isArray(items[0].content));assert.equal(items[1].command,'git diff --stat');assert.equal(items[1].exitCode,0);
+  assert.ok(Array.isArray(items[2].changes));assert.equal(items[2].text,undefined);
+  assert.ok(items.every((item:any)=>!item.itemId&&!item.textHash&&item.offset===undefined));
+  assert.equal(read.result.actions,undefined);assert.equal(read.result.configuration,undefined);
+  const full=(await call('codex_read',{threadId:'response-size',limit:6,view:'full'})).result;
+  assert.ok(full.actions);assert.ok(full.turns[0].items.some((i:any)=>i.type==='reasoning'));assert.ok(full.turns[0].items[0].textHash);
+  const compactItems=(await call('codex_items',{threadId:'response-size',length:10})).result;
+  assert.equal(compactItems.items.length,4);assert.equal(compactItems.items[0].truncated,true);assert.ok(compactItems.readMore);
+  const first=(await call('codex_items',{threadId:'image-pagination',latest:true,length:3,view:'full'})).result;
+  const continued=(await call('codex_items',{threadId:'image-pagination',latest:true,turnId:first.turnId,view:'full',offset:first.items[0].nextOffset,expectedHash:first.items[0].textHash})).result;
+  assert.equal(first.items[0].text+continued.items[0].text,'latest last');
+  const compactPage=(await call('codex_items',{threadId:'image-pagination',latest:true})).result;
+  const compactNext=(await call('codex_items',{threadId:'image-pagination',latest:true,turnId:compactPage.turnId,cursor:compactPage.nextCursor})).result;
+  assert.equal(compactPage.items[0].text,'latest last');assert.equal(compactNext.items[0].text,'latest first');
+  assert.equal(search.result.data.results.length,50);assert.ok(search.result.data.readNext);
+  assert.ok(search.result.data.results.every((r:any)=>!r.sha256&&!r.readNext));
+  const fullSearch=(await call('search',{project,query:'needle',limit:50,view:'full'})).result;
+  assert.ok(fullSearch.data.results.every((r:any)=>/^[a-f0-9]{64}$/.test(r.sha256)&&!r.readNext));
+  const characters=(response:any)=>response.content[0].text.length;
+  console.log('RESPONSE_CHARACTERS',JSON.stringify({guideLoop:characters(guide.response),codexRead:characters(read.response),search50:characters(search.response)}));
+});
+
+
+test('large Git diff is bounded and its immutable output pages retain text and file statistics', async()=>{
+  const project=path.join(directory,'diff-size');await mkdir(project);
+  const git=(...args:string[])=>execFileSync('git',['-C',project,...args],{encoding:'utf8'});
+  git('init');await writeFile(path.join(project,'large.txt'),'before\n');await writeFile(path.join(project,'small.txt'),'before\n');
+  git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgSign=false','commit','-m','fixture');
+  const content=Array.from({length:1800},(_,i)=>`line ${i}: 中文 bounded diff output`).join('\n')+'\n';
+  await writeFile(path.join(project,'large.txt'),content);await writeFile(path.join(project,'small.txt'),'after\n');
+  const response=await call('git',{project,action:'diff',includeSource:true});const data=response.result.data;
+  assert.equal(response.response.isError,false);assert.equal(data.truncated,true);assert.ok(data.text.length<12001);assert.ok(response.response.content[0].text.length<20000);
+  assert.deepEqual(data.files.map((f:any)=>[f.path,f.added,f.removed]),[['large.txt',1800,1],['small.txt',1,1]]);
+  assert.equal(data.coverage.state,'partial');assert.ok(data.output.outputId);
+  await writeFile(path.join(project,'large.txt'),'changed after snapshot\n');
+  let text='',offset:number|null=0;
+  while(offset!==null){const page=(await call('control_output',{outputId:data.output.outputId,offset,length:12000})).result;text+=page.text;offset=page.nextOffset;}
+  const full=JSON.parse(text);assert.ok(full.text.includes('+line 1799: 中文 bounded diff output'));assert.deepEqual(full.files,data.files);
+  const narrow=(await call('git',{project,action:'diff',path:'small.txt'})).result.data;
+  assert.equal(narrow.truncated,false);assert.equal(narrow.output,undefined);assert.ok(narrow.text.includes('+after'));
+});
+
+test('review receipts omit notification delivery details including replay',async()=>{
+  const created=await dispatchFixture('fixture-dispatch');
+  const requestId=randomUUID();const args={threadId:created.threadId,turnId:created.turnId,verdict:'pass',requestId};
+  const reviewed=await completed('codex_review',args);
+  assert.equal(reviewed.state,'completed',JSON.stringify(reviewed));assert.equal(reviewed.notification,undefined);assert.equal(reviewed.notificationError,undefined);
+  const replay=(await call('receipt',{requestId})).result;
+  assert.equal(replay.state,'completed');assert.equal(replay.notification,undefined);assert.equal(replay.notificationError,undefined);
 });

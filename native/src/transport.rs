@@ -434,7 +434,7 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
                 images = crate::images::take(&mut value);
             }
             (
-                crate::kernel::results::page_output(crate::egress::receipt(value))?,
+                crate::kernel::results::page_output(crate::egress::receipt(value), 64 * 1024)?,
                 false,
             )
         }
@@ -448,7 +448,11 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
             .unwrap_or("")
             .to_owned();
         let turn = value["turnId"].as_str().unwrap_or("").to_owned();
-        if !task.is_empty() && !turn.is_empty() && value["notification"] != "bind-failed" {
+        if crate::egress::dispatch_receipt(&value)
+            && !task.is_empty()
+            && !turn.is_empty()
+            && value["notification"] != "bind-failed"
+        {
             let since = if matches!(string(&value, "operation"), "send" | "create") {
                 value["createdAt"].as_str()
             } else {

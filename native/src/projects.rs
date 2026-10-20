@@ -933,8 +933,11 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                             })
                             .contains(&needle)
                         {
-                            results
-                                .push(json!({"path":path,"sha256":hash(&text),"matches":matches,"matchesComplete":total_matches<=5 && text.lines().filter(|s| if sensitive { s.contains(&needle) } else { s.to_lowercase().contains(&needle) }).all(|s|s.chars().count()<=500),"totalMatches":total_matches,"readNext":{"via":"query","op":"read","args":{"project":args["project"],"path":path,"view":if review{"review"}else{"raw"}}}}));
+                            let mut result = json!({"path":path,"matches":matches,"matchesComplete":total_matches<=5 && text.lines().filter(|s| if sensitive {s.contains(&needle)}else{s.to_lowercase().contains(&needle)}).all(|s|s.chars().count()<=500),"totalMatches":total_matches});
+                            if args["view"] == "full" {
+                                result["sha256"] = json!(hash(&text));
+                            }
+                            results.push(result);
                         }
                     }
                     Err(e) => {
@@ -943,7 +946,7 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                     }
                 }
             }
-            json!({"query":args["query"],"results":results,"scanned":scanned,"skipped":skipped_count,"listingHash":hash(paths.join("\0")),"nextOffset":if index<paths.len(){Some(index)}else{None}})
+            json!({"query":args["query"],"results":results,"scanned":scanned,"skipped":skipped_count,"listingHash":hash(paths.join("\0")),"nextOffset":if index<paths.len(){Some(index)}else{None},"readNext":{"via":"query","op":"read","args":{"project":args["project"],"path":"<result.path>","view":if review{"review"}else{"raw"}}}})
         }
         "git" => {
             let op = string(args, "operation");
@@ -1013,7 +1016,7 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                 if !file.is_empty() {
                     cmd.push(file.into())
                 }
-                if review && op == "diff" {
+                let mut data = if review && op == "diff" {
                     let mut names = cmd.clone();
                     names.insert(1, "--name-status".into());
                     names.insert(2, "-z".into());
@@ -1041,10 +1044,40 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                     });
                     cmd.truncate(cmd.iter().position(|s| s == "--").unwrap() + 1);
                     cmd.extend(safe.clone());
-                    json!({"text":if safe.is_empty(){String::new()}else{git(root,cmd).await?},"truncated":false,"paths":safe})
+                    json!({"text":if safe.is_empty(){String::new()}else{git(root,cmd.clone()).await?},"truncated":false,"paths":safe})
                 } else {
-                    json!({"text":git(root,cmd).await?,"truncated":false})
+                    json!({"text":git(root,cmd.clone()).await?,"truncated":false})
+                };
+                if op == "diff" && string(&data, "text").len() > 12000 {
+                    let mut stats = cmd;
+                    stats.retain(|arg| arg != "--unified=3");
+                    stats.insert(1, "--numstat".into());
+                    stats.insert(2, "-z".into());
+                    let stats = git(root, stats).await?;
+                    let files: Vec<_> = stats.split('\0').filter_map(|row| {
+                        let fields: Vec<_> = row.splitn(3,'\t').collect();
+                        (fields.len()==3).then(|| json!({"path":fields[2],"added":fields[0].parse::<u64>().ok(),"removed":fields[1].parse::<u64>().ok(),"binary":fields[0]=="-"}))
+                    }).collect();
+                    let full = json!({"text":data["text"],"files":files});
+                    let paged = crate::kernel::results::page_output(full, 12000)?;
+                    let text = string(&data, "text");
+                    let mut end = 12000;
+                    while !text.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    data["text"] = json!(&text[..end]);
+                    data["truncated"] = json!(true);
+                    data["files"] = json!(files.iter().take(50).collect::<Vec<_>>());
+                    if let Some(paths) = data.get_mut("paths").and_then(Value::as_array_mut) {
+                        let truncated = paths.len() > 50;
+                        paths.truncate(50);
+                        data["truncatedPaths"] = json!(truncated);
+                    }
+                    data["filesTotal"] = json!(files.len());
+                    data["filesTruncated"] = json!(files.len() > 50);
+                    data["output"] = json!({"outputId":paged["outputId"],"offset":0,"nextAction":"control_output","format":"JSON with complete diff and file statistics"});
                 }
+                data
             }
         }
         _ => return Err("未知项目查询".into()),

@@ -300,9 +300,11 @@
           "view": {
             "enum": [
               "raw",
-              "review"
+              "review",
+              "full"
             ],
-            "default": "raw"
+            "default": "raw",
+            "description": "默认省略逐项 hash；full 返回 sha256；review 继续限定工作区资源边界。"
           },
           "expectedHash": {
             "type": "string",
@@ -604,7 +606,7 @@
     },
     {
       "name": "git",
-      "description": "只读 Git 查询：status 当前改动；log 提交；show 提交说明与文件；diff 默认未暂存，staged=true 查看暂存，revision 比较工作区，baseRevision+revision 比较提交。",
+      "description": "只读 Git 查询：status 当前改动；log 提交；show 提交说明与文件；diff 默认未暂存，staged=true 查看暂存，revision 比较工作区，baseRevision+revision 比较提交。 diff 超过 12000 字节返回截断预览、文件统计和 output.outputId；用 control_output 从 offset:0 分页读取完整 JSON，或按 path 缩小范围。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1513,7 +1515,7 @@
     },
     {
       "name": "codex_read",
-      "description": "读取任务状态与最近记录；includeImages=true 附加 MCP image，默认最多 4 张。unknown 表示当前无法确认活动状态。 每轮附带 notification：未绑定为 null，否则包含 channel、target 与 deliveries（eventId、level、state、error）；statusOnly 不返回轮次详情。\nretry 与 successorTurnId 披露容量恢复状态及后继轮次；恢复规则见 codex_wait。通知保留最终消息（最多 2000 Unicode 字符）及完成时的改动快照；截断或缺少证据时按 query 读取。",
+      "description": "读取任务状态与最近记录；includeImages=true 附加 MCP image，默认最多 4 张。unknown 表示当前无法确认活动状态。 statusOnly 不返回轮次详情；通知投递明细通过 notify_status 查询。\nretry 与 successorTurnId 披露容量恢复状态及后继轮次；恢复规则见 codex_wait。通知保留最终消息（最多 2000 Unicode 字符）及完成时的改动快照；截断或缺少证据时按 query 读取。 默认 compact 只给消息、文件改动、错误和命令摘要；完整条目与文本分页用 view:full。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1551,6 +1553,15 @@
             "maximum": 8,
             "default": 4,
             "description": "最多附加的图片数，优先最新。"
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "compact",
+              "full"
+            ],
+            "default": "compact",
+            "description": "compact 返回结构化正文；full 保留全部条目及原始文本分页、hash、配置等元数据。"
           }
         },
         "required": [
@@ -1588,7 +1599,8 @@
         "limit",
         "statusOnly",
         "waitMs",
-        "includeImages"
+        "includeImages",
+        "view"
       ]
     },
     {
@@ -2286,7 +2298,7 @@
     },
     {
       "name": "codex_items",
-      "description": "分页读取任务条目。latest=true 从最近轮次的最新条目开始，续页沿用 turnId/cursor/latest；正文用 offset/length。includeImages=true 附加 MCP image。",
+      "description": "分页读取任务条目。latest=true 从最近轮次的最新条目开始，续页沿用 turnId/cursor/latest；正文用 offset/length。includeImages=true 附加 MCP image。 默认 compact 只给消息、文件改动、错误和命令摘要；完整条目与文本分页用 view:full。",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2337,6 +2349,15 @@
             "type": "boolean",
             "default": false,
             "description": "true 时读取最近一轮、条目由新到旧；可用 turnId 固定轮次。翻页必须同时携带返回的 turnId、cursor 和 latest=true，不重新定位轮次。未传时保持从最早条目开始的原有分页。"
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "compact",
+              "full"
+            ],
+            "default": "compact",
+            "description": "compact 返回结构化正文；full 保留全部条目及原始文本分页、hash、配置等元数据。"
           }
         },
         "required": [
@@ -2377,7 +2398,8 @@
         "offset",
         "length",
         "expectedHash",
-        "includeImages"
+        "includeImages",
+        "view"
       ]
     },
     {

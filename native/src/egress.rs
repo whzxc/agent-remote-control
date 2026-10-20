@@ -139,12 +139,42 @@ pub fn receipt(value: Value) -> Value {
             out["result"] = result;
         }
     }
+    if !dispatch_receipt(&out) {
+        out.as_object_mut().unwrap().remove("notification");
+        out.as_object_mut().unwrap().remove("notificationError");
+    }
     out
+}
+
+pub(crate) fn dispatch_receipt(value: &Value) -> bool {
+    matches!(
+        string(value, "operation"),
+        "create" | "send" | "agent_create" | "agent_send"
+    )
 }
 
 pub(crate) fn arc_version() -> &'static str {
     static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    VERSION.get_or_init(|| hash(catalog().to_string())[..12].to_owned())
+    VERSION.get_or_init(|| protocol_hash(catalog()))
+}
+
+fn protocol_hash(catalog: &Value) -> String {
+    let mut ops: Vec<_> = catalog["ops"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|op| {
+            json!({"op":op["name"],"via":via(op),"description":op["description"],
+            "inputSchema":op["inputSchema"],"signature":signature(op),"example":example(op)})
+        })
+        .collect();
+    ops.sort_by(|a, b| string(a, "op").cmp(string(b, "op")));
+    hash(
+        json!({"tools":catalog["tools"],"instructions":catalog["instructions"],
+        "guides":catalog["guides"],"ops":ops,"events":crate::claude_notify::subscriptions::guide()})
+        .to_string(),
+    )[..12]
+        .to_owned()
 }
 
 pub(crate) fn via(spec: &Value) -> &'static str {
@@ -400,18 +430,7 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
     };
     let examples: Vec<_> = ops
         .iter()
-        .filter(|op| {
-            matches!(
-                string(op, "name"),
-                "codex_create"
-                    | "codex_send"
-                    | "codex_wait"
-                    | "codex_read"
-                    | "codex_changes"
-                    | "read"
-                    | "search"
-            )
-        })
+        .filter(|op| matches!(string(op, "name"), "codex_create" | "codex_wait" | "read"))
         .map(|op| {
             let mut call = example(op);
             if source == "claude" && matches!(string(op, "name"), "codex_create" | "codex_send") {
@@ -424,7 +443,16 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
     let index: Vec<_> = ops
         .iter()
         .map(|op| {
-            json!({"op":op["name"],"via":via(op),"description":op["description"].as_str().unwrap_or("").split(['。','\n']).next().unwrap_or(""),"signature":signature(op)})
+            let mut entry = json!({"op":op["name"],"via":via(op),"signature":signature(op)});
+            if topic != "loop" {
+                entry["description"] = json!(op["description"]
+                    .as_str()
+                    .unwrap_or("")
+                    .split(['。', '\n'])
+                    .next()
+                    .unwrap_or(""));
+            }
+            entry
         })
         .collect();
     json!({"events":crate::claude_notify::subscriptions::guide(),"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":index})
@@ -486,4 +514,56 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         return;
     };
     value["next"] = next;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protocol_version_tracks_visible_contract_not_internal_catalog_metadata() {
+        let original = catalog().clone();
+        let version = protocol_hash(&original);
+        let mut changed = original.clone();
+        changed["toolExposure"] = json!({"internal":"changed"});
+        changed["domains"] = json!([]);
+        assert_eq!(version, protocol_hash(&changed));
+        changed["ops"].as_array_mut().unwrap().reverse();
+        assert_eq!(version, protocol_hash(&changed));
+        for field in ["description", "inputSchema", "guideParameters", "example"] {
+            let mut changed = original.clone();
+            changed["ops"][0][field] = match field {
+                "guideParameters" => json!(["op"]),
+                "inputSchema" => json!({"type":"object","properties":{"new":{"type":"string"}}}),
+                _ => json!("changed"),
+            };
+            assert_ne!(version, protocol_hash(&changed), "{field}");
+        }
+        let mut changed = original;
+        changed["guides"]["en"]["common"] = json!("changed guide text");
+        assert_ne!(version, protocol_hash(&changed));
+    }
+
+    #[test]
+    fn only_dispatch_receipts_expose_notification_delivery_details() {
+        for operation in [
+            "create",
+            "send",
+            "agent_create",
+            "agent_send",
+            "codex_review",
+            "interrupt",
+            "codex_respond",
+        ] {
+            let out = receipt(
+                json!({"requestId":"test","state":"completed","operation":operation,
+                "notification":{"deliveries":[{"timing":{"queueMs":31000}}]},"notificationError":"detail"}),
+            );
+            assert_eq!(out.get("notification").is_some(), dispatch_receipt(&out));
+            assert_eq!(
+                out.get("notificationError").is_some(),
+                dispatch_receipt(&out)
+            );
+        }
+    }
 }

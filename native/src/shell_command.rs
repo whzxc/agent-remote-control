@@ -53,7 +53,7 @@ pub async fn run(c: &control::Control, args: &Value) -> Result<Value> {
         )
         .await?;
     let mut result = json!({"stdout":output["stdout"],"stderr":output["stderr"],"exitCode":output["exitCode"],"durationMs":started.elapsed().as_millis() as u64,"truncated":false});
-    let paged = crate::kernel::results::page_output(result.clone())?;
+    let paged = crate::kernel::results::page_output(result.clone(), 64 * 1024)?;
     if paged["outputId"].is_string() {
         for key in ["stdout", "stderr"] {
             let text = string(&result, key);

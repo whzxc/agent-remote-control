@@ -1392,7 +1392,19 @@ impl Control {
                         .await?["thread"]
                         .clone();
                 }
-                let mut result = summary(&t);
+                let full = args["view"] == "full";
+                let mut result = if full {
+                    summary(&t)
+                } else {
+                    json!({"threadId":id,"title":t["name"],"runtimeStatus":t["status"]["type"],"observedAt":now()})
+                };
+                if !full
+                    && t["status"]["activeFlags"]
+                        .as_array()
+                        .is_some_and(|flags| !flags.is_empty())
+                {
+                    result["activeFlags"] = t["status"]["activeFlags"].clone();
+                }
                 if args["statusOnly"] != true {
                     let page=self.request("thread/turns/list",json!({"threadId":id,"cursor":args["cursor"],"limit":num(&args,"limit",2),"sortDirection":"desc","itemsView":"full"}),60000).await?;
                     result["nextCursor"] = page["nextCursor"].clone();
@@ -1416,20 +1428,56 @@ impl Control {
                             crate::images::from_items(&raw, id, string(&t, "cwd"), &args),
                         );
                     }
-                    let configurations = turn_configurations(&t);
-                    result["turns"]=json!(page["data"].as_array().into_iter().flatten().map(|t|{let items=t["items"].as_array().cloned().unwrap_or_default();json!({"turnId":t["id"],"recordedStatus":t["status"],"error":t["error"],"effectiveConfiguration":configurations.get(string(t,"id")).cloned().unwrap_or(json!({"source":"unavailable","model":"unknown","effort":"unknown"})),"items":items.iter().skip(items.len().saturating_sub(15)).map(|i|item(i,0,600)).collect::<Vec<_>>(),"itemsTruncated":items.len()>15})}).collect::<Vec<_>>());
+                    let configurations = if full {
+                        turn_configurations(&t)
+                    } else {
+                        HashMap::new()
+                    };
+                    result["turns"] = json!(page["data"].as_array().into_iter().flatten().map(|turn| {
+                        let items: Vec<_> = turn["items"].as_array().into_iter().flatten()
+                            .filter_map(|i| if full {Some(item(i,0,600))} else {compact_item(i,600)}).collect();
+                        let mut row = json!({"turnId":turn["id"],"recordedStatus":turn["status"],
+                            "items":items.iter().skip(items.len().saturating_sub(15)).collect::<Vec<_>>()});
+                        if items.len()>15 {row["itemsTruncated"]=json!(true);}
+                        if !turn["error"].is_null() {row["error"]=turn["error"].clone();}
+                        if full {
+                            row["effectiveConfiguration"] = configurations.get(string(turn,"id")).cloned()
+                                .unwrap_or(json!({"source":"unavailable","model":"unknown","effort":"unknown"}));
+                        }
+                        row
+                    }).collect::<Vec<_>>());
+                    if !full
+                        && result["turns"].as_array().unwrap().iter().any(|t| {
+                            t["itemsTruncated"] == true
+                                || t["items"]
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .any(|i| i["truncated"] == true)
+                        })
+                    {
+                        result["readMore"] = json!("Use codex_items with threadId, turnId and view:full for complete items and text pagination.");
+                    }
                 }
                 if let Some(turns) = result["turns"].as_array_mut() {
                     for turn in turns {
-                        turn["notification"] =
-                            crate::claude_notify::read(id, string(turn, "turnId"))?;
-                        turn["retry"] =
-                            crate::claude_notify::retry_status(id, string(turn, "turnId"))?;
+                        let retry = crate::claude_notify::retry_status(id, string(turn, "turnId"))?;
+                        if !retry.is_null() {
+                            turn["retry"] = retry;
+                        }
                     }
                 }
                 Ok(result)
             }
             "codex_items" => {
+                let full = args["view"] == "full";
+                if !full && (num(&args, "offset", 0) > 0 || args["expectedHash"].is_string()) {
+                    return Err(crate::egress::invalid_arguments(
+                        "codex_items",
+                        "/view",
+                        "Use view:full for offset/expectedHash text pagination.",
+                    ));
+                }
                 let latest = args["latest"] == true;
                 let mut params = args.clone();
                 params["sortDirection"] = json!(if latest { "desc" } else { "asc" });
@@ -1457,6 +1505,7 @@ impl Control {
                     "includeImages",
                     "maxImages",
                     "latest",
+                    "view",
                 ] {
                     params.as_object_mut().unwrap().remove(key);
                 }
@@ -1465,14 +1514,18 @@ impl Control {
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .map(|r| {
-                        let mut i = item(
-                            &r["item"],
-                            num(&args, "offset", 0),
-                            num(&args, "length", 6000),
-                        );
+                    .filter_map(|r| {
+                        let mut i = if full {
+                            item(
+                                &r["item"],
+                                num(&args, "offset", 0),
+                                num(&args, "length", 6000),
+                            )
+                        } else {
+                            compact_item(&r["item"], num(&args, "length", 6000))?
+                        };
                         i["turnId"] = r["turnId"].clone();
-                        i
+                        Some(i)
                     })
                     .collect();
                 if let Some(h) = args["expectedHash"].as_str() {
@@ -1483,6 +1536,15 @@ impl Control {
                 let mut result = json!({"threadId":args["threadId"],"items":items,"nextCursor":page["nextCursor"],"observedAt":now()});
                 if latest {
                     result["turnId"] = turn_id;
+                }
+                if !full
+                    && result["items"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|i| i["truncated"] == true)
+                {
+                    result["readMore"] = json!("Repeat this page with view:full for textHash/offset/nextOffset pagination.");
                 }
                 if args["includeImages"] == true {
                     let thread = self
@@ -1674,6 +1736,54 @@ pub(crate) fn summary(t: &Value) -> Value {
     }
     summary
 }
+fn compact_item(v: &Value, length: usize) -> Option<Value> {
+    let mut out = json!({"type":v["type"]});
+    let mut truncated = false;
+    let mut text = |v: &Value| {
+        let mut chars = v.as_str().unwrap_or("").chars();
+        let result: String = chars.by_ref().take(length).collect();
+        truncated |= chars.next().is_some();
+        json!(result)
+    };
+    match string(v, "type") {
+        "agentMessage" => {
+            out["text"] = text(&v["text"]);
+        }
+        "userMessage" => {
+            let mut content = v["content"].clone();
+            for part in content.as_array_mut().into_iter().flatten() {
+                if part["text"].is_string() {
+                    part["text"] = text(&part["text"]);
+                }
+            }
+            out["content"] = content;
+        }
+        "commandExecution" => {
+            out["command"] = v["command"].clone();
+            out["exitCode"] = v["exitCode"].clone();
+            out["status"] = v["status"].clone();
+            out["output"] = text(&v["aggregatedOutput"]);
+        }
+        "fileChange" => {
+            out["status"] = v["status"].clone();
+            out["changes"] = json!(v["changes"].as_array().into_iter().flatten().map(|change|
+                json!({"path":change["path"],"kind":change["kind"],"diff":text(&change["diff"])})).collect::<Vec<_>>());
+        }
+        "error" => {
+            for key in ["message", "code", "error"] {
+                if let Some(value) = v.get(key) {
+                    out[key] = value.clone();
+                }
+            }
+        }
+        _ => return None,
+    }
+    if truncated {
+        out["truncated"] = json!(true);
+    }
+    Some(out)
+}
+
 pub(crate) fn item(v: &Value, offset: usize, len: usize) -> Value {
     let text = match string(v, "type") {
         "agentMessage" => string(v, "text").to_owned(),

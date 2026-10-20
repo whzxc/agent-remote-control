@@ -13,9 +13,9 @@ pub fn prune() -> Result<()> {
     make_room(&dir, 0)
 }
 
-pub fn page_output(result: Value) -> Result<Value> {
+pub fn page_output(result: Value, inline_limit: usize) -> Result<Value> {
     let text = result.to_string();
-    if text.len() <= 64 * 1024 {
+    if text.len() <= inline_limit {
         return Ok(result);
     }
     let output = id();
@@ -24,7 +24,7 @@ pub fn page_output(result: Value) -> Result<Value> {
     private_dir(&dir)?;
     make_room(&dir, text.len() as u64)?;
     save(&dir.join(format!("{output}.json")), &result)?;
-    let mut end = text.len().min(48 * 1024);
+    let mut end = text.len().min(inline_limit.min(48 * 1024));
     while !text.is_char_boundary(end) {
         end -= 1;
     }
