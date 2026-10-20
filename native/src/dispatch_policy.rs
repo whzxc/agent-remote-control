@@ -1,6 +1,7 @@
 //! User-owned dispatch choices; native capability and quota facts stay upstream.
 use crate::*;
 use serde::{Deserialize, Serialize};
+static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -159,6 +160,10 @@ fn directory(thread: &str) -> Result<PathBuf> {
     Ok(root().join("dispatches").join(thread))
 }
 pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    read_records(thread)
+}
+fn read_records(thread: &str) -> Result<Vec<Value>> {
     let dir = directory(thread)?;
     if !dir.exists() {
         return Ok(vec![]);
@@ -175,6 +180,7 @@ pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
     Ok(rows)
 }
 pub(crate) fn record(receipt: &Value) -> Result<()> {
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut row = receipt["task"]["dispatch"].clone();
     for key in ["requestId", "threadId", "turnId", "dispatchMode"] {
         row[key] = receipt[key].clone();
@@ -187,11 +193,33 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     let write = || -> Result<()> {
         let dir = directory(string(receipt, "threadId"))?;
         uuid::Uuid::parse_str(string(receipt, "requestId")).map_err(|_| "INVALID_REQUEST_ID")?;
+        let previous = read_records(string(receipt, "threadId"))?;
+        row["purpose"] = receipt["arguments"]
+            .get("purpose")
+            .cloned()
+            .or_else(|| previous.last().and_then(|r| r.get("purpose")).cloned())
+            .unwrap_or(json!("task"));
+        if row["dispatchMode"] == "new-turn" {
+            let rework = previous
+                .iter()
+                .filter(|r| r["review"]["verdict"] == "rework")
+                .filter(|r| {
+                    !previous.iter().any(|next| {
+                        next["dispatchMode"] == "new-turn"
+                            && string(next, "submittedAt") > string(&r["review"], "reviewedAt")
+                    })
+                })
+                .max_by_key(|r| string(&r["review"], "reviewedAt"));
+            if let Some(rework) = rework {
+                row["reworkOf"] = rework["turnId"].clone();
+            }
+        }
         save(
             &dir.join(format!("{}.json", string(receipt, "requestId"))),
             &row,
         )
     };
+    let mut write = write;
     write().map_err(|e| format!("SUBMISSION_UNCONFIRMED: dispatch accepted; record failed: {e}"))
 }
 pub(crate) async fn complete(
@@ -200,11 +228,7 @@ pub(crate) async fn complete(
     turn: &str,
     state: &str,
 ) -> Result<Value> {
-    let mut rows = records(thread)?
-        .into_iter()
-        .filter(|r| r["turnId"] == turn)
-        .collect::<Vec<_>>();
-    if rows.is_empty() {
+    if !records(thread)?.iter().any(|r| r["turnId"] == turn) {
         return Ok(Value::Null);
     }
     let configuration = match c
@@ -218,6 +242,12 @@ pub(crate) async fn complete(
         Ok(t) => control::turn_configurations(&t["thread"]).remove(turn),
         Err(_) => None,
     };
+    // Re-read under the same lock as reviews; observation must never erase a later verdict.
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut rows = read_records(thread)?
+        .into_iter()
+        .filter(|r| r["turnId"] == turn)
+        .collect::<Vec<_>>();
     for row in &mut rows {
         if row["terminal"].is_null() {
             let end = chrono::Utc::now();
@@ -240,4 +270,60 @@ pub(crate) async fn complete(
         )?;
     }
     Ok(json!(rows))
+}
+
+pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> {
+    let thread = string(args, "threadId");
+    directory(thread)?;
+    let mut cursor = Value::Null;
+    let selected = loop {
+        let page = c.request("thread/turns/list",
+            json!({"threadId":thread,"limit":20,"sortDirection":"desc","itemsView":"notLoaded","cursor":cursor}), 10000).await?;
+        let turns = page["data"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
+        if let Some(turn) = turns.iter().find(|t| {
+            if args["turnId"].is_string() {
+                t["id"] == args["turnId"]
+            } else {
+                matches!(
+                    string(t, "status"),
+                    "completed" | "failed" | "interrupted" | "cancelled"
+                )
+            }
+        }) {
+            if !matches!(
+                string(turn, "status"),
+                "completed" | "failed" | "interrupted" | "cancelled"
+            ) {
+                return Err("REVIEW_REQUIRES_TERMINAL_TURN".into());
+            }
+            break turn.clone();
+        }
+        cursor = page["nextCursor"].clone();
+        if cursor.is_null() {
+            return Err("REVIEW_TERMINAL_TURN_NOT_FOUND".into());
+        }
+    };
+    let turn = string(&selected, "id");
+    let state = match string(&selected, "status") {
+        "interrupted" => "cancelled",
+        other => other,
+    };
+    complete(c, thread, turn, state).await?;
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut rows = read_records(thread)?
+        .into_iter()
+        .filter(|r| r["turnId"] == turn)
+        .collect::<Vec<_>>();
+    if rows.is_empty() {
+        return Err("REVIEW_DISPATCH_NOT_FOUND: only ARC-dispatched turns can be reviewed".into());
+    }
+    let review = json!({"verdict":args["verdict"],"note":args["note"],"reviewedAt":now(),"requestId":args["requestId"]});
+    for row in &mut rows {
+        row["review"] = review.clone();
+        save(
+            &directory(thread)?.join(format!("{}.json", string(row, "requestId"))),
+            row,
+        )?;
+    }
+    Ok(json!({"threadId":thread,"turnId":turn,"review":review}))
 }

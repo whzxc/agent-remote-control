@@ -781,7 +781,7 @@ impl Control {
             .or_else(|| args["params"]["threadId"].as_str())
             .unwrap_or("");
         let _thread_guard = if !thread_key.is_empty()
-            && (matches!(operation, "send" | "interrupt")
+            && (matches!(operation, "send" | "interrupt" | "review")
                 || (operation == "native"
                     && matches!(
                         string(args, "method"),
@@ -792,6 +792,10 @@ impl Control {
             None
         };
 
+        if operation == "review" {
+            r["threadId"] = args["threadId"].clone();
+            return crate::dispatch_policy::review(self, args).await;
+        }
         if matches!(operation, "edit" | "write") {
             return crate::text_files::write(self, operation, args).await;
         }
@@ -1208,6 +1212,7 @@ impl Control {
         }
         match name {
             "dispatch_policy" => crate::dispatch_policy::query(self).await,
+            "codex_review" => self.mutate("review", args).await,
             "screen" => crate::screen::call(args).await,
             "projects" => Ok(
                 json!({"observedAt":now(),"source":"codex-app-server:project/list","projects":crate::projects::list(self).await?}),

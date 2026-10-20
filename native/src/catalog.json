@@ -1956,6 +1956,83 @@
       ]
     },
     {
+      "name": "codex_review",
+      "description": "记录终态轮次的验收结论；省略 turnId 选择最近终态轮次，重复提交以最后一次改判为准。rework 关联同线程下一次新轮派发。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "可选；需要安全重试时传入 UUID，同 ID 同参数只回读原回执。"
+          },
+          "waitMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120000,
+            "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+          },
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "rework"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "threadId",
+          "verdict"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {
+        "threadId": "<threadId>",
+        "verdict": "rework",
+        "note": "Acceptance failed; continue at higher effort."
+      },
+      "guideParameters": [
+        "threadId",
+        "turnId",
+        "verdict",
+        "note"
+      ]
+    },
+    {
       "name": "codex_interrupt",
       "description": "请求中断指定轮次，以上游返回为准；任务终态用 codex_wait/read 确认。",
       "inputSchema": {
@@ -5111,6 +5188,18 @@
         ],
         "requires": [
           "control_output"
+        ],
+        "tier": "default",
+        "conditional": false
+      },
+      "codex_review": {
+        "group": "codex",
+        "presets": [
+          "common"
+        ],
+        "requires": [
+          "receipt",
+          "dispatch_policy"
         ],
         "tier": "default",
         "conditional": false
