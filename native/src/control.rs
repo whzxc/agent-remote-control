@@ -659,6 +659,10 @@ impl Control {
                     continue;
                 }
             };
+            // Reviews update existing turn metadata; they are not execution tasks.
+            if r["operation"] == "review" {
+                continue;
+            }
             if !r["task"].is_object() {
                 let kind = string(&r, "operation");
                 let thread_id = r["threadId"]
