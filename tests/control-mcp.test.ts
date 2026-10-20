@@ -39,9 +39,14 @@ before(async () => {
   const fixture = path.join(directory, 'app-server.mjs');
   await writeFile(fixture, `
 import { createInterface } from 'node:readline';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 const fixtureState = process.env.ARC_STATE_DIR + '/dispatch-fixture.json';
+const saveFixture = saved => {
+  const temporary = fixtureState + '.tmp';
+  writeFileSync(temporary, JSON.stringify(saved));
+  renameSync(temporary, fixtureState);
+};
 const counts = new Map();
 const emit = value => process.stdout.write(JSON.stringify(value) + '\\n');
 for await (const line of createInterface({ input: process.stdin })) {
@@ -49,7 +54,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (!method && result) {
     const saved = JSON.parse(readFileSync(fixtureState,'utf8'));
     const row = Object.values(saved).find(r=>r.pendingId===id);
-    if(row){row.answer=result;row.turns.at(-1).status='completed';delete row.pendingId;writeFileSync(fixtureState,JSON.stringify(saved));}
+    if(row){row.answer=result;row.turns.at(-1).status='completed';delete row.pendingId;saveFixture(saved);}
     continue;
   }
   if (id === undefined) continue;
@@ -65,7 +70,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       const thread = {id:randomUUID(),cwd:params.cwd,path:process.env.ARC_STATE_DIR+'/seed-'+randomUUID()+'.jsonl'};
       writeFileSync(thread.path, '{}');
       saved[thread.id] = {thread,model:params.model,turns:[],metadataReads:0,archived:false};
-      writeFileSync(fixtureState, JSON.stringify(saved));
+      saveFixture(saved);
       return emit({id,result:{thread,model:params.model}});
     }
     if (saved[params?.threadId]) {
@@ -73,20 +78,20 @@ for await (const line of createInterface({ input: process.stdin })) {
       if (method === 'thread/read') {
         if (params.includeTurns) return emit({id,error:{code:-32601,message:'list_turns is not supported yet'}});
         row.metadataReads++;
-        writeFileSync(fixtureState,JSON.stringify(saved));
+        saveFixture(saved);
         return emit({id,result:{thread:{...row.thread,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
       }
       if (method === 'turn/start') {
         if (row.model === 'fixture-dispatch-reject') return emit({id,error:{code:-32602,message:'invalid turn configuration'}});
         const overload=row.model.includes('overload') && (row.model.includes('exhausted') || row.model.includes('side-effect') || row.turns.length<2);
         row.turns.push({id:randomUUID(),status:overload?'failed':(row.model.includes('queue')||(row.model.includes('question')&&row.turns.length===0))?'inProgress':'completed',error:overload?{codexErrorInfo:'serverOverloaded',message:'Selected model is at capacity'}:null,items:overload?(row.model.includes('side-effect')?[{type:'commandExecution',status:'completed'}]:[]):[{id:randomUUID(),type:'agentMessage',text:'pong'}],input:params.input,model:params.model||row.model});
-        writeFileSync(fixtureState,JSON.stringify(saved));
-        if(row.model.includes('question')&&row.turns.length===1) {row.pendingId='question:'+params.threadId;writeFileSync(fixtureState,JSON.stringify(saved));emit({id:row.pendingId,method:'item/tool/requestUserInput',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,questions:[{id:'q',question:'2+2?',options:[]}]}});}
+        saveFixture(saved);
+        if(row.model.includes('question')&&row.turns.length===1) {row.pendingId='question:'+params.threadId;saveFixture(saved);emit({id:row.pendingId,method:'item/tool/requestUserInput',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,questions:[{id:'q',question:'2+2?',options:[]}]}});}
         if (row.model === 'fixture-dispatch-uncertain') return process.exit(0);
         return emit({id,result:{turn:row.turns.at(-1)}});
       }
-      if (method === 'turn/steer') { row.steers=(row.steers||0)+1;writeFileSync(fixtureState,JSON.stringify(saved));return emit({id,result:{turnId:row.turns.at(-1).id}}); }
-      if (method === 'fixture/finish-turn') { row.turns.at(-1).status=params.status||'completed';writeFileSync(fixtureState,JSON.stringify(saved));return emit({id,result:{}}); }
+      if (method === 'turn/steer') { row.steers=(row.steers||0)+1;saveFixture(saved);return emit({id,result:{turnId:row.turns.at(-1).id}}); }
+      if (method === 'fixture/finish-turn') { row.turns.at(-1).status=params.status||'completed';saveFixture(saved);return emit({id,result:{}}); }
       if (method === 'thread/turns/list') {
         const rows = [...row.turns];
         if(params.sortDirection === 'desc') rows.reverse();
@@ -94,7 +99,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{data:rows.slice(offset,offset+1),nextCursor:offset+1<rows.length?String(offset+1):null}});
       }
       if (method === 'thread/archive') {
-        row.archived=true;writeFileSync(fixtureState,JSON.stringify(saved));
+        row.archived=true;saveFixture(saved);
         return emit({id,result:{}});
       }
     }
