@@ -63,7 +63,8 @@ jobs:
           cp "target/$TARGET/release/arc" LICENSE linux-package/
           mkdir -p linux-package/skills
           cp -R skills/arc-setup linux-package/skills/
-          tar -czf "linux-artifacts/agent-remote-control-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc LICENSE skills
+          cp -R licenses linux-package/
+          tar -czf "linux-artifacts/agent-remote-control-$RELEASE_TAG-linux-$ARCH.tar.gz" -C linux-package arc LICENSE skills licenses
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}

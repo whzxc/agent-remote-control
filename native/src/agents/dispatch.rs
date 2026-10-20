@@ -106,7 +106,7 @@ impl AgentHost {
         }
         let model = args["model"].as_str().or(policy.model.as_deref());
         if let Some(model) = model {
-            if task["agent"] == "cursor" {
+            if task["agent"] == "cursor" && facts["currentModel"] != model {
                 return Err("UNSUPPORTED_DISPATCH_MODEL: Cursor's native setter persists user defaults; session-only model selection is not integrated".into());
             }
             if !facts["models"]
@@ -124,7 +124,11 @@ impl AgentHost {
             } else {
                 "policy-default"
             });
-            p.set_dispatch_option(&facts, "model", model).await?;
+            // Cursor persists its model setter globally. An explicit assertion of
+            // the already confirmed current model requires no native mutation.
+            if task["agent"] != "cursor" {
+                p.set_dispatch_option(&facts, "model", model).await?;
+            }
             let snapshot = p.state.lock().await.clone();
             facts = self.session_dispatch_facts(&snapshot, true).await?;
             if facts["currentModel"] != model {
@@ -277,6 +281,8 @@ pub(super) fn catalog_facts(
     }
     if task["agent"] == "cursor" {
         facts["modelSelectionUnavailable"] = json!("native-setter-persists-user-defaults");
+        facts["modelSelectionNote"] =
+            json!("The current model may be explicitly asserted; switching is unavailable");
     }
     let configs = metadata["configOptions"].as_array();
     let mut models = Vec::new();

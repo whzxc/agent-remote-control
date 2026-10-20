@@ -33,6 +33,20 @@
 | Hermes | 原生 provider 配置、ACP 待验 | 未确认 | ACP 待验 | 按 provider，未接入 | magpie `agent/hermes.go`；未实测 |
 | Junie / 自定义 ACP | 对应进程握手 | 只接受实际公开字段 | 未提供目录或设置契约时保持原生默认 | 未确认 | 不为缺少可靠来源的维度添加支持 |
 
+无会话目录来源（查询不启动 Agent）：
+
+| Agent | 无会话目录来源 | 边界 |
+| --- | --- | --- |
+| Codex | 原有 app-server `model/list` | 保持原有契约 |
+| Grok | `$GROK_HOME/models_cache.json`（缺省 `.grok`）；或更新的 ACP 快照 | 读取原生 fetched_at、可见模型及各模型 reasoning_efforts；不返回凭据。用户自定义 TOML 模型以会话快照为准 |
+| Pi | 安装包 pi-ai 的 `dist/providers/data`，按原生 auth.json 登记的 provider 读取；或更新的 RPC 快照 | 与 magpie `piRegistry` 来源一致；不推断认证有效性。自定义 providers、动态 thinking 等级以 RPC 快照为准 |
+| Claude | ACP 目录持久快照 | magpie 的 Anthropic provider 目录不是 CLI 的别名、allowlist 与模型相关选项；不替换为公共目录 |
+| DSH | ACP profile 目录持久快照 | magpie 的内置模型常量与 provider 配置不构成当前 ACP 完整目录；保留 JSON 数组形式的 modelId |
+| Cursor | ACP 目录持久快照 | CLI `--list-models` 和 magpie provider 的模型名不同于 ACP 参数化 ID；不自行转换 |
+| 其他 ACP | 首次会话公开目录后持久保存；此前 needs-session | 原生配置到 ACP ID 的映射尚未验证，不声称已接入原生读取 |
+
+所有会话初始化、原生配置更新和目录回读都保存完整快照；全 Agent 查询的截断仅作用于返回值。快照保留最后一次目录，不代表当前认证、默认模型或执行证据。模型相关选项只属于 optionsForModel；原生 Grok 文件则在每个 model 的 options 中提供档位。新会话回读有差异时以新会话为准并更新快照。文件读取按查询触发，不新增后台轮询或启动 CLI 会话。
+
 ACP 优先使用 [configOptions](https://agentclientprotocol.com/protocol/v1/session-config-options)，保留 option ID、原生 value、分组和 category。旧版仅提供 models/modes 时使用其对应会话操作；不是 ARC 旧工具兼容层。按模型切换后的返回结果更新维度，不能缓存一套通用 effort 等级。
 
 magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ffe1)。`internal/usage` / `usageapi` 汇总历史调用，`provider` 读取上游订阅窗口、计划额度与余额，`catalog` 提供目录；`budget` 是 magpie 自身网关 key 的预算与在途预留。ARC 只吸收与原生读取有关的逻辑，不移植网关、账号轮换、估算预留或自动路由。移植实质代码时保留 MIT 的 `Copyright (c) 2026 yetone` 和完整许可证，并纳入随包声明。
@@ -44,7 +58,7 @@ magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ff
 按 Agent 返回以下信息：
 
 - availability：installed、available、enabled；authentication 单独描述来源与时间。成功 quota 读取只证明额度入口认证，不等价于 ACP 或某个模型的推理认证。
-- models/options：原生 ID、名称、当前值、来源和观察时间。无会话时使用独立保存的最近目录快照，标明 source、catalogSource 和 observedAt；optionsForModel 标明这组选项对应的模型，lastObservedValue 不是新会话默认值。快照位于 ARC 状态目录的 agents/catalogs，清理任务或重启不会删除。首次没有目录才返回 needs-session，此时可空 prompt `agent_create` 一次，再按 taskId 查询。查询不创建或恢复会话；派发始终重新校验会话目录并更新快照。
+- models/options：原生 ID、名称、当前值、来源和观察时间。无会话时读取原生目录，并与独立保存的目录快照比较观察时间，返回较新者，标明 source、catalogSource 和 observedAt；optionsForModel 标明这组选项对应的模型，lastObservedValue 不是新会话默认值。快照位于 ARC 状态目录的 agents/catalogs，清理任务或重启不会删除。原生来源和快照都没有目录才返回 needs-session，此时可空 prompt `agent_create` 一次，再按 taskId 查询。查询不创建或恢复会话；派发始终重新校验会话目录并更新快照。
 - quota：复用 SubscriptionService 的同一份窗口快照、provider ID、observedAt、stale/error 状态。不另起额度轮询器、不复制凭据；未接入不写成零。同一 Agent 使用多个 provider 时只展示已知关联的额度，不能宣称额度一定适用于当前模型。
 - policy/history：明确哪些已生效。目录较大时全量查询只给有界预览和 omitted 数量，单 Agent 查询给完整目录。禁用 Agent 不启动进程。
 
@@ -90,7 +104,7 @@ magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ff
 
 在已有请求幂等判定之后解析策略，持有同一任务派发锁，检查 idle/终态，依次设置 model、读取更新后的 options、设置其余选项、确认结果，然后提交 prompt。运行中不切换配置。多个设置 RPC 不具备原子性：部分成功后失败要返回已确认配置且不发送 prompt；下次读取真实状态再决策，不伪造回滚。设置超时会关闭进程并标记配置未确认，阻止迟到的 setter 与下一次 prompt 竞争。
 
-Pi 用 set_model + set_thinking_level，再用 get_state 回读；ACP 用会话配置操作及响应/更新。配置选择默认只影响 ARC 会话，不改写原生用户配置文件。Cursor 已接入其声明的 cursor_login 方法复用已有登录；需要交互式登录时返回原生失败，不自动启动登录或换账号。当前 Cursor 原生模型 setter 会持久化用户默认值，因此 ARC 明确拒绝其 model 覆盖；原生默认推理与会话 mode 可用。会话目录以 modelSelectionUnavailable 披露此限制，待原生提供会话隔离设置后再接模型覆盖。
+Pi 用 set_model + set_thinking_level，再用 get_state 回读；ACP 用会话配置操作及响应/更新。配置选择默认只影响 ARC 会话，不改写原生用户配置文件。Cursor 已接入其声明的 cursor_login 方法复用已有登录；需要交互式登录时返回原生失败，不自动启动登录或换账号。当前 Cursor 原生模型 setter 会持久化用户默认值，因此 ARC 拒绝切换到其他 model；显式传入已确认的当前 model 时只回读核对、不调用 setter。原生默认推理与会话 mode 可用。会话目录以 modelSelectionUnavailable 披露此限制，待原生提供会话隔离设置后再接模型覆盖。
 
 记录复用现有 dispatches 存储和互斥，新增 agent/taskId/options，旧 Codex 无 agent 记录按 codex 解释。保存 submittedConfiguration（提交的覆盖）、sessionConfirmation（提交前会话快照）、turnEvidence（原生轮次证据，可为空），另有 submission 标明 pending/accepted/rejected/unconfirmed；保存作用域与时间，不用最新会话值回填旧轮次。agent_read 的 dispatches 可回读记录、结论与返工关系。Pi/ACP turnId 仍为 ARC prompt UUID。Pi assistant message 的 provider/model 可补轮次证据；Claude adapter 的 prompt _meta.quota.model_usage 可提供该轮包含内部调用的模型集合，不等同于唯一主模型或 effort/fast 证据；其他 ACP 未返回可靠轮次字段时保持 null，不能用会话快照代替。进程退出、超时或未知提交不能标成成功派发/终态，也不能自动重发。
 
