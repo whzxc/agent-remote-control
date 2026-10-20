@@ -2,7 +2,7 @@
 
 [Home](../../README.md) · [Tools](tools.md)
 
-ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*` ops; Pi and ACP Agents use `agent_*` ops with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed, enabled entries, with a configurable limit of 4/6/8/10.
+ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*` ops; Pi and ACP Agents use `agent_*` ops with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed entries, prioritizes enabled Agents, and respects the saved Agent order, with a configurable limit of 4/6/8/10. Subscription readings do not reorder Agents. The management panel supports search and shows entry availability separately from installation and live session status. Details include the execution entry, discovery errors and integration limits.
 
 Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a current schema and example. Execute reads through query and mutations through act; these entrypoints remain fixed when capabilities change.
 
@@ -25,8 +25,12 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | cline | `cline --acp` | ACP v1 |
 | junie | `junie --acp true` | ACP v1 |
 | hermes | `hermes acp` | ACP v1 |
+| droid | `droid exec --output-format acp` | ACP v1 |
+| goose | `goose acp` | ACP v1 |
+| codebuddy | `codebuddy --acp` | ACP v1 |
+| omp | `omp acp` | ACP v1 |
 
-The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs.
+The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; the Gemini entry does not execute Antigravity.
 
 installed means an executable was found. available includes version and launch-condition checks. ready means an initialized ARC session exists. Read discoveryError for failures, and agent_capabilities with taskId for the actual negotiated initialize/session responses.
 

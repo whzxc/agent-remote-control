@@ -393,6 +393,20 @@
       "license": "CC0-1.0; brand trademarks reserved",
       "note": "Control Source logo",
       "sha256": "0daad0147951c8835e424ee2099e314a33d1c6c7f9b19eaa501504f6c89a06a4"
+    },
+    {
+      "file": "agents/goose/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/goose.svg",
+      "license": "MIT; brand trademarks reserved",
+      "note": "",
+      "sha256": "8779d9a61c5b0be78a3d36cab6843ba5af86218ba2ff1b18eb918c7a8d25bb99"
+    },
+    {
+      "file": "agents/codebuddy/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/codebuddy.svg",
+      "license": "MIT; brand trademarks reserved",
+      "note": "",
+      "sha256": "abe926f4acd9d56439bb5568a267d19d5a92201dbd69ad1cf179209b5ef79f91"
     }
   ],
   "controlSourceUsage": {

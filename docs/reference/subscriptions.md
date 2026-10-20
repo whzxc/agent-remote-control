@@ -16,7 +16,7 @@ ARC reads native provider login and upstream responses. Quota monitoring runs in
 | Grok | Native login, reported plan/quota, X Pass |
 | Kimi | Saved API key and membership/quota response |
 
-Display grouping puts Cursor Agent under Cursor, Gemini under Antigravity, and Grok CLI/Build under Grok. Execution adapters and authentication remain separate. Missing quota is unknown; a provider can return a plan without quota values.
+Display grouping puts Cursor Agent under Cursor and Grok CLI/Build under Grok. Antigravity readings belong to Antigravity and are not attached to Gemini CLI. A standalone Antigravity installation can contribute readings to the quota overview without an ARC execution adapter. Execution adapters and authentication remain separate. Missing quota is unknown; a provider can return a plan without quota values.
 
 ## Refresh and cached readings
 

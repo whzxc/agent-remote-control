@@ -17,6 +17,8 @@
 | control-sources/chatgpt | [app.png](control-sources/chatgpt/app.png), [mono.svg](control-sources/chatgpt/mono.svg), [wordmark.svg](control-sources/chatgpt/wordmark.svg) |
 | control-sources/notion | [mono.svg](control-sources/notion/mono.svg), [wordmark.svg](control-sources/notion/wordmark.svg) |
 | agents/codex | [app.png](agents/codex/app.png), [color.svg](agents/codex/color.svg), [mono.svg](agents/codex/mono.svg), [wordmark.svg](agents/codex/wordmark.svg) |
+| agents/goose | [mono.svg](agents/goose/mono.svg) |
+| agents/codebuddy | [mono.svg](agents/codebuddy/mono.svg) |
 | agents/pi | [mono.svg](agents/pi/mono.svg), [wordmark.svg](agents/pi/wordmark.svg) |
 | agents/opencode | [mono.svg](agents/opencode/mono.svg), [wordmark.svg](agents/opencode/wordmark.svg) |
 | agents/gemini | [color.svg](agents/gemini/color.svg), [mono.svg](agents/gemini/mono.svg), [wordmark.svg](agents/gemini/wordmark.svg) |

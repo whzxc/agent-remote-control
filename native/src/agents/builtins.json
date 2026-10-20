@@ -444,5 +444,143 @@
         "https://hermes-agent.nousresearch.com/docs/user-guide/features/acp"
       ]
     }
+  },
+  {
+    "id": "droid",
+    "displayName": "Factory Droid",
+    "command": "droid",
+    "args": [
+      "exec",
+      "--output-format",
+      "acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [
+      "~/.factory/bin"
+    ],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "exec",
+        "--help"
+      ],
+      "helpContains": [
+        "acp"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Official Droid CLI installation.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Session restoration depends on negotiated loadSession; editor history is not an ARC task."
+      ],
+      "sources": [
+        "https://docs.factory.com/ide-integrations"
+      ]
+    }
+  },
+  {
+    "id": "goose",
+    "displayName": "Goose",
+    "command": "goose",
+    "args": [
+      "acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "--help"
+      ],
+      "helpContains": [
+        "acp"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Official Goose CLI installation.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Requires the Goose AI agent with the acp subcommand, not the unrelated database migration tool.",
+        "Only standard ACP methods are exposed; Goose-specific extensions and HTTP transport are not exposed."
+      ],
+      "sources": [
+        "https://goose.vcorp.ai/docs/gdk/acp/"
+      ],
+      "identityContains": [
+        "acp"
+      ]
+    }
+  },
+  {
+    "id": "codebuddy",
+    "displayName": "CodeBuddy Code",
+    "command": "codebuddy",
+    "args": [
+      "--acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "--help"
+      ],
+      "helpContains": [
+        "--acp"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Official CodeBuddy CLI installation and its required runtime.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "ARC exposes standard task and permission methods; multitask, scene and model configuration are not exposed."
+      ],
+      "sources": [
+        "https://www.codebuddy.ai/docs/cli/acp"
+      ]
+    }
+  },
+  {
+    "id": "omp",
+    "displayName": "Oh My Pi",
+    "command": "omp",
+    "args": [
+      "acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "--help"
+      ],
+      "helpContains": [
+        "acp"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Oh My Pi installation and its required runtime.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Uses ACP, not the Pi RPC driver.",
+        "ARC does not advertise client filesystem or terminal capabilities; the agent must provide its own tool execution."
+      ],
+      "sources": [
+        "https://github.com/dankalish/oh-my-pi"
+      ]
+    }
   }
 ]

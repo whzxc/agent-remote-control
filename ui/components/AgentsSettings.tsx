@@ -11,15 +11,16 @@ import {
   toggleAgent,
   refreshAgents,
   type Agent,
+  agentStatus,
 } from "../state/agents";
 import { subscriptions } from "../state/subscriptions";
 import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
+import { Dialog, IconButton, Switch, Notice, Loading, Field, Input, Row } from "./ui";
 export function AgentDetails({
-  agent,
+  agent: selected,
   onClose,
   showOfficialLink = false,
 }: {
@@ -27,6 +28,8 @@ export function AgentDetails({
   showOfficialLink?: boolean;
   onClose: () => void;
 }) {
+  const inventory = agents.use();
+  const agent = inventory.items.find((item) => item.agent === selected.agent) || selected;
   const { snapshot } = subscriptions.use();
   const provider = snapshot?.settings.enabled
     ? snapshot.providers.find(
@@ -39,17 +42,34 @@ export function AgentDetails({
         <AgentQuotaIcon agent={agent.agent} />
         <div>
           <strong>{name(agent)}</strong>
-          <p>{agent.installed ? agent.version : t("agentNotInstalled")}</p>
+          {agent.installed !== undefined && <p>{agent.installed ? agent.version : t("agentNotInstalled")}</p>}
         </div>
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
+      {agent.installed !== undefined && <>
+        <Row title={t("agentConnectionStatus")}><span>{t(agentStatus(agent))}</span></Row>
+        {agent.installed && <p className="agent-readiness-note">{t("agentReadinessNote")}</p>}
+        {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
+          <Notice>{agent.discoveryError}</Notice>}
+        {agent.descriptor?.command && <Row title={t("agentExecutionEntry")}>
+          <code className="agent-entry">{[agent.descriptor.command, ...(agent.descriptor.args || [])].join(" ")}</code>
+        </Row>}
+        {!!agent.descriptor?.compatibility?.caveats?.length && <details className="agent-limits">
+          <summary>{t("agentIntegrationLimits")}</summary>
+          <ul>{agent.descriptor.compatibility.caveats.map((note) => <li key={note}>{note}</li>)}</ul>
+        </details>}
+      </>}
       {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
 }
 export default function AgentsSettings({ onClose }: { onClose: () => void }) {
   const state = agents.use(),
-    items = orderedAgents();
+    allItems = orderedAgents();
+  const [search, setSearch] = useState("");
+  const needle = search.trim().toLocaleLowerCase();
+  const items = allItems.filter((agent) =>
+    `${name(agent)} ${agent.agent}`.toLocaleLowerCase().includes(needle));
   const [detail, setDetail] = useState<Agent>(),
     [display, setDisplay] = useState(false),
     [overview, setOverview] = useState(false),
@@ -88,6 +108,9 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
         }
       >
         {!state.loaded && state.loading && <Loading />}
+        <Field id="agent-search" label={t("agentSearch")}><Input id="agent-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></Field>
+        {!items.length && state.loaded && <p>{t("agentNoMatches")}</p>}
+        {items.some((agent) => agent.installed) && <>
         <h3 className="agent-section-title">{t("installedAgents")}</h3>
         <div className="agent-grid">
           {items.filter(agent => agent.installed).map((agent) => (
@@ -167,6 +190,7 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
                 <span title={agent.version || undefined}>
                   {agent.installed ? agent.version : t("agentNotInstalled")}
                 </span>
+                <span>{t(agentStatus(agent))}</span>
               </div>
               {agent.installed && (
                 <Switch
@@ -202,8 +226,11 @@ export default function AgentsSettings({ onClose }: { onClose: () => void }) {
             </article>
           ))}
         </div>
+        </>}
+        {items.some((agent) => !agent.installed) && <>
         <h3 className="agent-section-title">{t("notInstalledAgents")}</h3>
         <div className="uninstalled-agents">{items.filter(agent => !agent.installed).map(agent => <button key={agent.agent} className="agent-uninstalled" onClick={() => setDetail(agent)} aria-haspopup="dialog"><AgentQuotaIcon agent={agent.agent} /><span>{name(agent)}</span></button>)}</div>
+        </>}
         {(error || state.error) && <Notice>{error || state.error}</Notice>}
       </Dialog>
       {detail && (

@@ -18,7 +18,7 @@ pub struct Registration {
 pub const REGISTRY: &[Registration] = &[
     Registration {
         id: "antigravity",
-        agent: "gemini",
+        agent: "antigravity",
         name: "Antigravity",
         default_pool: "gemini",
         accepts_key: false,

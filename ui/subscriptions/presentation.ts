@@ -4,7 +4,7 @@ import openaiIcon from '../assets/agents/openai.svg';
 import { locale } from '../i18n';
 import { type QuotaWindow,type ProviderSnapshot } from './types';
 const icons=import.meta.glob('../assets/brand-reserve/agents/*/*.svg',{eager:true,query:'?url',import:'default'}) as Record<string,string>;
-export const brandIcon=(id:string)=>{const agent=id==='gemini'?'antigravity':id;return agent==='codex'?openaiIcon:icons[`../assets/brand-reserve/agents/${agent}/mono.svg`]||icons[`../assets/brand-reserve/agents/${agent}/color.svg`];};
+export const brandIcon=(agent:string)=>agent==='codex'?openaiIcon:icons[`../assets/brand-reserve/agents/${agent}/mono.svg`]||icons[`../assets/brand-reserve/agents/${agent}/color.svg`];
 export { usageColors } from '../colors';
 import { usageColors } from '../colors';
 export function readingStatus(w:QuotaWindow|undefined,p:ProviderSnapshot,now=Date.now()){

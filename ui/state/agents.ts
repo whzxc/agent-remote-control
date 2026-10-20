@@ -1,7 +1,11 @@
 import { decorativeSvg } from "../assets/brand-reserve/decorative";
 import { api } from "../api";
 import { createStore, preference } from "./store";
+import builtins from "../../native/src/agents/builtins.json";
+import gooseIcon from "../assets/brand-reserve/agents/goose/mono.svg?raw";
+import codebuddyIcon from "../assets/brand-reserve/agents/codebuddy/mono.svg?raw";
 import antigravityIcon from "../assets/brand-reserve/agents/antigravity/mono.svg?raw";
+import geminiIcon from "../assets/brand-reserve/agents/gemini/mono.svg?raw";
 import codexIcon from "../assets/agents/openai.svg?raw";
 import piIcon from "../assets/brand-reserve/agents/pi/mono.svg?raw";
 import opencodeIcon from "../assets/brand-reserve/agents/opencode/mono.svg?raw";
@@ -26,16 +30,25 @@ export type Agent = {
   status?: string;
   version?: string | null;
   displayName?: string;
+  protocol?: string;
+  discoveryError?: string | null;
+  descriptor?: {
+    command?: string;
+    args?: string[];
+    compatibility?: { caveats?: string[]; sources?: string[] };
+  };
 };
 export const icons: Record<string, string> = Object.fromEntries(
   Object.entries({
     antigravity: antigravityIcon,
+    goose: gooseIcon,
+    codebuddy: codebuddyIcon,
     codex: codexIcon,
     pi: piIcon,
     opencode: opencodeIcon,
     claude: claudeIcon,
     cursor: cursorIcon,
-    gemini: antigravityIcon,
+    gemini: geminiIcon,
     grok: grokIcon,
     copilot: copilotIcon,
     kimi: kimiIcon,
@@ -48,44 +61,24 @@ export const icons: Record<string, string> = Object.fromEntries(
   }).map(([name, svg]) => [name, decorativeSvg(svg)]),
 );
 export const agentLinks: Record<string, string> = {
+  ...Object.fromEntries(builtins.map((agent) => [agent.id, agent.compatibility.sources[0]])),
   codex: "https://github.com/openai/codex",
-  pi: "https://pi.dev/",
-  opencode: "https://opencode.ai/",
   claude: "https://github.com/anthropics/claude-code",
-  cursor: "https://cursor.com/docs/cli/acp",
-  gemini: "https://github.com/google-gemini/gemini-cli",
-  grok: "https://docs.x.ai/build/cli/reference",
-  copilot:
-    "https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server",
-  kimi: "https://www.kimi.com/code/",
-  qwen: "https://github.com/QwenLM/qwen-code",
-  kiro: "https://kiro.dev/",
-  devin: "https://docs.devin.ai/desktop/acp",
-  cline: "https://docs.cline.bot/",
-  junie: "https://junie.jetbrains.com/",
-  hermes: "https://hermes-agent.nousresearch.com/",
+  pi: "https://pi.dev/",
+  antigravity: "https://antigravity.google/",
 };
 export const name = (agent: Agent) =>
-  ({
-    codex: "Codex",
-    claude: "Claude",
-    cursor: "Cursor",
-    gemini: "Antigravity",
-    grok: "Grok",
-    opencode: "OpenCode",
-    copilot: "GitHub Copilot",
-    kimi: "Kimi",
-    qwen: "Qwen",
-    kiro: "Kiro",
-    devin: "Devin",
-    cline: "Cline",
-    junie: "Junie",
-    hermes: "Hermes",
-    pi: "Pi",
-  })[agent.agent] ||
   agent.displayName ||
-  { codex: "Codex", pi: "Pi", opencode: "OpenCode" }[agent.agent] ||
+  builtins.find((entry) => entry.id === agent.agent)?.displayName ||
+  ({ codex: "Codex", pi: "Pi", antigravity: "Antigravity" })[agent.agent] ||
   agent.agent;
+export const agentStatus = (agent: Agent) =>
+  agent.adapter?.state === "preparing" ? "agentAdapterPreparing" :
+  agent.installed !== true ? "agentNotInstalled" :
+  agent.adapter?.state === "failed" ? "agentAdapterFailed" :
+  agent.available !== true ? "agentEntryUnavailable" :
+  agent.enabled !== true ? "disabled" :
+  agent.status === "ready" ? "agentSessionReady" : "agentEntryAvailable";
 const order = preference<string[]>("arc.agent-order", []);
 function cachedAgents(): Agent[] {
   try {
@@ -119,7 +112,7 @@ export function orderedAgents() {
     if (priority) return priority;
     const ai = order.get().indexOf(a.agent),
       bi = order.get().indexOf(b.agent);
-    if (ai >= 0 || bi >= 0)
+    if (a.installed && a.enabled && b.installed && b.enabled && (ai >= 0 || bi >= 0))
       return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
     return (
       Number(b.agent === "codex") - Number(a.agent === "codex") ||
@@ -183,7 +176,7 @@ export function refreshAgents(manual = false): Promise<void> {
       const retained = orderedAgents()
         .filter(
           (a) =>
-            a.enabled &&
+          a.installed && a.enabled &&
             result.agents.some((n) => n.agent === a.agent && n.enabled),
         )
         .map((a) => a.agent);
@@ -191,7 +184,7 @@ export function refreshAgents(manual = false): Promise<void> {
       order.set([
         ...retained,
         ...orderedAgents()
-          .filter((a) => a.enabled && !retained.includes(a.agent))
+          .filter((a) => a.installed && a.enabled && !retained.includes(a.agent))
           .map((a) => a.agent),
       ]);
       persist();
@@ -219,7 +212,7 @@ export async function toggleAgent(agent: Agent, enabled: boolean) {
       { agent: agent.agent, enabled },
     );
     const retained = orderedAgents()
-      .filter((a) => a.enabled && a.agent !== agent.agent)
+      .filter((a) => a.installed && a.enabled && a.agent !== agent.agent)
       .map((a) => a.agent);
     patch({
       items: agents

@@ -116,17 +116,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       Number(b.controlSource === "chatgpt") -
         Number(a.controlSource === "chatgpt") || a.name.localeCompare(b.name),
   );
-  const providerOrder =
-    snapshot?.providers
-      .filter((p) => p.eligible)
-      .map((p) => p.agentId) || [];
   const agents = orderedAgents()
     .filter((a) => a.installed)
-    .sort((a, b) => {
-      const ai = providerOrder.indexOf(a.agent),
-        bi = providerOrder.indexOf(b.agent);
-      return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
-    })
     .slice(0, [4, 6, 8, 10].includes(max) ? max : 4);
   const running = sources.some((i) => i.running),
     progressing =
@@ -189,7 +180,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const agent = orderedAgents().find((a) => a.agent === provider.agentId) || {
       agent: provider.agentId,
       displayName: provider.name,
-      installed: provider.eligible,
     };
     setDetailAgent(agent);
     navigation.set((old) => ({ ...old, providerId: undefined }));
