@@ -388,7 +388,7 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
             .ok_or("Unknown tool; call guide, query or act.")?;
         crate::validator("tool", tool, &spec["inputSchema"])?
             .validate(&envelope)
-            .map_err(|e| json!({"code":"INVALID_ARGUMENTS","message":e.to_string(),"inputSchema":spec["inputSchema"],"guide":{"tool":"query","arguments":{"op":"guide","args":{}}}}).to_string())?;
+            .map_err(|e| crate::egress::validation_error("", &spec["inputSchema"], &e))?;
         if tool != "guide" && name == "guide" {
             let spec = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == "guide").unwrap();
             if tool != "query" {
@@ -470,6 +470,9 @@ async fn call_tool(s: &Arc<crate::ingress::Ingress>, tool: &str, envelope: Value
         }
         let available = crate::claude_notify::push_available(&value["notification"]);
         crate::egress::next(&mut value, name, &args, available);
+    }
+    if error {
+        return Ok(crate::egress::tool(value, true));
     }
     let inbox = match crate::claude_notify::inbox(
         &s.id,

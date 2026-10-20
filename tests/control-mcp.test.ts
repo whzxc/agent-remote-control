@@ -185,6 +185,7 @@ test('MCP lists frozen tools and guide exposes existing ops and native domains w
   assert.equal(status.result.arcInbox, undefined);
   const existing = ['codex_review', 'dispatch_policy', 'codex_queue', 'codex_queue_control', 'notify_status', 'notify_control', 'notification_ack', 'guide', 'edit', 'write', 'codex_changes', 'logs', 'connector_verify', 'projects', 'overview', 'tree', 'search', 'read', 'screen', 'git', 'git_write', 'codex_tasks', 'codex_read', 'codex_wait', 'codex_create', 'codex_send', 'codex_interrupt', 'codex_capabilities', 'receipt', 'codex_items', 'codex_schema', 'codex_query', 'codex_call', 'codex_pending', 'codex_respond', 'codex_events', 'control_output'];
   assert.deepEqual(operations.map(tool => tool.name).sort(), [...existing, 'agents', 'agent_capabilities', 'agent_tasks', 'agent_create', 'agent_read', 'agent_context', 'agent_wait', 'agent_send', 'agent_review', 'agent_interrupt', 'agent_events', 'agent_pending', 'agent_respond', 'fs', 'command', 'process', 'mcp', 'file_search', 'codex_thread', 'codex_account'].filter(name => !name.startsWith('agent') || operations.some(tool => tool.name === 'agents')).sort());
+  for (const row of (await call('guide', {topic:'review'})).result.ops) assert.match(row.signature, new RegExp('^'+row.op+'\\('));
   for (const tool of operations) {
     assert.equal(tool.inputSchema.type, 'object');
     new AjvJsonSchemaValidator().getValidator(tool.inputSchema);
@@ -843,4 +844,60 @@ test('completed notification freezes bounded Git changes with attribution and fu
   await writeFile(path.join(repo,'sample.txt'),'changed after observation');
   const reread=(await load()).find(b=>b.threadId===r.threadId).deliveries.find((d:any)=>d.taskState==='completed');assert.deepEqual(reread.changes,d.changes);
   const full=(await call('codex_changes',{threadId:r.threadId,turnId:r.turnId,limit:100})).result;assert.equal(full.commits.length,6);
+});
+
+test('argument errors are short, field-specific and leave unread inbox untouched', async () => {
+  const inboxDir=path.join(directory,'notifications/inboxes');await mkdir(inboxDir,{recursive:true});
+  const inboxFile=path.join(inboxDir,createHash('sha256').update('default').digest('hex')+'.json');
+  const original=await readFile(inboxFile,'utf8').catch(()=>null);
+  const unread=JSON.stringify([{eventId:'argument-error-event',threadId:'old-thread',turnId:'old-turn',read:false,event:'completed'}]);
+  await writeFile(inboxFile,unread);
+  try {
+    for(const [name,args,field,reason] of [
+      ['read',{path:'fixture',linCount:2},'/linCount',/lineCount/],
+      ['codex_items',{threadId:'fixture',order:'desc'},'/order',/latest/],
+      ['codex_wait',{threadId:'fixture',timeoutMs:90001},'/timeoutMs',/90000/],
+      ['read',{path:'fixture',lineCount:'private-input'},'/lineCount',/integer/],
+      ['command',{cmd:'private-command'},'/cwd',/Required/],
+      ['command',{cmd:'private-command',cwd:directory,action:'exec'},'/action',/combine/],
+    ] as const){
+      const {response,result}=await call(name,args);
+      assert.equal(response.isError,true);assert.equal(result.error.code,'INVALID_ARGUMENTS');
+      assert.equal(result.error.field,field);assert.match(result.error.message,reason);
+      assert.equal(result.error.inputSchema,undefined);assert.equal(result.arcInbox,undefined);
+      const text=(response.content as any[])[0].text;
+      assert.ok(text.startsWith('{"error":'));assert.ok(text.length<800);assert.doesNotMatch(text,/private-input|private-command/);
+      assert.equal(result.error.guide.arguments.args.op,name);
+    }
+    const envelope=await client.callTool({name:'query',arguments:{op:'read',args:{},extra:'private-value'}});
+    assert.equal(envelope.isError,true);assert.equal((envelope.structuredContent as any).result.error.field,'/extra');
+    assert.equal(await readFile(inboxFile,'utf8'),unread);
+    assert.equal((await call('guide')).result.arcInbox.events[0].eventId,'argument-error-event');
+  } finally { if(original===null)await rm(inboxFile);else await writeFile(inboxFile,original); }
+});
+
+test('Git action and read limit aliases preserve behavior and search clamps its page size', async () => {
+  const project=path.join(directory,'argument-aliases');await mkdir(project);
+  execFileSync('git',['init',project],{stdio:'pipe'});
+  await Promise.all(Array.from({length:60},(_,i)=>writeFile(path.join(project,`${i}.txt`),'needle\nsecond\nthird')));
+  const canonical=(await call('read',{project,path:'0.txt',lineCount:1})).result.data;
+  assert.deepEqual((await call('read',{project,path:'0.txt',limit:1})).result.data,canonical);
+  assert.equal((await call('read',{project,path:'0.txt',limit:1,lineCount:2})).result.error.field,'/limit');
+  assert.equal((await call('git',{project,action:'status'})).response.isError,false);
+  assert.equal((await call('git',{project,action:'status',operation:'log'})).result.error.field,'/action');
+  const requestId=randomUUID();
+  const first=await completed('git_write',{project,action:'add',paths:['0.txt'],requestId});assert.equal(first.state,'completed');
+  const replay=await completed('git_write',{project,operation:'add',paths:['0.txt'],requestId});assert.equal(replay.requestId,first.requestId);assert.equal(replay.state,'completed');
+  const search=(await call('search',{project,query:'needle',limit:60})).result.data;
+  assert.equal(search.results.length,50);assert.ok(search.nextOffset);
+  assert.equal((await call('search',{project,query:'needle',limit:0})).result.error.field,'/limit');
+});
+
+test('cmd waitMs returns a pending receipt without changing the process timeout', async () => {
+  const requestId=randomUUID();
+  const first=await call('command',{cmd:'fixture',cwd:directory,waitMs:0,timeoutMs:2000,requestId});
+  assert.equal(first.response.isError,false);assert.equal(first.result.state,'pending');
+  const done=await completed('command',{cmd:'fixture',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
+  const stored=JSON.parse(await readFile(path.join(directory,`${requestId}.json`),'utf8'));
+  assert.equal(stored.arguments.timeoutMs,2000);
 });

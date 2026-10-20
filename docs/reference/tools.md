@@ -12,7 +12,7 @@ The public MCP surface is frozen at three tools. Call `guide` first; use `guide(
 | query | `{op: string, args: object}` | readOnlyHint=true |
 | act | `{op: string, args: object, requestId?: string}` | readOnlyHint=false |
 
-`args` is an open object at the MCP boundary and is validated against the current op schema on the server. `guide` defaults to topic=loop and returns the ingress-specific workflow, common examples, and an enabled op index. `op` takes precedence over topic. Each index row gives `op`, `via`, and a short description; a single-op response includes `inputSchema`, the full description, and a ready-to-call example. Replace example paths and IDs with actual values. Claude dispatch examples include notify; other sources use their currently available wait/inbox workflow.
+`args` is an open object at the MCP boundary and is validated against the current op schema on the server. `guide` defaults to topic=loop and returns the ingress-specific workflow, common examples, and an enabled op index. `op` takes precedence over topic. Each index row gives `op`, `via`, a short description, and a compact `signature` generated from its input schema. `?` marks optional fields; brackets show alternative required parameter groups. A single-op response also includes `inputSchema`, the full description, and a ready-to-call example. Replace example paths and IDs with actual values. Claude dispatch examples include notify; other sources use their currently available wait/inbox workflow.
 
 If a session cached the older guide schema without `op`, call `query({"op":"guide","args":{"op":"codex_create"}})` instead. `query guide` accepts the same topic/op arguments and returns the same content. The three MCP tool parameter structures remain unchanged.
 
@@ -28,9 +28,9 @@ Default stores an explicit op allowlist; All enables the registry; Custom stores
 
 `tools/list` always returns the same three definitions, including on an empty allowlist. Except for guide, disabled ops are omitted from guide and rejected with OP_UNAVAILABLE. Conditional ops require an available, enabled non-Codex Agent. Refresh local Agent discovery, then call guide again; no client tool refresh is needed for op changes. Saved allowlists do not grow automatically; reselect a preset to adopt new ops.
 
-Every tool result carries `arcVersion`, a short SHA-256 of the embedded guide and catalog (not the application release version). Reread guide when it differs from the version last read. Object results gain this field; array, scalar, and null results are wrapped as `{value, arcVersion}`. Unread events additionally attach arcInbox. Policy and availability are checked live; the catalog version does not change when a local policy changes.
+Every tool result carries `arcVersion`, a short SHA-256 of the embedded guide and catalog (not the application release version). Reread guide when it differs from the version last read. Object results gain this field; array, scalar, and null results are wrapped as `{value, arcVersion}`. Successful calls additionally attach arcInbox when unread events exist. Policy and availability are checked live; the catalog version does not change when a local policy changes.
 
-INVALID_ARGUMENTS on an op includes its current inputSchema and a minimal call example, and a query guide call for the current schema. UNKNOWN_OP supplies up to three closest enabled op names and points to guide. WRONG_TOOL supplies the assigned entrypoint. These are MCP tool errors (`isError=true`) with arcVersion, so a client can correct the call once without refreshing its cached tools.
+INVALID_ARGUMENTS gives a field path, a short reason, a nearby supported parameter name when available, and a query guide call for the current schema. Error responses put error first in the text result, omit the full schema and inbox events, and do not consume unread inbox events. UNKNOWN_OP supplies up to three closest enabled op names and points to guide. WRONG_TOOL supplies the assigned entrypoint. These are MCP tool errors (`isError=true`) with arcVersion, so a client can correct the call once without refreshing its cached tools.
 
 Upgrading from the former tool surface requires one client tool refresh and renewed authorization. Later capabilities change through ops and guide.
 
@@ -38,7 +38,7 @@ Upgrading from the former tool surface requires one client tool refresh and rene
 
 `projects` reads the native `project/list` pages. Project selectors accept a native ID, unique name, or absolute directory; a multi-root project requires a specific directory. ID/name resolution caches the catalog for 30 seconds. Absolute `read`, `tree`, and `search` paths can omit project; relative paths require it. Git revision reads require project.
 
-`tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines; tree/search use nextOffset. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
+`tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines with `lineCount` or its alias `limit`; supplying both requires equal values. Search accepts positive limits above 50 and caps each page at 50 results. Tree/search use nextOffset. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
 
 ```text
 query {"op":"read","args":{"path":"/absolute/project/README.md"}}
@@ -161,7 +161,7 @@ Each delivery exposes `timing`: `queuedAt`, `startedAt` and `finishedAt` are Uni
 | codex_query / codex_call | Native read/mutation methods subject to task ownership |
 | screen | macOS window capture and accessibility operations; OS permissions apply |
 
-Simple `act {"op":"command","args":{"cmd":"git status --short","cwd":"/absolute/project","timeoutMs":10000}}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Simple fields and action/params are mutually exclusive. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
+Simple `act {"op":"command","args":{"cmd":"git status --short","cwd":"/absolute/project","timeoutMs":10000}}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Optional `waitMs` (0–120000) bounds only the wait for the receipt and can return `pending`; continue with `receipt` and the returned requestId. Without waitMs, the simple form waits for the execution timeout plus ten seconds. Simple fields and action/params are mutually exclusive. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
 
 Native handles for processes, watches, and MCP subscriptions belong to the current App Server connection. MCP tool/call and event/stream/start require an existing threadId. Consult codex_schema before using native parameters; top-level RPC timeoutMs is separate from params.timeoutMs.
 
@@ -183,7 +183,7 @@ With includeSource, coverage records pagination, filtering, and skipped items. A
 
 ## Git mutations
 
-`git_write` uses project, operation, and a UUID requestId:
+`git` and `git_write` accept `action` as an alias for `operation`; supplying both requires equal values. Aliases normalize before receipt hashing, so retrying with the other spelling retains the same receipt. `git_write` uses project, operation/action, and an optional UUID requestId:
 
 | Operation | Input / scope |
 | --- | --- |

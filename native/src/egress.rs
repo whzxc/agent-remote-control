@@ -5,7 +5,15 @@ pub fn tool(mut value: Value, error: bool) -> Value {
         value = json!({"value":value});
     }
     value["arcVersion"] = json!(arc_version());
-    json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":{"result":value},"isError":error})
+    let text = if error {
+        format!(
+            "{{\"error\":{},\"arcVersion\":{}}}",
+            value["error"], value["arcVersion"]
+        )
+    } else {
+        value.to_string()
+    };
+    json!({"content":[{"type":"text","text":text}],"structuredContent":{"result":value},"isError":error})
 }
 pub fn failure(e: &str) -> Value {
     if let Ok(value) = serde_json::from_str::<Value>(e) {
@@ -151,30 +159,217 @@ pub(crate) fn example(spec: &Value) -> Value {
     json!({"tool":via(spec),"arguments":{"op":spec["name"],"args":spec["example"]}})
 }
 
+pub(crate) fn invalid_arguments(op: &str, field: &str, message: &str) -> String {
+    json!({"code":"INVALID_ARGUMENTS","op":op,"field":field,"message":message,
+        "guide":{"tool":"query","arguments":{"op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})}}}}).to_string()
+}
+
+pub(crate) fn validation_error(
+    op: &str,
+    schema: &Value,
+    error: &jsonschema::ValidationError<'_>,
+) -> String {
+    use jsonschema::error::ValidationErrorKind as Kind;
+    let mut field = error.instance_path.to_string();
+    let message = match &error.kind {
+        Kind::Required { property } => {
+            field.push('/');
+            field.push_str(property.as_str().unwrap_or(""));
+            "Required field is missing.".into()
+        }
+        Kind::AdditionalProperties { unexpected } => {
+            let name = &unexpected[0];
+            let parent = error
+                .schema_path
+                .as_str()
+                .strip_suffix("/additionalProperties")
+                .unwrap_or("");
+            let properties = schema.pointer(parent).unwrap_or(schema)["properties"].as_object();
+            let suggestion = properties.and_then(|p| {
+                if name == "order" && op == "codex_items" {
+                    return Some("latest");
+                }
+                p.keys()
+                    .min_by_key(|key| distance(name, key))
+                    .filter(|key| distance(name, key) <= 3)
+                    .map(String::as_str)
+            });
+            field.push('/');
+            field.push_str(name);
+            suggestion
+                .map(|key| format!("Unknown field; did you mean {key}?"))
+                .unwrap_or_else(|| "Unknown field; see guide for supported parameters.".into())
+        }
+        Kind::Type { .. } => error.masked().to_string(),
+        Kind::Enum { options } => format!("Expected one of {options}."),
+        Kind::Constant { expected_value } => format!("Expected {expected_value}."),
+        Kind::Maximum { limit } => format!("Must be at most {limit}."),
+        Kind::Minimum { limit } => format!("Must be at least {limit}."),
+        Kind::ExclusiveMaximum { limit } => format!("Must be less than {limit}."),
+        Kind::ExclusiveMinimum { limit } => format!("Must be greater than {limit}."),
+        Kind::MinLength { limit } => format!("Must contain at least {limit} characters."),
+        Kind::MaxLength { limit } => format!("Must contain at most {limit} characters."),
+        Kind::MinItems { limit } => format!("Must contain at least {limit} items."),
+        Kind::MaxItems { limit } => format!("Must contain at most {limit} items."),
+        Kind::Format { format } => format!("Expected {format} format."),
+        Kind::Pattern { .. } => "Value does not match the required format.".into(),
+        Kind::AnyOf { context } | Kind::OneOfNotValid { context } => {
+            // Report the closest branch's specific error, never the submitted JSON.
+            if let Some(detail) = context
+                .iter()
+                .filter(|errors| !errors.is_empty())
+                .min_by_key(|errors| errors.len())
+                .and_then(|errors| errors.first())
+            {
+                return validation_error(op, schema, detail);
+            }
+            "Parameters do not match a supported form; see guide.".into()
+        }
+        Kind::Not { .. } | Kind::OneOfMultipleValid { .. } => {
+            "Conflicting parameters; use one form from guide.".into()
+        }
+        _ => "Value does not satisfy this field's schema; see guide.".into(),
+    };
+    invalid_arguments(op, if field.is_empty() { "/" } else { &field }, &message)
+}
+
 pub(crate) fn validate_op(spec: &Value, args: &Value) -> Result<()> {
     crate::validator("op", string(spec, "name"), &spec["inputSchema"])?
         .validate(args)
-        .map_err(|error| json!({"code":"INVALID_ARGUMENTS","op":spec["name"],"message":error.to_string(),"inputSchema":spec["inputSchema"],"example":example(spec),"guide":{"tool":"query","arguments":{"op":"guide","args":{"op":spec["name"]}}}}).to_string())
+        .map_err(|error| {
+            if spec["name"] == "command" && error.instance_path.as_str().is_empty() {
+                if args.get("cmd").is_some() {
+                    for field in ["action", "params"] {
+                        if args.get(field).is_some() {
+                            return invalid_arguments(
+                                "command",
+                                &format!("/{field}"),
+                                "Cannot combine with cmd; use cmd/cwd or action/params.",
+                            );
+                        }
+                    }
+                    if args.get("cwd").is_none() {
+                        return invalid_arguments("command", "/cwd", "Required with cmd.");
+                    }
+                }
+            }
+            validation_error(string(spec, "name"), &spec["inputSchema"], &error)
+        })
+}
+
+/// Normalize only documented aliases, before defaults and receipt hashing.
+pub(crate) fn normalize_args(name: &str, args: &mut Value) -> Result<()> {
+    let alias = match name {
+        "git" | "git_write" => Some(("action", "operation")),
+        "read" => Some(("limit", "lineCount")),
+        _ => None,
+    };
+    if let Some((alias, canonical)) = alias {
+        if let Some(value) = args.get(alias).cloned() {
+            if args.get(canonical).is_some_and(|other| *other != value) {
+                return Err(invalid_arguments(
+                    name,
+                    &format!("/{alias}"),
+                    &format!("Must equal {canonical} when both are supplied."),
+                ));
+            }
+            args.as_object_mut().unwrap().remove(alias);
+            args[canonical] = value;
+        }
+    }
+    if name == "search" && args["limit"].as_u64().is_some_and(|limit| limit > 50) {
+        args["limit"] = json!(50);
+    }
+    Ok(())
+}
+
+fn signature(op: &Value) -> String {
+    let schema = &op["inputSchema"];
+    let mut names: Vec<Value> = op["guideParameters"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| {
+            schema["properties"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .map(|(name, _)| json!(name))
+                .collect()
+        });
+    for required in schema["required"].as_array().into_iter().flatten() {
+        if !names.contains(required) {
+            names.push(required.clone());
+        }
+    }
+    let parameters: Vec<_> = names
+        .iter()
+        .map(|name| {
+            let optional = if schema["required"]
+                .as_array()
+                .is_some_and(|r| r.contains(name))
+            {
+                ""
+            } else {
+                "?"
+            };
+            let property = &schema["properties"][name.as_str().unwrap()];
+            let bound = property
+                .get("maximum")
+                .map(|max| format!("≤{max}"))
+                .unwrap_or_default();
+            format!("{}{optional}{bound}", name.as_str().unwrap())
+        })
+        .collect();
+    let variants = schema
+        .get("oneOf")
+        .or_else(|| schema.get("anyOf"))
+        .and_then(Value::as_array)
+        .map(|branches| {
+            branches
+                .iter()
+                .filter_map(|b| b["required"].as_array())
+                .map(|names| {
+                    names
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join("+")
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .unwrap_or_default();
+    format!(
+        "{}({}){}",
+        string(op, "name"),
+        parameters.join(", "),
+        if variants.is_empty() {
+            String::new()
+        } else {
+            format!(" [{variants}]")
+        }
+    )
+}
+
+fn distance(a: &str, b: &str) -> usize {
+    let b: Vec<_> = b.chars().collect();
+    let mut row: Vec<_> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let old = row[j + 1];
+            row[j + 1] = (row[j + 1] + 1)
+                .min(row[j] + 1)
+                .min(diagonal + usize::from(ca != *cb));
+            diagonal = old;
+        }
+    }
+    row[b.len()]
 }
 
 pub(crate) fn unknown_op(name: &str, ops: &[Value]) -> String {
     // Edit distance ranks current, enabled names without keeping old aliases.
-    fn distance(a: &str, b: &str) -> usize {
-        let b: Vec<_> = b.chars().collect();
-        let mut row: Vec<_> = (0..=b.len()).collect();
-        for (i, ca) in a.chars().enumerate() {
-            let mut diagonal = row[0];
-            row[0] = i + 1;
-            for (j, cb) in b.iter().enumerate() {
-                let old = row[j + 1];
-                row[j + 1] = (row[j] + 1)
-                    .min(old + 1)
-                    .min(diagonal + usize::from(ca != *cb));
-                diagonal = old;
-            }
-        }
-        row[b.len()]
-    }
     let mut candidates: Vec<_> = ops.iter().map(|op| string(op, "name")).collect();
     candidates.sort_by_key(|candidate| (distance(name, candidate), *candidate));
     candidates.truncate(3);
@@ -189,7 +384,7 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
             .iter()
             .find(|op| op["name"] == name)
             .unwrap();
-        return json!({"op":name,"via":via(spec),"description":spec["description"],"inputSchema":spec["inputSchema"],"example":example(spec)});
+        return json!({"op":name,"via":via(spec),"description":spec["description"],"inputSchema":spec["inputSchema"],"signature":signature(spec),"example":example(spec)});
     }
     let topic = args["topic"].as_str().unwrap_or("loop");
     let source = match string(origin, "controlSource") {
@@ -229,32 +424,7 @@ pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -
     let index: Vec<_> = ops
         .iter()
         .map(|op| {
-            let mut entry = json!({"op":op["name"],"via":via(op),"description":op["description"].as_str().unwrap_or("").split(['。','\n']).next().unwrap_or("")});
-            if topic == "loop" {
-                if let Some(parameters) = op["guideParameters"].as_array() {
-                    let schema = &op["inputSchema"];
-                    let mut parameters = parameters.clone();
-                    for required in schema["required"].as_array().into_iter().flatten() {
-                        if !parameters.contains(required) {
-                            parameters.push(required.clone());
-                        }
-                    }
-                    let parameters: Vec<_> = parameters.iter().map(|parameter| {
-                        let name = parameter.as_str().expect("guide parameter name");
-                        let property = schema["properties"].get(name).expect("guide parameter in inputSchema");
-                        let required = schema["required"].as_array().is_some_and(|names| names.contains(parameter));
-                        let optional = if required { "" } else { "?" };
-                        let bound = if name == "timeoutMs" {
-                            property.get("maximum").map(|max| format!("≤{max}")).unwrap_or_default()
-                        } else {
-                            String::new()
-                        };
-                        format!("{name}{optional}{bound}")
-                    }).collect();
-                    entry["signature"] = json!(format!("{}({})", string(op, "name"), parameters.join(", ")));
-                }
-            }
-            entry
+            json!({"op":op["name"],"via":via(op),"description":op["description"].as_str().unwrap_or("").split(['。','\n']).next().unwrap_or(""),"signature":signature(op)})
         })
         .collect();
     json!({"events":crate::claude_notify::subscriptions::guide(),"topic":topic,"controlSource":source,"content":format!("{}\n{}",body.as_str().unwrap_or(""),guides["common"].as_str().unwrap_or("")),"examples":examples,"ops":index})

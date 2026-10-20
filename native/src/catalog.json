@@ -295,7 +295,7 @@
             "default": 30,
             "type": "integer",
             "minimum": 1,
-            "maximum": 50
+            "description": "最多返回 50 项；超过 50 按 50 处理。"
           },
           "view": {
             "enum": [
@@ -407,6 +407,12 @@
             "type": "boolean",
             "default": false,
             "description": "采集一次 source/coverage 观测元数据；默认省略。"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "description": "lineCount 的同义参数；两者同时提供时必须相同。"
           }
         },
         "required": [
@@ -650,14 +656,35 @@
             "type": "boolean",
             "default": false,
             "description": "采集一次 source/coverage 观测元数据；默认省略。"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "status",
+              "log",
+              "show",
+              "diff"
+            ],
+            "description": "operation 的同义参数；两者同时提供时必须相同。"
           }
         },
         "required": [
-          "project",
-          "operation"
+          "project"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "operation"
+            ]
+          },
+          {
+            "required": [
+              "action"
+            ]
+          }
+        ]
       },
       "outputSchema": {
         "type": "object",
@@ -741,14 +768,38 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "add",
+              "unstage",
+              "commit",
+              "branch",
+              "switch",
+              "stash_push",
+              "stash_pop"
+            ],
+            "description": "operation 的同义参数；两者同时提供时必须相同。"
           }
         },
         "required": [
-          "project",
-          "operation"
+          "project"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "operation"
+            ]
+          },
+          {
+            "required": [
+              "action"
+            ]
+          }
+        ]
       },
       "outputSchema": {
         "type": "object",
@@ -866,7 +917,7 @@
     },
     {
       "name": "command",
-      "description": "简单命令传 cmd/cwd/timeoutMs，使用用户默认 shell，同步返回输出、退出码和耗时。原生 action/params 保留 sandbox/permission、PTY 和流式语义。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Permissions & readiness.",
+      "description": "简单命令传 cmd/cwd/timeoutMs，使用用户默认 shell，返回输出、退出码和耗时；waitMs 可提前返回 pending 回执，timeoutMs 仍控制执行超时。原生 action/params 保留 sandbox/permission、PTY 和流式语义。 macOS protected locations require Full Disk Access (Core file tools; Codex execution host for command). See ARC Permissions & readiness.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -911,7 +962,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 120000,
-            "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+            "description": "等待回执的毫秒数，超时返回 pending，不取消执行；cmd 模式省略时等待执行超时加 10 秒，原生模式默认 25000。"
           },
           "cmd": {
             "type": "string",
@@ -943,11 +994,6 @@
                 {
                   "required": [
                     "params"
-                  ]
-                },
-                {
-                  "required": [
-                    "waitMs"
                   ]
                 }
               ]

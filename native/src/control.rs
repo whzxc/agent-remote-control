@@ -583,7 +583,7 @@ impl Control {
         if receipt["state"] == "awaiting-approval" {
             return Ok(receipt);
         }
-        let wait = if operation == "command" {
+        let wait = if operation == "command" && args.get("waitMs").is_none() {
             num(&args, "timeoutMs", 60000) as u64 + 10000
         } else {
             num(&args, "waitMs", 25000).min(120000) as u64
@@ -1247,6 +1247,7 @@ impl Control {
             .find(|t| t["name"] == name)
             .ok_or("UNKNOWN_TOOL")?;
         crate::egress::validate_op(spec, &args)?;
+        crate::egress::normalize_args(name, &mut args)?;
         for (k, v) in spec["inputSchema"]["properties"]
             .as_object()
             .into_iter()
