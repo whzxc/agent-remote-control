@@ -620,7 +620,7 @@
         "Continuing after process shutdown requires negotiated session/load support; releases advertising only session/resume cannot resume through ARC."
       ],
       "sources": [
-        "https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/acp/acp"
+        "https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp"
       ]
     }
   }

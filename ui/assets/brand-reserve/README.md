@@ -33,6 +33,7 @@
 | agents/cline | [mono.svg](agents/cline/mono.svg), [wordmark.svg](agents/cline/wordmark.svg) |
 | agents/junie | [color.svg](agents/junie/color.svg), [mono.svg](agents/junie/mono.svg), [wordmark.svg](agents/junie/wordmark.svg) |
 | agents/hermes | [favicon.ico](agents/hermes/favicon.ico), [favicon.svg](agents/hermes/favicon.svg), [logo.png](agents/hermes/logo.png), [mono.svg](agents/hermes/mono.svg), [wordmark.svg](agents/hermes/wordmark.svg) |
+| agents/dsh | [mono.svg](agents/dsh/mono.svg) |
 | control-sources/slack | [color.svg](control-sources/slack/color.svg), [mono.svg](control-sources/slack/mono.svg), [wordmark-color.svg](control-sources/slack/wordmark-color.svg), [wordmark.svg](control-sources/slack/wordmark.svg) |
 
 ## 来源与使用边界

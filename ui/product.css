@@ -1156,6 +1156,3 @@
 }
 
 .agent-entry { overflow-wrap: anywhere; text-align: right; }
-.agent-readiness-note, .agent-limits { color: var(--text-secondary); font-size: var(--text-sm); }
-.agent-limits summary { cursor: pointer; }
-.agent-limits li { margin-block: 8px; overflow-wrap: anywhere; }

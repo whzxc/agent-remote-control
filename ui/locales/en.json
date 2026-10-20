@@ -521,13 +521,5 @@
   "wakeClaude": "Proactive wakeup: supported",
   "wakeChatgpt": "Work: supported with an in-chat subscription. Chat: use waits and inbox; no proactive wakeup.",
   "wakeOther": "No proactive wakeup. Use waits and inbox.",
-  "agentConnectionStatus": "Connection status",
-  "agentEntryAvailable": "Execution entry available",
-  "agentEntryUnavailable": "Execution entry unavailable",
-  "agentSessionReady": "Session connected",
-  "agentExecutionEntry": "Execution entry",
-  "agentIntegrationLimits": "Integration limits",
-  "agentReadinessNote": "Availability checks the local entry only. Login, tool execution and session restoration depend on the agent and its live session.",
-  "agentSearch": "Find an Agent",
-  "agentNoMatches": "No matching Agents."
+  "agentExecutionEntry": "Execution entry"
 }

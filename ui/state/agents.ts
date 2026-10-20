@@ -20,6 +20,7 @@ import devinIcon from "../assets/brand-reserve/agents/devin/color.svg?raw";
 import clineIcon from "../assets/brand-reserve/agents/cline/mono.svg?raw";
 import junieIcon from "../assets/brand-reserve/agents/junie/color.svg?raw";
 import hermesIcon from "../assets/brand-reserve/agents/hermes/mono.svg?raw";
+import dshIcon from "../assets/brand-reserve/agents/dsh/mono.svg?raw";
 
 export type Agent = {
   adapter?: { state: string; error?: string | null };
@@ -58,6 +59,7 @@ export const icons: Record<string, string> = Object.fromEntries(
     cline: clineIcon,
     junie: junieIcon,
     hermes: hermesIcon,
+    dsh: dshIcon,
   }).map(([name, svg]) => [name, decorativeSvg(svg)]),
 );
 export const agentLinks: Record<string, string> = {
@@ -66,19 +68,13 @@ export const agentLinks: Record<string, string> = {
   claude: "https://github.com/anthropics/claude-code",
   pi: "https://pi.dev/",
   antigravity: "https://antigravity.google/",
+  dsh: "https://www.deepseek.com/en/harness/",
 };
 export const name = (agent: Agent) =>
   agent.displayName ||
   builtins.find((entry) => entry.id === agent.agent)?.displayName ||
   ({ codex: "Codex", pi: "Pi", antigravity: "Antigravity" })[agent.agent] ||
   agent.agent;
-export const agentStatus = (agent: Agent) =>
-  agent.adapter?.state === "preparing" ? "agentAdapterPreparing" :
-  agent.installed !== true ? "agentNotInstalled" :
-  agent.adapter?.state === "failed" ? "agentAdapterFailed" :
-  agent.available !== true ? "agentEntryUnavailable" :
-  agent.enabled !== true ? "disabled" :
-  agent.status === "ready" ? "agentSessionReady" : "agentEntryAvailable";
 const order = preference<string[]>("arc.agent-order", []);
 function cachedAgents(): Agent[] {
   try {

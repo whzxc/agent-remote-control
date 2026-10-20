@@ -1086,11 +1086,10 @@ pre {
 .source-choices .button { padding: 10px 6px; min-height: 68px; gap: 6px; }
 .source-choices .button:hover { background: color-mix(in srgb, var(--text-secondary) 7%, transparent); }
 .source-choices .source-icon { width: 28px; height: 28px; }
-.agent-card { min-height: 82px; grid-template-rows: 42px auto; }
 .agent-copy > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-adapter { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0; }
 .uninstalled-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 4px; }
-.agent-uninstalled { display: flex; gap: 10px; align-items: center; padding: 8px; background: transparent; border: 0; border-radius: var(--radius-control); text-align: left; }
+.agent-uninstalled { display: flex; gap: 10px; align-items: center; padding: 8px; background: transparent; border: 0; border-radius: var(--radius-control); text-align: left; color: inherit; text-decoration: none; }
 .agent-uninstalled:hover { background: var(--hover); }
 .agent-uninstalled .agent-quota-icon { width: 24px; height: 24px; }
 .log-table td { height: 36px; padding: 4px 8px; vertical-align: middle; }

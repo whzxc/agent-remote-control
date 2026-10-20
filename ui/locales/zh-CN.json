@@ -521,13 +521,5 @@
   "wakeClaude": "主动唤醒：支持",
   "wakeChatgpt": "Work：支持，需在聊天中订阅。Chat：不支持，使用等待加收件箱。",
   "wakeOther": "主动唤醒：不支持，使用等待加收件箱",
-  "agentConnectionStatus": "接入状态",
-  "agentEntryAvailable": "执行入口可用",
-  "agentEntryUnavailable": "执行入口不可用",
-  "agentSessionReady": "会话已连接",
-  "agentExecutionEntry": "执行入口",
-  "agentIntegrationLimits": "接入限制",
-  "agentReadinessNote": "入口检查不代表登录或推理成功；工具执行和会话恢复以 Agent 的实际会话为准。",
-  "agentSearch": "查找 Agent",
-  "agentNoMatches": "没有匹配的 Agent。"
+  "agentExecutionEntry": "执行入口"
 }

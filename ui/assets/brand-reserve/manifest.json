@@ -407,6 +407,13 @@
       "license": "MIT; brand trademarks reserved",
       "note": "",
       "sha256": "abe926f4acd9d56439bb5568a267d19d5a92201dbd69ad1cf179209b5ef79f91"
+    },
+    {
+      "file": "agents/dsh/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/deepseek.svg",
+      "license": "MIT; brand trademarks reserved",
+      "note": "DeepSeek 通用标志，用于 DeepSeek Harness。",
+      "sha256": "8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2"
     }
   ],
   "controlSourceUsage": {
