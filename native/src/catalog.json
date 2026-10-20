@@ -2104,7 +2104,7 @@
     },
     {
       "name": "dispatch_policy",
-      "description": "按 Agent 读取安装/启用状态、原生模型与选项、同源额度、策略和近 30 天派发汇总；agent 可筛选，taskId 可选择非 Codex 会话。查询不启动会话；criteria 为全局准则。",
+      "description": "按 Agent 读取安装/启用状态、原生模型与选项、同源额度、策略和近 30 天派发汇总；agent 可筛选，taskId 可选择非 Codex 会话。查询不启动会话；无会话时返回带来源和 observedAt 的目录快照，仅 needs-session 时需空 prompt 创建一次；派发以会话回读为准。criteria 为全局准则。",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -45,7 +45,18 @@ fn task_path(task: &str) -> Result<PathBuf> {
     Ok(root().join("agents/tasks").join(format!("{task}.json")))
 }
 fn save_task(task: &Value) -> Result<()> {
-    save(&task_path(string(task, "taskId"))?, task)
+    save(&task_path(string(task, "taskId"))?, task)?;
+    if task["agent"] != "pi" {
+        let facts = dispatch::catalog_facts(
+            task,
+            &task["metadata"],
+            task["configurationObservedAt"].clone(),
+            "acp-session",
+            Value::Null,
+        );
+        dispatch::remember_catalog(string(task, "agent"), &facts)?;
+    }
+    Ok(())
 }
 const RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("agents/requests");

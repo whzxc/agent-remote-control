@@ -1,5 +1,8 @@
 //! Read existing session facts without starting or resuming Agent processes.
 use super::*;
+mod catalogs;
+pub(super) use catalogs::remember_catalog;
+use catalogs::sessionless_catalog;
 
 impl AgentHost {
     pub(crate) async fn dispatch_facts(&self, args: &Value) -> Result<Vec<Value>> {
@@ -67,14 +70,8 @@ impl AgentHost {
                 let facts = if let Some(task) = tasks.get(agent) {
                     self.session_dispatch_facts(task, item["enabled"] == true)
                         .await
-                } else if item["available"] != true {
-                    Ok(json!({"unavailable":"agent-unavailable"}))
-                } else if item["enabled"] != true {
-                    Ok(json!({"unavailable":"agent-disabled"}))
                 } else {
-                    Ok(
-                        json!({"unavailable":"needs-session","nextAction":"agent_create without prompt, then dispatch_policy with agent and taskId"}),
-                    )
+                    sessionless_catalog(agent)
                 };
                 row["capabilities"] = facts.unwrap_or_else(|e| json!({"unavailable":e}));
                 if filter.is_none() {
@@ -234,91 +231,104 @@ impl AgentHost {
                 source = "live-session-snapshot";
             }
         }
-        let mut facts = json!({
-            "source":source,"taskId":id,"observedAt":observed,
-            "scope":"session","executionEvidence":false
-        });
-        if task["agent"] == "pi" {
-            let model = &metadata["model"];
-            facts["currentModel"] = if model["provider"].is_string() && model["id"].is_string() {
-                json!(format!(
-                    "{}/{}",
-                    string(model, "provider"),
-                    string(model, "id")
-                ))
-            } else {
-                Value::Null
-            };
-            facts["models"] = if let Some(models) = metadata["availableModels"].as_array() {
+        let facts = catalog_facts(task, &metadata, observed, source, levels);
+        remember_catalog(string(task, "agent"), &facts)?;
+        Ok(facts)
+    }
+}
+
+pub(super) fn catalog_facts(
+    task: &Value,
+    metadata: &Value,
+    observed: Value,
+    source: &str,
+    levels: Value,
+) -> Value {
+    let mut facts = json!({
+        "source":source,"taskId":task["taskId"],"observedAt":observed,
+        "scope":"session","executionEvidence":false
+    });
+    if task["agent"] == "pi" {
+        let model = &metadata["model"];
+        facts["currentModel"] = if model["provider"].is_string() && model["id"].is_string() {
+            json!(format!(
+                "{}/{}",
+                string(model, "provider"),
+                string(model, "id")
+            ))
+        } else {
+            Value::Null
+        };
+        facts["models"] =
+            if let Some(models) = metadata["availableModels"].as_array() {
                 json!(models.iter().map(|m| json!({
                     "model":format!("{}/{}",string(m,"provider"),string(m,"id")),"name":m["name"]
                 })).collect::<Vec<_>>())
             } else {
                 json!({"unavailable":"requires-live-pi-session"})
             };
-            facts["options"] = json!([{
-                "id":"thinkingLevel","currentValue":metadata["thinkingLevel"],
-                "values":levels.get("levels").cloned().unwrap_or_else(|| {
-                    if levels.is_object() { levels } else { json!({"unavailable":"requires-live-pi-session"}) }
-                })
-            }]);
-            return Ok(facts);
-        }
-        if task["agent"] == "cursor" {
-            facts["modelSelectionUnavailable"] = json!("native-setter-persists-user-defaults");
-        }
-        let configs = metadata["configOptions"].as_array();
-        let mut models = Vec::new();
-        let mut options = Vec::new();
-        for config in configs.into_iter().flatten() {
-            let values = option_values(&config["options"]);
-            if facts["modelConfigId"].is_null()
-                && (config["category"] == "model" || config["id"] == "model")
-            {
-                facts["modelConfigId"] = config["id"].clone();
-                facts["currentModel"] = config["currentValue"].clone();
-                models = values
-                    .into_iter()
-                    .map(|mut v| {
-                        v["model"] = v
-                            .as_object_mut()
-                            .unwrap()
-                            .remove("value")
-                            .unwrap_or(Value::Null);
-                        v
-                    })
-                    .collect();
-            } else {
-                options.push(json!({
-                    "id":config["id"],"category":config["category"],"type":config["type"],
-                    "currentValue":config["currentValue"],"values":values
-                }));
-            }
-        }
-        if configs.is_none() {
-            facts["currentModel"] = metadata["models"]["currentModelId"].clone();
-            models = metadata["models"]["availableModels"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .map(|m| json!({"model":m["modelId"],"name":m["name"]}))
-                .collect();
-            if metadata["modes"].is_object() {
-                options.push(json!({
-                    "id":"mode","type":"select","currentValue":metadata["modes"]["currentModeId"],
-                    "values":metadata["modes"]["availableModes"].as_array().into_iter().flatten()
-                        .map(|m|json!({"value":m["id"],"name":m["name"]})).collect::<Vec<_>>()
-                }));
-            }
-        }
-        facts["models"] = if models.is_empty() {
-            json!({"unavailable":"not-reported-by-session"})
-        } else {
-            json!(models)
-        };
-        facts["options"] = json!(options);
-        Ok(facts)
+        facts["options"] = json!([{
+            "id":"thinkingLevel","currentValue":metadata["thinkingLevel"],
+            "values":levels.get("levels").cloned().unwrap_or_else(|| {
+                if levels.is_object() { levels } else { json!({"unavailable":"requires-live-pi-session"}) }
+            })
+        }]);
+        return facts;
     }
+    if task["agent"] == "cursor" {
+        facts["modelSelectionUnavailable"] = json!("native-setter-persists-user-defaults");
+    }
+    let configs = metadata["configOptions"].as_array();
+    let mut models = Vec::new();
+    let mut options = Vec::new();
+    for config in configs.into_iter().flatten() {
+        let values = option_values(&config["options"]);
+        if facts["modelConfigId"].is_null()
+            && (config["category"] == "model" || config["id"] == "model")
+        {
+            facts["modelConfigId"] = config["id"].clone();
+            facts["currentModel"] = config["currentValue"].clone();
+            models = values
+                .into_iter()
+                .map(|mut v| {
+                    v["model"] = v
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("value")
+                        .unwrap_or(Value::Null);
+                    v
+                })
+                .collect();
+        } else {
+            options.push(json!({
+                "id":config["id"],"category":config["category"],"type":config["type"],
+                "currentValue":config["currentValue"],"values":values
+            }));
+        }
+    }
+    if configs.is_none() {
+        facts["currentModel"] = metadata["models"]["currentModelId"].clone();
+        models = metadata["models"]["availableModels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|m| json!({"model":m["modelId"],"name":m["name"]}))
+            .collect();
+        if metadata["modes"].is_object() {
+            options.push(json!({
+                "id":"mode","type":"select","currentValue":metadata["modes"]["currentModeId"],
+                "values":metadata["modes"]["availableModes"].as_array().into_iter().flatten()
+                    .map(|m|json!({"value":m["id"],"name":m["name"]})).collect::<Vec<_>>()
+            }));
+        }
+    }
+    facts["models"] = if models.is_empty() {
+        json!({"unavailable":"not-reported-by-session"})
+    } else {
+        json!(models)
+    };
+    facts["options"] = json!(options);
+    facts
 }
 
 fn option_values(options: &Value) -> Vec<Value> {

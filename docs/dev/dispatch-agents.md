@@ -44,7 +44,7 @@ magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ff
 按 Agent 返回以下信息：
 
 - availability：installed、available、enabled；authentication 单独描述来源与时间。成功 quota 读取只证明额度入口认证，不等价于 ACP 或某个模型的推理认证。
-- models/options：原生 ID、名称、当前值、来源和观察时间。没有会话目录时明确 unavailable/needs-session；查询不偷偷创建或恢复会话。初始化可用现有的空 prompt `agent_create`，再按 taskId 查询。
+- models/options：原生 ID、名称、当前值、来源和观察时间。无会话时使用独立保存的最近目录快照，标明 source、catalogSource 和 observedAt；optionsForModel 标明这组选项对应的模型，lastObservedValue 不是新会话默认值。快照位于 ARC 状态目录的 agents/catalogs，清理任务或重启不会删除。首次没有目录才返回 needs-session，此时可空 prompt `agent_create` 一次，再按 taskId 查询。查询不创建或恢复会话；派发始终重新校验会话目录并更新快照。
 - quota：复用 SubscriptionService 的同一份窗口快照、provider ID、observedAt、stale/error 状态。不另起额度轮询器、不复制凭据；未接入不写成零。同一 Agent 使用多个 provider 时只展示已知关联的额度，不能宣称额度一定适用于当前模型。
 - policy/history：明确哪些已生效。目录较大时全量查询只给有界预览和 omitted 数量，单 Agent 查询给完整目录。禁用 Agent 不启动进程。
 
