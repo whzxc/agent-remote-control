@@ -80,3 +80,5 @@ Core 的 SubscriptionService 统一调度各 provider 额度，保存启用与�
 Desktop 交互复用线程 IPC 快照和变化广播，观察器以两秒刷新兜底；异步 questions 按原始 questionItemId 关联已接受的 question-reply 消息。代答复用 codex_respond：异步问题发送 Desktop 原生回复文本，审批、输入和 elicitation 通过对应 follower 响应接口交给原执行者，再回读确认请求消失。用户身份验证和未公开响应路径的交互仅通知并提示回 Desktop；不接管线程，不自动批准。
 
 线程队列由 `dispatch_queue` 保存待发送参数与独立派发回执，线程级写锁保护检查与提交；通知观察器内的容量恢复只对无工具活动的 serverOverloaded 失败续轮。两者使用持久 requestId 消除 Core 重启后的盲目重发。`respond_tokens` 仅为原交互提供有期限的入口隔离别名，不替代原 owner 的回复校验。
+
+Desktop 原生重试由 `claude_notify/continuation` 在同一观察链中识别：前轮失败/中断、快照与落盘历史相邻、已知重试触发标记、无新增用户消息及原生轮次配置齐全，并受前轮终态后十分钟窗口限制。先幂等补记 dispatch_policy 的 native-retry / retryOf 记录，再继承原入口与通知绑定；续轮共用终态通知、审查与汇总。新内容与证据不足时不纳入，不增加独立轮询器。具体边界见[控制循环](control-loop.md#72-原生重试续轮)。

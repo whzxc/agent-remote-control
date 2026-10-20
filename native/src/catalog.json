@@ -1728,7 +1728,7 @@
               "target"
             ],
             "additionalProperties": false,
-            "description": "按轮次绑定；省略保留同轮绑定，中断的紧接续轮继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
+            "description": "按轮次绑定；省略保留同轮绑定，Codex 失败/中断后十分钟内确认的原生重试继承，新用户内容不继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
           },
           "purpose": {
             "type": "string",
@@ -1889,7 +1889,7 @@
               "target"
             ],
             "additionalProperties": false,
-            "description": "按轮次绑定；省略保留同轮绑定，中断的紧接续轮继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
+            "description": "按轮次绑定；省略保留同轮绑定，Codex 失败/中断后十分钟内确认的原生重试继承，新用户内容不继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
           },
           "purpose": {
             "type": "string",
@@ -2996,7 +2996,7 @@
               "target"
             ],
             "additionalProperties": false,
-            "description": "按轮次绑定；省略保留同轮绑定，中断的紧接续轮继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
+            "description": "按轮次绑定；省略保留同轮绑定，Codex 失败/中断后十分钟内确认的原生重试继承，新用户内容不继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
           }
         },
         "required": [
@@ -3290,7 +3290,7 @@
               "target"
             ],
             "additionalProperties": false,
-            "description": "按轮次绑定；省略保留同轮绑定，中断的紧接续轮继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
+            "description": "按轮次绑定；省略保留同轮绑定，Codex 失败/中断后十分钟内确认的原生重试继承，新用户内容不继承，null 解绑。claude-session target 为云端会话 ID 或 URL；ChatGPT Work 使用独立 MCP Events 订阅，Chat 不支持主动唤醒。"
           }
         },
         "required": [

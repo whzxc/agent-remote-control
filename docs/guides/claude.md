@@ -46,7 +46,7 @@ After dispatching, Claude can end its turn. When Codex finishes, the notificatio
 
 ARC sends a fixed status message when a bound turn completes, fails, is interrupted, or needs approval/input. The message identifies the project, task, and turn. Claude then reads the actual output through `query codex_read` / `query codex_items`, and the changes through `query codex_changes` or `query git`.
 
-Ask Claude to compare the result with the acceptance criteria, explain any remaining issue, and use `act codex_send` for the next round. Include `notify` on each new round. An input added to the current round retains its binding when the field is omitted. Set it to `null` to unbind. An immediately following continuation of an interrupted round can inherit the binding; explicit binding or unbinding takes precedence.
+Ask Claude to compare the result with the acceptance criteria, explain any remaining issue, and use `act codex_send` for the next round. Include `notify` on each new round. An input added to the current round retains its binding when the field is omitted. Set it to `null` to unbind. A confirmed native Codex retry immediately after a failed/interrupted round can inherit the binding within ten minutes; explicit binding or unbinding takes precedence. ARC records that retry for review. New Desktop messages and retries with unknown provenance do not inherit.
 
 Read `notification` in the task result for delivery status. A binding failure appears as `bind-failed` in the dispatch receipt. Check **Records** if delivery fails. ARC retries with backoff and attempts one system notification for breaker or sustained token-starvation episodes.
 

@@ -46,13 +46,15 @@ Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`
 
 每次成功派发按线程保存 requestId、turnId、model、effort、serviceTier、reason、各字段来源（explicit / policy-default；steer 为 active-turn）、派发方式与时间，并关联到任务回执。`codex_tasks` 的 full 视图展示派发历史；完成、失败及中断通知附带本轮记录。原生持久化轮次配置可用时补充实际配置证据；不可用时仅说明 ARC 提交的配置。
 
+失败/中断后符合[原生重试继承条件](control-loop.md#72-原生重试续轮)的紧接续轮，补记 `dispatchSource:"native-retry"`、`dispatchMode:"new-turn"`、`retryOf`（前轮 turnId）与 `nativeTrigger`。model / effort / serviceTier 直接来自该续轮的原生 turn_context，不应用当前策略默认值；字段来源及 configurationEvidence 为 native-persisted-turn-context。submittedAt 使用原生开始时间，observedAt 使用纳入时间，purpose 沿用前轮。以原生 turnId 作为稳定记录 requestId 幂等落盘，不伪造 ARC 派发回执；该 ID 不代表可重放的写入请求。续轮与普通派发共用终态、codex_review 和历史汇总路径。新用户内容、无法确认重试或超出十分钟窗口的轮次不纳入。
+
 原生 turn_context 缺少 service_tier 时，effectiveConfiguration.serviceTier 保持 unknown。threadServiceTier 单独展示持久化 thread_settings_applied 在该轮 task_started 前的最后值，仅证明线程配置，不能证明单轮 serviceTierForTurn 覆盖；不使用轮次结束后的最新设置回填旧轮。统计优先使用轮次原生 tier，否则用提交值，均缺失时归 unknown。
 
 终态记录派发至首次观察到终态的耗时，明确这是观察耗时，包含调度与观察延迟。
 
 ## 验收与返工
 
-`act({op:"codex_review",args:{threadId,turnId?,verdict:"pass"|"rework",note?},requestId?})` 写入控制源的验收结论。省略 turnId 时，读取原生线程最近一个终态轮次（可越过仍运行的最新轮次）；目标必须有 ARC 派发记录。非终态或没有派发记录时明确报错，不替其他轮次作判断。
+`act({op:"codex_review",args:{threadId,turnId?,verdict:"pass"|"rework",note?},requestId?})` 写入控制源的验收结论。省略 turnId 时，读取原生线程最近一个终态轮次（可越过仍运行的最新轮次）；目标必须有 ARC 派发记录，包括已纳入的 native-retry。非终态或没有派发记录时明确报错，不替其他轮次作判断。
 
 每轮的 `review` 保存 verdict、note、reviewedAt 和 requestId。同轮改判覆盖旧结论，统计以最后一次为准；安全重试沿用 requestId，改判使用新 requestId。验收写入与派发共用线程锁，完成观察补写元数据不会覆盖验收结论。
 

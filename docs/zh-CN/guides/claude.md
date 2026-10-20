@@ -46,7 +46,7 @@ Claude 的[连接器文档](https://claude.com/docs/connectors/building)说明�
 
 绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送固定状态消息，标明项目、任务和轮次。Claude 随后通过 `query codex_read` / `query codex_items` 读取实际输出，通过 `query codex_changes` 或 `query git` 审查改动。
 
-让 Claude 对照验收标准判断结果，说明剩余问题，再用 `act codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。被中断轮次紧接的续轮可以继承绑定，显式绑定或解除优先。
+让 Claude 对照验收标准判断结果，说明剩余问题，再用 `act codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。失败/中断轮次之后紧接的、可确认的原生 Codex 重试可在十分钟内继承绑定，显式绑定或解除优先。ARC 会补记该重试以供审查。Desktop 新消息和来源无法确认的重试不继承。
 
 任务结果的 `notification` 显示投递状态。绑定失败会在派发回执中标为 `bind-failed`。投递失败时查看**记录**；ARC 会退避重试，熔断或持续缺令牌时尝试一次系统通知升级。
 
