@@ -204,7 +204,7 @@ read detects PNG/JPEG/WebP/GIF by signature and returns MCP image blocks with so
 
 codex_read and codex_items accept includeImages=false and maxImages=4 (1–8). Local Markdown images must resolve inside the task project or its own CODEX_HOME/visualizations/YYYY/MM/DD/threadId directory; symlinks cannot escape. Embedded data-URL tool screenshots are supported. An unavailable image adds an explanation while preserving the text result.
 
-codex_items defaults to original oldest-first order. latest=true selects the newest turn and reads newest first; explicit turnId pins a specific turn. Continue with that turnId, nextCursor as cursor, and latest=true. A cursor with latest=true but no turnId is rejected.
+codex_items defaults to original oldest-first order. latest=true selects the newest turn and reads newest first; explicit turnId pins a specific turn. Continue with that turnId, nextCursor as cursor, and latest=true. A cursor with latest=true but no turnId is rejected. Desktop cursors bind to the read operation, threadId and selection (turnId/latest for codex_items). Keep them unchanged when continuing; if the read owner or selection changes, omit cursor and restart pagination. `order` is not supported; use `latest:true` for newest-first items, optionally pinned with turnId.
 
 ## macOS screen operations
 

@@ -67,15 +67,23 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (method === 'fixture/array') return emit({ id, result: [null, 1, { native: true }] });
     const saved = existsSync(fixtureState) ? JSON.parse(readFileSync(fixtureState, 'utf8')) : {};
     if (method === 'thread/start' && params.model?.startsWith('fixture-dispatch')) {
-      const thread = {id:randomUUID(),cwd:params.cwd,path:process.env.ARC_STATE_DIR+'/seed-'+randomUUID()+'.jsonl'};
-      writeFileSync(thread.path, '{}');
-      saved[thread.id] = {thread,model:params.model,turns:[],metadataReads:0,archived:false};
+      const thread = {id:randomUUID(),cwd:params.cwd,path:params.model.includes('lazy-seed')?null:process.env.ARC_STATE_DIR+'/seed-'+randomUUID()+'.jsonl'};
+      if(thread.path)writeFileSync(thread.path, '{}');
+      saved[thread.id] = {thread,model:params.model,turns:[],metadataReads:0,archived:false,creator:process.pid};
       saveFixture(saved);
       return emit({id,result:{thread,model:params.model}});
     }
     if (saved[params?.threadId]) {
       const row = saved[params.threadId];
+      if (method === 'thread/name/set') {
+        row.named=true;row.thread.name=params.name;saveFixture(saved);return emit({id,result:{}});
+      }
+      if (method === 'thread/unsubscribe') {
+        row.unsubscribed=true;saveFixture(saved);return emit({id,result:{}});
+      }
       if (method === 'thread/read') {
+        if(row.model.includes('lazy-seed') && !row.named)return emit({id,error:{code:-32000,message:'seed not durable until named'}});
+        if(row.model.includes('lazy-seed'))row.independentReader=process.pid!==row.creator;
         if (params.includeTurns) return emit({id,error:{code:-32601,message:'list_turns is not supported yet'}});
         row.metadataReads++;
         saveFixture(saved);
@@ -931,4 +939,15 @@ test('large non-Git tree returns a bounded first layer and a truncation marker',
   assert.equal(tree.data.coverage.state,'partial');
   const shallow=(await call('tree',{path:base,depth:1})).result.data;
   assert.equal(shallow.truncated,false);assert.deepEqual(shallow.entries,['deep/','empty/']);
+});
+
+test('Desktop seed is named before independent metadata read even with null rollout path', {skip:process.platform==='linux'}, async () => {
+  const settings=path.join(directory,'task-settings.json');const original=await readFile(settings,'utf8').catch(()=>null);
+  await writeFile(settings,JSON.stringify({autoOpenCodex:true,codexRetryMaxAttempts:0}));
+  try {
+    const r=await completed('codex_create',{project:directory,prompt:'seed persistence regression',thread:{model:'fixture-dispatch-lazy-seed'},purpose:'self-test',approval:'bypass',requestId:randomUUID()});
+    assert.equal(r.state,'completed',JSON.stringify(r));
+    const row=(await fixtureRows())[r.threadId];
+    assert.equal(row.thread.path,null);assert.equal(row.named,true);assert.equal(row.independentReader,true);assert.equal(row.unsubscribed,true);assert.equal(row.turns.length,1);
+  } finally {if(original===null)await rm(settings);else await writeFile(settings,original);}
 });

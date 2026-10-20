@@ -465,7 +465,7 @@ impl Control {
                         || e.contains("Connection refused") =>
                 {
                     if string(&args, "cursor").starts_with("desktop:") {
-                        return Err("DESKTOP_CURSOR_STALE".into());
+                        return Err("DESKTOP_CURSOR_STALE: Desktop history owner changed; omit cursor to restart pagination".into());
                     }
                 }
                 Err(e) => return Err(e),
@@ -1638,12 +1638,12 @@ fn page(kind: &str, args: &Value, data: Vec<Value>) -> Result<Value> {
             .decode(
                 cursor
                     .strip_prefix("desktop:")
-                    .ok_or("DESKTOP_CURSOR_MISMATCH")?,
+                    .ok_or("DESKTOP_CURSOR_MISMATCH: cursor belongs to another read; reuse the same op, threadId and selection (turnId/latest for codex_items), or omit cursor to restart pagination")?,
             )
             .map_err(|e| e.to_string())?;
         let c: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         if c["binding"] != binding {
-            return Err("DESKTOP_CURSOR_MISMATCH".into());
+            return Err("DESKTOP_CURSOR_MISMATCH: cursor belongs to another read; reuse the same op, threadId and selection (turnId/latest for codex_items), or omit cursor to restart pagination".into());
         }
         offset = num(&c, "offset", 0);
     }
@@ -1770,4 +1770,25 @@ pub(crate) fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod pagination_tests {
+    use super::*;
+    #[test]
+    fn desktop_cursor_retains_binding_and_explains_restart() {
+        let mut args =
+            json!({"threadId":"thread","turnId":"turn","sortDirection":"desc","limit":1});
+        let data = vec![json!({"id":"one"}), json!({"id":"two"})];
+        let first = page("thread/items/list", &args, data.clone()).unwrap();
+        args["cursor"] = first["nextCursor"].clone();
+        assert_eq!(
+            page("thread/items/list", &args, data.clone()).unwrap()["data"][0]["id"],
+            "two"
+        );
+        args["threadId"] = json!("other");
+        let error = page("thread/items/list", &args, data).unwrap_err();
+        assert!(error.starts_with("DESKTOP_CURSOR_MISMATCH:"));
+        assert!(error.contains("omit cursor"));
+    }
 }
