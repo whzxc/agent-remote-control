@@ -151,8 +151,81 @@ pub(crate) async fn query(c: &control::Control) -> Result<Value> {
         "observedAt":now(),
         "models":models.unwrap_or_else(|error| json!({"unavailable":error})),
         "policy":policy,
-        "quota":quota.unwrap_or_else(|error| json!({"unavailable":error}))
+        "quota":quota.unwrap_or_else(|error| json!({"unavailable":error})),
+        "history":history().unwrap_or_else(|error| json!({"unavailable":error}))
     }))
+}
+
+fn history() -> Result<Value> {
+    #[derive(Default)]
+    struct Group {
+        dispatches: u64,
+        pass: u64,
+        rework: u64,
+        durations: Vec<u64>,
+    }
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut groups = std::collections::BTreeMap::<(String, String), Group>::new();
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+    let dir = root().join("dispatches");
+    if dir.exists() {
+        for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let thread = entry.file_name().to_string_lossy().into_owned();
+            let mut seen = std::collections::HashSet::new();
+            for row in read_records(&thread)? {
+                if row["purpose"] == "self-test"
+                    || row["dispatchMode"] != "new-turn"
+                    || !chrono::DateTime::parse_from_rfc3339(string(&row, "submittedAt"))
+                        .is_ok_and(|time| time >= cutoff)
+                    || !seen.insert(string(&row, "turnId").to_owned())
+                {
+                    continue;
+                }
+                let value = |field: &str| {
+                    row["effectiveConfiguration"][field]
+                        .as_str()
+                        .filter(|v| !v.is_empty() && *v != "unknown")
+                        .unwrap_or_else(|| string(&row, field))
+                        .to_owned()
+                };
+                let group = groups.entry((value("model"), value("effort"))).or_default();
+                group.dispatches += 1;
+                match string(&row["review"], "verdict") {
+                    "pass" => group.pass += 1,
+                    "rework" => group.rework += 1,
+                    _ => {}
+                }
+                if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
+                    group.durations.push(ms);
+                }
+            }
+        }
+    }
+    let mut groups = groups
+        .into_iter()
+        .map(|((model, effort), mut g)| {
+            let mut row = json!({"model":model,"effort":effort,"dispatches":g.dispatches,
+            "pass":g.pass,"rework":g.rework,"unreviewed":g.dispatches-g.pass-g.rework});
+            if !g.durations.is_empty() {
+                g.durations.sort_unstable();
+                let n = g.durations.len();
+                row["medianObservedDurationMs"] =
+                    json!((g.durations[(n - 1) / 2] as f64 + g.durations[n / 2] as f64) / 2.0);
+                row["durationSamples"] = json!(n);
+            }
+            row
+        })
+        .collect::<Vec<_>>();
+    // Keep the guide query small even after many model generations; disclose omitted groups.
+    groups.sort_by_key(|g| std::cmp::Reverse(g["dispatches"].as_u64().unwrap_or(0)));
+    let omitted = groups.len().saturating_sub(12);
+    groups.truncate(12);
+    let mut history = json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups});
+    if omitted > 0 {
+        history["omittedGroups"] = json!(omitted);
+    }
+    Ok(history)
 }
 
 fn directory(thread: &str) -> Result<PathBuf> {
