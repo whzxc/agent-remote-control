@@ -1,5 +1,6 @@
 //! Turn-scoped control-source events, inboxes and fixed notification channels.
 use crate::*;
+pub(crate) mod continuation;
 mod governance;
 pub(crate) mod mcp_events;
 mod retry;
@@ -128,6 +129,8 @@ struct Binding {
     deliveries: Vec<Delivery>,
     #[serde(default)]
     continuation_bound: bool,
+    #[serde(default)]
+    continuation_until: i64,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     caused_by: Value,
     #[serde(default)]
@@ -179,6 +182,7 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
         waiting: vec![],
         deliveries: vec![],
         continuation_bound: false,
+        continuation_until: 0,
         caused_by: Value::Null,
         retry: Value::Null,
     });
@@ -829,34 +833,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     {
         b.title = title.into();
     }
-    if observation["state"] == "cancelled" && !b.continuation_bound {
-        if let Some(next) = observation["nextTurnId"].as_str().filter(|s| !s.is_empty()) {
-            let mut successor = binding(dir, &b.thread_id, next)?.unwrap_or_else(|| {
-                let mut next_binding = b.clone();
-                next_binding.turn_id = next.into();
-                next_binding.created_at = chrono::Utc::now().timestamp();
-                next_binding.terminal = false;
-                next_binding.waiting.clear();
-                next_binding.deliveries.clear();
-                next_binding.explicit = false;
-                next_binding.continuation_bound = false;
-                next_binding
-            });
-            if !successor.explicit {
-                successor.target = b.target.clone();
-                successor.channel = b.channel;
-                for d in &mut successor.deliveries {
-                    if d.status == "pending" && d.target.is_empty() {
-                        d.target = b.target.clone().unwrap_or_default();
-                        d.channel = b.channel;
-                    }
-                }
-                persist(dir, &successor)?;
-            }
-            b.continuation_bound = true;
-            persist(dir, b)?;
-        }
-    }
+    continuation::adopt(dir, b, observation)?;
     let mut resolved = false;
     if observation["state"] != "unconfirmed" {
         for d in &mut b.deliveries {
@@ -1938,8 +1915,10 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             recover(&directory(), &mut b)?;
                         }
                         drop(_guard);
-                        let interrupted = b.deliveries.iter().any(|d| d.state == "中断");
-                        if b.terminal && (!interrupted || b.continuation_bound) {
+                        if b.terminal
+                            && (b.continuation_bound
+                                || b.continuation_until < chrono::Utc::now().timestamp())
+                        {
                             continue;
                         }
                         let c = control.clone();

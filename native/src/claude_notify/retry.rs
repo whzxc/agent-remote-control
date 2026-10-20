@@ -29,6 +29,7 @@ pub(super) async fn update(b: &mut Binding, retry: Value, terminal: bool) -> Res
     current.retry = retry;
     if terminal {
         current.terminal = true;
+        current.continuation_bound = true;
         current.waiting.clear();
     }
     persist(&directory(), &current)?;
@@ -51,9 +52,21 @@ pub(super) async fn handle(
     } else {
         json!({})
     };
+    if observed["nextTurnId"].is_string() && retry["status"] != "submitting" {
+        if b.retry["status"] == "continued" {
+            return Ok(true);
+        }
+        // Native continuation wins over a scheduled ARC retry, even after a restart.
+        // An in-flight ARC submission must first resolve its durable receipt: the
+        // visible successor may be its own accepted turn.
+        // Let process publish the old failure and adopt only proven native retries.
+        retry["status"] = json!("superseded");
+        update(b, retry, false).await?;
+        return Ok(false);
+    }
     if matches!(
         string(&retry, "status"),
-        "exhausted" | "skipped" | "stopped"
+        "exhausted" | "skipped" | "stopped" | "superseded"
     ) {
         return Ok(false);
     }
@@ -97,8 +110,8 @@ pub(super) async fn handle(
             .ok_or("RETRY_HISTORY_UNAVAILABLE")?;
         if turn["id"] != b.turn_id {
             retry["status"] = json!("superseded");
-            update(b, retry, true).await?;
-            return Ok(true);
+            update(b, retry, false).await?;
+            return Ok(false);
         }
         if !safe_turn(turn) {
             retry["status"] = json!("skipped");

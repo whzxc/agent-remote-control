@@ -357,6 +357,35 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     let mut write = write;
     write().map_err(|e| format!("SUBMISSION_UNCONFIRMED: dispatch accepted; record failed: {e}"))
 }
+/// Register observed native work without pretending ARC submitted another request.
+pub(crate) fn record_native_retry(thread: &str, previous: &str, retry: &Value) -> Result<bool> {
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    let rows = read_records(thread)?;
+    let turn = string(retry, "turnId");
+    if let Some(row) = rows.iter().find(|r| r["turnId"] == turn) {
+        return Ok(row["dispatchSource"] == "native-retry" && row["retryOf"] == previous);
+    }
+    let Some(parent) = rows.iter().rev().find(|r| r["turnId"] == previous) else {
+        return Ok(false);
+    };
+    uuid::Uuid::parse_str(turn).map_err(|_| "INVALID_TURN_ID")?;
+    let started = retry["startedAt"]
+        .as_i64()
+        .and_then(|t| chrono::DateTime::from_timestamp(t, 0))
+        .ok_or("NATIVE_RETRY_START_MISSING")?;
+    let config = &retry["configuration"];
+    let row = json!({
+        "requestId":turn,"threadId":thread,"turnId":turn,"dispatchMode":"new-turn",
+        "dispatchSource":"native-retry","retryOf":previous,"nativeTrigger":retry["trigger"],
+        "model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],
+        "source":{"model":"native-persisted-turn-context","effort":"native-persisted-turn-context","serviceTier":"native-persisted-turn-context"},
+        "configurationEvidence":"native-persisted-turn-context","effectiveConfiguration":config,
+        "submittedAt":started.to_rfc3339(),"observedAt":now(),
+        "purpose":parent["purpose"],"reason":"Native retry of failed or interrupted ARC dispatch"
+    });
+    save(&directory(thread)?.join(format!("{turn}.json")), &row)?;
+    Ok(true)
+}
 pub(crate) async fn complete(
     c: &control::Control,
     thread: &str,

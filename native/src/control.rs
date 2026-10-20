@@ -1692,50 +1692,51 @@ pub(crate) fn item(v: &Value, offset: usize, len: usize) -> Value {
     json!({"itemId":v["id"],"type":v["type"],"text":String::from_utf16_lossy(&units[offset.min(units.len())..end.min(units.len())]),"textHash":hash(&text),"offset":offset,"textLength":units.len(),"nextOffset":if end<units.len(){Some(end)}else{None},"textTruncated":end<units.len()})
 }
 
+pub(crate) fn persisted_history(thread: &Value) -> Result<String> {
+    use std::io::Read;
+    let sessions = std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| dirs::home_dir().unwrap().join(".codex"))
+        .join("sessions")
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let path = PathBuf::from(string(thread, "path"));
+    let canonical = path.canonicalize().map_err(|e| e.to_string())?;
+    if canonical != path
+        || !path.starts_with(sessions)
+        || path.extension().is_none_or(|e| e != "jsonl")
+    {
+        return Err("invalid history path".into());
+    }
+    let mut opts = std::fs::OpenOptions::new();
+    opts.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = opts.open(path).map_err(|e| e.to_string())?;
+    let stat = file.metadata().map_err(|e| e.to_string())?;
+    if !stat.is_file() || stat.len() > 32 * 1024 * 1024 {
+        return Err("history too large".into());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if stat.nlink() != 1 {
+            return Err("linked history".into());
+        }
+    }
+    let mut text = String::new();
+    file.take(32 * 1024 * 1024)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    Ok(text)
+}
+
 pub(crate) fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
     let mut result = HashMap::new();
-    let read = || -> Result<String> {
-        use std::io::Read;
-        let sessions = std::env::var_os("CODEX_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| dirs::home_dir().unwrap().join(".codex"))
-            .join("sessions")
-            .canonicalize()
-            .map_err(|e| e.to_string())?;
-        let path = PathBuf::from(string(thread, "path"));
-        let canonical = path.canonicalize().map_err(|e| e.to_string())?;
-        if canonical != path
-            || !path.starts_with(sessions)
-            || path.extension().is_none_or(|e| e != "jsonl")
-        {
-            return Err("invalid history path".into());
-        }
-        let mut opts = std::fs::OpenOptions::new();
-        opts.read(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            opts.custom_flags(libc::O_NOFOLLOW);
-        }
-        let file = opts.open(path).map_err(|e| e.to_string())?;
-        let stat = file.metadata().map_err(|e| e.to_string())?;
-        if !stat.is_file() || stat.len() > 32 * 1024 * 1024 {
-            return Err("history too large".into());
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            if stat.nlink() != 1 {
-                return Err("linked history".into());
-            }
-        }
-        let mut text = String::new();
-        file.take(32 * 1024 * 1024)
-            .read_to_string(&mut text)
-            .map_err(|e| e.to_string())?;
-        Ok(text)
-    };
-    if let Ok(text) = read() {
+    if let Ok(text) = persisted_history(thread) {
         let mut matched = false;
         let mut thread_tier = json!("unknown");
         let mut turn_tiers = HashMap::new();

@@ -238,7 +238,24 @@ struct CodexSource {
 }
 impl WaitSource for CodexSource {
     fn classify(&mut self, observation: &Value, selected: &mut Option<String>) -> Value {
-        let result = classify(observation, selected);
+        let mut result = classify(observation, selected);
+        if matches!(string(&result, "state"), "cancelled" | "failed") {
+            let turns = observation["thread"]["turns"].as_array();
+            if let Some(turns) = turns {
+                if let Some(index) = turns.iter().position(|t| t["id"] == result["turnId"]) {
+                    result["nextTurnId"] = turns
+                        .get(index + 1)
+                        .map(|t| t["id"].clone())
+                        .unwrap_or(Value::Null);
+                    result["nativeContinuation"] = crate::claude_notify::continuation::evidence(
+                        &observation["thread"],
+                        string(&result, "turnId"),
+                        turns.get(index + 1),
+                    );
+                }
+            }
+        }
+
         self.turn = selected.clone();
         result
     }
@@ -343,21 +360,10 @@ pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Resul
     if !source.alive() {
         return Err("connection-closed".into());
     }
-    let mut result = source.classify(
+    let result = source.classify(
         &observation,
         &mut args["turnId"].as_str().map(str::to_owned),
     );
-    if result["state"] == "cancelled" {
-        let turns = observation["thread"]["turns"].as_array();
-        if let Some(turns) = turns {
-            if let Some(index) = turns.iter().position(|t| t["id"] == result["turnId"]) {
-                result["nextTurnId"] = turns
-                    .get(index + 1)
-                    .map(|t| t["id"].clone())
-                    .unwrap_or(Value::Null);
-            }
-        }
-    }
     Ok(result)
 }
 
