@@ -1281,7 +1281,6 @@ impl Control {
             return self.mutate("native",json!({"method":method,"params":params,"requestId":args["requestId"],"timeoutMs":args["timeoutMs"].as_u64().unwrap_or(86400000),"waitMs":num(&args,"waitMs",25000)})).await;
         }
         match name {
-            "dispatch_policy" => crate::dispatch_policy::query(self).await,
             "codex_review" => self.mutate("review", args).await,
             "screen" => crate::screen::call(args).await,
             "projects" => Ok(

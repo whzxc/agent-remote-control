@@ -3,6 +3,7 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
 mod adapter;
+mod dispatch;
 pub(crate) mod driver;
 mod manifest;
 mod process;

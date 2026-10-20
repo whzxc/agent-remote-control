@@ -3,10 +3,19 @@ use crate::{agents::AgentHost, control::Control, *};
 pub struct Execution {
     pub(crate) control: Arc<Control>,
     agents: Arc<AgentHost>,
+    subscriptions: Arc<crate::subscriptions::SubscriptionService>,
 }
 impl Execution {
-    pub fn new(control: Arc<Control>, agents: Arc<AgentHost>) -> Arc<Self> {
-        Arc::new(Self { control, agents })
+    pub fn new(
+        control: Arc<Control>,
+        agents: Arc<AgentHost>,
+        subscriptions: Arc<crate::subscriptions::SubscriptionService>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            control,
+            agents,
+            subscriptions,
+        })
     }
     pub fn approval_mode(&self) -> Result<bool> {
         self.control.approval_mode()
@@ -27,6 +36,23 @@ impl Execution {
         true
     }
     pub async fn call(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
+        if name == "dispatch_policy" {
+            let catalog = crate::catalog();
+            let spec = catalog["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            return crate::dispatch_policy::query(
+                &self.control,
+                &self.agents,
+                &self.subscriptions,
+                &args,
+            )
+            .await;
+        }
         if name == "receipt" {
             let spec = crate::catalog()["ops"]
                 .as_array()

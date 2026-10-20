@@ -185,7 +185,13 @@ impl Service {
         let control =
             Control::new(crate::agents::codex_binary().unwrap_or_else(|| PathBuf::from("codex")));
         let agents = crate::agents::AgentHost::new()?;
-        let execution = crate::execution::Execution::new(control.clone(), agents.clone());
+        let subscriptions =
+            crate::subscriptions::SubscriptionService::new(control.clone(), agents.clone())?;
+        let execution = crate::execution::Execution::new(
+            control.clone(),
+            agents.clone(),
+            subscriptions.clone(),
+        );
         let token = id() + &id();
         let mut ingresses = BTreeMap::new();
         for id in load(&index)?.as_array().ok_or("invalid ingress index")? {
@@ -215,8 +221,6 @@ impl Service {
             let ingress = Ingress::new(entry, execution.clone(), token.clone())?;
             ingresses.insert(ingress.id.clone(), ingress);
         }
-        let subscriptions =
-            crate::subscriptions::SubscriptionService::new(control.clone(), agents.clone())?;
         Ok(Arc::new(Self {
             runtime: Default::default(),
             subscriptions,
@@ -236,9 +240,14 @@ impl Service {
         let mut service = Self::new()?;
         let service_mut = Arc::get_mut(&mut service).unwrap();
         service_mut.control = Control::new(binary);
+        service_mut.subscriptions = crate::subscriptions::SubscriptionService::new(
+            service_mut.control.clone(),
+            service_mut.agents.clone(),
+        )?;
         service_mut.execution = crate::execution::Execution::new(
             service_mut.control.clone(),
             service_mut.agents.clone(),
+            service_mut.subscriptions.clone(),
         );
         for ingress in service_mut.ingresses.get_mut().values_mut() {
             let i = Arc::get_mut(ingress).unwrap();

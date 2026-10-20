@@ -48,7 +48,7 @@ magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ff
 - quota：复用 SubscriptionService 的同一份窗口快照、provider ID、observedAt、stale/error 状态。不另起额度轮询器、不复制凭据；未接入不写成零。同一 Agent 使用多个 provider 时只展示已知关联的额度，不能宣称额度一定适用于当前模型。
 - policy/history：明确哪些已生效。目录较大时全量查询只给有界预览和 omitted 数量，单 Agent 查询给完整目录。禁用 Agent 不启动进程。
 
-查询的首个独立交付阶段可以保留原有 Codex 顶层字段，并追加 `agents` 事实列表。Codex 现有额度与 history 语义保持不变；非 Codex 尚未接入策略与历史时分别标记 native-default 和 unavailable，不能将空历史伪装成已经统计。
+查询返回 `observedAt` 与 `agents` 数组，每个元素带 agent。Codex 的 models、policy、quota、history 位于其元素内，额度与 history 语义保持不变；非 Codex 的会话事实位于 capabilities。非 Codex 尚未接入策略与历史时分别标记 native-default 和 unavailable，selectionSupported 为 false，不能将空历史伪装成已经统计。
 
 ## 策略文件目标
 

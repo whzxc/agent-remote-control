@@ -147,7 +147,7 @@ impl AgentDriver {
                 if !resume {if string(&result,"sessionId").is_empty(){return Err("MISSING_SESSION_ID".into());}t["sessionId"]=result["sessionId"].clone();}
                 t["metadata"]=result;
             }
-            let mut t=p.state.lock().await;t["status"]=json!("idle");t["processState"]=json!("running");save_task(&t)?;
+            let mut t=p.state.lock().await;t["status"]=json!("idle");t["processState"]=json!("running");t["configurationObservedAt"]=json!(now());save_task(&t)?;
             p.events.lock().await.wake.notify_waiters();
             Ok(())
         }.await;

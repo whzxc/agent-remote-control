@@ -36,7 +36,11 @@
 
 允许列表为空表示不限；禁用列表优先。约束作用于最终选择，包括策略默认值。模型与推理等级是否受原生端支持由上游校验，不复制原生校验规则。配置格式错误明确报错，不静默回退到桌面默认值。
 
-`query({op:"dispatch_policy",args:{}})` 返回模型 ID、支持的推理等级及 serviceTiers 的原生 ID、名称、说明和 defaultServiceTier、上述策略，以及 `codex_account` 同源的额度池与窗口摘要和近 30 天的 `history`。省略账号身份、无关模型说明和完整原生配置；各事实读取失败时标记不可用，保留其余结果，不把未知额度当作零。
+`query({op:"dispatch_policy",args:{}})` 返回 `observedAt` 与 `agents` 数组；可用 `args:{agent:"codex"}` 只查 Codex。Codex 元素包含模型 ID、支持的推理等级及 serviceTiers 的原生 ID、名称、说明和 defaultServiceTier、上述策略，以及 `codex_account` 同源的额度池与窗口摘要和近 30 天的 `history`。省略账号身份、无关模型说明和完整原生配置；各事实读取失败时标记不可用，保留其余结果，不把未知额度当作零。
+
+其他 Agent 元素返回安装、可用与启用状态，同 subscriptions 服务的额度快照，以及已有会话公开的模型和选项；可同时传非 Codex agent 与 taskId 指定会话。缺省取该 Agent 最近的非空会话快照，保留来源、观察时间与会话作用域，不宣称推理生效。全量查询每个非 Codex Agent 最多预览 8 个模型，omittedModels 披露省略数量；按 agent 筛选取得完整目录。无快照时明确不可用，读取不启动或恢复进程；禁用 Pi 不发送 RPC。旧快照缺少配置观察时间时保留 null。
+
+原生认证与推理可用性不能从额度环或安装状态推断：authentication.inference 为 unknown，quotaAccess 仅描述额度入口。provider 未接入和模型到额度池的关联未知均显式披露。非 Codex 当前 selectionSupported:false，策略仍跟随原生配置；策略文件分节、选择、记录、验收与汇总属于下一阶段。
 
 Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`effort` 和一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。使用旧显式 allowlist 的入口需启用 dispatch_policy；默认预设包含此只读 op。
 
@@ -64,7 +68,7 @@ rework 后同线程的下一次新轮派发保存 `reworkOf:<原轮次 ID>`，st
 
 ## 历史汇总与用量边界
 
-`dispatch_policy.history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort + serviceTier 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
+`dispatch_policy.agents` 中 Codex 的 `history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort + serviceTier 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
 
 `purpose:"self-test"` 不进入真实统计，续轮省略 purpose 时沿用该线程最近派发标记，显式 purpose 可覆盖。验收结论不能改变此标记。无数据组不输出；最多显示派发次数最多的 12 组，其余以 omittedGroups 披露，保持响应在几 KB 量级。查询实时读取记录，改判立即反映在汇总中。
 

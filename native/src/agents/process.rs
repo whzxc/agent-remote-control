@@ -121,6 +121,17 @@ impl Process {
                 let mut state = p.state.lock().await;
                 let task = string(&state, "taskId").to_owned();
                 crate::event(&p.events, &task, method, msg.clone()).await;
+                if method == "session/update" {
+                    let update = &msg["params"]["update"];
+                    if update["sessionUpdate"] == "config_option_update" {
+                        state["metadata"]["configOptions"] = update["configOptions"].clone();
+                        state["configurationObservedAt"] = json!(now());
+                    } else if update["sessionUpdate"] == "current_mode_update" {
+                        state["metadata"]["modes"]["currentModeId"] =
+                            update["currentModeId"].clone();
+                        state["configurationObservedAt"] = json!(now());
+                    }
+                }
                 if method == "session/request_permission"
                     || (method == "extension_ui_request"
                         && matches!(

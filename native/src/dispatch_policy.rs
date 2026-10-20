@@ -162,7 +162,7 @@ async fn models(c: &control::Control) -> Result<Value> {
     }
     Ok(json!(rows))
 }
-pub(crate) async fn query(c: &control::Control) -> Result<Value> {
+async fn codex_facts(c: &control::Control) -> Result<Value> {
     let policy = read()?;
     let (models, quota) = tokio::join!(
         models(c),
@@ -194,6 +194,57 @@ pub(crate) async fn query(c: &control::Control) -> Result<Value> {
         "quota":quota.unwrap_or_else(|error| json!({"unavailable":error})),
         "history":history().unwrap_or_else(|error| json!({"unavailable":error}))
     }))
+}
+
+pub(crate) async fn query(
+    c: &control::Control,
+    agents: &agents::AgentHost,
+    subscriptions: &subscriptions::SubscriptionService,
+    args: &Value,
+) -> Result<Value> {
+    let mut rows = agents.dispatch_facts(args).await?;
+    let snapshot = subscriptions.snapshot().await;
+    for row in &mut rows {
+        let agent = string(row, "agent").to_owned();
+        let providers = snapshot["providers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|p| p["agentId"] == agent)
+            .map(|p| {
+                json!({
+                    "providerId":p["providerId"],"state":p["state"],"observedAt":p["observedAt"],
+                    "source":p["source"],"windows":p["windows"],"error":p["error"],
+                    "accountBlocked":p["accountBlocked"],"blockedPoolIds":p["blockedPoolIds"]
+                })
+            })
+            .collect::<Vec<_>>();
+        row["availability"]["authentication"] = json!({
+            "inference":"unknown",
+            "quotaAccess":providers.iter().map(|p| json!({
+                "providerId":p["providerId"],"state":p["state"],"observedAt":p["observedAt"],
+                "error":p["error"]
+            })).collect::<Vec<_>>()
+        });
+        if agent == "codex" {
+            let facts = codex_facts(c).await?;
+            for key in ["models", "quota", "history"] {
+                row[key] = facts[key].clone();
+            }
+            row["policy"] = facts["policy"]["codex"].clone();
+            row["selectionSupported"] = json!(true);
+        } else {
+            row["quota"] = if providers.is_empty() {
+                json!({"unavailable":"provider-not-integrated"})
+            } else {
+                json!({"source":"subscriptions","providers":providers,"modelAssociation":"unknown"})
+            };
+            row["policy"] = json!({"source":"native-default","configurable":false});
+            row["history"] = json!({"unavailable":"agent-dispatch-records-not-integrated"});
+            row["selectionSupported"] = json!(false);
+        }
+    }
+    Ok(json!({"observedAt":now(),"agents":rows}))
 }
 
 fn history() -> Result<Value> {
