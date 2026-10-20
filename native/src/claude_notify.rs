@@ -993,7 +993,14 @@ pub(crate) async fn inbox(
     caller_target: Option<&str>,
 ) -> Result<Value> {
     let _guard = LOCK.lock().await;
-    let mut result = inbox_in(&directory(), ingress, reads, claude)?;
+    let caller_target = caller_target.and_then(|target| session_id(target).ok());
+    let mut result = inbox_in(
+        &directory(),
+        ingress,
+        reads,
+        claude,
+        caller_target.as_deref(),
+    )?;
     for event in result
         .get_mut("events")
         .and_then(Value::as_array_mut)
@@ -1001,7 +1008,7 @@ pub(crate) async fn inbox(
         .flatten()
     {
         if let Some(target) = event["target"].as_str() {
-            let notice = match caller_target {
+            let notice = match caller_target.as_deref() {
                 Some(caller) if caller != target => "绑定其他会话",
                 Some(_) => "绑定当前会话",
                 None => "会话归属待核对：仅 target 对应会话处理",
@@ -1011,7 +1018,13 @@ pub(crate) async fn inbox(
     }
     Ok(result)
 }
-fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool) -> Result<Value> {
+fn inbox_in(
+    dir: &Path,
+    ingress: &str,
+    reads: &[(String, String)],
+    claude: bool,
+    caller_target: Option<&str>,
+) -> Result<Value> {
     let path = inbox_path(dir, ingress);
     if !path.exists() {
         return Ok(Value::Null);
@@ -1020,6 +1033,17 @@ fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool)
     let bindings = records(dir)?;
     let mut state = State::load(dir)?;
     let now = chrono::Utc::now().timestamp();
+    // An MCP principal can span chats. Active subscriptions deliver to their
+    // exact callbacks; do not also leak these events through a shared inbox.
+    let origin = crate::kernel::origin::current_origin();
+    let subscribed = state.subscriptions.iter().any(|s| {
+        s.ingress == ingress
+            && s.channel == Channel::McpEvents
+            && s.active(now.saturating_mul(1000))
+            && s.webhook
+                .as_ref()
+                .is_some_and(|w| origin["eventPrincipal"] == w.principal)
+    });
     let mut acknowledged = false;
     let mut events = Vec::new();
     let mut unread = 0;
@@ -1046,6 +1070,13 @@ fn inbox_in(dir: &Path, ingress: &str, reads: &[(String, String)], claude: bool)
             }
         }
         if row["read"] == true {
+            continue;
+        }
+        if (claude
+            && caller_target
+                .is_none_or(|target| row["channel"] != "claude-session" || row["target"] != target))
+            || (!claude && subscribed)
+        {
             continue;
         }
         // Only Claude-owned ingress events with an actual session binding change behavior.
@@ -1385,15 +1416,23 @@ async fn flush(
                 }
             }
         }
-        let window_ready = eligible.iter().any(|(bi, di, digest)| {
-            let d = &all[*bi].deliveries[*di];
-            channel == Channel::McpEvents
-                || *digest
-                || d.urgent()
-                || d.token_charged
-                || now.saturating_sub(d.created_at) >= window
-                || d.timing.queue_reason.as_deref() == Some("token-wait")
-        });
+        // Debounce short bursts for two quiet seconds; the original window
+        // still bounds a continuously arriving batch.
+        let quiet = eligible
+            .iter()
+            .map(|(bi, di, _)| all[*bi].deliveries[*di].created_at)
+            .max()
+            .is_some_and(|last| now.saturating_sub(last) >= window.min(2));
+        let window_ready = quiet
+            || eligible.iter().any(|(bi, di, digest)| {
+                let d = &all[*bi].deliveries[*di];
+                channel == Channel::McpEvents
+                    || *digest
+                    || d.urgent()
+                    || d.token_charged
+                    || now.saturating_sub(d.created_at) >= window
+                    || d.timing.queue_reason.as_deref() == Some("token-wait")
+            });
         let waiting = window_ready
             && eligible
                 .iter()
@@ -2312,7 +2351,8 @@ mod tests {
         assert_eq!(fake.calls.lock().unwrap().len(), 1);
         assert!(fake.calls.lock().unwrap()[0][1].contains("[ARC] digest"));
         assert_eq!(
-            inbox_in(&dir.0, "claude", &[], true).unwrap()["events"][0]["target"],
+            inbox_in(&dir.0, "claude", &[], true, Some("session_test")).unwrap()["events"][0]
+                ["target"],
             "session_test"
         );
         acknowledge_in(&dir.0, "claude", &json!({"all":true})).unwrap();
@@ -2609,9 +2649,11 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(inbox_in(&dir.0, "claude", &[], true).unwrap().is_null());
+        assert!(inbox_in(&dir.0, "claude", &[], true, Some("session_test"))
+            .unwrap()
+            .is_null());
         assert_eq!(
-            inbox_in(&dir.0, "claude", &[], false).unwrap()["events"]
+            inbox_in(&dir.0, "claude", &[], false, None).unwrap()["events"]
                 .as_array()
                 .unwrap()
                 .len(),
@@ -2622,10 +2664,13 @@ mod tests {
         persist(&dir.0, &b).unwrap();
         inbox_append(&dir.0, "claude", event(&b, &b.deliveries[0])).unwrap();
         assert_eq!(
-            inbox_in(&dir.0, "claude", &[], true).unwrap()["events"][0]["eventId"],
+            inbox_in(&dir.0, "claude", &[], true, Some("session_test")).unwrap()["events"][0]
+                ["eventId"],
             "fresh"
         );
-        assert!(inbox_in(&dir.0, "claude", &[], true).unwrap().is_null());
+        assert!(inbox_in(&dir.0, "claude", &[], true, Some("session_test"))
+            .unwrap()
+            .is_null());
         inbox_append(&dir.0, "chatgpt", event(&b, &b.deliveries[0])).unwrap();
         assert_eq!(
             acknowledge_in(&dir.0, "claude", &json!({"all":true})).unwrap()["markedRead"],
@@ -2636,14 +2681,141 @@ mod tests {
             0
         );
         assert_eq!(
-            inbox_in(&dir.0, "chatgpt", &[], false).unwrap()["unread"],
+            inbox_in(&dir.0, "chatgpt", &[], false, None).unwrap()["unread"],
             1
         );
         assert_eq!(
-            inbox_in(&dir.0, "chatgpt", &[], false).unwrap()["unread"],
+            inbox_in(&dir.0, "chatgpt", &[], false, None).unwrap()["unread"],
             1
         );
     }
+    #[tokio::test]
+    async fn inbox_matches_caller_target_and_defers_subscribed_mcp_events() {
+        let dir = Sandbox::new();
+        let first = enqueue(
+            &dir.0,
+            "first",
+            json!({"state":"completed","finalResponse":"done"}),
+            100,
+        )
+        .await;
+        let mut second = enqueue(
+            &dir.0,
+            "second",
+            json!({"state":"completed","finalResponse":"done"}),
+            100,
+        )
+        .await;
+        second.target = Some("session_other".into());
+        second.deliveries[0].target = "session_other".into();
+        persist(&dir.0, &second).unwrap();
+        assert!(inbox_in(&dir.0, "claude", &[], true, None)
+            .unwrap()
+            .is_null());
+        let inbox = inbox_in(&dir.0, "claude", &[], true, Some("session_test")).unwrap();
+        assert_eq!(inbox["unread"], 1);
+        assert_eq!(inbox["events"][0]["threadId"], "first");
+        let other = inbox_in(&dir.0, "claude", &[], true, Some("session_other")).unwrap();
+        assert_eq!(other["events"][0]["threadId"], "second");
+        inbox_append(&dir.0, "chatgpt", event(&first, &first.deliveries[0])).unwrap();
+        assert_eq!(
+            inbox_in(&dir.0, "chatgpt", &[], false, None).unwrap()["unread"],
+            1
+        );
+        let mut state = State::load(&dir.0).unwrap();
+        state.subscriptions.push(subscriptions::Subscription {
+            id: "mcp-test".into(),
+            ingress: "chatgpt".into(),
+            channel: Channel::McpEvents,
+            target: "callback".into(),
+            op: "task_status".into(),
+            args: json!({}),
+            turn: None,
+            created_at: 100,
+            expires_at: None,
+            muted: false,
+            until: None,
+            webhook: Some(subscriptions::Webhook {
+                principal: "caller".into(),
+                ..Default::default()
+            }),
+        });
+        state.save(&dir.0).unwrap();
+        crate::kernel::origin::ORIGIN
+            .scope(json!({"eventPrincipal":"caller"}), async {
+                assert!(inbox_in(&dir.0, "chatgpt", &[], false, None)
+                    .unwrap()
+                    .is_null());
+            })
+            .await;
+        // Suppression neither marks another caller's event read nor attaches it.
+        assert_eq!(
+            inbox_in(&dir.0, "chatgpt", &[], false, None).unwrap()["unread"],
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn ordinary_notifications_flush_after_quiet_time_and_merge_bursts() {
+        let dir = Sandbox::new();
+        let fake = Fake::success();
+        let lock = Mutex::new(());
+        let settings = json!({"notificationBucketCapacity":10});
+        enqueue(
+            &dir.0,
+            "single",
+            json!({"state":"completed","finalResponse":"done"}),
+            100,
+        )
+        .await;
+        flush(&fake, &dir.0, &lock, 101, 30, &settings)
+            .await
+            .unwrap();
+        assert!(fake.calls.lock().unwrap().is_empty());
+        flush(&fake, &dir.0, &lock, 102, 30, &settings)
+            .await
+            .unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        enqueue(
+            &dir.0,
+            "burst-a",
+            json!({"state":"completed","finalResponse":"done"}),
+            110,
+        )
+        .await;
+        enqueue(
+            &dir.0,
+            "burst-b",
+            json!({"state":"completed","finalResponse":"done"}),
+            111,
+        )
+        .await;
+        flush(&fake, &dir.0, &lock, 112, 30, &settings)
+            .await
+            .unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 1);
+        flush(&fake, &dir.0, &lock, 113, 30, &settings)
+            .await
+            .unwrap();
+        assert_eq!(fake.calls.lock().unwrap().len(), 2);
+        assert_eq!(
+            binding(&dir.0, "burst-a", "turn-1")
+                .unwrap()
+                .unwrap()
+                .deliveries[0]
+                .status,
+            "delivered"
+        );
+        assert_eq!(
+            binding(&dir.0, "burst-b", "turn-1")
+                .unwrap()
+                .unwrap()
+                .deliveries[0]
+                .status,
+            "delivered"
+        );
+    }
+
     #[test]
     fn session_forms_and_turn_isolation() {
         for input in [
