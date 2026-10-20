@@ -29,7 +29,7 @@ OpenAI Tunnel 使用官方身份和客户端，其 stdio adapter 携带 ARC_NATI
 
 ## 任务归属与执行
 
-默认新 Codex 任务由 Desktop 执行。关闭自动打开后，新任务交给 ARC App Server；切换设置不迁移历史任务。Linux 始终使用后台 App Server。Desktop 未加载的线程在显式发送/resume 时先导航加载并等待 owner；等待后仍明确无 owner 才由 ARC App Server 恢复同一线程，不新建替代线程。断连、超时和提交不确定不触发二次派发。后台发送仅在 notLoaded 时以 excludeTurns 恢复，在活跃轮次上追加输入。创建种子仅读元数据；明确创建失败且确认没有轮次时归档，清理失败及阶段保留在回执中。
+默认新 Codex 任务由 Desktop 执行。关闭自动打开后，新任务交给 ARC App Server；切换设置不迁移历史任务。Linux 始终使用后台 App Server。Desktop 未加载的线程在显式发送/resume 时先导航加载并等待 owner；等待后仍明确无 owner 才由 ARC App Server 恢复同一线程，不新建替代线程。断连、超时和提交不确定不触发二次派发。后台发送仅在 notLoaded 时以 excludeTurns 恢复，在活跃轮次上追加输入。创建种子通过设置标题触发原生持久化，未提供标题时取提示词首个非空行的前 120 个字符，无文本时使用 ARC task；独立 App Server 读到元数据后再交给 Desktop，不依赖 rollout 路径或文件大小。种子失败在创建进程退出前归档；后续明确创建失败且确认没有轮次时归档。清理结果、失败阶段及 seed 各步耗时保留在回执中。
 
 Control 共享 Desktop IPC 连接，使用 macOS Unix socket 或 Windows named pipe，并检查用户、owner 和响应来源。断线后按需重连，owner 变化或断线清空快照。快照最长复用四秒；发送先轻量读取，选择 steer/start 并复用实际任务配置。Windows 从当前用户的 Store Codex 安装发现 CLI，按内容哈希缓存运行所需文件。
 

@@ -185,19 +185,45 @@ impl Control {
         }
         Ok(result)
     }
-    async fn seed(&self, args: Value, title: &str, receipt: Option<&mut Value>) -> Result<Value> {
+    async fn seed(
+        &self,
+        args: Value,
+        title: &str,
+        mut receipt: Option<&mut Value>,
+    ) -> Result<Value> {
         #[cfg(not(feature = "test-fixture"))]
         self.ipc().await?;
         if args["ephemeral"] == true {
             return Err("DESKTOP_TASK_MUST_PERSIST".into());
         }
+        let started = std::time::Instant::now();
         let seed = Rpc::start(&self.rpc_binary()?, Default::default(), &id()).await?;
+        let mut timings = json!({"initializeMs":started.elapsed().as_millis()});
+        let mut created = None;
+        let title = if title.trim().is_empty() {
+            receipt
+                .as_deref()
+                .and_then(|r| r["task"]["prompt"].as_str())
+                .unwrap_or("")
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .unwrap_or("ARC task")
+                .chars()
+                .take(120)
+                .collect::<String>()
+        } else {
+            title.to_owned()
+        };
         let result = async {
             let mut args = args;
             args["ephemeral"] = json!(false);
-            let response = seed.call("thread/start", args, 60000).await?;
+            let step = std::time::Instant::now();
+            let response = seed.call("thread/start", args, 60000).await;
+            timings["startMs"] = json!(step.elapsed().as_millis());
+            let mut response = response?;
             let thread = string(&response["thread"], "id");
-            if let Some(r) = receipt {
+            created = Some(thread.to_owned());
+            if let Some(r) = receipt.as_deref_mut() {
                 r["threadId"] = json!(thread);
                 if r["task"].is_object() {
                     r["task"]["directory"] = response["thread"]["cwd"].clone();
@@ -205,37 +231,67 @@ impl Control {
                 r["state"] = json!("thread-created");
                 self.checkpoint(r)?;
             }
-            if !title.is_empty() {
-                seed.call(
+            // New threads are lazy: metadata reads do not materialize a rollout.
+            // Naming persists it without submitting a turn or hydrating history.
+            let step = std::time::Instant::now();
+            let named = seed
+                .call(
                     "thread/name/set",
                     json!({"threadId":thread,"name":title}),
                     60000,
                 )
-                .await?;
-            }
-            seed.call(
-                "thread/read",
-                json!({"threadId":thread,"includeTurns":false}),
-                60000,
-            )
-            .await?;
-            let path = string(&response["thread"], "path");
-            let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
-            while std::fs::metadata(path)
-                .map(|m| m.len() == 0)
-                .unwrap_or(true)
-            {
-                if tokio::time::Instant::now() >= deadline {
-                    return Err("DESKTOP_SEED_NOT_PERSISTED".into());
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+                .await;
+            timings["nameMs"] = json!(step.elapsed().as_millis());
+            named?;
+            // An independent reader must see the durable thread before Desktop
+            // takes ownership. thread.path is nullable and not a readiness signal.
+            let reader = self.utility().await?;
+            let step = std::time::Instant::now();
+            let persisted = reader
+                .call(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    60000,
+                )
+                .await;
+            timings["readMs"] = json!(step.elapsed().as_millis());
+            let persisted = persisted?;
             seed.call("thread/unsubscribe", json!({"threadId":thread}), 60000)
                 .await?;
+            response["thread"] = persisted["thread"].clone();
             Ok(response)
         }
         .await;
+        if result.is_err() {
+            if let Some(thread) = created {
+                // This private seed has never been revealed or received a turn.
+                // Clean it up on its owner even if materialization failed.
+                let cleanup = seed
+                    .call("thread/archive", json!({"threadId":thread}), 60000)
+                    .await;
+                let cleanup = match cleanup {
+                    Ok(_) => json!({"archived":true}),
+                    Err(error) => json!({"archived":false,"error":error}),
+                };
+                if let Some(r) = receipt.as_deref_mut() {
+                    r["cleanup"] = cleanup;
+                } else if cleanup["archived"] != true {
+                    crate::logs::record(
+                        "WARN",
+                        &format!("Seed {thread} cleanup failed: {}", cleanup["error"]),
+                        None,
+                    );
+                }
+            }
+        }
+        let step = std::time::Instant::now();
         seed.close().await;
+        timings["closeMs"] = json!(step.elapsed().as_millis());
+        timings["totalMs"] = json!(started.elapsed().as_millis());
+        if let Some(r) = receipt {
+            r["seedTimings"] = timings;
+            self.checkpoint(r)?;
+        }
         result
     }
     // Only an explicit write may load a persisted thread. Never retry a turn
@@ -565,6 +621,7 @@ impl Control {
                     // apparently usable empty task. Unknown submissions are retained.
                     if op == "create"
                         && receipt["threadId"].is_string()
+                        && !receipt["cleanup"].is_object()
                         && !err.starts_with("SUBMISSION_UNCONFIRMED:")
                     {
                         let thread = string(&receipt, "threadId");
