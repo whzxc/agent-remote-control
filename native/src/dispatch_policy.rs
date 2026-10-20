@@ -27,14 +27,13 @@ fn read() -> Result<Policies> {
     let _guard = LOCK.lock().map_err(|e| e.to_string())?;
     let path = root().join("dispatch-policy.json");
     if !path.exists() {
-        save(
-            &path,
-            &json!({"codex":{
+        let mut bytes = serde_json::to_vec_pretty(&json!({"codex":{
                 "model":"gpt-6-astra","effort":"medium",
                 "allowModels":[],"denyModels":[],"allowEfforts":[],"denyEfforts":[],
                 "criteria":"机械性改动、发布用 medium；根因不明的调试、跨模块重构、架构设计用 high；验收不过或同一问题失败一次后，在同一线程升到 xhigh 续轮。"
-            }}),
-        )?;
+            }})).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        save_bytes(&path, &bytes)?;
     }
     let policies: Policies = serde_json::from_value(load(&path)?)
         .map_err(|e| format!("INVALID_DISPATCH_POLICY: dispatch-policy.json: {e}"))?;
