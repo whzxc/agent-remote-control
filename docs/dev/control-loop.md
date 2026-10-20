@@ -177,12 +177,12 @@ codex_send 默认行为保持不变，回执 dispatchMode 区分 steered/new-tur
 
 ### 7.2 原生重试续轮
 
-ARC 派发轮次 failed / interrupted 后，复用现有 owner 快照、事件唤醒与两秒兜底观察紧接的下一轮，不另建轮询器。继承同时要求：
+ARC 派发轮次 failed / interrupted 后，复用现有 owner 快照、事件唤醒与两秒兜底观察紧接的下一轮，不另建轮询器；只有快照出现候选续轮时才读取持久历史，快照确认新用户消息即停止继承观察。继承同时要求：
 
 - 原轮次有 ARC 派发记录；原生快照与持久历史确认相邻轮次一致。
 - 原生 `task_started.turn_attribution.turn_trigger` 是 `capacity_retry_automatic`、`capacity_retry_manual` 或 `resume_interrupted_task`。
 - 续轮快照与持久历史均无新增用户消息，且独立 `turn_context` 已记录 model、effort、service_tier。
-- 续轮开始与识别均在前轮原生终态时间之后的十分钟内。时间取 task_complete.completed_at，缺失时取终态事件时间；观察、重启不延长窗口。终态落盘未齐时最多保留十分钟观察机会，纳入仍须通过原生时间校验。
+- 续轮开始与识别均在前轮原生终态时间之后的十分钟内。时间取 task_complete.completed_at，缺失时取终态事件时间；观察、重启不延长窗口。尚无续轮或终态落盘未齐时最多保留十分钟观察机会，纳入仍须通过原生时间校验。
 
 符合条件的续轮先幂等补记为 native-retry，再继承入口、通知目标及项目/标题；先写记录再写绑定，重启可补齐未完成绑定。续轮获得独立事件 ID，完成/失败按原通道通知，并可 codex_review；旧轮失败/中断事件仍保留。已纳入的续轮即使运行超过窗口也观察至终态，后续重试重新按其紧接前轮判断。原生续轮不触发 ARC 自身的容量补发，避免与 Desktop 重试竞争。ARC 已提交但回执未完成时先解析原 requestId，不能把自己的已接受续轮误认成原生接管。
 

@@ -4,6 +4,17 @@ use super::*;
 const WINDOW_SECONDS: i64 = 10 * 60;
 
 pub(crate) fn evidence(thread: &Value, previous: &str, next: Option<&Value>) -> Value {
+    // Keep the existing owner observation cheap while waiting for a successor.
+    // Only read persisted provenance when the snapshot actually has a candidate.
+    let Some(next) = next else {
+        return Value::Null;
+    };
+    if next["items"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|i| i["type"] == "userMessage"))
+    {
+        return json!({"excluded":true});
+    }
     let read = || -> Result<Value> {
         let text = control::persisted_history(thread)?;
         let mut matched = false;
@@ -64,25 +75,21 @@ pub(crate) fn evidence(thread: &Value, previous: &str, next: Option<&Value>) -> 
         let mut result = json!({"until":deadline});
         let trigger = string(&successor["turn_attribution"], "turn_trigger");
         let started = successor["started_at"].as_i64();
-        if let Some(next) = next {
-            if chrono::Utc::now().timestamp() <= deadline
-                && next["id"] == successor["turn_id"]
-                && started.is_some_and(|t| t >= ended && t <= deadline)
-                && matches!(
-                    trigger,
-                    "capacity_retry_automatic"
-                        | "capacity_retry_manual"
-                        | "resume_interrupted_task"
-                )
-                && !input
-                && next["items"]
-                    .as_array()
-                    .is_some_and(|items| items.iter().all(|i| i["type"] != "userMessage"))
-                && configuration.is_object()
-            {
-                result["retry"] = json!({"turnId":next["id"],"trigger":trigger,
-                    "startedAt":started,"configuration":configuration});
-            }
+        if chrono::Utc::now().timestamp() <= deadline
+            && next["id"] == successor["turn_id"]
+            && started.is_some_and(|t| t >= ended && t <= deadline)
+            && matches!(
+                trigger,
+                "capacity_retry_automatic" | "capacity_retry_manual" | "resume_interrupted_task"
+            )
+            && !input
+            && next["items"]
+                .as_array()
+                .is_some_and(|items| items.iter().all(|i| i["type"] != "userMessage"))
+            && configuration.is_object()
+        {
+            result["retry"] = json!({"turnId":next["id"],"trigger":trigger,
+                "startedAt":started,"configuration":configuration});
         }
         Ok(result)
     };
@@ -91,7 +98,15 @@ pub(crate) fn evidence(thread: &Value, previous: &str, next: Option<&Value>) -> 
 
 // Called under the notification lock; record-first writes are restart-idempotent.
 pub(super) fn adopt(dir: &Path, b: &mut Binding, observation: &Value) -> Result<()> {
+    if !b.agent.is_empty() && b.agent != "codex" {
+        return Ok(());
+    }
     if matches!(string(observation, "state"), "cancelled" | "failed") && !b.continuation_bound {
+        if observation["nativeContinuation"]["excluded"] == true {
+            b.continuation_bound = true;
+            persist(dir, b)?;
+            return Ok(());
+        }
         // Allow a bounded re-read if terminal history has not flushed yet. Adoption
         // still requires the native deadline; reads/restarts never extend this grace.
         let until = observation["nativeContinuation"]["until"]
