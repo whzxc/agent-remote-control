@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
@@ -129,6 +129,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',updatedAt:124,model:'fixture-model',status:{type:params.threadId==='overview-live'?'active':'notLoaded'}}}});
       if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId==='overview-live'?'inProgress':'completed'}],nextCursor:null}});
     }
+    if (method === 'project/list' && existsSync(process.env.ARC_STATE_DIR+'/projects-fixture.json')) return emit({id,result:{data:JSON.parse(readFileSync(process.env.ARC_STATE_DIR+'/projects-fixture.json','utf8')),nextCursor:null}});
     if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });
     if (method === 'process/spawn') {
       emit({ method: 'process/outputDelta', params: { processHandle: params.processHandle, stream: 'stdout', deltaBase64: 'b2s=' } });
@@ -900,4 +901,34 @@ test('cmd waitMs returns a pending receipt without changing the process timeout'
   const done=await completed('command',{cmd:'fixture',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
   const stored=JSON.parse(await readFile(path.join(directory,`${requestId}.json`),'utf8'));
   assert.equal(stored.arguments.timeoutMs,2000);
+});
+
+test('multi-root projects select a unique basename or Git root and list ambiguous candidates', async () => {
+  const base=path.join(directory,'multi-root');await mkdir(base);
+  const dirs=['client','plain','repo','other'];await Promise.all(dirs.map(d=>mkdir(path.join(base,d))));
+  execFileSync('git',['init',path.join(base,'repo')],{stdio:'pipe'});
+  await mkdir(path.join(base,'repo','nested'));
+  await writeFile(path.join(directory,'projects-fixture.json'),JSON.stringify([
+    {id:'named',name:'client',roots:[{path:path.join(base,'plain')},{path:path.join(base,'client')}]},
+    {id:'git-root',name:'plugins',roots:[{path:path.join(base,'repo','nested')},{path:path.join(base,'repo')},{path:path.join(base,'plain')}]},
+    {id:'ambiguous',name:'many',roots:[{path:path.join(base,'plain')},{path:path.join(base,'other')}]},
+  ]));
+  for(const [project,root] of [['client','client'],['plugins','repo']]) {
+    const result=(await call('overview',{project,includeSource:true})).result;
+    assert.equal(result.source.root,await realpath(path.join(base,root)));
+  }
+  const error=(await call('overview',{project:'many'})).result.error.message;
+  assert.ok(error.includes(path.join(base,'plain')));assert.ok(error.includes(path.join(base,'other')));
+});
+
+test('large non-Git tree returns a bounded first layer and a truncation marker', async () => {
+  const base=path.join(directory,'large-tree');await mkdir(base);
+  await mkdir(path.join(base,'deep'));await mkdir(path.join(base,'empty'));
+  for(let batch=0;batch<101;batch++)await Promise.all(Array.from({length:100},(_,i)=>writeFile(path.join(base,'deep',`${batch*100+i}`),'')));
+  const tree=(await call('tree',{path:base,depth:2,includeSource:true})).result;
+  assert.equal(tree.data.truncated,true);assert.equal(tree.data.depth,1);
+  assert.deepEqual(tree.data.entries,['deep/','empty/']);assert.equal(tree.data.nextOffset,null);
+  assert.equal(tree.data.coverage.state,'partial');
+  const shallow=(await call('tree',{path:base,depth:1})).result.data;
+  assert.equal(shallow.truncated,false);assert.deepEqual(shallow.entries,['deep/','empty/']);
 });

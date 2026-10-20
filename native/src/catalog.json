@@ -130,7 +130,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "view": {
             "enum": [
@@ -184,7 +184,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "path": {
             "default": "",
@@ -265,7 +265,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "query": {
             "type": "string",
@@ -354,7 +354,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "path": {
             "type": "string",
@@ -611,7 +611,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "operation": {
             "type": "string",
@@ -720,7 +720,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "operation": {
             "type": "string",
@@ -1452,7 +1452,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "searchTerm": {
             "type": "string"
@@ -1674,7 +1674,7 @@
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目需选择具体目录。"
+            "description": "Codex 原生项目 ID、唯一名称或本机绝对目录；多目录项目优先选择唯一同名目录或唯一 Git 仓库根；歧义时列出候选绝对目录。"
           },
           "title": {
             "type": "string"

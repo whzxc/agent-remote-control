@@ -36,9 +36,9 @@ Upgrading from the former tool surface requires one client tool refresh and rene
 
 ## Project facts and files
 
-`projects` reads the native `project/list` pages. Project selectors accept a native ID, unique name, or absolute directory; a multi-root project requires a specific directory. ID/name resolution caches the catalog for 30 seconds. Absolute `read`, `tree`, and `search` paths can omit project; relative paths require it. Git revision reads require project.
+`projects` reads the native `project/list` pages. Project selectors accept a native ID, unique name, or absolute directory; a multi-root project selects the unique directory whose basename matches the project name, or the sole Git repository root. Ambiguous selections list the candidate absolute directories. ID/name resolution caches the catalog for 30 seconds. Absolute `read`, `tree`, and `search` paths can omit project; relative paths require it. Git revision reads require project.
 
-`tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines with `lineCount` or its alias `limit`; supplying both requires equal values. Search accepts positive limits above 50 and caps each page at 50 results. Tree/search use nextOffset. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
+`tree` and `search` normally use Git working files; `includeIgnored: true` includes ignored files. `read` can address ignored files directly. Text reads paginate by lines with `lineCount` or its alias `limit`; supplying both requires equal values. Search accepts positive limits above 50 and caps each page at 50 results. Tree/search use nextOffset. Non-Git tree reads stop at the requested depth; a scan exceeding 10000 entries falls back to a bounded first layer with `truncated:true` and `depth:1`. Narrow the path to explore omitted descendants. File results include metadata and hashes. `view: "review"` applies the workspace resource boundary. `includeSource: true` adds observation metadata where supported.
 
 ```text
 query {"op":"read","args":{"path":"/absolute/project/README.md"}}

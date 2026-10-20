@@ -60,12 +60,50 @@ pub async fn resolve(c: &Control, id: &str) -> Result<Value> {
             return Err("项目不存在或名称不唯一".into());
         }
         let p = candidates[0];
-        let roots = p["roots"]
-            .as_array()
-            .filter(|r| r.len() == 1)
-            .ok_or("多目录项目请指定绝对目录")?;
+        let roots = p["roots"].as_array().ok_or("project has no directories")?;
+        let named: Vec<_> = roots
+            .iter()
+            .filter(|r| {
+                Path::new(string(r, "path"))
+                    .file_name()
+                    .is_some_and(|name| name == string(p, "name"))
+            })
+            .collect();
+        let selected = if roots.len() == 1 {
+            &roots[0]
+        } else if named.len() == 1 {
+            named[0]
+        } else {
+            let mut repositories = Vec::new();
+            for candidate in roots {
+                let path = Path::new(string(candidate, "path"));
+                if let Ok(top) = git(
+                    string(candidate, "path"),
+                    strings(&["rev-parse", "--show-toplevel"]),
+                )
+                .await
+                {
+                    if path.canonicalize().ok().is_some_and(|root| {
+                        Path::new(top.trim()).canonicalize().ok().as_ref() == Some(&root)
+                    }) {
+                        repositories.push(candidate);
+                    }
+                }
+            }
+            if repositories.len() != 1 {
+                return Err(format!(
+                    "多目录项目请指定绝对目录：{}",
+                    roots
+                        .iter()
+                        .map(|r| string(r, "path"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            repositories[0]
+        };
         (
-            PathBuf::from(string(&roots[0], "path")),
+            PathBuf::from(string(selected, "path")),
             string(p, "id").into(),
             string(p, "name").into(),
         )
@@ -490,7 +528,47 @@ fn walk(root: &Path, dir: &Path, out: &mut BTreeSet<String>) -> Result<()> {
     }
     Ok(())
 }
-async fn files(root: &str, prefix: &str, ignored: bool) -> Result<Vec<String>> {
+// Tree reads need only the requested depth, including empty directories.
+fn walk_tree(
+    root: &Path,
+    dir: &Path,
+    depth: usize,
+    out: &mut BTreeSet<String>,
+    remaining: &mut usize,
+) -> Result<bool> {
+    crate::permissions::check_path(dir)?;
+    for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+        if *remaining == 0 {
+            return Ok(true);
+        }
+        *remaining -= 1;
+        let entry = entry.map_err(|e| e.to_string())?;
+        let directory = entry.file_type().map_err(|e| e.to_string())?.is_dir();
+        let path = entry.path();
+        let name = path
+            .strip_prefix(root)
+            .map_err(|e| e.to_string())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        if directory && depth > 1 {
+            // Keep empty directories visible too.
+            out.insert(format!("{name}/"));
+            if walk_tree(root, &path, depth - 1, out, remaining)? {
+                return Ok(true);
+            }
+        } else {
+            out.insert(format!("{name}{}", if directory { "/" } else { "" }));
+        }
+    }
+    Ok(false)
+}
+async fn files(
+    root: &str,
+    prefix: &str,
+    ignored: bool,
+    tree_depth: Option<usize>,
+) -> Result<(Vec<String>, bool)> {
+    let mut truncated = false;
     let mut args = strings(&["ls-files", "--cached", "--others", "-z"]);
     if !ignored {
         args.push("--exclude-standard".into())
@@ -503,15 +581,27 @@ async fn files(root: &str, prefix: &str, ignored: bool) -> Result<Vec<String>> {
             .collect::<BTreeSet<_>>(),
         Err(e) if e == "NOT_GIT_REPOSITORY" => {
             let mut out = BTreeSet::new();
-            walk(Path::new(root), Path::new(root), &mut out)?;
+            if let Some(depth) = tree_depth {
+                let directory = Path::new(root).join(prefix);
+                truncated = walk_tree(Path::new(root), &directory, depth, &mut out, &mut 10000)?;
+                if truncated {
+                    out.clear();
+                    walk_tree(Path::new(root), &directory, 1, &mut out, &mut 10000)?;
+                }
+            } else {
+                walk(Path::new(root), Path::new(root), &mut out)?;
+            }
             out
         }
         Err(e) => return Err(e),
     };
-    Ok(entries
-        .into_iter()
-        .filter(|s| prefix.is_empty() || s == prefix || s.starts_with(&format!("{prefix}/")))
-        .collect())
+    Ok((
+        entries
+            .into_iter()
+            .filter(|s| prefix.is_empty() || s == prefix || s.starts_with(&format!("{prefix}/")))
+            .collect(),
+        truncated,
+    ))
 }
 pub(crate) fn read_bytes(root: &str, file: &str) -> Result<Vec<u8>> {
     let path = Path::new(root).join(file);
@@ -701,17 +791,24 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
     let mut image_blocks = Vec::new();
     let mut data = match action {
         "overview" => {
-            let paths = filter_paths(root, files(root, "", false).await?, review, &mut skipped);
+            let paths = filter_paths(
+                root,
+                files(root, "", false, None).await?.0,
+                review,
+                &mut skipped,
+            );
             json!({"listingHash":hash(paths.join("\0")),"truncated":paths.iter().filter_map(|s|s.split('/').next()).collect::<BTreeSet<_>>().len()>100 || paths.iter().filter(|s|s.ends_with("README.md")).count()>30,"name":p["name"],"topLevel":paths.iter().filter_map(|s|s.split('/').next()).collect::<BTreeSet<_>>().into_iter().take(100).collect::<Vec<_>>(),"documentEntrypoints":paths.iter().filter(|s|s.ends_with("README.md")).take(30).collect::<Vec<_>>()})
         }
         "tree" => {
             let prefix = file.trim_end_matches('/');
-            let paths = filter_paths(
+            let (paths, truncated) = files(
                 root,
-                files(root, prefix, args["includeIgnored"] == true).await?,
-                review,
-                &mut skipped,
-            );
+                prefix,
+                args["includeIgnored"] == true,
+                Some(num(args, "depth", 2)),
+            )
+            .await?;
+            let paths = filter_paths(root, paths, review, &mut skipped);
             let depth = num(args, "depth", 2)
                 + if prefix.is_empty() {
                     0
@@ -738,7 +835,7 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
                 .collect::<Vec<_>>();
             let offset = num(args, "offset", 0);
             let limit = num(args, "limit", 100);
-            json!({"path":file,"entries":items.iter().skip(offset).take(limit).collect::<Vec<_>>(),"metadata":metadata(&Path::new(root).join(file)),"entryMetadata":items.iter().skip(offset).take(limit).map(|p| json!({"path":p,"metadata":metadata(&Path::new(root).join(p.trim_end_matches('/')))})).collect::<Vec<_>>(),"total":items.len(),"listingHash":hash(items.join("\0")),"nextOffset":if offset+limit<items.len(){Some(offset+limit)}else{None}})
+            json!({"path":file,"truncated":truncated,"depth":if truncated {1}else{num(args,"depth",2)},"entries":items.iter().skip(offset).take(limit).collect::<Vec<_>>(),"metadata":metadata(&Path::new(root).join(file)),"entryMetadata":items.iter().skip(offset).take(limit).map(|p| json!({"path":p,"metadata":metadata(&Path::new(root).join(p.trim_end_matches('/')))})).collect::<Vec<_>>(),"total":items.len(),"listingHash":hash(items.join("\0")),"nextOffset":if offset+limit<items.len(){Some(offset+limit)}else{None}})
         }
         "read" => {
             let rev = if args["revision"].is_string() {
@@ -790,7 +887,9 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
         "search" => {
             let paths = filter_paths(
                 root,
-                files(root, file, args["includeIgnored"] == true).await?,
+                files(root, file, args["includeIgnored"] == true, None)
+                    .await?
+                    .0,
                 review,
                 &mut skipped,
             );
