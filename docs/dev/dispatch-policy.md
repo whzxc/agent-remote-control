@@ -30,7 +30,7 @@
 
 `query({op:"dispatch_policy",args:{}})` 返回模型 ID 与支持的推理等级、上述策略，以及 `codex_account` 同源的额度池与窗口摘要。省略账号身份、模型说明和完整原生配置；各事实读取失败时标记不可用，保留其余结果，不把未知额度当作零。
 
-Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`effort` 和一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。
+Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`effort` 和一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。使用旧显式 allowlist 的入口需启用 dispatch_policy；默认预设包含此只读 op。
 
 ## 派发与记录
 
