@@ -1762,7 +1762,8 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 120000,
-            "description": "同步等待操作结果的毫秒数，默认 25000；超时返回 pending。"
+            "description": "同步等待创建回执，默认 45000ms；超时返回 pending，继续用 receipt 查询。",
+            "default": 45000
           },
           "notify": {
             "type": [

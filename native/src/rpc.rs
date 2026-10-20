@@ -15,7 +15,7 @@ impl Drop for PendingCall {
     }
 }
 pub struct Rpc {
-    input: Mutex<tokio::process::ChildStdin>,
+    input: Mutex<Option<tokio::process::ChildStdin>>,
     child: Mutex<tokio::process::Child>,
     pending: Pending,
     pub events: SharedEvents,
@@ -66,7 +66,7 @@ impl Rpc {
         let pending: Pending = Default::default();
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let rpc = Arc::new(Self {
-            input: Mutex::new(input),
+            input: Mutex::new(Some(input)),
             child: Mutex::new(child),
             pending: pending.clone(),
             events: events.clone(),
@@ -131,6 +131,8 @@ impl Rpc {
     pub async fn write(&self, v: Value) -> Result<()> {
         let mut input = self.input.lock().await;
         input
+            .as_mut()
+            .ok_or("TRANSPORT_CLOSED")?
             .write_all(format!("{v}\n").as_bytes())
             .await
             .map_err(|e| e.to_string())
@@ -165,7 +167,9 @@ impl Rpc {
         result.map_err(|e| submission_error(method, e))
     }
     pub async fn close(&self) {
-        let _ = self.input.lock().await.shutdown().await;
+        // Dropping the pipe sends EOF. AsyncWrite::shutdown alone leaves the
+        // child stdin handle open and makes cooperative processes hit the 5s kill deadline.
+        self.input.lock().await.take();
         let mut child = self.child.lock().await;
         let pid = child.id();
         if tokio::time::timeout(Duration::from_secs(5), child.wait())

@@ -154,7 +154,8 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (method === 'fs/watch') emit({ method: 'fs/changed', params: { watchId: params.watchId, paths: [params.path] } });
     emit({ id, result: { method, params, calls } });
   };
-  if (params?.delay) setTimeout(reply, params.delay); else reply();
+  if (method==='command/exec' && params.command?.at(-1)==='fixture-delayed') setTimeout(reply,100);
+  else if (params?.delay) setTimeout(reply, params.delay); else reply();
 }
 `);
   const target = fileURLToPath(new URL('../target', import.meta.url));
@@ -912,9 +913,9 @@ test('Git action and read limit aliases preserve behavior and search clamps its 
 
 test('cmd waitMs returns a pending receipt without changing the process timeout', async () => {
   const requestId=randomUUID();
-  const first=await call('command',{cmd:'fixture',cwd:directory,waitMs:0,timeoutMs:2000,requestId});
+  const first=await call('command',{cmd:'fixture-delayed',cwd:directory,waitMs:0,timeoutMs:2000,requestId});
   assert.equal(first.response.isError,false);assert.equal(first.result.state,'pending');
-  const done=await completed('command',{cmd:'fixture',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
+  const done=await completed('command',{cmd:'fixture-delayed',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
   const stored=JSON.parse(await readFile(path.join(directory,`${requestId}.json`),'utf8'));
   assert.equal(stored.arguments.timeoutMs,2000);
 });
@@ -956,6 +957,11 @@ test('Desktop seed is named before independent metadata read even with null roll
     const r=await completed('codex_create',{project:directory,prompt:'seed persistence regression',thread:{model:'fixture-dispatch-lazy-seed'},purpose:'self-test',approval:'bypass',requestId:randomUUID()});
     assert.equal(r.state,'completed',JSON.stringify(r));
     const row=(await fixtureRows())[r.threadId];
+    const receipt=JSON.parse(await readFile(path.join(directory,r.requestId+'.json'),'utf8'));
+    assert.ok(receipt.seedTimings.closeMs<2000,JSON.stringify(receipt.seedTimings));
+    console.log('SEED_TIMINGS',JSON.stringify(receipt.seedTimings));
+    assert.equal(catalog.ops.find((op:any)=>op.name==='codex_create').inputSchema.properties.waitMs.default,45000);
+    assert.notEqual(catalog.ops.find((op:any)=>op.name==='codex_send').inputSchema.properties.waitMs.default,45000);
     assert.equal(row.thread.path,null);assert.equal(row.named,true);assert.equal(row.independentReader,true);assert.equal(row.unsubscribed,true);assert.equal(row.turns.length,1);
   } finally {if(original===null)await rm(settings);else await writeFile(settings,original);}
 });

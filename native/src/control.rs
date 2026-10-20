@@ -586,7 +586,12 @@ impl Control {
         let wait = if operation == "command" && args.get("waitMs").is_none() {
             num(&args, "timeoutMs", 60000) as u64 + 10000
         } else {
-            num(&args, "waitMs", 25000).min(120000) as u64
+            num(
+                &args,
+                "waitMs",
+                if operation == "create" { 45000 } else { 25000 },
+            )
+            .min(120000) as u64
         };
         let mut jobs = self.jobs.lock().await;
         let rx = self.launch(operation, args, receipt, &mut jobs);
@@ -1029,6 +1034,7 @@ impl Control {
             }
             turn["threadId"] = json!(thread);
             turn["input"] = input;
+            let step = std::time::Instant::now();
             let baseline = crate::changes::capture(
                 turn["cwd"]
                     .as_str()
@@ -1036,7 +1042,10 @@ impl Control {
             )
             .await;
             r["turnBaseline"] = baseline.clone();
+            r["seedTimings"]["baselineMs"] = json!(step.elapsed().as_millis());
+            let step = std::time::Instant::now();
             self.prepare_thread(thread).await?;
+            r["seedTimings"]["ownerMs"] = json!(step.elapsed().as_millis());
             let background = self.background(thread)?;
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["state"] = json!("turn-submitting");
