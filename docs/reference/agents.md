@@ -60,6 +60,18 @@ agent_pending returns ACP permission requests or Pi extension interactions. agen
 
 agent_context produces a read-only review/handoff of an existing task and current project facts. It does not execute or resume work. Keep reported Agent claims distinct from command evidence.
 
+## Dispatch policy and acceptance
+
+Query dispatch_policy with an optional agent and taskId for native choices, shared quota readings, policy and history. The top-level criteria guides Agent selection; each Agent policy has its own criteria. Missing model/options inherit native session values. Existing policy files are not rewritten.
+
+agent_create and agent_send accept model, options (native option IDs to string values), reason and purpose (task or self-test). Explicit choices override Agent policy defaults, then native current values. Deny rules win. The model is set first; ARC reads the updated option catalog, sets other choices and confirms the session before sending text. Unsupported or forbidden choices fail before prompt submission. Partial configuration failure returns a failed receipt with promptSubmitted:false and sessionConfirmation; already applied native settings are not rolled back. Empty-prompt creation only bootstraps the catalog and ignores selection parameters.
+
+agent_read includes dispatches. Each record separates submittedConfiguration, sessionConfirmation and turnEvidence. Pi assistant model/provider fields supply turn evidence; ACP configuration success alone does not prove a turn's actual model. Unknown evidence remains null. submission distinguishes accepted, pending, rejected and unconfirmed requests; only accepted work enters history. Never retry unconfirmed work with a new request ID.
+
+Use agent_review with agent, taskId, optional turnId, verdict (pass/rework) and optional note. Omit turnId to review the most recent confirmed terminal dispatch. The next new dispatch links reworkOf to an unconsumed rework verdict. Reviews and dispatches use durable idempotent receipts. History groups by Agent, model and native options; self-test dispatches and inherited self-test continuations are excluded.
+
+Cursor uses its advertised cursor_login authenticate method to reuse native login before creating/loading a session. ARC does not drive an interactive login flow.
+
 ## Sessions and archives
 
 Each Pi/ACP task owns its process. Completed/stopped sessions can resume through agent_send: Pi reuses the session file, ACP requires negotiated session/load support. Unconfirmed writes are not replayed automatically. Reads and waits never restart a process.
@@ -84,4 +96,4 @@ compatibility can describe helpArgs/helpContains/identityContains, versionRequir
 
 ## Limits
 
-Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic Agent ops do not expose ACP model/mode switching, fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.
+Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic Agent ops expose only session-advertised model/config options (legacy models/modes use their native setters). They do not expose fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.

@@ -12,20 +12,21 @@
 
 ## 配置与查询
 
-状态目录下的 `dispatch-policy.json` 首次使用时生成，两空格缩进并以换行结束；备份恢复也保留格式化 JSON。手工编辑后下一次读取生效。按 Agent 保存策略，目前只支持 Codex：
+状态目录下的 `dispatch-policy.json` 首次使用时生成，两空格缩进并以换行结束；备份恢复也保留格式化 JSON。手工编辑后下一次读取生效。按 Agent 保存策略，顶层 criteria 为跨 Agent 准则；以下为 Codex 出厂部分：
 
 ```json
 {
+  "criteria": "",
   "codex": {
-    "model": "gpt-6-astra",
-    "effort": "medium",
+    "model": null,
+    "effort": null,
     "serviceTier": null,
     "serviceTiers": {},
     "allowModels": [],
     "denyModels": [],
     "allowEfforts": [],
     "denyEfforts": [],
-    "criteria": "机械性改动、发布用 medium；根因不明的调试、跨模块重构、架构设计用 high；验收不过或同一问题失败一次后，在同一线程升到 xhigh 续轮。"
+    "criteria": ""
   }
 }
 ```
@@ -40,13 +41,13 @@
 
 其他 Agent 元素返回安装、可用与启用状态，同 subscriptions 服务的额度快照，以及已有会话公开的模型和选项；可同时传非 Codex agent 与 taskId 指定会话。缺省取该 Agent 最近的非空会话快照，保留来源、观察时间与会话作用域，不宣称推理生效。全量查询每个非 Codex Agent 最多预览 8 个模型，omittedModels 披露省略数量；按 agent 筛选取得完整目录。无快照时明确不可用，读取不启动或恢复进程；禁用 Pi 不发送 RPC。旧快照缺少配置观察时间时保留 null。
 
-原生认证与推理可用性不能从额度环或安装状态推断：authentication.inference 为 unknown，quotaAccess 仅描述额度入口。provider 未接入和模型到额度池的关联未知均显式披露。非 Codex 当前 selectionSupported:false，策略仍跟随原生配置；策略文件分节、选择、记录、验收与汇总属于下一阶段。
+原生认证与推理可用性不能从额度环或安装状态推断：authentication.inference 为 unknown，quotaAccess 仅描述额度入口。provider 未接入和模型到额度池的关联未知均显式披露。非 Codex 的策略分节、原生模型/选项选择、记录、agent_review 与历史已接入，见[多 Agent 派发策略](dispatch-agents.md)。
 
-Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`effort` 和一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。使用旧显式 allowlist 的入口需启用 dispatch_policy；默认预设包含此只读 op。
+Loop guide 引导所有控制源派发前查询此 op，选择 Agent 及其原生档位并传一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。使用旧显式 allowlist 的入口需启用 dispatch_policy；默认预设包含此只读 op。
 
 ## 派发与记录
 
-`codex_create`、`codex_send` 增加可选 `reason`，MCP 的 `guide/query/act` 外层不变。新轮次缺省的 model、effort 分别取 ARC 策略默认值，单独传 effort 可用于同线程升级。原生 `turn`、协作模式及创建线程参数中的显式选择同样受约束；实际发送给线程与轮次的配置保持一致。
+`codex_create`、`codex_send` 增加可选 `reason`，MCP 的 `guide/query/act` 外层不变。新轮次缺省的 model、effort 分别取 ARC 策略默认值，null/未配置时继承原生当前值；已有策略文件不会被重写，单独传 effort 可用于同线程升级。原生 `turn`、协作模式及创建线程参数中的显式选择同样受约束；实际发送给线程与轮次的配置保持一致。
 
 请求先按原始参数做幂等判定，再固定选择；相同 requestId 回读原回执，不因策略修改再次派发。队列在实际执行时选择默认值；自动容量重试沿用原轮次已选配置。运行中的 steer 不改变当前轮次配置；显式要求不同档位时返回错误，提示等待终态或排队续轮。
 
@@ -68,7 +69,7 @@ rework 后同线程的下一次新轮派发保存 `reworkOf:<原轮次 ID>`，st
 
 ## 历史汇总与用量边界
 
-`dispatch_policy.agents` 中 Codex 的 `history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort + serviceTier 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
+`dispatch_policy.agents` 中 Codex 的 `history` 按 submittedAt 统计最近 30 天的新轮次，按 agent + model + 原生 options（Codex 保留 effort + serviceTier）分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
 
 `purpose:"self-test"` 不进入真实统计，续轮省略 purpose 时沿用该线程最近派发标记，显式 purpose 可覆盖。验收结论不能改变此标记。无数据组不输出；最多显示派发次数最多的 12 组，其余以 omittedGroups 披露，保持响应在几 KB 量级。查询实时读取记录，改判立即反映在汇总中。
 

@@ -94,7 +94,116 @@ impl AgentHost {
         Ok(rows)
     }
 
-    async fn session_dispatch_facts(&self, task: &Value, enabled: bool) -> Result<Value> {
+    pub(super) async fn configure_dispatch(&self, p: &Arc<Process>, args: &Value) -> Result<Value> {
+        let task = p.state.lock().await.clone();
+        let policy = crate::dispatch_policy::agent_policy(string(&task, "agent"))?;
+        let mut facts = self.session_dispatch_facts(&task, true).await?;
+        let mut options = serde_json::to_value(&policy.options).map_err(|e| e.to_string())?;
+        let mut sources = json!({"model":"native-default","options":{}});
+        for key in policy.options.keys() {
+            sources["options"][key] = json!("policy-default");
+        }
+        for (key, value) in args["options"].as_object().into_iter().flatten() {
+            options[key] = value.clone();
+            sources["options"][key] = json!("explicit");
+        }
+        let model = args["model"].as_str().or(policy.model.as_deref());
+        if let Some(model) = model {
+            if !facts["models"]
+                .as_array()
+                .is_some_and(|rows| rows.iter().any(|r| r["model"] == model))
+            {
+                return Err(format!("UNSUPPORTED_DISPATCH_MODEL: {model}"));
+            }
+            // Check model constraints before mutating the native session. Option constraints
+            // are checked against the catalog returned for the selected model below.
+            // A model change may reveal constrained options that are absent right now.
+            policy.check_model(Some(model))?;
+            sources["model"] = json!(if args["model"].is_string() {
+                "explicit"
+            } else {
+                "policy-default"
+            });
+            p.set_dispatch_option(&facts, "model", model).await?;
+            let snapshot = p.state.lock().await.clone();
+            facts = self.session_dispatch_facts(&snapshot, true).await?;
+            if facts["currentModel"] != model {
+                return Err("DISPATCH_CONFIGURATION_UNCONFIRMED: model".into());
+            }
+        }
+        let mut proposed = current_configuration(&facts);
+        for (key, value) in options.as_object().unwrap() {
+            let option = facts["options"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|o| o["id"] == *key)
+                .ok_or_else(|| format!("UNSUPPORTED_DISPATCH_OPTION: {key}"))?;
+            if !option["values"]
+                .as_array()
+                .is_some_and(|values| values.iter().any(|v| v == value || v["value"] == *value))
+            {
+                return Err(format!("UNSUPPORTED_DISPATCH_OPTION: {key}={value}"));
+            }
+            proposed["options"][key] = value.clone();
+        }
+        policy.check(proposed["model"].as_str(), &proposed["options"])?;
+        for (key, value) in options.as_object().unwrap() {
+            // Prior setters may change the next option's allowed values.
+            let supported = facts["options"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|o| o["id"] == *key)
+                .and_then(|o| o["values"].as_array())
+                .is_some_and(|values| values.iter().any(|v| v == value || v["value"] == *value));
+            if !supported {
+                return Err(format!("UNSUPPORTED_DISPATCH_OPTION: {key}={value}"));
+            }
+            p.set_dispatch_option(
+                &facts,
+                key,
+                value.as_str().ok_or("INVALID_DISPATCH_OPTION")?,
+            )
+            .await?;
+            let snapshot = p.state.lock().await.clone();
+            facts = self.session_dispatch_facts(&snapshot, true).await?;
+        }
+        let confirmed = current_configuration(&facts);
+        if model.is_some_and(|m| confirmed["model"] != m)
+            || options
+                .as_object()
+                .unwrap()
+                .iter()
+                .any(|(k, v)| confirmed["options"][k] != *v)
+        {
+            return Err(
+                "DISPATCH_CONFIGURATION_UNCONFIRMED: native values differ from requested choices"
+                    .into(),
+            );
+        }
+        policy.check(confirmed["model"].as_str(), &confirmed["options"])?;
+        for key in confirmed["options"].as_object().unwrap().keys() {
+            if sources["options"][key].is_null() {
+                sources["options"][key] = json!("native-default");
+            }
+        }
+        let mut selection = confirmed.clone();
+        selection["source"] = sources;
+        selection["reason"] = args["reason"].clone();
+        selection["submittedConfiguration"] = json!({"model":model,"options":options});
+        selection["sessionConfirmation"] = confirmed;
+        selection["turnEvidence"] = Value::Null;
+        selection["submission"] = json!("pending");
+        selection["submittedAt"] = json!(now());
+        Ok(selection)
+    }
+
+    pub(super) async fn session_dispatch_facts(
+        &self,
+        task: &Value,
+        enabled: bool,
+    ) -> Result<Value> {
         let id = string(task, "taskId");
         let process = self.processes.lock().await.get(id).cloned();
         let mut metadata = task["metadata"].clone();
@@ -226,4 +335,79 @@ fn option_values(options: &Value) -> Vec<Value> {
             }
         })
         .collect()
+}
+
+pub(super) fn current_configuration(facts: &Value) -> Value {
+    let options = facts["options"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|o| {
+            o["id"]
+                .as_str()
+                .map(|id| (id.to_owned(), o["currentValue"].clone()))
+        })
+        .collect::<serde_json::Map<_, _>>();
+    json!({"model":facts["currentModel"],"options":options,"scope":"session","source":facts["source"],"observedAt":facts["observedAt"]})
+}
+impl Process {
+    async fn set_dispatch_option(&self, facts: &Value, key: &str, value: &str) -> Result<()> {
+        if self.pi {
+            if key == "model" {
+                let (provider, model) = value.split_once('/').ok_or("INVALID_PI_MODEL")?;
+                self.call(
+                    "set_model",
+                    json!({"provider":provider,"modelId":model}),
+                    15000,
+                )
+                .await?;
+            } else {
+                self.call("set_thinking_level", json!({"level":value}), 15000)
+                    .await?;
+            }
+            return Ok(());
+        }
+        let sid = self.state.lock().await["sessionId"].clone();
+        let config = if key == "model" {
+            facts["modelConfigId"].as_str()
+        } else {
+            if self.state.lock().await["metadata"]["configOptions"].is_array() {
+                Some(key)
+            } else {
+                None
+            }
+        };
+        if let Some(config) = config {
+            let result = self
+                .call(
+                    "session/set_config_option",
+                    json!({"sessionId":sid,"configId":config,"value":value}),
+                    15000,
+                )
+                .await?;
+            if !result["configOptions"].is_array() {
+                return Err("DISPATCH_CONFIGURATION_UNCONFIRMED: missing configOptions".into());
+            }
+            let mut task = self.state.lock().await;
+            task["metadata"]["configOptions"] = result["configOptions"].clone();
+            task["configurationObservedAt"] = json!(now());
+            save_task(&task)?;
+        } else {
+            let (method, field, section, current) = if key == "model" {
+                ("session/set_model", "modelId", "models", "currentModelId")
+            } else if key == "mode" {
+                ("session/set_mode", "modeId", "modes", "currentModeId")
+            } else {
+                return Err(format!("UNSUPPORTED_DISPATCH_OPTION: {key}"));
+            };
+            let mut params = json!({"sessionId":sid});
+            params[field] = json!(value);
+            self.call(method, params, 15000).await?;
+            let mut task = self.state.lock().await;
+            task["metadata"][section][current] = json!(value);
+            task["configurationObservedAt"] = json!(now());
+            save_task(&task)?;
+        }
+        Ok(())
+    }
 }

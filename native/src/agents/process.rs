@@ -28,6 +28,7 @@ pub struct Process {
     pub pi: bool,
     pub alive: std::sync::atomic::AtomicBool,
     pub capabilities: Mutex<Value>,
+    pub dispatch: Mutex<()>,
 }
 impl Process {
     pub async fn start(
@@ -71,6 +72,7 @@ impl Process {
             pi,
             alive: true.into(),
             capabilities: Mutex::new(Value::Null),
+            dispatch: Mutex::new(()),
         });
         process.events.lock().await.wake = wake;
         let weak = Arc::downgrade(&process);
@@ -195,6 +197,11 @@ impl Process {
                     }
                 }
                 if method == "agent_settled" {
+                    if let Err(error) =
+                        crate::dispatch_policy::agent_observe(&state, Some("accepted"))
+                    {
+                        state["storageError"] = json!(error);
+                    }
                     if let Err(error) = crate::claude_notify::observe(
                         string(&state, "taskId"),
                         string(&state, "turnId"),

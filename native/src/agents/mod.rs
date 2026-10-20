@@ -579,7 +579,9 @@ impl AgentHost {
             );
         }
         if name == "agent_read" {
-            return self.task(agent, string(&args, "taskId")).await;
+            let mut task = self.task(agent, string(&args, "taskId")).await?;
+            task["dispatches"] = json!(crate::dispatch_policy::records(string(&args, "taskId"))?);
+            return Ok(task);
         }
         if matches!(name, "agent_events" | "agent_pending") {
             let task = string(&args, "taskId");
@@ -597,7 +599,7 @@ impl AgentHost {
         }
         if !matches!(
             name,
-            "agent_create" | "agent_send" | "agent_interrupt" | "agent_respond"
+            "agent_create" | "agent_send" | "agent_interrupt" | "agent_respond" | "agent_review"
         ) {
             return Err("UNKNOWN_TOOL".into());
         }
@@ -673,7 +675,14 @@ impl AgentHost {
                 .await;
             match result {
                 Ok(v) => {
-                    r["state"] = json!("completed");
+                    r["state"] = json!(if v["configurationError"].is_string() {
+                        "failed"
+                    } else {
+                        "completed"
+                    });
+                    if v["configurationError"].is_string() {
+                        r["error"] = v["configurationError"].clone();
+                    }
                     for key in ["notification", "notificationError"] {
                         if let Some(value) = v.get(key) {
                             r[key] = value.clone();
@@ -710,6 +719,9 @@ impl AgentHost {
     ) -> Result<Value> {
         let agent = string(args, "agent");
         self.ensure_enabled(agent).await?;
+        if name == "agent_review" {
+            return crate::dispatch_policy::agent_review(args);
+        }
         let p = if name == "agent_create" {
             let _guard = self.lifecycle.lock().await;
             let t = json!({"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":args["title"],"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"output":""});
@@ -730,8 +742,39 @@ impl AgentHost {
             self.process(agent, task, name == "agent_send").await?
         };
         match name {
-            "agent_create" if string(args, "prompt").is_empty() => Ok(p.state.lock().await.clone()),
             "agent_create" | "agent_send" => {
+                let _dispatch = p
+                    .dispatch
+                    .try_lock()
+                    .map_err(|_| "TASK_BUSY_OR_UNCONFIRMED")?;
+                let snapshot = p.state.lock().await.clone();
+                if !matches!(
+                    string(&snapshot, "status"),
+                    "idle" | "completed" | "cancelled" | "failed"
+                ) {
+                    return Err("TASK_BUSY_OR_UNCONFIRMED".into());
+                }
+                // Empty creates expose capabilities without applying policy or recording work.
+                if string(args, "prompt").is_empty() {
+                    return Ok(snapshot);
+                }
+                match self.configure_dispatch(&p, args).await {
+                    Ok(selection) => {
+                        let mut task = p.state.lock().await;
+                        task["dispatch"] = selection;
+                    }
+                    Err(error) => {
+                        let snapshot = p.state.lock().await.clone();
+                        let facts = self
+                            .session_dispatch_facts(&snapshot, true)
+                            .await
+                            .unwrap_or_else(|e| json!({"unavailable":e}));
+                        return Ok(
+                            json!({"taskId":task,"agent":agent,"configurationError":error,
+                            "promptSubmitted":false,"sessionConfirmation":dispatch::current_configuration(&facts)}),
+                        );
+                    }
+                }
                 driver.prompt(&p, string(args, "prompt"), args, name).await
             }
             "agent_interrupt" => driver.interrupt(&p).await,

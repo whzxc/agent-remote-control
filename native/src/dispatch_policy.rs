@@ -3,11 +3,11 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 struct Policy {
-    model: String,
-    effort: String,
+    model: Option<String>,
+    effort: Option<String>,
     #[serde(default)]
     service_tier: Option<String>,
     #[serde(default)]
@@ -22,28 +22,87 @@ struct Policy {
     deny_efforts: Vec<String>,
     criteria: String,
 }
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
 struct Policies {
+    criteria: String,
     codex: Policy,
+    #[serde(flatten)]
+    agents: std::collections::BTreeMap<String, AgentPolicy>,
+}
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct AgentPolicy {
+    pub model: Option<String>,
+    pub options: std::collections::BTreeMap<String, String>,
+    allow_models: Vec<String>,
+    deny_models: Vec<String>,
+    allow_options: std::collections::BTreeMap<String, Vec<String>>,
+    deny_options: std::collections::BTreeMap<String, Vec<String>>,
+    criteria: String,
+}
+pub(crate) fn agent_policy(agent: &str) -> Result<AgentPolicy> {
+    Ok(read()?.agents.remove(agent).unwrap_or_default())
+}
+impl AgentPolicy {
+    pub fn check_model(&self, model: Option<&str>) -> Result<()> {
+        check_known(model, &self.allow_models, &self.deny_models, "model")
+    }
+    pub fn check(&self, model: Option<&str>, options: &Value) -> Result<()> {
+        check_known(model, &self.allow_models, &self.deny_models, "model")?;
+        for key in self.allow_options.keys().chain(self.deny_options.keys()) {
+            check_known(
+                options[key].as_str(),
+                self.allow_options
+                    .get(key)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
+                self.deny_options.get(key).map(Vec::as_slice).unwrap_or(&[]),
+                key,
+            )?;
+        }
+        Ok(())
+    }
+}
+fn check_known(value: Option<&str>, allow: &[String], deny: &[String], field: &str) -> Result<()> {
+    if let Some(value) = value {
+        check(value, allow, deny, field)
+    } else if !allow.is_empty() || !deny.is_empty() {
+        Err(format!(
+            "DISPATCH_CONFIGURATION_UNKNOWN: cannot check {field}"
+        ))
+    } else {
+        Ok(())
+    }
 }
 fn read() -> Result<Policies> {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = LOCK.lock().map_err(|e| e.to_string())?;
     let path = root().join("dispatch-policy.json");
     if !path.exists() {
-        let mut bytes = serde_json::to_vec_pretty(&json!({"codex":{
-                "model":"gpt-6-astra","effort":"medium","serviceTier":null,"serviceTiers":{},
-                "allowModels":[],"denyModels":[],"allowEfforts":[],"denyEfforts":[],
-                "criteria":"机械性改动、发布用 medium；根因不明的调试、跨模块重构、架构设计用 high；验收不过或同一问题失败一次后，在同一线程升到 xhigh 续轮。"
-            }})).map_err(|e| e.to_string())?;
+        let mut bytes =
+            serde_json::to_vec_pretty(&Policies::default()).map_err(|e| e.to_string())?;
         bytes.push(b'\n');
         save_bytes(&path, &bytes)?;
     }
     let policies: Policies = serde_json::from_value(load(&path)?)
         .map_err(|e| format!("INVALID_DISPATCH_POLICY: dispatch-policy.json: {e}"))?;
-    if policies.codex.model.trim().is_empty() || policies.codex.effort.trim().is_empty() {
-        return Err("INVALID_DISPATCH_POLICY: model and effort must be nonempty".into());
+    if policies
+        .codex
+        .model
+        .as_ref()
+        .is_some_and(|v| v.trim().is_empty())
+        || policies
+            .codex
+            .effort
+            .as_ref()
+            .is_some_and(|v| v.trim().is_empty())
+        || policies
+            .agents
+            .values()
+            .any(|p| p.model.as_ref().is_some_and(|v| v.trim().is_empty()))
+    {
+        return Err("INVALID_DISPATCH_POLICY: model and effort must be nonempty or null".into());
     }
     Ok(policies)
 }
@@ -84,13 +143,17 @@ pub(crate) fn resolve(args: &mut Value) -> Result<Value> {
                     None
                 }
             });
-        let value = explicit.unwrap_or(default).to_owned();
+        let value = explicit.or(default.as_deref());
+        check_known(value, allow, deny, field)?;
+        selection["source"][field] = json!("native-default");
+        let Some(value) = value.map(str::to_owned) else {
+            continue;
+        };
         selection["source"][field] = json!(if explicit.is_some() {
             "explicit"
         } else {
             "policy-default"
         });
-        check(&value, allow, deny, field)?;
         selection[field] = json!(value);
         args[field] = json!(value);
         if args["turn"].is_object() {
@@ -192,7 +255,7 @@ async fn codex_facts(c: &control::Control) -> Result<Value> {
         "models":models.unwrap_or_else(|error| json!({"unavailable":error})),
         "policy":policy,
         "quota":quota.unwrap_or_else(|error| json!({"unavailable":error})),
-        "history":history().unwrap_or_else(|error| json!({"unavailable":error}))
+        "history":history("codex").unwrap_or_else(|error| json!({"unavailable":error}))
     }))
 }
 
@@ -202,6 +265,7 @@ pub(crate) async fn query(
     subscriptions: &subscriptions::SubscriptionService,
     args: &Value,
 ) -> Result<Value> {
+    let policies = read()?;
     let mut rows = agents.dispatch_facts(args).await?;
     let snapshot = subscriptions.snapshot().await;
     for row in &mut rows {
@@ -239,15 +303,17 @@ pub(crate) async fn query(
             } else {
                 json!({"source":"subscriptions","providers":providers,"modelAssociation":"unknown"})
             };
-            row["policy"] = json!({"source":"native-default","configurable":false});
-            row["history"] = json!({"unavailable":"agent-dispatch-records-not-integrated"});
-            row["selectionSupported"] = json!(false);
+            row["policy"] =
+                serde_json::to_value(policies.agents.get(&agent).cloned().unwrap_or_default())
+                    .map_err(|e| e.to_string())?;
+            row["history"] = history(&agent).unwrap_or_else(|error| json!({"unavailable":error}));
+            row["selectionSupported"] = json!(true);
         }
     }
-    Ok(json!({"observedAt":now(),"agents":rows}))
+    Ok(json!({"observedAt":now(),"criteria":policies.criteria,"agents":rows}))
 }
 
-fn history() -> Result<Value> {
+fn history(agent: &str) -> Result<Value> {
     #[derive(Default)]
     struct Group {
         dispatches: u64,
@@ -258,7 +324,7 @@ fn history() -> Result<Value> {
         durations: Vec<u64>,
     }
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
-    let mut groups = std::collections::BTreeMap::<(String, String, String), Group>::new();
+    let mut groups = std::collections::BTreeMap::<(String, String, String, String), Group>::new();
     let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
     let dir = root().join("dispatches");
     if dir.exists() {
@@ -267,7 +333,9 @@ fn history() -> Result<Value> {
             let thread = entry.file_name().to_string_lossy().into_owned();
             let mut seen = std::collections::HashSet::new();
             for row in read_records(&thread)? {
-                if row["purpose"] == "self-test"
+                if row["agent"].as_str().unwrap_or("codex") != agent
+                    || (agent != "codex" && row["submission"] != "accepted")
+                    || row["purpose"] == "self-test"
                     || row["dispatchMode"] != "new-turn"
                     || !chrono::DateTime::parse_from_rfc3339(string(&row, "submittedAt"))
                         .is_ok_and(|time| time >= cutoff)
@@ -276,21 +344,27 @@ fn history() -> Result<Value> {
                     continue;
                 }
                 let value = |field: &str| {
-                    row["effectiveConfiguration"][field]
+                    row["turnEvidence"][field]
                         .as_str()
+                        .or_else(|| row["effectiveConfiguration"][field].as_str())
                         .filter(|v| !v.is_empty() && *v != "unknown")
                         .unwrap_or_else(|| string(&row, field))
                         .to_owned()
                 };
                 let group = groups
-                    .entry((value("model"), value("effort"), {
-                        let tier = value("serviceTier");
-                        if tier.is_empty() {
-                            "unknown".into()
-                        } else {
-                            tier
-                        }
-                    }))
+                    .entry((
+                        value("model"),
+                        value("effort"),
+                        {
+                            let tier = value("serviceTier");
+                            if tier.is_empty() {
+                                "unknown".into()
+                            } else {
+                                tier
+                            }
+                        },
+                        row.get("options").cloned().unwrap_or(json!({})).to_string(),
+                    ))
                     .or_default();
                 group.dispatches += 1;
                 match string(&row["terminal"], "state") {
@@ -317,8 +391,8 @@ fn history() -> Result<Value> {
     }
     let mut groups = groups
         .into_iter()
-        .map(|((model, effort, tier), mut g)| {
-            let mut row = json!({"model":model,"effort":effort,"serviceTier":tier,"dispatches":g.dispatches,
+        .map(|((model, effort, tier, options), mut g)| {
+            let mut row = json!({"agent":agent,"model":model,"options":serde_json::from_str::<Value>(&options).unwrap_or(json!({})),"effort":effort,"serviceTier":tier,"dispatches":g.dispatches,
             "pass":g.pass,"rework":g.rework,"failed":g.failed,"interrupted":g.interrupted,"unreviewed":g.dispatches-g.pass-g.rework-g.failed-g.interrupted});
             if !g.durations.is_empty() {
                 g.durations.sort_unstable();
@@ -371,6 +445,16 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     for key in ["requestId", "threadId", "turnId", "dispatchMode"] {
         row[key] = receipt[key].clone();
     }
+    row["agent"] = receipt["agent"]
+        .as_str()
+        .map_or(json!("codex"), |v| json!(v));
+    row["taskId"] = receipt
+        .get("taskId")
+        .unwrap_or(&receipt["threadId"])
+        .clone();
+    if row["options"].is_null() {
+        row["options"] = json!({});
+    }
     row["configurationEvidence"] = json!(if row["dispatchMode"] == "steered" {
         "active-turn-settings"
     } else {
@@ -392,6 +476,7 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
                 .filter(|r| {
                     !previous.iter().any(|next| {
                         next["dispatchMode"] == "new-turn"
+                            && next.get("submission").is_none_or(|v| v == "accepted")
                             && string(next, "submittedAt") > string(&r["review"], "reviewedAt")
                     })
                 })
@@ -426,7 +511,7 @@ pub(crate) fn record_native_retry(thread: &str, previous: &str, retry: &Value) -
         .ok_or("NATIVE_RETRY_START_MISSING")?;
     let config = &retry["configuration"];
     let row = json!({
-        "requestId":turn,"threadId":thread,"turnId":turn,"dispatchMode":"new-turn",
+        "agent":"codex","taskId":thread,"options":{},"requestId":turn,"threadId":thread,"turnId":turn,"dispatchMode":"new-turn",
         "dispatchSource":"native-retry","retryOf":previous,"nativeTrigger":retry["trigger"],
         "model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],
         "source":{"model":"native-persisted-turn-context","effort":"native-persisted-turn-context","serviceTier":"native-persisted-turn-context"},
@@ -524,6 +609,9 @@ pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> 
         other => other,
     };
     complete(c, thread, turn, state).await?;
+    save_review(thread, turn, args)
+}
+fn save_review(thread: &str, turn: &str, args: &Value) -> Result<Value> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut rows = read_records(thread)?
         .into_iter()
@@ -541,4 +629,77 @@ pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> 
         )?;
     }
     Ok(json!({"threadId":thread,"turnId":turn,"review":review}))
+}
+
+/// Snapshot at submission; later session changes never rewrite this turn's choices.
+pub(crate) fn agent_record(task: &Value, args: &Value) -> Result<()> {
+    record(
+        &json!({"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
+        "turnId":task["turnId"],"requestId":args["requestId"],"dispatchMode":"new-turn",
+        "arguments":args,"task":{"dispatch":task["dispatch"]}}),
+    )
+}
+pub(crate) fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()> {
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    let task_id = string(task, "taskId");
+    for mut row in read_records(task_id)?
+        .into_iter()
+        .filter(|r| r["turnId"] == task["turnId"] && r["agent"] == task["agent"])
+    {
+        if let Some(status) = submission {
+            row["submission"] = json!(status);
+        }
+        let state = string(task, "status");
+        if matches!(state, "completed" | "cancelled" | "failed")
+            && row["terminal"].is_null()
+            && row["submission"] == "accepted"
+        {
+            let end = chrono::Utc::now();
+            let elapsed = chrono::DateTime::parse_from_rfc3339(string(&row, "submittedAt"))
+                .ok()
+                .map(|start| {
+                    (end - start.with_timezone(&chrono::Utc))
+                        .num_milliseconds()
+                        .max(0)
+                });
+            row["terminal"] =
+                json!({"state":state,"observedAt":end.to_rfc3339(),"observedDurationMs":elapsed});
+        }
+        if task["agent"] == "pi"
+            && task["lastMessage"]["model"].is_string()
+            && task["lastMessage"]["provider"].is_string()
+        {
+            let message = &task["lastMessage"];
+            row["turnEvidence"] = json!({"model":format!("{}/{}",string(message,"provider"),string(message,"model")),"source":"pi-assistant-message","scope":"turn","observedAt":now()});
+        }
+        save(
+            &directory(task_id)?.join(format!("{}.json", string(&row, "requestId"))),
+            &row,
+        )?;
+    }
+    Ok(())
+}
+pub(crate) fn agent_review(args: &Value) -> Result<Value> {
+    let task = string(args, "taskId");
+    let rows = records(task)?;
+    let row = rows
+        .iter()
+        .rev()
+        .find(|r| {
+            r["agent"] == args["agent"]
+                && if args["turnId"].is_string() {
+                    r["turnId"] == args["turnId"]
+                } else {
+                    r["terminal"].is_object()
+                }
+        })
+        .ok_or("REVIEW_DISPATCH_NOT_FOUND")?;
+    if !row["terminal"].is_object() {
+        return Err("REVIEW_REQUIRES_TERMINAL_TURN".into());
+    }
+    let mut result = save_review(task, string(row, "turnId"), args)?;
+    result.as_object_mut().unwrap().remove("threadId");
+    result["agent"] = args["agent"].clone();
+    result["taskId"] = json!(task);
+    Ok(result)
 }

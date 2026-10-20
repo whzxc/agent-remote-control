@@ -137,6 +137,9 @@ impl AgentDriver {
                 let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")}}),15000).await?;
                 if init["protocolVersion"]!=1 {return Err("ACP_VERSION_UNSUPPORTED".into());}
                 *p.capabilities.lock().await=init.clone();
+                if matches!(self,Self::Acp(m) if m.id=="cursor") && init["authMethods"].as_array().is_some_and(|methods|methods.iter().any(|m|m["id"]=="cursor_login")) {
+                    p.call("authenticate",json!({"methodId":"cursor_login"}),15000).await?;
+                }
                 let t=p.state.lock().await.clone();
                 if resume && init["agentCapabilities"]["loadSession"]!=true {return Err("RESUME_UNSUPPORTED".into());}
                 let mut params=json!({"cwd":cwd,"mcpServers":[]});
@@ -183,6 +186,7 @@ impl AgentDriver {
             t["error"] = Value::Null;
             t["stopReason"] = Value::Null;
             t["outputTruncated"] = json!(false);
+            crate::dispatch_policy::agent_record(&t, args)?;
             save_task(&t)?;
             let result = crate::claude_notify::bind(
                 args,
@@ -238,6 +242,16 @@ impl AgentDriver {
             _ => {}
         }
         t["updatedAt"] = json!(now());
+        crate::dispatch_policy::agent_observe(
+            &t,
+            Some(if result.is_ok() {
+                "accepted"
+            } else if t["status"] == "unknown" {
+                "unconfirmed"
+            } else {
+                "rejected"
+            }),
+        )?;
         save_task(&t)?;
         if let Err(error) = crate::claude_notify::observe(
             string(&t, "taskId"),
