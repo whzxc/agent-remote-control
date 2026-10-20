@@ -1157,11 +1157,17 @@ impl Control {
                     .or_else(|| state.get("reasoningEffort"))
                     .cloned()
                     .unwrap_or(Value::Null);
-                for (field, value) in [("model", model), ("effort", effort)] {
+                let tier = active
+                    .get("serviceTier")
+                    .or_else(|| state["latestThreadSettings"].get("serviceTier"))
+                    .cloned()
+                    .unwrap_or(json!("unknown"));
+                for (field, value) in [("model", model), ("effort", effort), ("serviceTier", tier)]
+                {
                     if r["task"]["dispatch"]["source"][field] == "explicit"
-                        && params[field] != value
+                        && r["task"]["dispatch"][field] != value
                     {
-                        return Err("ACTIVE_TURN_CONFIGURATION: cannot change model/effort with steer; wait for completion or use sendMode:queue".into());
+                        return Err("ACTIVE_TURN_CONFIGURATION: cannot change model/effort/serviceTier with steer; wait for completion or use sendMode:queue".into());
                     }
                     r["task"]["dispatch"][field] = value;
                     r["task"]["dispatch"]["source"][field] = json!("active-turn");
@@ -1731,6 +1737,8 @@ pub(crate) fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
     };
     if let Ok(text) = read() {
         let mut matched = false;
+        let mut thread_tier = json!("unknown");
+        let mut turn_tiers = HashMap::new();
         for line in text.lines().filter(|l| l.len() <= 1024 * 1024) {
             let Ok(event) = serde_json::from_str::<Value>(line) else {
                 continue;
@@ -1739,13 +1747,24 @@ pub(crate) fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
             if event["type"] == "session_meta" {
                 matched = p["id"] == thread["id"];
             }
+            if matched && event["type"] == "event_msg" {
+                if p["type"] == "thread_settings_applied" && p["thread_id"] == thread["id"] {
+                    thread_tier = p["thread_settings"]
+                        .get("service_tier")
+                        .cloned()
+                        .unwrap_or(json!("unknown"));
+                }
+                if p["type"] == "task_started" && p["turn_id"].is_string() {
+                    turn_tiers.insert(string(p, "turn_id").to_owned(), thread_tier.clone());
+                }
+            }
             if matched
                 && event["type"] == "turn_context"
                 && p["cwd"] == thread["cwd"]
                 && p["turn_id"].is_string()
             {
                 let value = |key: &str| p.get(key).cloned().unwrap_or(json!("unknown"));
-                result.insert(string(p,"turn_id").into(), json!({"scope":"turn","source":"native-persisted-turn-context","turnId":p["turn_id"],"model":value("model"),"effort":value("effort"),"mode":p["sandbox_policy"].get("type").unwrap_or(&json!("unknown")),"networkAccess":p["sandbox_policy"].get("network_access").unwrap_or(&json!("unknown")),"serviceTier":value("service_tier"),"approvalPolicy":value("approval_policy"),"observedAt":now()}));
+                result.insert(string(p,"turn_id").into(), json!({"scope":"turn","source":"native-persisted-turn-context","turnId":p["turn_id"],"model":value("model"),"effort":value("effort"),"mode":p["sandbox_policy"].get("type").unwrap_or(&json!("unknown")),"networkAccess":p["sandbox_policy"].get("network_access").unwrap_or(&json!("unknown")),"serviceTier":value("service_tier"),"threadServiceTier":turn_tiers.get(string(p,"turn_id")).unwrap_or(&json!("unknown")),"approvalPolicy":value("approval_policy"),"observedAt":now()}));
             }
         }
     }

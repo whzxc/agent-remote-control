@@ -17,6 +17,8 @@
   "codex": {
     "model": "gpt-6-astra",
     "effort": "medium",
+    "serviceTier": null,
+    "serviceTiers": {},
     "allowModels": [],
     "denyModels": [],
     "allowEfforts": [],
@@ -26,9 +28,13 @@
 }
 ```
 
+`serviceTier` 是可空的全局默认值，`serviceTiers` 是模型 ID 到 tier 的覆盖表。出厂为 null / 空表，不表达速度偏好，交给原生继承；例如 `"serviceTiers":{"some-model":"priority"}`。Fast 使用原生目录 ID `priority`，标准速度使用 `default`；`additionalSpeedTiers` 中的 `fast` 是速度标签，不作为派发参数。官方说明直接保留，不推算用量倍率。
+
+显式 tier 优先于模型覆盖，再取全局默认；按最终选定模型查表，每次新轮重新选择，包括同线程换模型。原生 turn.serviceTierForTurn 优先于 turn.serviceTier、顶层 serviceTier 和 thread.serviceTier；单轮覆盖不修改线程默认。字段来源为 explicit / policy-default / native-default（未填充）。
+
 允许列表为空表示不限；禁用列表优先。约束作用于最终选择，包括策略默认值。模型与推理等级是否受原生端支持由上游校验，不复制原生校验规则。配置格式错误明确报错，不静默回退到桌面默认值。
 
-`query({op:"dispatch_policy",args:{}})` 返回模型 ID 与支持的推理等级、上述策略，以及 `codex_account` 同源的额度池与窗口摘要和近 30 天的 `history`。省略账号身份、模型说明和完整原生配置；各事实读取失败时标记不可用，保留其余结果，不把未知额度当作零。
+`query({op:"dispatch_policy",args:{}})` 返回模型 ID、支持的推理等级及 serviceTiers 的原生 ID、名称、说明和 defaultServiceTier、上述策略，以及 `codex_account` 同源的额度池与窗口摘要和近 30 天的 `history`。省略账号身份、无关模型说明和完整原生配置；各事实读取失败时标记不可用，保留其余结果，不把未知额度当作零。
 
 Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`effort` 和一句 `reason`。动态目录与额度不内嵌到每次 guide，避免重复大段输出。使用旧显式 allowlist 的入口需启用 dispatch_policy；默认预设包含此只读 op。
 
@@ -38,7 +44,9 @@ Loop guide 引导所有控制源派发前查询此 op，再显式传 `model`、`
 
 请求先按原始参数做幂等判定，再固定选择；相同 requestId 回读原回执，不因策略修改再次派发。队列在实际执行时选择默认值；自动容量重试沿用原轮次已选配置。运行中的 steer 不改变当前轮次配置；显式要求不同档位时返回错误，提示等待终态或排队续轮。
 
-每次成功派发按线程保存 requestId、turnId、model、effort、reason、各字段来源（explicit / policy-default；steer 为 active-turn）、派发方式与时间，并关联到任务回执。`codex_tasks` 的 full 视图展示派发历史；完成、失败及中断通知附带本轮记录。原生持久化轮次配置可用时补充实际配置证据；不可用时仅说明 ARC 提交的配置。
+每次成功派发按线程保存 requestId、turnId、model、effort、serviceTier、reason、各字段来源（explicit / policy-default；steer 为 active-turn）、派发方式与时间，并关联到任务回执。`codex_tasks` 的 full 视图展示派发历史；完成、失败及中断通知附带本轮记录。原生持久化轮次配置可用时补充实际配置证据；不可用时仅说明 ARC 提交的配置。
+
+原生 turn_context 缺少 service_tier 时，effectiveConfiguration.serviceTier 保持 unknown。threadServiceTier 单独展示持久化 thread_settings_applied 在该轮 task_started 前的最后值，仅证明线程配置，不能证明单轮 serviceTierForTurn 覆盖；不使用轮次结束后的最新设置回填旧轮。统计优先使用轮次原生 tier，否则用提交值，均缺失时归 unknown。
 
 终态记录派发至首次观察到终态的耗时，明确这是观察耗时，包含调度与观察延迟。
 
@@ -52,7 +60,7 @@ rework 后同线程的下一次新轮派发保存 `reworkOf:<原轮次 ID>`，st
 
 ## 历史汇总与用量边界
 
-`dispatch_policy.history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
+`dispatch_policy.history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort + serviceTier 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
 
 `purpose:"self-test"` 不进入真实统计，续轮省略 purpose 时沿用该线程最近派发标记，显式 purpose 可覆盖。验收结论不能改变此标记。无数据组不输出；最多显示派发次数最多的 12 组，其余以 omittedGroups 披露，保持响应在几 KB 量级。查询实时读取记录，改判立即反映在汇总中。
 

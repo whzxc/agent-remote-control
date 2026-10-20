@@ -9,6 +9,10 @@ struct Policy {
     model: String,
     effort: String,
     #[serde(default)]
+    service_tier: Option<String>,
+    #[serde(default)]
+    service_tiers: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
     allow_models: Vec<String>,
     #[serde(default)]
     deny_models: Vec<String>,
@@ -29,7 +33,7 @@ fn read() -> Result<Policies> {
     let path = root().join("dispatch-policy.json");
     if !path.exists() {
         let mut bytes = serde_json::to_vec_pretty(&json!({"codex":{
-                "model":"gpt-6-astra","effort":"medium",
+                "model":"gpt-6-astra","effort":"medium","serviceTier":null,"serviceTiers":{},
                 "allowModels":[],"denyModels":[],"allowEfforts":[],"denyEfforts":[],
                 "criteria":"机械性改动、发布用 medium；根因不明的调试、跨模块重构、架构设计用 high；验收不过或同一问题失败一次后，在同一线程升到 xhigh 续轮。"
             }})).map_err(|e| e.to_string())?;
@@ -99,6 +103,40 @@ pub(crate) fn resolve(args: &mut Value) -> Result<Value> {
             args["thread"]["model"] = json!(value);
         }
     }
+    let explicit = args["turn"]["serviceTierForTurn"]
+        .as_str()
+        .or_else(|| args["turn"]["serviceTier"].as_str())
+        .or_else(|| args["serviceTier"].as_str())
+        .or_else(|| args["thread"]["serviceTier"].as_str());
+    let tier = explicit
+        .or_else(|| {
+            policy
+                .service_tiers
+                .get(string(&selection, "model"))
+                .map(String::as_str)
+        })
+        .or(policy.service_tier.as_deref())
+        .map(str::to_owned);
+    selection["serviceTier"] = json!(tier);
+    selection["source"]["serviceTier"] = json!(if explicit.is_some() {
+        "explicit"
+    } else if tier.is_some() {
+        "policy-default"
+    } else {
+        "native-default"
+    });
+    if let Some(tier) = tier {
+        // A one-turn native override must not change the thread's defaults.
+        if !args["turn"]["serviceTierForTurn"].is_string() {
+            args["serviceTier"] = json!(tier);
+            if args["turn"].is_object() {
+                args["turn"]["serviceTier"] = json!(tier);
+            }
+            if args["thread"].is_object() {
+                args["thread"]["serviceTier"] = json!(tier);
+            }
+        }
+    }
     Ok(selection)
 }
 async fn models(c: &control::Control) -> Result<Value> {
@@ -111,6 +149,8 @@ async fn models(c: &control::Control) -> Result<Value> {
         for model in page["data"].as_array().ok_or("NATIVE_MODELS_MISSING")? {
             rows.push(json!({
                 "model":model["model"],
+                "defaultServiceTier":model["defaultServiceTier"],
+                "serviceTiers":model["serviceTiers"],
                 "efforts":model["supportedReasoningEfforts"].as_array().into_iter().flatten()
                     .map(|e| e["reasoningEffort"].clone()).collect::<Vec<_>>()
             }));
@@ -167,7 +207,7 @@ fn history() -> Result<Value> {
         durations: Vec<u64>,
     }
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
-    let mut groups = std::collections::BTreeMap::<(String, String), Group>::new();
+    let mut groups = std::collections::BTreeMap::<(String, String, String), Group>::new();
     let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
     let dir = root().join("dispatches");
     if dir.exists() {
@@ -191,7 +231,16 @@ fn history() -> Result<Value> {
                         .unwrap_or_else(|| string(&row, field))
                         .to_owned()
                 };
-                let group = groups.entry((value("model"), value("effort"))).or_default();
+                let group = groups
+                    .entry((value("model"), value("effort"), {
+                        let tier = value("serviceTier");
+                        if tier.is_empty() {
+                            "unknown".into()
+                        } else {
+                            tier
+                        }
+                    }))
+                    .or_default();
                 group.dispatches += 1;
                 match string(&row["terminal"], "state") {
                     "failed" => {
@@ -217,8 +266,8 @@ fn history() -> Result<Value> {
     }
     let mut groups = groups
         .into_iter()
-        .map(|((model, effort), mut g)| {
-            let mut row = json!({"model":model,"effort":effort,"dispatches":g.dispatches,
+        .map(|((model, effort, tier), mut g)| {
+            let mut row = json!({"model":model,"effort":effort,"serviceTier":tier,"dispatches":g.dispatches,
             "pass":g.pass,"rework":g.rework,"failed":g.failed,"interrupted":g.interrupted,"unreviewed":g.dispatches-g.pass-g.rework-g.failed-g.interrupted});
             if !g.durations.is_empty() {
                 g.durations.sort_unstable();
@@ -348,7 +397,7 @@ pub(crate) async fn complete(
                 json!({"state":state,"observedAt":end.to_rfc3339(),"observedDurationMs":elapsed});
         }
         if let Some(config) = &configuration {
-            row["effectiveConfiguration"] = json!({"model":config["model"],"effort":config["effort"],"source":config["source"]});
+            row["effectiveConfiguration"] = json!({"model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],"threadServiceTier":config["threadServiceTier"],"source":config["source"]});
         }
         save(
             &directory(thread)?.join(format!("{}.json", string(row, "requestId"))),
