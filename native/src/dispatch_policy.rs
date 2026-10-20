@@ -162,6 +162,8 @@ fn history() -> Result<Value> {
         dispatches: u64,
         pass: u64,
         rework: u64,
+        failed: u64,
+        interrupted: u64,
         durations: Vec<u64>,
     }
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
@@ -191,6 +193,17 @@ fn history() -> Result<Value> {
                 };
                 let group = groups.entry((value("model"), value("effort"))).or_default();
                 group.dispatches += 1;
+                match string(&row["terminal"], "state") {
+                    "failed" => {
+                        group.failed += 1;
+                        continue;
+                    }
+                    "interrupted" | "cancelled" => {
+                        group.interrupted += 1;
+                        continue;
+                    }
+                    _ => {}
+                }
                 match string(&row["review"], "verdict") {
                     "pass" => group.pass += 1,
                     "rework" => group.rework += 1,
@@ -206,7 +219,7 @@ fn history() -> Result<Value> {
         .into_iter()
         .map(|((model, effort), mut g)| {
             let mut row = json!({"model":model,"effort":effort,"dispatches":g.dispatches,
-            "pass":g.pass,"rework":g.rework,"unreviewed":g.dispatches-g.pass-g.rework});
+            "pass":g.pass,"rework":g.rework,"failed":g.failed,"interrupted":g.interrupted,"unreviewed":g.dispatches-g.pass-g.rework-g.failed-g.interrupted});
             if !g.durations.is_empty() {
                 g.durations.sort_unstable();
                 let n = g.durations.len();

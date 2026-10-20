@@ -201,13 +201,16 @@ impl Control {
         let mut timings = json!({"initializeMs":started.elapsed().as_millis()});
         let mut created = None;
         let title = if title.trim().is_empty() {
-            receipt
+            let line = receipt
                 .as_deref()
                 .and_then(|r| r["task"]["prompt"].as_str())
                 .unwrap_or("")
                 .lines()
                 .find(|line| !line.trim().is_empty())
-                .unwrap_or("ARC task")
+                .unwrap_or("ARC task");
+            regex::Regex::new(r"^\s*(?:(?:[#>]+|[-*+]|[0-9]+[.)])\s+)*")
+                .unwrap()
+                .replace(line, "")
                 .chars()
                 .take(120)
                 .collect::<String>()

@@ -52,7 +52,7 @@ rework 后同线程的下一次新轮派发保存 `reworkOf:<原轮次 ID>`，st
 
 ## 历史汇总与用量边界
 
-`dispatch_policy.history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、unreviewed；未评定包含尚在运行及终态未评定的轮次。只有已观察到终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
+`dispatch_policy.history` 按 submittedAt 统计最近 30 天的新轮次，按 model + effort 分组；优先采用原生有效配置，不可用时采用 ARC 提交配置。同轮重复记录去重，steer 不另算一轮。每组包含 dispatches、pass、rework、failed、interrupted、unreviewed；失败与中断优先单独计数，不计入验收或未评定。未评定包含尚在运行及成功终态未评定的轮次。只有成功终态的轮次参与 medianObservedDurationMs，并以 durationSamples 标明样本数。
 
 `purpose:"self-test"` 不进入真实统计，续轮省略 purpose 时沿用该线程最近派发标记，显式 purpose 可覆盖。验收结论不能改变此标记。无数据组不输出；最多显示派发次数最多的 12 组，其余以 omittedGroups 披露，保持响应在几 KB 量级。查询实时读取记录，改判立即反映在汇总中。
 
