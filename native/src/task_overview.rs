@@ -155,6 +155,9 @@ fn compact(
     }
     if full {
         out["preview"] = row["preview"].clone();
+        out["dispatches"] = crate::dispatch_policy::records(string(row, "id"))
+            .map(|rows| json!(rows))
+            .unwrap_or_else(|error| json!({"unavailable":error}));
     }
     out
 }

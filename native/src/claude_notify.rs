@@ -86,6 +86,8 @@ struct Delivery {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     changes: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
+    dispatches: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
     task_error: Value,
     #[serde(default)]
     timing: DeliveryTiming,
@@ -373,7 +375,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":b.title,"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":format!("ARC task {kind}."),"interaction":d.interaction,"dispatches":d.dispatches,"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn literal(value: &Value) -> String {
     value
@@ -568,6 +570,7 @@ fn message(b: &Binding) -> String {
         let mut lines = vec![format!("[ARC] {} · {} · {}", string(&event,"kind"), b.project, b.title),
             format!("{}={} turn={} event={}", if agent {"task"} else {"thread"}, b.thread_id, b.turn_id, d.event_id)];
         if agent { lines.push(format!("agent={}",b.agent)); }
+        if !d.dispatches.is_null() { lines.push(format!("dispatches: {}",d.dispatches)); }
         match string(&event,"kind") {
             "completed" => {
                 let text = d.final_response.as_str().or_else(|| d.final_response["text"].as_str());
@@ -931,6 +934,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
                 Value::Null
             },
             changes: observation["changes"].clone(),
+            dispatches: observation["dispatches"].clone(),
             task_error: if matches!(string(observation, "state"), "failed" | "cancelled") {
                 observation["error"].clone()
             } else {
@@ -2996,6 +3000,7 @@ mod tests {
             status: "sending".into(),
             final_response: Value::Null,
             changes: Value::Null,
+            dispatches: Value::Null,
             task_error: Value::Null,
         });
         persist(&dir.0, &b).unwrap();
@@ -3038,6 +3043,22 @@ pub(crate) fn push_available(notification: &Value) -> bool {
 // Both explicit reads and the background observer can publish the first terminal
 // event. Collect its snapshot on either path, before process freezes the delivery.
 async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observed: &mut Value) {
+    if !b.terminal
+        && matches!(
+            string(observed, "state"),
+            "completed" | "failed" | "cancelled"
+        )
+        && (b.agent.is_empty() || b.agent == "codex")
+    {
+        observed["dispatches"] = crate::dispatch_policy::complete(
+            control,
+            &b.thread_id,
+            &b.turn_id,
+            string(observed, "state"),
+        )
+        .await
+        .unwrap_or_else(|error| json!({"unavailable":error}));
+    }
     if !b.terminal
         && observed["state"] == "completed"
         && (b.agent.is_empty() || b.agent == "codex")

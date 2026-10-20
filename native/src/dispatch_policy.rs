@@ -1,0 +1,244 @@
+//! User-owned dispatch choices; native capability and quota facts stay upstream.
+use crate::*;
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Policy {
+    model: String,
+    effort: String,
+    #[serde(default)]
+    allow_models: Vec<String>,
+    #[serde(default)]
+    deny_models: Vec<String>,
+    #[serde(default)]
+    allow_efforts: Vec<String>,
+    #[serde(default)]
+    deny_efforts: Vec<String>,
+    criteria: String,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Policies {
+    codex: Policy,
+}
+fn read() -> Result<Policies> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = LOCK.lock().map_err(|e| e.to_string())?;
+    let path = root().join("dispatch-policy.json");
+    if !path.exists() {
+        save(
+            &path,
+            &json!({"codex":{
+                "model":"gpt-6-astra","effort":"medium",
+                "allowModels":[],"denyModels":[],"allowEfforts":[],"denyEfforts":[],
+                "criteria":"机械性改动、发布用 medium；根因不明的调试、跨模块重构、架构设计用 high；验收不过或同一问题失败一次后，在同一线程升到 xhigh 续轮。"
+            }}),
+        )?;
+    }
+    let policies: Policies = serde_json::from_value(load(&path)?)
+        .map_err(|e| format!("INVALID_DISPATCH_POLICY: dispatch-policy.json: {e}"))?;
+    if policies.codex.model.trim().is_empty() || policies.codex.effort.trim().is_empty() {
+        return Err("INVALID_DISPATCH_POLICY: model and effort must be nonempty".into());
+    }
+    Ok(policies)
+}
+fn check(value: &str, allow: &[String], deny: &[String], field: &str) -> Result<()> {
+    if deny.iter().any(|v| v == value) || (!allow.is_empty() && !allow.iter().any(|v| v == value)) {
+        return Err(format!("DISPATCH_POLICY_DENIED: {field}={value}; read query dispatch_policy for allowed choices"));
+    }
+    Ok(())
+}
+pub(crate) fn resolve(args: &mut Value) -> Result<Value> {
+    let policy = read()?.codex;
+    let mut selection = json!({"reason":args["reason"],"source":{}});
+    for (field, mode_field, default, allow, deny) in [
+        (
+            "model",
+            "model",
+            &policy.model,
+            &policy.allow_models,
+            &policy.deny_models,
+        ),
+        (
+            "effort",
+            "reasoning_effort",
+            &policy.effort,
+            &policy.allow_efforts,
+            &policy.deny_efforts,
+        ),
+    ] {
+        // Collaboration settings take precedence in the native turn protocol.
+        let explicit = args["turn"]["collaborationMode"]["settings"][mode_field]
+            .as_str()
+            .or_else(|| args["turn"][field].as_str())
+            .or_else(|| args[field].as_str())
+            .or_else(|| {
+                if field == "model" {
+                    args["thread"]["model"].as_str()
+                } else {
+                    None
+                }
+            });
+        let value = explicit.unwrap_or(default).to_owned();
+        selection["source"][field] = json!(if explicit.is_some() {
+            "explicit"
+        } else {
+            "policy-default"
+        });
+        check(&value, allow, deny, field)?;
+        selection[field] = json!(value);
+        args[field] = json!(value);
+        if args["turn"].is_object() {
+            args["turn"][field] = json!(value);
+            if args["turn"]["collaborationMode"].is_object() {
+                args["turn"]["collaborationMode"]["settings"][mode_field] = json!(value);
+            }
+        }
+        if field == "model" && args["thread"].is_object() {
+            args["thread"]["model"] = json!(value);
+        }
+    }
+    Ok(selection)
+}
+async fn models(c: &control::Control) -> Result<Value> {
+    let mut rows = Vec::new();
+    let mut cursor = Value::Null;
+    loop {
+        let page = c
+            .request("model/list", json!({"cursor":cursor}), 15000)
+            .await?;
+        for model in page["data"].as_array().ok_or("NATIVE_MODELS_MISSING")? {
+            rows.push(json!({
+                "model":model["model"],
+                "efforts":model["supportedReasoningEfforts"].as_array().into_iter().flatten()
+                    .map(|e| e["reasoningEffort"].clone()).collect::<Vec<_>>()
+            }));
+        }
+        cursor = page["nextCursor"].clone();
+        if cursor.is_null() {
+            break;
+        }
+    }
+    Ok(json!(rows))
+}
+pub(crate) async fn query(c: &control::Control) -> Result<Value> {
+    let policy = read()?;
+    let (models, quota) = tokio::join!(
+        models(c),
+        c.request("account/rateLimits/read", json!({}), 15000)
+    );
+    let quota = quota.map(|v| {
+        let pools = if let Some(map) = v["rateLimitsByLimitId"].as_object() {
+            map.iter().map(|(id, pool)| (id.clone(), pool.clone())).collect::<Vec<_>>()
+        } else if v["rateLimits"].is_object() {
+            vec![(v["rateLimits"]["limitId"].as_str().unwrap_or("codex").into(), v["rateLimits"].clone())]
+        } else { vec![] };
+        json!({"ordinaryUsageAllowed":v["ordinaryUsageAllowed"],"pools":pools.iter().map(|(id,p)| {
+            let mut pool = json!({"id":id});
+            for key in ["rateLimitReachedType","spendControlReached"] {
+                if !p[key].is_null() { pool[key]=p[key].clone(); }
+            }
+            for key in ["primary","secondary"] {
+                if p[key].is_object() {
+                    pool[key]=json!({"usedPercent":p[key]["usedPercent"],"windowDurationMins":p[key]["windowDurationMins"],"resetsAt":p[key]["resetsAt"]});
+                }
+            }
+            pool
+        }).collect::<Vec<_>>()})
+    });
+    Ok(json!({
+        "observedAt":now(),
+        "models":models.unwrap_or_else(|error| json!({"unavailable":error})),
+        "policy":policy,
+        "quota":quota.unwrap_or_else(|error| json!({"unavailable":error}))
+    }))
+}
+
+fn directory(thread: &str) -> Result<PathBuf> {
+    uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
+    Ok(root().join("dispatches").join(thread))
+}
+pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
+    let dir = directory(thread)?;
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut rows = std::fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .filter(|e| {
+            e.as_ref()
+                .map_or(true, |e| e.path().extension().is_some_and(|v| v == "json"))
+        })
+        .map(|e| e.map_err(|e| e.to_string()).and_then(|e| load(&e.path())))
+        .collect::<Result<Vec<_>>>()?;
+    rows.sort_by_key(|r| string(r, "submittedAt").to_owned());
+    Ok(rows)
+}
+pub(crate) fn record(receipt: &Value) -> Result<()> {
+    let mut row = receipt["task"]["dispatch"].clone();
+    for key in ["requestId", "threadId", "turnId", "dispatchMode"] {
+        row[key] = receipt[key].clone();
+    }
+    row["configurationEvidence"] = json!(if row["dispatchMode"] == "steered" {
+        "active-turn-settings"
+    } else {
+        "submitted-to-native"
+    });
+    let write = || -> Result<()> {
+        let dir = directory(string(receipt, "threadId"))?;
+        uuid::Uuid::parse_str(string(receipt, "requestId")).map_err(|_| "INVALID_REQUEST_ID")?;
+        save(
+            &dir.join(format!("{}.json", string(receipt, "requestId"))),
+            &row,
+        )
+    };
+    write().map_err(|e| format!("SUBMISSION_UNCONFIRMED: dispatch accepted; record failed: {e}"))
+}
+pub(crate) async fn complete(
+    c: &control::Control,
+    thread: &str,
+    turn: &str,
+    state: &str,
+) -> Result<Value> {
+    let mut rows = records(thread)?
+        .into_iter()
+        .filter(|r| r["turnId"] == turn)
+        .collect::<Vec<_>>();
+    if rows.is_empty() {
+        return Ok(Value::Null);
+    }
+    let configuration = match c
+        .request(
+            "thread/read",
+            json!({"threadId":thread,"includeTurns":false}),
+            5000,
+        )
+        .await
+    {
+        Ok(t) => control::turn_configurations(&t["thread"]).remove(turn),
+        Err(_) => None,
+    };
+    for row in &mut rows {
+        if row["terminal"].is_null() {
+            let end = chrono::Utc::now();
+            let elapsed = chrono::DateTime::parse_from_rfc3339(string(row, "submittedAt"))
+                .ok()
+                .map(|start| {
+                    (end - start.with_timezone(&chrono::Utc))
+                        .num_milliseconds()
+                        .max(0)
+                });
+            row["terminal"] =
+                json!({"state":state,"observedAt":end.to_rfc3339(),"observedDurationMs":elapsed});
+        }
+        if let Some(config) = &configuration {
+            row["effectiveConfiguration"] = json!({"model":config["model"],"effort":config["effort"],"source":config["source"]});
+        }
+        save(
+            &directory(thread)?.join(format!("{}.json", string(row, "requestId"))),
+            row,
+        )?;
+    }
+    Ok(json!(rows))
+}

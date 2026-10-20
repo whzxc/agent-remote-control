@@ -482,6 +482,17 @@ impl Control {
         if let Some(receipt) = RECEIPTS.replay(&request, &digest, &self.session)? {
             return Ok(receipt);
         }
+        let dispatch = if matches!(operation, "create" | "send") {
+            if args["sendMode"] == "queue" {
+                // Validate now, but choose omitted values when the queue actually dispatches.
+                crate::dispatch_policy::resolve(&mut args.clone())?;
+                Value::Null
+            } else {
+                crate::dispatch_policy::resolve(&mut args)?
+            }
+        } else {
+            Value::Null
+        };
         let mut receipt = json!({"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":"reserved","createdAt":now(),"updatedAt":now()});
         if operation == "create" || (operation == "native" && args["method"] == "thread/start") {
             receipt["executionOwner"] = json!(if self.auto_open_codex()? {
@@ -498,6 +509,9 @@ impl Control {
                 _ => "automatic",
             };
             receipt["task"] = task;
+            if !dispatch.is_null() {
+                receipt["task"]["dispatch"] = dispatch;
+            }
             receipt["task"]["origin"] = receipt["origin"].clone();
             receipt["arguments"] = args.clone();
             receipt["approval"] = json!({"decision":decision,"source":"cloud","at":now()});
@@ -958,6 +972,7 @@ impl Control {
             let background = self.background(thread)?;
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["state"] = json!("turn-submitting");
+            r["task"]["dispatch"]["submittedAt"] = json!(now());
             self.checkpoint(r)?;
             retry_args["_retryModel"] = turn
                 .get("model")
@@ -971,6 +986,7 @@ impl Control {
                 let _ = self.follow(thread).await;
             }
             r["turnId"] = out["turn"]["id"].clone();
+            crate::dispatch_policy::record(r)?;
             let notification_binding = crate::claude_notify::bind(
                 &retry_args,
                 thread,
@@ -1059,6 +1075,29 @@ impl Control {
                 .unwrap_or(Value::Null);
             retry_args["_retryTurn"] = retry_turn(&params);
             if let Some(active) = active {
+                let model = active
+                    .get("model")
+                    .or_else(|| state["latestThreadSettings"].get("model"))
+                    .or_else(|| state.get("latestModel"))
+                    .or_else(|| state.get("model"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let effort = active
+                    .get("effort")
+                    .or_else(|| state["latestThreadSettings"].get("effort"))
+                    .or_else(|| state.get("latestReasoningEffort"))
+                    .or_else(|| state.get("reasoningEffort"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                for (field, value) in [("model", model), ("effort", effort)] {
+                    if r["task"]["dispatch"]["source"][field] == "explicit"
+                        && params[field] != value
+                    {
+                        return Err("ACTIVE_TURN_CONFIGURATION: cannot change model/effort with steer; wait for completion or use sendMode:queue".into());
+                    }
+                    r["task"]["dispatch"][field] = value;
+                    r["task"]["dispatch"]["source"][field] = json!("active-turn");
+                }
                 r["dispatchMode"] = json!("steered");
                 method = "turn/steer".into();
                 params["expectedTurnId"] = active.get("turnId").unwrap_or(&active["id"]).clone();
@@ -1079,6 +1118,9 @@ impl Control {
         }
         r["threadId"] = params["threadId"].clone();
         r["state"] = json!("submitting");
+        if operation == "send" {
+            r["task"]["dispatch"]["submittedAt"] = json!(now());
+        }
         self.checkpoint(r)?;
         let result = if method == "thread/start" && r["executionOwner"] == "connector" {
             self.create_background(params, "", Some(r)).await?
@@ -1109,6 +1151,7 @@ impl Control {
                 .or_else(|| result["turnId"].as_str())
                 .unwrap_or("");
             r["turnId"] = json!(turn);
+            crate::dispatch_policy::record(r)?;
             let notification_binding = crate::claude_notify::bind(
                 &retry_args,
                 string(r, "threadId"),
@@ -1164,6 +1207,7 @@ impl Control {
             return self.mutate("native",json!({"method":method,"params":params,"requestId":args["requestId"],"timeoutMs":args["timeoutMs"].as_u64().unwrap_or(86400000),"waitMs":num(&args,"waitMs",25000)})).await;
         }
         match name {
+            "dispatch_policy" => crate::dispatch_policy::query(self).await,
             "screen" => crate::screen::call(args).await,
             "projects" => Ok(
                 json!({"observedAt":now(),"source":"codex-app-server:project/list","projects":crate::projects::list(self).await?}),
@@ -1573,7 +1617,7 @@ pub(crate) fn item(v: &Value, offset: usize, len: usize) -> Value {
     json!({"itemId":v["id"],"type":v["type"],"text":String::from_utf16_lossy(&units[offset.min(units.len())..end.min(units.len())]),"textHash":hash(&text),"offset":offset,"textLength":units.len(),"nextOffset":if end<units.len(){Some(end)}else{None},"textTruncated":end<units.len()})
 }
 
-fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
+pub(crate) fn turn_configurations(thread: &Value) -> HashMap<String, Value> {
     let mut result = HashMap::new();
     let read = || -> Result<String> {
         use std::io::Read;

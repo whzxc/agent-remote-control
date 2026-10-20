@@ -58,6 +58,9 @@ pub fn receipt(value: Value) -> Value {
         }
     }
     let result = &value["result"];
+    if value["task"]["dispatch"].is_object() {
+        out["dispatch"] = value["task"]["dispatch"].clone();
+    }
     for key in ["threadId", "turnId", "taskId"] {
         if out[key].is_null() && !result[key].is_null() {
             out[key] = result[key].clone();
