@@ -4,26 +4,11 @@
 
 [English](README.md) | **简体中文**
 
-[![ARC Loop：Claude 派发，Codex 执行，ARC 唤醒 Claude 审查](docs/media/arc-loop.gif)](docs/media/arc-promo.mp4)
+https://github.com/user-attachments/assets/bc58f15f-4d6e-4a0c-a78f-a7661e1ccf33
 
-▶ [观看 30 秒介绍视频（有声）](docs/media/arc-promo.mp4)
+*30 秒介绍视频 · 支持声音播放。*
 
-全新 Mac 上，把这句话交给本机 Agent，即可从安装开始配置 ARC：
-
-> 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
-
-已经安装？在 App 中点击**添加控制源 → 发送给 Codex**。[其他安装方式](docs/zh-CN/installation.md)。
-
-![ARC 首页：Claude、ChatGPT 与本机 Agents](docs/images/home-overview.png)
-
-```text
-控制源                        你的电脑                        Agents
-Claude -- HTTPS + OAuth --+                               +-- Codex
-                          +-- ARC -- live project facts --+
-ChatGPT - Secure Tunnel --+                               +-- Pi / ACP
-
-Codex 轮次结束 -> ARC -> 绑定的 Claude Code 云端会话
-```
+[下载 ARC](https://github.com/whzxc/agent-remote-control/releases) · [快速上手](docs/zh-CN/getting-started.md) · [文档](#文档)
 
 ## Claude + Codex：协作闭环（Loop）
 
@@ -35,7 +20,22 @@ Claude 使用 HTTPS + OAuth 接入。自动回访还需要发起方的 Claude Co
 
 GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两者接起来：Chat 负责深度推理，Codex 负责执行。使用已开放该选项的 ChatGPT Pro、Business 或 Enterprise 账号，默认通过 OpenAI Secure Tunnel 连接。[接入 ChatGPT](docs/zh-CN/guides/chatgpt.md)。
 
-## 三步开始
+<details>
+<summary>查看 ARC 应用界面</summary>
+
+![ARC 首页：Claude、ChatGPT 与本机 Agents](docs/images/home-overview.png)
+
+</details>
+
+## 开始使用
+
+全新 Mac 上，把这句话交给本机 Agent，即可从安装开始配置 ARC：
+
+> 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
+
+已经安装？在 App 中点击**添加控制源 → 发送给 Codex**。[其他安装方式](docs/zh-CN/installation.md)。
+
+### 手动配置：三步开始
 
 1. **安装。** 从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 下载最新的 macOS 应用，移入 Applications，并登录 Codex。[安装说明](docs/zh-CN/installation.md)。
 2. **接入 Claude。** 在 ARC 选择添加控制源 → 手动配置 → Claude，再选择 HTTPS + OAuth，把 MCP URL 添加为 Claude 自定义连接器，再到 ARC 同意授权。

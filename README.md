@@ -4,26 +4,11 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-[![The ARC Loop: Claude dispatches, Codex executes, ARC wakes Claude to review](docs/media/arc-loop.gif)](docs/media/arc-promo.mp4)
+https://github.com/user-attachments/assets/bc58f15f-4d6e-4a0c-a78f-a7661e1ccf33
 
-▶ [Watch the 30-second intro with sound](docs/media/arc-promo.mp4)
+*30-second intro · sound on.*
 
-On a fresh Mac, give your local Agent this instruction to install and set up ARC:
-
-> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
-
-Already installed? Click **Add control source → Send to Codex** in the App. [Installation options](docs/installation.md).
-
-![ARC home: Claude and ChatGPT connected to local Agents](docs/images/home-overview.png)
-
-```text
-Control sources              Your computer                   Agents
-Claude -- HTTPS + OAuth --+                               +-- Codex
-                          +-- ARC -- live project facts --+
-ChatGPT - Secure Tunnel --+                               +-- Pi / ACP
-
-Codex turn ends -> ARC -> bound Claude Code cloud session
-```
+[Download ARC](https://github.com/whzxc/agent-remote-control/releases) · [Getting started](docs/getting-started.md) · [Documentation](#documentation)
 
 ## Claude + Codex: the Loop
 
@@ -35,7 +20,22 @@ Connect Claude through HTTPS + OAuth. Automatic follow-ups additionally need the
 
 GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connects them: Chat handles deep reasoning, and Codex executes. Use a ChatGPT Pro, Business, or Enterprise account with that option enabled. OpenAI Secure Tunnel is the default connection. [Connect ChatGPT](docs/guides/chatgpt.md).
 
-## Start in three steps
+<details>
+<summary>Explore the ARC app</summary>
+
+![ARC home: Claude and ChatGPT connected to local Agents](docs/images/home-overview.png)
+
+</details>
+
+## Get started
+
+On a fresh Mac, give your local Agent this instruction to install and set up ARC:
+
+> Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
+
+Already installed? Click **Add control source → Send to Codex** in the App. [Installation options](docs/installation.md).
+
+### Manual setup in three steps
 
 1. **Install.** Download the newest macOS app from [Releases](https://github.com/whzxc/agent-remote-control/releases), move it to Applications, and sign in to Codex. [Installation](docs/installation.md).
 2. **Connect Claude.** In ARC, choose Add control source → Manual setup → Claude, then HTTPS + OAuth, then add the MCP URL as a custom connector in Claude. Approve the request in ARC.

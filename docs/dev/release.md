@@ -2,7 +2,7 @@
 
 [开发](development.md) · [安装](../zh-CN/installation.md)
 
-公开源码与产物位于 whzxc/agent-remote-control。Git tag 定义正式版本，GitHub Releases 保存安装包、更新包、latest.json、Homebrew Cask 和校验和。不发布公共 npm 包。推送、打发布标签、上传与公开 Release 前必须取得用户授权。
+公开源码与产物位于 whzxc/agent-remote-control。Git tag 定义正式版本，GitHub Releases 保存安装包、更新包、latest.json、Homebrew Cask 和校验和。不发布公共 npm 包。提交和推送按任务需要自行评估，任务需要推送才能完成时直接执行；用户明确限制时遵从该限制。打发布标签、上传与公开 Release 前必须取得用户授权。
 
 ## 构建与签名准备
 
