@@ -205,7 +205,7 @@ test('MCP lists frozen tools and guide exposes existing ops and native domains w
   }
   assert.ok(operations.find(tool => tool.name === 'codex_items')!.inputSchema.properties?.latest);
   const agents = (await management('agents')).agents;
-  assert.deepEqual(agents.map((agent: { agent: string }) => agent.agent).sort(), ['claude', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'devin', 'droid', 'gemini', 'goose', 'grok', 'hermes', 'junie', 'kimi', 'kiro', 'omp', 'opencode', 'pi', 'qwen']);
+  assert.deepEqual(agents.map((agent: { agent: string }) => agent.agent).sort(), ['claude', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'devin', 'droid', 'dsh', 'gemini', 'goose', 'grok', 'hermes', 'junie', 'kimi', 'kiro', 'omp', 'opencode', 'pi', 'qwen']);
   for (const agent of agents.filter((agent: { protocol: string }) => agent.protocol === 'acp-v1')) {
     assert.equal(agent.descriptor.protocol, 'acp-v1');
     assert.ok(['native', 'adapter'].includes(agent.integration));

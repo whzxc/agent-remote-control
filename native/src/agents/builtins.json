@@ -582,5 +582,46 @@
         "https://github.com/dankalish/oh-my-pi"
       ]
     }
+  },
+  {
+    "id": "dsh",
+    "displayName": "DeepSeek Harness",
+    "command": "dsh",
+    "args": [
+      "--profile",
+      "acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [
+      "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin",
+      "~/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin"
+    ],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "--profile",
+        "acp",
+        "--help"
+      ],
+      "helpContains": [
+        "Agent Client Protocol",
+        "stdio"
+      ],
+      "versionRequirement": "Requires the official ACP profile; startup is checked against the installed executable.",
+      "runtime": "DeepSeek Harness CLI or the CLI bundled with DeepSeek Harness Desktop.",
+      "authentication": "Existing DeepSeek Harness login and ACP profile configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Runs an ARC-owned ACP process using the acp profile; it does not control the Desktop window or import its active conversations.",
+        "Desktop-specific provider overrides are not copied to the ACP profile. Configure the native ACP profile if it uses a different model route.",
+        "Continuing after process shutdown requires negotiated session/load support; releases advertising only session/resume cannot resume through ARC."
+      ],
+      "sources": [
+        "https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/acp/acp"
+      ]
+    }
   }
 ]

@@ -29,10 +29,15 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | goose | `goose acp` | ACP v1 |
 | codebuddy | `codebuddy --acp` | ACP v1 |
 | omp | `omp acp` | ACP v1 |
+| dsh | `dsh --profile acp` | ACP v1; CLI or Desktop-bundled CLI |
 
 The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; the Gemini entry does not execute Antigravity.
 
 installed means an executable was found. available includes version and launch-condition checks. ready means an initialized ARC session exists. Read discoveryError for failures, and agent_capabilities with taskId for the actual negotiated initialize/session responses.
+
+## DeepSeek Harness
+
+ARC discovers `dsh` on the normal executable search paths and the bundled CLI inside standard macOS DeepSeek Harness Desktop installations. The installed release must expose the official ACP profile. Each task runs its own ACP process with native login and profile configuration. Desktop-specific model/provider overrides are not copied to the `acp` profile; configure that profile through DeepSeek Harness when needed. ARC does not control the Desktop window or import its active conversations. Continuing after process shutdown requires `loadSession`; releases advertising only `session/resume` cannot resume through ARC. The transport ignores DSH model-catalog diagnostic lines prefixed with `[llm-deepseek-account] ` because affected releases write them to ACP stdout.
 
 ## Claude adapter
 

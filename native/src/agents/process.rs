@@ -74,6 +74,7 @@ impl Process {
         });
         process.events.lock().await.wake = wake;
         let weak = Arc::downgrade(&process);
+        let dsh = process.state.lock().await["agent"] == "dsh";
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
             loop {
@@ -82,6 +83,11 @@ impl Process {
                     _ => break,
                 };
                 let Some(p) = weak.upgrade() else { break };
+                // DSH Desktop 0.2.1-rc.2 writes model-catalog diagnostics to ACP stdout.
+                // Remove this narrow workaround once upstream keeps them on stderr.
+                if dsh && frame.starts_with(b"[llm-deepseek-account] ") {
+                    continue;
+                }
                 let msg: Value = match serde_json::from_slice(&frame) {
                     Ok(v) => v,
                     Err(_) => break,
