@@ -228,7 +228,7 @@ Manage only the selected instance. An app restart/quit can stop the CLI's own ho
 
 ## Permissions and readiness
 
-`cli doctor` includes `permissions.items` with stable IDs, state, owning process and observation time. The existing `overview` tool includes the same report. Detection never requests consent. Use ARC Settings → Permissions & readiness locally to request access and open System Settings. FDA is heuristic (granted / missing / unknown); Codex command execution is probed separately from Core. No additional MCP tool is required.
+`cli doctor` includes `permissions.items` with stable IDs, state, owning process and observation time. The existing `overview` tool includes the same report. Detection never requests consent. Use ARC Permissions & readiness locally to request access and open System Settings. FDA is heuristic (granted / missing / unknown); Codex command execution is probed separately from Core. No additional MCP tool is required.
 
 For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.
 

@@ -92,7 +92,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 - 地址选择及 ChatGPT 凭据步骤先复用或创建未启动的 ingress，供后续 secret 表单编辑；`create-ingress` 负责启动及 probe。固定地址先选择 Cloudflare 登录配置或其他 provider；后者沿用现有表单。
 - readiness 步骤的跳过也作为选择保存。跳过 Claude Code 后，loop-test 只检查任务完成和 `ARC_ONBOARDING_OK` 回复，并返回通知不可用 finding。
 - `verification.firstOAuthRequestAt` 记录此入口成功接受的 DCR/authorize 请求；`firstMcpRequestAt` 记录认证后到达 MCP 分发层的请求；`lastProbe` 记录 probe 的时间、URL 和是否通过。它们随现有 verification 绑定重置，不形成事件历史。
-- deep link 契约：`agent-remote-control://ingress?id=<ingressId>&field=<credentialField>` 打开指定连接的编辑弹窗；并聚焦指定字段。权限入口为 `agent-remote-control://settings?section=permissions`。
+- deep link 契约：`agent-remote-control://ingress?id=<ingressId>&field=<credentialField>` 打开指定连接的编辑弹窗；并聚焦指定字段。权限入口为 `agent-remote-control://permissions`。
 - `setup wait` 超时不是错误，返回当前 step 原样，Agent 继续 wait。
 - `apply` 幂等：同一 step 重复 apply 不重复创建 ingress（已存在则复用）。
 
@@ -104,7 +104,7 @@ arc cli skill install --target codex|claude-code         # 安装 arc-setup skil
 | --- | --- | --- |
 | `codex-ready` | auto / authorize | `codex.login.status` 已登录；未登录时变为 authorize，`apply` = `codex.login.open` |
 | `claude-code-ready` | auto / authorize | 缺失时返回官方 installCommand，Agent 安装后 apply；已安装未登录时 ARC 打开终端运行登录。空输入不报错；沿用 doctor 登录检测，允许跳过但通知不可用 |
-| `permissions` | authorize | doctor `permissions.items` 中 full-disk-access 和适用时的 command-full-disk-access 为 granted；辅助功能、屏幕录制、通知可选；`openUrl` 指向 ARC Settings → Permissions & readiness；允许跳过 |
+| `permissions` | authorize | doctor `permissions.items` 中 full-disk-access 和适用时的 command-full-disk-access 为 granted；辅助功能、屏幕录制、通知可选；`openUrl` 指向 ARC Permissions & readiness；允许跳过 |
 | `choose-address` | decide | 选择已保存 |
 | `choose-provider` | decide | fixed 时出现；Cloudflare（推荐，需要托管域名）或其他 provider |
 | `cloudflare-login` | authorize | Cloudflare 路径；ARC 状态目录下 origin cert 就绪 |

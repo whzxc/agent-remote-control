@@ -182,7 +182,7 @@ fn derive(state: &Value, data: &Value, locale: &str) -> Value {
             locale,
             "permissions",
             "authorize",
-            Some("agent-remote-control://settings?section=permissions".into()),
+            Some("agent-remote-control://permissions".into()),
             &[("skip", false)],
         ),
     ));

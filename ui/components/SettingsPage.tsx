@@ -1,6 +1,5 @@
-import PermissionsPage from "./PermissionsPage";
 import { notificationsPreference } from "../state/store";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Monitor, Sun, Moon } from "lucide-react";
 import { t, language, languageOptions, setLanguage } from "../i18n";
 import { theme, themeColor, themeColors, type Theme } from "../theme";
@@ -11,9 +10,8 @@ import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
 import { AppUpdate } from "./AppUpdate";
-export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { permissionsOpen: boolean; setPermissionsOpen: (open: boolean) => void }) {
+export default function SettingsPage() {
   const { status, busy } = connector.use();
-  const permissionsTrigger = useRef<HTMLButtonElement>(null);
   const currentTheme = theme.use(),
     color = themeColor.use(),
     currentLanguage = language.use();
@@ -87,18 +85,8 @@ export default function SettingsPage({ permissionsOpen, setPermissionsOpen }: { 
       await refreshConnector();
     });
   }
-  if (permissionsOpen) return <PermissionsPage onBack={() => {
-    setPermissionsOpen(false);
-    requestAnimationFrame(() => permissionsTrigger.current?.focus());
-  }} />;
   return (
     <div className="settings-page">
-      <section className="settings-group">
-        <div className="settings-group-heading">
-          <h2>{t("permissionsTitle")}</h2>
-          <Button ref={permissionsTrigger} onClick={() => setPermissionsOpen(true)}>{t("permissionsOpen")}</Button>
-        </div>
-      </section>
       <Group title={t("behavior")}>
         <Row title={t("controlSourceNotifications")} description={t("controlSourceNotificationsDescription")}>
           <Switch label={t("controlSourceNotifications")} checked={status?.notificationsEnabled !== false}

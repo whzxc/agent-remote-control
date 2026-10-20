@@ -345,7 +345,7 @@ do {
     let message = (error as? Failure)?.message ?? error.localizedDescription
     let error: Any = message.hasPrefix("PERMISSION_REQUIRED:") ?
         ["code": "PERMISSION_REQUIRED", "permissionId": String(message.dropFirst("PERMISSION_REQUIRED:".count)),
-         "message": "Open ARC Settings → Permissions & readiness to grant access. / 打开 ARC 设置 → 权限与就绪完成授权。"] : message
+         "message": "Open ARC Permissions & readiness to grant access. / 打开 ARC 权限与就绪完成授权。"] : message
     let response = try! JSONSerialization.data(withJSONObject: ["ok": false, "error": error], options: [.sortedKeys])
     FileHandle.standardOutput.write(response)
 }

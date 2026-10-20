@@ -565,7 +565,7 @@
   left: var(--dock-left);
   bottom: var(--dock-bottom);
   width: 50px;
-  height: 130px;
+  height: 170px;
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 26px;
   background: var(--surface);
@@ -579,7 +579,7 @@
 
 .navigation-capsule {
   width: 50px;
-  height: 130px;
+  height: 170px;
   display: block;
 }
 .capsule-icons {
@@ -594,9 +594,12 @@
   transition: opacity 160ms ease;
 }
 .capsule-icons [data-page="tasks"] {
-  bottom: 86px;
+  bottom: 126px;
 }
 .capsule-icons [data-page="logs"] {
+  bottom: 86px;
+}
+.capsule-icons [data-page="permissions"] {
   bottom: 46px;
 }
 .capsule-icons [data-page="settings"] {
@@ -619,10 +622,10 @@
 
 .navigation-surface.has-update,
 .navigation-capsule.has-update {
-  height: 170px;
+  height: 210px;
 }
 .capsule-icons .update-shortcut {
-  bottom: 126px;
+  bottom: 166px;
   width: 36px;
   height: 36px;
 }
@@ -1092,9 +1095,6 @@
 
 
 .permissions-page { container-type: inline-size; }
-.permissions-header, .permissions-header > div { display: flex; align-items: center; gap: var(--space-2); }
-.permissions-header { justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-6); }
-.permissions-header h2 { margin: 0; font-size: var(--text-lg); }
 .permission-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; }
 .permission-row + .permission-row { border-top: 1px solid var(--border); }
 .permission-symbol { display: flex; color: var(--text-secondary); }
@@ -1110,15 +1110,10 @@
 @container (max-width: 560px) {
   .permission-row { grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
   .permission-actions { grid-column: 2; justify-content: space-between; }
-  .permissions-header { align-items: flex-start; }
-  .permissions-header h2 { line-height: 1.4; }
-  .permissions-header > .button { flex-shrink: 0; }
 }
 .permissions-page .settings-group { gap: 0; }
 .permissions-page .settings-group > h2 { padding: 0; font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); margin: 0 0 var(--space-1); }
 .permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }
-
-.navigation-capsule .permission-indicator { background: var(--warning); }
 
 .elastic-panel .dialog-body:has(> .usage-overview) {
   padding: 12px;

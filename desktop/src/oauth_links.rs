@@ -34,11 +34,7 @@ fn open(app: &tauri::AppHandle, url: &tauri::Url) {
             }
             return;
         }
-        Some("settings")
-            if params
-                .iter()
-                .any(|(k, v)| k == "section" && v == "permissions") =>
-        {
+        Some("permissions") => {
             let _ = crate::windows::show(app, Some(("permissions:open".into(), json!(null))));
             return;
         }

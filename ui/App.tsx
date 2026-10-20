@@ -12,6 +12,9 @@ import {
   Download,
   Maximize2,
   Minimize2,
+  ShieldAlert,
+  ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -43,41 +46,27 @@ import SettingsPage from "./components/SettingsPage";
 import { AppUpdateDialogs } from "./components/AppUpdate";
 import { Icon, IconButton, Notice, HoverScope } from "./components/ui";
 import { api } from "./api";
-import type { Readiness } from "./components/PermissionsPage";
+import PermissionsPage from "./components/PermissionsPage";
+import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 export default function App() {
   locale.use();
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
   const { feedback, status } = connector.use(),
     taskState = tasks.use();
   updates.use();
-  const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [permissionMissing, setPermissionMissing] = useState(false);
+  const permissionState = permissions.use();
+  const ready = !!status && permissionsReady(status.ingresses);
   useEffect(() => {
-    let active = true;
-    const refresh = () => void api<Readiness>("permissions").then(data => {
-      const enabled = status?.ingresses?.filter(i => i.enabled) ?? [];
-      const permits = (tool: string) => enabled.some(i => i.toolPolicy === "all" || (typeof i.toolPolicy === "object" ? i.toolPolicy.allowlist.includes(tool) : ["read", "tree", "search", "overview"].includes(tool)));
-      if (active) setPermissionMissing(data.items.some(i => i.state === "missing" && (
-        (["accessibility","screen-recording"].includes(i.id) && permits("screen")) ||
-        (i.id === "full-disk-access" && ["read","tree","search","edit","write"].some(permits)) ||
-        (i.id === "command-full-disk-access" && permits("command")) ||
-        (i.id === "notifications" && enabled.length > 0) ||
-        (["codex-desktop", "codex-login", "claude-code", "login-start"].includes(i.id))
-      )));
-    }).catch(() => {});
-    refresh();
-    window.addEventListener("focus", refresh);
-    return () => { active = false; window.removeEventListener("focus", refresh); };
-  }, [JSON.stringify(status?.ingresses?.map(i => [i.enabled, i.toolPolicy]))]);
+    void refreshPermissions().catch(() => {});
+  }, [JSON.stringify(status?.ingresses?.map(ingress => [ingress.enabled, ingress.toolPolicy]))]);
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "logs", "tasks"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "logs", "tasks", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
   });
-  useEffect(() => { if (page !== "settings") setPermissionsOpen(false); }, [page]);
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
-    lastPage = useRef<Page>("tasks"),
+    lastPage = useRef<Page>(page === "overview" ? "tasks" : page),
     sheetClosing = useRef(false),
     backdropDown = useRef(false);
   const layers = panelLayers.use();
@@ -128,6 +117,7 @@ export default function App() {
   useEffect(() => {
     const stops = [
       startConnector(),
+      startPermissions(),
       startSubscriptions(),
       startAgentActivity(),
       startAgents(),
@@ -147,14 +137,14 @@ export default function App() {
           navigation.set((old) => ({ ...old, ingressEdit: e.payload }));
           navigate("overview");
         }),
-        listen("permissions:open", () => { navigate("settings"); setPermissionsOpen(true); }),
+        listen("permissions:open", () => navigate("permissions")),
         listen("codex:login", () => { void api("codex/login", "POST").catch((e: Error) => notify(e.message, true)); }),
         listen("updates:check", () => {
           showUpdate();
           void checkUpdate();
         }),
         listen<string>("navigate", (e) => {
-          if (["overview", "settings", "logs", "tasks"].includes(e.payload))
+          if (["overview", "settings", "logs", "tasks", "permissions"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -182,7 +172,8 @@ export default function App() {
         navigation.set(old => ({ ...old, ingressEdit: { id: url.searchParams.get("id") ?? "", field: url.searchParams.get("field") ?? "" } }));
         navigate("overview");
       } else if (url.hostname === "oauth") setOauthRequest({ id: url.searchParams.get("request") ?? "" });
-      else if (url.hostname === "settings") { navigate("settings"); setPermissionsOpen(true); }
+      else if (url.hostname === "permissions") navigate("permissions");
+      else if (url.hostname === "settings") navigate("settings");
       else if (url.hostname === "setup" && ["claude-login", "cloudflare-login"].includes(url.searchParams.get("target") ?? "")) {
         void api("setup/apply", "POST", {stepId: url.searchParams.get("target") === "claude-login" ? "claude-code-ready" : "cloudflare-login", input:{}}).catch((e: Error) => notify(e.message, true));
       }
@@ -199,6 +190,7 @@ export default function App() {
   const pages = [
     { id: "tasks" as const, label: t("tasks"), icon: LayoutDashboard },
     { id: "logs" as const, label: t("records"), icon: Logs },
+    { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     { id: "settings" as const, label: t("settings"), icon: Settings },
   ];
   return (
@@ -274,7 +266,7 @@ export default function App() {
           aria-label={pages.find((item) => item.id === page)?.label}
         >
           <div className="page-sheet-content">
-            {!(page === "settings" && permissionsOpen) && <header className="sheet-header">
+            <header className="sheet-header">
               <h1 className="capsule-title" tabIndex={-1}>
                 {pages.find((item) => item.id === page)?.label}
                 {page === "logs" && (
@@ -283,6 +275,12 @@ export default function App() {
                   </span>
                 )}
               </h1>
+              {page === "permissions" && <IconButton
+                icon={RefreshCw}
+                label={t("permissionsRefresh")}
+                busy={permissionState.loading}
+                onClick={() => void refreshPermissions().catch(error => notify(String(error), true))}
+              />}
               <IconButton
                 className="panel-width-toggle"
                 icon={sheetWide ? Minimize2 : Maximize2}
@@ -296,7 +294,7 @@ export default function App() {
                 label={t("backToHome")}
                 onClick={() => void closeSheet()}
               />
-            </header>}
+            </header>
             <main
               className={`workspace ${page === "logs" ? "records-workspace" : ""}`}
             >
@@ -304,8 +302,10 @@ export default function App() {
                 <TasksPage />
               ) : page === "logs" ? (
                 <RecordsPage />
+              ) : page === "permissions" ? (
+                <PermissionsPage />
               ) : (
-                <SettingsPage permissionsOpen={permissionsOpen} setPermissionsOpen={setPermissionsOpen} />
+                <SettingsPage />
               )}
             </main>
 
@@ -342,7 +342,6 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
-              {item.id === "settings" && permissionMissing && <span className="task-count permission-indicator" aria-label={t("permissionsTitle")}>•</span>}
               {item.id === "tasks" && pending > 0 && (
                 <span className="task-count">{pending}</span>
               )}

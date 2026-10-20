@@ -44,7 +44,7 @@ Temporary tunnel URLs can change. Initial consent and task interactions may need
 
 ## Check permissions and readiness
 
-Before remote use, open ARC **Settings → Permissions & readiness** locally and choose **Check again**. Use **Grant access** where needed. Returning from System Settings refreshes the page.
+Before remote use, open ARC **Permissions & readiness** locally and choose **Check again**. Use **Grant access** where needed. Returning from System Settings refreshes the page.
 
 Accessibility enables screen tree / press / show / key / raise. Screen recording enables capture and windows titles; macOS may require reopening ARC. Use Full Disk Access for file tools: projects in Documents, Desktop, Downloads, external disks or network volumes can otherwise prompt or fail. Core uses a read-only heuristic with granted / missing / unknown results; unknown is not permission. command checks FDA through its executor only when cwd is in a protected location.
 
@@ -52,7 +52,7 @@ Notification permission is checked in ARC Desktop for closed-loop fallback deliv
 
 ### Why does an update ask for permissions again?
 
-macOS grants are tied to the app's code-signing identity. Official macOS builds use a fixed personal self-signed certificate and stable bundle identifiers to preserve that identity across updates. Switching from an older ad-hoc build to this certificate may require granting access once more. Replacing the certificate, even with the same name, can invalidate existing grants. Open **Settings → Permissions & readiness** after updating; do not repeatedly remove and re-add permissions when the signing identity has not been checked.
+macOS grants are tied to the app's code-signing identity. Official macOS builds use a fixed personal self-signed certificate and stable bundle identifiers to preserve that identity across updates. Switching from an older ad-hoc build to this certificate may require granting access once more. Replacing the certificate, even with the same name, can invalidate existing grants. Open **Permissions & readiness** after updating; do not repeatedly remove and re-add permissions when the signing identity has not been checked.
 
 ### Why does a remote tool return PERMISSION_REQUIRED?
 

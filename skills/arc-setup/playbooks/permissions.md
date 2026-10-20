@@ -5,7 +5,7 @@ are required. Accessibility and screen recording unlock screen tools; notificati
 provide notification fallback. These optional permissions do not block setup.
 
 - **Browser tools (Claude in Chrome / Codex browser / IAB):** Open `openUrl` in ARC
-  Settings → Permissions & readiness. Point out the required disk-access actions;
+  Permissions & readiness. Point out the required disk-access actions;
   open the corresponding system settings. Follow the protocol for safety-policy
   confirmations and password prompts. With no native-app control,
   guide the user using ARC's labels.

@@ -1,54 +1,32 @@
-import { useEffect, useRef, useState } from "react";
-import { Accessibility, ArrowLeft, Bell, Check, Circle, HardDrive, LogIn, Monitor, RefreshCw, Terminal, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Accessibility, Bell, Check, Circle, HardDrive, LogIn, Monitor, Terminal, type LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
-import { Button, Group, Icon, IconButton, Tooltip } from "./ui";
+import { Button, Group, Icon, Tooltip } from "./ui";
 import { connector, notify } from "../state/connector";
+import { permissions, refreshPermissions, type PermissionItem } from "../state/permissions";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import IngressDetailsDialog from "./IngressDetailsDialog";
 import IngressDialog from "./IngressDialog";
 
-type Item = { id: string; state: string; grantTarget?: string };
-export type Readiness = { items: Item[]; observedAt: string };
 const systemIds = ["accessibility", "screen-recording", "full-disk-access", "notifications", "login-start"];
 const icons: Record<string, LucideIcon> = { accessibility: Accessibility, "screen-recording": Monitor, "full-disk-access": HardDrive, notifications: Bell, "login-start": LogIn, codex: Monitor, "claude-code": Terminal };
-function combined(a?: Item, b?: Item): string {
+function combined(a?: PermissionItem, b?: PermissionItem): string {
   const states = [a?.state ?? "unknown", b?.state ?? "unknown"];
   return states.includes("missing") ? "missing" : states.includes("unknown") ? "unknown" : states.every(s => s === "not-applicable") ? "not-applicable" : "granted";
 }
-export default function PermissionsPage({ onBack }: { onBack: () => void }) {
-  const [data, setData] = useState<Readiness>();
-  const [busy, setBusy] = useState(false);
+export default function PermissionsPage() {
+  const { data, loading } = permissions.use();
+  const [acting, setActing] = useState(false);
+  const busy = loading || acting;
   const [details, setDetails] = useState<Ingress>();
   const [editing, setEditing] = useState<Ingress>();
   const { status } = connector.use();
   const currentLocale = locale.use();
-  const generation = useRef(0);
-  const back = useRef<HTMLButtonElement>(null);
-  const refresh = async () => {
-    const request = ++generation.current;
-    setBusy(true);
-    try {
-      const value = await api<Readiness>("permissions");
-      if (request === generation.current) setData(value);
-    } catch (error) {
-      if (request === generation.current) notify(String(error), true);
-    } finally { if (request === generation.current) setBusy(false); }
-  };
   useEffect(() => {
-    back.current?.focus();
-    void refresh();
-    const focus = () => { void refresh(); };
-    window.addEventListener("focus", focus);
-    let dispose: (() => void) | undefined;
-    let closed = false;
-    if (isDesktop) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
-      const off = await getCurrentWindow().onFocusChanged(({ payload }) => { if (payload) focus(); });
-      if (closed) off(); else dispose = off;
-    });
-    return () => { closed = true; ++generation.current; dispose?.(); window.removeEventListener("focus", focus); };
+    void refreshPermissions().catch(error => notify(String(error), true));
   }, []);
   const find = (id: string) => data?.items.find(item => item.id === id);
   const disk = find("full-disk-access"), commandDisk = find("command-full-disk-access");
@@ -66,13 +44,13 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
       await openUrl("https://github.com/whzxc/agent-remote-control/blob/main/docs/" + (currentLocale === "zh-CN" ? "zh-CN/" : "") + "getting-started.md");
       return;
     }
-    setBusy(true);
+    setActing(true);
     try {
       if (id === "login-start") await api("service", "POST", { enabled: true });
       else await api("permissions/request", "POST", { id });
-      await refresh();
+      await refreshPermissions();
     } catch (e) { notify(String(e), true); }
-    finally { setBusy(false); }
+    finally { setActing(false); }
   }
   function badge(state: string, system: boolean, connection = false) {
     const ready = state === "granted";
@@ -97,13 +75,7 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
       </div>
     </div>;
   }
-  return <div className="permissions-page" onKeyDown={e => {
-    if (e.key === "Escape" && !e.defaultPrevented && !details && !editing) { e.preventDefault(); e.stopPropagation(); onBack(); }
-  }}>
-    <header className="permissions-header">
-      <div><IconButton ref={back} icon={ArrowLeft} label={t("permissionsBack")} onClick={onBack} /><h2>{t("permissionsTitle")}</h2></div>
-      <Button busy={busy} onClick={() => void refresh()}>{!busy && <Icon icon={RefreshCw} />}{t("permissionsRefresh")}</Button>
-    </header>
+  return <div className="permissions-page">
     {data && <>
       {mac && <Group title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
       <Group title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>
@@ -117,6 +89,6 @@ export default function PermissionsPage({ onBack }: { onBack: () => void }) {
       </Group>
     </>}
     {details && <IngressDetailsDialog ingress={details} onClose={() => setDetails(undefined)} onEdit={entry => { setDetails(undefined); setEditing(entry); }} />}
-    {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => { setEditing(undefined); void refresh(); }} onSaved={entry => { setEditing(undefined); setDetails(entry); void refresh(); }} />}
+    {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => { setEditing(undefined); void refreshPermissions().catch(error => notify(String(error), true)); }} onSaved={entry => { setEditing(undefined); setDetails(entry); void refreshPermissions().catch(error => notify(String(error), true)); }} />}
   </div>;
 }

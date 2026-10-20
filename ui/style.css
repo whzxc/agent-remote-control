@@ -540,14 +540,7 @@ pre {
 .settings-group + .settings-group {
   margin-top: 32px;
 }
-.settings-group-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.settings-group > h2,
-.settings-group-heading > h2 {
+.settings-group > h2 {
   padding: 0 2px;
 }
 .settings-row {
