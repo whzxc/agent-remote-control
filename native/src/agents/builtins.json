@@ -121,6 +121,7 @@
       "authentication": "Existing Cursor CLI login or CURSOR_API_KEY / CURSOR_AUTH_TOKEN.",
       "caveats": [
         "Generic agent executable must identify itself as Cursor and expose acp.",
+        "Parameterized ACP model configuration preserves native model and parameter defaults; only the session mode can be changed through ARC.",
         "cursor/ask_question and cursor/create_plan extensions are unsupported (method-not-found); standard permissions are supported.",
         "Team dashboard MCP servers are not supported by Cursor ACP."
       ],

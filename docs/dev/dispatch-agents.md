@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | Codex | app-server `model/list` | 模型原生 efforts、serviceTiers | 线程默认及单轮覆盖；持久化 turn_context；tier 证据限制见现有文档 | ARC `codex-account` / `account/rateLimits/read` | ARC 当前实现；跨 Agent 扩展需跑现有回归 |
 | Claude Code | ACP `configOptions` 的 model | effort、fast、mode；effort 随模型改变 | 会话设置，在新轮之前应用；set_config_option 返回全量配置，实际模型仍需轮次证据 | 现有 `claude-code` provider，原生 OAuth usage | adapter 0.79.0 / CLI 2.1.304 握手；模型/effort 切换与短推理已验证；fast 的会话确认不等于轮次速度证据 |
-| Cursor | 原生登录后 ACP model options | mode；effort/context/fast 等编码在 modelId 中，不自行拆分枚举 | 会话配置；先 authenticate(cursor_login) 复用原生登录；返回配置可确认会话选择 | 现有 Cursor DashboardService / usage-summary | 2026.09.18 握手及 authenticate 成功；ARC driver 已接 authenticate；默认推理已验证；模型 setter 持久化用户默认，暂不开放覆盖 |
+| Cursor | 原生登录后的参数化 ACP model | mode；context、reasoning_effort 等使用原生独立选项 | 初始化声明 parameterizedModelPicker，保留原生默认；先 authenticate(cursor_login) 复用原生登录；模型及参数只核对当前值，mode 可切换 | 现有 Cursor DashboardService / usage-summary | 模型及参数 setter 持久化用户默认，暂不开放覆盖；目录以原生参数化响应为准 |
 | Grok | ACP models/configOptions；原生 settings 模型目录 | reasoning_effort；Fast 是独立模型；contextWindows 元数据暂不作为可写字段 | 会话配置；set_config_option / 原生更新可确认选择 | 现有 grok provider：credits 与 CLI settings | 1.0.62 会话配置与短推理已验证；magpie `agent/grok.go` 读取原生目录 |
 | DeepSeek Harness | ACP profile 的分组 model options | reasoning_effort；官方模型示例 off/low/high/max，以切换后返回值为准 | 会话设置；model 是原样保留的 JSON 数组编码字符串；Desktop 默认不代表 ACP 默认 | 尚无 ARC provider；DeepSeek API balance 只证明 API 余额，不能冒充账号订阅额度 | 0.2.1-rc.2 会话配置与短推理已验证；magpie `agent/dsh.go` 的 profile/default-model；切模后须重读目录 |
 | Pi | 原生 RPC get_available_models，安装包 registry 与用户 providers | get_available_thinking_levels；原生模型支持的 thinkingLevel | 会话内 set_model、set_thinking_level；get_state 确认，assistant message 的 model/provider 可补轮次证据 | 按 provider；不把 Codex/Claude 的其他登录额度直接挂到 Pi | Pi 1.3.0 RPC 类型及 magpie `agent/pi.go`、`nativemodels.go`；未实测推理 |
@@ -104,7 +104,7 @@ magpie 参考版本为 [`2374ffe1`](https://github.com/yetone/magpie/tree/2374ff
 
 在已有请求幂等判定之后解析策略，持有同一任务派发锁，检查 idle/终态，依次设置 model、读取更新后的 options、设置其余选项、确认结果，然后提交 prompt。运行中不切换配置。多个设置 RPC 不具备原子性：部分成功后失败要返回已确认配置且不发送 prompt；下次读取真实状态再决策，不伪造回滚。设置超时会关闭进程并标记配置未确认，阻止迟到的 setter 与下一次 prompt 竞争。
 
-Pi 用 set_model + set_thinking_level，再用 get_state 回读；ACP 用会话配置操作及响应/更新。配置选择默认只影响 ARC 会话，不改写原生用户配置文件。Cursor 已接入其声明的 cursor_login 方法复用已有登录；需要交互式登录时返回原生失败，不自动启动登录或换账号。当前 Cursor 原生模型 setter 会持久化用户默认值，因此 ARC 拒绝切换到其他 model；显式传入已确认的当前 model 时只回读核对、不调用 setter。原生默认推理与会话 mode 可用。会话目录以 modelSelectionUnavailable 披露此限制，待原生提供会话隔离设置后再接模型覆盖。
+Pi 用 set_model + set_thinking_level，再用 get_state 回读；ACP 用会话配置操作及响应/更新。配置选择默认只影响 ARC 会话，不改写原生用户配置文件。Cursor 已接入其声明的 cursor_login 方法复用已有登录；需要交互式登录时返回原生失败，不自动启动登录或换账号。初始化通过 clientCapabilities._meta.parameterizedModelPicker 启用参数化目录，避免简化 variant 目录校验时覆盖原生模型参数。当前 Cursor 原生模型与参数 setter 会持久化用户默认值，因此 ARC 拒绝切换到其他 model 或参数；显式传入已确认的当前值时只回读核对、不调用 setter。原生默认推理与会话 mode 可用。会话目录以 modelSelectionUnavailable 披露此限制，待原生提供会话隔离设置后再接模型及参数覆盖。
 
 记录复用现有 dispatches 存储和互斥，新增 agent/taskId/options，旧 Codex 无 agent 记录按 codex 解释。保存 submittedConfiguration（提交的覆盖）、sessionConfirmation（提交前会话快照）、turnEvidence（原生轮次证据，可为空），另有 submission 标明 pending/accepted/rejected/unconfirmed；保存作用域与时间，不用最新会话值回填旧轮次。agent_read 的 dispatches 可回读记录、结论与返工关系。Pi/ACP turnId 仍为 ARC prompt UUID。Pi assistant message 的 provider/model 可补轮次证据；Claude adapter 的 prompt _meta.quota.model_usage 可提供该轮包含内部调用的模型集合，不等同于唯一主模型或 effort/fast 证据；其他 ACP 未返回可靠轮次字段时保持 null，不能用会话快照代替。进程退出、超时或未知提交不能标成成功派发/终态，也不能自动重发。
 

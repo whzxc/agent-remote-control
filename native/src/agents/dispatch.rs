@@ -149,6 +149,9 @@ impl AgentHost {
             {
                 return Err(format!("UNSUPPORTED_DISPATCH_OPTION: {key}={value}"));
             }
+            if task["agent"] == "cursor" && key != "mode" && option["currentValue"] != *value {
+                return Err(format!("UNSUPPORTED_DISPATCH_OPTION: Cursor's native {key} setter persists user defaults; session-only model parameter selection is not integrated"));
+            }
             proposed["options"][key] = value.clone();
         }
         policy.check(proposed["model"].as_str(), &proposed["options"])?;
@@ -163,6 +166,11 @@ impl AgentHost {
                 .is_some_and(|values| values.iter().any(|v| v == value || v["value"] == *value));
             if !supported {
                 return Err(format!("UNSUPPORTED_DISPATCH_OPTION: {key}={value}"));
+            }
+            // Cursor model parameters share the model setter's global persistence.
+            // Matching values are assertions; only the session mode may be changed.
+            if task["agent"] == "cursor" && key != "mode" {
+                continue;
             }
             p.set_dispatch_option(
                 &facts,
@@ -282,7 +290,7 @@ pub(super) fn catalog_facts(
     if task["agent"] == "cursor" {
         facts["modelSelectionUnavailable"] = json!("native-setter-persists-user-defaults");
         facts["modelSelectionNote"] =
-            json!("The current model may be explicitly asserted; switching is unavailable");
+            json!("The current model and model parameters may be explicitly asserted; switching is unavailable");
     }
     let configs = metadata["configOptions"].as_array();
     let mut models = Vec::new();

@@ -70,7 +70,7 @@ agent_read includes dispatches. Each record separates submittedConfiguration, se
 
 Use agent_review with agent, taskId, optional turnId, verdict (pass/rework) and optional note. Omit turnId to review the most recent confirmed terminal dispatch. The next new dispatch links reworkOf to an unconsumed rework verdict. Reviews and dispatches use durable idempotent receipts. History groups by Agent, model and native options; self-test dispatches and inherited self-test continuations are excluded.
 
-Cursor uses its advertised cursor_login authenticate method to reuse native login before creating/loading a session. ARC does not drive an interactive login flow. Cursor model overrides are currently rejected because its native setter persists user defaults; native-default inference and session mode selection remain available. The capability snapshot reports modelSelectionUnavailable.
+Cursor uses its advertised cursor_login authenticate method to reuse native login before creating/loading a session. ARC does not drive an interactive login flow. ARC negotiates Cursor's parameterized model picker so model catalogs preserve native model and parameter defaults. Model, context and reasoning options are reported separately using Cursor's native IDs. Model and model-parameter overrides are rejected because their native setters persist user defaults; asserting the current values does not call a setter. Native-default inference and session mode selection remain available. The capability snapshot reports modelSelectionUnavailable.
 
 ## Sessions and archives
 

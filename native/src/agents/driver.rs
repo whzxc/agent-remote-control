@@ -134,7 +134,12 @@ impl AgentDriver {
                 *p.capabilities.lock().await=json!({"protocol":"pi-rpc","resume":true,"cancel":true,"streaming":true,"permissions":"extension-ui-only","completionEvent":"agent_settled"});
                 let mut t=p.state.lock().await;t["sessionId"]=state["sessionId"].clone();t["metadata"]=state;
             } else {
-                let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")}}),15000).await?;
+                // Cursor's exploded variant catalog can omit saved parameter combinations.
+                // Negotiate its parameterized picker so catalog refreshes preserve native defaults.
+                let client_capabilities=if matches!(self,Self::Acp(m) if m.id=="cursor") {
+                    json!({"_meta":{"parameterizedModelPicker":true}})
+                } else {json!({})};
+                let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":client_capabilities,"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")}}),15000).await?;
                 if init["protocolVersion"]!=1 {return Err("ACP_VERSION_UNSUPPORTED".into());}
                 *p.capabilities.lock().await=init.clone();
                 if matches!(self,Self::Acp(m) if m.id=="cursor") && init["authMethods"].as_array().is_some_and(|methods|methods.iter().any(|m|m["id"]=="cursor_login")) {
