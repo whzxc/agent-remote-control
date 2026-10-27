@@ -22,7 +22,8 @@ This document defines what a user manages in ARC and where each object is manage
 | TUNNEL | connection, `ingress` | How a SRC reaches this computer. |
 
 - ACCOUNT is the second level of SRC and AGENT, not a standalone asset. One identity MAY appear on both sides.
-- On the homepage, the topology lines between SRC, the hub and AGENT represent TUNNEL. TUNNEL has no node of its own.
+- SRC and AGENT are management categories. On the homepage, roles come from each dispatch: any conversation can be a dispatcher, an executor, or both in a chain. See [Arena homepage](arena.md).
+- TUNNEL has no homepage node.
 
 ## TUNNEL in the UI
 
@@ -50,14 +51,17 @@ The dock contains, in order: Logs, Connections, Settings.
 The Tasks, Accounts, Remote link and Permissions pages are removed.
 Deep links, Tauri `navigate` events and tray items that targeted removed pages MUST redirect: `tasks` and `accounts` → homepage, `remote` → Connections, `permissions` → Settings.
 
+## Homepage
+
+The homepage is the [arena](arena.md): account candidates at the top, cloud left and local right, and live loops on the stage.
+
 ## Homepage panels
 
-SRC panels dock left; AGENT panels dock right. A side panel is a drill-down stack L1 → L2 → L3 with a back control.
+SRC panels dock left; AGENT panels dock right. A side panel is a drill-down stack L1 → L2 → L3 with a back control. These panels stay until the management UI is removed.
 
-- Clicking an L1 node opens its L1 layer. Clicking an L2 node opens its L2 layer; back returns to L1.
-- An L1 platform with exactly one account opens that account's L2 layer directly; back still returns to L1.
-- Clicking a task bubble opens the L3 task detail layer.
-- Topology lines are not clickable.
+- Clicking a candidate opens its account panel.
+- Clicking an executor bubble, or an Agent dispatcher node, opens the L3 task detail layer.
+- Wires are not clickable.
 
 ### SRC L1 — platform
 
