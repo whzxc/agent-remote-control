@@ -40,7 +40,7 @@ for (const orientation of ['landscape', 'portrait'] as const) {
     }
   });
   test(`column nodes never overlap in ${orientation}`, () => {
-    // Property: sibling and independent loop bands have disjoint node intervals in every depth column.
+    // Property: siblings and independent loops have disjoint rectangles in every depth, including wrapped portrait rows.
     for (let count = 1; count <= 40; count++) {
       const sessions = Array.from({ length: count }, (_, i) => ({ ...chain(1)[0], session: { ...chain(1)[0].session, id: `leaf-${i}`,
         dispatchSummary: { caller: { agent: 'claude', conversationId: `root-${i % 3}` } } } }));
@@ -48,7 +48,7 @@ for (const orientation of ['landscape', 'portrait'] as const) {
       const nodes = model.loops.flatMap(l => l.nodes);
       for (const a of nodes) for (const b of nodes) {
         if (a.id >= b.id || a.depth !== b.depth) continue;
-        assert.ok(orientation === 'portrait' ? a.x + a.width <= b.x || b.x + b.width <= a.x : a.y + a.height <= b.y || b.y + b.height <= a.y);
+        assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
       }
     }
   });
@@ -128,8 +128,8 @@ test('native model summaries remain floating unless their conversation dispatche
   assert.equal(root.kind, 'agent'); assert.equal(dispatched.loops[0].nodes.length, 2);
   assert.equal(dispatched.loops[0].nodes.some(n => n.kind === 'unattributed'), false);
 });
-for (const orientation of ['landscape', 'portrait'] as const) test(`crowded ${orientation} scenes scroll beyond the readable bubble minimum`, () => {
-  // Property: stage nodes retain a readable width as crowding increases and fit inside the expanded scroll extent.
+for (const orientation of ['landscape', 'portrait'] as const) test(`crowded ${orientation} scenes preserve readable bubbles inside the scroll extent`, () => {
+  // Property: stage nodes retain a readable width as crowding increases, and portrait extends only vertically.
   for (let count = 1; count <= 30; count++) {
     const sessions = Array.from({ length: count }, (_, i) => ({ ...chain(1)[0], session: { ...chain(1)[0].session, id: `readable-${i}` } }));
     const model = solve({ sessions, candidates, width: 390, height: 844, orientation, now });
@@ -137,17 +137,45 @@ for (const orientation of ['landscape', 'portrait'] as const) test(`crowded ${or
       assert.ok(node.width >= MIN_BUBBLE_WIDTH);
       assert.ok(node.x >= 0 && node.y >= 0 && node.x + node.width <= model.width && node.y + node.height <= model.height);
     }
-    if (count > 1 && orientation === 'portrait') assert.ok(model.width > 390);
+    if (orientation === 'portrait') assert.equal(model.width, 390);
   }
 });
-test('candidate label slots remain separated when wrapping to portrait rows', () => {
-  // Property: every label interval stays inside its viewport and is disjoint from adjacent labels in the same row.
-  const input: Candidate[] = Array.from({ length: 18 }, (_, i) => ({ id: `account-${i}`, side: i < 7 ? 'cloud' : 'local', label: `Account ${i}`, sourceIds: [] }));
-  for (const width of [320, 390, 800, 1280]) {
+test('portrait candidates occupy at most one independently scrolling row per side', () => {
+  // Property: account count expands row width rather than header height, with disjoint hit targets in persisted order.
+  for (const count of [0, 1, 2, 18, 40, 100]) for (const width of [320, 390, 800, 1280]) {
+    const input: Candidate[] = Array.from({ length: count }, (_, i) => ({ id: `account-${i}`, side: i % 3 ? 'local' : 'cloud', label: `Account ${i}`, sourceIds: [] }));
     const model = solve({ sessions: [], candidates: input, width, height: 844, orientation: 'portrait', now });
-    for (const a of model.candidates) {
-      assert.ok(a.x - a.labelWidth / 2 >= 0 && a.x + a.labelWidth / 2 <= width);
-      for (const b of model.candidates) if (a.id < b.id && a.y === b.y) assert.ok(Math.abs(a.x - b.x) > (a.labelWidth + b.labelWidth) / 2);
+    assert.ok(model.candidateRows.length <= 2);
+    assert.equal(model.candidateHeight, model.candidateRows.reduce((height, row) => height + row.height, 0));
+    assert.ok(model.candidateHeight <= 2 * (model.candidates[0]?.diameter ?? 0));
+    for (const side of ['cloud', 'local'] as const) {
+      const nodes = model.candidates.filter(c => c.side === side), row = model.candidateRows.find(row => row.side === side);
+      assert.deepEqual(nodes.map(c => c.id), input.filter(c => c.side === side).map(c => c.id));
+      if (!nodes.length) { assert.equal(row, undefined); continue; }
+      assert.ok(row);
+      for (const [index, node] of nodes.entries()) {
+        assert.equal(node.y - node.diameter / 2, row.y);
+        assert.ok(node.x - node.diameter / 2 >= 0 && node.x + node.diameter / 2 <= row.width);
+        if (index) assert.ok(nodes[index - 1].x + nodes[index - 1].diameter / 2 <= node.x - node.diameter / 2);
+      }
+    }
+  }
+});
+
+test('portrait wrapped depth blocks keep the ring between all roots and their children', () => {
+  // Regression: two depth-one bubbles at their readable minimum caused horizontal scrolling at a narrow portrait viewport.
+  for (const width of [320, 390, 600, 800]) for (const count of [2, 5, 30]) for (const roots of [1, 3]) {
+    const sessions = Array.from({ length: count }, (_, i) => ({ ...chain(1)[0], session: { ...chain(1)[0].session, id: `sibling-${i}`,
+      dispatchSummary: { caller: { agent: 'claude', conversationId: `root-${i % roots}` } } } }));
+    const model = solve({ sessions, candidates, width, height: 844, orientation: 'portrait', now });
+    const nodes = model.loops.flatMap(loop => loop.nodes);
+    assert.equal(model.width, width);
+    for (const node of nodes) {
+      assert.ok(node.width >= MIN_BUBBLE_WIDTH);
+      assert.ok(node.x >= 0 && node.x + node.width <= width && node.y + node.height <= model.height);
+      if (node.depth === 0) assert.ok(node.y + node.height < model.ring.y - model.ring.radius);
+      else assert.ok(node.y > model.ring.y + model.ring.radius);
+      for (const other of nodes) if (node.depth < other.depth) assert.ok(node.y + node.height < other.y);
     }
   }
 });

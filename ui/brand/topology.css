@@ -274,3 +274,11 @@
 .topology-floating > * { animation: arena-bob 3s ease-in-out infinite alternate; }
 @keyframes arena-bob { to { translate: 0 -3px; } }
 :root[data-reduced-motion="true"] { .topology-floating > *, .topology-wires .activity-flow { animation: none; } }
+
+.topology-node[data-compact] { width: 40px; height: 40px; }
+.topology-node[data-compact] .graph-node { width: 40px; height: 40px; --agent-quota-size: 28px; }
+.topology-node[data-compact] .graph-node-name { display: none; }
+.topology-node[data-compact] .source-icon, .topology-node[data-compact] .source-icon > span { width: 28px; height: 28px; }
+.topology-node[data-compact] .source-icon svg { width: 24px; height: 24px; }
+.topology-node[data-compact] .agent-quota-icon:not(.has-quota) > .platform-icon { width: 24px; height: 24px; }
+.topology-stage { mask-image: linear-gradient(to bottom, transparent, black var(--stage-fade-top, 0px), black calc(100% - var(--stage-fade-bottom, 0px)), transparent); }

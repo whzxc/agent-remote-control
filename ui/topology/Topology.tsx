@@ -12,7 +12,7 @@ import { ActivityBubble } from '../components/ActivityBubbles';
 import { DispatcherNode } from '../components/objects/task/DispatcherNode';
 import { observeTopology } from '../runtimeSnapshot';
 import { resolveOrientation, type Orientation } from './orientation';
-import { solve, conversationKey, type Session, type ArenaNode, type ArenaLoop } from './solve';
+import { solve, conversationKey, type Session, type ArenaNode, type ArenaLoop, type ArenaLayout } from './solve';
 import type { CandidateView } from './accountViews';
 import { TopologyAnimator } from './animate';
 import { TopologyPainter } from './render';
@@ -21,6 +21,7 @@ export default function Topology({ candidates, sessions, conversations = [], now
   candidates: CandidateView[]; sessions: Session[]; conversations?: { agent: string; conversation: AgentConversation }[]; now: number; brand: ReactNode; onRead: (agent: string, id: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), canvas = useRef<HTMLDivElement>(null);
+  const candidateRows = useRef(new Map<string, HTMLDivElement>());
   const svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null);
   const elements = useRef(new Map<string, HTMLDivElement>()), animator = useRef(new TopologyAnimator());
   const painter = useRef<TopologyPainter | null>(null), frame = useRef(0), lastTime = useRef(0);
@@ -52,6 +53,19 @@ export default function Topology({ candidates, sessions, conversations = [], now
   const loops = [...new Map([...retainedLoops.current, ...layout.loops].map(l => [l.id, l])).values()];
   const latest = useRef({ layout, nodes, allNodes, loops, reduced });
   latest.current = { layout, nodes, allNodes, loops, reduced };
+  const candidateOrigin = useCallback((node: ArenaNode, layout: ArenaLayout) => {
+    const candidate = layout.candidates.find(c => c.id === node.candidateId);
+    const scrollLeft = candidate && layout.orientation === 'portrait' ? candidateRows.current.get(candidate.side)?.scrollLeft ?? 0 : 0;
+    return candidate ? { x: candidate.x - scrollLeft - node.width / 2, y: candidate.y - layout.candidateHeight - node.height / 2 }
+      : { x: layout.ring.x - node.width / 2, y: layout.ring.y - node.height / 2 };
+  }, []);
+  const scrollFades = useCallback(() => {
+    const element = stage.current;
+    if (!element) return;
+    if (latest.current.layout.orientation === 'portrait') element.scrollLeft = 0;
+    element.style.setProperty('--stage-fade-top', element.scrollTop > 1 ? '24px' : '0px');
+    element.style.setProperty('--stage-fade-bottom', element.scrollHeight - element.scrollTop - element.clientHeight > 1 ? '32px' : '0px');
+  }, []);
   const paint = useCallback(() => {
     const { layout, allNodes, loops, reduced } = latest.current, a = animator.current, ring = a.values('ring');
     if (!ring) return;
@@ -108,17 +122,13 @@ export default function Topology({ candidates, sessions, conversations = [], now
     if (!viewport.width || !viewport.height) return;
     const a = animator.current;
     a.target('ring', { ...layout.ring, rotation: layout.orientation === 'portrait' ? 90 : 0 });
-    const origin = (node: ArenaNode) => {
-      const c = layout.candidates.find(c => c.id === node.candidateId);
-      return c ? { x: c.x - node.width / 2, y: c.y - layout.candidateHeight - node.height / 2 } : { x: layout.ring.x - node.width / 2, y: layout.ring.y - node.height / 2 };
-    };
     const active = new Set(nodes.map(n => n.id));
     for (const node of allNodes) {
       if (active.has(node.id)) {
         const loop = layout.loops.find(l => l.nodes.some(n => n.id === node.id));
         a.target(node.id, { x: node.x, y: node.y, width: node.width, height: node.height, opacity: loop?.lingering ? .62 : 1, scale: 1, draw: 1 },
-          { ...origin(node), opacity: 0, scale: .5, draw: 0 });
-      } else if (a.live.has(node.id)) a.retire(node.id, origin(node));
+          { ...candidateOrigin(node, layout), opacity: 0, scale: .5, draw: 0 });
+      } else if (a.live.has(node.id)) a.retire(node.id, candidateOrigin(node, layout));
     }
     retainedLoops.current = loops;
     setRetained(old => {
@@ -127,12 +137,12 @@ export default function Topology({ candidates, sessions, conversations = [], now
     });
     if (canvas.current) { canvas.current.style.width = `${layout.width}px`; canvas.current.style.height = `${layout.height}px`; }
     if (stage.current) stage.current.style.top = `${layout.candidateHeight}px`;
-    a.step(0, reduced); paint(); wake();
+    a.step(0, reduced); paint(); scrollFades(); wake();
   // The pure layout is compared by value; animated values never drive React.
-  }, [signature, reduced, paint, wake]);
+  }, [signature, reduced, paint, wake, candidateOrigin, scrollFades]);
   useEffect(() => observeTopology(() => {
     const { layout, nodes } = latest.current;
-    return { ...layout, kind: 'arena', lingering: layout.loops.filter(l => l.lingering).map(l => l.id),
+    return { ...layout, kind: 'arena', candidateRows: layout.candidateRows.map(row => ({ ...row, scrollLeft: candidateRows.current.get(row.side)?.scrollLeft ?? 0 })), lingering: layout.loops.filter(l => l.lingering).map(l => l.id),
       loops: layout.loops.map(loop => ({ ...loop, nodes: loop.nodes.map(({ session, ...node }) => ({ ...node, taskId: session?.id, position: animator.current.values(node.id) })) })),
       floating: layout.floating.map(({ session, ...node }) => ({ ...node, taskId: session?.id, position: animator.current.values(node.id) })),
       returning: latest.current.allNodes.filter(n => !nodes.some(row => row.id === n.id) && animator.current.live.has(n.id)).map(n => ({ id: n.id, candidateId: n.candidateId, position: animator.current.values(n.id) })),
@@ -141,17 +151,34 @@ export default function Topology({ candidates, sessions, conversations = [], now
   const colorFor = (index: number) => `var(--chart-${index + 1})`;
   return <div ref={host} className="relative h-full w-full overflow-hidden" data-orientation={layout.orientation}>
     <div className="absolute inset-x-0 top-0 z-10" aria-label={t('accounts.title')}>
-      {layout.candidates.map(candidate => <div key={candidate.id} className="topology-node" data-agent-node={candidate.agent} data-account-id={candidate.accountId} data-source-node={candidate.sourceIds[0]} ref={element => {
-        if (element) { element.style.transform = `translate(${candidate.x - 22}px, ${candidate.y - 22}px)`; element.style.setProperty("--candidate-label-width", `${candidate.labelWidth}px`); }
-      }}>{candidates.find(c => c.id === candidate.id)?.content}
-        <span className="absolute -right-1 -top-1 flex gap-1" aria-label={candidate.unread ? t('activity.unread') : undefined}>
-          {candidate.colors.map(color => <span key={color} className="topology-loop-dot" ref={el => { if (el) el.style.backgroundColor = colorFor(color); }} />)}
-          {candidate.unread && <span className="size-2 rounded-full bg-success" />}
-        </span>
+      {layout.candidateRows.map(row => <div key={row.side} data-candidate-row={row.side}
+        className={`absolute inset-x-0 ${layout.orientation === 'portrait' ? 'overflow-x-auto overflow-y-hidden overscroll-x-contain' : 'pointer-events-none overflow-visible'}`}
+        ref={element => {
+          if (!element) { candidateRows.current.delete(row.side); return; }
+          candidateRows.current.set(row.side, element);
+          element.style.top = `${row.y}px`; element.style.height = `${row.height}px`;
+        }} onScroll={() => {
+          for (const node of latest.current.allNodes) if (animator.current.live.get(node.id)?.alive === false) animator.current.retire(node.id, candidateOrigin(node, latest.current.layout));
+          wake();
+        }}>
+        <div className="relative" ref={element => { if (element) { element.style.width = `${row.width}px`; element.style.height = `${row.height}px`; } }}>
+          {layout.candidates.filter(c => c.side === row.side).map(candidate => <div key={candidate.id} className="topology-node pointer-events-auto"
+            data-compact={layout.orientation === 'portrait' || undefined} data-agent-node={candidate.agent} data-account-id={candidate.accountId} data-source-node={candidate.sourceIds[0]} ref={element => {
+              if (element) {
+                element.style.transform = `translate(${candidate.x - candidate.diameter / 2}px, ${candidate.y - row.y - candidate.diameter / 2}px)`;
+                element.style.setProperty('--candidate-label-width', `${candidate.labelWidth}px`);
+              }
+            }}>{candidates.find(c => c.id === candidate.id)?.content}
+            <span className={`pointer-events-none absolute flex gap-1 ${layout.orientation === 'portrait' ? 'right-0 top-0' : '-right-1 -top-1'}`} aria-label={candidate.unread ? t('activity.unread') : undefined}>
+              {candidate.colors.map(color => <span key={color} className="topology-loop-dot" ref={el => { if (el) el.style.backgroundColor = colorFor(color); }} />)}
+              {candidate.unread && <span className="size-2 rounded-full bg-success" />}
+            </span>
+          </div>)}
+        </div>
       </div>)}
     </div>
-    <div ref={stage} className="absolute inset-x-0 bottom-0 overflow-auto">
-      <div ref={canvas} className="relative" data-arena-stage>
+    <div ref={stage} className={`topology-stage absolute inset-x-0 bottom-0 ${layout.orientation === 'portrait' ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto'}`} onScroll={scrollFades}>
+      <div ref={canvas} className={`relative${layout.orientation === 'portrait' ? ' overflow-x-clip' : ''}`} data-arena-stage>
         <svg ref={svg} className="topology-wires" aria-hidden="true" />
         <div ref={hub} className="topology-hub">{brand}{!layout.loops.length && <time className="pointer-events-none absolute inset-0 grid place-items-center text-sm tabular-nums text-muted-foreground">{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}</div>
         {allNodes.map(node => <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }}

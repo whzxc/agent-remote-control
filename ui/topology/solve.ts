@@ -22,9 +22,10 @@ export interface ArenaLoop {
   id: string; color: number; nodes: ArenaNode[]; edges: ArenaEdge[]; depth: number;
   lingering: boolean; lastActivity: number; expiresAt: number | null;
 }
+export interface CandidateRow { side: 'cloud' | 'local'; y: number; height: number; width: number }
 export interface ArenaLayout {
-  orientation: Orientation; width: number; height: number; candidateHeight: number;
-  candidates: (Candidate & { x: number; y: number; labelWidth: number; colors: number[]; unread: boolean })[];
+  orientation: Orientation; width: number; height: number; candidateHeight: number; candidateRows: CandidateRow[];
+  candidates: (Candidate & { x: number; y: number; diameter: number; labelWidth: number; colors: number[]; unread: boolean })[];
   ring: { x: number; y: number; radius: number }; loops: ArenaLoop[]; floating: ArenaNode[];
 }
 export const conversationKey = (agent: string, id: string) => JSON.stringify(['conversation', agent, id]);
@@ -38,20 +39,31 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
   width = Math.max(1, width); height = Math.max(1, height);
   const vertical = orientation === 'portrait';
   const local = candidates.filter(c => c.side === 'local'), cloud = candidates.filter(c => c.side === 'cloud');
+  const groups = [{ side: 'cloud' as const, items: cloud }, { side: 'local' as const, items: local }];
   const twoRows = width < (candidates.length + 1) * 88;
   const capacity = Math.max(1, Math.floor((width - 24) / 88));
   const cloudRows = Math.max(1, Math.ceil(cloud.length / capacity));
   const localRows = Math.max(1, Math.ceil(local.length / capacity));
-  const positionCandidates = (rows: Candidate[], right: boolean) => rows.map((c, i) => {
-    const row = twoRows ? Math.floor(i / capacity) : 0;
-    const count = twoRows ? Math.min(capacity, rows.length - row * capacity) : rows.length;
-    const gap = Math.min(104, (width - 24) / Math.max(1, twoRows ? count : candidates.length + 1));
-    const slot = twoRows ? i % capacity : i;
-    return { ...c, x: right ? width - 12 - gap * (count - slot - .5) : 12 + gap * (slot + .5),
-      y: 36 + (right && twoRows ? cloudRows + row : row) * 88, labelWidth: gap - 12, colors: [] as number[], unread: false };
+  const candidateHeight = vertical ? groups.filter(g => g.items.length).length * 40 : twoRows ? (cloudRows + localRows) * 88 + 12 : 96;
+  const candidateRows: CandidateRow[] = [];
+  const placedCandidates = groups.flatMap(({ side, items }) => {
+    if (vertical && !items.length) return [];
+    const rowY = vertical ? candidateRows.length * 40 : 0;
+    const contentWidth = vertical ? Math.max(width, items.length * 40 + 16) : width;
+    candidateRows.push({ side, y: rowY, height: vertical ? 40 : candidateHeight, width: contentWidth });
+    return items.map((c, i) => {
+      if (vertical) {
+        const left = side === 'local' ? Math.max(8, contentWidth - 8 - items.length * 40) : 8;
+        return { ...c, x: left + i * 40 + 20, y: rowY + 20, diameter: 40, labelWidth: 28, colors: [] as number[], unread: false };
+      }
+      const row = twoRows ? Math.floor(i / capacity) : 0;
+      const count = twoRows ? Math.min(capacity, items.length - row * capacity) : items.length;
+      const gap = Math.min(104, (width - 24) / Math.max(1, twoRows ? count : candidates.length + 1));
+      const slot = twoRows ? i % capacity : i;
+      return { ...c, x: side === 'local' ? width - 12 - gap * (count - slot - .5) : 12 + gap * (slot + .5),
+        y: 36 + (side === 'local' && twoRows ? cloudRows + row : row) * 88, diameter: 44, labelWidth: gap - 12, colors: [] as number[], unread: false };
+    });
   });
-  const placedCandidates = [...positionCandidates(cloud, false), ...positionCandidates(local, true)];
-  const candidateHeight = twoRows ? (cloudRows + localRows) * 88 + 12 : 96;
   height = Math.max(1, height - candidateHeight);
   const nodes = new Map<string, ArenaNode>(), edges = new Map<string, ArenaEdge>();
   const findAgent = (agent: string, s?: Pick<TrackedActivity, 'agentAccountId' | 'dispatchSummary'>) => placedCandidates.find(c => c.agent === agent && !!s?.agentAccountId && c.accountId === s.agentAccountId)
@@ -166,27 +178,27 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
     placedFloating.push(node);
     floatBottom = Math.max(floatBottom, node.y + node.height + 16);
   }
-  const top = floatBottom + 24, margin = vertical ? 12 : 24, depth = Math.max(1, ...loops.map(l => l.depth));
-  const bandGap = vertical ? 12 : 24;
+  const top = floatBottom + 24, margin = 24, depth = Math.max(1, ...loops.map(l => l.depth));
+  if (vertical) return portraitLayout({ loops, floating, width, height, top, nodeWidth, nodeHeight, candidateHeight, candidateRows, candidates: placedCandidates });
+  const bandGap = 24;
   const bandSizes = loops.map(l => Math.max(1, ...Array.from({ length: l.depth + 1 }, (_, d) => l.nodes.filter(n => n.depth === d).length)));
   const crossCount = Math.max(1, bandSizes.reduce((a, b) => a + b, 0));
-  const availableFlow = vertical ? height - top - margin : width - margin * 2;
+  const availableFlow = width - margin * 2;
   const radius = 46 + Math.min(loops.length, 4) * 4;
-  const nw = vertical ? Math.max(MIN_BUBBLE_WIDTH, Math.min(nodeWidth, (width - margin * 2 - Math.max(0, loops.length - 1) * bandGap) / crossCount - 8))
-    : Math.max(MIN_BUBBLE_WIDTH, Math.min(nodeWidth, (availableFlow - radius * 2 - 64 - (depth - 1) * 28) / (depth + 1)));
-  const flowSize = vertical ? nodeHeight : nw, crossSize = vertical ? nw : nodeHeight;
+  const nw = Math.max(MIN_BUBBLE_WIDTH, Math.min(nodeWidth, (availableFlow - radius * 2 - 64 - (depth - 1) * 28) / (depth + 1)));
+  const flowSize = nw, crossSize = nodeHeight;
   const firstHop = flowSize + radius * 2 + 64, laterHop = flowSize + 32;
   const minFlow = margin * 2 + flowSize + firstHop + (depth - 1) * laterHop;
   const extent = Math.max(availableFlow, minFlow);
   const spare = Math.max(0, availableFlow - minFlow);
   const start = margin + flowSize / 2 + spare / 2;
   const flowOf = (d: number) => start + (d ? firstHop + (d - 1) * laterHop : 0);
-  const crossGap = vertical ? 8 : 16;
+  const crossGap = 16;
   const totalCross = crossCount * (crossSize + crossGap) + Math.max(0, loops.length - 1) * bandGap;
-  const crossExtent = Math.max(vertical ? width : height - top, totalCross + margin * 2);
+  const crossExtent = Math.max(height - top, totalCross + margin * 2);
   const crossMid = crossExtent / 2;
   const ringFlow = start + firstHop / 2;
-  const ring = vertical ? { x: crossMid, y: top + ringFlow, radius } : { x: ringFlow, y: top + crossMid, radius };
+  const ring = { x: ringFlow, y: top + crossMid, radius };
   let cross = crossMid - totalCross / 2;
   loops.forEach((loop, li) => {
     const unit = crossSize + crossGap, band = bandSizes[li] * unit;
@@ -195,12 +207,54 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
       column.forEach((node, i) => {
         const c = cross + band / 2 + (i - (column.length - 1) / 2) * unit, f = flowOf(d);
         node.width = node.session ? nw : MIN_BUBBLE_WIDTH; node.height = node.session ? nodeHeight : 54;
-        node.x = vertical ? c - node.width / 2 : f - node.width / 2;
-        node.y = vertical ? top + f - node.height / 2 : top + c - node.height / 2;
+        node.x = f - node.width / 2;
+        node.y = top + c - node.height / 2;
       });
     }
     cross += band + bandGap;
   });
-  return { orientation, candidateHeight, candidates: placedCandidates, ring, loops, floating,
-    width: vertical ? crossExtent : extent, height: vertical ? top + extent : top + crossExtent };
+  return { orientation, candidateHeight, candidateRows, candidates: placedCandidates, ring, loops, floating,
+    width: extent, height: top + crossExtent };
+}
+
+// Portrait depths are vertical blocks. Siblings wrap inside their block, and the
+// next depth begins below every row of the previous depth. No stage x overflow.
+function portraitLayout({ loops, floating, width, height, top, nodeWidth, nodeHeight, candidateHeight, candidateRows, candidates }: {
+  loops: ArenaLoop[]; floating: ArenaNode[]; width: number; height: number; top: number; nodeWidth: number; nodeHeight: number;
+  candidateHeight: number; candidateRows: CandidateRow[]; candidates: ArenaLayout['candidates'];
+}): ArenaLayout {
+  const margin = 12, gap = 16, available = Math.max(1, width - 2 * margin);
+  const cardWidth = Math.min(available, Math.max(MIN_BUBBLE_WIDTH, nodeWidth));
+  const columns = Math.max(1, Math.floor((available + gap) / (cardWidth + gap)));
+  const radius = 46 + Math.min(loops.length, 4) * 4;
+  const visualRadius = radius * 46 / 32;
+  let cursor = top;
+  const placeDepth = (depth: number) => {
+    for (const loop of loops) {
+      const nodes = loop.nodes.filter(node => node.depth === depth);
+      for (let start = 0; start < nodes.length; start += columns) {
+        const row = nodes.slice(start, start + columns);
+        const rowHeight = Math.max(...row.map(node => node.session ? nodeHeight : 54));
+        const rowWidth = row.length * cardWidth + (row.length - 1) * gap;
+        row.forEach((node, index) => {
+          node.width = node.session ? cardWidth : Math.min(MIN_BUBBLE_WIDTH, cardWidth);
+          node.height = node.session ? nodeHeight : 54;
+          node.x = (width - rowWidth) / 2 + index * (cardWidth + gap) + (cardWidth - node.width) / 2;
+          node.y = cursor + (rowHeight - node.height) / 2;
+        });
+        cursor += rowHeight + gap;
+      }
+    }
+  };
+  placeDepth(0);
+  const ring = { x: width / 2, y: cursor + visualRadius + 8, radius };
+  cursor = ring.y + visualRadius + 24;
+  for (let depth = 1; depth <= Math.max(1, ...loops.map(loop => loop.depth)); depth++) placeDepth(depth);
+  let extent = cursor + 8;
+  if (loops.length) {
+    const offset = Math.max(0, (height - extent) / 2);
+    for (const loop of loops) for (const node of loop.nodes) node.y += offset;
+    ring.y += offset;
+  } else { ring.y = top + Math.max(visualRadius, (height - top) / 2); extent = ring.y + visualRadius + 24; }
+  return { orientation: 'portrait', width, height: Math.max(height, extent), candidateHeight, candidateRows, candidates, ring, loops, floating };
 }

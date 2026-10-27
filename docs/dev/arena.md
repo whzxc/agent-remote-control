@@ -6,8 +6,8 @@ The homepage shows loops: who dispatched work to whom, through ARC, right now. I
 
 ## Areas
 
-- **Candidates** sit at the top. Cloud accounts are on the left; local accounts are on the right. A candidate is an account: a remote control-source account or a local Agent account. Within each side, candidates keep the existing persisted source and Agent order. Agent candidates keep their quota rings. Show the account alias when a platform has several accounts, otherwise its platform name. Keep visible labels separated and retain the full identity in the accessible name and tooltip.
-- **Stage** fills the rest. The connection power control occupies its own header outside the stage and its wires. The ARC ring stays at the center of the first hop.
+- **Candidates** sit at the top. Cloud accounts are on the left; local accounts are on the right. A candidate is an account: a remote control-source account or a local Agent account. Within each side, candidates keep the existing persisted source and Agent order. Agent candidates keep their quota rings. Show the account alias when a platform has several accounts, otherwise its platform name. In landscape, keep visible labels separated. Portrait uses smaller icons without visible labels in at most one cloud row and one local row; each row scrolls horizontally on overflow. Retain the full identity in the accessible name and tooltip in both orientations.
+- **Stage** fills the rest. The connection power control occupies its own header outside the stage and its wires. The combined power and candidate header occupies at most 144px in portrait. The ARC ring stays at the center of the first hop. Scroll edges fade while content continues beyond them; the fade clears at either end so every bubble can be read fully.
 - A candidate whose conversations are on stage shows a dot in its loop color. A candidate with unread completed work keeps its unread mark after its nodes leave the stage.
 
 ## Stage nodes
@@ -29,10 +29,10 @@ A stage node is a conversation, spawned from its account candidate.
 - A loop is a connected group of dispatch edges. Its root is a dispatcher that no other node dispatched.
 - The flow runs root → executor → further executors without a depth limit. Landscape flows left to right; portrait flows top to bottom.
 - The root column is before the ring and depth 1 after it. Every root-to-depth-1 wire passes through the ring. Later hops connect node to node.
-- Each loop occupies its own band across the flow. A node's cross position is centered on its siblings in that loop. Bands stack around the ring's center.
-- Each loop gets one color from the chart palette, kept while the loop lives. Every wire of the loop uses it, with a light that flows from dispatcher to executor along the whole chain while work runs. Grouping is never color alone: bands and the continuous wire carry it too.
+- In landscape, each loop occupies its own band across the flow, centered on its siblings. Portrait lays out one depth block at a time: siblings wrap into further rows within their depth, and the next depth starts below every preceding row. Wires bypass intervening cards in the stage margins.
+- Each loop gets one color from the chart palette, kept while the loop lives. Every wire of the loop uses it, with a light that flows from dispatcher to executor along the whole chain while work runs. Grouping is never color alone: placement and the continuous wire carry it too.
 - An executor waiting for input or approval reverses its light in the warning color toward its dispatcher.
-- Too many nodes compress spacing and node width to a readable minimum of 232px, then the stage scrolls. Landscape flows horizontally and portrait flows vertically; portrait bands may also require horizontal scrolling. Title, phase and duration remain readable. Candidates never scroll away.
+- Too many nodes compress spacing and node width to a readable minimum of 232px, then the stage scrolls. Landscape scrolls horizontally. Portrait keeps every card within the viewport width and scrolls only vertically. Title, phase and duration remain readable. Candidates never scroll away.
 
 ## Lifecycle
 
