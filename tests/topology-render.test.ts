@@ -6,8 +6,8 @@ import { act, createElement as h } from 'react';
 import { lookupCallerConversations } from '../ui/state/callerConversations.ts';
 import { within } from '@testing-library/dom';
 
-test('arena snapshots retain an active native caller bubble while task_mark_read returns the completed group', async () => {
-  // Regression: native model summaries invented ARC dispatchers and active callers lost their own task bubble.
+test('arena snapshots keep lingering caller cards opaque while task_mark_read returns the completed group', async () => {
+  // Regression: native callers lost their task bubble, and lingering node opacity made card backgrounds translucent over wires.
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
   window.matchMedia = () => media as unknown as MediaQueryList;
@@ -55,6 +55,7 @@ test('arena snapshots retain an active native caller bubble while task_mark_read
     assert.equal(model().loops[0].nodes.some((n: any) => n.kind === 'unattributed'), false);
     await snapshot([]);
     assert.equal(model().loops[0].lingering, true);
+    assert.ok(model().loops[0].nodes.every((node: any) => node.position.opacity === 1));
     assert.equal(model().candidates[0].unread, true);
     await act(() => controlActivityBubble({ agent: 'codex', id: session.id, action: 'mark-read' }));
     assert.equal(model().loops.length, 0); assert.equal(model().candidates[0].unread, false);

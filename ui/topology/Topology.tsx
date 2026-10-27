@@ -125,8 +125,7 @@ export default function Topology({ candidates, sessions, conversations = [], now
     const active = new Set(nodes.map(n => n.id));
     for (const node of allNodes) {
       if (active.has(node.id)) {
-        const loop = layout.loops.find(l => l.nodes.some(n => n.id === node.id));
-        a.target(node.id, { x: node.x, y: node.y, width: node.width, height: node.height, opacity: loop?.lingering ? .62 : 1, scale: 1, draw: 1 },
+        a.target(node.id, { x: node.x, y: node.y, width: node.width, height: node.height, opacity: 1, scale: 1, draw: 1 },
           { ...candidateOrigin(node, layout), opacity: 0, scale: .5, draw: 0 });
       } else if (a.live.has(node.id)) a.retire(node.id, candidateOrigin(node, layout));
     }
@@ -182,7 +181,7 @@ export default function Topology({ candidates, sessions, conversations = [], now
         <svg ref={svg} className="topology-wires" aria-hidden="true" />
         <div ref={hub} className="topology-hub">{brand}{!layout.loops.length && <time className="pointer-events-none absolute inset-0 grid place-items-center text-sm tabular-nums text-muted-foreground">{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}</div>
         {allNodes.map(node => <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }}
-          className={`activity-slot${node.kind === 'floating' ? ' topology-floating' : ''}`} data-arena-node={node.id}>
+          className={`activity-slot${node.kind === 'floating' ? ' topology-floating' : ''}`} data-arena-node={node.id} data-lingering={loops.some(loop => loop.lingering && loop.nodes.some(n => n.id === node.id)) || undefined}>
           {node.session && node.agent
             ? <ActivityBubble agent={node.agent} session={node.session} now={now} density={node.kind === 'floating' ? 'compact' : effectiveDensity} onRead={() => onRead(node.agent!, node.session!.id)} />
             : <DispatcherNode agent={node.agent} platform={candidates.find(c => c.id === node.candidateId)?.platform} source={node.source}

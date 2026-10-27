@@ -230,8 +230,9 @@ function portraitLayout({ loops, floating, width, height, top, nodeWidth, nodeHe
   const visualRadius = radius * 46 / 32;
   let cursor = top;
   const placeDepth = (depth: number) => {
-    for (const loop of loops) {
-      const nodes = loop.nodes.filter(node => node.depth === depth);
+    const groups = depth === 0 ? [loops.flatMap(loop => loop.nodes.filter(node => node.depth === 0))]
+      : loops.map(loop => loop.nodes.filter(node => node.depth === depth));
+    for (const nodes of groups) {
       for (let start = 0; start < nodes.length; start += columns) {
         const row = nodes.slice(start, start + columns);
         const rowHeight = Math.max(...row.map(node => node.session ? nodeHeight : 54));
@@ -240,14 +241,14 @@ function portraitLayout({ loops, floating, width, height, top, nodeWidth, nodeHe
           node.width = node.session ? cardWidth : Math.min(MIN_BUBBLE_WIDTH, cardWidth);
           node.height = node.session ? nodeHeight : 54;
           node.x = (width - rowWidth) / 2 + index * (cardWidth + gap) + (cardWidth - node.width) / 2;
-          node.y = cursor + (rowHeight - node.height) / 2;
+          node.y = cursor + (rowHeight - node.height) / (depth === 0 ? 1 : 2);
         });
-        cursor += rowHeight + gap;
+        cursor += rowHeight + (depth === 0 ? gap / 2 : gap);
       }
     }
   };
   placeDepth(0);
-  const ring = { x: width / 2, y: cursor + visualRadius + 8, radius };
+  const ring = { x: width / 2, y: cursor + visualRadius, radius };
   cursor = ring.y + visualRadius + 24;
   for (let depth = 1; depth <= Math.max(1, ...loops.map(loop => loop.depth)); depth++) placeDepth(depth);
   let extent = cursor + 8;

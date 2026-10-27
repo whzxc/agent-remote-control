@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { wirePath } from '../ui/topology/geometry.ts';
 import { solve, conversationKey, LINGER_MS, MIN_BUBBLE_WIDTH, type Session, type Candidate } from '../ui/topology/solve.ts';
 const now = 1_000_000;
 const candidates: Candidate[] = ['claude', 'codex'].map(agent => ({ id: agent, side: 'local', label: agent, agent, sourceIds: [] }));
@@ -188,4 +189,52 @@ test('reading an ended native caller returns its dispatch loop', () => {
   assert.equal(project().loops.length, 0);
   sessions[1].session.orderAt = now + 2;
   assert.equal(project().loops.length, 1);
+});
+
+for (const vertical of [false, true]) test(`wires stay between their endpoints and ring in ${vertical ? 'portrait' : 'landscape'}`, () => {
+  // Regression: portrait wires detoured around cards along both viewport edges instead of passing behind them.
+  for (const count of [2, 5, 12]) {
+    const sessions = Array.from({ length: count }, (_, i) => ({ ...chain(1)[0], session: { ...chain(1)[0].session, id: `wire-${i}`,
+      dispatchSummary: { caller: { agent: 'claude', conversationId: `root-${i % 3}` } } } }));
+    sessions.push(...chain(count));
+    const model = solve({ sessions, candidates, width: 390, height: 844, orientation: vertical ? 'portrait' : 'landscape', now });
+    for (const loop of model.loops) for (const edge of loop.edges) {
+      const from = loop.nodes.find(n => n.id === edge.from)!, to = loop.nodes.find(n => n.id === edge.to)!;
+      const start = vertical ? from.x + from.width / 2 : from.y + from.height / 2;
+      const end = vertical ? to.x + to.width / 2 : to.y + to.height / 2;
+      const ringCross = vertical ? model.ring.x : model.ring.y;
+      for (const through of edge.throughRing ? [ringCross - model.ring.radius / 4, ringCross, ringCross + model.ring.radius / 4] : [undefined]) {
+        const path = wirePath(from, to, model.ring, vertical, through);
+        const coordinates = path.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi)!.map(Number);
+        assert.ok(coordinates.every(Number.isFinite));
+        const cross = coordinates.filter((_, i) => i % 2 === (vertical ? 0 : 1));
+        const min = Math.min(start, end, through ?? start), max = Math.max(start, end, through ?? end);
+        assert.ok(cross.every(value => value >= min && value <= max));
+        assert.equal(cross[0], start); assert.equal(cross.at(-1), end);
+        if (through !== undefined) assert.ok(cross.includes(through));
+      }
+    }
+  }
+});
+
+test('portrait roots share available rows and align immediately above the ring', () => {
+  // Property: wider root rows reduce the root block height, bottom-align mixed cards and preserve the separation before the ring.
+  for (const count of [2, 4, 7]) for (const nodeHeight of [54, 76, 100]) {
+    const sessions = Array.from({ length: count }, (_, i) => [
+      { ...chain(1)[0], session: { ...chain(1)[0].session, id: `leaf-${i}`, dispatchSummary: { caller: { agent: 'claude', conversationId: `root-${i}` } } } },
+      ...(i % 2 ? [] : [{ agent: 'claude', session: { ...chain(1)[0].session, id: `root-${i}`, dispatchSummary: { model: 'native-model' } } }]),
+    ]).flat();
+    const project = (width: number) => solve({ sessions, candidates, width, height: 844, orientation: 'portrait', now, nodeHeight });
+    const narrow = project(390), wide = project(800);
+    const roots = (model: ReturnType<typeof solve>) => model.loops.flatMap(loop => loop.nodes.filter(n => n.depth === 0));
+    const span = (model: ReturnType<typeof solve>) => Math.max(...roots(model).map(n => n.y + n.height)) - Math.min(...roots(model).map(n => n.y));
+    assert.ok(span(wide) < span(narrow));
+    for (const model of [narrow, wide]) {
+      const nodes = roots(model);
+      for (const a of nodes) for (const b of nodes) if (a.id !== b.id && Math.max(a.y, b.y) < Math.min(a.y + a.height, b.y + b.height)) {
+        assert.equal(a.y + a.height, b.y + b.height);
+      }
+      assert.ok(Math.max(...nodes.map(n => n.y + n.height)) < model.ring.y - model.ring.radius);
+    }
+  }
 });

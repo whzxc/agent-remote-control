@@ -4,6 +4,10 @@
 .activity-bubble.needs-attention { background: var(--warning-soft); box-shadow: inset 0 0 0 1.5px var(--warning), var(--shadow); }
 .activity-bubble[aria-disabled="true"] { cursor: default; }
 .activity-bubble.completed { opacity: var(--task-completed-opacity); }
+/* Stage cards occlude wires, including completed and lingering work. */
+.activity-slot .activity-bubble.completed { opacity: 1; }
+.activity-slot .activity-bubble.completed > * { opacity: var(--task-completed-opacity); }
+.activity-slot[data-lingering] .activity-bubble > * { opacity: .62; }
 .activity-slot > .activity-bubble { width: 100%; height: 100%; }
 .activity-bubble-shell { position: relative; width: 100%; height: 100%; pointer-events: auto; }
 .activity-bubble-shell > .activity-bubble { width: 100%; height: 100%; }

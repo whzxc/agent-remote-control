@@ -29,7 +29,7 @@ A stage node is a conversation, spawned from its account candidate.
 - A loop is a connected group of dispatch edges. Its root is a dispatcher that no other node dispatched.
 - The flow runs root → executor → further executors without a depth limit. Landscape flows left to right; portrait flows top to bottom.
 - The root column is before the ring and depth 1 after it. Every root-to-depth-1 wire passes through the ring. Later hops connect node to node.
-- In landscape, each loop occupies its own band across the flow, centered on its siblings. Portrait lays out one depth block at a time: siblings wrap into further rows within their depth, and the next depth starts below every preceding row. Wires bypass intervening cards in the stage margins.
+- In landscape, each loop occupies its own band across the flow, centered on its siblings. Portrait lays out one depth block at a time: siblings wrap into further rows within their depth, and the next depth starts below every preceding row. Root rows pack closely above the ring, with cards aligned to the bottom of their row. Wires use short smooth curves between endpoints and pass behind opaque cards; they never detour around cards or along viewport edges.
 - Each loop gets one color from the chart palette, kept while the loop lives. Every wire of the loop uses it, with a light that flows from dispatcher to executor along the whole chain while work runs. Grouping is never color alone: placement and the continuous wire carry it too.
 - An executor waiting for input or approval reverses its light in the warning color toward its dispatcher.
 - Too many nodes compress spacing and node width to a readable minimum of 232px, then the stage scrolls. Landscape scrolls horizontally. Portrait keeps every card within the viewport width and scrolls only vertically. Title, phase and duration remain readable. Candidates never scroll away.
@@ -38,7 +38,7 @@ A stage node is a conversation, spawned from its account candidate.
 
 1. **Dispatch.** The dispatcher and executor step down from their candidates on springs. The wire draws in from the dispatcher.
 2. **Running.** The light flows. Bubbles update in place.
-3. **Ended.** The executor shows its result. The loop stays on stage, dimmed, for a linger period of three minutes after its last activity. A new dispatch in the loop restarts the period.
+3. **Ended.** The executor shows its result. The loop stays on stage with dimmed content and opaque card backgrounds for a linger period of three minutes after its last activity. A new dispatch in the loop restarts the period.
 4. **Read.** Marking any ended node in the loop read, or the period expiring, returns every node of the loop to its candidate on springs. Unread state stays on the candidate until read.
 
 Bubble width controls appear on hover or keyboard focus; coarse pointers reveal only the focused bubble's control.

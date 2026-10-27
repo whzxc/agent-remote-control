@@ -14,10 +14,6 @@ export class TopologyPainter {
   paint(animator: TopologyAnimator, layout: ArenaLayout, loops: ArenaLoop[], reduced: boolean) {
     const ring = animator.values('ring'); if (!ring) return;
     const vertical = layout.orientation === 'portrait', used = new Set<string>();
-    const boxes = loops.flatMap(loop => loop.nodes).flatMap(node => {
-      const value = animator.values(node.id);
-      return value ? [{ id: node.id, x: value.x, y: value.y, width: value.width, height: value.height }] : [];
-    });
     loops.forEach((loop, index) => {
       const through = (vertical ? ring.x : ring.y) + (index - (loops.length - 1) / 2) * Math.min(12, ring.radius / Math.max(1, loops.length));
       // Phase offsets make one continuous light traverse the chain, including later hops.
@@ -36,8 +32,7 @@ export class TopologyPainter {
           this.svg.append(base, light); paths = { base, light }; this.paths.set(edge.id, paths);
         }
         const d = wirePath({ x: p.x, y: p.y, width: p.width, height: p.height }, { x: n.x, y: n.y, width: n.width, height: n.height },
-          { x: ring.x, y: ring.y, radius: ring.radius }, vertical, edge.throughRing ? through : undefined,
-          vertical ? { gutter: loop.color % 2 ? layout.width - 12 : 12, obstacles: boxes.filter(box => box.id !== edge.from && box.id !== edge.to) } : undefined);
+          { x: ring.x, y: ring.y, radius: ring.radius }, vertical, edge.throughRing ? through : undefined);
         paths.base.setAttribute('stroke-dasharray', `${Math.max(0, Math.min(1, n.draw ?? 1))} 1`);
         paths.base.setAttribute('d', d); paths.light.setAttribute('d', d);
         paths.base.setAttribute('stroke', `var(--chart-${loop.color + 1})`);
