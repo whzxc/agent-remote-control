@@ -420,6 +420,9 @@ pub(crate) fn dispatch_summary(value: &Value) -> Option<Value> {
             .map(str::to_owned)
     };
     let mut summary = json!({});
+    if let Some(caller) = crate::dispatch_caller::validated(&value["caller"]) {
+        summary["caller"] = caller;
+    }
     if value["agentAccountId"].is_string() {
         summary["agentAccountId"] = value["agentAccountId"].clone();
     }

@@ -123,8 +123,12 @@ pub(crate) fn control_hint(op: &str) -> String {
 }
 
 pub(crate) async fn control(op: &str, args: Value) -> Result<Value> {
-    let response =
-        transport::forward_request("cli/control", "POST", json!({"op":op,"args":&args})).await?;
+    let response = transport::forward_request(
+        "cli/control",
+        "POST",
+        crate::dispatch_caller::control_request(op, &args),
+    )
+    .await?;
     let mut value = response["structuredContent"]["result"].clone();
     if response["isError"] == true && crate::egress::outcome_error(&value).is_none() {
         let mut error = value["error"].clone();

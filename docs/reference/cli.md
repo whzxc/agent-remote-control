@@ -59,6 +59,8 @@ Removing a connection preserves established sources as disconnected with `connec
 ## Local control and condition waits
 
 `cli control <op> [--stdin]` acts as the built-in `local-cli` control source.
+Create/send dispatches capture `caller: {agent, conversationId}` from `CLAUDE_CODE_SESSION_ID` (Claude Code), `CODEX_THREAD_ID` (Codex), or `PI_SESSION_ID` (Pi); missing, unknown or ambiguous identities are omitted.
+The persisted caller appears in `dispatchSummary.caller` for display attribution only and does not affect authorization, source identity, notification binding or task ownership.
 Stdin is the op's **args object**, not the MCP envelope. `requestId` can be
 provided in that object where the op schema supports it. The existing
 control dispatcher chooses guide/query/act, validates the same schemas and

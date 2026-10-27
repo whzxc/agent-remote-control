@@ -1067,6 +1067,7 @@ impl Control {
         };
         let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":"reserved","createdAt":now(),"updatedAt":now()});
         if matches!(operation, "create" | "send") {
+            crate::dispatch_caller::attach_current(&mut receipt);
             receipt["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
         if operation == "resume" {

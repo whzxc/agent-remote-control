@@ -717,6 +717,9 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     }
     row["title"] = json!(crate::control::dispatch_title(&receipt["task"]));
     row["origin"] = receipt["origin"].clone();
+    if let Some(caller) = crate::dispatch_caller::validated(&receipt["caller"]) {
+        row["caller"] = caller;
+    }
     row["agentAccountId"] = receipt["agentAccountId"].clone();
     row["agent"] = receipt["agent"]
         .as_str()
@@ -1090,11 +1093,11 @@ fn save_review(thread: &str, turn: &str, args: &Value, external: &Value) -> Resu
 
 /// Snapshot at submission; later session changes never rewrite this turn's choices.
 pub(crate) fn agent_record(task: &Value, args: &Value) -> Result<()> {
-    record(
-        &json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
+    let mut receipt = json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
         "turnId":task["turnId"],"requestId":args["requestId"],"dispatchMode":"new-turn",
-        "srcConversation":args["srcConversation"],"arguments":args,"task":{"dispatch":task["dispatch"]}}),
-    )
+        "srcConversation":args["srcConversation"],"arguments":args,"task":{"dispatch":task["dispatch"]}});
+    crate::dispatch_caller::attach_current(&mut receipt);
+    record(&receipt)
 }
 /// The Agent transport has flushed the prompt frame; this is submission, not completion.
 pub(crate) fn agent_submitted(task: &Value) -> Result<()> {

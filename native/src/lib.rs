@@ -35,6 +35,7 @@ pub mod control_sources;
 pub mod coordination;
 pub mod desktop;
 pub mod diagnostics;
+mod dispatch_caller;
 mod dispatch_policy;
 mod dispatch_queue;
 pub mod egress;

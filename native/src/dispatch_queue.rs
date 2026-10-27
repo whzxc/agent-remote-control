@@ -87,7 +87,10 @@ pub(crate) async fn enqueue(args: &Value, receipt: &mut Value) -> Result<Value> 
             .max()
             .unwrap_or(0)
             + 1;
-        let row = json!({"queueId":id,"threadId":args["threadId"],"args":args,"origin":receipt["origin"],"state":"queued","sequence":sequence,"createdAt":now(),"dispatchRequestId":crate::id()});
+        let mut row = json!({"queueId":id,"threadId":args["threadId"],"args":args,"origin":receipt["origin"],"state":"queued","sequence":sequence,"createdAt":now(),"dispatchRequestId":crate::id()});
+        if let Some(caller) = crate::dispatch_caller::validated(&receipt["caller"]) {
+            row["caller"] = caller;
+        }
         save(&target, &row)?;
         row
     };
@@ -266,7 +269,13 @@ async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
     }
     let origin = row["origin"].clone();
     let result = match crate::kernel::origin::ORIGIN
-        .scope(origin, control.mutate("send", args))
+        .scope(
+            origin,
+            crate::dispatch_caller::CALLER.scope(
+                crate::dispatch_caller::validated(&row["caller"]),
+                control.mutate("send", args),
+            ),
+        )
         .await
     {
         Ok(result) => result,

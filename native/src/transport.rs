@@ -571,7 +571,13 @@ async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value> {
         envelope
     };
     crate::kernel::origin::ORIGIN
-        .scope(origin, call_tool(&source, tool, envelope))
+        .scope(
+            origin,
+            crate::dispatch_caller::CALLER.scope(
+                crate::dispatch_caller::validated(&body["caller"]),
+                call_tool(&source, tool, envelope),
+            ),
+        )
         .await
 }
 async fn enabled_ops(s: &ControlSource<'_>) -> Vec<Value> {

@@ -1084,7 +1084,10 @@ impl AgentHost {
         if matches!(name, "agent_create" | "agent_send") {
             args["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
-        let receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"pending"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"pending"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        if matches!(name, "agent_create" | "agent_send") {
+            crate::dispatch_caller::attach_current(&mut receipt);
+        }
         RECEIPTS.reserve(&receipt)?;
         if needs_approval {
             return Ok(receipt);
@@ -1118,7 +1121,12 @@ impl AgentHost {
             let arguments = r["arguments"].clone();
             let task = string(&r, "taskId").to_owned();
             let name = string(&r, "operation").to_owned();
-            let result = host.perform(&driver, &name, &arguments, &task).await;
+            let result = crate::dispatch_caller::CALLER
+                .scope(
+                    crate::dispatch_caller::validated(&r["caller"]),
+                    host.perform(&driver, &name, &arguments, &task),
+                )
+                .await;
             match result {
                 Ok(v) => {
                     r["state"] = json!(if v["configurationError"].is_string() {
