@@ -9,7 +9,6 @@ import { DispatchSpec } from '../../composites/DispatchSpec';
 import { plainMarkdown } from '../../ui/Markdown';
 import { PhaseTile } from '../../activity';
 import { statePresentation } from '../statePresentation';
-import { presentActivity } from '../../../state/claudePresentation';
 import { ActivityBubbleContent } from './Content';
 import { dispatchActivity, projectName, receiptState, taskIdentity } from './projection';
 
@@ -25,8 +24,7 @@ type Props = { selected?: boolean; disabled?: boolean; actions?: ReactNode } & (
 export const TaskRow = memo(function TaskRow(props: Props) {
   const { selected, disabled, actions } = props;
   if (props.kind === 'activity') {
-    const { agent, session: input, live, now, onOpen } = props;
-    const session = presentActivity(agent, input);
+    const { agent, session, live, now, onOpen } = props;
     return <EntityRow className={`agent-conversation-row animate-in fade-in-0 duration-150 motion-reduce:animate-none [[data-reduced-motion=true]_&]:animate-none rounded-xl border bg-muted p-3 ${session.interaction ? 'border-warning bg-warning-soft' : ''} [&.entity-row-actions]:flex-wrap [&.entity-row-actions]:border-0 [&.entity-row-actions]:bg-transparent [&.entity-row-actions]:p-0`} selected={selected} disabled={disabled} actions={actions}
       data-density="standard" data-external={session.source === 'transcript' || undefined} data-timeline-anchor
       data-activity-session={JSON.stringify([agent, session.id])}

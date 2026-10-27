@@ -16,7 +16,6 @@ import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
 import TimelineEntries, { durationText } from "./TimelineEntries";
-import { presentActivity, presentTimelineEntries } from "../state/claudePresentation";
 import { taskState } from "../state/taskProjection";
 import { timelineDuration, timelineGroups } from "../state/timelineGroups";
 import TaskNeedsYou from "./TaskNeedsYou";
@@ -109,7 +108,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           }
           manualDisclosure.current = false;
         }
-        current = next; setTimeline({ ...next, entries: presentTimelineEntries(agent, next.entries) }); setError("");
+        current = next; setTimeline(next); setError("");
       } catch (error) { if (!stopped) setError(String(error)); }
       if (!stopped) timer = setTimeout(read, external || current?.readOnly ? 5000 : 1000);
     }
@@ -211,7 +210,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     })().catch(error => setOpenError(String(error))).finally(() => { continuationBusy.current = false; setContinuing(false); });
   };
   // Use recorded conversation identity even when the native timeline has no title field.
-  const title = (agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (presentActivity(agent, session).title
+  const title = (agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (session.title
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   return <TaskCard rootRef={detail} className="agent-panel-layer flex h-full min-h-0 w-full flex-col [&>.dialog-header]:shrink-0 [&>.task-timeline]:flex-1 [&>.task-timeline]:h-auto [&>.task-timeline]:px-4 [&>.task-timeline]:pb-4 [&>.dialog-footer]:max-h-1/2 task-detail-layer @container min-w-0" agent={agent} agentName={agentName}
     titleId={titleId} narrow={narrow} expanded={expanded} onBack={onBack} onToggleWidth={resizable ? onToggleWidth : undefined}

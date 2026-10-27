@@ -292,3 +292,16 @@ fn native_conversation_titles_and_pi_requests_exclude_harness_inputs() {
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0]["text"], "Actual request");
 }
+
+#[test]
+fn fork_notice_is_not_a_native_conversation_title_or_preview() {
+    // Regression: a human-origin system-reminder fork notice became the native conversation title.
+    let notice = "<system-reminder>\n## The user forked this session from another session.\n</system-reminder>";
+    let fork =
+        json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":notice}});
+    let request = json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":format!("{notice}\nReview the parser")}});
+    let reply = json!({"message":{"role":"assistant","content":"Parser reviewed"}});
+    let conversation = row(&[fork, request, reply], &[]);
+    assert_eq!(conversation["title"], "Review the parser");
+    assert_eq!(conversation["preview"], "Parser reviewed");
+}

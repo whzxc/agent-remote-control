@@ -104,7 +104,7 @@ impl Timeline {
                     if text.trim().is_empty() {
                         continue;
                     }
-                    self.codex_item(&json!({"id":id,"type":if role == "user" {"userMessage"} else {"agentMessage"},"content":text,"text":text,"phase":p["phase"],"inputOrigin":if role == "user" { json!("human") } else { Value::Null }}), "completed", at);
+                    self.codex_item(&json!({"id":id,"type":if role == "user" {"userMessage"} else {"agentMessage"},"content":text,"text":text,"phase":p["phase"]}), "completed", at);
                 }
                 "reasoning" => self.codex_item(
                     &json!({"id":id,"type":"reasoning","summary":p["summary"]}),
@@ -294,10 +294,7 @@ impl Timeline {
                             continue;
                         }
                         let (text, truncated) = cut(&redact(&text), MAX_TEXT);
-                        let mut row = json!({"id":format!("{id}:{index}"),"type":if role == "user" {"user"} else if thinking {"thinking"} else {"text"},"status":"completed","text":text,"truncated":truncated});
-                        if role == "user" {
-                            row["inputOrigin"] = json!("human");
-                        }
+                        let row = json!({"id":format!("{id}:{index}"),"type":if role == "user" {"user"} else if thinking {"thinking"} else {"text"},"status":"completed","text":text,"truncated":truncated});
                         self.put(row, at);
                     }
                     "tool_use" => {

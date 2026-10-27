@@ -404,7 +404,6 @@ fn transcript_metadata_preserves_human_markup_and_user_role_tool_results() {
         1
     );
     assert_eq!(entries[0]["text"], literal);
-    assert_eq!(entries[0]["inputOrigin"], "human");
     assert_eq!(
         entries.iter().find(|entry| entry["id"] == "read").unwrap()["output"]["text"],
         "Retained result"
@@ -431,4 +430,43 @@ fn codex_transcripts_exclude_harness_user_messages() {
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0]["text"], "Review changes");
     assert_eq!(timeline.prompt_headline(), "Review changes");
+}
+
+#[test]
+fn claude_fork_reminders_never_become_requests_or_summaries() {
+    // Regression: forked Claude sessions exposed a system-reminder-only harness notice as their first user request.
+    let reminder = "<system-reminder>\n## The user forked this session from another session.\n</system-reminder>";
+    for provenance in [
+        json!({}),
+        json!({"origin":{"kind":"human"},"turnOrigin":"human"}),
+    ] {
+        for prefix in [
+            reminder.to_owned(),
+            "<system-reminder>\n## The user forked this session from another session.".into(),
+        ] {
+            let mut fork = provenance.clone();
+            fork["uuid"] = json!("fork");
+            fork["timestamp"] = json!(AT);
+            fork["message"] = json!({"role":"user","content":prefix});
+            let mut request = provenance.clone();
+            request["uuid"] = json!("human");
+            request["timestamp"] = json!(LATER);
+            request["message"] = json!({"role":"user","content":format!("{reminder}\n{reminder}\nReview the parser")});
+            let mut timeline = Timeline::default();
+            timeline.backfill_claude(&[fork, request]);
+            let response = timeline.response("session", 0);
+            let requests: Vec<_> = response["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|entry| entry["type"] == "user")
+                .collect();
+            assert_eq!(requests.len(), 1);
+            assert_eq!(requests[0]["text"], "Review the parser");
+            assert_eq!(timeline.transcript_turn_start(), Some(("human", LATER)));
+            let session = timeline.transcript_session("session", "claude");
+            assert_eq!(session["title"], "Review the parser");
+            assert_eq!(session["fallbackHeadline"], "Review the parser");
+        }
+    }
 }

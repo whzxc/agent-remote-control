@@ -697,10 +697,7 @@ impl Timeline {
                 self.record_turn_status();
                 let (text, truncated) = cut(&redact(string(msg, "text")), MAX_TEXT);
                 self.partial |= truncated;
-                let mut row = json!({"id":format!("{}:user:{}",self.turn,self.revision+1),"type":"user","status":"completed","text":text,"truncated":truncated});
-                if msg["inputOrigin"] == "human" {
-                    row["inputOrigin"] = json!("human");
-                }
+                let row = json!({"id":format!("{}:user:{}",self.turn,self.revision+1),"type":"user","status":"completed","text":text,"truncated":truncated});
                 self.put(row, at);
                 return;
             }
@@ -1223,9 +1220,6 @@ impl Timeline {
         };
         let mut row = self.entry(id, kind, status);
         row["type"] = json!(kind);
-        if kind == "user" && item["inputOrigin"] == "human" {
-            row["inputOrigin"] = json!("human");
-        }
         if kind == "text" && item["phase"].is_string() {
             row["phase"] = item["phase"].clone();
         }

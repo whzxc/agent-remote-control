@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { changedFiles, processRows, processOpen, projectTurn, taskState } from "../ui/state/taskProjection.ts";
 import type { AgentTimelineEntry } from "../ui/types.ts";
-import { claudeRequestText, presentActivity, presentTimelineEntries } from "../ui/state/claudePresentation.ts";
 const entry = (id: string, type: AgentTimelineEntry["type"], extra: Partial<AgentTimelineEntry> = {}): AgentTimelineEntry => ({ id, type, status: "completed", turnId: "turn", startedAt: null, updatedAt: "", cursor: 1, ...extra });
 test("lifecycle notices preserve final answers and process ordering", () => {
   // Regression: a lifecycle notice after the final response hid the unmarked final answer.
@@ -108,54 +107,4 @@ test('answered questions remain available outside collapsed process rows', async
   const result=projectTurn([entry('answer','interaction',{status:'completed',interaction})],'done');
   assert.equal(result.answeredInteractions.length,1);assert.equal(result.rows.length,0);
   assert.match(interactionSummary(interaction),/Pick one.*A.*B/);
-});
-
-
-test("Claude local commands cannot become requests or task summaries", () => {
-  // Regression: local-command-stdout Compacted wrappers appeared as user requests, bubble titles and task summaries.
-  const wrapper = '<local-command-stdout>Compacted </local-command-stdout>';
-  const human = 'Explain `<local-command-stdout>Compacted</local-command-stdout>`';
-  const activity = { id: 'local', source: 'transcript' as const, phase: 'idle' as const, phaseSince: null, timeline: true,
-    title: wrapper, headline: wrapper, fallbackHeadline: 'Review changes', recentContent: [wrapper, 'Review changes'] };
-  assert.equal(presentActivity('claude', activity).title, '');
-  assert.equal(presentActivity('claude', activity).headline, '');
-  assert.deepEqual(presentActivity('claude', activity).recentContent, ['Review changes']);
-  assert.equal(presentActivity('codex', activity), activity);
-  assert.equal(claudeRequestText(human), human);
-  assert.equal(claudeRequestText('<local-command-caveat>Local only</local-command-caveat>\n<command-name>/compact</command-name>'), '');
-  assert.equal(claudeRequestText('<local-command-stdout>Compacted </local-'), '');
-  const prompt = entry('prompt', 'user', { text: human }), answer = entry('answer', 'text', { text: 'Done' });
-  const entries = [prompt, answer, entry('compact', 'user', { text: wrapper })];
-  const projected = presentTimelineEntries('claude', entries);
-  assert.deepEqual(projected, [prompt, answer]);
-  assert.equal(projectTurn(projected, 'done').prompt, prompt);
-  assert.equal(projectTurn(projected, 'done').final, answer);
-  assert.equal(presentTimelineEntries('codex', entries), entries);
-});
-
-
-test("legacy Claude harness notification fields never render as requests or summaries", () => {
-  // Regression: flattened task-notification fields appeared as a Request bubble at the bottom of the real Claude L3 timeline.
-  const wrappers = [
-    '<task-notification><task-id>job</task-id><status>completed</status></task-notification>',
-    '<task-id>job</task-id> <tool-use-id>tool</tool-use-id> <output-file>/tmp/job.output</output-file>',
-    '<bash-input>pwd</bash-input><bash-stdout>/tmp</bash-stdout>',
-    '<system-reminder>Context</system-reminder><local-command-stdout>Compacted</local-command-stdout>',
-    '<hook-output>Internal hook result</hook-output>',
-  ];
-  for (const text of wrappers) {
-    assert.equal(claudeRequestText(text), '');
-    assert.deepEqual(presentTimelineEntries('claude', [entry('injected', 'user', { text })]), []);
-    const activity = { id: 'local', source: 'transcript' as const, phase: 'idle' as const, phaseSince: null, timeline: true, title: text, headline: text };
-    assert.equal(presentActivity('claude', activity).title, '');
-    assert.equal(presentActivity('claude', activity).headline, '');
-    const human = entry('human', 'user', { text, inputOrigin: 'human' });
-    assert.deepEqual(presentTimelineEntries('claude', [human]), [human]);
-  }
-  const human = 'Explain `<task-notification>` and `<bash-input>`';
-  assert.equal(claudeRequestText(human), human);
-  assert.equal(claudeRequestText('    code()'), '    code()');
-  const quoted = 'Explain `<system-reminder>example</system-reminder>`';
-  assert.equal(claudeRequestText(quoted), quoted);
-  assert.equal(claudeRequestText('<system-reminder>Context</system-reminder>Actual request'), 'Actual request');
 });

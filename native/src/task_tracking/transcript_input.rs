@@ -1,7 +1,7 @@
 //! Classify transcript user-role content before cleaning loses harness provenance.
 use super::*;
 
-/// Metadata wins over wrapper-shaped text, including literal markup typed by a human.
+/// Metadata identifies injected records; leading harness reminders are not user text.
 pub(crate) fn transcript_user_text(record: &Value, text: &str) -> String {
     let sources = [record, &record["message"], &record["payload"]];
     if sources.iter().any(|source| {
@@ -49,6 +49,17 @@ pub(crate) fn transcript_user_text(record: &Value, text: &str) -> String {
     }) {
         return String::new();
     }
+    // Claude also prefixes genuine human turns with harness reminders, including
+    // fork notices. Strip those blocks even when the enclosing turn is human.
+    static REMINDERS: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let reminders = REMINDERS.get_or_init(|| {
+        regex::Regex::new(
+            r"(?is)^(?:\s*<system[-_]reminder(?:\s[^>]*)?>.*?(?:</system[-_]reminder\s*>|\z)\s*)+",
+        )
+        .unwrap()
+    });
+    let text = reminders.replace(text, "");
+    let text = text.as_ref();
     if kinds
         .iter()
         .any(|kind| matches!(*kind, "human" | "user" | "user-input" | "user_input"))

@@ -5,12 +5,10 @@ import type { TrackedActivity, BubbleDensity } from '../../../state/activityMode
 import { Button, Icon, IconButton, SingleChoice } from '../../ui';
 import { SourceBadge } from '../../activity';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '../../ui/popover';
-import { presentActivity } from '../../../state/claudePresentation';
 import { bubbleWidth } from '../../../subscriptions/displayPreferences';
 import { ActivityBubbleContent } from './Content';
 
-export function TaskNode({ agent, session: input, now, onMove, onRead, density = "standard", blocking = false, selected, disabled, onOpen }: { agent: string; session: TrackedActivity; now: number; density?: BubbleDensity; onMove?: (by: number) => void; onRead: () => void; onOpen: () => void; blocking?: boolean; selected?: boolean; disabled?: boolean }) {
-  const session = presentActivity(agent, input);
+export function TaskNode({ agent, session, now, onMove, onRead, density = "standard", blocking = false, selected, disabled, onOpen }: { agent: string; session: TrackedActivity; now: number; density?: BubbleDensity; onMove?: (by: number) => void; onRead: () => void; onOpen: () => void; blocking?: boolean; selected?: boolean; disabled?: boolean }) {
   const width = bubbleWidth.use();
   const completed = session.endedAt !== undefined, unread = completed && session.readAt === undefined;
   const press = useRef<{ id: number; x: number; y: number; moved: boolean } | undefined>(undefined);
