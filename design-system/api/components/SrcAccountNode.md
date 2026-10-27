@@ -12,6 +12,8 @@ Real SRC/TUNNEL object adapter. Requires [Arc.Root](Root.md). Records use existi
 | `onOpen` | callback | Open the account panel. |
 | `selected / newlyAdded / labelContent` | boolean / string | Host states; optional plain-text label slot. |
 
+`candidateLabel` optionally supplies the short visible name. The full platform and account identity stays in the accessible name and tooltip.
+
 ## Mounting
 
 Pass typed synthetic records from `Arc.fixtures` and stub callbacks through named `renderVals` holes. Use `Arc.fixtures.tunnelFrames` for TunnelNode. Missing optional facts are omitted or shown as unknown; historical references never acquire live state. Native editing, navigation and approval belong to the embedding host.

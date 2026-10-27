@@ -31,7 +31,7 @@ export function TaskNode({ agent, session, now, onRead, density = "standard", bl
       <ActivityBubbleContent agent={agent} session={session} now={now} density={density} showSourceBadge={!unread} />
       {blocking && <span className="update-blocking-tag">{t("updates.waitingReply")}</span>}
     </Button>
-    <span className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border bg-card shadow-sm opacity-0 group-hover/context:opacity-100 group-focus-within/context:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100" onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key !== 'Escape') event.stopPropagation(); }}>
+    <span className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border bg-card shadow-sm pointer-events-none opacity-0 pointer-fine:group-hover/context:pointer-events-auto pointer-fine:group-hover/context:opacity-100 group-focus-within/context:pointer-events-auto group-focus-within/context:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100" onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key !== 'Escape') event.stopPropagation(); }}>
       <PopoverTrigger asChild><IconButton icon={MoveHorizontal} label={t('context.bubbleWidth')} /></PopoverTrigger>
     </span>
     {unread && <Button variant="ghost" className="activity-mark-read" disabled={disabled} aria-label={t("activity.markRead")} title={t("activity.markRead")}

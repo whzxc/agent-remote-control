@@ -8,5 +8,5 @@ export default function GraphNode({ label, state, onOpen, highlighted, newlyAdde
 }) {
   return <Button variant="surface" type="button" className="graph-node" data-panel-anchor
     data-highlighted={highlighted || undefined} data-new-source={newlyAdded || undefined} data-connection-state={state}
-    aria-label={label} aria-haspopup="dialog" onClick={onOpen}>{children}</Button>;
+    aria-label={label} title={label} aria-haspopup="dialog" onClick={onOpen}>{children}</Button>;
 }

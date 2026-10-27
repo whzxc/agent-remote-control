@@ -129,7 +129,7 @@ export interface AgentConversation {
 export interface AgentConversationPage {
   data: AgentConversation[];
   nextCursor: string | null;
-  scope: "native-unarchived" | "arc-tasks";
+  scope: "native-unarchived" | "native-and-arc-tasks" | "arc-tasks";
 }
 export interface AgentTimelineEntry {
   response?: { skipped?: boolean; result?: { answer?: string; answers?: Record<string, { answers: string[] }>; decision?: string }; error?: unknown; origin: { controlSource?: string; sourceLabel?: string; sourceId?: string }; resolvedAt: string };

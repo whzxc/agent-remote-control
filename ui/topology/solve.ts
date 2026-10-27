@@ -1,15 +1,19 @@
-import type { AgentConversation } from '../types.ts';
+import type { AgentConversation, DispatchSummary } from '../types.ts';
 import type { TrackedActivity } from '../state/activityModel.ts';
 import type { Orientation } from './orientation.ts';
 
 export const PANEL_MIN_WIDTH = 400;
 export const LINGER_MS = 180_000;
+export const MIN_BUBBLE_WIDTH = 232;
+export const isArcDispatch = (summary?: DispatchSummary): summary is DispatchSummary => !!(summary?.controlSource || summary?.caller);
 export interface Candidate {
   id: string; side: 'cloud' | 'local'; label: string; agent?: string; accountId?: string; sourceIds: string[];
+  platform?: string; platformLabel?: string; accountLabel?: string; accessibleLabel?: string;
 }
 export interface Session { agent: string; session: TrackedActivity }
 export interface ArenaNode {
   id: string; candidateId?: string; agent?: string; session?: TrackedActivity; conversation?: AgentConversation; label: string;
+  source?: DispatchSummary["controlSource"];
   kind: 'executor' | 'agent' | 'remote' | 'unattributed' | 'floating'; depth: number;
   x: number; y: number; width: number; height: number;
 }
@@ -20,7 +24,7 @@ export interface ArenaLoop {
 }
 export interface ArenaLayout {
   orientation: Orientation; width: number; height: number; candidateHeight: number;
-  candidates: (Candidate & { x: number; y: number; colors: number[]; unread: boolean })[];
+  candidates: (Candidate & { x: number; y: number; labelWidth: number; colors: number[]; unread: boolean })[];
   ring: { x: number; y: number; radius: number }; loops: ArenaLoop[]; floating: ArenaNode[];
 }
 export const conversationKey = (agent: string, id: string) => JSON.stringify(['conversation', agent, id]);
@@ -34,20 +38,20 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
   width = Math.max(1, width); height = Math.max(1, height);
   const vertical = orientation === 'portrait';
   const local = candidates.filter(c => c.side === 'local'), cloud = candidates.filter(c => c.side === 'cloud');
-  const twoRows = width < (candidates.length + 1) * 68;
-  const capacity = Math.max(1, Math.floor((width - 24) / 60));
+  const twoRows = width < (candidates.length + 1) * 88;
+  const capacity = Math.max(1, Math.floor((width - 24) / 88));
   const cloudRows = Math.max(1, Math.ceil(cloud.length / capacity));
   const localRows = Math.max(1, Math.ceil(local.length / capacity));
   const positionCandidates = (rows: Candidate[], right: boolean) => rows.map((c, i) => {
     const row = twoRows ? Math.floor(i / capacity) : 0;
     const count = twoRows ? Math.min(capacity, rows.length - row * capacity) : rows.length;
-    const gap = Math.min(76, (width - 24) / Math.max(1, twoRows ? count : candidates.length + 1));
+    const gap = Math.min(104, (width - 24) / Math.max(1, twoRows ? count : candidates.length + 1));
     const slot = twoRows ? i % capacity : i;
     return { ...c, x: right ? width - 12 - gap * (count - slot - .5) : 12 + gap * (slot + .5),
-      y: 36 + (right && twoRows ? cloudRows + row : row) * 76, colors: [] as number[], unread: false };
+      y: 36 + (right && twoRows ? cloudRows + row : row) * 88, labelWidth: gap - 12, colors: [] as number[], unread: false };
   });
   const placedCandidates = [...positionCandidates(cloud, false), ...positionCandidates(local, true)];
-  const candidateHeight = twoRows ? (cloudRows + localRows) * 76 + 20 : 96;
+  const candidateHeight = twoRows ? (cloudRows + localRows) * 88 + 12 : 96;
   height = Math.max(1, height - candidateHeight);
   const nodes = new Map<string, ArenaNode>(), edges = new Map<string, ArenaEdge>();
   const findAgent = (agent: string, s?: Pick<TrackedActivity, 'agentAccountId' | 'dispatchSummary'>) => placedCandidates.find(c => c.agent === agent && !!s?.agentAccountId && c.accountId === s.agentAccountId)
@@ -58,29 +62,39 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
   for (const { agent, session } of ordered) {
     const id = conversationKey(agent, session.nativeSessionId ?? session.id), candidate = findAgent(agent, session);
     nodes.set(id, { id, candidateId: candidate?.id, agent, session, label: session.title || session.headline || agent,
-      kind: session.dispatchSummary ? 'executor' : 'floating', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
+      kind: isArcDispatch(session.dispatchSummary) ? 'executor' : 'floating', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
     if (candidate && session.endedAt !== undefined && session.readAt === undefined) candidate.unread = true;
   }
   for (const { agent, session } of ordered) {
     const summary = session.dispatchSummary;
-    if (!summary) continue;
+    if (!isArcDispatch(summary)) continue;
     const to = conversationKey(agent, session.nativeSessionId ?? session.id);
     let from: string;
     if (summary.caller) {
       const caller = summary.caller;
       from = conversationKey(caller.agent, caller.conversationId);
       const conversation = conversations.find(row => row.agent === caller.agent && (row.conversation.nativeSessionId === caller.conversationId || row.conversation.id === caller.conversationId))?.conversation;
-      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: findAgent(caller.agent, conversation ? { ...conversation, dispatchSummary: conversation.dispatchSummary ?? undefined } : undefined)?.id, agent: caller.agent, conversation,
-        label: conversation?.title || caller.agent, kind: 'agent', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
-      else if (nodes.get(from)!.kind === 'floating') nodes.get(from)!.kind = 'agent';
+      const callerAccount = findAgent(caller.agent, conversation ? { ...conversation, dispatchSummary: conversation.dispatchSummary ?? undefined } : undefined);
+      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: callerAccount?.id, agent: caller.agent, conversation,
+        label: conversation?.title || [callerAccount?.platformLabel ?? caller.agent, callerAccount?.accountLabel].filter(Boolean).join(' · '), kind: 'agent', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
+      else {
+        const node = nodes.get(from)!;
+        node.conversation = conversation;
+        if (!node.candidateId && conversation) node.candidateId = findAgent(caller.agent, { ...conversation, dispatchSummary: conversation.dispatchSummary ?? undefined })?.id;
+        if (!node.session?.title && conversation?.title) {
+          node.label = conversation.title;
+          if (node.session) node.session = { ...node.session, title: conversation.title };
+        }
+        if (node.kind === 'floating') node.kind = 'agent';
+      }
     } else {
       const source = summary.controlSource;
       const candidate = placedCandidates.find(c => !!source?.accountId && c.accountId === source.accountId && c.sourceIds.length)
         ?? placedCandidates.find(c => !!source?.id && c.sourceIds.includes(source.id));
       const remote = candidate?.side === 'cloud' || !!source?.kind && !['local', 'local-cli', 'local-ui', 'stdio', 'ARC'].includes(source.kind);
       from = JSON.stringify(['dispatcher', source?.id ?? source?.accountId ?? source?.kind ?? 'ARC']);
-      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: candidate?.id, label: candidate?.label ?? source?.label ?? source?.kind ?? 'ARC',
-        kind: remote ? 'remote' : 'unattributed', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
+      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: candidate?.id, label: [candidate?.platformLabel ?? source?.kind ?? 'ARC', candidate?.accountLabel ?? source?.label].filter(Boolean).join(' · '),
+        source, kind: remote ? 'remote' : 'unattributed', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
     }
     if (from === to) continue;
     const id = JSON.stringify([from, to]);
@@ -119,7 +133,7 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
     const lingering = executors.every(n => n.session!.endedAt !== undefined);
     const lastActivity = Math.max(0, ...executors.map(n => n.session!.endedAt ?? Math.max(n.session!.orderAt, time(n.session!.phaseSince), time(n.session!.turnStartedAt))));
     const lastDispatch = Math.max(0, ...executors.map(n => Math.max(n.session!.orderAt, time(n.session!.turnStartedAt))));
-    const read = executors.some(n => n.session!.endedAt !== undefined && (n.session!.readAt ?? -1) >= lastDispatch);
+    const read = members.some(n => n.session?.endedAt !== undefined && (n.session.readAt ?? -1) >= lastDispatch);
     if (read || lingering && now >= lastActivity + LINGER_MS) continue;
     const root = (roots.length ? roots : members).map(n => n.id).sort()[0];
     const used = new Set(loops.map(l => l.color));
@@ -140,15 +154,16 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
     }
   }
   const floating = [...nodes.values()].filter(n => n.kind === 'floating' && !visited.has(n.id) && n.session?.endedAt === undefined);
-  const floatRows = new Map<string, number>();
+  const placedFloating: ArenaNode[] = [];
   let floatBottom = 0;
   for (const node of floating) {
     const candidate = placedCandidates.find(c => c.id === node.candidateId);
-    const bucket = candidate?.id ?? node.agent ?? '', row = floatRows.get(bucket) ?? 0;
-    floatRows.set(bucket, row + 1);
-    node.width = Math.min(200, width - 16); node.height = 44;
+    node.width = MIN_BUBBLE_WIDTH; node.height = 54;
     node.x = Math.max(8, Math.min(width - node.width - 8, (candidate?.x ?? width / 2) - node.width / 2));
-    node.y = row * 52 + 8;
+    node.y = 8;
+    while (placedFloating.some(other => other.x < node.x + node.width + 12 && node.x < other.x + other.width + 12
+      && other.y < node.y + node.height + 12 && node.y < other.y + other.height + 12)) node.y += node.height + 12;
+    placedFloating.push(node);
     floatBottom = Math.max(floatBottom, node.y + node.height + 16);
   }
   const top = floatBottom + 24, margin = vertical ? 12 : 24, depth = Math.max(1, ...loops.map(l => l.depth));
@@ -157,8 +172,8 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
   const crossCount = Math.max(1, bandSizes.reduce((a, b) => a + b, 0));
   const availableFlow = vertical ? height - top - margin : width - margin * 2;
   const radius = 46 + Math.min(loops.length, 4) * 4;
-  const nw = vertical ? Math.max(56, Math.min(nodeWidth, (width - margin * 2 - Math.max(0, loops.length - 1) * bandGap) / crossCount - 8))
-    : Math.max(176, Math.min(nodeWidth, (availableFlow - radius * 2 - 64 - (depth - 1) * 28) / (depth + 1)));
+  const nw = vertical ? Math.max(MIN_BUBBLE_WIDTH, Math.min(nodeWidth, (width - margin * 2 - Math.max(0, loops.length - 1) * bandGap) / crossCount - 8))
+    : Math.max(MIN_BUBBLE_WIDTH, Math.min(nodeWidth, (availableFlow - radius * 2 - 64 - (depth - 1) * 28) / (depth + 1)));
   const flowSize = vertical ? nodeHeight : nw, crossSize = vertical ? nw : nodeHeight;
   const firstHop = flowSize + radius * 2 + 64, laterHop = flowSize + 32;
   const minFlow = margin * 2 + flowSize + firstHop + (depth - 1) * laterHop;
@@ -179,9 +194,9 @@ export function solve({ sessions, candidates, width, height, orientation, now, c
       const column = loop.nodes.filter(n => n.depth === d);
       column.forEach((node, i) => {
         const c = cross + band / 2 + (i - (column.length - 1) / 2) * unit, f = flowOf(d);
-        node.width = nw; node.height = nodeHeight;
-        node.x = vertical ? c - nw / 2 : f - nw / 2;
-        node.y = vertical ? top + f - nodeHeight / 2 : top + c - nodeHeight / 2;
+        node.width = node.session ? nw : MIN_BUBBLE_WIDTH; node.height = node.session ? nodeHeight : 54;
+        node.x = vertical ? c - node.width / 2 : f - node.width / 2;
+        node.y = vertical ? top + f - node.height / 2 : top + c - node.height / 2;
       });
     }
     cross += band + bandGap;

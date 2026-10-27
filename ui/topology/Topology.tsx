@@ -3,14 +3,13 @@ import { useMedia } from '../state/hooks';
 import { appEnvironment } from '../state/appEnvironment';
 import { activityBubbleSnapshot } from '../state/activityBubbles';
 import { topologyLayout, bubbleDensity, bubbleWidth, bubbleAutoCompact } from '../subscriptions/displayPreferences';
-import { bubbleWidths, bubbleHeights, effectiveBubbleDensity } from '../state/activityModel';
+import { bubbleWidths, bubbleHeights } from '../state/activityModel';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { conversationActivity } from '../components/objects/task/projection';
 import type { AgentConversation } from '../types';
-import { name } from '../state/agents';
 import { t } from '../i18n';
 import { ActivityBubble } from '../components/ActivityBubbles';
-import { Button } from '../components/ui';
+import { DispatcherNode } from '../components/objects/task/DispatcherNode';
 import { observeTopology } from '../runtimeSnapshot';
 import { resolveOrientation, type Orientation } from './orientation';
 import { solve, conversationKey, type Session, type ArenaNode, type ArenaLoop } from './solve';
@@ -43,7 +42,7 @@ export default function Topology({ candidates, sessions, conversations = [], now
       ...(!currentKeys.has(key) && row.session.endedAt === undefined ? { endedAt: now } : {}),
       ...(read ? { readAt: read.readAt! } : {}) } };
   });
-  const effectiveDensity = effectiveBubbleDensity(density, compact, sessions.length);
+  const effectiveDensity = density === 'detailed' && compact && sessions.length > 4 ? 'standard' : density;
   const layout = solve({ sessions: allSessions, candidates: candidates.map(({ content: _content, ...c }) => c), ...viewport,
     orientation: orientation.current, now, conversations, colors: colors.current, nodeWidth: bubbleWidths[width], nodeHeight: bubbleHeights[effectiveDensity] });
   for (const loop of layout.loops) colors.current[loop.id] = loop.color;
@@ -143,7 +142,7 @@ export default function Topology({ candidates, sessions, conversations = [], now
   return <div ref={host} className="relative h-full w-full overflow-hidden" data-orientation={layout.orientation}>
     <div className="absolute inset-x-0 top-0 z-10" aria-label={t('accounts.title')}>
       {layout.candidates.map(candidate => <div key={candidate.id} className="topology-node" data-agent-node={candidate.agent} data-account-id={candidate.accountId} data-source-node={candidate.sourceIds[0]} ref={element => {
-        if (element) element.style.transform = `translate(${candidate.x - 22}px, ${candidate.y - 22}px)`;
+        if (element) { element.style.transform = `translate(${candidate.x - 22}px, ${candidate.y - 22}px)`; element.style.setProperty("--candidate-label-width", `${candidate.labelWidth}px`); }
       }}>{candidates.find(c => c.id === candidate.id)?.content}
         <span className="absolute -right-1 -top-1 flex gap-1" aria-label={candidate.unread ? t('activity.unread') : undefined}>
           {candidate.colors.map(color => <span key={color} className="topology-loop-dot" ref={el => { if (el) el.style.backgroundColor = colorFor(color); }} />)}
@@ -151,18 +150,17 @@ export default function Topology({ candidates, sessions, conversations = [], now
         </span>
       </div>)}
     </div>
-    <div ref={stage} className="absolute inset-x-0 bottom-0 overflow-auto pb-20">
+    <div ref={stage} className="absolute inset-x-0 bottom-0 overflow-auto">
       <div ref={canvas} className="relative" data-arena-stage>
         <svg ref={svg} className="topology-wires" aria-hidden="true" />
         <div ref={hub} className="topology-hub">{brand}{!layout.loops.length && <time className="pointer-events-none absolute inset-0 grid place-items-center text-sm tabular-nums text-muted-foreground">{new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}</div>
         {allNodes.map(node => <div key={node.id} ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }}
-          className={`activity-slot${node.kind === 'floating' ? ' topology-floating' : ''}`} data-arena-node={node.id} data-compact={node.width < 160 || undefined}>
-          {node.kind === 'executor' && node.session && node.agent
-            ? <ActivityBubble agent={node.agent} session={node.session} now={now} density={node.width < 160 ? 'compact' : effectiveDensity} onRead={() => onRead(node.agent!, node.session!.id)} />
-            : node.agent ? <Button variant="surface" className={`h-full w-full gap-2 overflow-hidden rounded-xl border bg-card px-3 text-left shadow-sm ${node.width < 160 ? "flex-col items-start justify-center gap-0" : "justify-start"}`}
-              onClick={() => selectAgentPanel({ type: 'task', agent: node.agent!, session: node.session ?? conversationActivity(node.conversation ?? { id: JSON.parse(node.id)[2], source: 'native', createdAt: null }) })}>
-              <span className="min-w-0 max-w-full truncate">{node.conversation?.title || node.session?.title || name({ agent: node.agent })}</span><span className={`truncate text-xs text-muted-foreground ${node.width < 160 ? "max-w-full" : "ml-auto max-w-2/5"}`}>{candidates.find(c => c.id === node.candidateId)?.label ?? name({ agent: node.agent })}</span>
-            </Button> : <div tabIndex={0} className="flex h-full items-center gap-2 rounded-xl border bg-card px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="truncate">{node.label}</span></div>}
+          className={`activity-slot${node.kind === 'floating' ? ' topology-floating' : ''}`} data-arena-node={node.id}>
+          {node.session && node.agent
+            ? <ActivityBubble agent={node.agent} session={node.session} now={now} density={node.kind === 'floating' ? 'compact' : effectiveDensity} onRead={() => onRead(node.agent!, node.session!.id)} />
+            : <DispatcherNode agent={node.agent} platform={candidates.find(c => c.id === node.candidateId)?.platform} source={node.source}
+              title={node.conversation?.title || undefined} account={candidates.find(c => c.id === node.candidateId)?.accountLabel}
+              onOpen={node.agent ? () => selectAgentPanel({ type: 'task', agent: node.agent!, session: conversationActivity(node.conversation ?? { id: JSON.parse(node.id)[2], source: 'native', createdAt: null }) }) : undefined} />}
         </div>)}
       </div>
     </div>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { solve, conversationKey, LINGER_MS, type Session, type Candidate } from '../ui/topology/solve.ts';
+import { solve, conversationKey, LINGER_MS, MIN_BUBBLE_WIDTH, type Session, type Candidate } from '../ui/topology/solve.ts';
 const now = 1_000_000;
 const candidates: Candidate[] = ['claude', 'codex'].map(agent => ({ id: agent, side: 'local', label: agent, agent, sourceIds: [] }));
 function chain(length: number): Session[] {
@@ -113,4 +113,51 @@ test('light follows the active tail through completed intermediate executors', (
   assert.equal(project().loops[0].edges.every(e => e.state === 'running'), true);
   sessions[4].session.interaction = { kind: 'question', summary: 'Confirm', respond: {} };
   assert.equal(project().loops[0].edges.every(e => e.state === 'waiting'), true);
+});
+
+test('native model summaries remain floating unless their conversation dispatches work', () => {
+  // Regression: a native model/effort summary created an executor under a fabricated ARC dispatcher.
+  const caller = { agent: 'claude', session: { ...chain(1)[0].session, id: 'root', title: 'Native conversation', dispatchSummary: { model: 'native-model', effort: 'high' } } };
+  const project = (sessions: Session[]) => solve({ sessions, candidates, width: 900, height: 700, orientation: 'landscape', now });
+  const direct = project([caller]);
+  assert.equal(direct.loops.length, 0); assert.equal(direct.floating.length, 1);
+  const dispatched = project([caller, ...chain(1)]);
+  assert.equal(dispatched.floating.length, 0); assert.equal(dispatched.loops.length, 1);
+  const root = dispatched.loops[0].nodes.find(n => n.id === conversationKey('claude', 'root'))!;
+  assert.equal(root.depth, 0); assert.equal(root.session?.title, caller.session.title);
+  assert.equal(root.kind, 'agent'); assert.equal(dispatched.loops[0].nodes.length, 2);
+  assert.equal(dispatched.loops[0].nodes.some(n => n.kind === 'unattributed'), false);
+});
+for (const orientation of ['landscape', 'portrait'] as const) test(`crowded ${orientation} scenes scroll beyond the readable bubble minimum`, () => {
+  // Property: stage nodes retain a readable width as crowding increases and fit inside the expanded scroll extent.
+  for (let count = 1; count <= 30; count++) {
+    const sessions = Array.from({ length: count }, (_, i) => ({ ...chain(1)[0], session: { ...chain(1)[0].session, id: `readable-${i}` } }));
+    const model = solve({ sessions, candidates, width: 390, height: 844, orientation, now });
+    for (const node of model.loops.flatMap(l => l.nodes)) {
+      assert.ok(node.width >= MIN_BUBBLE_WIDTH);
+      assert.ok(node.x >= 0 && node.y >= 0 && node.x + node.width <= model.width && node.y + node.height <= model.height);
+    }
+    if (count > 1 && orientation === 'portrait') assert.ok(model.width > 390);
+  }
+});
+test('candidate label slots remain separated when wrapping to portrait rows', () => {
+  // Property: every label interval stays inside its viewport and is disjoint from adjacent labels in the same row.
+  const input: Candidate[] = Array.from({ length: 18 }, (_, i) => ({ id: `account-${i}`, side: i < 7 ? 'cloud' : 'local', label: `Account ${i}`, sourceIds: [] }));
+  for (const width of [320, 390, 800, 1280]) {
+    const model = solve({ sessions: [], candidates: input, width, height: 844, orientation: 'portrait', now });
+    for (const a of model.candidates) {
+      assert.ok(a.x - a.labelWidth / 2 >= 0 && a.x + a.labelWidth / 2 <= width);
+      for (const b of model.candidates) if (a.id < b.id && a.y === b.y) assert.ok(Math.abs(a.x - b.x) > (a.labelWidth + b.labelWidth) / 2);
+    }
+  }
+});
+
+test('reading an ended native caller returns its dispatch loop', () => {
+  // Property: any ended conversation read after the latest dispatch returns the whole loop, including a native dispatcher bubble.
+  const caller = { agent: 'claude', session: { ...chain(1)[0].session, id: 'root', dispatchSummary: { model: 'native-model' }, endedAt: now, readAt: now + 1 } };
+  const sessions = [caller, ...chain(1)];
+  const project = () => solve({ sessions, candidates, width: 900, height: 700, orientation: 'landscape', now: now + 3 });
+  assert.equal(project().loops.length, 0);
+  sessions[1].session.orderAt = now + 2;
+  assert.equal(project().loops.length, 1);
 });

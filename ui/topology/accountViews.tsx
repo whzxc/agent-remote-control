@@ -1,6 +1,7 @@
 import { SrcAccountNode } from '../components/objects/src-account';
 import { AgentAccountNode } from '../components/objects/agent-account';
 import { AgentPlatformNode } from '../components/objects/agent-platform';
+import { controlSource } from '../controlSources';
 import { accountOwns } from '../accountPresentation';
 import type { ProviderAccount } from '../types';
 import type { ControlSource } from '../state/types';
@@ -22,10 +23,14 @@ export function accountViews({ sources, agents, accounts, orders, open }: {
     const id = JSON.stringify(['source', source.product, account?.id ?? source.id]);
     if (seen.has(id)) continue;
     seen.add(id);
-    result.push({ id, side: local ? 'local' : 'cloud', accountId: account?.id,
+    const platformLabel = controlSource(source.product)?.displayName ?? source.product;
+    const accountLabel = `${account?.alias ?? source.label}${suffix ? ` · ${suffix}` : ''}`;
+    const multiple = new Set(sources.filter(s => s.product === source.product).map(s => accounts.find(a => a.sources.includes(s.id))?.id ?? s.id)).size > 1;
+    const label = multiple ? accountLabel : platformLabel;
+    result.push({ id, platform: source.product, platformLabel, accountLabel, accessibleLabel: `${platformLabel} · ${accountLabel}`, side: local ? 'local' : 'cloud', accountId: account?.id,
       sourceIds: account ? sources.filter(s => s.product === source.product && account.sources.includes(s.id)).map(s => s.id) : [source.id],
-      label: `${account?.alias ?? source.label}${suffix ? ` · ${suffix}` : ""}`,
-      content: <SrcAccountNode product={source.product} account={account} suffix={suffix} sourceLabel={source.label} state={source.state === 'connected' ? 'normal' : 'inactive'}
+      label,
+      content: <SrcAccountNode product={source.product} account={account} suffix={suffix} candidateLabel={label} sourceLabel={source.label} state={source.state === 'connected' ? 'normal' : 'inactive'}
         onOpen={() => open(-1, source.product, source.id, account?.id)} /> });
   }
   for (const agent of agents) {
@@ -35,11 +40,12 @@ export function accountViews({ sources, agents, accounts, orders, open }: {
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
     for (const account of linked) {
       const suffix = account.alias === 'Unidentified' ? String(unidentified.indexOf(account.id) + 1) : undefined;
-      result.push({ id: JSON.stringify(['agent', agent.agent, account.id]), side: 'local', agent: agent.agent,
-      accountId: account.id, sourceIds: [], label: `${name(agent)} · ${account.alias}${suffix ? ` · ${suffix}` : ""}`,
-      content: <AgentAccountNode account={account} suffix={suffix} agent={agent.agent} state={agent.available ? 'normal' : 'inactive'} onOpen={() => open(1, agent.agent, undefined, account.id)} /> });
+      const accountLabel = `${account.alias}${suffix ? ` · ${suffix}` : ''}`, label = linked.length > 1 ? accountLabel : name(agent);
+      result.push({ platform: agent.agent, platformLabel: name(agent), accountLabel, accessibleLabel: `${name(agent)} · ${accountLabel}`, id: JSON.stringify(['agent', agent.agent, account.id]), side: 'local', agent: agent.agent,
+      accountId: account.id, sourceIds: [], label,
+      content: <AgentAccountNode account={account} suffix={suffix} candidateLabel={label} agent={agent.agent} state={agent.available ? 'normal' : 'inactive'} onOpen={() => open(1, agent.agent, undefined, account.id)} /> });
     }
-    if (!linked.length) result.push({ id: JSON.stringify(['agent', agent.agent]), side: 'local', agent: agent.agent, sourceIds: [], label: name(agent),
+    if (!linked.length) result.push({ id: JSON.stringify(['agent', agent.agent]), side: 'local', agent: agent.agent, platform: agent.agent, platformLabel: name(agent), sourceIds: [], label: name(agent), accessibleLabel: name(agent),
       content: <AgentPlatformNode agent={agent} quota={null} state={agent.available ? 'normal' : 'inactive'} onOpen={() => open(1, agent.agent)} /> });
   }
   // Apply per-platform account order only to that platform's persisted slots.

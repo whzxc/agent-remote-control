@@ -30,7 +30,8 @@ import { onboarding, openOnboarding } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentPanel from "./AgentPanel";
-import type { AgentConversation, AgentConversationPage } from "../types";
+import { lookupCallerConversations, findCallerConversation, type CallerConversation, type Caller } from "../state/callerConversations";
+import type { AgentConversationPage } from "../types";
 import Hub from "../topology/Hub";
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const { tracked, markRead } = useActivityTracking(), selection = agentPanel.use(), sourceSelection = ingressPanel.use();
@@ -112,27 +113,27 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     }
   };
   const callerKeys = JSON.stringify([...new Set(Object.values(tracked).flatMap(rows => rows.flatMap(s => s.dispatchSummary?.caller ? [JSON.stringify(s.dispatchSummary.caller)] : [])))].sort());
-  const [callerConversations, setCallerConversations] = useState<{ agent: string; conversation: AgentConversation }[]>([]);
+  const [callerConversations, setCallerConversations] = useState<CallerConversation[]>([]);
   useEffect(() => {
     if (!visible) return;
     let stopped = false;
-    const callers = (JSON.parse(callerKeys) as string[]).map(key => JSON.parse(key) as { agent: string; conversationId: string });
-    void Promise.all([...new Set(callers.map(c => c.agent))].map(async agent => {
-      const wanted = new Set(callers.filter(c => c.agent === agent).map(c => c.conversationId));
-      let cursor: string | undefined;
-      const seen = new Set<string>();
-      do {
-        const page = await api<AgentConversationPage>('agents/conversations', 'POST', { agent, limit: 50, ...(cursor ? { cursor } : {}) });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const callers = (JSON.parse(callerKeys) as string[]).map(key => JSON.parse(key) as Caller);
+    let loaded = callerConversations;
+    const read = async () => {
+      try {
+        loaded = await lookupCallerConversations(callers, loaded, async (agent, cursor) => {
+          if (stopped) throw new Error('Caller lookup cancelled');
+          return api<AgentConversationPage>('agents/conversations', 'POST', { agent, limit: 50, ...(cursor ? { cursor } : {}) });
+        });
         if (stopped) return;
-        const matched = page.data.filter(c => wanted.has(c.nativeSessionId ?? c.id) || wanted.has(c.id));
-        matched.forEach(c => { wanted.delete(c.nativeSessionId ?? c.id); wanted.delete(c.id); });
-        if (matched.length) setCallerConversations(old => [...new Map([...old, ...matched.map(conversation => ({ agent, conversation }))].map(row => [JSON.stringify([row.agent, row.conversation.id]), row])).values()]);
-        cursor = page.nextCursor ?? undefined;
-        if (cursor && seen.has(cursor)) break;
-        if (cursor) seen.add(cursor);
-      } while (cursor && wanted.size && !stopped);
-    })).catch(console.error);
-    return () => { stopped = true; };
+        setCallerConversations(loaded);
+      } catch (error) { if (!stopped) console.error(error); }
+      // New native sessions can appear after the native metadata cache refreshes.
+      if (!stopped && callers.some(c => !findCallerConversation(loaded, c)?.conversation.title)) timer = setTimeout(read, 30_000);
+    };
+    void read();
+    return () => { stopped = true; clearTimeout(timer); };
   }, [callerKeys, visible]);
   const conversations = callerConversations.map(row => ({ ...row, conversation: { ...row.conversation, agentAccountId: canonicalAccount(accounts, row.conversation.agentAccountId) } }));
   const candidates = accountViews({ sources: controlSources, agents, accounts, orders: accountOrders, open: openAccountNode });
@@ -143,9 +144,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   return (
     <>
       <section inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
-        <div className="core-toggle">
+        <div className="absolute inset-x-0 top-0 z-10 flex h-16 items-center justify-center">
           <Button variant="surface"
-            className={`connection-action ${switchOn ? "is-on" : ""} ${progressing ? "is-busy" : ""}`}
+            className={`connection-action w-auto ${switchOn ? "is-on" : ""} ${progressing ? "is-busy" : ""}`}
             disabled={progressing || loading || !status || !!error}
             aria-busy={progressing}
             aria-label={t(
@@ -160,10 +161,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             </span>
           </Button>
         </div>
-        <Topology candidates={candidates} sessions={sessions} conversations={conversations} now={now} onRead={markRead}
+        <div className="absolute inset-x-0 bottom-0 top-16"><Topology candidates={candidates} sessions={sessions} conversations={conversations} now={now} onRead={markRead}
           brand={<Hub sourceEmpty={!controlSources.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
-            onManageAgents={() => setAgentsOpen(true)} />} />
+            onManageAgents={() => setAgentsOpen(true)} />} /></div>
         {selectedAgent && visible && <AgentPanel agent={selectedAgent}
           width={envOverrides().taskPanelWidth ?? PANEL_MIN_WIDTH} expanded={envOverrides().taskPanelWidth == null && panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} />}
         {sourceSelection && visible && <IngressPanel width={PANEL_MIN_WIDTH} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} />}

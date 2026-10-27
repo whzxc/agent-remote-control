@@ -95,7 +95,3 @@ button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-sh
 }
 .activity-bubble[data-update-blocking] { outline: 1px solid var(--update-blocker); outline-offset: 2px; }
 .update-blocking-tag { color: var(--update-blocker); font-size: var(--text-xs); white-space: nowrap; }
-
-.activity-slot[data-compact] .activity-bubble { padding: 8px; gap: 0; }
-.activity-slot[data-compact] .activity-bubble:not([data-unread]) .phase-tile,
-.activity-slot[data-compact] .activity-phase > .phase-label { display: none; }
