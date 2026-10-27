@@ -76,7 +76,7 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
     <span className="activity-copy flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="activity-title-row flex min-w-0 items-center gap-1 [&>strong]:min-w-0 [&>strong]:flex-1 [&>strong]:truncate [&>strong]:text-sm [&>strong]:font-semibold [&>time]:shrink-0 [&>time]:font-mono [&>time]:text-xs [&>time]:text-muted-foreground [&>time]:tabular-nums"><strong>{session.title || t("timeline.title")}</strong>
         {unread && <span className="activity-unread size-1.5 shrink-0 rounded-full bg-brand-accent" role="img" aria-label={t("activity.unread")} />}
-        {session.interaction ? <span className="activity-pending shrink-0 rounded-full bg-warning-soft px-1.5 text-xs text-warning">{t("activity.pending")}</span> : !historical && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
+        {session.interaction ? <span className="activity-pending shrink-0 rounded-full bg-warning-soft px-1.5 text-xs text-warning">{t("activity.pending")}</span> : !historical && <time className="[[data-compact]_&]:hidden">{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
       </span>
       {(!historical || !conversation) && <span className="activity-phase flex min-w-0 items-center gap-1 text-xs font-medium whitespace-nowrap text-muted-foreground [&>.phase-label]:max-w-2/5 [&>.phase-label]:shrink-0">
         {historical ? createdTime : <>

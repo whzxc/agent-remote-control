@@ -11,13 +11,10 @@ test('orientation retains state inside the hysteresis band', () => {
     assert.equal(resolveOrientation(mode, 'auto', 0, 0), mode);
   }
 });
-test('drag ownership takes precedence over automatic and manual orientation', () => {
-  // Property: no orientation request moves slots while a pointer drag owns them.
-  for (const mode of ['portrait', 'landscape'] as Orientation[]) {
-    for (const requested of ['auto', 'portrait', 'landscape'] as const) {
-      for (const width of [400, 1800]) assert.equal(resolveOrientation(mode, requested, width, 1000, true), mode);
-    }
-    assert.equal(resolveOrientation(mode, 'portrait', 1800, 900), 'portrait');
-    assert.equal(resolveOrientation(mode, 'landscape', 400, 900), 'landscape');
+test('manual orientation takes precedence over aspect ratio', () => {
+  // Property: explicit orientation choices ignore viewport aspect ratio.
+  for (const current of ['portrait', 'landscape'] as Orientation[]) for (const width of [320, 1800]) {
+    assert.equal(resolveOrientation(current, 'portrait', width, 900), 'portrait');
+    assert.equal(resolveOrientation(current, 'landscape', width, 900), 'landscape');
   }
 });

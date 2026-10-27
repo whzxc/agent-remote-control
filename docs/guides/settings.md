@@ -59,12 +59,10 @@ arc cli call preferences.get
 | Setting | Key | Values (default first) |
 | --- | --- | --- |
 | Accent color | `theme-color` | `arc`, `blue`, `purple`, `orange`, `green` |
-| Account topology | `arc.topology-mode` | `"tree"`, `"flat"` (JSON-encoded strings) |
 | Bubble density | `task-bubble-density` | `standard`, `compact`, `detailed` |
 | Bubble width | `task-bubble-width` | `medium`, `narrow`, `wide` |
 | Compact bubbles automatically | `task-bubble-auto-compact` | `on`, `off` |
 | Topology orientation | `topology-layout` | `auto`, `landscape`, `portrait` |
-| Maximum visible Agents | `agents-max-visible` | `4`, `6`, `8`, `10` |
 | Quota percentage | `quota-display` | `remaining`, `used` |
 | Quota reset presentation | `quota-reset-display` | `countdown`, `time` |
 
@@ -72,11 +70,11 @@ For example:
 
 ```sh
 arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-mode":"\"flat\"","topology-layout":"auto","agents-max-visible":"6","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
+{"body":{"values":{"topology-layout":"auto","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
 JSON
 ```
 
-## Maintainer mode and topology diagnostics
+## Maintainer mode
 
 Maintainer mode enables development AX capabilities and is off by default. Set it back to `false` when finished:
 
@@ -85,17 +83,6 @@ arc cli config get
 printf '%s' '{"maintainerMode":true}' | arc cli config set --stdin
 arc cli config get
 ```
-
-Geometry tuning and diagnostic overlays also use CLI/AX. This example sets the task gap to 12 pixels and enables guides:
-
-```sh
-arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-parameters":"{\"schemaVersion\":1,\"overrides\":{\"taskGap\":12}}","arc.topology-debug":"{\"guides\":true,\"slow\":false}"}}}
-JSON
-arc cli call preferences.get
-```
-
-The geometry document replaces the previous override set. Merge current overrides before changing one value. Use an empty `overrides` object to restore defaults. Set `guides` and `slow` to `false` to turn diagnostics off. See the [CLI reference](../reference/cli.md#maintainer-and-topology-diagnostics) for the format and limits.
 
 ## Technical update policies
 

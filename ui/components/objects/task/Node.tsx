@@ -8,7 +8,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '../../ui
 import { bubbleWidth } from '../../../subscriptions/displayPreferences';
 import { ActivityBubbleContent } from './Content';
 
-export function TaskNode({ agent, session, now, onMove, onRead, density = "standard", blocking = false, selected, disabled, onOpen }: { agent: string; session: TrackedActivity; now: number; density?: BubbleDensity; onMove?: (by: number) => void; onRead: () => void; onOpen: () => void; blocking?: boolean; selected?: boolean; disabled?: boolean }) {
+export function TaskNode({ agent, session, now, onRead, density = "standard", blocking = false, selected, disabled, onOpen }: { agent: string; session: TrackedActivity; now: number; density?: BubbleDensity; onRead: () => void; onOpen: () => void; blocking?: boolean; selected?: boolean; disabled?: boolean }) {
   const width = bubbleWidth.use();
   const completed = session.endedAt !== undefined, unread = completed && session.readAt === undefined;
   const press = useRef<{ id: number; x: number; y: number; moved: boolean } | undefined>(undefined);
@@ -24,10 +24,6 @@ export function TaskNode({ agent, session, now, onMove, onRead, density = "stand
       data-density={density} data-external={session.source === "transcript" || undefined}
       data-timeline-anchor
       data-unread={unread || undefined}
-      aria-keyshortcuts={onMove ? "ArrowUp ArrowDown" : undefined} aria-description={onMove ? t("reorderNodeHint") : undefined}
-      onKeyDown={event => { if (onMove && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-        event.preventDefault(); onMove(event.key === "ArrowUp" ? -1 : 1);
-      } }}
       data-activity-session={JSON.stringify([agent, session.id])}
       aria-label={`${session.title || t("timeline.title")}${unread ? ` · ${t("activity.unread")}` : ""} · ${hint}`} onClick={() => {
         onOpen();
@@ -35,10 +31,10 @@ export function TaskNode({ agent, session, now, onMove, onRead, density = "stand
       <ActivityBubbleContent agent={agent} session={session} now={now} density={density} showSourceBadge={!unread} />
       {blocking && <span className="update-blocking-tag">{t("updates.waitingReply")}</span>}
     </Button>
-    <span className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border bg-card shadow-sm opacity-0 group-hover/context:opacity-100 group-focus-within/context:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100" data-topology-control onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key !== 'Escape') event.stopPropagation(); }}>
+    <span className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border bg-card shadow-sm opacity-0 group-hover/context:opacity-100 group-focus-within/context:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100" onPointerDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key !== 'Escape') event.stopPropagation(); }}>
       <PopoverTrigger asChild><IconButton icon={MoveHorizontal} label={t('context.bubbleWidth')} /></PopoverTrigger>
     </span>
-    {unread && <Button variant="ghost" className="activity-mark-read" disabled={disabled} data-topology-control aria-label={t("activity.markRead")} title={t("activity.markRead")}
+    {unread && <Button variant="ghost" className="activity-mark-read" disabled={disabled} aria-label={t("activity.markRead")} title={t("activity.markRead")}
       onPointerDown={event => {
         event.stopPropagation();
         if (!event.isPrimary || event.button !== 0) return;

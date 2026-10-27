@@ -1,6 +1,4 @@
 import { solve } from '../topology/solve';
-import { solvePortrait } from '../topology/portrait';
-import type { PaintNode } from '../topology/render';
 import { dispatchSpecFixtures } from './dispatchFixtures';
 import configSchema from '../../native/src/ingress/config.json';
 import { installTopologyAccounts } from './topologyAccounts';
@@ -73,9 +71,9 @@ const quotaStates = {
   expiredCredit: { ...ready, resetCredits: [{ count: 2, expiresAt: new Date(now - 86400000).toISOString() }] },
   empty: { ...ready, windows: [] },
 } satisfies Record<string, ProviderSnapshot>;
-const wireScene = { vw: 360, vh: 260, left: [{ id: 'design-wire', tasks: [] }], right: [{ id: 'design-agent', tasks: [] }] };
-const wireNodes: PaintNode[] = [{ id: 'design-wire', side: -1, state: 'error', selected: true, attention: false }, { id: 'design-agent', side: 1, state: 'connecting', selected: false, attention: false }];
-const tunnelFrames = { landscape: { layout: solve(wireScene), nodes: wireNodes, tasks: [] }, portrait: { layout: solvePortrait(wireScene), nodes: wireNodes, tasks: [] } };
+const tunnelFrames = Object.fromEntries((['landscape', 'portrait'] as const).map(orientation => [orientation, {
+  layout: solve({ width: 720, height: 400, orientation, now, candidates: [], sessions: [{ agent: 'codex', session: activitySessions[0] }] }),
+}]));
 export const baseFixtures = {
   tunnelFrames,
   dispatchSpecs: dispatchSpecFixtures,

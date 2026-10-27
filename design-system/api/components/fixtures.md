@@ -10,7 +10,7 @@ Typed synthetic records, not a component. Pass records through template holes. T
 | `tasks` | Synthetic task family | `now`, `session`, `receipt`, `timeline`; includes partial read-only evidence and secret history |
 | `agentObjects` | Synthetic AGENT family | `agent`, `account`, `source`, `ingress`, `request`, `quotaStates`; includes several profiles and current/pending authorization |
 | `dispatchSpecs` | Recorded spec fixtures | Native label snapshots and resolved, unresolved, missing, loading and failed catalogs |
-| `tunnelFrames` | `{ landscape, portrait }` projected Layout/PaintNode/PaintTask frames | Fixed inputs for the existing TunnelNode painters |
+| `tunnelFrames` | `{ landscape, portrait }` projected ArenaLayout frames | Fixed inputs for the arena wire painter |
 | `now` | `number` | Fixed epoch milliseconds; Root's default clock |
 | `accounts` | `ProviderAccount[]` | Six account identities, source associations, profiles and account quotas |
 | `agents` | `Agent[]` | Claude, Codex and dsh inventory records |

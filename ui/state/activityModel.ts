@@ -57,23 +57,6 @@ export function trackActivity(previous: readonly TrackedActivity[], sessions: re
       .filter(s => s.readAt === undefined || s.id === pinnedId || now < s.readAt + activityLayout.hold + activityLayout.fade),
   ].sort((a, b) => Number(!!b.interaction) - Number(!!a.interaction) || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
 }
-// Attention is a hard partition; manual order applies within each partition.
-export function orderActivity(sessions: readonly TrackedActivity[], ids: readonly string[]) {
-  const rank = new Map(ids.map((id, index) => [id, index]));
-  return [...sessions].sort((a, b) => Number(!!b.interaction) - Number(!!a.interaction)
-    || (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
-    || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
-}
-export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false) {
-  // Overflow hides finished work first, preserving order within each group.
-  const ordered = sessions.length > 5
-    ? [...sessions.filter(s => s.endedAt === undefined), ...sessions.filter(s => s.endedAt !== undefined)] : sessions;
-  const visible = ordered.slice(0, expanded ? ordered.length : ordered.length > 5 ? 4 : 5);
-  const pinned = sessions.find(s => s.id === pinnedId);
-  if (pinned && !visible.includes(pinned)) visible[visible.length - 1] = pinned;
-  const hidden = sessions.length - visible.length;
-  return { sessions: visible, hidden, count: visible.length + Number(hidden > 0) };
-}
 export function interactionKey(agent: string, session: AgentActivitySession) {
   return JSON.stringify([agent, session.id, session.phaseSince, session.interaction?.respond]);
 }

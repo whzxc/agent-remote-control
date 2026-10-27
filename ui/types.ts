@@ -61,6 +61,7 @@ export interface CoreSnapshot {
 
 export type AgentPhase = "thinking" | "command" | "file" | "tool" | "text" | "interaction" | "idle";
 export interface DispatchSummary {
+  caller?: { agent: string; conversationId: string };
   controlSource?: { id?: string; accountId?: string; label?: string; kind?: string };
   agentAccountId?: string;
   model?: string;

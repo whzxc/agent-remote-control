@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
+import { mergeActivity, trackActivity, agentPanelSelection, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../ui/types.ts";
 const permission: AgentInteraction = { kind: "permission", summary: "Run example command", respond: { via: "act", op: "agent_respond", args: { agent: "claude", taskId: "task-example", interactionId: 1 } }, options: [{ kind: "allow_once", optionId: "yes" }, { kind: "reject_once", optionId: "no" }] };
 function session(id: string, interaction?: AgentInteraction): AgentActivitySession {
@@ -17,33 +17,6 @@ test("full snapshots update sessions, remove completed ones and reject older obs
   assert.equal(mergeActivity(first, next), next);
   assert.equal(mergeActivity(next, first), next);
   assert.equal(mergeActivity(next, snapshot(3, [])).agents.claude.sessions.length, 0);
-});
-test("five tasks stay individual; overflow replaces slot five and counts every hidden task", () => {
-  // Property: five tasks stay individual; overflow replaces slot five and counts every hidden task.
-  for (let n = 0; n <= 9; n++) {
-    const tracked = trackActivity([], Array.from({ length: n }, (_, i) => session(String(i))), 1000);
-    const shown = visibleActivity(tracked);
-    assert.equal(shown.count, Math.min(n, 5));
-    assert.equal(shown.sessions.length, n > 5 ? 4 : n);
-    assert.equal(shown.hidden, n > 5 ? n - 4 : 0);
-    assert.equal(shown.sessions.length + shown.hidden, n);
-  }
-});
-test("overflow keeps unfinished work ahead of completions and can reveal every task", () => {
-  // Regression: completed bubbles occupied the visible slots while running tasks were hidden in overflow.
-  const tracked = trackActivity([], Array.from({ length: 9 }, (_, i) => session(String(i), i === 8 ? permission : undefined)), 100);
-  const sessions = tracked.map(s => Number(s.id) < 5 ? { ...s, endedAt: 200 } : s);
-  const shown = visibleActivity(sessions);
-  assert.deepEqual(shown.sessions.map(s => s.id), ["8", "5", "6", "7"]);
-  assert.equal(shown.hidden, 5);
-  const expanded = visibleActivity(sessions, undefined, true);
-  assert.deepEqual(expanded.sessions.slice(0, shown.sessions.length), shown.sessions);
-  assert.equal(expanded.hidden, 0);
-  assert.equal(expanded.count, sessions.length);
-  assert.equal(new Set(expanded.sessions.map(s => s.id)).size, sessions.length);
-  assert.deepEqual(visibleActivity(sessions), shown);
-  const fewerRunning = sessions.map(s => s.id === "7" ? { ...s, endedAt: 200 } : s);
-  assert.deepEqual(visibleActivity(fewerRunning).sessions.map(s => s.id), ["8", "5", "6", "0"]);
 });
 test("start order is stable across phases, payload order and corrected timestamps; only attention reorders", () => {
   // Property: start order is stable across phases, payload order and corrected timestamps; only attention reorders.
@@ -73,12 +46,9 @@ test("missing sessions retain unread completions; read completions expire after 
   assert.equal(trackActivity(ended, [session("one")], 1000)[0].endedAt, undefined);
   assert.equal(trackActivity(ended, [session("one")], 1000)[0].orderAt, active[0].orderAt);
 });
-test("an open task keeps its origin and branch for focus restoration, even beyond the visible cap", () => {
-  // Property: an open task keeps its origin and branch for focus restoration, even beyond the visible cap.
+test("an open task retains its data for focus restoration", () => {
+  // Property: an open task retains its data for focus restoration.
   const active = trackActivity([], Array.from({ length: 7 }, (_, i) => session(String(i))), 100);
-  const shown = visibleActivity(active, "6");
-  assert.deepEqual(shown.sessions.map(s => s.id), ["0", "1", "2", "6"]);
-  assert.equal(shown.hidden, 3);
   const ended = trackActivity(active, [], 500).map(s => ({ ...s, readAt: 500 }));
   assert.deepEqual(trackActivity(ended, [], 5000, "6").map(s => s.id), ["6"]);
   assert.equal(trackActivity(ended, [], 5000).length, 0);

@@ -7,8 +7,8 @@ Real AGENT adapter. Requires [Arc.Root](Root.md). Records use existing UI types;
 | Prop | Type | Meaning |
 | --- | --- | --- |
 | `account / agent / state` | `Pick<ProviderAccount, "alias" \| "quota"> / string / WireState; required` | Identity, Agent brand, existing quota ring and wire state. |
-| `platformLabel / flat / suffix / selected` | `string / boolean / string / boolean` | Flat labels, optional suffix and selection. |
-| `onOpen / onMove` | `callback; required / (by: number) => void` | Host navigation and optional keyboard movement. |
+| `platformLabel / suffix / selected` | `string / string / boolean` | Platform context, optional suffix and selection. |
+| `onOpen` | `callback; required` | Host navigation. |
 
 ## Mounting
 

@@ -1,21 +1,19 @@
-import { useId, useLayoutEffect, useRef, type Ref } from 'react';
+import { useLayoutEffect, useRef, type Ref } from 'react';
 import { TopologyAnimator } from '../../../topology/animate';
-import type { Layout } from '../../../topology/solve';
-import { TopologyPainter, type PaintNode, type PaintTask } from '../../../topology/render';
-import { PortraitPainter } from '../../../topology/portraitRender';
+import type { ArenaLayout } from '../../../topology/solve';
+import { TopologyPainter } from '../../../topology/render';
 
-/** The existing painters own wire geometry. A supplied frame mounts the same painters without a live topology host. */
-export function TunnelNode({ svgRef, orientation = 'landscape', frame }: {
-  svgRef?: Ref<SVGSVGElement>; orientation?: 'landscape' | 'portrait'; frame?: { layout: Layout; nodes: PaintNode[]; tasks: PaintTask[] };
-}) {
-  const local = useRef<SVGSVGElement>(null), prefix = useId();
+// The object preview uses the same arena wires as the homepage.
+export function TunnelNode({ svgRef, frame }: { svgRef?: Ref<SVGSVGElement>; frame?: { layout: ArenaLayout } }) {
+  const local = useRef<SVGSVGElement>(null);
   useLayoutEffect(() => {
     if (!frame || !local.current) return;
-    const animator = new TopologyAnimator();
-    animator.setTargets(frame.layout); animator.step(0, true);
-    const painter = orientation === 'portrait' ? new PortraitPainter(local.current, prefix) : new TopologyPainter(local.current, prefix);
-    painter.paint(animator, frame.nodes, frame.tasks, null);
+    const animator = new TopologyAnimator(), { layout } = frame;
+    animator.target('ring', layout.ring);
+    for (const loop of layout.loops) for (const node of loop.nodes) animator.target(node.id, { x: node.x, y: node.y, width: node.width, height: node.height, opacity: 1 });
+    const painter = new TopologyPainter(local.current);
+    painter.paint(animator, layout, layout.loops, true);
     return () => painter.dispose();
-  }, [frame, orientation, prefix]);
-  return <svg ref={svgRef ?? local} className={`topology-wires${orientation === 'portrait' ? ' portrait-wires' : ''}`} aria-hidden="true" />;
+  }, [frame]);
+  return <svg ref={svgRef ?? local} className="topology-wires" aria-hidden="true" />;
 }

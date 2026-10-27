@@ -1,254 +1,191 @@
-import type { PortraitGeometry } from "./portrait.ts";
-// Parameter ranges and defaults also validate CLI/AX preference overrides.
-export const PARAMETERS = [
-  { key: "margin", min: 16, max: 120, default: 40 },
-  { key: "squeezeMin", min: 0.5, max: 1, default: 0.72 },
-  { key: "ringScale", min: 0.6, max: 1.4, default: 1 },
-  { key: "earFollow", min: 0, max: 1, default: 0.7 },
-  { key: "earSep", min: 2, max: 16, default: 7 },
-  { key: "earMax", min: 20, max: 60, default: 42 },
-  { key: "earMin", min: 8, max: 40, default: 22 },
-  { key: "earPad", min: 0, max: 16, default: 7 },
-  { key: "t1Node", min: 0.1, max: 0.8, default: 0.42 },
-  { key: "t1Root", min: 0.05, max: 0.7, default: 0.3 },
-  { key: "flare", min: 0, max: 2, default: 1 },
-  { key: "arcGap", min: 4, max: 30, default: 11 },
-  { key: "arcFollow", min: 0, max: 1, default: 0.75 },
-  { key: "arcMax", min: 20, max: 75, default: 58 },
-  { key: "arcPad", min: 0, max: 20, default: 9 },
-  { key: "bubbleOffset", min: 60, max: 220, default: 104 },
-  { key: "t2Root", min: 0.05, max: 0.7, default: 0.34 },
-  { key: "t2End", min: 0.1, max: 0.8, default: 0.5 },
-  { key: "nodeSize", min: 32, max: 60, default: 44 },
-  { key: "colDist", min: 2, max: 3.2, default: 2.6 },
-  { key: "taskGap", min: 0, max: 30, default: 10 },
-  { key: "rowGap", min: 0, max: 30, default: 12 },
-  { key: "sourceRow", min: 56, max: 96, default: 78 },
-  { key: "idleRow", min: 40, max: 96, default: 78 },
-  { key: "idleIndent", min: 0, max: 60, default: 22 },
-  { key: "activeScale", min: 1, max: 1.4, default: 1.1 },
-  { key: "idleScale", min: 0.6, max: 1, default: 1 },
-  { key: "minIdleScale", min: 0.4, max: 0.9, default: 0.6 },
-  { key: "minIdleRow", min: 34, max: 60, default: 44 },
-  { key: "stiffness", min: 60, max: 600, default: 210 },
-  { key: "damping", min: 8, max: 60, default: 26 },
-] as const;
-export type ParameterKey = typeof PARAMETERS[number]["key"];
-export type Params = Record<ParameterKey, number>;
-export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default])) as Params;
-export type Side = -1 | 1;
-export interface Task { id: string; width: number; height: number }
-export interface Entity { id: string; tasks: readonly Task[]; children?: readonly Entity[]; collapsed?: boolean }
-export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; panel?: { side: Side; edge: number; selected: string; narrow?: boolean } }
-export interface Drag extends Point { kind: "node" | "task"; side: Side; id: string }
-export interface Point { x: number; y: number }
-export interface NodeGeometry extends Point {
-  id: string; parent?: string; tasks: readonly Task[]; active: boolean; size: number; scale: number; opacity: number; dim: boolean; side: Side;
-  taskBusX?: number; childBusX?: number;
-  port: number; arc: { R: number; lo: number; hi: number } | null;
+import type { AgentConversation } from '../types.ts';
+import type { TrackedActivity } from '../state/activityModel.ts';
+import type { Orientation } from './orientation.ts';
+
+export const PANEL_MIN_WIDTH = 400;
+export const LINGER_MS = 180_000;
+export interface Candidate {
+  id: string; side: 'cloud' | 'local'; label: string; agent?: string; accountId?: string; sourceIds: string[];
 }
-export interface TaskGeometry extends Task, Point { parent: string; side: Side; port: number; hidden?: boolean; anchor?: number }
-interface WingOptions { idleStyle: boolean; rowScale: number; squeeze: number }
-interface Row { e: Entity; n: number; h: number }
-export interface Wing { side: Side; H: number; nodes: NodeGeometry[]; ear: { lo: number; hi: number }; tasks: TaskGeometry[] }
-export interface WingBalance { core: number; full: number; squeeze: number }
-export interface Layout { portrait?: PortraitGeometry; balance: WingBalance[]; vw: number; vh: number; sceneH: number; hub: Point & { Re: number }; wings: Wing[] }
-export const deg = (d: number) => d * Math.PI / 180;
-export const NODE_R = 22, LABEL_W = 110;
-export const ACCOUNT_NODE_SIZE = 42;
-export const PANEL_MIN_WIDTH = 400, PANEL_MARGIN = 16, PANEL_ARC_GAP = 40;
-
-export const COLLAPSE_HIT_SIZE = 32, COLLAPSE_SYMBOL_SIZE = 20;
-
-// Toggle coordinates follow the animated arc, including asymmetric fan-outs.
-export function collapseTarget(radius: number, lo: number, hi: number, side: Side) {
-  const angle = deg((lo + hi) / 2);
-  return { x: side * radius * Math.cos(angle), y: radius * Math.sin(angle), hitSize: COLLAPSE_HIT_SIZE, symbolSize: COLLAPSE_SYMBOL_SIZE };
+export interface Session { agent: string; session: TrackedActivity }
+export interface ArenaNode {
+  id: string; candidateId?: string; agent?: string; session?: TrackedActivity; conversation?: AgentConversation; label: string;
+  kind: 'executor' | 'agent' | 'remote' | 'unattributed' | 'floating'; depth: number;
+  x: number; y: number; width: number; height: number;
 }
-
-// The selected node's animated outer arc defines the dock's inner edge.
-export function panelWidth(vw: number, side: Side, x: number, radius: number) {
-  const remaining = side === 1 ? vw - x - radius - PANEL_ARC_GAP - PANEL_MARGIN
-    : x - radius - PANEL_ARC_GAP - PANEL_MARGIN;
-  return Math.min(Math.max(0, vw - 2 * PANEL_MARGIN), Math.max(PANEL_MIN_WIDTH, remaining));
+export interface ArenaEdge { id: string; from: string; to: string; throughRing: boolean; state: 'running' | 'waiting' | 'ended' }
+export interface ArenaLoop {
+  id: string; color: number; nodes: ArenaNode[]; edges: ArenaEdge[]; depth: number;
+  lingering: boolean; lastActivity: number; expiresAt: number | null;
 }
+export interface ArenaLayout {
+  orientation: Orientation; width: number; height: number; candidateHeight: number;
+  candidates: (Candidate & { x: number; y: number; colors: number[]; unread: boolean })[];
+  ring: { x: number; y: number; radius: number }; loops: ArenaLoop[]; floating: ArenaNode[];
+}
+export const conversationKey = (agent: string, id: string) => JSON.stringify(['conversation', agent, id]);
+const time = (value?: string | null) => Number.isFinite(Date.parse(value ?? '')) ? Date.parse(value!) : 0;
 
-// Distribute port angles: follow each target's direction, keep a minimum
-// separation in order, and fit the run inside ±max. Returns degrees.
-export function distribute(raw: number[], follow: number, sep: number, max: number) {
-  const a = raw.map((r) => Math.max(-max, Math.min(max, r * follow)));
-  for (let i = 1; i < a.length; i++) a[i] = Math.max(a[i], a[i - 1] + sep);
-  const over = a.length ? a[a.length - 1] - max : 0;
-  if (over > 0) for (let i = 0; i < a.length; i++) a[i] -= over;
-  for (let i = a.length - 2; i >= 0; i--) a[i] = Math.min(a[i], a[i + 1] - sep);
-  const lo = a.length ? a[0] : 0;
-  if (lo < -max) {
-    const span = a[a.length - 1] - a[0], scale = span > 0 ? (2 * max) / span : 1;
-    for (let i = 0; i < a.length; i++) a[i] = -max + (a[i] - lo) * Math.min(1, scale);
+// Pure graph, lifecycle and geometry projection. No viewport reads or storage access.
+export function solve({ sessions, candidates, width, height, orientation, now, conversations = [], colors = {}, nodeWidth = 264, nodeHeight = 76 }: {
+  sessions: Session[]; conversations?: { agent: string; conversation: AgentConversation }[]; candidates: Candidate[]; width: number; height: number; orientation: Orientation; now: number;
+  colors?: Record<string, number>; nodeWidth?: number; nodeHeight?: number;
+}): ArenaLayout {
+  width = Math.max(1, width); height = Math.max(1, height);
+  const vertical = orientation === 'portrait';
+  const local = candidates.filter(c => c.side === 'local'), cloud = candidates.filter(c => c.side === 'cloud');
+  const twoRows = width < (candidates.length + 1) * 68;
+  const capacity = Math.max(1, Math.floor((width - 24) / 60));
+  const cloudRows = Math.max(1, Math.ceil(cloud.length / capacity));
+  const localRows = Math.max(1, Math.ceil(local.length / capacity));
+  const positionCandidates = (rows: Candidate[], right: boolean) => rows.map((c, i) => {
+    const row = twoRows ? Math.floor(i / capacity) : 0;
+    const count = twoRows ? Math.min(capacity, rows.length - row * capacity) : rows.length;
+    const gap = Math.min(76, (width - 24) / Math.max(1, twoRows ? count : candidates.length + 1));
+    const slot = twoRows ? i % capacity : i;
+    return { ...c, x: right ? width - 12 - gap * (count - slot - .5) : 12 + gap * (slot + .5),
+      y: 36 + (right && twoRows ? cloudRows + row : row) * 76, colors: [] as number[], unread: false };
+  });
+  const placedCandidates = [...positionCandidates(cloud, false), ...positionCandidates(local, true)];
+  const candidateHeight = twoRows ? (cloudRows + localRows) * 76 + 20 : 96;
+  height = Math.max(1, height - candidateHeight);
+  const nodes = new Map<string, ArenaNode>(), edges = new Map<string, ArenaEdge>();
+  const findAgent = (agent: string, s?: Pick<TrackedActivity, 'agentAccountId' | 'dispatchSummary'>) => placedCandidates.find(c => c.agent === agent && !!s?.agentAccountId && c.accountId === s.agentAccountId)
+    ?? placedCandidates.find(c => c.agent === agent && !!s?.dispatchSummary?.agentAccountId && c.accountId === s.dispatchSummary.agentAccountId)
+    ?? placedCandidates.find(c => c.agent === agent && !c.accountId);
+  const ordered = [...sessions].sort((a, b) => a.session.orderAt - b.session.orderAt || a.agent.localeCompare(b.agent) || a.session.id.localeCompare(b.session.id));
+  // Native conversation identity unifies a dispatcher with its own executor bubble.
+  for (const { agent, session } of ordered) {
+    const id = conversationKey(agent, session.nativeSessionId ?? session.id), candidate = findAgent(agent, session);
+    nodes.set(id, { id, candidateId: candidate?.id, agent, session, label: session.title || session.headline || agent,
+      kind: session.dispatchSummary ? 'executor' : 'floating', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
+    if (candidate && session.endedAt !== undefined && session.readAt === undefined) candidate.unread = true;
   }
-  return a;
-}
-
-// The agent wing styles idle nodes only while the scene has tasks.
-// Without tasks, both wings use the same regular rows and node styling.
-function wingRows(list: readonly Entity[], p: Params, opt: Pick<WingOptions, "idleStyle" | "rowScale">): Row[] {
-  return list.map((e) => {
-    const n = e.collapsed ? 0 : e.tasks.length;
-    const base = opt.idleStyle ? Math.max(p.minIdleRow, p.idleRow * opt.rowScale) : Math.max(56, p.sourceRow * opt.rowScale);
-    const taskHeight = (e.collapsed ? [] : e.tasks).reduce((height, task) => height + task.height, 0) + Math.max(0, n - 1) * p.taskGap;
-    const childrenHeight = !e.collapsed && e.children?.length ? wingHeight(wingRows(e.children, p, { ...opt, idleStyle: false }), p) : 0;
-    return { e, n: n + (e.collapsed ? 0 : e.children?.length ?? 0), h: Math.max(base, (n > 0 ? taskHeight + 20 : 0) + childrenHeight + (n > 0 && childrenHeight ? p.rowGap : 0)) };
-  });
-}
-function wingHeight(rows: Row[], p: Params) { return rows.reduce((s, r) => s + r.h, 0) + p.rowGap * Math.max(0, rows.length - 1); }
-
-function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, p: Params, opt: WingOptions, drag: Drag | null): Wing {
-  const rows = wingRows(list, p, opt);
-  const H = wingHeight(rows, p);
-  let y = hub.y - H / 2;
-  const colX = hub.x + side * Re * p.colDist * opt.squeeze;
-  const rowCompression = p.idleRow > p.minIdleRow ? (p.idleRow * opt.rowScale - p.minIdleRow) / (p.idleRow - p.minIdleRow) : 1;
-  const columnCompression = p.squeezeMin < 1 ? (opt.squeeze - p.squeezeMin) / (1 - p.squeezeMin) : 1;
-  const compression = Math.max(0, Math.min(1, rowCompression, columnCompression));
-  const minIdleScale = Math.min(p.minIdleScale, p.idleScale);
-  const idleScale = minIdleScale + (p.idleScale - minIdleScale) * compression;
-  const idleIndent = p.idleIndent * (1 - compression);
-  const nodes: NodeGeometry[] = rows.map((r) => {
-    const active = r.n > 0, idle = opt.idleStyle && !active;
-    const ny = y + r.h / 2; y += r.h + p.rowGap;
-    const nodeDrag = drag && drag.kind === 'node' && drag.id === r.e.id;
-    return { id: r.e.id, port: 0, arc: null, tasks: r.e.collapsed ? [] : r.e.tasks, active, x: nodeDrag ? drag.x : colX - side * (idle ? idleIndent : 0),
-      y: nodeDrag ? drag.y : ny, size: p.nodeSize, scale: active ? p.activeScale : idle ? idleScale : 1, opacity: idle ? 0.62 : 1, dim: idle, side };
-  });
-  // Earmuff ports follow the direction from the hub to each node.
-  const raw = nodes.map((n) => Math.atan2(n.y - hub.y, Math.abs(n.x - hub.x)) * 180 / Math.PI);
-  const ang = distribute(raw, p.earFollow, p.earSep, p.earMax);
-  nodes.forEach((n, i) => { n.port = ang[i]; });
-  const lo = Math.min(-p.earMin, ang.length ? ang[0] - p.earPad : 0);
-  const hi = Math.max(p.earMin, ang.length ? ang[ang.length - 1] + p.earPad : 0);
-  // Task dimensions define ordered slots around the node, with ports on an outer arc.
-  const tasks: TaskGeometry[] = [];
-  nodes.forEach((n, index) => {
-    if (!n.tasks.length) { n.arc = null; return; }
-    const R = n.size / 2 * n.scale + p.arcGap;
-    const height = n.tasks.reduce((height, task) => height + task.height, 0) + (n.tasks.length - 1) * p.taskGap;
-    let edge = rows[index].e.children?.length ? n.y - rows[index].h / 2 + 10 : n.y - height / 2;
-    const slots = n.tasks.map(task => {
-      const center = edge + task.height / 2;
-      edge += task.height + p.taskGap;
-      return center;
-    });
-    const rawT = slots.map(y => Math.atan2(y - n.y, p.bubbleOffset) * 180 / Math.PI);
-    const tA = distribute(rawT, p.arcFollow, 9, p.arcMax);
-    n.arc = { R, lo: Math.min(-14, tA[0] - p.arcPad), hi: Math.max(14, tA[tA.length - 1] + p.arcPad) };
-    n.tasks.forEach((t, i) => {
-      const taskDrag = drag && drag.kind === 'task' && drag.id === t.id;
-      tasks.push({ id: t.id, width: t.width, height: t.height, parent: n.id, side, port: tA[i],
-        x: taskDrag ? drag.x : n.x + side * p.bubbleOffset, y: taskDrag ? drag.y : slots[i] });
-    });
-  });
-  // Accounts reuse the mirrored wing algorithm, including their own task arcs.
-  const descendants: NodeGeometry[] = [];
-  rows.forEach((row, index) => {
-    if (row.e.collapsed || !row.e.children?.length) return;
-    const parent = nodes[index];
-    const child = solveWing(row.e.children, side,
-      { x: parent.x + side * (p.bubbleOffset - Re * p.colDist * opt.squeeze), y: parent.y + (parent.tasks.length ? (parent.tasks.reduce((h, t) => h + t.height, 0) + (parent.tasks.length - 1) * p.taskGap + 20 + p.rowGap) / 2 : 0) }, Re, p, { ...opt, idleStyle: false }, drag);
-    const angles = distribute(child.nodes.filter(n => !n.parent).map(n => Math.atan2(n.y - parent.y, p.bubbleOffset) * 180 / Math.PI), p.arcFollow, 9, p.arcMax);
-    let i = 0;
-    for (const n of child.nodes) {
-      if (!n.parent) { n.parent = parent.id; n.port = angles[i++]; n.size = ACCOUNT_NODE_SIZE; n.scale = 1; n.opacity = 1; if (n.arc) n.arc.R = ACCOUNT_NODE_SIZE / 2 + p.arcGap; }
-      descendants.push(n);
+  for (const { agent, session } of ordered) {
+    const summary = session.dispatchSummary;
+    if (!summary) continue;
+    const to = conversationKey(agent, session.nativeSessionId ?? session.id);
+    let from: string;
+    if (summary.caller) {
+      const caller = summary.caller;
+      from = conversationKey(caller.agent, caller.conversationId);
+      const conversation = conversations.find(row => row.agent === caller.agent && (row.conversation.nativeSessionId === caller.conversationId || row.conversation.id === caller.conversationId))?.conversation;
+      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: findAgent(caller.agent, conversation ? { ...conversation, dispatchSummary: conversation.dispatchSummary ?? undefined } : undefined)?.id, agent: caller.agent, conversation,
+        label: conversation?.title || caller.agent, kind: 'agent', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
+      else if (nodes.get(from)!.kind === 'floating') nodes.get(from)!.kind = 'agent';
+    } else {
+      const source = summary.controlSource;
+      const candidate = placedCandidates.find(c => !!source?.accountId && c.accountId === source.accountId && c.sourceIds.length)
+        ?? placedCandidates.find(c => !!source?.id && c.sourceIds.includes(source.id));
+      const remote = candidate?.side === 'cloud' || !!source?.kind && !['local', 'local-cli', 'local-ui', 'stdio', 'ARC'].includes(source.kind);
+      from = JSON.stringify(['dispatcher', source?.id ?? source?.accountId ?? source?.kind ?? 'ARC']);
+      if (!nodes.has(from)) nodes.set(from, { id: from, candidateId: candidate?.id, label: candidate?.label ?? source?.label ?? source?.kind ?? 'ARC',
+        kind: remote ? 'remote' : 'unattributed', depth: 0, x: 0, y: 0, width: nodeWidth, height: nodeHeight });
     }
-    parent.arc = { R: parent.size / 2 * parent.scale + p.arcGap, lo: Math.min(parent.arc?.lo ?? -14, angles[0] - p.arcPad), hi: Math.max(parent.arc?.hi ?? 14, angles.at(-1)! + p.arcPad) };
-    tasks.push(...child.tasks);
-  });
-  nodes.push(...descendants);
-  return { side, H, nodes, ear: { lo, hi }, tasks };
-}
-
-export function extentOf(w: Wing, hubX: number, Re: number) {
-  let core = Re * 1.15;
-  w.nodes.forEach((n) => { core = Math.max(core, Math.abs(n.x - hubX) + LABEL_W * n.scale * n.size / (NODE_R * 2) / 2); });
-  let full = core;
-  w.tasks.forEach((t) => { full = Math.max(full, Math.abs(t.x - hubX) + t.width); });
-  return { core, full };
-}
-
-export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null): Layout {
-  const vw = sc.vw, vh = sc.vh, pad = 70, m = p.margin;
-  const Re = Math.max(vw < 600 ? 48 : 80, Math.min(130, vw * 0.13, vh * 0.2)) * p.ringScale;
-  const hasTasksIn = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasksIn));
-  const hasTasks = [...sc.left, ...sc.right].some(hasTasksIn);
-  // Vertical: each wing compresses its own rows; whatever still overflows scrolls.
-  const fitRow = (list: readonly Entity[], idleStyle: boolean) => {
-    const available = vh - 2 * pad;
-    const h1 = wingHeight(wingRows(list, p, { idleStyle, rowScale: 1 }), p);
-    if (h1 <= available) return 1;
-    const h0 = wingHeight(wingRows(list, p, { idleStyle, rowScale: 0 }), p);
-    if (h0 >= available) return 0;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 16; i++) {
-      const mid = (lo + hi) / 2;
-      if (wingHeight(wingRows(list, p, { idleStyle, rowScale: mid }), p) <= available) lo = mid;
-      else hi = mid;
-    }
-    return lo;
-  };
-  const optL = { idleStyle: false, rowScale: fitRow(sc.left, false), squeeze: 1 };
-  const optR = { idleStyle: hasTasks, rowScale: fitRow(sc.right, hasTasks), squeeze: 1 };
-  const hL = wingHeight(wingRows(sc.left, p, optL), p), hR = wingHeight(wingRows(sc.right, p, optR), p);
-  const sceneH = Math.max(vh, Math.max(hL, hR) + pad * 2);
-  const at = (x: number) => ({ x, y: sceneH / 2 });
-  const dragOf = (side: Side) => drag && drag.side === side ? drag : null;
-  // Horizontal: squeeze column distances only when the whole scene cannot fit.
-  const panelWing = (wing: Wing) => {
-    if (sc.panel?.side !== wing.side) return wing;
-    const hidden = new Set<string>();
-    for (const n of wing.nodes) {
-      if (n.id === sc.panel.selected && !n.arc) n.arc = { R: n.size * n.scale / 2 + p.arcGap, lo: -14, hi: 14 };
-      if (n.parent && (n.parent === sc.panel.selected || hidden.has(n.parent))) { n.opacity = 0; hidden.add(n.id); }
-    }
-    for (const t of wing.tasks) { t.hidden = true; t.x -= wing.side * 12; }
-    return wing;
-  };
-  const measure = () => {
-    const L = solveWing(sc.left, -1, at(0), Re, p, optL, null);
-    const R = solveWing(sc.right, 1, at(0), Re, p, optR, null);
-    const extent = (wing: Wing) => extentOf(sc.panel?.side === wing.side ? { ...panelWing(wing), nodes: wing.nodes.filter(n => n.opacity > 0), tasks: [] } : wing, 0, Re);
-    return { eL: extent(L), eR: extent(R) };
-  };
-  let e = measure();
-  const leftEdge = sc.panel?.side === -1 ? sc.panel.edge + 40 : m;
-  const rightEdge = sc.panel?.side === 1 ? sc.panel.edge - 40 : vw - m;
-  const avail = rightEdge - leftEdge;
-  for (let i = 0; i < 24 && e.eL.full + e.eR.full > avail; i++) {
-    if (optL.squeeze > p.squeezeMin) optL.squeeze = Math.max(p.squeezeMin, optL.squeeze - 0.02);
-    else if (optR.squeeze > p.squeezeMin) optR.squeeze = Math.max(p.squeezeMin, optR.squeeze - 0.02);
-    else break;
-    e = measure();
+    if (from === to) continue;
+    const id = JSON.stringify([from, to]);
+    edges.set(id, { id, from, to, throughRing: false, state: session.endedAt !== undefined ? 'ended' : session.interaction ? 'waiting' : 'running' });
   }
-  // Keep the hub at the viewport center whenever both wings fit. Only an
-  // actual edge constraint may displace it, by the smallest distance needed.
-  let hx = vw / 2;
-  const minX = leftEdge + e.eL.full, maxX = rightEdge - e.eR.full;
-  if (minX <= maxX) hx = Math.max(minX, Math.min(maxX, hx));
-  else hx = sc.panel?.side === 1 ? maxX : minX; // A dock prioritizes its selected node; the far wing may clip.
-  if (sc.panel?.narrow) {
-    const side = sc.panel.side;
-    const wing = panelWing(solveWing(side === 1 ? sc.right : sc.left, side, at(0), Re, p, side === 1 ? optR : optL, null));
-    const selected = wing.nodes.find(n => n.id === sc.panel!.selected);
-    if (selected) {
-      const radius = selected.arc?.R ?? selected.size * selected.scale / 2 + p.arcGap;
-      const stroke = 2 * Math.max(0.8, Re / 130);
-      hx = sc.panel.edge - side * (radius + stroke + PANEL_ARC_GAP) - selected.x;
+  const adjacent = new Map<string, Set<string>>();
+  for (const e of edges.values()) {
+    for (const [a, b] of [[e.from, e.to], [e.to, e.from]]) {
+      if (!adjacent.has(a)) adjacent.set(a, new Set());
+      adjacent.get(a)!.add(b);
     }
   }
-  const hub = { x: hx, y: sceneH / 2, Re };
-  const L = panelWing(solveWing(sc.left, -1, hub, Re, p, optL, dragOf(-1)));
-  const R = panelWing(solveWing(sc.right, 1, hub, Re, p, optR, dragOf(1)));
-  return { vw, vh, sceneH, hub, wings: [L, R], balance: [
-    { ...e.eL, squeeze: optL.squeeze },
-    { ...e.eR, squeeze: optR.squeeze },
-  ] };
+  const visited = new Set<string>(), loops: ArenaLoop[] = [];
+  for (const id of adjacent.keys()) {
+    if (visited.has(id)) continue;
+    const component: string[] = [], queue = [id];
+    for (let i = 0; i < queue.length; i++) {
+      const key = queue[i]; if (visited.has(key)) continue;
+      visited.add(key); component.push(key); queue.push(...adjacent.get(key) ?? []);
+    }
+    const members = component.map(key => nodes.get(key)!), links = [...edges.values()].filter(e => component.includes(e.from));
+    const incoming = new Map(members.map(n => [n.id, links.filter(e => e.to === n.id).length]));
+    const roots = members.filter(n => incoming.get(n.id) === 0);
+    // Native dispatch graphs are acyclic. A malformed cycle is bounded and remains visible.
+    const pending = roots.length ? [...roots] : [members[0]], assigned = new Set<string>();
+    for (let i = 0; i < pending.length; i++) {
+      const node = pending[i]; if (assigned.has(node.id)) continue;
+      assigned.add(node.id);
+      for (const e of links.filter(e => e.from === node.id)) {
+        incoming.set(e.to, incoming.get(e.to)! - 1);
+        const child = nodes.get(e.to)!;
+        if (!assigned.has(child.id)) { child.depth = Math.max(child.depth, node.depth + 1); if (incoming.get(child.id)! <= 0) pending.push(child); }
+      }
+    }
+    const executors = members.filter(n => n.kind === 'executor' && n.session);
+    const lingering = executors.every(n => n.session!.endedAt !== undefined);
+    const lastActivity = Math.max(0, ...executors.map(n => n.session!.endedAt ?? Math.max(n.session!.orderAt, time(n.session!.phaseSince), time(n.session!.turnStartedAt))));
+    const lastDispatch = Math.max(0, ...executors.map(n => Math.max(n.session!.orderAt, time(n.session!.turnStartedAt))));
+    const read = executors.some(n => n.session!.endedAt !== undefined && (n.session!.readAt ?? -1) >= lastDispatch);
+    if (read || lingering && now >= lastActivity + LINGER_MS) continue;
+    const root = (roots.length ? roots : members).map(n => n.id).sort()[0];
+    const used = new Set(loops.map(l => l.color));
+    const color = colors[root] ?? members.map(n => colors[n.id]).find(c => c !== undefined) ?? Array.from({ length: 8 }, (_, i) => i).find(c => !used.has(c)) ?? loops.length % 8;
+    // A completed intermediate executor still carries light to its active descendants.
+    for (const edge of [...links].sort((a, b) => nodes.get(b.from)!.depth - nodes.get(a.from)!.depth)) {
+      if (edge.state === 'ended') {
+        const downstream = links.filter(next => next.from === edge.to);
+        if (downstream.some(next => next.state === 'waiting')) edge.state = 'waiting';
+        else if (downstream.some(next => next.state === 'running')) edge.state = 'running';
+      }
+      edge.throughRing = nodes.get(edge.from)!.depth === 0;
+    }
+    loops.push({ id: root, color: color % 8, nodes: members, edges: links, depth: Math.max(...members.map(n => n.depth)), lingering, lastActivity, expiresAt: lingering ? lastActivity + LINGER_MS : null });
+    for (const n of members) {
+      const candidate = placedCandidates.find(c => c.id === n.candidateId);
+      if (candidate && !candidate.colors.includes(color % 8)) candidate.colors.push(color % 8);
+    }
+  }
+  const floating = [...nodes.values()].filter(n => n.kind === 'floating' && !visited.has(n.id) && n.session?.endedAt === undefined);
+  const floatRows = new Map<string, number>();
+  let floatBottom = 0;
+  for (const node of floating) {
+    const candidate = placedCandidates.find(c => c.id === node.candidateId);
+    const bucket = candidate?.id ?? node.agent ?? '', row = floatRows.get(bucket) ?? 0;
+    floatRows.set(bucket, row + 1);
+    node.width = Math.min(200, width - 16); node.height = 44;
+    node.x = Math.max(8, Math.min(width - node.width - 8, (candidate?.x ?? width / 2) - node.width / 2));
+    node.y = row * 52 + 8;
+    floatBottom = Math.max(floatBottom, node.y + node.height + 16);
+  }
+  const top = floatBottom + 24, margin = vertical ? 12 : 24, depth = Math.max(1, ...loops.map(l => l.depth));
+  const bandGap = vertical ? 12 : 24;
+  const bandSizes = loops.map(l => Math.max(1, ...Array.from({ length: l.depth + 1 }, (_, d) => l.nodes.filter(n => n.depth === d).length)));
+  const crossCount = Math.max(1, bandSizes.reduce((a, b) => a + b, 0));
+  const availableFlow = vertical ? height - top - margin : width - margin * 2;
+  const radius = 46 + Math.min(loops.length, 4) * 4;
+  const nw = vertical ? Math.max(56, Math.min(nodeWidth, (width - margin * 2 - Math.max(0, loops.length - 1) * bandGap) / crossCount - 8))
+    : Math.max(176, Math.min(nodeWidth, (availableFlow - radius * 2 - 64 - (depth - 1) * 28) / (depth + 1)));
+  const flowSize = vertical ? nodeHeight : nw, crossSize = vertical ? nw : nodeHeight;
+  const firstHop = flowSize + radius * 2 + 64, laterHop = flowSize + 32;
+  const minFlow = margin * 2 + flowSize + firstHop + (depth - 1) * laterHop;
+  const extent = Math.max(availableFlow, minFlow);
+  const spare = Math.max(0, availableFlow - minFlow);
+  const start = margin + flowSize / 2 + spare / 2;
+  const flowOf = (d: number) => start + (d ? firstHop + (d - 1) * laterHop : 0);
+  const crossGap = vertical ? 8 : 16;
+  const totalCross = crossCount * (crossSize + crossGap) + Math.max(0, loops.length - 1) * bandGap;
+  const crossExtent = Math.max(vertical ? width : height - top, totalCross + margin * 2);
+  const crossMid = crossExtent / 2;
+  const ringFlow = start + firstHop / 2;
+  const ring = vertical ? { x: crossMid, y: top + ringFlow, radius } : { x: ringFlow, y: top + crossMid, radius };
+  let cross = crossMid - totalCross / 2;
+  loops.forEach((loop, li) => {
+    const unit = crossSize + crossGap, band = bandSizes[li] * unit;
+    for (let d = 0; d <= loop.depth; d++) {
+      const column = loop.nodes.filter(n => n.depth === d);
+      column.forEach((node, i) => {
+        const c = cross + band / 2 + (i - (column.length - 1) / 2) * unit, f = flowOf(d);
+        node.width = nw; node.height = nodeHeight;
+        node.x = vertical ? c - nw / 2 : f - nw / 2;
+        node.y = vertical ? top + f - nodeHeight / 2 : top + c - nodeHeight / 2;
+      });
+    }
+    cross += band + bandGap;
+  });
+  return { orientation, candidateHeight, candidates: placedCandidates, ring, loops, floating,
+    width: vertical ? crossExtent : extent, height: vertical ? top + extent : top + crossExtent };
 }

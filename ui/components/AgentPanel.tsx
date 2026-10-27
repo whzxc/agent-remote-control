@@ -77,7 +77,7 @@ function AgentView({ agent, account, accountId, accounts, loading, accountError,
 
 export default function AgentPanel({ agent, onPanelFrame, width, expanded, onToggleWidth, dockRect }: {
   agent: Agent; width?: number; dockRect?: SurfaceRect;
-  onPanelFrame: (rect: SurfaceRect | null) => void;
+  onPanelFrame?: (rect: SurfaceRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const selected = agentPanel.use()!, { error } = agentActivity.use();

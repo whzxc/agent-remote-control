@@ -12,7 +12,6 @@ Requires [Arc.Root](Root.md). Non-string props use template holes.
 | `session` | `TrackedActivity` | `required` | AgentActivitySession plus orderAt and optional endedAt/readAt/status; see fixtures. |
 | `now` | `number` | `Root.now` | Epoch milliseconds; override only to compare clocks. |
 | `density` | `"compact" &#124; "standard" &#124; "detailed"` | `"standard"` | Height comes from the real bubbleHeights model; host can set --bubble-width. |
-| `onMove` | `(by: number) => void` | `optional` | ArrowUp/ArrowDown reorder callback. |
 | `onRead` | `() => void` | `required` | Marks completed unread activity when the owner updates the record. |
 
 See [fixture types](fixtures.md) and the current application types for full record fields.

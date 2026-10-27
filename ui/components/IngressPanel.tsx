@@ -7,7 +7,7 @@ import SourcePanel from './SourcePanel';
 import { Dialog } from './ui';
 
 export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWidth, dockRect }: {
-  onPanelFrame: (rect: SurfaceRect | null) => void; width?: number; dockRect?: SurfaceRect; expanded: boolean; onToggleWidth: () => void;
+  onPanelFrame?: (rect: SurfaceRect | null) => void; width?: number; dockRect?: SurfaceRect; expanded: boolean; onToggleWidth: () => void;
 }) {
   const selected = ingressPanel.use()!;
   return <Dialog width={width} dockRect={dockRect} dock="left" expanded={expanded} headerless title={sourceProductName(selected.product)}

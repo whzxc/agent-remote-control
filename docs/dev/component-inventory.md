@@ -53,7 +53,7 @@ AddAccount retains native login and confirmation. AgentPanel L1 lists accounts w
 | Variant | Implementation | Current callers and behavior |
 | --- | --- | --- |
 | Chip | TunnelChip | Source rows/cards; navigates to Connections when a live target exists. |
-| Node | TunnelNode | Existing TopologyPainter and PortraitPainter boundary. No vertex or click target is added. |
+| Node | TunnelNode | Arena wire painter boundary. No vertex or click target is added. |
 | Row | TunnelRow | Read-only additional Connections rows with kind, address and state. LocalConnectionRow shows Local state only.  |
 | Card | TunnelCard | Public-link state, masked MCP address and start/stop. |
 

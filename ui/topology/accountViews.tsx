@@ -1,67 +1,55 @@
-import { SrcAccountNode } from "../components/objects/src-account";
-import { SrcPlatformNode } from "../components/objects/src-platform";
-import { AgentPlatformNode } from '../components/objects/agent-platform';
+import { SrcAccountNode } from '../components/objects/src-account';
 import { AgentAccountNode } from '../components/objects/agent-account';
-import type { NodeView } from './Topology';
-import { accountNodeId, type TopologyAccount } from './accounts';
-import { orderedSubset } from './order';
-import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
-
-export interface AccountNodeActions {
+import { AgentPlatformNode } from '../components/objects/agent-platform';
+import { accountOwns } from '../accountPresentation';
+import type { ProviderAccount } from '../types';
+import type { ControlSource } from '../state/types';
+import { name, type Agent } from '../state/agents';
+import type { Candidate } from './solve';
+import type { ReactNode } from 'react';
+export interface CandidateView extends Candidate { content: ReactNode }
+// Accounts retain the persisted source/platform and per-platform account order.
+export function accountViews({ sources, agents, accounts, orders, open }: {
+  sources: ControlSource[]; agents: Agent[]; accounts: ProviderAccount[]; orders: Record<string, string[]>;
   open: (side: -1 | 1, platform: string, sourceId?: string, accountId?: string) => void;
-}
-// Stable account keys survive Tree/Flat switches. Connections never create identities.
-export function accountViews(views: NodeView[], side: -1 | 1, accounts: TopologyAccount[], mode: 'tree' | 'flat', orders: Record<string, string[]>, actions: AccountNodeActions): NodeView[] {
-  if (!accounts.length) return views;
-  const platforms = new Map<string, NodeView[]>();
-  views.forEach(view => { const id = view.platform ?? view.id; platforms.set(id, [...platforms.get(id) ?? [], view]); });
-  return [...platforms].flatMap(([platform, members]) => {
-    const linked = orderedSubset(accounts.filter(a => side === 1 ? a.agentProfiles.some(p => p.agent === platform) : a.sources.some(id => members.some(v => v.id === id))), orders[`${side}:${platform}`] ?? []);
-    // Partial snapshots cannot silently hide unassociated sources or tasks.
-    if (!linked.length) return members;
-    const covered = side === -1 ? members.filter(v => linked.some(a => a.sources.includes(v.id))) : members;
-    const first = covered[0], label = first.platformLabel ?? platform;
-    const unmatched = side === -1 ? members.filter(v => !linked.some(a => a.sources.includes(v.id))) : [];
-    const tasks = members.flatMap(v => v.tasks);
-    if (linked.length === 1) {
-      // Preserve the existing node, label, quota, badges and panel behavior.
-      // Multiple connections of this identity still share just one node.
-      const account = linked[0];
-      return [{ ...first, label, accountId: account.id, sourceIds: covered.map(v => v.id), tasks,
-        selected: covered.some(v => v.selected), sameIdentity: account.sources.length > 0 && account.agentProfiles.length > 0 }, ...unmatched];
-    }
-    // Equal aliases (including Unidentified) never merge distinct ARC account IDs.
+}): CandidateView[] {
+  const result: CandidateView[] = [], seen = new Set<string>();
+  for (const source of sources) {
+    const account = accounts.find(a => a.sources.includes(source.id));
+    const unidentified = accounts.filter(a => a.alias === 'Unidentified' && a.sources.some(id => sources.some(s => s.id === id && s.product === source.product))).map(a => a.id).sort();
+    const suffix = account?.alias === 'Unidentified' ? String(unidentified.indexOf(account.id) + 1) : undefined;
+    const local = source.credential.type === 'local';
+    const id = JSON.stringify(['source', source.product, account?.id ?? source.id]);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push({ id, side: local ? 'local' : 'cloud', accountId: account?.id,
+      sourceIds: account ? sources.filter(s => s.product === source.product && account.sources.includes(s.id)).map(s => s.id) : [source.id],
+      label: `${account?.alias ?? source.label}${suffix ? ` · ${suffix}` : ""}`,
+      content: <SrcAccountNode product={source.product} account={account} suffix={suffix} sourceLabel={source.label} state={source.state === 'connected' ? 'normal' : 'inactive'}
+        onOpen={() => open(-1, source.product, source.id, account?.id)} /> });
+  }
+  for (const agent of agents) {
+    const linked = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
+    const rank = orders[`1:${agent.agent}`] ?? [];
+    linked.sort((a, b) => (rank.indexOf(a.id) < 0 ? Infinity : rank.indexOf(a.id)) - (rank.indexOf(b.id) < 0 ? Infinity : rank.indexOf(b.id)));
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
-    const platformIcon = side === 1 ? <AgentQuotaIcon agent={platform} quota={null} /> : first.icon;
-    const childViews = linked.map(account => {
-      const sources = members.filter(v => account.sources.includes(v.id));
-      const selected = side === -1 ? sources.some(v => v.selected && v.selectedAccountId === account.id) : members.some(v => v.selected) && members.some(v => v.selectedAccountId === account.id);
-      const sameIdentity = account.sources.length > 0 && account.agentProfiles.length > 0;
-      const state = side === -1 ? sources.find(v => v.state === 'normal')?.state ?? sources[0]?.state ?? first.state : first.state;
+    for (const account of linked) {
       const suffix = account.alias === 'Unidentified' ? String(unidentified.indexOf(account.id) + 1) : undefined;
-      const alias = suffix ? `${account.alias} · ${suffix}` : account.alias;
-      const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
-      const icon = side === 1 ? <AgentQuotaIcon agent={platform} quota={account.quota ?? null} /> : first.icon;
-      return {
-        ...first, id: accountNodeId(platform, account.id), accountId: account.id, sourceIds: sources.map(v => v.id),
-        selected, account: true, sameIdentity, label: nodeLabel, icon,
-        attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'attention' || t.pending)),
-        state,
-        tasks: tasks.filter(t => t.agentAccountId === account.id),
-        content: side === -1 ? <SrcAccountNode product={platform} account={account} suffix={suffix} flat={mode === 'flat'} state={state} selected={selected} onOpen={() => actions.open(side, platform, sources[0]?.id, account.id)} /> : <AgentAccountNode account={account} agent={platform} platformLabel={label} flat={mode === 'flat'} suffix={suffix} state={state} selected={selected} onOpen={() => actions.open(side, platform, undefined, account.id)} />,
-      } satisfies NodeView;
-    });
-    const platformView: NodeView = { ...first, id: side === 1 ? platform : `platform:${platform}`, platform,
-      label, icon: platformIcon, sourceIds: covered.map(v => v.id),
-      selected: covered.some(v => v.selected) && !childViews.some(v => v.selected),
-      tasks: tasks.filter(t => !linked.some(a => a.id === t.agentAccountId)),
-      content: side === -1 ? <SrcPlatformNode product={platform} state={first.state} selected={members.some(v => v.selected)} onOpen={() => actions.open(side, platform, first.id)} /> : <AgentPlatformNode agent={{ agent: platform, displayName: label }} quota={null} state={first.state} selected={members.some(v => v.selected)} onOpen={() => actions.open(side, platform, first.id)} />,
-    };
-    if (mode === 'flat') {
-      // Legacy unattributed tasks remain attached to their platform, never guessed.
-      if (platformView.tasks.length) return [...childViews, { ...platformView, selected: false }, ...unmatched];
-      return [...childViews, ...unmatched];
+      result.push({ id: JSON.stringify(['agent', agent.agent, account.id]), side: 'local', agent: agent.agent,
+      accountId: account.id, sourceIds: [], label: `${name(agent)} · ${account.alias}${suffix ? ` · ${suffix}` : ""}`,
+      content: <AgentAccountNode account={account} suffix={suffix} agent={agent.agent} state={agent.available ? 'normal' : 'inactive'} onOpen={() => open(1, agent.agent, undefined, account.id)} /> });
     }
-    return [{ ...platformView, children: childViews }, ...unmatched];
-  });
+    if (!linked.length) result.push({ id: JSON.stringify(['agent', agent.agent]), side: 'local', agent: agent.agent, sourceIds: [], label: name(agent),
+      content: <AgentPlatformNode agent={agent} quota={null} state={agent.available ? 'normal' : 'inactive'} onOpen={() => open(1, agent.agent)} /> });
+  }
+  // Apply per-platform account order only to that platform's persisted slots.
+  for (const platform of new Set(sources.map(source => source.product))) {
+    const indices = result.flatMap((c, i) => !c.agent && sources.some(source => source.product === platform && c.sourceIds.includes(source.id)) ? [i] : []);
+    const rank = orders[`-1:${platform}`] ?? [];
+    const rows = indices.map(i => result[i]).sort((a, b) =>
+      (rank.indexOf(a.accountId!) < 0 ? Infinity : rank.indexOf(a.accountId!)) - (rank.indexOf(b.accountId!) < 0 ? Infinity : rank.indexOf(b.accountId!)));
+    indices.forEach((index, i) => { result[index] = rows[i]; });
+  }
+  return result;
 }
+export function canonicalAccount(accounts: ProviderAccount[], id?: string | null) { return accounts.find(a => accountOwns(a, id))?.id ?? id; }

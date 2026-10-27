@@ -11,7 +11,6 @@ Requires [Arc.Root](Root.md). Non-string props use template holes.
 | `label` | `string` | `required` | Accessible name. |
 | `state` | `"normal" &#124; "connecting" &#124; "error" &#124; "inactive"` | `required` | Existing WireState. |
 | `onOpen` | `() => void` | `required` | Activation callback. |
-| `onMove` | `(by: number) => void` | `optional` | ArrowUp sends -1; ArrowDown sends 1. |
 | `highlighted` | `boolean` | `false` | Selected/highlighted presentation. |
 | `newlyAdded` | `boolean` | `false` | New-source presentation. |
 | `children` | `string` | `required` | Plain text node content. Nested x-import/React elements are not supported inside this island. |

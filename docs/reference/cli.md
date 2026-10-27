@@ -154,12 +154,13 @@ an absolute `out`. Without an output path, it creates a unique directory under
 `<state>/acceptance/`.
 
 The result includes `directory`, `viewModel` and `png`. `view-model.json` records
-the current renderer's animated node/task positions, primitive geometry, SVG
-paths (outer arcs and tentacles), task states/text, panel selection, viewport,
-theme and language. The UI refreshes its stores and waits for geometry to settle;
+the current renderer's arena candidates, connected loops with nodes, dispatch
+edges, depths and colors, floating sessions, lingering and returning state,
+animated positions, panel selection, viewport, theme and language. The UI refreshes
+its stores and waits for geometry to settle;
 `layoutSettled` is always boolean: `true` when geometry settled, `false` when
-the bounded settling period expired. Task bubbles include `taskId`, optional
-`threadId`, and their activity `origin` for matching dispatched work. Capture is
+the bounded settling period expired. Arena nodes include `taskId` for matching
+dispatched work. Capture is
 sequential, so live activity can advance between model export and PNG capture.
 On macOS `snapshot.png` comes from WKWebView `takeSnapshot`, without screen
 recording permission and independently of SSH's TCC identity. Other desktop
@@ -465,12 +466,10 @@ The example changes only accent color and bubble density. `body.values` merges s
 | Setting | Preference key | String values (default first) |
 | --- | --- | --- |
 | Accent color | `theme-color` | `arc`, `blue`, `purple`, `orange`, `green` |
-| Account topology | `arc.topology-mode` | `"tree"`, `"flat"` (JSON-encoded strings) |
 | Bubble density | `task-bubble-density` | `standard`, `compact`, `detailed` |
 | Bubble width | `task-bubble-width` | `medium`, `narrow`, `wide` |
 | Compact bubbles when space is limited | `task-bubble-auto-compact` | `on`, `off` |
 | Topology orientation | `topology-layout` | `auto`, `landscape`, `portrait` |
-| Maximum visible Agents | `agents-max-visible` | `4`, `6`, `8`, `10` |
 | Quota percentage | `quota-display` | `remaining`, `used` |
 | Quota reset presentation | `quota-reset-display` | `countdown`, `time` |
 
@@ -478,11 +477,11 @@ For example, change the topology and quota presentation together:
 
 ```sh
 arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-mode":"\"flat\"","topology-layout":"auto","agents-max-visible":"6","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
+{"body":{"values":{"topology-layout":"auto","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
 JSON
 ```
 
-### Maintainer and topology diagnostics
+### Maintainer configuration
 
 ```sh
 arc cli config get
@@ -491,17 +490,6 @@ arc cli config get
 ```
 
 Maintainer mode is off by default. It enables development AX capabilities; set `maintainerMode:false` to disable it. [Maintainer mode](#maintainer-mode) describes their boundaries.
-
-Topology overrides and diagnostic overlays are also preferences, with no floating settings panel:
-
-```sh
-arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-parameters":"{\"schemaVersion\":1,\"overrides\":{\"taskGap\":12}}","arc.topology-debug":"{\"guides\":true,\"slow\":false}"}}}
-JSON
-arc cli call preferences.get
-```
-
-`arc.topology-parameters` is a JSON-encoded document. Its numeric `overrides` replace the previous override set; merge the current document before changing one parameter. Omitted keys use current defaults. The renderer validates keys and numbers, clamps finite out-of-range numbers, and falls back to defaults for malformed documents. `taskGap` accepts 0–30 pixels; the full parameter metadata is in `ui/topology/solve.ts`. Use `{"schemaVersion":1,"overrides":{}}` to restore default geometry. `arc.topology-debug` accepts boolean `guides` and `slow`, both false by default. Slow motion scales geometry and flow to one quarter speed; reduced motion still takes precedence.
 
 ### Technical update policies
 

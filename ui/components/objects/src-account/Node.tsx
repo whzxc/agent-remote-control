@@ -5,14 +5,14 @@ import { controlSource } from '../../../controlSources';
 import { PlatformIcon } from '../../ui';
 import GraphNode from '../../GraphNode';
 
-export function SrcAccountNode({ product, account, sourceLabel, suffix, flat, state, selected, newlyAdded, onOpen, onMove, labelContent }: {
-  product: string; account?: Pick<ProviderAccount, 'alias'>; sourceLabel?: string; suffix?: string; flat?: boolean;
-  state: WireState; selected?: boolean; newlyAdded?: boolean; onOpen: () => void; onMove?: (by: number) => void; labelContent?: ReactNode;
+export function SrcAccountNode({ product, account, sourceLabel, suffix, state, selected, newlyAdded, onOpen, labelContent }: {
+  product: string; account?: Pick<ProviderAccount, 'alias'>; sourceLabel?: string; suffix?: string;
+  state: WireState; selected?: boolean; newlyAdded?: boolean; onOpen: () => void; labelContent?: ReactNode;
 }) {
   const alias = account?.alias ?? sourceLabel ?? controlSource(product)?.displayName ?? product;
-  const name = `${flat ? `${controlSource(product)?.displayName ?? product} · ` : ''}${alias}`;
+  const name = `${controlSource(product)?.displayName ?? product} · ${alias}`;
   const label = `${name}${suffix ? ` · ${suffix}` : ''}`;
-  return <GraphNode label={label} state={state} highlighted={selected} newlyAdded={newlyAdded} onOpen={onOpen} onMove={onMove}>
+  return <GraphNode label={label} state={state} highlighted={selected} newlyAdded={newlyAdded} onOpen={onOpen}>
     <PlatformIcon role="source" platform={product} panelVisual /><span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>
       {labelContent ?? (suffix ? <><span>{name}</span><span> · {suffix}</span></> : label)}
     </span>

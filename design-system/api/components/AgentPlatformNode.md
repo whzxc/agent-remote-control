@@ -8,7 +8,7 @@ Real AGENT adapter. Requires [Arc.Root](Root.md). Records use existing UI types;
 | --- | --- | --- |
 | `agent / state / quota` | `Agent / WireState / ProviderAccount["quota"] \| null` | Required inventory record and wire state; optional account quota for the existing ring. |
 | `label / selected / children` | `string / boolean / string` | Accessible label, selection and plain-text content. |
-| `onOpen / onMove` | `callback; required / (by: number) => void` | Host navigation and optional keyboard movement. |
+| `onOpen` | `callback; required` | Host navigation. |
 
 ## Mounting
 

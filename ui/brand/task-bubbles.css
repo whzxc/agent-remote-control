@@ -39,7 +39,6 @@ button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(
 :root[data-reduced-motion="true"] {
   button.activity-bubble:hover, button.activity-bubble:active, .activity-bubble-shell:hover, .activity-bubble-shell:active { transform: none; }
 }
-.activity-edge-fade { position: fixed; inset: 0 0 0 auto; width: 32px; background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; z-index: 4; }
 @keyframes activity-breathe { 50% { opacity: 0.35; } }
 button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-accent); }
 .activity-bubble.needs-attention::after {
@@ -54,7 +53,6 @@ button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-sh
 :root[data-reduced-motion="true"] {
   .activity-bubble::after { animation: none !important; opacity: 0; }
 }
-.activity-slot .activity-bubble:not(:focus-visible) { outline: 1px solid color-mix(in srgb, var(--text) calc(var(--path-emphasis, 0) * 18%), transparent); outline-offset: 1px; }
 [data-phase="thinking"] { --phase-color: var(--phase-thinking); }
 [data-phase="command"] { --phase-color: var(--phase-command); }
 [data-phase="file"] { --phase-color: var(--phase-file); }
@@ -97,3 +95,7 @@ button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-sh
 }
 .activity-bubble[data-update-blocking] { outline: 1px solid var(--update-blocker); outline-offset: 2px; }
 .update-blocking-tag { color: var(--update-blocker); font-size: var(--text-xs); white-space: nowrap; }
+
+.activity-slot[data-compact] .activity-bubble { padding: 8px; gap: 0; }
+.activity-slot[data-compact] .activity-bubble:not([data-unread]) .phase-tile,
+.activity-slot[data-compact] .activity-phase > .phase-label { display: none; }

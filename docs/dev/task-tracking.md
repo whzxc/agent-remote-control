@@ -2,7 +2,7 @@
 
 [UI](ui.md) · [Dispatch Agents](dispatch-agents.md) · [Architecture](architecture.md)
 
-The homepage retains control-source/ARC/Agent primary connections. Agent outer arcs and secondary tentacles connect task bubbles. Bubbles open execution timelines. Node activity, summaries, timelines, and execution evidence share native normalization.
+Node activity, summaries, timelines, and execution evidence share native normalization.
 
 ## Scope
 
@@ -108,39 +108,7 @@ Activity checks around once per second ignore observedAt-only changes. Transcrip
 
 ## Homepage UI
 
-### Layout and nodes
-
-solve(scene,params,drag) owns both wings. Sources use 78px rows/56px minimum. Idle Agent rows use 78px/44px minimum when tasks exist. Active rows fit per-task heights plus taskGap, with 12px gaps between Agent rows. Collapsed queues have five slots maximum including overflow. Scene height is max(viewport,larger column + 140). Both wings align to scene center. Sources never shrink/fade because Agents are busy.
-
-Without tasks, both wings use normal size 1/source row spacing. Active Agents scale 1.1. Idle Agents stay 1 without indent when space permits, otherwise shrink to default 0.6 (adjustable 0.4), indent up to 22px, and use opacity 0.62. Base size is 44px, adjustable 32-60px. Names remain below. Horizontal fitting compresses left then right spacing, to minimum ratio 0.72, then centers with bubble weight 0.8 and 40px margins. Remaining overflow clips the right while preserving the left and vertically scrolling the scene.
-
-Keep node details, quota rings/QuotaBubble, and arrow sorting. Brand icons scale with nodes without loading spinners. Task bubbles/tentacles show activity. Counts appear only in the panel-open behavior below.
-
-### Arcs, tentacles, and bubbles
-
-Outer radius is half current node size times scale plus 11px. Round stroke width is 4 × max(0.8,center radius/130). Secondary ports follow target direction at 0.75 with 9° minimum spacing/58° maximum half-angle. Arc ends extend 9° beyond ports with 14° minimum half-angle. Earcup follow is 0.7, spacing 7°, maximum half-angle 42°, end margin 7°, minimum half-angle 22°.
-
-Bubble centers follow adjacent half-heights plus a 10px taskGap, with inner edges 104px from node center. Each task supplies its width and height to the solver. Width, height, and position use the same springs. Stored pitch overrides migrate once to taskGap, preserving other overrides; explicit imports accept only the current parameter names. Cubic controls follow root normals/bubble horizontal axes with tension 0.34/0.5 of endpoint distance. Roots widen by arc length. The left solver supports mirrored tasks/arcs although sources currently have no task data/details. Stable-key springs use stiffness 210/damping 26/~8ms substeps. One SVG and same-frame ref transforms avoid per-frame React renders and DOM-coordinate correction. Stop rAF at rest.
-
-Collapsed queues show at most five secondary tentacles. Overflow uses four individual bubbles and a fifth aggregate slot in border-strong. Unfinished tasks take visible slots before completed tasks. Pending interactions sort first. Within priority, manual local order precedes stable first-observed start order, falling back to first observation and session ID. Phase/headline/snapshot order/later timestamp corrections never reorder. The aggregate slot temporarily reveals every task in its queue without opening an Agent panel. Clicking outside the queue or pressing Escape restores the collapsed view. Keyboard expansion focuses the first revealed task, and Escape restores focus to the aggregate slot. Opening a detail panel or leaving the overview also ends temporary expansion.
-
-Pointer drags feed the solver directly on both axes. Only vertical changes reorder. Others yield through springs. Center/spacing remain stable. Release returns items to columns and suppresses clicks. Cancellation restores original order. Tasks stay within node/priority group, support arrow sorting, and exclude aggregate slots. Source/Agent order persists and Agent order is shared with management. Task order is frontend-local.
-
-Bubble width is a persisted preference: narrow 232px, medium 264px (default), or wide 304px. Density is compact 54px, standard 76px (default), or detailed 100px. The title and monospace m:ss or h:mm:ss duration share the first line. Phase and rolling headline share the second. Standard adds the model/effort/Fast pill, project, and right-aligned step trail. Detailed adds previous readable content, a pending-detail hint, or known total duration, plus the source name in the metadata line. Unknown source/configuration fields remain absent. A 16px source badge sits on the phase tile; recorded local CLI uses a neutral terminal glyph.
-
-Auto-compact is enabled by default. More than four tracked tasks reduces density by one level and shows a pill beneath the Agent name when the density changes. Display settings include a live preview and controls for density, width, and auto-compact. The whole bubble opens details, without embedded approval actions. Pending tasks replace time with a pending pill and use warning-soft, a 1.5px warning ring, and a soft halo. Bubble hover lifts slightly with spring overshoot; pressing scales to 0.97. Reduced motion stops movement.
-
-Bubbles retain the rounded font, phase colors, 13px radius, and 30px phase tile. Commands/paths use monospace, with project-relative paths preserving filenames. Empty headline content falls back to recent readable content, title/user message, then a generic title. The headline updates at most once per second with a 160ms/5px upward crossfade.
-
-Shared PhaseTile/PhaseLabel/StepTrail use phase tokens. Running tiles have 1.6s light arcs, labels 2.4s shimmer, latest steps pulse. Arc pseudo-elements rotate inside fixed rounded masks. Shimmer uses static gradient masks with opposing text/overlay transforms. Animate transform only, not gradient angles/background positions each frame. Thinking breathes, terminal underline blinks, editing outlines trace, interaction shields sway every 2.4s, and completion checks trace once at opacity 0.72. External phase tiles remain still. Homepage bubbles have no arrow after time or whole-bubble tooltip. reduced-motion stops decorations.
-
-Running tentacles widen from 2px to 4px before the root flare and use contrasting 3px rounded `1 17` dashes at 1s. Pending uses stationary warning, 1.5px bubble inset border, and a 6px 16% warning halo breathing at 2.4s, with warning outer arc. Recently ended uses stationary translucent success.
-
-When a full backend snapshot removes a session, retain final summary/actual end time as completed. Unread bubbles keep a dot indefinitely and count toward slots/aggregate. ARC read acknowledgements persist per agent/task in WebView storage across renderer reloads, window recreation, and app restarts. Keep the newest 1000 acknowledgements for at most 30 days; native-app/Dock badges remain separate. Viewing details marks read, including completion while already open. Details retain task data while panel-open behavior hides bubbles. Leaving details waits about 2s before spring fade, port retraction, and slot closure. Elapsed duration remains fixed at actual end. A new turn clears prior completion/unread state. Keep a selected slot visible if it would otherwise overflow.
-
-The topology and agent operations share the same persisted completion read state. `task_mark_read({agent,id})` dismisses only a completed bubble without selecting details. `task_bubble({agent,id})` and snapshot `model.taskBubbles` expose completed/unread/readAt/retained, including read acknowledgements after dismissal. Active and unknown IDs are rejected for writes. Turn IDs or turn-start timestamps distinguish a new turn from a replay of the same completed task. A newly observed turn clears the previous acknowledgement. Core reconnection preserves acknowledgements. Expired or excess records are pruned on reads and writes. Persist before dismissing a bubble or returning a successful mark-read result. Read acknowledgements do not acknowledge the notification inbox or alter task execution.
-
-External transcript tentacles use text-tertiary `3 5` dashes. Ongoing ARC and external sessions show contrasting 3px flow dots on their tentacles. reduced-motion stops the flow. All bubbles open details. Native navigation is in the header. Narrow windows clip bubbles/tentacles with a 32px right fade without shrinking, hiding the whole group, or horizontal scrolling. Visible parts remain clickable. New tasks grow/fade from their outer-arc port.
+See [Arena homepage](arena.md).
 
 ### Agent view and task details
 
@@ -150,9 +118,7 @@ The Agent list merges live tasks with unarchived conversation metadata by sessio
 
 Mirrored ElasticPanel/panelMorph shells open right from node/bubble, 400px wide with 16px margins and 20px radius. Open ~250ms, close ~160ms, fading content. No scrim/scroll lock/inert. Switch Agents within the shell. Reclick/Escape closes with trigger focus restoration or owning-Agent fallback. Left source views are mutually exclusive. Center dots remain global entry points.
 
-Portrait orientation, rails and panel placement follow [Portrait layout](portrait-layout.md). The geometry below describes landscape.
 
-Reserved panel space shifts/compresses the scene without vertical reorder, preserving 40px selected-node/name clearance. Below 760px, overlay mode leaves about 18px of selected-node edge. Pause drag/keyboard reorder while open. All Agent bubbles/tentacles fade toward nodes while outer arcs retain their geometry. Nonselected active nodes show counts with warning for pending. Selected nodes retain normal scale without an outline or halo. Their primary tentacle brightens and a secondary tentacle connects to the panel edge. Closing restores bubbles. reduced-motion switches directly without flow.
 
 Details have Back, a single-line task title with a full-title tooltip, native link, width toggle, status, project, and localized duration. The title omits the Agent name; the metadata row retains it. A second metadata line shows known source/connection information, the latest turn configuration, and turn count. Agent and task layers share the default 400px or viewport-minus-32px width. Forward/back slide slightly in opposite directions over 160ms without shell resizing. Activity-snapshot membership means ongoing, including external sessions whose completion is snapshot removal rather than old item status. Timelines scroll internally with jump-to-latest.
 

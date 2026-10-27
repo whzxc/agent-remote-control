@@ -1,10 +1,9 @@
 import type { AgentActivitySnapshot, ProviderAccount } from '../types';
 import type { Status } from '../state/types';
-import type { TopologyAccount } from '../topology/accounts';
 
 export function installTopologyAccounts(status: Status, activity: AgentActivitySnapshot): ProviderAccount[] {
   const base = status.ingresses[0].sources![0];
-  const identities: Omit<TopologyAccount, 'quota'>[] = [
+  const identities: Pick<ProviderAccount, 'id' | 'provider' | 'identityKey' | 'alias' | 'sources' | 'agentProfiles'>[] = [
     { id: 'example-personal', provider: 'anthropic', identityKey: 'example-anthropic-personal', alias: 'Personal', sources: ['example-claude-personal', 'example-claude-laptop'], agentProfiles: [{ agent: 'claude', profileId: 'example-profile-personal', kind: 'cli-profile', state: 'signed-in', default: true }] },
     { id: 'example-studio', provider: 'anthropic', identityKey: 'example-anthropic-studio', alias: 'Studio', sources: ['example-claude-studio'], agentProfiles: [{ agent: 'claude', profileId: 'example-profile-studio', kind: 'cli-profile', state: 'signed-in', default: false }] },
     { id: 'example-openai', provider: 'openai', identityKey: 'example-openai', alias: 'Personal', sources: ['example-chatgpt'], agentProfiles: [{ agent: 'codex', profileId: 'example-codex-home', kind: 'codex-home', state: 'signed-in', default: true }] },

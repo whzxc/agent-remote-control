@@ -8,7 +8,7 @@ Real TASK adapter. Requires [Arc.Root](Root.md). Records use existing UI types; 
 | --- | --- | --- |
 | `agent / session / now` | `string / TrackedActivity / number; required` | Agent identity, recorded activity and fixed epoch milliseconds. |
 | `density / blocking / selected / disabled` | `compact \| standard \| detailed / boolean / boolean / boolean` | Existing task densities, blocking request and selection states. |
-| `onOpen / onRead / onMove` | `callback / callback / (by: number) => void` | Open and mark-read are required independent actions. Optional keyboard movement passes -1 or 1. |
+| `onOpen / onRead` | `callback / callback` | Open and mark-read are required independent actions. |
 
 ## Mounting
 

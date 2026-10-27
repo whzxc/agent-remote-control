@@ -6,7 +6,7 @@ export const uiFiles = ['ui/**/*.{ts,tsx,js,jsx,mjs}'];
 export const uiIgnores = [
   'ui/components/ui/**', 'ui/components/composites/**', 'ui/components/objects/**',
   'ui/design-mount/**',
-  'ui/topology/{geometry,solve,render,portraitRender,animate,orientation,portrait,order,parameters,Topology,Hub,CollapseSymbol,accountViews}.{ts,tsx}',
+  'ui/topology/{geometry,solve,render,animate,orientation,Topology,Hub,accountViews}.{ts,tsx}',
 ];
 export function isFeatureFile(file) {
   return file.startsWith('ui/') && !uiIgnores.some(pattern => matchesGlob(file, pattern));

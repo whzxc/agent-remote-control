@@ -15,7 +15,6 @@ export function quotaPercent(window?: QuotaWindow) {
   return value === undefined ? '—' : value > 0 && value < 1 ? '<1%' : `${Math.floor(value)}%`;
 }
 
-export const maxVisibleAgents = preference<number>('agents-max-visible', 4);
 export const bubbleDensity = preference<BubbleDensity>('task-bubble-density', 'standard', value => value === 'compact' || value === 'detailed' ? value : 'standard', value => value);
 export const bubbleWidth = preference<BubbleWidth>('task-bubble-width', 'medium', value => value === 'narrow' || value === 'wide' ? value : 'medium', value => value);
 export const bubbleAutoCompact = preference('task-bubble-auto-compact', true, value => value !== 'off', value => value ? 'on' : 'off');

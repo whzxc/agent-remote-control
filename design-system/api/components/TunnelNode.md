@@ -6,8 +6,7 @@ Real SRC/TUNNEL object adapter. Requires [Arc.Root](Root.md). Records use existi
 
 | Prop | Type | Meaning |
 | --- | --- | --- |
-| `orientation` | landscape or portrait | Defaults to landscape; selects the existing painter. |
-| `frame` | { layout: Layout; nodes: PaintNode[]; tasks: PaintTask[] } | Optional projected frame. The same painters render it with reduced motion; no Ingress association is inferred. |
+| `frame` | { layout: ArenaLayout } | Optional projected frame. The arena painter renders it with reduced motion; no Ingress association is inferred. |
 
 ## Mounting
 

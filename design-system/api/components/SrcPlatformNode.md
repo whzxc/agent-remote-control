@@ -7,7 +7,7 @@ Real SRC/TUNNEL object adapter. Requires [Arc.Root](Root.md). Records use existi
 | Prop | Type | Meaning |
 | --- | --- | --- |
 | `product / state` | string / WireState; required | Product identity and existing projected connection state. |
-| `onOpen / onMove` | () => void / (by: number) => void | Open callback; optional ArrowUp/ArrowDown reorder. |
+| `onOpen` | () => void | Open callback. |
 | `selected / newlyAdded / count` | boolean / number | Host selection, arrival and optional derived account count. |
 
 ## Mounting

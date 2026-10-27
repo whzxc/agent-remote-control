@@ -8,8 +8,8 @@ Real SRC/TUNNEL object adapter. Requires [Arc.Root](Root.md). Records use existi
 | --- | --- | --- |
 | `product / state` | string / WireState; required | Artwork and projected connection state. |
 | `account / sourceLabel` | Pick<ProviderAccount, "alias"> / string | Resolved alias or explicit source label. |
-| `flat / suffix` | boolean / string | Platform context and host-supplied stable Unidentified suffix. |
-| `onOpen / onMove` | callbacks | Open and optional keyboard reorder. |
+| `suffix` | string | Host-supplied stable Unidentified suffix. |
+| `onOpen` | callback | Open the account panel. |
 | `selected / newlyAdded / labelContent` | boolean / string | Host states; optional plain-text label slot. |
 
 ## Mounting

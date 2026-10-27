@@ -110,18 +110,9 @@ Both L2 panels edit aliases through InlineName and confirm removal through Objec
 
 The hub-right Agent settings dialog owns discovery, enable/disable, order and official installation links. It has no account, task, quota overview or display-settings inspector. Display preferences are configured through CLI/AX. Quota overview remains available through its existing tray surface.
 
-### Topology
+### Homepage
 
-- Modes: Tree (default) and Flat, a persisted preference at the end of Settings > General. Switching never reorders nodes.
-- Tree: L1 is the platform. A platform with more than one account grows L2 account nodes (42px, platform logo, alias label). Agent tasks attach to their account node (L3). A single-account platform omits the L2 topology node; tasks attach to the platform, whose panel still opens L2 with Back to L1.
-- Flat: L1 is `Platform · Alias` (platform name alone for single-account platforms); same-platform nodes stay adjacent.
-- Account visuals: both control-source and Agent account nodes reuse their platform logo. For multi-account Agents, the platform node shows only the logo; each account node shows its own quota ring from that account's profile quota. Missing account quota never falls back to another account's reading.
-- Same identity: hovering an account also lights its counterpart on the other side. Account labels contain no link icon.
-- Collapse: a hover-only 20px filled circle in the side's theme color (control sources orange, Agents blue-purple) with a white minus or plus, placed between the node and its outer arc, nearer the node. It collapses or expands the node's whole outer arc and children. Hovering the toggle keeps the node's path lit. Keyboard focus counts as hover.
-- Auto rules: L2 expands when a platform has more than one account; L3 expands when an account has tasks; manual choices persist and win. A collapsed node shows a badge with the hidden task count, in warning color when any is pending. Pending work is never hidden without that badge.
-- Path highlight: hovering a task or node lights the union of its paths (source account → source platform → hub → agent platform → agent account → task). Everything else dims (lines about 0.18, nodes 0.32, bubbles 0.35). Lit nodes scale slightly with a soft ring; lit bubbles shift about 6px outward with a stronger shadow. When the target is collapsed, the nearest visible ancestor lights.
-- Account panels: Agent account nodes open an account-scoped panel with the account alias, its quota, and tasks with recorded attribution to that account. Task details and Back retain the selected account. Selected nodes keep an outer arc on both sides, including when they have no tasks.
-- Geometry stays in `ui/topology/solve.ts` and the existing animator; no per-frame React renders.
+See [Arena homepage](arena.md).
 
 ## Fixtures
 

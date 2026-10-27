@@ -1,7 +1,5 @@
 # Arena homepage
 
-> Status: target. The topology rewrite implements this page, then deletes this line and the superseded homepage sections in `ui.md`, `task-tracking.md`, `accounts.md` and `portrait-layout.md`.
-
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
 The homepage shows loops: who dispatched work to whom, through ARC, right now. It is read-only. Roles come from each dispatch, not from a fixed SRC or AGENT side.

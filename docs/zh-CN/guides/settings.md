@@ -59,12 +59,10 @@ arc cli call preferences.get
 | 设置 | 键 | 可选值（默认值在前） |
 | --- | --- | --- |
 | 强调色 | `theme-color` | `arc`、`blue`、`purple`、`orange`、`green` |
-| 账户拓扑 | `arc.topology-mode` | `"tree"`、`"flat"`（JSON 编码的字符串） |
 | 气泡密度 | `task-bubble-density` | `standard`、`compact`、`detailed` |
 | 气泡宽度 | `task-bubble-width` | `medium`、`narrow`、`wide` |
 | 自动压缩气泡 | `task-bubble-auto-compact` | `on`、`off` |
 | 拓扑方向 | `topology-layout` | `auto`、`landscape`、`portrait` |
-| 最多显示的 Agent 数 | `agents-max-visible` | `4`、`6`、`8`、`10` |
 | 额度百分比 | `quota-display` | `remaining`、`used` |
 | 额度重置时间显示 | `quota-reset-display` | `countdown`、`time` |
 
@@ -72,11 +70,11 @@ arc cli call preferences.get
 
 ```sh
 arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-mode":"\"flat\"","topology-layout":"auto","agents-max-visible":"6","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
+{"body":{"values":{"topology-layout":"auto","task-bubble-width":"wide","task-bubble-auto-compact":"on","quota-display":"used","quota-reset-display":"time"}}}
 JSON
 ```
 
-## 维护者模式和拓扑诊断
+## 维护者模式
 
 维护者模式默认关闭，用于开启开发 AX 能力。使用完毕后设回 `false`：
 
@@ -85,17 +83,6 @@ arc cli config get
 printf '%s' '{"maintainerMode":true}' | arc cli config set --stdin
 arc cli config get
 ```
-
-几何参数和诊断辅助线也通过 CLI/AX 配置。下面的示例把任务间距设为 12 像素，并开启辅助线：
-
-```sh
-arc cli call preferences.set --stdin <<'JSON'
-{"body":{"values":{"arc.topology-parameters":"{\"schemaVersion\":1,\"overrides\":{\"taskGap\":12}}","arc.topology-debug":"{\"guides\":true,\"slow\":false}"}}}
-JSON
-arc cli call preferences.get
-```
-
-几何参数文档会替换原有的覆盖值集合。只改一项时，先合并当前覆盖值。将 `overrides` 设为空对象可恢复默认几何参数。将 `guides` 和 `slow` 设为 `false` 可关闭诊断效果。格式和限制见 [CLI 参考](../../reference/cli.md#maintainer-and-topology-diagnostics)。
 
 ## 更新技术策略
 

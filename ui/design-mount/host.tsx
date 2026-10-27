@@ -132,7 +132,7 @@ function island<P extends object>(name: string) {
     });
     const density = (props as { density?: BubbleDensity }).density ?? 'standard';
     return createElement('div', { className: 'arc-island', ref: node, 'data-arc-component': name,
-      style: (name === 'ActivityBubble' || name === 'TaskNode') ? { height: bubbleHeights[density] } : name === 'TunnelNode' ? { position: 'relative', height: (props as ComponentProps<typeof TunnelNodeComponent>).frame?.layout.sceneH ?? 260, overflow: 'hidden' } : undefined });
+      style: (name === 'ActivityBubble' || name === 'TaskNode') ? { height: bubbleHeights[density] } : name === 'TunnelNode' ? { position: 'relative', height: (props as ComponentProps<typeof TunnelNodeComponent>).frame?.layout.height ?? 260, overflow: 'hidden' } : undefined });
   }
   Island.displayName = `Arc.${name}`;
   return Island;

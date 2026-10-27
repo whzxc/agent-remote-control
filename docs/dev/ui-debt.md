@@ -8,7 +8,7 @@ Run `npm run check:ui` (also part of `npm run check`) to enforce shared controls
 
 ## Scope
 
-Feature code includes all UI source except `ui/components/ui/**`, `ui/components/composites/**`, `ui/components/objects/**`, `ui/design-mount/**`, and the topology geometry/painters enumerated in `tooling/ui-policy.mjs`. The topology tuning panel remains feature code.
+Feature code includes all UI source except `ui/components/ui/**`, `ui/components/composites/**`, `ui/components/objects/**`, `ui/design-mount/**`, and the topology geometry/painters enumerated in `tooling/ui-policy.mjs`.
 
 Raw button, input, select, textarea, label, details, summary and definition-list elements require shared components. Direct model/effort/service-tier reads from `dispatchSummary` or `task` inside JSX require DispatchSpec. Event handlers and data processing outside JSX remain allowed; this syntactic rule does not perform alias/data-flow analysis. Inline margin, padding, gap, display, flex/grid and alignment properties require shared shells. Existing dynamic geometry properties such as top, left, width, height and transform remain allowed. New feature controls use SingleChoice/ChoiceControl rather than importing Select, ToggleGroup or RadioGroup directly. Arbitrary Tailwind color, spacing, radius and typography values are forbidden, including conditional and cn/cva string literals.
 
@@ -16,7 +16,7 @@ Dedicated CSS is restricted to `ui/tokens.css` and these brand-owned files. `too
 
 | Brand owner | Stylesheet | Boundary |
 | --- | --- | --- |
-| Homepage topology and earcup connections | `ui/brand/topology.css` | Solver geometry, node painting and tactile power control; no feature settings or panel layouts |
+| Arena stage and wires | `ui/brand/topology.css` | Solver geometry, node painting and tactile power control; no feature settings or panel layouts |
 | Quota rings | `ui/brand/quota.css`, `ui/components/composites/AgentQuotaIcon.css` | Ring painting and intrinsic brand artwork sizing |
 | Task bubbles | `ui/brand/task-bubbles.css` | Bubble painting, phase animation and update-blocking visuals |
 
