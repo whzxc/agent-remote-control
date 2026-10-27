@@ -1,6 +1,7 @@
 use super::*;
 
 const AT: &str = "2026-01-01T00:00:00Z";
+const LATER: &str = "2026-01-01T00:00:01Z";
 fn acp(t: &mut Timeline, update: Value) {
     t.agent("session/update", &json!({"params":{"update":update}}), AT);
 }
@@ -345,4 +346,89 @@ fn transcript_activity_preserves_expiry_and_filters_injected_content() {
         assert!(t.transcript_active(now, now + std::time::Duration::from_secs(90)));
         assert!(!t.transcript_active(now, now + std::time::Duration::from_secs(91)));
     }
+}
+
+#[test]
+fn claude_harness_notifications_and_compaction_never_start_requests_or_summaries() {
+    // Regression: background task-notification fields and local-command Compacted output appeared as user requests and task summaries.
+    let injected = [
+        json!({"isMeta":true,"message":{"role":"user","content":"Private hook context"}}),
+        json!({"isCompactSummary":true,"message":{"role":"user","content":"A plain continuation summary"}}),
+        json!({"origin":{"kind":"task-notification"},"promptSource":"system","turnOrigin":"task_notification","message":{"role":"user","content":"Background task finished without wrapper tags"}}),
+        json!({"message":{"role":"user","content":"<task-notification><task-id>job</task-id><tool-use-id>tool</tool-use-id><output-file>/tmp/job.output</output-file></task-notification>Read the output file."}}),
+        json!({"message":{"role":"user","content":"<local-command-stdout>Compacted </local-command-stdout>"}}),
+        json!({"message":{"role":"user","content":"<system-reminder>Context</system-reminder><command-name>/compact</command-name><command-message>compact</command-message><command-args/>"}}),
+        json!({"message":{"role":"user","content":"<bash-input>pwd</bash-input><bash-stdout>/tmp</bash-stdout>"}}),
+    ];
+    for (index, mut injected) in injected.into_iter().enumerate() {
+        injected["uuid"] = json!(format!("injected-{index}"));
+        injected["timestamp"] = json!(LATER);
+        let mut timeline = Timeline::default();
+        timeline.backfill_claude(&[
+            json!({"uuid":"human","timestamp":AT,"message":{"role":"user","content":"Review the parser"}}),
+            injected,
+        ]);
+        let response = timeline.response("session", 0);
+        let requests: Vec<_> = response["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["type"] == "user")
+            .collect();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0]["text"], "Review the parser");
+        assert_eq!(timeline.transcript_turn_start(), Some(("human", AT)));
+        let session = timeline.transcript_session("session", "claude");
+        assert_eq!(session["title"], "Review the parser");
+        assert_eq!(session["fallbackHeadline"], "Review the parser");
+    }
+}
+
+#[test]
+fn transcript_metadata_preserves_human_markup_and_user_role_tool_results() {
+    // Property: explicit human provenance and user-role tool results survive transcript projection.
+    let literal = "<bash-input>Explain this protocol</bash-input>";
+    let mut timeline = Timeline::default();
+    timeline.backfill_claude(&[
+        json!({"uuid":"human","timestamp":AT,"origin":{"kind":"human"},"promptSource":"sdk","turnOrigin":"human","message":{"role":"user","content":literal}}),
+        json!({"uuid":"tool","timestamp":AT,"message":{"role":"assistant","content":[{"type":"tool_use","id":"read","name":"Read","input":{"file_path":"example.txt"}}]}}),
+        json!({"uuid":"result","timestamp":LATER,"origin":{"kind":"tool"},"message":{"role":"user","content":[{"type":"text","text":"Injected tool context"},{"type":"tool_result","tool_use_id":"read","content":"Retained result"}]}}),
+    ]);
+    let response = timeline.response("session", 0);
+    let entries = response["entries"].as_array().unwrap();
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|entry| entry["type"] == "user")
+            .count(),
+        1
+    );
+    assert_eq!(entries[0]["text"], literal);
+    assert_eq!(entries[0]["inputOrigin"], "human");
+    assert_eq!(
+        entries.iter().find(|entry| entry["id"] == "read").unwrap()["output"]["text"],
+        "Retained result"
+    );
+}
+
+#[test]
+fn codex_transcripts_exclude_harness_user_messages() {
+    // Property: Codex transcript requests exclude harness metadata and notifications regardless of their user role.
+    let mut timeline = Timeline::default();
+    timeline.backfill_codex_records(&[
+        json!({"type":"event_msg","timestamp":AT,"payload":{"type":"task_started","turn_id":"human"}}),
+        json!({"type":"response_item","timestamp":AT,"payload":{"id":"human","type":"message","role":"user","content":[{"text":"Review changes"}]}}),
+        json!({"type":"response_item","timestamp":LATER,"payload":{"id":"injected","type":"message","role":"user","source":"system","content":[{"text":"Internal context"}]}}),
+        json!({"type":"response_item","timestamp":LATER,"payload":{"id":"notification","type":"message","role":"user","content":[{"text":"<subagent_notification>Agent finished</subagent_notification>"}]}}),
+    ]);
+    let response = timeline.response("session", 0);
+    let requests: Vec<_> = response["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["type"] == "user")
+        .collect();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0]["text"], "Review changes");
+    assert_eq!(timeline.prompt_headline(), "Review changes");
 }

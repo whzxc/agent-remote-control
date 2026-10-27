@@ -132,3 +132,30 @@ test("Claude local commands cannot become requests or task summaries", () => {
   assert.equal(projectTurn(projected, 'done').final, answer);
   assert.equal(presentTimelineEntries('codex', entries), entries);
 });
+
+
+test("legacy Claude harness notification fields never render as requests or summaries", () => {
+  // Regression: flattened task-notification fields appeared as a Request bubble at the bottom of the real Claude L3 timeline.
+  const wrappers = [
+    '<task-notification><task-id>job</task-id><status>completed</status></task-notification>',
+    '<task-id>job</task-id> <tool-use-id>tool</tool-use-id> <output-file>/tmp/job.output</output-file>',
+    '<bash-input>pwd</bash-input><bash-stdout>/tmp</bash-stdout>',
+    '<system-reminder>Context</system-reminder><local-command-stdout>Compacted</local-command-stdout>',
+    '<hook-output>Internal hook result</hook-output>',
+  ];
+  for (const text of wrappers) {
+    assert.equal(claudeRequestText(text), '');
+    assert.deepEqual(presentTimelineEntries('claude', [entry('injected', 'user', { text })]), []);
+    const activity = { id: 'local', source: 'transcript' as const, phase: 'idle' as const, phaseSince: null, timeline: true, title: text, headline: text };
+    assert.equal(presentActivity('claude', activity).title, '');
+    assert.equal(presentActivity('claude', activity).headline, '');
+    const human = entry('human', 'user', { text, inputOrigin: 'human' });
+    assert.deepEqual(presentTimelineEntries('claude', [human]), [human]);
+  }
+  const human = 'Explain `<task-notification>` and `<bash-input>`';
+  assert.equal(claudeRequestText(human), human);
+  assert.equal(claudeRequestText('    code()'), '    code()');
+  const quoted = 'Explain `<system-reminder>example</system-reminder>`';
+  assert.equal(claudeRequestText(quoted), quoted);
+  assert.equal(claudeRequestText('<system-reminder>Context</system-reminder>Actual request'), 'Actual request');
+});

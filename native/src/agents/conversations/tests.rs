@@ -253,3 +253,42 @@ fn pi_history_retains_tool_positions_and_compaction_facts() {
     assert_eq!(entries[4]["notice"]["tokensBefore"], 10000);
     assert!(timeline["status"].is_null());
 }
+
+#[test]
+fn native_conversation_titles_and_pi_requests_exclude_harness_inputs() {
+    // Property: native titles and Pi requests exclude harness inputs while preserving human text and branch ancestry.
+    let records = [
+        json!({"type":"user","origin":{"kind":"task-notification"},"message":{"role":"user","content":"Background task finished"}}),
+        json!({"type":"user","isCompactSummary":true,"message":{"role":"user","content":"Continuation summary"}}),
+        user("Actual request"),
+    ];
+    assert_eq!(row(&records, &[])["title"], "Actual request");
+    assert_eq!(row(&records[..2], &[])["title"], Value::Null);
+    let literal = "<bash-input>Explain the wrapper</bash-input>";
+    assert_eq!(
+        row(
+            &[
+                json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":literal}})
+            ],
+            &[]
+        )["title"],
+        literal
+    );
+    let timeline = native::pi_timeline(
+        SESSION,
+        &[
+            json!({"type":"message","id":"human","parentId":null,"timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"Actual request"}}),
+            json!({"type":"message","id":"injected","parentId":"human","timestamp":"2026-01-01T00:00:01Z","isMeta":true,"message":{"role":"user","content":"Hook output"}}),
+            json!({"type":"message","id":"answer","parentId":"injected","timestamp":"2026-01-01T00:00:02Z","message":{"role":"assistant","content":[{"type":"text","text":"Actual answer"}]}}),
+        ],
+        false,
+    );
+    let requests: Vec<_> = timeline["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["type"] == "user")
+        .collect();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0]["text"], "Actual request");
+}

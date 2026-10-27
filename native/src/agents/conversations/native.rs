@@ -313,7 +313,12 @@ pub(super) fn pi_timeline(id: &str, records: &[Value], truncated: bool) -> Value
         let message = &record["message"];
         let at = string(record, "timestamp");
         match string(message, "role") {
-            "user" => timeline.agent("arc/user", &json!({"turnId":record["id"],"text":text_content(record)}), at),
+            "user" => {
+                let text = crate::task_tracking::transcript_user_text(record, &text_content(record));
+                if !text.trim().is_empty() {
+                    timeline.agent("arc/user", &json!({"turnId":record["id"],"text":text,"inputOrigin":"human"}), at);
+                }
+            },
             "assistant" => {
                 timeline.agent("message_end", &json!({"message":message}), at);
             }

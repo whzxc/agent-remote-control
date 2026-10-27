@@ -95,11 +95,16 @@ impl Timeline {
                     if !matches!(role, "user" | "assistant") {
                         continue;
                     }
-                    let text = transcript_text(&content(&p["content"]));
+                    let raw = content(&p["content"]);
+                    let text = if role == "user" {
+                        transcript_user_text(record, &raw)
+                    } else {
+                        transcript_text(&raw)
+                    };
                     if text.trim().is_empty() {
                         continue;
                     }
-                    self.codex_item(&json!({"id":id,"type":if role == "user" {"userMessage"} else {"agentMessage"},"content":text,"text":text,"phase":p["phase"]}), "completed", at);
+                    self.codex_item(&json!({"id":id,"type":if role == "user" {"userMessage"} else {"agentMessage"},"content":text,"text":text,"phase":p["phase"],"inputOrigin":if role == "user" { json!("human") } else { Value::Null }}), "completed", at);
                 }
                 "reasoning" => self.codex_item(
                     &json!({"id":id,"type":"reasoning","summary":p["summary"]}),
@@ -206,7 +211,9 @@ impl Timeline {
             let role = record["message"]["role"]
                 .as_str()
                 .unwrap_or_else(|| string(record, "type"));
-            if record["isMeta"] == true || !matches!(role, "user" | "assistant") {
+            if !matches!(role, "user" | "assistant")
+                || role == "assistant" && record["isMeta"] == true
+            {
                 continue;
             }
             if at.is_empty() {
@@ -236,9 +243,18 @@ impl Timeline {
             let user_text = blocks
                 .iter()
                 .filter(|b| b["type"] == "text")
-                .map(|b| transcript_text(string(b, "text")))
+                .map(|b| transcript_user_text(record, string(b, "text")))
                 .collect::<Vec<_>>()
                 .join("\n");
+            if role == "user"
+                && user_text.trim().is_empty()
+                && blocks.iter().any(|block| {
+                    block["type"] == "text" && !string(block, "text").trim().is_empty()
+                })
+                && !blocks.iter().any(|block| block["type"] == "tool_result")
+            {
+                continue;
+            }
             if role == "user" && !user_text.trim().is_empty() {
                 self.turn = id.into();
                 self.turn_started_at = Some(at.into());
@@ -268,15 +284,21 @@ impl Timeline {
                 match string(block, "type") {
                     "text" | "thinking" => {
                         let thinking = block["type"] == "thinking";
-                        let text = transcript_text(string(
-                            block,
-                            if thinking { "thinking" } else { "text" },
-                        ));
+                        let raw = string(block, if thinking { "thinking" } else { "text" });
+                        let text = if role == "user" {
+                            transcript_user_text(record, raw)
+                        } else {
+                            transcript_text(raw)
+                        };
                         if text.trim().is_empty() && !thinking {
                             continue;
                         }
                         let (text, truncated) = cut(&redact(&text), MAX_TEXT);
-                        self.put(json!({"id":format!("{id}:{index}"),"type":if role == "user" {"user"} else if thinking {"thinking"} else {"text"},"status":"completed","text":text,"truncated":truncated}), at);
+                        let mut row = json!({"id":format!("{id}:{index}"),"type":if role == "user" {"user"} else if thinking {"thinking"} else {"text"},"status":"completed","text":text,"truncated":truncated});
+                        if role == "user" {
+                            row["inputOrigin"] = json!("human");
+                        }
+                        self.put(row, at);
                     }
                     "tool_use" => {
                         self.tool(&json!({"toolCallId":block["id"],"title":block["name"],"rawInput":block["input"],"status":"unknown"}), at);
@@ -315,11 +337,11 @@ fn transcript_title_text(text: &str) -> String {
     static NOISE: LazyLock<Vec<regex::Regex>> = LazyLock::new(|| {
         [
         r"(?is)<(?:attached-file|image|file)\b[^>]*?/>",
-        r"(?is)<(?:task-notification|local-command-caveat|local-command-stdout|local-command-stderr|command-name|command-message|command-args|caveat|attached-file|file|image)(?:\s[^>]*)?>.*?(?:</(?:task-notification|local-command-caveat|local-command-stdout|local-command-stderr|command-name|command-message|command-args|caveat|attached-file|file|image)>|\z)",
+        r"(?is)<(?:caveat|attached-file|file|image)(?:\s[^>]*)?>.*?(?:</(?:caveat|attached-file|file|image)>|\z)",
         r"(?i)\[(?:image(?:\s*#?\d+)?|attached[ -]?(?:file|image)(?:[^\]\n]*)|file:[^\]\n]*|image:[^\]\n]*)\]",
     ].into_iter().map(|pattern| regex::Regex::new(pattern).unwrap()).collect()
     });
-    let mut text = crate::task_tracking::transcript_text(text);
+    let mut text = text.to_owned();
     for pattern in NOISE.iter() {
         text = pattern.replace_all(&text, " ").into_owned();
     }
@@ -363,7 +385,10 @@ impl TranscriptTitle {
                 .as_str()
                 .filter(|text| !text.trim().is_empty())
             {
-                self.summary = Some(transcript_title_text(text));
+                let cleaned = transcript_title_text(&transcript_user_text(record, text));
+                if !cleaned.is_empty() {
+                    self.summary = Some(cleaned);
+                }
             }
         }
         if self.prompt.is_none()
@@ -383,7 +408,7 @@ impl TranscriptTitle {
                     .collect::<Vec<_>>()
                     .join(" ")
             };
-            let cleaned = transcript_title_text(&text);
+            let cleaned = transcript_title_text(&transcript_user_text(record, &text));
             if !cleaned.is_empty() {
                 self.prompt = Some(cleaned);
             }
