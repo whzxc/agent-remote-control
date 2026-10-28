@@ -41,11 +41,6 @@ export default function PetsPage() {
     event.preventDefault(); void openUrl(event.currentTarget.href).catch(error => setError(String(error)));
   }
   const options = [{ value: '', label: t('pets.brandDefault') }, ...library.packages.map(p => ({ value: p.key, label: `${p.name} · ${p.origin === 'codex' ? 'Codex' : 'ARC'}` }))];
-  const metadata = (pet?: PetPackage) => <dl className="pet-metadata">
-    <dt>{t('pets.author')}</dt><dd>{pet?.source.author || t('pets.notProvided')}</dd>
-    <dt>{t('pets.license')}</dt><dd>{pet?.source.license || t('pets.notProvided')}</dd>
-    {pet?.source.attribution && <><dt>{t('pets.attribution')}</dt><dd>{pet.source.attribution}</dd></>}
-  </dl>;
   return <div className="pets-page">
     {error && <Notice tone="danger">{error}</Notice>}
     {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
@@ -62,14 +57,19 @@ export default function PetsPage() {
         const installed = library.packages.find(p => p.id === rec.id);
         return <article key={rec.id} className="pet-package">
           <div className="pet-preview">{installed ? <Preview pet={installed} /> : <Icon icon={PawPrint} size={20} />}</div>
-          <div><h3>{rec.name}{rec.selected && <span className="pet-default">{t('pets.recommendedDefault')}</span>}</h3>
-            <a onClick={visit} href={rec.url} target="_blank" rel="noreferrer">{new URL(rec.url).hostname} · {t('pets.originalPage')}</a>
-            {metadata(installed)}<Button busy={busy} disabled={!!installed} onClick={() => void install({ url: rec.url })}>{t(installed ? 'pets.installed' : 'pets.install')}</Button></div>
+          <h3>{rec.name}</h3>
+          <a onClick={visit} href={rec.url} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>
+          <Button busy={busy} disabled={!!installed} onClick={() => void install({ url: rec.url })}>{t(installed ? 'pets.installed' : 'pets.install')}</Button>
         </article>;
       })}</div>
     </section>)}
     <section className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
-      <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}><div className="pet-preview"><Preview pet={p} /></div><div><h3>{p.name}</h3><p>{p.source.site} · {p.origin === 'codex' ? t('pets.readOnly') : 'ARC'}</p>{metadata(p)}{p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}</div></article>)}</div>
+      <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}>
+        <div className="pet-preview"><Preview pet={p} /></div>
+        <h3>{p.name}</h3>
+        {p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}
+        {p.origin === 'codex' && <p>{t('pets.readOnly')}</p>}
+      </article>)}</div>
       {library.errors.map(e => <Notice key={e.key} tone="danger">{e.error}</Notice>)}
     </section>
     <section className="pet-group"><h2>{t('pets.participants')}</h2>{participants.map(p => <Field key={p.id} label={p.name}><SingleChoice label={p.name} value={assignments[p.id] ?? ''} options={options} onChange={key => assignPet(p.id, key)} /></Field>)}</section>

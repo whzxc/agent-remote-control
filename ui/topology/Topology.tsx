@@ -1,4 +1,4 @@
-import { participantPost, petSize, bubbleTop, type Rect } from '../pets/geometry';
+import { participantPost, petSize, bubbleEnd, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -150,7 +150,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         const own = latest.current.tasks.filter(task => task.side === 1 && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
         const task = own.find(task => task.taskId === id) ?? own.find(task => task.petTaskIds?.includes(id));
         const v = task && animator.current.values(taskKey(task.side, task.id));
-        return v && bubbleTop({ x: v.x, y: v.y, width: v.width, height: v.height, anchor: v.anchor });
+        return v && bubbleEnd({ x: v.x, y: v.y, width: v.width, height: v.height, anchor: v.anchor });
       },
     };
   };

@@ -16,9 +16,9 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const position = useRef<Point | null>(null), post = useRef<Point>({ x: 0, y: 0 }), bounds = useRef({ x: 0, y: 0, top: 0 });
-  const drag = useRef<{ pointer: number; x: number; y: number; moved: boolean } | null>(null);
-  const frame = useRef(0), release = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const mode = useRef<'post' | 'drag' | 'fall' | 'rest'>('post');
+  const drag = useRef<{ pointer: number; x: number; y: number; moved: boolean; origin: Point; mode: 'post' | 'placed' } | null>(null);
+  const frame = useRef(0);
+  const mode = useRef<'post' | 'drag' | 'placed'>('post');
   const [action, setAction] = useState<number | null>(null), [line, setLine] = useState(''), [cueRow, setCueRow] = useState(row), [walking, setWalking] = useState<number | null>(null);
   const [carrying, setCarrying] = useState(!!cardTone);
   const lastFrame = useRef(0);
@@ -29,19 +29,16 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
   const tick = (time: number) => {
     const elapsed = lastFrame.current ? Math.min(50, time - lastFrame.current) : 16; lastFrame.current = time;
     frame.current = 0;
-    if (!position.current || !latest.current.animate || mode.current === 'drag' || mode.current === 'rest') return;
-    const target = mode.current === 'fall' ? clamp({ x: position.current.x, y: position.current.y + 120 }) : clamp(post.current);
+    if (!position.current || !latest.current.animate || mode.current !== 'post') return;
+    const target = clamp(post.current);
     const p = position.current, dx = target.x - p.x, dy = target.y - p.y;
     if (Math.hypot(dx, dy) < 1) {
       position.current = target; paint();
-      if (mode.current === 'fall') {
-        mode.current = 'rest'; setAction(4);
-        release.current = setTimeout(() => { mode.current = 'post'; setAction(null); if (latest.current.animate) wake(); else { position.current = clamp(post.current); paint(); } }, 1800);
-      } else { setAction(null); setWalking(null); }
+      setAction(null); setWalking(null);
       return;
     }
-    const step = 1 - Math.exp(-elapsed / (mode.current === 'fall' ? 80 : 140));
-    if (mode.current === 'post') setWalking(dx >= 0 ? 1 : 2);
+    const step = 1 - Math.exp(-elapsed / 140);
+    setWalking(dx >= 0 ? 1 : 2);
     position.current = { x: p.x + dx * step, y: p.y + dy * step }; paint();
     frame.current = requestAnimationFrame(tick);
   };
@@ -65,22 +62,27 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
   useEffect(() => {
     if (animate) wake(); else { cancelAnimationFrame(frame.current); frame.current = 0; if (mode.current === 'post' && position.current) { position.current = clamp(post.current); setAction(null); setWalking(null); paint(); } }
   }, [animate]);
-  useEffect(() => () => { cancelAnimationFrame(frame.current); clearTimeout(release.current); clearTimeout(clear.current); }, []);
+  useEffect(() => () => { cancelAnimationFrame(frame.current); clearTimeout(clear.current); }, []);
   function finish(cancel = false) {
     const d = drag.current; if (!d && mode.current !== 'drag') return;
     drag.current = null; if (button.current) delete button.current.dataset.dangling;
+    mode.current = d ? cancel || !d.moved ? d.mode : 'placed' : 'post';
+    if (cancel && d) position.current = clamp(d.origin);
+    setAction(null); setWalking(null);
     if (d && button.current?.hasPointerCapture(d.pointer)) button.current.releasePointerCapture(d.pointer);
-    if (d && !d.moved || cancel || !animate) { mode.current = 'post'; setAction(null); if (animate) wake(); else { position.current = clamp(post.current); paint(); } }
-    else { mode.current = 'fall'; setAction(4); wake(); }
+    if (mode.current === 'post') {
+      if (animate) wake(); else position.current = clamp(post.current);
+    }
+    paint();
   }
   const suppress = useRef(false);
   return <button style={{ width: size.width, height: size.height + size.tagHeight,
     '--pet-height': `${size.height}px`, '--pet-tag-height': `${size.tagHeight}px`,
   } as CSSProperties} ref={button} type="button" className="topology-pet" data-motion={animate || undefined} aria-label={label}
     onPointerDown={e => {
-      if (e.button !== 0 || !e.isPrimary) return;
-      e.stopPropagation(); clearTimeout(release.current); cancelAnimationFrame(frame.current); frame.current = 0;
-      drag.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY, moved: false }; suppress.current = false;
+      if (e.button !== 0 || !e.isPrimary || !position.current || drag.current) return;
+      e.stopPropagation(); cancelAnimationFrame(frame.current); frame.current = 0;
+      drag.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY, moved: false, origin: { ...position.current }, mode: mode.current === 'placed' ? 'placed' : 'post' }; suppress.current = false;
       mode.current = 'drag'; e.currentTarget.dataset.dangling = 'true'; e.currentTarget.setPointerCapture(e.pointerId);
     }}
     onPointerMove={e => {

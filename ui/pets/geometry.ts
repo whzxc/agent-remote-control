@@ -28,8 +28,8 @@ export function participantPost(node: Rect, hub: Point, obstacles: Rect[], bound
   return candidates.find(p => p.x + size.width <= bounds.x && p.y + height <= bounds.y &&
     blocked.every(r => !overlaps({ ...p, width: size.width, height }, r)));
 }
-export function bubbleTop(frame: { x: number; y: number; width: number; height: number; anchor: number }): Point {
-  return { x: frame.x + (.5 - frame.anchor) * frame.width, y: frame.y - frame.height / 2 };
+export function bubbleEnd(frame: { x: number; y: number; width: number; height: number; anchor: number }): Point {
+  return { x: frame.x + (1 - frame.anchor) * frame.width, y: frame.y + frame.height / 2 };
 }
 export function taskPost(anchor: Point, size: PetSize): Point {
   return { x: anchor.x - size.width / 2, y: anchor.y - size.height };

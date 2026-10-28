@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { atlasFrame, petBrand, selectPet, type PetPackage, type Participant } from '../ui/pets/model.ts';
-import { boundPet, petSize, participantPost, overlaps, bubbleTop, taskPost } from '../ui/pets/geometry.ts';
+import { boundPet, petSize, participantPost, overlaps, bubbleEnd, taskPost } from '../ui/pets/geometry.ts';
 
 test('atlas frames stay inside each supported row', () => {
   // Property: every clamped frame remains in its supported v1 or v2 atlas cell.
@@ -63,16 +63,16 @@ test('participant posts prefer the hub side and keep their full footprint clear'
   }
   assert.equal(participantPost({ x: 0, y: 0, width: bounds.x, height: bounds.y }, { x: 500, y: 400 }, [], bounds, petSize('participant')), undefined);
 });
-test('task feet align with the same bubble across left and right anchored geometries', () => {
-  // Property: changing a bubble's anchor encoding preserves its pet destination and the pet's feet meet its top edge.
+test('task pets stand at the bubble end across left and right anchored geometries', () => {
+  // Property: changing a bubble's anchor encoding preserves its pet destination at the right edge with feet on the bottom edge.
   const size = petSize('task');
   for (const width of [120, 264, 480]) for (const height of [48, 76, 120]) for (const left of [20, 600, 976]) {
     const centerY = 400;
-    const landscape = bubbleTop({ x: left, y: centerY, width, height, anchor: 0 });
-    const portrait = bubbleTop({ x: left + width, y: centerY, width, height, anchor: 1 });
+    const landscape = bubbleEnd({ x: left, y: centerY, width, height, anchor: 0 });
+    const portrait = bubbleEnd({ x: left + width, y: centerY, width, height, anchor: 1 });
     assert.deepEqual(landscape, portrait);
     const post = taskPost(landscape, size);
-    assert.ok(Math.abs(post.x + size.width / 2 - (left + width / 2)) < 1e-9);
-    assert.ok(Math.abs(post.y + size.height - (centerY - height / 2)) < 1e-9);
+    assert.ok(Math.abs(post.x + size.width / 2 - (left + width)) < 1e-9);
+    assert.ok(Math.abs(post.y + size.height - (centerY + height / 2)) < 1e-9);
   }
 });
