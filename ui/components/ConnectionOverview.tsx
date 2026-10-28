@@ -4,7 +4,8 @@ import { controlSource } from '../controlSources';
 import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
 import { accountOwns } from '../accountPresentation';
-import { useTopologyAccounts, topologyMode, topologyAccountOrder } from '../topology/accountState';
+import { topologyMode, topologyAccountOrder } from '../topology/accountState';
+import { useAccounts } from '../state/accounts';
 import { scenarioName } from "../scenarioMode";
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel } from "../state/overviewPanels";
 import { PhaseTile, PhaseLabel } from "./activity";
@@ -85,7 +86,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
   const { status, sources: sourceRecords, sourcesLoaded, busy, loading, error } = connector.use();
   const inventory = agentStore.use();
-  const accounts = useTopologyAccounts(sourceRecords), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
+  const { items: accounts } = useAccounts(), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
   const max = maxVisibleAgents.use();
   const density = bubbleDensity.use(), width = bubbleWidths[bubbleWidth.use()], autoCompact = bubbleAutoCompact.use();
   const [expandedQueue, setExpandedQueue] = useState<string>();

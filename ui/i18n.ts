@@ -2,8 +2,9 @@ import { appEnvironment, envOverrides } from "./state/appEnvironment";
 import { createStore, preference } from "./state/store";
 import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
+import { formatMessage, type Locale } from "./i18nMessage";
+export type { Locale } from "./i18nMessage";
 export type MessageKey = keyof typeof en;
-export type Locale = "en" | "zh-CN";
 export type LanguagePreference = "auto" | Locale;
 export const languageOptions = [
   { value: "auto", label: "Auto" },
@@ -28,11 +29,9 @@ export function resolveLocale(languages: readonly string[]): Locale {
 }
 export const locale = createStore<Locale>("en");
 export function t(key: string, params: Record<string, unknown> = {}): string {
-  const messages = locale.get() === "zh-CN" ? zhCN : en;
-  const message = messages[key as MessageKey] ?? en[key as MessageKey] ?? key;
-  return message.replace(/\{(\w+)\}/g, (_, name: string) =>
-    String(params[name] ?? ""),
-  );
+  const selected = locale.get();
+  return formatMessage(selected, selected === "zh-CN" ? zhCN : en, key, params)
+    ?? formatMessage("en", en, key, params) ?? key;
 }
 export function setLanguage(value: string) {
   language.set(normalize(value));

@@ -7,6 +7,8 @@ import { isLocalSource } from '../sourcePresentation';
 import type { ControlSource } from './types';
 export const accounts = createStore<{ items: Account[]; login: AccountLogin | null; loading: boolean; error: string }>({ items: [], login: null, loading: true, error: '' });
 let pending: Promise<void> | undefined;
+let consumers = 0;
+let pollTimer: ReturnType<typeof setInterval> | undefined;
 export function boundNotificationSessions(account: Account) {
   return account.notifications.sessions.filter(session => session.target.trim().length > 0);
 }
@@ -27,7 +29,19 @@ export function refreshAccounts() {
 }
 export function useAccounts() {
   const state = accounts.use();
-  useEffect(() => { void refreshAccounts(); const timer = setInterval(() => void refreshAccounts(), 10000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    if (++consumers === 1) {
+      void refreshAccounts();
+      // Native account details cache profile quota reads for three minutes.
+      pollTimer = setInterval(() => void refreshAccounts(), 10000);
+    }
+    return () => {
+      if (--consumers === 0) {
+        clearInterval(pollTimer);
+        pollTimer = undefined;
+      }
+    };
+  }, []);
   return state;
 }
 

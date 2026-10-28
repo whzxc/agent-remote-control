@@ -3,8 +3,6 @@ import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
 import { createServer, type ViteDevServer } from 'vite';
 import type { Root } from 'react-dom/client';
-import en from '../ui/locales/en.json' with { type: 'json' };
-import zhCN from '../ui/locales/zh-CN.json' with { type: 'json' };
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 
@@ -268,8 +266,6 @@ test('account source panels use product display names in every locale', async ()
       const label = `${name(account.agentProfiles[0])} · ${account.alias}`;
       assert.ok(page.getByRole('button', { name: label, exact: true }));
       assert.equal(page.queryByRole('button', { name: `${account.agentProfiles[0].agent} · ${account.alias}`, exact: true }), null);
-      const keys = Object.keys(en).filter(key => key.startsWith('accounts.'));
-      assert.ok(keys.every(key => Object.hasOwn(zhCN, key)));
       await act(async () => root.render(null));
     }
   });

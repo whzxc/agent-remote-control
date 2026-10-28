@@ -9,6 +9,7 @@ import { agentActivity } from "../state/activity";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
 import type { TrackedActivity } from "../state/activityModel";
+import { taskState } from "../state/taskProjection";
 import { ActivityBubbleContent } from "./ActivityBubbles";
 import { Button, Empty, Loading, Notice } from "./ui";
 
@@ -20,8 +21,9 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
     style={{ "--row-delay": `${Math.min(index, 5) * 24}ms` } as CSSProperties}
     data-activity-session={JSON.stringify([agent, session.id])}
     aria-label={`${session.title || t("timeline.title")} · ${t("timeline.open")}`}
+    aria-description={live ? undefined : t(`detail.state.${taskState(session.status ?? undefined, false)}`)}
     onClick={() => selectAgentPanel({ type: "task", agent, session })}>
-    <ActivityBubbleContent session={session} now={now} density="standard" historical={!live} conversationRow />
+    <ActivityBubbleContent agent={agent} session={session} now={now} density="standard" historical={!live} conversationRow />
   </button>;
 });
 
@@ -77,10 +79,10 @@ export default function AgentConversations({ agent, account, accountId, active }
     return () => observer.disconnect();
   }, [active, next, loading, error]);
   const sessions = new Map<string, TrackedActivity>(rows.map(conversation => [conversation.id, {
-    id: conversation.id, source: conversation.source, status: conversation.status, title: conversation.title || undefined, phase: "idle", phaseSince: null,
+    id: conversation.id, source: conversation.source === "native" ? "transcript" : conversation.source, status: conversation.status, title: conversation.title || undefined, phase: "idle", phaseSince: null,
     headline: "", startedAt: conversation.createdAt, project: conversation.project, projectName: conversation.projectName,
     dispatchSummary: conversation.dispatchSummary ?? undefined, turnCount: conversation.turnCount ?? undefined,
-    agentAccountId: conversation.dispatchSummary?.agentAccountId,
+    agentAccountId: conversation.agentAccountId ?? conversation.dispatchSummary?.agentAccountId,
     nativeSessionId: conversation.nativeSessionId ?? undefined, open: conversation.open,
     timeline: true, orderAt: Date.parse(conversation.createdAt ?? "") || 0, conversation: true,
   }]));
@@ -92,9 +94,10 @@ export default function AgentConversations({ agent, account, accountId, active }
       title: session.title || history?.title,
       status: current ? undefined : history?.status,
       dispatchSummary: session.dispatchSummary ?? history?.dispatchSummary,
+      agentAccountId: session.agentAccountId ?? history?.agentAccountId,
       turnCount: session.turnCount === undefined ? history?.turnCount : Math.max(session.turnCount, history?.turnCount ?? 0),
       orderAt: history?.orderAt || Date.parse(session.startedAt ?? "") || 0,
-      conversation: session.source !== "transcript",
+      conversation: history?.conversation || session.source !== "transcript",
     });
   }
   const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);

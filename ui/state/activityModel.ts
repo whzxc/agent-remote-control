@@ -1,10 +1,5 @@
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 
-export function shortModelLabel(model: string) {
-  const match = /^gpt-(\d+(?:\.\d+)?)-(astra|sol|luna|terra)$/.exec(model);
-  return match ? `${match[2]}${match[1] === "6" ? "" : ` ${match[1]}`}` : model;
-}
-
 // Activity events are complete snapshots: absent sessions have ended.
 export function mergeActivity(current: AgentActivitySnapshot | undefined, next: AgentActivitySnapshot) {
   return current && Date.parse(next.observedAt) < Date.parse(current.observedAt) ? current : next;

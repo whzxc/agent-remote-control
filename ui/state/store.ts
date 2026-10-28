@@ -77,24 +77,24 @@ export function preference<T>(
     /* Use the default if storage is unavailable. */
   }
   const store = createStore(initial);
+  let receiving = false;
   store.subscribe(() => {
+    if (receiving) return;
     try {
       preferenceStorage.setItem(key, serialize(store.get()));
     } catch {
       /* The session remains usable without storage. */
     }
   });
-  preferenceListeners.set(key, (raw) => {
-    try { store.set(raw === null ? fallback : parse(raw)); } catch {store.set(fallback);}
-  });
+  const receive = (raw: string | null) => {
+    receiving = true;
+    try {
+      try { store.set(raw === null ? fallback : parse(raw)); } catch { store.set(fallback); }
+    } finally { receiving = false; }
+  };
+  preferenceListeners.set(key, receive);
   window.addEventListener("storage", (event) => {
-    if (event.key === key) {
-      try {
-        store.set(event.newValue === null ? fallback : parse(event.newValue));
-      } catch {
-        store.set(fallback);
-      }
-    }
+    if (event.key === key) receive(event.newValue);
   });
   return store;
 }

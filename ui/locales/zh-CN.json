@@ -3,7 +3,6 @@
   "topology.layout.auto": "自动",
   "topology.layout.landscape": "横屏",
   "topology.layout.portrait": "竖屏",
-
   "localCli": "本机 CLI",
   "trayConnectionStatus": "连接状态",
   "trayOptions": "选项",
@@ -1079,9 +1078,9 @@
   "detail.resolvedElsewhere": "已在别处处理 · 未记录处理人",
   "detail.approve": "批准",
   "detail.reject": "拒绝",
-  "detail.previousTurn": "第 {count} 轮 · {actions} 项操作",
+  "detail.previousTurn": "第 {turn} 轮 · {count} 项操作",
   "detail.via": "来自 {source}",
-  "detail.process": "过程 · {updates} 条进展 · {answers} 次答复 · {actions} 项操作",
+  "detail.process": "过程 · {updates} · {answers} · {actions}",
   "detail.state.running": "运行中",
   "detail.state.needsYou": "需要你处理",
   "detail.state.done": "已完成",
@@ -1408,5 +1407,16 @@
   "accounts.mergeConfirm": "合并所选账号",
   "accounts.mergeAlias": "账号名称",
   "accounts.mergeQuota": "共享额度来源",
-  "accounts.mergeNativeQuota": "原生账号额度"
+  "accounts.mergeNativeQuota": "原生账号额度",
+  "detail.process.updates": "{count} 条进展",
+  "detail.process.answers": "{count} 次答复",
+  "detail.process.actions": "{count} 项操作",
+  "dispatchSpec.effort.none": "无",
+  "dispatchSpec.effort.minimal": "极低",
+  "dispatchSpec.effort.low": "低",
+  "dispatchSpec.effort.medium": "中",
+  "dispatchSpec.effort.high": "高",
+  "dispatchSpec.effort.xhigh": "极高",
+  "dispatchSpec.effort.max": "最高",
+  "dispatchSpec.effort.ultra": "超高"
 }

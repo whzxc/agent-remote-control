@@ -112,11 +112,12 @@ export interface AgentActivitySnapshot {
   agents: Record<string, { sessions: AgentActivitySession[] }>;
 }
 export interface AgentConversation {
+  agentAccountId?: string | null;
   dispatchSummary?: DispatchSummary | null;
   turnCount?: number | null;
   projectName?: string | null;
   id: string;
-  source: "arc-task" | "codex-thread";
+  source: "arc-task" | "codex-thread" | "native";
   status?: string | null;
   title?: string | null;
   project?: string | null;
@@ -134,7 +135,7 @@ export interface AgentTimelineEntry {
   controlSource?: DispatchSummary["controlSource"];
   phase?: string;
   id: string;
-  type: "user" | "text" | "thinking" | "command" | "file" | "tool" | "plan" | "interaction" | "error";
+  type: "user" | "text" | "thinking" | "command" | "file" | "tool" | "plan" | "interaction" | "error" | "notice";
   status: "pending" | "running" | "completed" | "failed" | "cancelled" | "unknown";
   startedAt: string | null;
   updatedAt: string;

@@ -9,7 +9,8 @@ const messagePatterns = Object.entries({ en, 'zh-CN': zhCN }).flatMap(([, messag
     const names: string[] = [];
     const pattern = message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       .replace(/\\\{(\w+)\\\}/g, (_match, name: string) => { names.push(name); return name === 'count' || name === 'minutes' ? '(\\d+(?:\\.\\d+)?)' : '(.*?)'; });
-    return { key: key as MessageKey, message, names, pattern: new RegExp(`^${pattern}$`, 's') };
+    const base = key.replace(/\.(zero|one|two|few|many|other)$/, '');
+    return { key: (Object.hasOwn(messages, base) ? base : key) as MessageKey, message, names, pattern: new RegExp(`^${pattern}$`, 's') };
   }),
 );
 export function displayMessage(message: string | undefined | null, depth = 0): string {
@@ -19,7 +20,7 @@ export function displayMessage(message: string | undefined | null, depth = 0): s
   for (const entry of messagePatterns) {
     if (!entry.names.length) continue;
     const match = message.match(entry.pattern);
-    if (match) return t(entry.key, Object.fromEntries(entry.names.map((name, index) => [name, depth < 3 ? displayMessage(match[index + 1]!, depth + 1) : match[index + 1]!] )));
+    if (match) return t(entry.key, Object.fromEntries(entry.names.map((name, index) => [name, name === 'count' ? Number(match[index + 1]) : depth < 3 ? displayMessage(match[index + 1]!, depth + 1) : match[index + 1]!] )));
   }
   return message;
 }

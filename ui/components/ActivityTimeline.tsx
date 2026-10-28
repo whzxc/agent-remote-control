@@ -21,8 +21,10 @@ import { taskState } from "../state/taskProjection";
 import { timelineDuration, timelineGroups } from "../state/timelineGroups";
 import TaskNeedsYou from "./TaskNeedsYou";
 import TaskOwnership from "./TaskOwnership";
-import { activityHeadline, shortModelLabel, type TrackedActivity } from "../state/activityModel";
+import { activityHeadline, type TrackedActivity } from "../state/activityModel";
 import type { TaskRuntime } from "../state/tasks";
+import { useDispatchCatalog } from "../state/dispatchCatalog";
+import { dispatchSpecParts } from "./composites/dispatchSpecLabel";
 
 import { name, orderedAgents } from "../state/agents";
 
@@ -60,8 +62,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const running = !!live || session.endedAt === undefined && !external && !timeline?.readOnly && ["running", "inProgress", "starting", "waiting-permission", "cancelling"].includes(timeline?.status ?? "");
 
   const now = useAppNow(running ? 1000 : null);
-  const followAllowed = useRef(true);
-  followAllowed.current = running;
+  const userScroll = useRef(false);
   useEffect(() => {
     const node = viewport.current;
     if (!node) return;
@@ -124,24 +125,30 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     if (!node || !timeline || manualDisclosure.current) return;
     const target = timelineScrollTarget(following.current, running || previousRunning.current, initial.current, node.scrollHeight);
     if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
+    if (target !== undefined) setAtLatest(true);
     initial.current = false; previousRunning.current = running;
   }, [timeline, running]);
   useEffect(() => {
     const observer = new ResizeObserver(() => {
       const node = viewport.current;
       // Disclosure resizing is local navigation, including its animation frames.
-      if (node && !manualDisclosure.current && following.current && followAllowed.current) { node.scrollTop = node.scrollHeight; previousTop.current = node.scrollTop; }
+      if (node && !manualDisclosure.current && following.current) { node.scrollTop = node.scrollHeight; previousTop.current = node.scrollTop; }
     });
     if (content.current) observer.observe(content.current);
     return () => observer.disconnect();
   }, []);
   const groups = timelineGroups(timeline?.entries ?? []);
-  const nativeSession = live ?? { ...session, turnId: groups.at(-1)?.turnId || session.turnId, interaction: undefined };
+  const historyTurn = groups.at(-1)?.turnId || session.turnId;
+  const nativeSession = live ?? { ...session, turnId: historyTurn, interaction: undefined,
+    dispatchSummary: historyTurn === session.turnId ? session.dispatchSummary : undefined };
   const agentName = name(orderedAgents().find(a => a.agent === agent) ?? { agent });
   const duration = timelineDuration(timeline?.entries ?? [], now, running, nativeSession.turnId, timeline?.turnTimings, nativeSession.turnStartedAt);
   const project = timeline?.projectName || nativeSession.projectName || session.projectName
     || session.project?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
-  const latestSummary = live ? live.dispatchSummary : timeline?.dispatchSummary ?? nativeSession.dispatchSummary;
+  const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || timeline?.dispatchSummary || nativeSession.dispatchSummary;
+  const catalog = useDispatchCatalog(agent, session.source === "arc-task" ? session.id : undefined, !!latestSummary?.model)?.catalog;
+  const spec = dispatchSpecParts(latestSummary, catalog, t);
+  const fast = latestSummary?.serviceTier === "priority" || latestSummary?.serviceTier === "fast";
   const source = latestSummary?.controlSource;
   const sourceLabel = source && dispatchSourceLabel(source);
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
@@ -157,7 +164,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const latest = () => {
     const node = viewport.current;
     if (!node) return;
-    manualDisclosure.current = false; following.current = true;
+    manualDisclosure.current = false; following.current = true; userScroll.current = false;
     node.scrollTop = node.scrollHeight; previousTop.current = node.scrollTop;
     setAtLatest(true); node.focus({ preventScroll: true });
   };
@@ -212,8 +219,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       if (receipt.state !== "completed") throw new Error(receipt.error?.message || receipt.state);
     })().catch(error => setOpenError(String(error))).finally(() => { continuationBusy.current = false; setContinuing(false); });
   };
-  // Activity snapshots can derive their title from the dispatch prompt.
-  const title = (agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || t("timeline.title");
+  // Preserve native conversation identity without borrowing another turn's configuration.
+  const title = (agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
+    || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-narrow={narrow || undefined}>
     <header className="dialog-header task-detail-header">
       <div className="task-detail-navigation"><Button variant="ghost" aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></Button>
@@ -226,9 +234,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       </div>
       <h2 id={titleId} className="activity-panel-title">{title}</h2>
       <div className="task-detail-chips"><span className="task-state" data-state={state}>{t(`detail.state.${state}`)}</span>
-        {latestSummary?.model?.trim() && <span className="task-spec-chip" title={latestSummary.model}>{shortModelLabel(latestSummary.model)}</span>}
-        {latestSummary?.effort?.trim() && <span className="task-spec-chip">{latestSummary.effort}</span>}
-        {latestSummary?.serviceTier === "priority" && <span className="task-spec-chip"><Icon icon={Zap} />{t("activity.fast")}</span>}
+        {spec.model && <span className="task-spec-chip" title={latestSummary?.model}>{spec.model}</span>}
+        {spec.effort && <span className="task-spec-chip">{spec.effort}</span>}
+        {spec.tier && <span className="task-spec-chip">{fast && <Icon icon={Zap} />}{spec.tier}</span>}
         {source && <span className="task-source-chip"><SourceBadge source={source} /><span>{t("detail.via", { source: sourceLabel })}</span></span>}
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}
@@ -251,9 +259,14 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           const node = event.currentTarget;
           if (manualDisclosure.current) following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
           manualDisclosure.current = false;
+          userScroll.current = true;
           if (event.deltaY < 0) following.current = false;
         }}
+        onPointerDown={event => { if (event.target === event.currentTarget) userScroll.current = true; }}
+        onTouchMove={() => { userScroll.current = true; }}
+        onKeyDown={event => { if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) userScroll.current = true; }}
         onScroll={event => {
+          if (!userScroll.current) return;
           const node = event.currentTarget;
           following.current = followsTimeline(node.scrollTop, node.clientHeight, node.scrollHeight, previousTop.current);
           if (!following.current) manualDisclosure.current = false;
@@ -279,7 +292,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           </>}
         </div>
       </div>
-      {!atLatest && <Button variant="secondary" className="timeline-latest" onClick={latest}>{t("timeline.latest")}</Button>}
+      {!atLatest && <div className="actions"><Button variant="secondary" onClick={latest}>{t("timeline.latest")}</Button></div>}
     </div>
     {hasPending && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={sourceLabel} narrow={narrow} />}
   </section>;

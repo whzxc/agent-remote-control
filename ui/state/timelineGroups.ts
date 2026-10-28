@@ -22,7 +22,7 @@ export function entryDuration(entry: AgentTimelineEntry, now: number): number | 
 export function turnEntries(entries: readonly AgentTimelineEntry[], live: boolean, completed = !live && entries.every(entry => !["running", "pending", "failed", "cancelled", "unknown"].includes(entry.status))) {
   const prompt = entries.find(entry => entry.type === "user");
   const marked = [...entries].reverse().find(entry => entry.type === "text" && entry.phase === "final_answer");
-  const last = entries.at(-1);
+  const last = [...entries].reverse().find(entry => entry.type !== "notice");
   const final = marked ?? (!live && completed && last?.type === "text" ? last : undefined);
   return { prompt, final, work: entries.filter(entry => entry !== prompt && entry !== final) };
 }

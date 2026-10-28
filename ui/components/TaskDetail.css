@@ -162,7 +162,6 @@
 .task-question-field .choice-cards .choice-option { min-height: 44px; padding: 8px 12px; }
 
 .task-timeline { position: relative; }
-.task-timeline > .timeline-latest { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 2; border-radius: 999px; box-shadow: var(--shadow); }
 .task-queued-message { align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 86%; padding: 10px 14px; border: 1px dashed var(--border); border-radius: 16px; background: var(--surface); }
 .task-queued-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-queued-message > span { color: var(--text-secondary); font-size: 12px; }

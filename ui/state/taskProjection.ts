@@ -16,7 +16,7 @@ export function processRows(entries: readonly AgentTimelineEntry[]): ProcessRow[
   const plan = [...entries].reverse().find(entry => entry.type === "plan");
   let insertedPlan = false;
   for (const entry of entries) {
-    if (entry.type === "thinking") continue;
+    if (entry.type === "thinking" || entry.type === "notice") continue;
     if (entry.type === "plan") {
       if (!insertedPlan && plan) rows.push({ kind: "entry", id: entry.id, entry: plan });
       insertedPlan = true;

@@ -1,15 +1,16 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
-import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Check, Zap } from "lucide-react";
+import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Circle, AlertCircle, Check, Zap } from "lucide-react";
 import type { AgentPhase, DispatchSummary } from "../../types";
-import { shortModelLabel } from "../../state/activityModel";
+import { useDispatchCatalog } from "../../state/dispatchCatalog";
+import { dispatchSpecLabel } from "../composites/dispatchSpecLabel";
 import { controlSource } from "../../controlSources";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
 import SourceIcon from "../SourceIcon";
 import { Icon } from "../ui";
 import "./activity.css";
 
-export function PhaseTile({ phase, running = false, completed = false, paused = false, animated = true, source }: {
-  phase: AgentPhase; running?: boolean; completed?: boolean; paused?: boolean; animated?: boolean; source?: DispatchSummary["controlSource"];
+export function PhaseTile({ phase, running = false, completed = false, paused = false, animated = true, source, outcome }: {
+  phase: AgentPhase; running?: boolean; completed?: boolean; paused?: boolean; animated?: boolean; source?: DispatchSummary["controlSource"]; outcome?: "unknown" | "failed";
 }) {
   const mask = useId();
   const drawing = animated && (completed || (running && phase === "file"));
@@ -21,7 +22,7 @@ export function PhaseTile({ phase, running = false, completed = false, paused = 
         <rect className="phase-stroke-reveal" width="1" height="1" fill="white" />
       </mask>
     </defs></svg>}
-    <Icon icon={paused ? CirclePause : completed ? Check : { thinking: Brain, command: Terminal, file: Pencil, tool: Wrench,
+    <Icon icon={outcome === "unknown" ? Circle : outcome === "failed" ? AlertCircle : paused ? CirclePause : completed ? Check : { thinking: Brain, command: Terminal, file: Pencil, tool: Wrench,
       text: MessageSquare, interaction: ShieldAlert, idle: Check }[phase]} />
     {source && <SourceBadge source={source} />}
   </span>;
@@ -34,12 +35,16 @@ export function SourceBadge({ source }: { source: NonNullable<DispatchSummary["c
     {source.kind === "local-cli" ? <Icon icon={Terminal} /> : <SourceIcon platform={source.kind ?? ""} />}
   </span>;
 }
-export function SpecPill({ summary }: { summary?: DispatchSummary }) {
-  if (!summary || !summary.model && !summary.effort && summary.serviceTier !== "priority") return null;
-  const label = [summary.model, summary.effort, summary.serviceTier === "priority" ? t("activity.fast") : undefined].filter(Boolean).join(" · ");
+export function SpecPill({ summary, agent = "", taskId }: { summary?: DispatchSummary; agent?: string; taskId?: string }) {
+  locale.use();
+  const catalog = useDispatchCatalog(agent, taskId, !!agent && !!summary?.model)?.catalog;
+  const label = dispatchSpecLabel(summary, catalog, t);
+  const fast = summary?.serviceTier === "priority" || summary?.serviceTier === "fast";
+  const text = dispatchSpecLabel(fast ? { ...summary, serviceTier: undefined } : summary, catalog, t);
+  if (!label) return null;
   return <span className="activity-spec" title={label}>
-    <span>{[summary.model && shortModelLabel(summary.model), summary.effort].filter(Boolean).join(" · ")}</span>
-    {summary.serviceTier === "priority" && <span role="img" aria-label={t("activity.fast")}><Icon icon={Zap} /></span>}
+    {text && <span>{text}</span>}
+    {fast && <span role="img" aria-label={t("activity.fast")}><Icon icon={Zap} /></span>}
   </span>;
 }
 export function PhaseLabel({ phase, running = false, completed = false, children }: {

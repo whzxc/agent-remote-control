@@ -98,3 +98,13 @@ test('answered questions remain available outside collapsed process rows', async
   assert.equal(result.answeredInteractions.length,1);assert.equal(result.rows.length,0);
   assert.match(interactionSummary(interaction),/Pick one.*A.*B/);
 });
+
+
+test('lifecycle notices do not displace the final reply or create error rows', () => {
+  // Regression: a trailing lifecycle notice displaced an unmarked final reply and rendered as an error.
+  const answer = entry('final', 'text', { text: 'Retained reply' });
+  const notice = entry('notice', 'notice');
+  const result = projectTurn([entry('request', 'user'), answer, notice], 'done');
+  assert.equal(result.final, answer);
+  assert.equal(result.rows.length, 0);
+});
