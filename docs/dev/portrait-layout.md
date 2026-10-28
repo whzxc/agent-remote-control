@@ -10,9 +10,9 @@ Nodes and bubbles keep their IDs and spring to new slots in approximately 360ms.
 
 ## Portrait geometry
 
-Rail positions follow measured labels, including node scale and optional auto-compaction chips. The source rail sits to the right of the widest outer source label with a 16px left margin. The Agent rail sits to the left of the widest outer Agent label with a 16px right margin; its account column, task buses and bubble column move together. The ring rotates clockwise 90 degrees: orange arc right, blue arc left, source dot above, Agent dot below. Entry-point glyphs remain upright. At the maximum default hub radius, thick horizontal earmuffs are approximately 144px long at y=hub +/-112, with the landscape stroke weight. Their length, offset and stroke weight scale with the hub radius. Their outer ends join thin translucent rails with rounded 26px corners, forming a Z.
+Rail positions follow measured labels, including node scale and optional auto-compaction chips. The source rail sits to the right of the widest outer source label with a 16px left margin. The Agent rail sits to the left of the widest outer Agent label with a 16px right margin; its account column, task buses and bubble column move together. The ARC mark keeps its landscape orientation. Its outer earmuffs straighten into vertical lines on either side: the source rail joins the upper end of the left line and the Agent rail joins the lower end of the right line. The rails use rounded corners. The mark, straight ears, their offsets and stroke weights use 60% of the previous portrait radius after applying the ring-size preference. Entry-point glyphs remain upright.
 
-The hub radius also fits 8% of the viewport height, with a 56px minimum before applying the ring-size preference. The gaps above and below the hub shrink with its radius. Node logos have opaque canvas backgrounds so rails cannot show through them.
+The base hub radius fits 8% of the viewport height, with a 56px minimum before applying the ring-size preference and portrait scaling. The gaps above and below the hub shrink with its radius. Node logos have opaque canvas backgrounds so rails cannot show through them.
 
 Source platforms follow persisted order down the left rail. Their labels sit outside, right-aligned. Tree accounts fork inward to the right through rounded routes, with 42px nodes, at least 24px of vertical clearance between account icons, and centered labels below icons, matching Agent account nodes. Account rows reserve the complete label height. Shared stems are painted once without a separate overlapping vertical bus. Each platform reserves its descendants' height.
 
@@ -33,3 +33,9 @@ Source panels open to the right of the visible source nodes and account labels, 
 Portrait panels use the available rail area and omit the landscape width-expansion control. An explicit `app_env.taskPanelWidth` may narrow the Agent panel within that area.
 
 Both modes reuse the existing nonmodal shell, open/close timing, outside-click, Escape and focus restoration. Header controls and the bottom-left dock retain their positions.
+
+## Height-aware node stacks
+
+Both orientations compare the solver's required scene height with the available viewport. When space is insufficient, low-activity root groups move into one stack per side. Each nonempty side always retains its highest-ranked root. Selected roots and roots containing pending decisions remain visible. Ranking uses pending input, running work, connection activity and the most recent observed activity timestamp, with stable IDs breaking ties. Agent activity clocks survive bubble dismissal for the mounted homepage. Existing node order is preserved among the remaining roots and is never rewritten by compaction.
+
+Stacks show overlapping platform or Agent icons and a count. Hover opens an inward popover; a short close delay allows moving into it. Click and keyboard activation also open it. Its platform and account controls retain their existing actions. Selecting a member keeps it visible while its panel is open. If protected roots still exceed the height budget, the scene remains scrollable. Stack membership is exposed as `stackMembers` on topology snapshot nodes. Task data and account identity remain in the upstream model.

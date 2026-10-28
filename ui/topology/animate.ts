@@ -27,11 +27,11 @@ export class TopologyAnimator {
     return s;
   }
   setTargets(layout: Layout, drag: Drag | null = null) {
-    const nextRotation = layout.portrait ? 90 : 0;
-    const previousRotation = this.live.get('hub')?.fields.rotation?.t;
-    if (previousRotation !== undefined && previousRotation !== nextRotation) this.orientationRemaining = 0.36;
+    const nextOrientation = layout.portrait ? 1 : 0;
+    const previousOrientation = this.live.get('orientation')?.fields.portrait?.t;
+    if (previousOrientation !== undefined && previousOrientation !== nextOrientation) this.orientationRemaining = 0.36;
     this.live.forEach(s => { s.alive = false; });
-    this.spring("hub", { dotSource: 1, dotAgent: 1, ...layout.hub, rotation: layout.portrait ? 90 : 0 });
+    this.spring("hub", { dotSource: 1, dotAgent: 1, ...layout.hub, rotation: 0 });
     this.spring('orientation', { portrait: layout.portrait ? 1 : 0 });
     if (layout.portrait) this.spring("portrait", { ...layout.portrait });
     else if (this.live.has('portrait')) this.live.get('portrait')!.alive = true;
@@ -101,7 +101,7 @@ export class TopologyAnimator {
     for (const [key, s] of this.live) {
       if (!s.alive && s.parent) {
         const n = this.values(s.parent);
-        if (n) { s.fields.x.t = n.x + (this.live.get("hub")!.fields.rotation.t ? -s.side! : s.side!) * (n.radius ?? 0); s.fields.y.t = n.y + (n.height ?? 0) / 2; }
+        if (n) { s.fields.x.t = n.x + (this.live.get("orientation")!.fields.portrait.t ? -s.side! : s.side!) * (n.radius ?? 0); s.fields.y.t = n.y + (n.height ?? 0) / 2; }
       }
       for (const f of Object.values(s.fields)) {
         if (f.pin !== undefined || direct) { f.x = f.pin ?? f.t; f.v = 0; continue; }

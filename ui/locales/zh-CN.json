@@ -616,6 +616,7 @@
   "topology.resetOne": "恢复{label}默认值",
   "topology.move": "移动调参面板",
   "topology.moveHint": "拖动或用方向键移动 8px，按住 Shift 移动 32px。",
+  "topology.moreNodes": "另外 {count} 个节点",
   "topology.expand": "展开",
   "topology.collapse": "收起",
   "topology.guides": "辅助线",

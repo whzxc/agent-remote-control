@@ -67,6 +67,7 @@ function wireState(state: string): WireState {
 }
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const tuning = topologyTuningEnabled.use();
+  const activityClock = useRef(new Map<string, number>());
   taskExecutions.use();
   const submissions = activityApprovals.use();
   const { tracked, markRead } = useActivityTracking(), manualOrder = taskOrder.use(), selection = agentPanel.use(), sourceSelection = ingressPanel.use();
@@ -247,7 +248,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = source.label;
     return [{
-      id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
+      id: source.id, platform: platform.id, platformLabel, label: nodeLabel, activityAt: (source.lastSeenAt ?? 0) * 1000, activityLevel: Math.max(source.state === "connected" ? 1 : 0,
+        ...Object.values(tracked).flat().filter(session => session.origin?.sourceId === source.id && session.endedAt === undefined).map(session => session.interaction ? 3 : 2)),
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
       icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
@@ -263,6 +265,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       const pending = pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions);
       return { ...session, interaction: session.observed === false ? undefined : pending[0]?.interaction };
     }), manualOrder[agent.agent] ?? []), selected = !selection?.closing && selection?.agent === agent.agent;
+    const recentActivity = Math.max(activityClock.current.get(agent.agent) ?? 0, ...sessions.map(s => Math.max(Date.parse(s.phaseSince ?? '') || 0, Date.parse(s.turnStartedAt ?? s.startedAt ?? '') || 0)));
+    activityClock.current.set(agent.agent, recentActivity);
     const agentAccounts = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
     const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
     const accountIds = agentAccounts.map(a => a.id);
@@ -281,7 +285,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
     const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
     return {
-      id: agent.agent, platform: agent.agent, platformLabel: name(agent), icon: <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />,
+      id: agent.agent, platform: agent.agent, platformLabel: name(agent),
+      activityAt: recentActivity,
+      activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon: <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />,
       selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: agent.enabled && !panelOpen,
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}

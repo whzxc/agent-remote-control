@@ -17,7 +17,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const column = Math.min(88, Math.max(56, vw * 88 / 900));
   const busGap = Math.min(62, Math.max(30, vw * 62 / 900));
   const finalStub = Math.min(24, Math.max(12, vw * 24 / 900));
-  const preferredRe = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale;
+  const preferredRe = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale * 0.6;
   const Re = Math.max(preferredRe * MIN_HUB_RATIO, Math.min(preferredRe, (vw - 32) * 130 / 240));
   const hubGap = Math.min(56, Re / 2);
   const earOffset = Re, earHalf = Re * 72 / 112;

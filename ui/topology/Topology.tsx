@@ -6,12 +6,14 @@ import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
 import { solvePortrait, portraitPanelRect } from "./portrait";
 import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
+import { compactRoots, stackId } from './compact';
+import OverflowStack from './OverflowStack';
 import CollapseSymbol from './CollapseSymbol';
 import { t } from '../i18n';
 import { topologyCollapsed } from './accountState';
 import { highlightedPaths, type PathTask } from './accounts';
 import { observeTopology } from "../acceptance";
-import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode, type Ref, type RefObject, type PointerEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject, type PointerEvent, type MouseEvent } from "react";
 import { useMedia } from "../state/hooks";
 import { solve, collapseTarget, COLLAPSE_HIT_SIZE, NODE_R, PANEL_MIN_WIDTH, PANEL_MARGIN, panelWidth, type Side, type Scene, type Drag, type Layout, type Task } from "./solve";
 import { TopologyAnimator, nodeKey, taskKey } from "./animate";
@@ -24,6 +26,8 @@ export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccount
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; tasks: TaskView[]; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
   sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: PathTask['agentAccountId'];
+  stackMembers?: string[];
+  activityAt?: number; activityLevel?: number;
   sourceProduct?: string; sourceProductLabel?: string;
 }
 type PositionedTask = TaskView & { parent: string; side: Side };
@@ -58,6 +62,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const layout = useRef<Layout | null>(null);
   const layoutPreference = topologyLayout.use();
   const orientation = useRef<Orientation>('landscape');
+  const [viewport, setViewport] = useState({ vw: 0, vh: 0, orientation: 'landscape' as Orientation });
   const orientationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const orientationPending = useRef(false);
   const evaluateOrientation = useRef(() => {});
@@ -96,7 +101,15 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const descendantSelected = (items: NodeView[]): boolean => items.some(n => n.selected || descendantSelected(n.children ?? []));
     return { ...n, collapsed: closed, selected: n.selected || closed && descendantSelected(n.children ?? []), children, tasks: closed ? [] : n.tasks };
   });
-  const left = prune(inputLeft, -1), right = prune(inputRight, 1);
+  const prunedLeft = prune(inputLeft, -1), prunedRight = prune(inputRight, 1);
+  const compacted = useMemo(() => viewport.vw > 0 ? compactRoots(prunedLeft, prunedRight, viewport, viewport.orientation, params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
+  const compact = (list: NodeView[], hidden: Set<string>, side: Side): NodeView[] => {
+    const overflow = list.filter(node => hidden.has(node.id));
+    if (!overflow.length) return list;
+    return [...list.filter(node => !hidden.has(node.id)), { id: stackId(side), label: t('topology.moreNodes', { count: overflow.length }),
+      state: 'normal', attention: false, selected: false, tasks: [], stackMembers: overflow.map(node => node.id), content: <OverflowStack nodes={overflow} side={side} /> }];
+  };
+  const left = compact(prunedLeft, compacted.left, -1), right = compact(prunedRight, compacted.right, 1);
   const nodes = [...flatten(left, -1), ...flatten(right, 1)];
   const lit = accountsEnabled ? highlightedPaths(fullNodes, focus ?? hover) : null;
   const tasks = nodes.flatMap(n => n.tasks.map(t => ({ ...t, parent: n.id, side: n.side })));
@@ -353,6 +366,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     orientationSource.current = topologyLayout.get() === 'auto' ? 'auto' : 'manual';
     if (previous !== orientation.current) { placedPanel.current = undefined; placeAfterMorph.current = !!latest.current.panelKey; }
     orientationPending.current = false;
+    setViewport(old => old.orientation === orientation.current ? old : { ...old, orientation: orientation.current });
     target();
   };
   const scheduleOrientation = useCallback(() => {
@@ -448,6 +462,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const vh = env.windowHeight == null ? container.clientHeight : env.windowHeight - (innerHeight - container.clientHeight);
       if (vw <= 0 || vh <= 0) return;
       size.current = { vw, vh };
+      setViewport(old => old.vw === vw && old.vh === vh ? old : { ...old, vw, vh });
       const rect = graph.current!.getBoundingClientRect();
       origin.current = { x: rect.x, y: rect.y }; target(); scheduleOrientation();
     };
