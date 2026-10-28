@@ -3899,6 +3899,102 @@
       },
       "description": "Clear only the selected account website login container. Close its window, wait for WKWebsiteDataStore removal, then remove the persisted store UUID mapping. Return {accountId,status:\"not-imported\"}. Keep conversations and task bindings. An in-flight import or pending cookie write must finish before clearing. Failed or unconfirmed removal retains the mapping and blocks reopening until clear is confirmed. This action destroys this account website data; it does not sign out Chrome. macOS 14+ only. Read back src_conversations before retrying.",
       "localOnly": true
+    },
+    {
+      "name": "pets.list",
+      "method": "GET",
+      "route": "pets",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "description": "List validated ARC and read-only Codex pet packages and source records.",
+      "localOnly": true
+    },
+    {
+      "name": "pets.asset",
+      "method": "POST",
+      "route": "pets/asset",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "description": "Read one installed, validated atlas as a data URL.",
+      "localOnly": true
+    },
+    {
+      "name": "pets.install",
+      "method": "POST",
+      "route": "pets/install",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "description": "Install from an HTTPS codex-pets.net or codexpet.top pet page. Verify size, atlas and available publisher hashes.",
+      "localOnly": true
+    },
+    {
+      "name": "pets.import",
+      "method": "POST",
+      "route": "pets/import",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "zip"
+            ],
+            "properties": {
+              "zip": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "description": "Import a base64 ZIP up to 25 MB containing only pet.json and its spritesheet at the root.",
+      "localOnly": true
     }
   ]
 }

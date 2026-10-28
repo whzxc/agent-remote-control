@@ -672,6 +672,9 @@ impl Service {
             };
             return crate::src_conversations::op(name, body).await;
         }
+        if route == "pets" || route.starts_with("pets/") {
+            return crate::pets::request(route, method, body).await;
+        }
         if route == "accounts" || route.starts_with("accounts/") {
             return self
                 .accounts

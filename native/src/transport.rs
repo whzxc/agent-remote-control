@@ -302,11 +302,18 @@ async fn local_request(
         None
     };
     let parsed = tokio::time::timeout(Duration::from_secs(5), async {
-        let bytes = Limited::new(request.into_body(), 16 * 1024 * 1024)
-            .collect()
-            .await
-            .map_err(|e| e.to_string())?
-            .to_bytes();
+        let bytes = Limited::new(
+            request.into_body(),
+            if path == "/api/pets/import" {
+                35 * 1024 * 1024
+            } else {
+                16 * 1024 * 1024
+            },
+        )
+        .collect()
+        .await
+        .map_err(|e| e.to_string())?
+        .to_bytes();
         if bytes.is_empty() {
             Ok(json!({}))
         } else {

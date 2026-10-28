@@ -1,3 +1,4 @@
+import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { topologyLayout } from "../subscriptions/displayPreferences";
@@ -37,6 +38,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   onReorderTasks: (side: Side, parent: string, ids: string[]) => void;
   boundary: RefObject<HTMLElement | null>; ref: Ref<TopologyHandle>;
 }) {
+  const pets = useRef<PetLayerHandle>(null);
   const graph = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null);
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
@@ -113,7 +115,22 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     primitives: Object.fromEntries([...animator.current.live.keys()].map(key => [key, animator.current.values(key)])),
     paths: [...((orientation.current === "portrait" ? portraitSvg.current : svg.current)?.querySelectorAll("path") ?? [])].map(path => ({ d: path.getAttribute("d"), class: path.getAttribute("class"), opacity: path.getAttribute("opacity"), mask: path.getAttribute("mask") })),
   })), []);
+  const petGeometry = (): PetGeometry => ({
+    bounds: { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) },
+    participant: (p, accountId) => {
+      const side = p.kind === 'source' ? -1 : 1;
+      const candidates = latest.current.nodes.filter(n => n.side === side && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
+      const node = candidates.find(n => accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
+      const v = node && animator.current.values(nodeKey(side, node.id));
+      return v && { x: v.x, y: v.y };
+    },
+    task: (agent, id) => {
+      const v = animator.current.values(taskKey(1, JSON.stringify([agent, id])));
+      return v && { x: v.x - v.anchor * v.width + v.width / 2, y: v.y - v.height / 2 };
+    },
+  });
   const paint = useCallback(() => {
+    pets.current?.layout();
     const a = animator.current, h = a.values("hub"), root = graph.current;
     if (!h || !root) return;
     const portrait = orientation.current === 'portrait';
@@ -439,6 +456,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       if (orientationPending.current && orientationTimer.current === null) evaluateOrientation.current();
       target(); event.preventDefault(); event.stopPropagation();
     } }}>
+    <PetLayer ref={pets} geometry={petGeometry} />
     <svg ref={svg} className="topology-wires" aria-hidden="true" />
     <svg ref={portraitSvg} className="topology-wires portrait-wires" aria-hidden="true" />
     <div ref={hub} className="topology-hub"

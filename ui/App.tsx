@@ -1,3 +1,4 @@
+import PetsPage, { PetsSwitch } from "./pets/PetsPage";
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
 import { captureRequest, type PanelRequest } from "./acceptance";
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Users,
+  PawPrint,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -66,7 +68,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", "pets"].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -160,7 +162,7 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
-          if (["overview", "settings", "accounts", "permissions"].includes(e.payload))
+          if (["overview", "settings", "accounts", "permissions", "pets"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -206,6 +208,7 @@ export default function App() {
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     { id: "settings" as const, label: t("settings"), icon: Settings },
+    { id: "pets" as const, label: t("pets.title"), icon: PawPrint },
   ];
   return (
     <div
@@ -270,7 +273,7 @@ export default function App() {
       )}
       <div
         hidden={welcome}
-        className={`navigation-surface ${updateVisible() ? "w-48" : "w-36"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
+        className={`navigation-surface ${updateVisible() ? "w-60" : "w-48"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
         aria-hidden="true"
       />
       {page !== "overview" && (
@@ -290,6 +293,7 @@ export default function App() {
                 {page === "settings" && nav.settingsExtras && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("extras.title")}</span></>}
 
               </h1>
+              {page === "pets" && <PetsSwitch />}
               {page === "permissions" && <IconButton
                 icon={RefreshCw}
                 label={t("permissionsRefresh")}
@@ -313,7 +317,7 @@ export default function App() {
             <main
               className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
             >
-              {page === "permissions" ? (
+              {page === "pets" ? <PetsPage /> : page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />
@@ -327,7 +331,7 @@ export default function App() {
         </section>
       )}
       <nav
-        className={`navigation-capsule ${updateVisible() ? "w-48" : "w-36"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
+        className={`navigation-capsule ${updateVisible() ? "w-60" : "w-48"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
         inert={welcome || page !== "overview" || modalOpen}
         aria-hidden={welcome || page !== "overview"}
         hidden={welcome}

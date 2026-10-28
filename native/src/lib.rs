@@ -58,6 +58,7 @@ pub mod oauth;
 pub mod operations;
 pub mod output;
 pub mod permissions;
+pub mod pets;
 pub mod preferences;
 pub mod projects;
 pub mod proxy;
