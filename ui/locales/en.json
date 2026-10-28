@@ -616,7 +616,6 @@
   "topology.resetOne": "Reset {label}",
   "topology.move": "Move tuning panel",
   "topology.moveHint": "Drag or use arrow keys to move 8 px; Shift moves 32 px.",
-  "topology.moreNodes": "{count} more nodes",
   "topology.expand": "Expand",
   "topology.collapse": "Collapse",
   "topology.guides": "Guides",

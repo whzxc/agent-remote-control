@@ -45,3 +45,63 @@ export function wanderPost(from: Point, bounds: PetBounds, obstacles: Rect[], si
     if (swept.x >= 0 && swept.y >= bounds.top && swept.x + swept.width <= bounds.x && swept.y + swept.height <= bounds.y && obstacles.every(rect => !overlaps(swept, rect))) return to;
   }
 }
+
+// Visibility-graph routing in top-left coordinates. Expand obstacles by the pet
+// footprint so every segment, not only each waypoint, has enough walking room.
+export function petPath(from: Point, to: Point, bounds: PetBounds, obstacles: Rect[], size: PetSize): Point[] | undefined {
+  const start = boundPet(from, bounds.x, bounds.y, bounds.top, size), goal = boundPet(to, bounds.x, bounds.y, bounds.top, size);
+  const blocks = obstacles.map(r => ({ x: r.x - size.width - 4, y: r.y - size.height - size.tagHeight - 4, width: r.width + size.width + 8, height: r.height + size.height + size.tagHeight + 8 }));
+  const inside = (p: Point, r: Rect) => p.x > r.x && p.x < r.x + r.width && p.y > r.y && p.y < r.y + r.height;
+  const inBounds = (p: Point) => p.x >= 0 && p.y >= bounds.top && p.x + size.width <= bounds.x && p.y + size.height + size.tagHeight <= bounds.y;
+  if (!inBounds(start) || !inBounds(goal)) return undefined;
+  const free = (p: Point) => inBounds(p) && blocks.every(r => !inside(p, r));
+  const crosses = (a: Point, b: Point, r: Rect) => {
+    let lo = 0, hi = 1;
+    for (const axis of ['x', 'y'] as const) {
+      const delta = b[axis] - a[axis], min = r[axis] + .01, max = r[axis] + (axis === 'x' ? r.width : r.height) - .01;
+      if (Math.abs(delta) < .001) { if (a[axis] <= min || a[axis] >= max) return false; }
+      else { const t1 = (min - a[axis]) / delta, t2 = (max - a[axis]) / delta; lo = Math.max(lo, Math.min(t1, t2)); hi = Math.min(hi, Math.max(t1, t2)); }
+    }
+    return lo < hi;
+  };
+  const clear = (a: Point, b: Point, ignore: Rect[] = []) => blocks.every(r => ignore.includes(r) || !crosses(a, b, r));
+  const corners = blocks.flatMap(r => [r.x, r.x + r.width].flatMap(x => [r.y, r.y + r.height].map(y => ({ x, y })))).filter(free);
+  // A dragged pet may start inside a bubble. The dock also deliberately overlaps
+  // its own bubble edge. Only these short departure/arrival legs may cross it.
+  const escape = (p: Point): Point | undefined => {
+    const containing = blocks.filter(r => inside(p, r));
+    if (!containing.length) return p;
+    const candidates = [...corners, ...containing.flatMap(r => [
+      { x: r.x, y: p.y }, { x: r.x + r.width, y: p.y }, { x: p.x, y: r.y }, { x: p.x, y: r.y + r.height },
+    ])].filter(q => free(q) && clear(p, q, containing));
+    return candidates.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+  };
+  const a = escape(start), b = escape(goal);
+  if (!a || !b) return undefined;
+  const vertices = [a, b, ...corners], distances = vertices.map(() => Infinity), previous = vertices.map(() => -1), visited = new Set<number>();
+  distances[0] = 0;
+  while (visited.size < vertices.length) {
+    let next = -1;
+    for (let i = 0; i < vertices.length; i++) if (!visited.has(i) && (next < 0 || distances[i] < distances[next])) next = i;
+    if (next < 0 || !Number.isFinite(distances[next])) return undefined;
+    if (next === 1) break;
+    visited.add(next);
+    for (let i = 0; i < vertices.length; i++) {
+      if (visited.has(i) || !clear(vertices[next], vertices[i])) continue;
+      const distance = distances[next] + Math.hypot(vertices[next].x - vertices[i].x, vertices[next].y - vertices[i].y);
+      if (distance < distances[i]) { distances[i] = distance; previous[i] = next; }
+    }
+  }
+  const path: Point[] = [];
+  for (let at = 1; at >= 0; at = previous[at]) path.unshift(vertices[at]);
+  if (Math.hypot(a.x - start.x, a.y - start.y) < 1) path.shift();
+  if (Math.hypot(b.x - goal.x, b.y - goal.y) >= 1) path.push(goal);
+  return path;
+}
+export function bubbleWander(frame: Rect, bounds: PetBounds, size: PetSize, random = Math.random): Point {
+  const gap = 8, edge = Math.floor(random() * 4), offset = random();
+  const x = frame.x - size.width - gap, right = frame.x + frame.width + gap;
+  const y = frame.y - size.height - size.tagHeight - gap, bottom = frame.y + frame.height + gap;
+  return boundPet(edge === 0 ? { x: x + (right - x) * offset, y } : edge === 1 ? { x: right, y: y + (bottom - y) * offset }
+    : edge === 2 ? { x: x + (right - x) * offset, y: bottom } : { x, y: y + (bottom - y) * offset }, bounds.x, bounds.y, bounds.top, size);
+}

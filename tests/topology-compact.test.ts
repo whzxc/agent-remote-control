@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compactRoots, type ActivityEntity } from '../ui/topology/compact.ts';
+import { compactRoots, compactLayout, type ActivityEntity } from '../ui/topology/compact.ts';
+import { solvePortrait } from '../ui/topology/portrait.ts';
 import { DEFAULTS } from '../ui/topology/solve.ts';
 
 const node = (id: string, activityLevel = 0, activityAt = 0): ActivityEntity => ({ id, tasks: [], activityLevel, activityAt });
@@ -42,4 +43,30 @@ test('landscape leaves the fitting wing alone while compacting the overflowing w
   assert.equal(result.left.size, 0);
   assert.ok(!result.right.has('busy'));
   assert.ok(result.right.size > 0);
+});
+
+test('portrait shares height pressure between wings and keeps every topology level', () => {
+  // Regression: portrait collapsed only the lower Agents and replaced their descendants with a popover.
+  const tree = (prefix: string) => Array.from({ length: 5 }, (_, i) => ({ ...node(`${prefix}-${i}`, i === 0 ? 2 : 0),
+    children: [{ ...node(`${prefix}-${i}-child`), children: [node(`${prefix}-${i}-leaf`)] }] }));
+  const left = tree('source'), right = tree('agent'), viewport = { vw: 700, vh: 800 };
+  const plan = compactRoots(left, right, viewport, 'portrait', DEFAULTS);
+  assert.ok(plan.left.size > 0 && plan.right.size > 0);
+  const full = solvePortrait({ ...viewport, left, right }, DEFAULTS);
+  const before = JSON.stringify(full);
+  const folded = compactLayout(full, plan, new Set(), DEFAULTS.rowGap);
+  const open = compactLayout(full, plan, new Set([-1, 1] as const), DEFAULTS.rowGap);
+  for (const [index, wing] of folded.wings.entries()) {
+    assert.deepEqual(wing.nodes.map(n => [n.id, n.parent]), full.wings[index].nodes.map(n => [n.id, n.parent]));
+    const ids = index === 0 ? plan.left : plan.right;
+    const roots = wing.nodes.filter(n => ids.has(n.id));
+    assert.equal(new Set(roots.map(n => n.x)).size, 1);
+    const children = wing.nodes.filter(n => n.parent && ids.has(n.parent));
+    assert.equal(new Set(children.map(n => n.x)).size, 1);
+    assert.ok(children.every(n => n.x !== roots[0].x));
+    assert.ok(open.wings[index].H > wing.H);
+  }
+  const p = folded.portrait!;
+  assert.ok(Math.abs((p.sourceTop + p.sourceBottom) / 2 + (p.agentTop + p.agentBottom) / 2 - 2 * folded.hub.y) < .001);
+  assert.equal(JSON.stringify(full), before);
 });

@@ -1,4 +1,4 @@
-import { participantPost, petSize, bubbleEnd, wanderPost, type Rect } from '../pets/geometry';
+import { participantPost, petSize, bubbleEnd, wanderPost, petPath, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -6,8 +6,7 @@ import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
 import { solvePortrait, portraitPanelRect } from "./portrait";
 import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
-import { compactRoots, stackId } from './compact';
-import OverflowStack from './OverflowStack';
+import { compactRoots, compactLayout } from './compact';
 import CollapseSymbol from './CollapseSymbol';
 import { t } from '../i18n';
 import { topologyCollapsed } from './accountState';
@@ -26,7 +25,7 @@ export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccount
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; tasks: TaskView[]; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
   sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: PathTask['agentAccountId'];
-  stackMembers?: string[];
+  stackMember?: boolean; stacked?: boolean;
   activityAt?: number; activityLevel?: number;
   sourceProduct?: string; sourceProductLabel?: string;
 }
@@ -67,6 +66,22 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const orientationPending = useRef(false);
   const evaluateOrientation = useRef(() => {});
   const collapsed = topologyCollapsed.use();
+  const [expandedStacks, setExpandedStacks] = useState<Set<Side>>(() => new Set());
+  const stackAreas = useRef(new Map<Side, HTMLDivElement>());
+  const stackOrigins = useRef(new Map<Side, Rect>());
+  const stackTimers = useRef(new Map<Side, ReturnType<typeof setTimeout>>());
+  const openStack = (side: Side) => {
+    clearTimeout(stackTimers.current.get(side));
+    setExpandedStacks(old => old.has(side) ? old : new Set([...old, side]));
+  };
+  const closeStack = (side: Side) => {
+    clearTimeout(stackTimers.current.get(side));
+    stackTimers.current.set(side, setTimeout(() => {
+      if (latest.current.nodes.some(n => n.side === side && n.stackMember && elements.current.get(nodeKey(side, n.id))?.contains(document.activeElement))) return;
+      setExpandedStacks(old => { const next = new Set(old); next.delete(side); return next; });
+    }, 450));
+  };
+  useEffect(() => () => { stackTimers.current.forEach(clearTimeout); }, []);
   const [hover, setHover] = useState<{ side: Side; id: string; task?: boolean } | null>(null);
   const [focus, setFocus] = useState<typeof hover>(null);
   const [hubInteraction, setHubInteraction] = useState<Scene["hubInteraction"]>();
@@ -83,6 +98,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   }, []);
   const clearInteraction = useCallback(() => {
     setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
+    stackTimers.current.forEach(clearTimeout); setExpandedStacks(old => old.size ? new Set() : old);
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
   }, []);
@@ -103,12 +119,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   });
   const prunedLeft = prune(inputLeft, -1), prunedRight = prune(inputRight, 1);
   const compacted = useMemo(() => viewport.vw > 0 ? compactRoots(prunedLeft, prunedRight, viewport, viewport.orientation, params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
-  const compact = (list: NodeView[], hidden: Set<string>, side: Side): NodeView[] => {
-    const overflow = list.filter(node => hidden.has(node.id));
-    if (!overflow.length) return list;
-    return [...list.filter(node => !hidden.has(node.id)), { id: stackId(side), label: t('topology.moreNodes', { count: overflow.length }),
-      state: 'normal', attention: false, selected: false, tasks: [], stackMembers: overflow.map(node => node.id), content: <OverflowStack nodes={overflow} side={side} /> }];
-  };
+  const compact = (list: NodeView[], members: Set<string>, side: Side, inherited = false): NodeView[] => list.map(n => {
+    const stackMember = inherited || members.has(n.id);
+    return { ...n, stackMember, stacked: stackMember && !expandedStacks.has(side), children: compact(n.children ?? [], members, side, stackMember) };
+  });
   const left = compact(prunedLeft, compacted.left, -1), right = compact(prunedRight, compacted.right, 1);
   const nodes = [...flatten(left, -1), ...flatten(right, 1)];
   const lit = accountsEnabled ? highlightedPaths(fullNodes, focus ?? hover) : null;
@@ -118,8 +132,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   // Retain departing HTML until its primitive has collapsed into the port.
   const [retained, setRetained] = useState<PositionedTask[]>([]);
   const allTasks = [...new Map([...retained, ...tasks].map(t => [taskKey(t.side, t.id), t])).values()];
-  const latest = useRef({ nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
-  latest.current = { nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
+  const latest = useRef({ nodes, allNodes, tasks, allTasks, left, right, compacted, expandedStacks, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
+  latest.current = { nodes, allNodes, tasks, allTasks, left, right, compacted, expandedStacks, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
   useEffect(() => observeTopology(() => ({
     orientation: orientation.current, source: orientationSource.current, orientationPending: orientationPending.current,
     origin: origin.current, size: size.current, panel: panel.current,
@@ -142,6 +156,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const parts = [icon];
       // Labels can be below or outside the rail and wrap in portrait layouts.
       for (const label of elements.current.get(key)?.querySelectorAll<HTMLElement>('.graph-node-name, .agent-auto-compact') ?? []) {
+        if (n.stacked) continue;
         const r = label.getBoundingClientRect();
         if (r.width && r.height) parts.push({ x: r.x - origin.current.x, y: r.y - origin.current.y, width: r.width, height: r.height });
       }
@@ -149,8 +164,18 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const x = Math.min(...parts.map(r => r.x)), y = Math.min(...parts.map(r => r.y));
       nodeRects.set(key, { x, y, width: Math.max(...parts.map(r => r.x + r.width)) - x, height: Math.max(...parts.map(r => r.y + r.height)) - y });
     }
+    const bubbleFrames = latest.current.tasks.flatMap(task => {
+      const v = animator.current.values(taskKey(task.side, task.id));
+      return v && v.op > .02 ? [{ task, rect: { x: v.x - v.anchor * v.width, y: v.y - v.height / 2, width: v.width, height: v.height } }] : [];
+    });
+    const taskFrame = (agent: string, id: string) => {
+      const own = bubbleFrames.filter(({ task }) => task.side === 1 && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
+      return (own.find(({ task }) => task.taskId === id) ?? own.find(({ task }) => task.petTaskIds?.includes(id)))?.rect;
+    };
     return {
-      bounds,
+      bounds, taskFrame,
+      route: (from, to, size) => petPath(from, to, bounds, [...obstacles, ...bubbleFrames.map(b => b.rect),
+        ...(hub ? [{ x: hub.x - hub.Re, y: hub.y - hub.Re, width: hub.Re * 2, height: hub.Re * 2 }] : [])], size),
       wander: (from, pet, occupied) => {
         const bubbles = latest.current.tasks.flatMap(task => {
           const v = animator.current.values(taskKey(task.side, task.id));
@@ -172,7 +197,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         const own = latest.current.tasks.filter(task => task.side === 1 && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
         const task = own.find(task => task.taskId === id) ?? own.find(task => task.petTaskIds?.includes(id));
         const v = task && animator.current.values(taskKey(task.side, task.id));
-        return v && bubbleEnd({ x: v.x, y: v.y, width: v.width, height: v.height, anchor: v.anchor });
+        return v && v.op > .02 ? bubbleEnd({ x: v.x, y: v.y, width: v.width, height: v.height, anchor: v.anchor }) : undefined;
       },
     };
   };
@@ -229,13 +254,29 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         el.style.opacity = '0'; el.inert = true;
       }
     }
+    for (const side of [-1, 1] as const) {
+      const area = stackAreas.current.get(side);
+      if (!area) continue;
+      const members = latest.current.nodes.filter(n => n.side === side && n.stackMember);
+      const points = members.map(n => a.values(nodeKey(side, n.id))).filter(v => v && v.op > .02);
+      area.style.display = points.length ? '' : 'none';
+      if (!points.length) continue;
+      let x = Math.min(...points.map(v => v!.x - 36)), y = Math.min(...points.map(v => v!.y - 36));
+      let right = Math.max(...points.map(v => v!.x + 36)), bottom = Math.max(...points.map(v => v!.y + 64));
+      if (!latest.current.expandedStacks.has(side)) stackOrigins.current.set(side, { x, y, width: right - x, height: bottom - y });
+      else {
+        const origin = stackOrigins.current.get(side);
+        if (origin) { x = Math.min(x, origin.x); y = Math.min(y, origin.y); right = Math.max(right, origin.x + origin.width); bottom = Math.max(bottom, origin.y + origin.height); }
+      }
+      Object.assign(area.style, { left: `${x}px`, top: `${y}px`, width: `${right - x}px`, height: `${bottom - y}px` });
+    }
     for (const t of latest.current.allTasks) {
       const key = taskKey(t.side, t.id), v = a.values(key), el = elements.current.get(key);
       if (!el) continue;
       el.style.opacity = String(v ? v.op : 0);
       const hidden = latest.current.nodes.some(n => n.side === t.side && n.selected);
-      el.style.pointerEvents = a.live.get(key)?.alive && !hidden ? "" : "none";
-      el.inert = !a.live.get(key)?.alive || hidden;
+      el.style.pointerEvents = a.live.get(key)?.alive && !hidden && (v?.op ?? 0) > .02 ? "" : "none";
+      el.inert = !a.live.get(key)?.alive || hidden || (v?.op ?? 0) <= .02;
       if (v) {
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));
         el.style.width = `${v.width}px`;
@@ -301,10 +342,30 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   }, []);
   const solveScene = useCallback((activeDrag: Drag | null = null) => {
     const sc = scene();
-    if (orientation.current !== 'portrait') return solve(sc, latest.current.params, activeDrag);
-    if (graph.current) graph.current.dataset.orientation = 'portrait';
-    const labels = measurePortraitLabels(latest.current.nodes, n => elements.current.get(nodeKey(n.side, n.id)));
-    return solvePortrait(sc, latest.current.params, activeDrag, labels);
+    let solved: Layout;
+    if (orientation.current !== 'portrait') solved = solve(sc, latest.current.params);
+    else {
+      if (graph.current) graph.current.dataset.orientation = 'portrait';
+      const labels = measurePortraitLabels(latest.current.nodes, n => elements.current.get(nodeKey(n.side, n.id)));
+      solved = solvePortrait(sc, latest.current.params, null, labels);
+    }
+    const result = compactLayout(solved, latest.current.compacted, latest.current.expandedStacks, latest.current.params.rowGap);
+    if (activeDrag) {
+      const wing = result.wings.find(w => w.side === activeDrag.side)!;
+      if (activeDrag.kind === 'node') {
+        const node = wing.nodes.find(n => n.id === activeDrag.id);
+        if (node) {
+          const dx = activeDrag.x - node.x;
+          if (node.taskBusX !== undefined) node.taskBusX += dx;
+          if (node.childBusX !== undefined) node.childBusX += dx;
+          node.x = activeDrag.x; node.y = activeDrag.y;
+        }
+      } else {
+        const task = wing.tasks.find(t => t.id === activeDrag.id);
+        if (task) { task.x = activeDrag.x; task.y = activeDrag.y; }
+      }
+    }
+    return result;
   }, [scene]);
   const target = useCallback(() => {
     if (!size.current) return;
@@ -514,24 +575,33 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       onPointerLeave={() => setHubInteraction(undefined)}
       onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
+    {([-1, 1] as const).map(side => <div key={side} className="topology-stack-area" aria-hidden="true"
+      ref={el => { if (el) stackAreas.current.set(side, el); else stackAreas.current.delete(side); }}
+      onPointerEnter={() => openStack(side)} onPointerLeave={() => closeStack(side)} />)}
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
       data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
       data-agent-platform={n.side === 1 && !n.account ? n.platform : undefined}
       data-source-platform={n.side === -1 ? n.platform : undefined}
-      data-account-id={n.accountId}
+      data-account-id={n.accountId} data-stacked={n.stacked || undefined}
       className={`topology-node ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       data-collapse-visible={revealed === nodeKey(n.side, n.id) || focus?.side === n.side && focus.id === n.id || undefined}
-      onPointerEnter={() => changeHover({ side: n.side, id: n.id })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
-      onFocusCapture={() => setFocus({ side: n.side, id: n.id })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) changeHover(null); }}
+      onPointerEnter={() => { changeHover({ side: n.side, id: n.id }); if (n.stackMember) openStack(n.side); }} onPointerLeave={() => { changeHover(null); if (n.stackMember) closeStack(n.side); }} onPointerCancel={() => changeHover(null)}
+      onFocusCapture={() => { setFocus({ side: n.side, id: n.id }); if (n.stackMember) openStack(n.side); }} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); if (n.stackMember) closeStack(n.side); } }}
       onKeyDownCapture={event => {
+        if (event.key === 'Escape' && n.stackMember && expandedStacks.has(n.side)) {
+          event.preventDefault(); event.stopPropagation(); setExpandedStacks(old => { const next = new Set(old); next.delete(n.side); return next; }); return;
+        }
         if (!accountsEnabled || !n.reorderable || !['ArrowUp', 'ArrowDown'].includes(event.key) || (event.target as HTMLElement).closest('.topology-collapse')) return;
         const peers = nodes.filter(p => p.side === n.side && p.parent === n.parent && p.reorderable && !!p.account === !!n.account && (!n.account || p.account && p.platform === n.platform));
         const index = peers.findIndex(p => p.id === n.id), next = index + (event.key === 'ArrowUp' ? -1 : 1);
         if (next >= 0 && next < peers.length) { const ids = peers.map(p => p.id); [ids[index], ids[next]] = [ids[next], ids[index]]; onReorderNodes(n.side, ids); }
         event.preventDefault(); event.stopPropagation();
       }}
+      onPointerDownCapture={event => {
+        if (n.stacked) { event.preventDefault(); event.stopPropagation(); suppressedClick.current = nodeKey(n.side, n.id); openStack(n.side); }
+      }}
       onPointerDown={n.reorderable ? event => startDrag(event, "node", n.side, n.id) : undefined}
-      onClickCapture={event => suppressClick(event, nodeKey(n.side, n.id))}>{n.content}{accountsEnabled && (() => {
+      onClickCapture={event => { if (n.stacked) { event.preventDefault(); event.stopPropagation(); openStack(n.side); } else suppressClick(event, nodeKey(n.side, n.id)); }}>{n.content}{accountsEnabled && !n.stacked && (() => {
         const full = fullNodes.find(p => p.side === n.side && p.id === n.id);
         if (!full || !full.children?.length && !full.tasks.length) return null;
         const closed = collapsed[nodeKey(n.side, n.id)] === true;

@@ -18,13 +18,16 @@ import type { TaskReview } from '../state/taskReview';
 import { petBrand, selectPet, type Participant, type Point } from './model';
 import { petAssignments, petAssets, petAsset, petLibrary, refreshPets, showPets } from './state';
 import { arcPoint, maySpeak, petIntents, presentPet, relayPose, taskPetRow, type PetIntent, type RelayTask } from './relay';
-import { petSize, taskPost, type PetSize } from './geometry';
+import { petSize, taskPost, bubbleWander, type Rect, type PetSize } from './geometry';
 import { setPetSnapshot } from './snapshot';
 import PetActor, { type PetActorHandle } from './PetActor';
 import { usePetMotion } from './usePetMotion';
 import { activityPose, type PetPose } from './behavior';
 import type { AgentPhase } from '../types';
-export interface PetGeometry { participant: (p: Participant, accountId?: string, size?: PetSize) => Point | undefined; task: (agent: string, id: string, accountId?: string) => Point | undefined; bounds: Point & { top: number }; wander: (from: Point, size: PetSize, occupied: (Point & { width: number; height: number })[]) => Point | undefined }
+export interface PetGeometry {
+  taskFrame: (agent: string, id: string) => Rect | undefined;
+  route: (from: Point, to: Point, size: PetSize) => Point[] | undefined;
+  participant: (p: Participant, accountId?: string, size?: PetSize) => Point | undefined; task: (agent: string, id: string, accountId?: string) => Point | undefined; bounds: Point & { top: number }; wander: (from: Point, size: PetSize, occupied: (Point & { width: number; height: number })[]) => Point | undefined }
 export interface PetLayerHandle { layout: () => void }
 export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometry; ref: Ref<PetLayerHandle> }) {
   const enabled = showPets.use(), library = petLibrary.use(), assignments = petAssignments.use(), assets = petAssets.use();
@@ -37,6 +40,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const cueTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const frame = useRef(0), latestLayout = useRef(() => {});
   const behaviors = useRef(new Map<string, { key: string; until: number; pose: PetPose }>());
+  const taskWalks = useRef(new Map<string, { home: Point; path: Point[]; next: number; docked: boolean }>());
   const walks = useRef(new Map<string, { point: Point; next: number }>());
   const social = useRef<{ source: string; agent: string; at: number; kind: number; sourcePoint: Point; agentPoint: Point; spoken: Set<string> } | undefined>(undefined);
   const nextSocial = useRef(Date.now() + 8000);
@@ -170,7 +174,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   }
   function layout() {
     if (!enabled) {
-      behaviors.current.clear(); walks.current.clear(); social.current = undefined; nextSocial.current = Date.now() + 8000;
+      behaviors.current.clear(); walks.current.clear(); taskWalks.current.clear(); social.current = undefined; nextSocial.current = Date.now() + 8000;
       for (const el of cardElements.current.values()) el.remove();
       cardElements.current.clear();
       setPetSnapshot({ petCount: 0, animatedPetCount: 0, taskPetCount: 0, movingCardCount: 0 });
@@ -238,6 +242,8 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       }
       actor.cue(latest ? p.kind === 'source' ? latest.pose.sourceRow : latest.pose.agentRow : pose.row, speech, undefined, pose);
     }
+    const currentTaskKeys = new Set(taskPets.map(({ task }) => task.key));
+    for (const key of taskWalks.current.keys()) if (!currentTaskKeys.has(key)) taskWalks.current.delete(key);
     for (const { task, pet, p } of taskPets) {
       const actor = actors.current.get(`task:${task.key}`); if (!actor || !assets[pet.key]) continue;
       const latest = [...poses].reverse().find(({ event }) => event.task.key === task.key);
@@ -245,10 +251,32 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const start = g.participant(p, task.accountId ?? undefined, size);
       const returning = presentPet(engaged.current.get(`task:${task.key}`) ?? now, false, time).returning;
       const anchor = g.task(task.agent, task.taskId, task.accountId ?? undefined);
-      const point = (motion.animate && latest?.pose.taskAtAgent) || returning ? start : anchor && taskPost(anchor, size);
-      if (!point) { actor.hide(); continue; }
+      let point = (motion.animate && latest?.pose.taskAtAgent) || returning ? start : anchor && taskPost(anchor, size);
+      if (!point) { actor.hide(); taskWalks.current.delete(task.key); continue; }
+      const freeToWalk = motion.animate && !latest && !returning && actor.available();
+      if (freeToWalk) {
+        const center = actor.point(), from = center ? topLeft(center, size) : start ?? point;
+        let walk = taskWalks.current.get(task.key);
+        if (!walk || Math.hypot(walk.home.x - point.x, walk.home.y - point.y) > 16) {
+          walk = { home: point, path: [], next: 0, docked: false }; taskWalks.current.set(task.key, walk);
+        }
+        while (walk.path.length && Math.hypot(walk.path[0].x - from.x, walk.path[0].y - from.y) < 4) {
+          walk.path.shift(); if (!walk.path.length) { walk.docked = true; walk.next = time + 3000 + Math.random() * 5000; }
+        }
+        if (!walk.path.length && time >= walk.next) {
+          const bubble = g.taskFrame(task.agent, task.taskId);
+          const destination = !walk.docked || !bubble ? point : bubbleWander(bubble, g.bounds, size);
+          walk.path = g.route(from, destination, size) ?? [];
+          walk.next = time + 2000;
+        }
+        point = walk.path[0] ?? from;
+      } else {
+        taskWalks.current.delete(task.key);
+        const current = actor.point();
+        if (motion.animate && !latest && !returning && current) point = topLeft(current, size);
+      }
       const pose = behavior(`task:${task.key}`, task, false, time);
-      actor.place(point, g.bounds, motion.animate ? start : undefined); actor.cue(latest?.pose.taskRow ?? pose.row, undefined, !motion.animate || !latest?.pose.card, pose); petCount++; taskPetCount++;
+      actor.place(point, g.bounds, motion.animate ? start : undefined, freeToWalk); actor.cue(latest?.pose.taskRow ?? pose.row, undefined, !motion.animate || !latest?.pose.card, pose); petCount++; taskPetCount++;
     }
     const liveCards = new Set<string>();
     const encounter = social.current;
@@ -292,7 +320,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const actorRef = (id: string) => (handle: PetActorHandle | null) => { if (handle) actors.current.set(id, handle); else actors.current.delete(id); };
   return <>
     {rendered.map(({ p, pet }) => assets[pet.key] && <PetActor key={p.id} ref={actorRef(p.id)} size={petSize('participant', p.brand === 'other')} pet={pet} url={assets[pet.key]} label={t('pets.participantPet', { name: p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active} roam />)}
-    {taskPets.map(({ task, session, p, pet }) => assets[pet.key] && <PetActor key={`task:${task.key}:${task.turn}`} ref={actorRef(`task:${task.key}`)} size={petSize('task', p.brand === 'other')} pet={pet} url={assets[pet.key]} row={taskPetRow(task.state)} cardTone={task.state === 'done' ? 'success' : ['failed', 'interrupted'].includes(task.state) ? 'danger' : 'neutral'} label={t('pets.taskPet', { name: session.title ?? p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active}
+    {taskPets.map(({ task, session, p, pet }) => assets[pet.key] && <PetActor key={`task:${task.key}:${task.turn}`} ref={actorRef(`task:${task.key}`)} size={petSize('task', p.brand === 'other')} pet={pet} url={assets[pet.key]} row={taskPetRow(task.state)} cardTone={task.state === 'done' ? 'success' : ['failed', 'interrupted'].includes(task.state) ? 'danger' : 'neutral'} label={t('pets.taskPet', { name: session.title ?? p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active} roam manualPause={2000}
       onClick={() => selectAgentPanel({ type: 'task', agent: task.agent, session })} />)}
     <div ref={cards} className="pet-cards" aria-hidden="true" />
   </>;

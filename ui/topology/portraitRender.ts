@@ -90,15 +90,15 @@ export class PortraitPainter {
     if (!h || !p) return;
     this.keep.clear();
     // Straight ears use scene coordinates for their gradient.
-    for (const [key, value] of Object.entries({ x1: h.x + p.earOffset, x2: h.x + p.earOffset, y1: h.y - p.earHalf, y2: h.y + p.earHalf })) this.gradient.setAttribute(key, String(value));
+    for (const [key, value] of Object.entries({ x1: h.x + p.earOffset, x2: h.x + p.earOffset + p.earHalf, y1: h.y, y2: h.y })) this.gradient.setAttribute(key, String(value));
     const point = (x: number, y: number) => ({ x, y });
     for (const side of [-1, 1] as const) {
       const wing = nodes.filter(n => n.side === side && !n.parent).map(n => a.values(nodeKey(side, n.id))).filter(v => v && v.presence > 0.01);
-      const x = side === -1 ? p.sourceX : p.agentX, y = h.y + side * p.earHalf;
+      const x = side === -1 ? p.sourceX : p.agentX, y = h.y;
       const earX = h.x + side * p.earOffset;
       const edge = side === -1 ? Math.min(...wing.map(v => v!.y), y) : Math.max(...wing.map(v => v!.y), y);
       this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45);
-      this.path(`ear${side}`, railPath([point(earX, h.y - p.earHalf), point(earX, h.y + p.earHalf)]), `topology-ear ${side === -1 ? 'left' : 'right'}`, 1,
+      this.path(`ear${side}`, railPath([point(earX, y), point(earX + side * p.earHalf, y)]), `topology-ear ${side === -1 ? 'left' : 'right'}`, 1,
         { 'stroke-width': 14 * h.Re / 130, ...(side === 1 ? { style: `stroke:url(#${this.gradient.id})` } : {}) });
     }
     for (const node of nodes) {

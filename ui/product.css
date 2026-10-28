@@ -1508,14 +1508,9 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-connections:focus-visible path[data-panel-visual] { stroke: var(--accent); }
 .hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }
 
-.topology-overflow-trigger { position: relative; width: 44px; height: 44px; padding: 0; }
-.topology-overflow-icons { position: absolute; inset: 0; pointer-events: none; }
-.topology-overflow-icons > span { position: absolute; inset: 4px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); }
-.topology-overflow-icons .source-icon, .topology-overflow-icons .agent-quota-icon { transform: scale(.7); }
-.topology-overflow-count { position: absolute; right: -8px; bottom: -5px; min-width: 18px; padding: 1px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 11px; }
-.topology-overflow-popover { z-index: 100; width: min(340px, calc(100vw - 32px)); max-height: min(480px, var(--radix-popover-content-available-height)); overflow-y: auto; padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow); }
-.topology-overflow-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 8px 0; }
-.topology-overflow-group + .topology-overflow-group { border-top: 1px solid var(--border); }
-.topology-overflow-item { min-width: 0; display: flex; justify-content: center; }
-.topology-overflow-item .graph-node { width: 100%; height: auto; min-height: 70px; flex-direction: column; gap: 6px; }
-.topology-overflow-item .graph-node-name { position: static; transform: none; white-space: normal; width: 100%; text-align: center; overflow-wrap: anywhere; }
+/* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */
+.topology-stack-area { position: absolute; z-index: 1; }
+.topology-node[data-stacked] .graph-node { border-radius: 50%; background: var(--canvas); box-shadow: 0 0 0 1px var(--border); }
+.topology-node[data-stacked] .graph-node-name,
+.topology-node[data-stacked] .agent-auto-compact,
+.topology-node[data-stacked] .agent-task-count { visibility: hidden; }

@@ -12,9 +12,9 @@ export interface PetActorHandle {
   available: () => boolean;
   hide: () => void;
 }
-export default function PetActor({ pet, url, label, tag, animate, slow, row = 0, onClick, roam = false, cardTone, size, ref }: {
+export default function PetActor({ pet, url, label, tag, animate, slow, row = 0, onClick, roam = false, manualPause = 12000, cardTone, size, ref }: {
   pet: PetPackage; size: PetSize; url: string; label: string; tag?: string; animate: boolean; slow: boolean; row?: number;
-  cardTone?: 'neutral' | 'success' | 'danger'; onClick?: () => void; roam?: boolean; ref: Ref<PetActorHandle>;
+  cardTone?: 'neutral' | 'success' | 'danger'; onClick?: () => void; roam?: boolean; manualPause?: number; ref: Ref<PetActorHandle>;
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const position = useRef<Point | null>(null), post = useRef<Point>({ x: 0, y: 0 }), bounds = useRef({ x: 0, y: 0, top: 0 });
@@ -93,7 +93,7 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
     const d = drag.current; if (!d && mode.current !== 'drag') return;
     drag.current = null; if (button.current) delete button.current.dataset.dangling;
     mode.current = d ? cancel || !d.moved ? d.mode : 'placed' : 'post';
-    if (d?.moved && !cancel) manualUntil.current = Date.now() + 12000;
+    if (d?.moved && !cancel) manualUntil.current = Date.now() + manualPause;
     if (cancel && d) position.current = clamp(d.origin);
     setAction(null); setWalking(null);
     if (d && button.current?.hasPointerCapture(d.pointer)) button.current.releasePointerCapture(d.pointer);
