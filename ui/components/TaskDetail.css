@@ -1,4 +1,6 @@
 .task-detail-layer { container-type: inline-size; }
+.task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
+.task-queue-error { color: var(--danger); font-size: var(--text-sm); }
 .task-detail-layer > .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px 12px; background: var(--surface); }
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
 .task-detail-navigation > .button { min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; color: var(--text-secondary); }

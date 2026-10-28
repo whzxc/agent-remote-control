@@ -43,9 +43,10 @@ test("ARC-local pending requests drive both the dock and header after an earlier
     const { t } = await server.ssrLoadModule("/ui/i18n.ts");
     // The panel retained the first turn's session; current turn identity comes from task_panel.
     const live = { ...capture.session, turnId: capture.turnId, interaction: pending.interaction };
-    assert.deepEqual(pendingSessions("codex", capture.session, capture.timeline.entries).map((s: any) => s.interaction.respond.args.id), [pending.interaction.respond.args.id]);
+    assert.deepEqual(pendingSessions("codex", capture.session, capture.timeline.entries), []);
+    assert.deepEqual(pendingSessions("codex", live, capture.timeline.entries).map((s: any) => s.interaction.respond.args.id), [pending.interaction.respond.args.id]);
     const unavailable = capture.timeline.entries.map((e: any) => e === pending ? { ...e, interaction: { ...e.interaction, canRespond: false } } : e);
-    assert.deepEqual(pendingSessions("codex", capture.session, unavailable), []);
+    assert.deepEqual(pendingSessions("codex", live, unavailable), []);
     await act(async () => {
       agentActivity.set({ error: "", snapshot: { observedAt: "", activeAgents: ["codex"], agents: { codex: { sessions: [live] } } } });
       root.render(h(TooltipProvider, null, h(Detail, { agent: "codex", session: capture.session, expanded: false, onToggleWidth() {}, onBack() {} })));

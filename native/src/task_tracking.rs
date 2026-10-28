@@ -1440,7 +1440,7 @@ impl Timeline {
         result["snapshotHash"] = json!(hash(json!({"entries":self.entries,"status":self.status,"turnStatuses":self.turn_statuses,"turnTimings":self.turn_timings,"coverage":result["coverage"]}).to_string()));
         result
     }
-    pub fn session(&self, info: &Value, source: &str, pending: Option<Value>) -> Value {
+    pub fn session(&self, id: &str, info: &Value, source: &str, pending: Option<Value>) -> Value {
         let recent: Vec<_> = self
             .entries
             .iter()
@@ -1481,7 +1481,7 @@ impl Timeline {
                 .find(|r| r["type"] == "interaction" && r["status"] == "pending")
                 .map(|r| r["interaction"].clone())
         });
-        let mut row = json!({"id":info["id"],"source":source,"title":redact(string(info,"title")),"project":info["project"],"phase":"idle","headline":"","startedAt":info["startedAt"],"phaseSince":info["startedAt"],"timeline":true});
+        let mut row = json!({"id":id,"source":source,"title":redact(string(info,"title")),"project":info["project"],"phase":"idle","headline":"","startedAt":info["startedAt"],"phaseSince":info["startedAt"],"timeline":true});
         row["turnId"] = if self.turn.is_empty() {
             Value::Null
         } else {
@@ -1501,8 +1501,7 @@ impl Timeline {
         // supplies native configuration without per-poll dispatch-store reads.
         if source != "transcript" {
             if let Some(summary) =
-                dispatch_summaries(string(info, "id"), &self.turn_dispatch_summaries)
-                    .get(&self.turn)
+                dispatch_summaries(id, &self.turn_dispatch_summaries).get(&self.turn)
             {
                 row["dispatchSummary"] = summary.clone();
             }
@@ -1541,7 +1540,7 @@ impl Timeline {
         if let Some(mut interaction) = interaction {
             if interaction["respond"]["op"] == "agent_respond" {
                 interaction["respond"]["args"]["agent"] = info["agent"].clone();
-                interaction["respond"]["args"]["taskId"] = info["taskId"].clone();
+                interaction["respond"]["args"]["taskId"] = json!(id);
             }
             row["phase"] = json!("interaction");
             row["headline"] = interaction["summary"].clone();
@@ -1556,9 +1555,7 @@ impl Timeline {
             row["interaction"] = interaction;
         }
         if source == "codex-thread" {
-            if let Some(open) =
-                crate::agents::driver::AgentDriver::CodexNative.navigation(string(info, "id"))
-            {
+            if let Some(open) = crate::agents::driver::AgentDriver::CodexNative.navigation(id) {
                 row["open"] = open;
             }
         }
@@ -1700,7 +1697,7 @@ mod tests {
         let question = json!({"id":"question","method":"request_user_input_async","params":{"threadId":"thread","turnId":"old","question":"Choose"}});
         timeline.sync_interactions(&[question.clone()], at);
         assert_eq!(
-            timeline.session(&json!({"id":"thread"}), "codex-thread", None)["phase"],
+            timeline.session("thread", &json!({"id":"thread"}), "codex-thread", None)["phase"],
             "interaction"
         );
         timeline.codex(
@@ -1710,7 +1707,7 @@ mod tests {
         );
         timeline.sync_interactions(&[question.clone()], at);
         assert_ne!(
-            timeline.session(&json!({"id":"thread"}), "codex-thread", None)["phase"],
+            timeline.session("thread", &json!({"id":"thread"}), "codex-thread", None)["phase"],
             "interaction"
         );
         timeline.codex("turn/started", &json!({"turn":{"id":"new"}}), at);
@@ -1725,7 +1722,7 @@ mod tests {
         let active = json!({"id":"active-question","params":{"threadId":"thread","turnId":"new"}});
         timeline.sync_interactions(&[active], at);
         assert_eq!(
-            timeline.session(&json!({"id":"thread"}), "codex-thread", None)["phase"],
+            timeline.session("thread", &json!({"id":"thread"}), "codex-thread", None)["phase"],
             "interaction"
         );
     }
@@ -1796,7 +1793,8 @@ mod tests {
     fn recent_steps_merge_chunks_and_updates_and_keep_last_five_in_order() {
         // Property: recent steps merge chunks and updates and keep last five in order.
         let mut timeline = Timeline::default();
-        let snapshot = |t: &Timeline| t.session(&json!({"id":"example"}), "arc-task", None);
+        let snapshot =
+            |t: &Timeline| t.session("example", &json!({"id":"example"}), "arc-task", None);
         assert_eq!(snapshot(&timeline)["recentSteps"], json!([]));
         timeline.chunk("thinking", "First", AT);
         timeline.chunk("thinking", " second", AT);
@@ -1840,12 +1838,13 @@ mod tests {
             "running",
             LATER,
         );
-        let row = t.session(&info, "codex-thread", None);
+        let row = t.session(string(&info, "id"), &info, "codex-thread", None);
         assert_eq!(row["phase"], "thinking");
         assert_eq!(row["headline"], "");
         assert_eq!(row["fallbackHeadline"], "Task title");
         assert_eq!(
-            t.session(&json!({"id":"example"}), "codex-thread", None)["fallbackHeadline"],
+            t.session("example", &json!({"id":"example"}), "codex-thread", None)
+                ["fallbackHeadline"],
             "User request"
         );
         t.codex_item(
@@ -1854,12 +1853,12 @@ mod tests {
             LATER,
         );
         assert_eq!(
-            t.session(&info, "codex-thread", None)["fallbackHeadline"],
+            t.session(string(&info, "id"), &info, "codex-thread", None)["fallbackHeadline"],
             "printf example"
         );
         t.codex_item(&json!({"id":"f","type":"fileChange","changes":[{"path":"src/example.rs","kind":{"type":"update"}}]}), "completed", LATER);
         assert_eq!(
-            t.session(&info, "codex-thread", None)["fallbackHeadline"],
+            t.session(string(&info, "id"), &info, "codex-thread", None)["fallbackHeadline"],
             "src/example.rs"
         );
         t.codex_item(
@@ -1867,7 +1866,7 @@ mod tests {
             "completed",
             LATER,
         );
-        let row = t.session(&info, "codex-thread", None);
+        let row = t.session(string(&info, "id"), &info, "codex-thread", None);
         assert_eq!(row["fallbackHeadline"], "Latest readable text");
         assert_eq!(row["recentContent"].as_array().unwrap().len(), 3);
     }
@@ -2037,6 +2036,7 @@ mod tests {
         );
         assert_eq!(t.execution_evidence(), true);
         let snapshot = t.session(
+            "task-example",
             &json!({"id":"task-example","title":"Example","startedAt":AT}),
             "arc-task",
             None,
@@ -2098,9 +2098,12 @@ mod tests {
         );
         let request = json!({"id":17,"params":{"toolCall":{"toolCallId":"command","command":"printf example"}}});
         t.agent("session/request_permission", &request, LATER);
-        assert_eq!(t.session(&info, "arc-task", None)["phase"], "interaction");
+        assert_eq!(
+            t.session(string(&info, "id"), &info, "arc-task", None)["phase"],
+            "interaction"
+        );
         t.resolve(&json!(17), LATER);
-        let snapshot = t.session(&info, "arc-task", None);
+        let snapshot = t.session(string(&info, "id"), &info, "arc-task", None);
         assert_eq!(snapshot["phase"], "command");
         assert_eq!(snapshot["headline"], "printf example");
         assert_eq!(snapshot["phaseSince"], AT);
@@ -2112,14 +2115,14 @@ mod tests {
             LATER,
         );
         t.resolve(&json!(17), "2026-01-01T00:00:02.000Z");
-        let snapshot = t.session(&info, "arc-task", None);
+        let snapshot = t.session(string(&info, "id"), &info, "arc-task", None);
         assert_eq!(snapshot["headline"], "printf next");
         assert_eq!(snapshot["phaseSince"], LATER);
         let mut only_interaction = Timeline::default();
         only_interaction.agent("session/request_permission", &request, AT);
         only_interaction.resolve(&json!(17), LATER);
         assert_eq!(
-            only_interaction.session(&info, "arc-task", None)["phase"],
+            only_interaction.session(string(&info, "id"), &info, "arc-task", None)["phase"],
             "idle"
         );
     }
@@ -2147,7 +2150,10 @@ mod tests {
             command_start,
         );
         t.agent("session/request_permission", &json!({"id":17,"params":{"toolCall":{"toolCallId":"command","command":"printf example"}}}), command_start);
-        assert_eq!(t.session(&info, "arc-task", None)["phase"], "interaction");
+        assert_eq!(
+            t.session(string(&info, "id"), &info, "arc-task", None)["phase"],
+            "interaction"
+        );
         t.resolve(&json!(17), "2026-01-01T00:00:03.000Z");
         for status in ["pending", "in_progress"] {
             acp(
@@ -2162,7 +2168,7 @@ mod tests {
                 "2026-01-01T00:00:05.000Z",
             );
             assert!(t.revision > revision);
-            let snapshot = t.session(&info, "arc-task", None);
+            let snapshot = t.session(string(&info, "id"), &info, "arc-task", None);
             assert_eq!(snapshot["phase"], "command");
             assert_eq!(snapshot["headline"], "printf example");
             assert_eq!(snapshot["phaseSince"], command_start);
@@ -2173,13 +2179,16 @@ mod tests {
             json!({"sessionUpdate":"tool_call_update","toolCallId":"command","status":"completed"}),
             "2026-01-01T00:00:06.000Z",
         );
-        assert_eq!(t.session(&info, "arc-task", None)["phase"], "command");
+        assert_eq!(
+            t.session(string(&info, "id"), &info, "arc-task", None)["phase"],
+            "command"
+        );
         acp(
             &mut t,
             json!({"sessionUpdate":"tool_call_update","toolCallId":"write","status":"completed","rawOutput":{"text":"final file output"}}),
             "2026-01-01T00:00:07.000Z",
         );
-        let snapshot = t.session(&info, "arc-task", None);
+        let snapshot = t.session(string(&info, "id"), &info, "arc-task", None);
         assert_eq!(snapshot["phase"], "file");
         assert_eq!(snapshot["phaseSince"], AT);
     }
@@ -2243,7 +2252,7 @@ mod tests {
         assert_eq!(req["id"], 17);
         t.agent("session/request_permission", &req, LATER);
         let info = json!({"id":"task","taskId":"task","agent":"example","startedAt":AT});
-        let snapshot = t.session(&info, "arc-task", None);
+        let snapshot = t.session(string(&info, "id"), &info, "arc-task", None);
         assert_eq!(snapshot["phase"], "interaction");
         assert_eq!(snapshot["headline"], "src/example.rs");
         assert_eq!(
@@ -2417,8 +2426,8 @@ mod tests {
         t.sync_interactions(&requests, "2026-01-01T00:00:02.000Z");
         assert_eq!(t.revision, revision);
         assert_eq!(
-            t.session(&json!({"id":"example"}), "codex-thread", None)["interaction"]["respond"]
-                ["op"],
+            t.session("example", &json!({"id":"example"}), "codex-thread", None)["interaction"]
+                ["respond"]["op"],
             "codex_respond"
         );
         t.sync_interactions(&[], LATER);

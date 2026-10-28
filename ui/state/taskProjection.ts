@@ -2,6 +2,9 @@ import type { AgentTimelineEntry } from "../types.ts";
 import { turnEntries, workState } from "./timelineGroups.ts";
 
 export type TaskState = "running" | "needsYou" | "done" | "failed" | "interrupted" | "unknown";
+export function isTaskId(id: unknown): id is string {
+  return typeof id === "string" && id.trim().length > 0;
+}
 export function taskState(status: string | undefined, live: boolean, pending = false): TaskState {
   if (pending && live) return "needsYou";
   if (live) return "running";

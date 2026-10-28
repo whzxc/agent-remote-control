@@ -16,6 +16,6 @@ export default function TaskQueuedMessages({ queue }: { queue: ReturnType<typeof
       {!!row.error && <p role="alert">{taskErrorText(row.error, "detail.queueDeliveryFailed")}</p>}
     </section>)}
     {/* A revoked local panel identity is not an error in every observed task. */}
-    {queue.error && !/\bSOURCE_REVOKED\b/.test(queue.error) && <p role="alert">{taskErrorText(queue.error, "detail.queueReadFailed")}</p>}
+    {queue.error && !/\bSOURCE_REVOKED\b/.test(queue.error) && <p className="task-queue-error" role="alert">{taskErrorText(queue.error, "detail.queueReadFailed")}</p>}
   </>;
 }

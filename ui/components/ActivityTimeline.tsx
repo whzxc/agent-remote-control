@@ -17,7 +17,7 @@ import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state
 import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
 import { dispatchSourceLabel, SourceBadge, SpecPill } from "./activity";
-import { taskState } from "../state/taskProjection";
+import { isTaskId, taskState } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";
 import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
 import { timelineDuration, timelineGroups, turnDuration } from "../state/timelineGroups";
@@ -52,7 +52,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const continuationBusy = useRef(false);
   const continuationRequest = useRef<{ turnId: string; action: "resume" | "retry"; op: string; args: Record<string, unknown> } | undefined>(undefined);
   const [error, setError] = useState(""), [openError, setOpenError] = useState("");
-  const loading = session.timeline && !timeline && !error;
+  const validId = isTaskId(session.id);
+  const loading = validId && session.timeline && !timeline && !error;
   const viewport = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null);
   const following = useRef(true), initial = useRef(true), previousRunning = useRef(true), previousTop = useRef(0);
   const manualDisclosure = useRef(false);
@@ -60,7 +61,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const external = session.source === "transcript";
   useTaskPresence(agent, session.id, !external);
   // Only current activity establishes execution; persisted running/idle is not a result.
-  const running = !!live;
+  const running = validId && !!live;
 
   const now = useAppNow(running ? 1000 : null);
   const userScroll = useRef(false);
@@ -87,15 +88,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     return () => node.removeEventListener("wheel", wheel);
   }, []);
   useEffect(() => {
-    if (agent !== "codex") return;
+    if (agent !== "codex" || !validId) return;
     let stopped = false;
     void api<TaskRuntime>(`tasks/runtime/${encodeURIComponent(session.id)}`).then(task => {
       if (!stopped) setTaskTitle({ id: session.id, title: task.title?.trim() ?? "" });
     }).catch(() => { /* Use a neutral label when native thread metadata is unavailable. */ });
     return () => { stopped = true; };
-  }, [agent, session.id]);
+  }, [agent, session.id, validId]);
   useEffect(() => {
-    if (!session.timeline) return;
+    if (!validId || !session.timeline) return;
     let stopped = false, timer: ReturnType<typeof setTimeout>, current: AgentTimeline | undefined;
     async function read() {
       try {
@@ -120,7 +121,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     }
     void read();
     return () => { stopped = true; clearTimeout(timer); };
-  }, [agent, session.id, session.timeline, session.conversation, external]);
+  }, [agent, session.id, session.timeline, session.conversation, external, validId]);
   useLayoutEffect(() => {
     const node = viewport.current;
     if (!node || !timeline || manualDisclosure.current) return;
@@ -215,15 +216,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     })().catch(error => setOpenError(String(error))).finally(() => { continuationBusy.current = false; setContinuing(false); });
   };
   // Preserve native conversation identity without borrowing another turn's configuration.
-  const title = (agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
+  const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-narrow={narrow || undefined}>
     <header className="dialog-header task-detail-header">
       <div className="task-detail-navigation"><Button variant="ghost" aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></Button>
-        {!narrow && <div className="actions">{nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
+        {!narrow && <div className="actions">{validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
-        {narrow && (nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
-          ...(nativeSession.open ? [{ label: t("activity.open"), action: () => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); } }] : []),
+        {narrow && (validId && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
+          ...(validId && nativeSession.open ? [{ label: t("activity.open"), action: () => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); } }] : []),
           ...(resizable ? [{ label: t(expanded ? "restorePanelWidth" : "expandPanelWidth"), action: onToggleWidth }] : []),
         ]} /></div>}
       </div>
@@ -271,7 +272,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           if ((event.target as Element).closest("button, .timeline-turn[data-state=closed]")) manualDisclosure.current = true;
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
-          {(error || openError) && <p className="timeline-error" role="alert">{taskErrorText(openError || error)}</p>}
+          {(!validId || error || openError) && <p className="timeline-error" role="alert">{!validId ? t("detail.taskUnavailable") : taskErrorText(openError || error)}</p>}
           {timeline?.coverage.state === "partial" && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
           {!session.timeline && <section className="activity-session-summary">
             {executionPhase(nativeSession.phase, state) && <span className="timeline-meta">{t(`activity.phase.${nativeSession.phase}`)}</span>}

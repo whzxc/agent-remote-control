@@ -525,7 +525,7 @@ impl AgentHost {
                         .insert(timeline.turn.clone(), summary);
                 }
             }
-            let mut session = timeline.session(&info, "arc-task", None);
+            let mut session = timeline.session(string(&state, "taskId"), &info, "arc-task", None);
             session["nativeSessionId"] = state["sessionId"].clone();
             session["agentAccountId"] = state["agentAccountId"].clone();
             if state["origin"].is_object() {
@@ -550,7 +550,7 @@ impl AgentHost {
                 activity::insert(
                     &mut agents,
                     "codex",
-                    timeline.session(&timeline.info, "codex-thread", None),
+                    timeline.session(id, &timeline.info, "codex-thread", None),
                 );
             }
         }

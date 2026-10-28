@@ -1207,6 +1207,7 @@
   "detail.sourceRevoked": "控制源已断开。请重新连接后再尝试此操作。",
   "detail.queueDeliveryFailed": "这条排队消息未能送达。请先检查消息状态，再尝试操作。",
   "detail.queueReadFailed": "暂时无法刷新排队消息。",
+  "detail.taskUnavailable": "暂时无法读取任务详情，请关闭面板后重新打开任务。",
   "detail.noFinalReply": "暂无最终回复",
   "detail.turnProgress": "第 {count} 轮 · {state}",
   "detail.planProgress": "计划已完成 {completed} / {total} 步",

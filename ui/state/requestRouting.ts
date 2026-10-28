@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { isTaskId } from "./taskProjection";
 import type { AgentInteraction } from "../types";
 
 export interface RequestRouting {
@@ -11,7 +12,7 @@ export interface RequestRouting {
 let presenceWrites = Promise.resolve();
 export function useTaskPresence(agent: string, taskId: string, enabled: boolean) {
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !isTaskId(taskId)) return;
     // Serial requests keep blur/close from being overtaken by an earlier heartbeat.
     const send = (present: boolean) => {
       presenceWrites = presenceWrites.then(() => api("tasks/presence", "POST", { agent, taskId, present })).then(() => {}, () => {});
@@ -45,7 +46,7 @@ export function useRequestRouting(agent: string, taskId: string, interaction?: A
   current.current = identity;
   useEffect(() => {
     setRouting(undefined); setError(""); setBusy(false); pending.current = false;
-    if (id === undefined) return;
+    if (id === undefined || !isTaskId(taskId)) return;
     let stopped = false;
     const read = async () => {
       if (pending.current) return;
@@ -62,7 +63,7 @@ export function useRequestRouting(agent: string, taskId: string, interaction?: A
     return () => { stopped = true; clearInterval(timer); };
   }, [agent, taskId, id]);
   const change = async (action: "pause" | "resume" | "handoff") => {
-    if (id === undefined || pending.current || action === "pause" && routing && routing.state !== "deferred") return;
+    if (id === undefined || !isTaskId(taskId) || pending.current || action === "pause" && routing && routing.state !== "deferred") return;
     pending.current = true; version.current++; setBusy(true);
     try {
       const result = await api<{ routing: RequestRouting }>("tasks/request-routing", "POST", { agent, taskId, id, action });

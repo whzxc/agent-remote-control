@@ -10,6 +10,36 @@ fn types(t: &Timeline) -> Vec<&str> {
 }
 
 #[test]
+fn session_identity_survives_missing_or_stale_metadata() {
+    // Regression: active timelines exposed id:null before metadata loaded and lost the owning task in reply arguments.
+    let id = "00000000-0000-4000-8000-000000000001";
+    let mut timeline = Timeline::default();
+    timeline.codex("turn/started", &json!({"turn":{"id":"turn"}}), AT);
+    for info in [
+        Value::Null,
+        json!({}),
+        json!({"id":"stale","taskId":"stale","agent":"example"}),
+    ] {
+        let row = timeline.session(id, &info, "codex-thread", None);
+        assert_eq!(row["id"], id);
+        assert_eq!(row["turnId"], "turn");
+        if let Some(open) = row.get("open") {
+            assert_eq!(open["taskId"], id);
+        }
+        let pending = json!({"kind":"question","respond":{"op":"agent_respond","args":{"interactionId":"question"}}});
+        let row = timeline.session(id, &info, "arc-task", Some(pending));
+        assert_eq!(row["id"], id);
+        assert_eq!(row["interaction"]["respond"]["args"]["taskId"], id);
+        assert_eq!(
+            row["interaction"]["respond"]["args"]["interactionId"],
+            "question"
+        );
+    }
+    timeline.info = json!({"id":"stale"});
+    assert_eq!(timeline.transcript_session(id, "claude")["id"], id);
+}
+
+#[test]
 fn claude_thinking_only_tail_preserves_activity_without_role_or_uuid() {
     // Regression: b9ed45b3 dropped thinking-only Claude records without message.role or uuid, leaving activity headlines empty.
     let now = std::time::SystemTime::from(
@@ -85,7 +115,7 @@ fn live_acp_and_claude_backfill_have_equivalent_entry_order() {
     assert_eq!(types(&live), types(&history));
     for field in ["phase", "headline", "recentSteps", "turnStartedAt"] {
         assert_eq!(
-            live.session(&json!({"id":"fixture"}), "arc-task", None)[field],
+            live.session("fixture", &json!({"id":"fixture"}), "arc-task", None)[field],
             history.transcript_session("fixture", "claude")[field]
         );
     }
@@ -194,7 +224,8 @@ fn codex_rollout_and_items_use_the_same_normalization() {
     assert_eq!(history.entries[1]["paths"], json!(["a", "b"]));
     assert_eq!(history.entries[1]["changes"][0]["added"], 1);
     assert_eq!(history.entries[1]["changes"][0]["removed"], 1);
-    let phase = history.session(&json!({"id":"fixture"}), "arc-task", None)["phase"].clone();
+    let phase =
+        history.session("fixture", &json!({"id":"fixture"}), "arc-task", None)["phase"].clone();
     for (method, params) in [
         (
             "error",
@@ -217,7 +248,7 @@ fn codex_rollout_and_items_use_the_same_normalization() {
     }
     assert_eq!(history.status, "inProgress");
     assert_eq!(
-        history.session(&json!({"id":"fixture"}), "arc-task", None)["phase"],
+        history.session("fixture", &json!({"id":"fixture"}), "arc-task", None)["phase"],
         phase
     );
     assert_eq!(
@@ -300,7 +331,7 @@ fn acp_notices_patch_compaction_without_changing_turn_state() {
     assert_eq!(t.entries[3]["summary"]["text"], "Keep facts");
     assert_eq!(t.entries[3]["notice"]["nativeStatus"], "failed");
     assert_eq!(
-        t.session(&json!({"id":"fixture"}), "arc-task", None)["phase"],
+        t.session("fixture", &json!({"id":"fixture"}), "arc-task", None)["phase"],
         "thinking"
     );
     acp(

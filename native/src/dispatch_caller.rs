@@ -153,7 +153,7 @@ mod tests {
                 "2026-01-01T00:00:00Z",
             );
             let history = timeline.response(&session, 0);
-            let activity = timeline.session(&json!({"id":session}), "arc-task", None);
+            let activity = timeline.session(&session, &Value::Null, "arc-task", None);
             for summary in [
                 &history["dispatchSummary"],
                 &history["turnDispatchSummaries"][&turn],

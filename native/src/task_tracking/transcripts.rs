@@ -164,9 +164,8 @@ impl Timeline {
         if !info.is_object() {
             info = json!({});
         }
-        info["id"] = json!(id);
         info["title"] = json!(self.prompt_headline());
-        let mut row = self.session(&info, "transcript", None);
+        let mut row = self.session(id, &info, "transcript", None);
         // A transcript's user prompt represents thinking while native work starts.
         if row["phase"] == "idle" {
             row["phase"] = json!("thinking");
