@@ -92,7 +92,15 @@ fn process() -> Value {
     if result != 0 {
         return unavailable();
     }
-    json!({"state":"available","cpuTotalMs":(info.ri_user_time as f64+info.ri_system_time as f64)/1_000_000.0,
+    // proc_pid_rusage CPU counters use Mach ticks, not nanoseconds. getrusage
+    // exposes CPU seconds/microseconds independently of the machine timebase.
+    let mut cpu: libc::rusage = unsafe { std::mem::zeroed() };
+    // SAFETY: getrusage writes one correctly sized record owned by this call.
+    if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut cpu) } != 0 {
+        return unavailable();
+    }
+    let ms = |v: libc::timeval| v.tv_sec as f64 * 1000.0 + v.tv_usec as f64 / 1000.0;
+    json!({"state":"available","cpuTotalMs":ms(cpu.ru_utime)+ms(cpu.ru_stime),
         "residentBytes":info.ri_resident_size,"physicalFootprintBytes":info.ri_phys_footprint,
         "diskReadBytes":info.ri_diskio_bytesread,"diskWriteBytes":info.ri_diskio_byteswritten})
 }

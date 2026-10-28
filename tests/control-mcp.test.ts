@@ -2831,3 +2831,17 @@ test('runtime diagnostics expose bounded content-free counters through query and
   assert.equal(persisted.instance, first.instance);
   assert.equal(persisted.samples, summary.samples);
 });
+
+test('macOS runtime CPU milliseconds agree with native process accounting', async () => {
+  // Regression: Mach ticks were mislabeled as nanoseconds, understating Apple Silicon CPU by its timebase ratio.
+  if (process.platform !== 'darwin') return;
+  const first = (await call('runtime_metrics')).result;
+  const cpuMs = () => execFileSync('/bin/ps', ['-p', String(first.pid), '-o', 'time='], {encoding:'utf8'})
+    .trim().split(':').reduce((seconds, value) => seconds * 60 + Number(value), 0) * 1000;
+  const before = cpuMs();
+  const report = (await call('runtime_metrics')).result;
+  const after = cpuMs();
+  assert.equal(report.pid, first.pid);
+  assert.ok(report.process.cpuTotalMs >= before - 10);
+  assert.ok(report.process.cpuTotalMs <= after + 10);
+});
