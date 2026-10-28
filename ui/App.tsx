@@ -1,3 +1,5 @@
+import { StudioBackground, StudioControls } from './display/Studio';
+import { studioEnabled } from './display/state';
 import PetsPage, { PetsSwitch } from "./pets/PetsPage";
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
@@ -54,6 +56,7 @@ import PermissionsPage from "./components/PermissionsPage";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 export default function App() {
   locale.use();
+  const studio = studioEnabled.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
@@ -213,6 +216,7 @@ export default function App() {
   return (
     <div
       className={`app-scene ${sheetWide ? "sheet-wide" : ""} ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
+      data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => capturePanelOrigin(e.target)}
       onKeyDown={(e) => {
         if (
@@ -243,6 +247,8 @@ export default function App() {
         }
       }}
     >
+      <StudioBackground clockVisible={page === "overview" && !welcome && !modalOpen} />
+      <StudioControls available={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}

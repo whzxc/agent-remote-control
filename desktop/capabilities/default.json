@@ -20,6 +20,7 @@
     "notification:default",
     "window-state:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-fullscreen",
     "clipboard-manager:allow-write-text"
   ]
 }

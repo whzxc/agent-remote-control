@@ -28,16 +28,17 @@
 @media (prefers-reduced-motion: reduce) { .pet-sprite[data-animated] { animation: none; } }
 
 .pet-cards { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
-.pet-card { position: absolute; top: 0; left: 0; display: block; width: 22px; height: 15px; border-radius: 3px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow); }
-.pet-card[data-tone="success"] { background: var(--success); }
-.pet-card[data-tone="danger"] { background: var(--danger); }
+.pet-card { position: absolute; top: 0; left: 0; display: block; width: 112px; height: 28px; padding: 6px 8px 6px 12px; border-radius: 8px; border: 1px solid var(--border-strong); border-left: 4px solid var(--pet-task-color, var(--accent)); background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-size: 10px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pet-card[data-tone="success"] { border-color: var(--success); background: var(--surface); }
+.pet-card[data-tone="danger"] { border-color: var(--danger); background: var(--surface); }
 .topology-pet[data-dangling][data-motion] .pet-sprite { transform-origin: top center; animation: pet-frames var(--pet-cadence) steps(var(--pet-frames)) infinite, pet-struggle 350ms ease-in-out infinite alternate; }
 @keyframes pet-struggle { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
 @media (prefers-reduced-motion: reduce) { .topology-pet[data-dangling][data-motion] .pet-sprite { animation: none; } }
 
-.pet-carried-card { position: absolute; width: 18px; height: 12px; right: 8px; bottom: 14px; border-radius: 2px; background: var(--surface); border: 1px solid var(--border-strong); pointer-events: none; transform: rotate(-12deg); }
-.pet-carried-card[data-tone="success"] { background: var(--success); }
-.pet-carried-card[data-tone="danger"] { background: var(--danger); }
+.pet-carried-card { position: absolute; width: 68px; height: 22px; left: 58%; bottom: 12px; border-radius: 5px; padding: 4px 5px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-left: 3px solid var(--pet-task-color, var(--accent)); box-shadow: 0 2px 5px #0001; pointer-events: none; transform: rotate(-8deg); font-size: 8px; line-height: 12px; }
+.pet-carried-card > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pet-carried-card[data-tone="success"] { border-bottom-color: var(--success); }
+.pet-carried-card[data-tone="danger"] { border-bottom-color: var(--danger); }
 
 .pet-pose { display: block; position: relative; transform-origin: center bottom; }
 .topology-pet[data-motion] .pet-pose { animation-duration: var(--pet-beat); animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
@@ -62,3 +63,13 @@
 @keyframes pet-peek { 0%, 100% { transform: translateX(-3px) rotate(-4deg); } 50% { transform: translateX(3px) rotate(4deg); } }
 @keyframes pet-lean { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(-8deg); } }
 @media (prefers-reduced-motion: reduce) { .topology-pet .pet-pose { animation: none !important; } }
+
+.topology-pet[data-motion] .pet-pose[data-contact="sit"] { animation: pet-perch 3s ease-in-out infinite; }
+.topology-pet[data-motion] .pet-pose[data-contact="swing"] { animation: pet-swing 2.7s ease-in-out infinite alternate; }
+.topology-pet[data-motion] .pet-pose[data-contact="pull"] { animation: pet-pull 1.8s ease-in-out infinite; }
+@keyframes pet-perch { 0%, 100% { transform: translateY(0) scaleY(.92); } 50% { transform: translateY(2px) scaleY(.94); } }
+@keyframes pet-swing { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+@keyframes pet-pull { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-12deg) translateX(-5px); } }
+@media (prefers-reduced-motion: reduce) { .topology-pet .pet-pose[data-contact] { animation: none !important; transform: none; } }
+
+.topology-pet[data-card-side="left"] .pet-carried-card { left: auto; right: 58%; transform: rotate(8deg); }

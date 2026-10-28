@@ -54,6 +54,24 @@ try {
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
+        if (fixture.studio) {
+          // Regression: changing studio lighting must not replace the saved application theme.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const settings = page.getByRole('button', { name: messages['studio.settings'], exact: true });
+          await page.getByTitle(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
+          await settings.click();
+          const phase = fixture.studio === 'night' ? 'day' : 'night';
+          await page.getByRole('radio', { name: messages[`studio.${phase}`], exact: true }).click();
+          await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, phase === 'day' ? 'light' : 'dark');
+          const enabled = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
+          await enabled.click();
+          await page.getByTitle(messages['studio.clock'], { exact: true }).waitFor({ state: 'hidden' });
+          await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, fixture.theme);
+          await enabled.click();
+          await page.getByRole('radio', { name: messages[`studio.${fixture.studio}`], exact: true }).click();
+          await page.keyboard.press('Escape');
+          await settings.waitFor({ state: 'visible' });
+        }
         if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {
           // Regression: activity disappearance and unrelated review failures changed execution results.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -234,7 +252,8 @@ try {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           for (const task of fixture.tasks.filter((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`))) {
-            const bubble = page.getByRole('button').filter({ has: page.getByText(task.title, { exact: true }) });
+            const title = task.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const bubble = page.getByRole('button', { name: new RegExp(`^${title} ·`) });
             const bounds = await bubble.boundingBox();
             if (!bounds) throw new Error('Completed task is unavailable for mark-read acceptance');
             await bubble.dragTo(bubble, {

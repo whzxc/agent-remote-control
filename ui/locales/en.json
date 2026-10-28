@@ -1496,5 +1496,15 @@
   "pets.setDefault": "Set as default",
   "pets.localZip": "Local ZIP",
   "pets.remove": "Remove {name}",
-  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…"
+  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…",
+  "studio.settings": "Display settings",
+  "studio.enabled": "Studio display",
+  "studio.light": "Lighting",
+  "studio.auto": "Auto",
+  "studio.day": "Day",
+  "studio.night": "Night",
+  "studio.clock": "Local time",
+  "studio.fullscreen": "Enter full screen",
+  "studio.exitFullscreen": "Exit full screen",
+  "studio.fullscreenFailed": "Could not change full screen. Try the window’s full-screen command."
 }

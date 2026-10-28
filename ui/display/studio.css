@@ -1,0 +1,28 @@
+.studio-backdrop { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: var(--studio-wall); }
+.studio-image { position: absolute; inset: 0; background-size: cover; background-position: center; transition: opacity 160ms ease; }
+.studio-day { background-image: url('/studio/landscape-day.webp'); }
+.studio-night { background-image: url('/studio/landscape-night.webp'); opacity: 0; }
+.studio-backdrop[data-phase="night"] .studio-day { opacity: 0; }
+.studio-backdrop[data-phase="night"] .studio-night { opacity: 1; }
+.studio-atmosphere { position: absolute; inset: 0; background: radial-gradient(ellipse at 52% 45%, var(--studio-veil), transparent 72%); }
+.app-scene[data-display="studio"] .home-workspace { position: relative; }
+.app-scene[data-display="studio"] .connection-core { background: transparent; }
+.app-scene[data-display="studio"] .core-toggle { top: clamp(88px, 11dvh, 116px); }
+.studio-clock { position: absolute; top: clamp(40px, 5dvh, 60px); left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; font-size: clamp(25px, 2.5vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .06em; line-height: 1; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
+.studio-controls { position: absolute; right: var(--dock-left); bottom: var(--dock-bottom); z-index: 50; border-radius: 50%; padding: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); opacity: .7; transition: opacity 160ms ease; }
+.studio-controls:hover, .studio-controls:focus-within, .studio-controls:has([data-state="open"]) { opacity: 1; }
+.studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.studio-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-weight: 500; }
+@media (orientation: portrait) {
+  .studio-day { background-image: url('/studio/portrait-day.webp'); }
+  .studio-night { background-image: url('/studio/portrait-night.webp'); }
+  .studio-clock { left: auto; right: clamp(24px, 9vw, 140px); top: clamp(54px, 6dvh, 100px); transform: none; font-size: clamp(26px, 4vw, 44px); }
+  .app-scene[data-display="studio"] .core-toggle { top: clamp(48px, 6dvh, 96px); }
+}
+@media (max-width: 600px) {
+  .studio-clock { top: 34px; left: auto; right: 22px; transform: none; font-size: 24px; }
+  .app-scene[data-display="studio"] .core-toggle { top: 70px; }
+  .studio-controls { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .studio-image, .studio-controls { transition: none; } }
+:root[data-reduced-motion="true"] .studio-image, :root[data-reduced-motion="true"] .studio-controls { transition: none; }

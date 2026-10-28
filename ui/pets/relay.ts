@@ -5,7 +5,7 @@ export const RETURN_MS = 2_000;
 export const SPEECH_MS = 30_000;
 export interface RelayTask {
   key: string; taskId: string; agent: string; sourceId?: string; accountId?: string | null;
-  turn: string; dispatchId?: string; state: TaskState; phaseSince?: number; at: number;
+  turn: string; title?: string; dispatchId?: string; state: TaskState; phaseSince?: number; at: number;
   review?: { id: string; verdict: 'pass' | 'rework' };
 }
 export type IntentKind = 'dispatch' | 'carry' | 'urge' | 'return' | 'praise' | 'rework';
@@ -64,3 +64,23 @@ export function presentPet(lastEngaged: number, resident: boolean, now: number) 
   return { present: resident || now - lastEngaged < IDLE_MS + RETURN_MS, returning: !resident && now - lastEngaged >= IDLE_MS };
 }
 export function maySpeak(lastSpoken: number | undefined, now: number) { return lastSpoken === undefined || now - lastSpoken >= SPEECH_MS; }
+
+export interface LoopPair { sourceId: string; agent: string }
+// A pair is established only by observed task attribution. Activity on an
+// unrelated source or Agent cannot silently change one half of a relay.
+export function selectLoopPair(tasks: readonly RelayTask[], previous: LoopPair | undefined, sources: ReadonlySet<string>, agents: ReadonlySet<string>): LoopPair | undefined {
+  const valid = (pair: LoopPair) => sources.has(pair.sourceId) && agents.has(pair.agent);
+  const rank = (task: RelayTask) => task.state === 'needsYou' ? 3 : task.state === 'running' ? 2 : task.state === 'unknown' ? 1 : 0;
+  const candidates = tasks.filter(task => task.sourceId && valid({ sourceId: task.sourceId, agent: task.agent }))
+    .sort((a, b) => rank(b) - rank(a) || b.at - a.at || a.key.localeCompare(b.key));
+  const first = candidates[0];
+  if (!first) return previous && valid(previous) ? previous : undefined;
+  const retained = previous && candidates.find(task => task.sourceId === previous.sourceId && task.agent === previous.agent && rank(task) === rank(first));
+  const chosen = retained ?? first;
+  return { sourceId: chosen.sourceId!, agent: chosen.agent };
+}
+export function taskColor(key: string): string {
+  let hash = 0;
+  for (const letter of key) hash = (hash * 31 + letter.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360} 58% 48%)`;
+}

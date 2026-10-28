@@ -1,0 +1,26 @@
+{
+  "studio": "night",
+  "pets": true,
+  "theme": "dark",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Refine display mode",
+      "headline": "Updating the studio layout"
+    },
+    {
+      "agent": "codex",
+      "phase": "idle",
+      "completed": true,
+      "title": "Update layout",
+      "headline": "Layout updated"
+    }
+  ]
+}

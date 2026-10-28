@@ -8,15 +8,16 @@ import { reactions, reactionDeck, type PetPose, type PetGesture } from './behavi
 export interface PetActorHandle {
   place: (post: Point, bounds: Point & { top: number }, spawn?: Point, walk?: boolean) => void;
   cue: (row: number, speech?: string, carrying?: boolean, pose?: Pick<PetPose, 'gesture' | 'tempo'>) => void;
+  contact: (kind?: 'sit' | 'swing' | 'pull', pivot?: Point) => void;
   point: () => Point | null;
   available: () => boolean;
   hide: () => void;
 }
-export default function PetActor({ pet, url, label, tag, animate, slow, row = 0, onClick, roam = false, manualPause = 12000, cardTone, size, ref }: {
+export default function PetActor({ pet, url, label, tag, animate, slow, row = 0, onClick, roam = false, manualPause = 12000, cardTone, taskTitle, taskColor, size, ref }: {
   pet: PetPackage; size: PetSize; url: string; label: string; tag?: string; animate: boolean; slow: boolean; row?: number;
-  cardTone?: 'neutral' | 'success' | 'danger'; onClick?: () => void; roam?: boolean; manualPause?: number; ref: Ref<PetActorHandle>;
+  taskTitle?: string; taskColor?: string; cardTone?: 'neutral' | 'success' | 'danger'; onClick?: () => void; roam?: boolean; manualPause?: number; ref: Ref<PetActorHandle>;
 }) {
-  const button = useRef<HTMLButtonElement>(null);
+  const button = useRef<HTMLButtonElement>(null), poseElement = useRef<HTMLSpanElement>(null);
   const position = useRef<Point | null>(null), post = useRef<Point>({ x: 0, y: 0 }), bounds = useRef({ x: 0, y: 0, top: 0 });
   const drag = useRef<{ pointer: number; x: number; y: number; moved: boolean; threshold: number; origin: Point; mode: 'post' | 'placed' } | null>(null);
   const frame = useRef(0);
@@ -31,7 +32,7 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
   const lastFrame = useRef(0);
   const latest = useRef({ animate, row }); latest.current = { animate, row };
   const clear = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const paint = () => { if (button.current && position.current) { button.current.style.transform = `translate(${position.current.x}px, ${position.current.y}px)`; button.current.style.visibility = 'visible'; button.current.style.display = ''; } };
+  const paint = () => { if (button.current && position.current) { button.current.dataset.cardSide = position.current.x + size.width * .58 + 68 > bounds.current.x ? 'left' : 'right'; button.current.style.transform = `translate(${position.current.x}px, ${position.current.y}px)`; button.current.style.visibility = 'visible'; button.current.style.display = ''; } };
   const clamp = (point: Point) => boundPet(point, bounds.current.x, bounds.current.y, bounds.current.top, size);
   const tick = (time: number) => {
     const elapsed = lastFrame.current ? Math.min(50, time - lastFrame.current) : 16; lastFrame.current = time;
@@ -67,6 +68,13 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
     setCueRow(next); if (carried !== undefined) setCarrying(carried);
     if (nextPose) setPose(old => old.gesture === nextPose.gesture && old.tempo === nextPose.tempo ? old : nextPose);
     if (speech && !reacting.current) { setLine(speech); clearTimeout(clear.current); clear.current = setTimeout(() => setLine(''), 2400); }
+  }, contact(kind, pivot) {
+    const el = poseElement.current;
+    if (!el) return;
+    if (kind && mode.current === 'post' && !reacting.current && latest.current.animate) {
+      el.dataset.contact = kind;
+      el.style.transformOrigin = pivot && position.current ? `${pivot.x - position.current.x}px ${pivot.y - position.current.y}px` : kind === 'swing' ? '50% 28%' : '50% 80%';
+    } else { delete el.dataset.contact; el.style.removeProperty('transform-origin'); }
   }, point: () => button.current?.style.display === 'none' ? null : position.current && { x: position.current.x + size.width / 2, y: position.current.y + size.height / 2 },
     available: () => !reacting.current && mode.current !== 'drag' && (mode.current !== 'placed' || roam && Date.now() >= manualUntil.current),
     hide: () => { if (button.current) button.current.style.display = 'none'; cancelAnimationFrame(frame.current); frame.current = 0; } }));
@@ -75,6 +83,7 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
   }, [animate]);
   useEffect(() => () => { cancelAnimationFrame(frame.current); clearTimeout(clear.current); reactionTimers.current.forEach(clearTimeout); }, []);
   function stopReaction() {
+    if (poseElement.current) { delete poseElement.current.dataset.contact; poseElement.current.style.removeProperty('transform-origin'); }
     reactionTimers.current.forEach(clearTimeout); reactionTimers.current = []; reacting.current = false; setReactionGesture(null);
     setAction(null); setLine('');
   }
@@ -132,9 +141,9 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
       reaction.rows.slice(1).forEach((next, index) => reactionTimers.current.push(setTimeout(() => setAction(next), (index + 1) * 700)));
       reactionTimers.current.push(setTimeout(() => { stopReaction(); wake(); }, 2800));
     }}>
-    <span className="pet-pose" data-gesture={reactionGesture ?? (walking !== null ? 'still' : pose.gesture)}>
+    <span ref={poseElement} className="pet-pose" data-gesture={reactionGesture ?? (walking !== null ? 'still' : pose.gesture)}>
       <PetSprite size={size} pet={pet} url={url} row={action ?? walking ?? cueRow} animate={animate} slow={slow} tempo={pose.tempo} delay={delay} />
-      {carrying && <span className="pet-carried-card" data-tone={cardTone} aria-hidden="true" />}
+      {carrying && <span className="pet-carried-card" data-tone={cardTone} style={{ '--pet-task-color': taskColor } as CSSProperties} aria-hidden="true">{taskTitle && <span>{taskTitle}</span>}</span>}
     </span>
     {tag && <span className="pet-name">{tag}</span>}{line && <span className="pet-speech">{line}</span>}
   </button>;

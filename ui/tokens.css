@@ -177,3 +177,35 @@
   --task-attention-ring: color-mix(in srgb, var(--warning) 48%, var(--surface));
   --task-lift: 0 10px 24px -16px color-mix(in srgb, var(--text) 30%, transparent);
 }
+
+/* Studio lighting overrides presentation without changing the saved theme. */
+:root[data-studio-phase="day"] {
+  --studio-wall: #eee4d6;
+  --studio-veil: #fff9ee30;
+  --studio-clock: #61516c;
+  --surface: #fffdf8;
+  --surface-subtle: #f6f0e8;
+  --surface-raised: #fffefa;
+  --text: #302d34;
+  --text-secondary: #625b65;
+  --text-tertiary: #746b76;
+  --border: #d8cfc6;
+  --border-strong: #b9aaa4;
+  --hover: #eee6dd;
+  --shadow: 0 8px 28px #51402b20, 0 1px 3px #51402b12;
+}
+:root[data-studio-phase="night"] {
+  --studio-wall: #272534;
+  --studio-veil: #17152314;
+  --studio-clock: #e3d2ee;
+  --surface: #292735;
+  --surface-subtle: #33303f;
+  --surface-raised: #3a3547;
+  --text: #f8f0e9;
+  --text-secondary: #d5c9d8;
+  --text-tertiary: #c0b5c9;
+  --border: #51475d;
+  --border-strong: #796584;
+  --hover: #443b50;
+  --shadow: 0 10px 32px #100b2380, 0 1px 3px #100b2340;
+}

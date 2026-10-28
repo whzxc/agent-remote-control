@@ -1466,5 +1466,15 @@
   "pets.setDefault": "设为默认",
   "pets.localZip": "本地 ZIP",
   "pets.remove": "删除 {name}",
-  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…"
+  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…",
+  "studio.settings": "展示设置",
+  "studio.enabled": "工作室展示",
+  "studio.light": "光照",
+  "studio.auto": "自动",
+  "studio.day": "白天",
+  "studio.night": "夜晚",
+  "studio.clock": "本地时间",
+  "studio.fullscreen": "进入全屏",
+  "studio.exitFullscreen": "退出全屏",
+  "studio.fullscreenFailed": "无法切换全屏，请尝试窗口的全屏命令。"
 }

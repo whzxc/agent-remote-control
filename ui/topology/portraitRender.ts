@@ -66,6 +66,12 @@ const ns = 'http://www.w3.org/2000/svg';
 export class PortraitPainter {
   private paths = new Map<string, SVGPathElement>();
   private keep = new Set<string>();
+  contact(side: Side, fraction: number) {
+    const path = this.paths.get(`rail${side}`);
+    if (!path?.getAttribute('d')) return undefined;
+    const length = path.getTotalLength();
+    return length > 0 ? path.getPointAtLength(length * Math.max(0, Math.min(1, fraction))) : undefined;
+  }
   constructor(private svg: SVGSVGElement, prefix: string,
     private onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void) {
     const defs = document.createElementNS(ns, 'defs'), gradient = document.createElementNS(ns, 'linearGradient');

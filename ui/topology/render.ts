@@ -27,6 +27,12 @@ export class TopologyPainter {
   private guides: SVGGElement | null = null;
   constructor(readonly svg: SVGSVGElement, readonly prefix: string,
     readonly onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void) {}
+  contact(key: string, fraction: number) {
+    const path = this.groups.get(key)?.hit;
+    if (!path?.getAttribute('d')) return undefined;
+    const length = path.getTotalLength();
+    return length > 0 ? path.getPointAtLength(length * Math.max(0, Math.min(1, fraction))) : undefined;
+  }
   private branch(key: string) {
     let branch = this.groups.get(key);
     if (branch) return branch;

@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { scenarioName } from '../scenarioMode';
 import { api } from '../api';
 import { controlSourcePlatform } from '../controlSources';
 import { isPendingSource } from '../sourcePresentation';
@@ -17,17 +18,22 @@ import { selectAgentPanel } from '../state/overviewPanels';
 import type { TaskReview } from '../state/taskReview';
 import { petBrand, selectPet, type Participant, type Point } from './model';
 import { petAssignments, petAssets, petAsset, petLibrary, refreshPets, showPets } from './state';
-import { arcPoint, maySpeak, petIntents, presentPet, relayPose, taskPetRow, type PetIntent, type RelayTask } from './relay';
+import { arcPoint, maySpeak, petIntents, presentPet, relayPose, taskPetRow, selectLoopPair, taskColor, type LoopPair, type PetIntent, type RelayTask } from './relay';
 import { petSize, taskPost, bubbleWander, type Rect, type PetSize } from './geometry';
 import { setPetSnapshot } from './snapshot';
 import PetActor, { type PetActorHandle } from './PetActor';
 import { usePetMotion } from './usePetMotion';
 import { activityPose, type PetPose } from './behavior';
 import type { AgentPhase } from '../types';
+export type PetInteraction = 'sit' | 'swing' | 'pull';
 export interface PetGeometry {
+  interaction?: (p: Participant, kind: PetInteraction, size: PetSize) => { point: Point; pivot?: Point; targetId?: string } | undefined;
+  feedback?: (targetId: string, amount: number) => void;
   taskFrame: (agent: string, id: string) => Rect | undefined;
   route: (from: Point, to: Point, size: PetSize) => Point[] | undefined;
   participant: (p: Participant, accountId?: string, size?: PetSize) => Point | undefined; task: (agent: string, id: string, accountId?: string) => Point | undefined; bounds: Point & { top: number }; wander: (from: Point, size: PetSize, occupied: (Point & { width: number; height: number })[]) => Point | undefined }
+const requestedAction = import.meta.env.DEV && scenarioName ? new URLSearchParams(location.search).get('petAction') : null;
+const fixtureAction = requestedAction && ['sit', 'swing', 'pull'].includes(requestedAction) ? requestedAction as PetInteraction : undefined;
 export interface PetLayerHandle { layout: () => void }
 export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometry; ref: Ref<PetLayerHandle> }) {
   const enabled = showPets.use(), library = petLibrary.use(), assignments = petAssignments.use(), assets = petAssets.use();
@@ -44,6 +50,9 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const walks = useRef(new Map<string, { point: Point; next: number }>());
   const social = useRef<{ source: string; agent: string; at: number; kind: number; sourcePoint: Point; agentPoint: Point; spoken: Set<string> } | undefined>(undefined);
   const nextSocial = useRef(Date.now() + 8000);
+  const pair = useRef<LoopPair | undefined>(undefined);
+  const scenes = useRef(new Map<string, { next: number; index: number; action?: { kind: PetInteraction; deadline: number; arrived?: number; path: Point[]; target: Point } }>());
+  const feedbackTargets = useRef(new Set<string>());
   const sources = orderedSources().filter(source => source.state !== 'revoked' && !isPendingSource(source, status?.ingresses ?? []));
   const participants: Participant[] = [
     ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, platform: controlSourcePlatform(s.product).id, kind: 'source' as const, brand: petBrand(s.product) })),
@@ -56,7 +65,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     const execution = taskExecution(agent, session.id);
     const state = activityState(session, execution, pendingSessions(agent, session, execution?.interactions ?? [], submissions).length > 0);
     const key = JSON.stringify([agent, session.id]), review = reviews[JSON.stringify([session.id, session.turnId])];
-    return { key, taskId: session.id, agent, sourceId: session.origin?.sourceId ?? record?.origin?.sourceId ?? session.dispatchSummary?.controlSource?.id,
+    return { key, title: session.title, taskId: session.id, agent, sourceId: session.origin?.sourceId ?? record?.origin?.sourceId ?? session.dispatchSummary?.controlSource?.id,
       accountId: accountRows.find(account => account.agentProfiles.some(profile => profile.agent === agent) && accountOwns(account, session.agentAccountId))?.id ?? session.agentAccountId, dispatchId: record?.requestId, turn: session.turnId ?? session.turnStartedAt ?? '', state,
       phaseSince: Date.parse(session.phaseSince ?? ''), at: Date.parse(record?.createdAt ?? session.turnStartedAt ?? session.startedAt ?? '') || 0,
       ...(review ? { review: { id: review.requestId, verdict: review.verdict } } : {}) };
@@ -69,13 +78,12 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     relayTasks.push({ key: JSON.stringify([record.agent, taskId]), taskId, agent: record.agent, sourceId: record.origin.sourceId,
       dispatchId: record.requestId, turn: record.turnId ?? '', state: 'unknown', at: Date.parse(record.createdAt) });
   }
-  // Keep actual activity clocks when a completed task leaves the bubble list.
-  // Source and Agent recency are independent; a dispatch is only one signal.
+  // Keep Agent recency for un-attributed native work. Only observed dispatch
+  // attribution may establish a source/Agent pair.
   const lastActivity = useRef(new Map<string, number>());
   const observe = (id: string, at: number) => {
     if (Number.isFinite(at) && at > (lastActivity.current.get(id) ?? 0)) lastActivity.current.set(id, at);
   };
-  for (const source of sources) observe(`source:${source.id}`, (source.lastSeenAt ?? 0) * 1000);
   for (const [agent, value] of Object.entries(activity?.agents ?? {})) {
     for (const session of value.sessions) {
       observe(`agent:${agent}`, Math.max(...[session.phaseSince, session.turnStartedAt, session.startedAt].map(value => Date.parse(value ?? '') || 0)));
@@ -83,19 +91,22 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   }
   for (const task of relayTasks) {
     observe(`agent:${task.agent}`, Math.max(task.at, task.phaseSince || 0));
-    if (task.sourceId) observe(`source:${task.sourceId}`, task.at);
   }
   for (const record of records) {
     if (!['completed', 'submitted', 'running', 'accepted'].includes(record.state)) continue;
     if (record.agent) observe(`agent:${record.agent}`, Date.parse(record.updatedAt || record.createdAt));
-    if (record.origin?.sourceId) observe(`source:${record.origin.sourceId}`, Date.parse(record.createdAt));
   }
-  const activeAgents = new Set(relayTasks.filter(task => ['running', 'needsYou'].includes(task.state)).map(task => `agent:${task.agent}`));
-  const resident = new Set(['source', 'agent'].flatMap(kind => {
-    const latest = participants.filter(p => p.kind === kind && lastActivity.current.has(p.id))
-      .sort((a, b) => Number(activeAgents.has(b.id)) - Number(activeAgents.has(a.id)) || lastActivity.current.get(b.id)! - lastActivity.current.get(a.id)! || a.id.localeCompare(b.id))[0];
-    return latest ? [latest.id] : [];
-  }));
+  const historyPairs: RelayTask[] = orderedRecords.flatMap(record => record.agent && record.origin?.sourceId && ['submitted', 'running', 'accepted', 'completed'].includes(record.state) ? [{
+    key: record.requestId, taskId: record.taskId ?? record.threadId ?? record.requestId, agent: record.agent,
+    sourceId: record.origin.sourceId, turn: record.turnId ?? '', state: 'done', at: Date.parse(record.createdAt) || 0,
+  }] : []);
+  pair.current = selectLoopPair([...relayTasks, ...historyPairs], pair.current,
+    new Set(sources.map(source => source.id)), new Set(participants.filter(p => p.kind === 'agent').map(p => p.nativeId)));
+  const episode = events.current.find(event => event.at <= now && now - event.at < 4000 && event.task.sourceId && participants.some(p => p.id === `source:${event.task.sourceId}`) && participants.some(p => p.id === `agent:${event.task.agent}`));
+  const visiblePair = episode?.task.sourceId ? { sourceId: episode.task.sourceId, agent: episode.task.agent } : pair.current;
+  const resident = new Set(visiblePair ? [`source:${visiblePair.sourceId}`, `agent:${visiblePair.agent}`] : participants
+    .filter(p => p.kind === 'agent' && lastActivity.current.has(p.id))
+    .sort((a, b) => (lastActivity.current.get(b.id) ?? 0) - (lastActivity.current.get(a.id) ?? 0)).slice(0, 1).map(p => p.id));
   const active = relayTasks.some(task => task.state === 'running' || task.state === 'needsYou');
   const dataKey = JSON.stringify(relayTasks);
   function enqueue(event: PetIntent) {
@@ -104,6 +115,8 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     const previousEvent = events.current.filter(e => e.task.key === event.task.key && e.at + 4000 > event.at).at(-1);
     if (previousEvent && ['urge', 'praise', 'rework'].includes(event.kind)) event.at = previousEvent.at + 4000;
     else events.current = events.current.filter(e => e.task.key !== event.task.key);
+    const otherLoop = events.current.filter(queued => queued.at + 4000 > event.at && (queued.task.sourceId !== event.task.sourceId || queued.task.agent !== event.task.agent)).at(-1);
+    if (otherLoop) event.at = Math.max(event.at, otherLoop.at + 4000);
     events.current.push(event);
   }
   useEffect(() => {
@@ -173,17 +186,20 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     return current.pose;
   }
   function layout() {
+    const g = geometry(), time = Date.now();
+    for (const id of feedbackTargets.current) g.feedback?.(id, 0);
+    feedbackTargets.current.clear();
     if (!enabled) {
-      behaviors.current.clear(); walks.current.clear(); taskWalks.current.clear(); social.current = undefined; nextSocial.current = Date.now() + 8000;
+      behaviors.current.clear(); walks.current.clear(); taskWalks.current.clear(); scenes.current.clear(); social.current = undefined; nextSocial.current = Date.now() + 8000;
       for (const el of cardElements.current.values()) el.remove();
       cardElements.current.clear();
       setPetSnapshot({ petCount: 0, animatedPetCount: 0, taskPetCount: 0, movingCardCount: 0 });
       return;
     }
-    const g = geometry(), time = Date.now();
     const visibleIds = new Set([...rendered.map(({ p }) => p.id), ...taskPets.map(({ task }) => `task:${task.key}`)]);
     for (const id of behaviors.current.keys()) if (!visibleIds.has(id)) behaviors.current.delete(id);
     for (const id of walks.current.keys()) if (!visibleIds.has(id)) walks.current.delete(id);
+    for (const id of scenes.current.keys()) if (!visibleIds.has(id)) scenes.current.delete(id);
     events.current = events.current.filter(event => time - event.at < 4000);
     const poses = events.current.filter(event => event.at <= time).map(event => ({ event, pose: relayPose(event, time) }));
     const nodePoint = (kind: 'agent' | 'source', task: RelayTask, size: PetSize) => {
@@ -196,17 +212,18 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const point = center(p), size = petSize('participant', p.brand === 'other');
       return point ? [{ id: p.id, ...topLeft(point, size), width: size.width, height: size.height + size.tagHeight }] : [];
     });
-    if (!motion.animate || social.current && (time - social.current.at >= 8000 || !visibleIds.has(social.current.source) || !visibleIds.has(social.current.agent)
+    const needsAttention = relayTasks.some(task => task.state === 'needsYou' && (resident.has(`agent:${task.agent}`) || resident.has(`source:${task.sourceId}`)));
+    if (!motion.animate || needsAttention || social.current && (time - social.current.at >= 8000 || !visibleIds.has(social.current.source) || !visibleIds.has(social.current.agent)
       || !actors.current.get(social.current.source)?.available() || !actors.current.get(social.current.agent)?.available()
       || poses.some(({ event }) => `source:${event.task.sourceId}` === social.current?.source || `agent:${event.task.agent}` === social.current?.agent))) social.current = undefined;
-    if (motion.animate && !social.current && time >= nextSocial.current && !poses.length) {
+    if (motion.animate && !needsAttention && !fixtureAction && !social.current && ![...scenes.current.values()].some(scene => scene.action) && time >= nextSocial.current && !poses.length) {
       const sources = rendered.filter(({ p }) => p.kind === 'source' && center(p) && actors.current.get(p.id)?.available());
       const agents = rendered.filter(({ p }) => p.kind === 'agent' && center(p) && actors.current.get(p.id)?.available());
       const source = sources[Math.floor(Math.random() * sources.length)]?.p, agent = agents[Math.floor(Math.random() * agents.length)]?.p;
       nextSocial.current = time + 24000 + Math.random() * 18000;
       if (source && agent) social.current = { source: source.id, agent: agent.id, sourcePoint: center(source)!, agentPoint: center(agent)!, at: time, kind: Math.floor(Math.random() * 3), spoken: new Set() };
     }
-    let petCount = 0, taskPetCount = 0;
+    let petCount = 0, taskPetCount = 0, pulling = false;
     for (const { p, pet } of rendered) {
       const actor = actors.current.get(p.id); if (!actor || !assets[pet.key]) continue;
       const latest = [...poses].reverse().find(({ event }) => p.kind === 'source' ? event.task.sourceId === p.nativeId : event.task.agent === p.nativeId);
@@ -214,6 +231,8 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const atAgent = motion.animate && latest && p.kind === 'source' && latest.pose.sourceAtAgent && nodePoint('agent', latest.event.task, size);
       let point = atAgent || g.participant(p, undefined, size);
       if (!point) { actor.hide(); continue; }
+      const relatedTasks = relayTasks.filter(task => p.kind === 'agent' ? task.agent === p.nativeId : task.sourceId === p.nativeId);
+      const activeTask = relatedTasks.find(task => task.state === 'needsYou') ?? relatedTasks.find(task => ['running', 'unknown'].includes(task.state));
       const encounter = social.current && [social.current.source, social.current.agent].includes(p.id) && !latest ? social.current : undefined;
       if (!actor.available() || latest || encounter) walks.current.delete(p.id);
       else if (motion.animate) {
@@ -221,15 +240,56 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
         if (!walk) { walk = { point: center(p) ? topLeft(center(p)!, size) : point, next: time + 4000 + Math.random() * 7000 }; walks.current.set(p.id, walk); }
         if (time >= walk.next) {
           const from = center(p) ? topLeft(center(p)!, size) : walk.point;
-          walk.point = g.wander(from, size, occupied.filter(other => other.id !== p.id)) ?? from;
+          walk.point = g.wander(from, size, occupied.filter(other => other.id !== p.id)) ?? g.route(from, point, size)?.[0] ?? from;
           walk.next = time + 6500 + Math.random() * 8000;
         }
         point = walk.point;
       } else point = walks.current.get(p.id)?.point ?? (center(p) ? topLeft(center(p)!, size) : point);
       if (!actor.available() && center(p)) point = topLeft(center(p)!, size);
       if (encounter) point = topLeft(p.id === encounter.source ? encounter.sourcePoint : encounter.agentPoint, size);
-      actor.place(point, g.bounds, undefined, !latest); petCount++;
-      const activeTask = relayTasks.find(task => (p.kind === 'agent' ? task.agent === p.nativeId : task.sourceId === p.nativeId) && ['running', 'needsYou', 'unknown'].includes(task.state));
+      let contact: PetInteraction | undefined, pivot: Point | undefined;
+      let scene = scenes.current.get(p.id);
+      if (!scene) { scene = { next: fixtureAction ? time : time + (p.kind === 'source' ? 5000 : 11000), index: p.kind === 'source' ? 0 : 1 }; scenes.current.set(p.id, scene); }
+      if (!motion.animate || !actor.available() || latest || encounter || activeTask?.state === 'needsYou') {
+        scene.action = undefined; scene.next = time + (fixtureAction ? 0 : 8000);
+      } else if (g.interaction) {
+        if (!scene.action && time >= scene.next) {
+          const kind = fixtureAction ?? (['sit', 'swing', 'pull'] as const)[scene.index++ % 3];
+          const spot = g.interaction(p, kind, size);
+          const reserved = spot && [...scenes.current].some(([id, other]) => id !== p.id && other.action && Math.abs(other.action.target.x - spot.point.x) < size.width && Math.abs(other.action.target.y - spot.point.y) < size.height + size.tagHeight);
+          if (spot && !reserved) {
+            const from = center(p) ? topLeft(center(p)!, size) : point;
+            const path = fixtureAction ? [] : g.route(from, spot.point, size);
+            if (path) scene.action = { kind, deadline: time + 35000, path, target: spot.point };
+          }
+          scene.next = time + 15000;
+        }
+        const action = scene.action;
+        if (action) {
+          const spot = g.interaction(p, action.kind, size), current = center(p), from = current ? topLeft(current, size) : point;
+          if (!spot || !fixtureAction && (time >= action.deadline || action.arrived && time - action.arrived >= (action.kind === 'sit' ? 10000 : 6000))) {
+            scene.action = undefined; scene.next = time + 12000;
+          } else {
+            walks.current.delete(p.id);
+            if (Math.hypot(spot.point.x - action.target.x, spot.point.y - action.target.y) > 12) {
+              const path = fixtureAction ? [] : g.route(from, spot.point, size);
+              if (!path) { scene.action = undefined; scene.next = time + 12000; }
+              else { action.path = path; action.target = spot.point; action.arrived = undefined; }
+            }
+            while (action.path.length && Math.hypot(action.path[0].x - from.x, action.path[0].y - from.y) < 5) action.path.shift();
+            point = scene.action ? action.path[0] ?? spot.point : from;
+            if (scene.action && Math.hypot(from.x - spot.point.x, from.y - spot.point.y) < 8) {
+              action.arrived ??= time; contact = action.kind; pivot = spot.pivot;
+              if (contact === 'pull' && spot.targetId) {
+                const elapsed = time - action.arrived;
+                g.feedback?.(spot.targetId, Math.sin(elapsed / 290) * Math.min(1, elapsed / 400));
+                feedbackTargets.current.add(spot.targetId); pulling = true;
+              }
+            }
+          }
+        }
+      }
+      actor.place(point, g.bounds, undefined, !latest && !fixtureAction); actor.contact(contact, pivot); petCount++;
       let pose = behavior(p.id, activeTask, true, time);
       let speech = motion.visible && latest?.pose.speech && p.kind === 'source' && allowSpeech(pairKey(latest.event.task)) ? t(`pets.${latest.pose.speech}`) : undefined;
       if (encounter) {
@@ -240,6 +300,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
           speech = t(`pets.social.${['wave', 'play', 'cheer'][encounter.kind]}.${first ? 'start' : 'reply'}`);
         }
       }
+      if (contact) pose = { row: contact === 'sit' ? 0 : contact === 'swing' ? 3 : 7, gesture: 'still', tempo: 1.4 };
       actor.cue(latest ? p.kind === 'source' ? latest.pose.sourceRow : latest.pose.agentRow : pose.row, speech, undefined, pose);
     }
     const currentTaskKeys = new Set(taskPets.map(({ task }) => task.key));
@@ -253,7 +314,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const anchor = g.task(task.agent, task.taskId, task.accountId ?? undefined);
       let point = (motion.animate && latest?.pose.taskAtAgent) || returning ? start : anchor && taskPost(anchor, size);
       if (!point) { actor.hide(); taskWalks.current.delete(task.key); continue; }
-      const freeToWalk = motion.animate && !latest && !returning && actor.available();
+      const freeToWalk = motion.animate && !latest && !returning && task.state !== 'needsYou' && actor.available();
       if (freeToWalk) {
         const center = actor.point(), from = center ? topLeft(center, size) : start ?? point;
         let walk = taskWalks.current.get(task.key);
@@ -294,33 +355,35 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       if (!pose.card) continue;
       // Missing installed participants do not manufacture a relay card.
       const source = actors.current.get(`source:${event.task.sourceId}`)?.point(), agent = actors.current.get(`agent:${event.task.agent}`)?.point();
-      const task = g.task(event.task.agent, event.task.taskId, event.task.accountId ?? undefined);
+      const task = actors.current.get(`task:${event.task.key}`)?.point() ?? g.task(event.task.agent, event.task.taskId, event.task.accountId ?? undefined);
       const from = pose.card.from === 'source' ? source : pose.card.from === 'agent' ? agent : task;
       const to = pose.card.to === 'source' ? source : agent;
       if (!from || !to || !cards.current) continue;
       let el = cardElements.current.get(event.id);
       if (!el) { el = document.createElement('span'); el.className = 'pet-card'; el.setAttribute('aria-hidden', 'true'); cards.current.append(el); cardElements.current.set(event.id, el); }
+      el.textContent = event.task.title || tracked[event.task.agent]?.find(session => session.id === event.task.taskId)?.title || event.task.agent;
+      el.style.setProperty('--pet-task-color', taskColor(event.task.key));
       const point = arcPoint(from, to, pose.card.progress);
-      el.style.transform = `translate(${point.x}px, ${Math.max(g.bounds.top, point.y)}px) rotate(${pose.card.progress * 12 - 6}deg)`; el.dataset.tone = pose.card.tone;
+      el.style.transform = `translate(${Math.max(0, Math.min(g.bounds.x - 112, point.x - 56))}px, ${Math.max(g.bounds.top, point.y - 14)}px) rotate(${pose.card.progress * 12 - 6}deg)`; el.dataset.tone = pose.card.tone;
       liveCards.add(event.id);
     }
     for (const [id, el] of cardElements.current) if (!liveCards.has(id)) { el.remove(); cardElements.current.delete(id); }
     setPetSnapshot({ petCount, animatedPetCount: motion.animate ? petCount : 0, taskPetCount, movingCardCount: liveCards.size - Number(liveCards.has('social')) });
     clearTimeout(cueTimer.current);
-    if (motion.animate && liveCards.size && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; latestLayout.current(); });
+    if (motion.animate && (liveCards.size || pulling) && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; latestLayout.current(); });
     else if (motion.visible && events.current.length) {
-      const deadlines = events.current.flatMap(event => [150, 650, 800, 900, 1000, 1300, 1700, 2100, 2500, 4000].map(offset => event.at + offset - time)).filter(delay => delay > 0);
-      if (deadlines.length) cueTimer.current = setTimeout(() => latestLayout.current(), Math.min(...deadlines));
+      const deadlines = events.current.flatMap(event => [0, 150, 650, 800, 900, 1000, 1300, 1700, 2100, 2500, 4000].map(offset => event.at + offset - time)).filter(delay => delay > 0);
+      if (deadlines.length) cueTimer.current = setTimeout(() => { setNow(Date.now()); latestLayout.current(); }, Math.min(...deadlines));
     }
   }
   latestLayout.current = layout;
   useImperativeHandle(ref, () => ({ layout }));
   useEffect(() => { layout(); return () => { cancelAnimationFrame(frame.current); clearTimeout(cueTimer.current); frame.current = 0; }; });
-  useEffect(() => () => { setPetSnapshot({ petCount: 0, animatedPetCount: 0, taskPetCount: 0, movingCardCount: 0 }); }, []);
+  useEffect(() => () => { for (const id of feedbackTargets.current) geometry().feedback?.(id, 0); setPetSnapshot({ petCount: 0, animatedPetCount: 0, taskPetCount: 0, movingCardCount: 0 }); }, []);
   const actorRef = (id: string) => (handle: PetActorHandle | null) => { if (handle) actors.current.set(id, handle); else actors.current.delete(id); };
   return <>
     {rendered.map(({ p, pet }) => assets[pet.key] && <PetActor key={p.id} ref={actorRef(p.id)} size={petSize('participant', p.brand === 'other')} pet={pet} url={assets[pet.key]} label={t('pets.participantPet', { name: p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active} roam />)}
-    {taskPets.map(({ task, session, p, pet }) => assets[pet.key] && <PetActor key={`task:${task.key}:${task.turn}`} ref={actorRef(`task:${task.key}`)} size={petSize('task', p.brand === 'other')} pet={pet} url={assets[pet.key]} row={taskPetRow(task.state)} cardTone={task.state === 'done' ? 'success' : ['failed', 'interrupted'].includes(task.state) ? 'danger' : 'neutral'} label={t('pets.taskPet', { name: session.title ?? p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active} roam manualPause={2000}
+    {taskPets.map(({ task, session, p, pet }) => assets[pet.key] && <PetActor key={`task:${task.key}:${task.turn}`} ref={actorRef(`task:${task.key}`)} size={petSize('task', p.brand === 'other')} pet={pet} url={assets[pet.key]} row={taskPetRow(task.state)} taskTitle={session.title ?? p.name} taskColor={taskColor(task.key)} cardTone={task.state === 'done' ? 'success' : ['failed', 'interrupted'].includes(task.state) ? 'danger' : 'neutral'} label={t('pets.taskPet', { name: session.title ?? p.name })} tag={p.brand === 'other' ? p.name : undefined} animate={motion.animate} slow={!active} roam manualPause={2000}
       onClick={() => selectAgentPanel({ type: 'task', agent: task.agent, session })} />)}
     <div ref={cards} className="pet-cards" aria-hidden="true" />
   </>;

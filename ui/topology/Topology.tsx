@@ -1,4 +1,4 @@
-import { participantPost, petSize, bubbleEnd, wanderPost, petPath, type Rect } from '../pets/geometry';
+import { participantPost, petSize, bubbleEnd, wanderPost, petPath, overlaps, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -174,6 +174,41 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     };
     return {
       bounds, taskFrame,
+      interaction: (p, kind, pet) => {
+        if (!hub || latest.current.panelKey || drag.current || orientationPending.current) return undefined;
+        const side = p.kind === 'source' ? -1 : 1;
+        const candidates = latest.current.nodes.filter(n => !n.stacked && n.side === side && nodeRects.has(nodeKey(n.side, n.id)) &&
+          (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
+        const node = (side === -1 ? candidates.find(n => n.id === p.nativeId) : candidates.find(n => !n.account)) ?? candidates[0];
+        if (!node) return undefined;
+        const key = nodeKey(side, node.id), position = animator.current.values(key);
+        let pivot: { x: number; y: number } | undefined;
+        if (kind === 'sit') {
+          const radius = hub.Re * 240 / 130 * 32 / 92;
+          const angle = -Math.PI / 2 + side * .48;
+          pivot = { x: hub.x + Math.cos(angle) * radius, y: hub.y + Math.sin(angle) * radius };
+        } else if (kind === 'swing') {
+          const point = orientation.current === 'portrait' ? portraitPainter.current?.contact(side, .2) : painter.current?.contact(key, .55);
+          if (point) pivot = { x: point.x, y: point.y };
+        } else if (position) pivot = { x: position.x - side * (position.size * position.scale / 2 + 8), y: position.y };
+        if (!pivot) return undefined;
+        const pivots = kind === 'pull' && position ? [pivot, { x: 2 * position.x - pivot.x, y: pivot.y }] : [pivot];
+        for (const contact of pivots) {
+          const horizontal = kind === 'pull' && position ? contact.x > position.x ? .25 : .75 : .5;
+          const point = { x: contact.x - pet.width * horizontal, y: contact.y - pet.height * (kind === 'sit' ? .73 : kind === 'swing' ? .28 : .5) };
+          const footprint = { ...point, width: pet.width, height: pet.height + pet.tagHeight };
+          if (point.x < 0 || point.y < bounds.top || point.x + pet.width > bounds.x || point.y + footprint.height > bounds.y ||
+            bubbleFrames.some(b => overlaps(footprint, b.rect)) || [...nodeRects].some(([id, r]) => !(kind === 'pull' && id === key) && overlaps(footprint, r))) continue;
+          return { point, pivot: contact, ...(kind === 'pull' ? { targetId: key } : {}) };
+        }
+      },
+      feedback: (key, amount) => {
+        const element = elements.current.get(key)?.querySelector<HTMLElement>('.graph-node');
+        if (!element) return;
+        const value = latest.current.reduced || drag.current ? 0 : Math.max(-1, Math.min(1, amount));
+        element.style.translate = value ? `${value * 9}px 0` : '';
+        element.style.rotate = value ? `${value * 5}deg` : '';
+      },
       route: (from, to, size) => petPath(from, to, bounds, [...obstacles, ...bubbleFrames.map(b => b.rect),
         ...(hub ? [{ x: hub.x - hub.Re, y: hub.y - hub.Re, width: hub.Re * 2, height: hub.Re * 2 }] : [])], size),
       wander: (from, pet, occupied) => {
@@ -187,8 +222,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       },
       participant: (p, accountId, size = petSize('participant', p.brand === 'other')) => {
         const side = p.kind === 'source' ? -1 : 1;
-        const candidates = latest.current.nodes.filter(n => n.side === side && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
-        const node = candidates.find(n => accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
+        const candidates = latest.current.nodes.filter(n => !n.stacked && n.side === side && nodeRects.has(nodeKey(n.side, n.id)) && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
+        const node = candidates.find(n => side === -1 && n.id === p.nativeId || accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
         const rect = node && nodeRects.get(nodeKey(side, node.id));
         return rect && hub ? participantPost(rect, { x: hub.x, y: hub.y }, obstacles, bounds, size) : undefined;
       },
