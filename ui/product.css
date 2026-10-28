@@ -1,17 +1,4 @@
 
-.ingress-dialog-title {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.ingress-dialog-title .status {
-  font-size: var(--text-sm);
-  font-weight: 400;
-}
-
-
-
 .connection-core {
   --graph-bg: var(--canvas);
   background: var(--graph-bg);

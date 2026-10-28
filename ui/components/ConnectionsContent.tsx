@@ -54,7 +54,7 @@ export default function ConnectionsContent() {
             {relay && <div><dt className="text-muted-foreground">{t("setup.workerVersion")}</dt><dd className="m-0">{relay.workerVersion ?? "—"}</dd></div>}
           </dl>
           {attached.length > 0 && <div className="flex flex-wrap items-center -space-x-2 gap-y-1" role="group" aria-label={t("source.count", { count: attached.length })}>
-            {attached.map(source => <Tooltip key={source.id} text={source.label}><span tabIndex={0} role="img" aria-label={source.label} className="relative flex size-8 shrink-0 hover:z-10 focus:z-10 items-center justify-center rounded-full border border-border bg-background [&_.source-icon]:size-5 [&_.source-icon_svg]:size-5"><SourceIcon platform={source.product} /></span></Tooltip>)}
+            {attached.map(source => <Tooltip key={source.id} text={source.label}><span tabIndex={0} role="img" aria-label={source.label} className="relative flex size-8 shrink-0 hover:z-10 focus:z-10 items-center justify-center rounded-full border border-border bg-card [&_.source-icon]:size-5 [&_.source-icon_svg]:size-5"><SourceIcon platform={source.product} /></span></Tooltip>)}
           </div>}
           {connection.error && <Notice>{connection.error}</Notice>}
           {relay && <RelaySettings relay={relay} version={relays.version} refresh={relays.refresh} />}

@@ -99,7 +99,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
     <div className={`setup-content ${step === "method" ? "setup-methods" : ""}`}>
       {error && <Notice>{protect(error)}</Notice>}
       {step === "method" && <SingleChoice cards label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
-      {["https", "openai-tunnel"].includes(method) && <div hidden={!editing}><IngressDialog key={method} setupFormId={formId} connectionOnly initialProduct={method === "openai-tunnel" ? "chatgpt" : options.product ?? "custom"}
+      {["https", "openai-tunnel"].includes(method) && <div hidden={!editing}><IngressDialog key={method} setupFormId={formId}
         initialTransport={method === "openai-tunnel" ? "openai-tunnel" : "https"} onBusy={setConfigBusy} onClose={() => setStep("method")} onRemoved={onClose} onSaved={entry => {
           complete(entry.id); void perform(async () => { await api(`ingress/${entry.id}/start`, "POST"); await refreshConnector(); });
         }} /></div>}

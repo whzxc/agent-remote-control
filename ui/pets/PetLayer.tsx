@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { api } from '../api';
 import { controlSourcePlatform } from '../controlSources';
+import { isPendingSource } from '../sourcePresentation';
 import { t } from '../i18n';
 import { connector, orderedSources } from '../state/connector';
 import { agents, name } from '../state/agents';
@@ -8,7 +9,7 @@ import { tasks } from '../state/tasks';
 import { accounts } from '../state/accounts';
 import { accountOwns } from '../accountPresentation';
 import { trackedActivity } from '../state/activityBubbles';
-import { activityApprovals } from '../state/activity';
+import { agentActivity, activityApprovals } from '../state/activity';
 import { taskExecution, taskExecutions } from '../state/taskExecution';
 import { activityState } from '../state/taskExecutionModel';
 import { pendingSessions } from '../state/taskInteractions';
@@ -27,7 +28,8 @@ export interface PetGeometry { participant: (p: Participant, accountId?: string,
 export interface PetLayerHandle { layout: () => void }
 export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometry; ref: Ref<PetLayerHandle> }) {
   const enabled = showPets.use(), library = petLibrary.use(), assignments = petAssignments.use(), assets = petAssets.use();
-  const agentState = agents.use(), records = tasks.use().records, tracked = trackedActivity.use(), submissions = activityApprovals.use(); connector.use(); taskExecutions.use();
+  const agentState = agents.use(), records = tasks.use().records, tracked = trackedActivity.use(), submissions = activityApprovals.use();
+  const { status } = connector.use(), activity = agentActivity.use().snapshot; taskExecutions.use();
   const motion = usePetMotion(), actors = useRef(new Map<string, PetActorHandle>()), speech = useRef(new Map<string, number>());
   const [now, setNow] = useState(Date.now), [reviews, setReviews] = useState<Record<string, TaskReview>>({});
   const previous = useRef(new Map<string, RelayTask>()), seen = useRef(new Set<string>()), events = useRef<PetIntent[]>([]);
@@ -38,10 +40,10 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const walks = useRef(new Map<string, { point: Point; next: number }>());
   const social = useRef<{ source: string; agent: string; at: number; kind: number; sourcePoint: Point; agentPoint: Point; spoken: Set<string> } | undefined>(undefined);
   const nextSocial = useRef(Date.now() + 8000);
-  const sources = orderedSources();
+  const sources = orderedSources().filter(source => source.state !== 'revoked' && !isPendingSource(source, status?.ingresses ?? []));
   const participants: Participant[] = [
     ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, platform: controlSourcePlatform(s.product).id, kind: 'source' as const, brand: petBrand(s.product) })),
-    ...agentState.items.map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), kind: 'agent' as const, brand: petBrand(a.agent) })),
+    ...agentState.items.filter(a => a.installed && a.enabled).map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), kind: 'agent' as const, brand: petBrand(a.agent) })),
   ];
   const accountRows = accounts.use().items;
   const orderedRecords = [...records].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -63,12 +65,33 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     relayTasks.push({ key: JSON.stringify([record.agent, taskId]), taskId, agent: record.agent, sourceId: record.origin.sourceId,
       dispatchId: record.requestId, turn: record.turnId ?? '', state: 'unknown', at: Date.parse(record.createdAt) });
   }
-  const latestDispatch = orderedRecords.find(record => record.agent && record.origin?.sourceId && ['completed', 'submitted', 'running', 'accepted'].includes(record.state));
-  const candidates = [...relayTasks];
-  if (latestDispatch) candidates.push({ key: latestDispatch.requestId, taskId: '', agent: latestDispatch.agent!, sourceId: latestDispatch.origin!.sourceId, turn: '', state: 'unknown', at: Date.parse(latestDispatch.createdAt) });
-  const newest = candidates.filter(task => task.sourceId).sort((a, b) => b.at - a.at)[0];
-  const resident = useRef<{ source: string; agent: string; at: number } | undefined>(undefined);
-  if (newest && (!resident.current || newest.at >= resident.current.at)) resident.current = { source: `source:${newest.sourceId}`, agent: `agent:${newest.agent}`, at: newest.at };
+  // Keep actual activity clocks when a completed task leaves the bubble list.
+  // Source and Agent recency are independent; a dispatch is only one signal.
+  const lastActivity = useRef(new Map<string, number>());
+  const observe = (id: string, at: number) => {
+    if (Number.isFinite(at) && at > (lastActivity.current.get(id) ?? 0)) lastActivity.current.set(id, at);
+  };
+  for (const source of sources) observe(`source:${source.id}`, (source.lastSeenAt ?? 0) * 1000);
+  for (const [agent, value] of Object.entries(activity?.agents ?? {})) {
+    for (const session of value.sessions) {
+      observe(`agent:${agent}`, Math.max(...[session.phaseSince, session.turnStartedAt, session.startedAt].map(value => Date.parse(value ?? '') || 0)));
+    }
+  }
+  for (const task of relayTasks) {
+    observe(`agent:${task.agent}`, Math.max(task.at, task.phaseSince || 0));
+    if (task.sourceId) observe(`source:${task.sourceId}`, task.at);
+  }
+  for (const record of records) {
+    if (!['completed', 'submitted', 'running', 'accepted'].includes(record.state)) continue;
+    if (record.agent) observe(`agent:${record.agent}`, Date.parse(record.updatedAt || record.createdAt));
+    if (record.origin?.sourceId) observe(`source:${record.origin.sourceId}`, Date.parse(record.createdAt));
+  }
+  const activeAgents = new Set(relayTasks.filter(task => ['running', 'needsYou'].includes(task.state)).map(task => `agent:${task.agent}`));
+  const resident = new Set(['source', 'agent'].flatMap(kind => {
+    const latest = participants.filter(p => p.kind === kind && lastActivity.current.has(p.id))
+      .sort((a, b) => Number(activeAgents.has(b.id)) - Number(activeAgents.has(a.id)) || lastActivity.current.get(b.id)! - lastActivity.current.get(a.id)! || a.id.localeCompare(b.id))[0];
+    return latest ? [latest.id] : [];
+  }));
   const active = relayTasks.some(task => task.state === 'running' || task.state === 'needsYou');
   const dataKey = JSON.stringify(relayTasks);
   function enqueue(event: PetIntent) {
@@ -88,9 +111,8 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
         enqueue(event);
       }
       previous.current.set(task.key, task);
-      for (const id of [`agent:${task.agent}`, ...(task.sourceId ? [`source:${task.sourceId}`] : []), `task:${task.key}`]) {
-        if (!engaged.current.has(id) || ['running', 'needsYou'].includes(task.state) || before?.state !== task.state || before?.review?.id !== task.review?.id) engaged.current.set(id, changedAt);
-      }
+      const id = `task:${task.key}`;
+      if (!engaged.current.has(id) || ['running', 'needsYou'].includes(task.state) || before?.state !== task.state || before?.review?.id !== task.review?.id) engaged.current.set(id, changedAt);
     }
     // A timer proposes stable stall intents; the event identity prevents repeated urging for one phase.
     setNow(changedAt); latestLayout.current();
@@ -100,7 +122,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     const tick = () => {
       const time = Date.now();
       for (const task of relayTasks) {
-        if (['running', 'needsYou'].includes(task.state)) for (const id of [`agent:${task.agent}`, `source:${task.sourceId}`, `task:${task.key}`]) engaged.current.set(id, time);
+        if (['running', 'needsYou'].includes(task.state)) engaged.current.set(`task:${task.key}`, time);
         for (const event of petIntents(task, previous.current.get(task.key), time)) enqueue(event);
       }
       setNow(time); latestLayout.current();
@@ -125,8 +147,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     void read(); return () => { stopped = true; clearTimeout(timer); };
   }, [enabled, motion.visible, reviewIds]);
   const participantFor = (kind: 'source' | 'agent', id: string | undefined) => participants.find(p => p.kind === kind && p.nativeId === id);
-  const isResident = (id: string) => id === resident.current?.source || id === resident.current?.agent;
-  const rendered = enabled ? participants.filter(p => relayTasks.some(task => ['running', 'needsYou'].includes(task.state) && (p.kind === 'source' ? task.sourceId === p.nativeId : task.agent === p.nativeId)) || presentPet(engaged.current.get(p.id) ?? -Infinity, isResident(p.id), now).present).flatMap(p => {
+  const rendered = enabled ? participants.filter(p => resident.has(p.id)).flatMap(p => {
     const pet = selectPet(p, library.packages, assignments); return pet ? [{ p, pet }] : [];
   }) : [];
   const taskPets = enabled ? relayTasks.flatMap(task => {

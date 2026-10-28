@@ -6,10 +6,6 @@ import { isDesktop, openUrl } from "../platform";
 import { Button, Group, Icon, Tooltip } from "./ui";
 import { connector, notify } from "../state/connector";
 import { permissions, refreshPermissions, type PermissionItem } from "../state/permissions";
-import type { Ingress } from "../state/types";
-import SourceIcon from "./SourceIcon";
-import IngressDetailsDialog from "./IngressDetailsDialog";
-import IngressDialog from "./IngressDialog";
 
 const systemIds = ["accessibility", "screen-recording", "full-disk-access", "notifications", "login-start"];
 const icons: Record<string, LucideIcon> = { accessibility: Accessibility, "screen-recording": Monitor, "full-disk-access": HardDrive, notifications: Bell, "login-start": LogIn, codex: Monitor, "claude-code": Terminal };
@@ -21,8 +17,6 @@ export default function PermissionsPage() {
   const { data, loading } = permissions.use();
   const [acting, setActing] = useState(false);
   const busy = loading || acting;
-  const [details, setDetails] = useState<Ingress>();
-  const [editing, setEditing] = useState<Ingress>();
   const { status } = connector.use();
   const currentLocale = locale.use();
   useEffect(() => {
@@ -38,7 +32,6 @@ export default function PermissionsPage() {
   ];
   const mac = status?.platform === "darwin";
   const visible = rows.filter(row => row.state !== "not-applicable" && (mac || !systemIds.includes(row.id)));
-  const connections = (status?.ingresses ?? []).map(entry => ({ entry, state: find("ingress:" + entry.id)?.state ?? "unknown" }));
   async function act(id: string) {
     if (id === "codex" || id === "claude-code") {
       await openUrl("https://github.com/whzxc/agent-remote-control/blob/main/docs/" + (currentLocale === "zh-CN" ? "zh-CN/" : "") + "getting-started.md");
@@ -52,9 +45,9 @@ export default function PermissionsPage() {
     } catch (e) { notify(String(e), true); }
     finally { setActing(false); }
   }
-  function badge(state: string, system: boolean, connection = false) {
+  function badge(state: string, system: boolean) {
     const ready = state === "granted";
-    const key = state === "unknown" ? "permissionState.unknown" : connection ? (ready ? "permissionsVerified" : "permissionsUnverified") : ready ? (system ? "permissionsGranted" : "permissionState.granted") : system ? "permissionsNotGranted" : "permissionState.missing";
+    const key = state === "unknown" ? "permissionState.unknown" : ready ? (system ? "permissionsGranted" : "permissionState.granted") : system ? "permissionsNotGranted" : "permissionState.missing";
     return <span className="permission-badge" data-state={state}><Icon icon={ready ? Check : Circle} /><span>{t(key)}</span></span>;
   }
   function row(item: {id: string; state: string}) {
@@ -79,16 +72,6 @@ export default function PermissionsPage() {
     {data && <>
       {mac && <Group title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
       <Group title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>
-      <Group title={t("permissionsConnections")}>
-        {connections.length === 0 && <p className="permission-hint">{t("permissionsNoConnections")}</p>}
-        {connections.map(({entry, state}) => <div className="permission-row" key={entry.id}>
-          <span className="permission-symbol"><SourceIcon platform={entry.controlSource} /></span>
-          <div className="permission-copy"><h3>{entry.name}</h3></div>
-          <div className="permission-actions">{badge(state, false, true)}{state !== "granted" && <Button onClick={() => setDetails(entry)}>{t("permissionsViewConnection")}</Button>}</div>
-        </div>)}
-      </Group>
     </>}
-    {details && <IngressDetailsDialog ingress={details} onClose={() => setDetails(undefined)} onEdit={entry => { setDetails(undefined); setEditing(entry); }} />}
-    {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => { setEditing(undefined); void refreshPermissions().catch(error => notify(String(error), true)); }} onSaved={entry => { setEditing(undefined); setDetails(entry); void refreshPermissions().catch(error => notify(String(error), true)); }} />}
   </div>;
 }
