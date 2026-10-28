@@ -1492,6 +1492,7 @@
   "pets.taskPet": "Open task: {name}",
   "pets.chooseFor": "Pets for {name}",
   "pets.inherit": "Use default",
+  "pets.inheritPlatform": "Use platform setting",
   "pets.setDefault": "Set as default",
   "pets.localZip": "Local ZIP",
   "pets.remove": "Remove {name}",

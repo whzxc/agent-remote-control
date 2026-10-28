@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '../../api';
 import { locale, t } from '../../i18n';
-import { controlSource } from '../../controlSources';
+import { controlSource, controlSourcePlatform } from '../../controlSources';
 import { connector, refreshConnector } from '../../state/connector';
 import { sourceDate } from '../../sourcePresentation';
 import type { ControlSource } from '../../state/types';
@@ -47,7 +47,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
   return <Card asChild className="border-solid border-border shadow-none"><section aria-label={source.label}>
     <CardHeader><div className="flex min-w-0 items-center gap-3"><SourceIcon platform={source.product} /><h3 className="min-w-0 flex-1 break-words">{source.label}</h3>
       <Status tone={source.state === 'connected' ? 'success' : 'neutral'}>{t(`source.state.${source.state}`)}</Status>
-      <PetPicker scope={`source:${source.id}`} name={source.label} />
+      <PetPicker scope={`source:${source.id}`} name={source.label} platform={controlSourcePlatform(source.product).id} />
       <IconButton icon={Trash2} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
       <IconButton icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />
     </div></CardHeader>

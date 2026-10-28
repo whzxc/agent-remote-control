@@ -5,10 +5,12 @@ import { t } from '../i18n';
 import { Button, IconButton, Notice, SingleChoice } from '../components/ui';
 import { assignPet, petAssignments, petLibrary, refreshPets } from './state';
 import PetPreview from './PetPreview';
+import { defaultPet, selectPet } from './model';
 import './pets.css';
-export default function PetPicker({ scope, name }: { scope: string; name: string }) {
+export default function PetPicker({ scope, name, platform }: { scope: string; name: string; platform?: string }) {
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [open, setOpen] = useState(false);
+  const inherited = platform ? selectPet({ id: `platform:${platform}` }, library.packages, assignments) : defaultPet(library.packages, assignments);
   const selected = library.packages.some(p => p.key === assignments[scope]) ? assignments[scope] : '';
   return <Popover.Root open={open} onOpenChange={value => { setOpen(value); if (value) void refreshPets(); }}>
     <Popover.Trigger asChild><IconButton icon={PawPrint} label={t('pets.chooseFor', { name })} /></Popover.Trigger>
@@ -17,7 +19,7 @@ export default function PetPicker({ scope, name }: { scope: string; name: string
       {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
       {!library.packages.length && <p role="status">{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
       <SingleChoice tiles iconOnly label={t('pets.chooseFor', { name })} value={selected} onChange={key => { assignPet(scope, key); setOpen(false); }}
-        options={[{ value: '', label: t('pets.inherit'), icon: PawPrint }, ...library.packages.map(p => ({ value: p.key, label: p.name, graphic: <PetPreview pet={p} /> }))]} />
+        options={[{ value: '', label: t(platform ? 'pets.inheritPlatform' : 'pets.inherit'), ...(inherited ? { graphic: <PetPreview pet={inherited} /> } : { icon: PawPrint }) }, ...library.packages.map(p => ({ value: p.key, label: p.name, graphic: <PetPreview pet={p} /> }))]} />
     </Popover.Content></Popover.Portal>
   </Popover.Root>;
 }

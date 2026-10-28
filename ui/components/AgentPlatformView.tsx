@@ -1,4 +1,5 @@
 import PetPicker from '../pets/PetPicker';
+import { controlSourcePlatform } from '../controlSources';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { t } from '../i18n';
@@ -18,7 +19,7 @@ export default function AgentPlatformView({ agent, widthControl }: { agent: Agen
     <header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} quota={null} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
-      <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
+      <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
     </header>
     <div className="agent-view-scroll">
       {state.error && <Notice>{state.error}</Notice>}

@@ -1462,6 +1462,7 @@
   "pets.taskPet": "打开任务：{name}",
   "pets.chooseFor": "为 {name} 选择宠物",
   "pets.inherit": "跟随默认",
+  "pets.inheritPlatform": "跟随平台设置",
   "pets.setDefault": "设为默认",
   "pets.localZip": "本地 ZIP",
   "pets.remove": "删除 {name}",

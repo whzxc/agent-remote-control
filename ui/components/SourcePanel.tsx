@@ -18,7 +18,7 @@ export default function SourcePanel({ source, widthControl }: { source: ControlS
     <header className="dialog-header source-account-header">
       <div className="source-account-brand"><Button variant="link" aria-label={platform.displayName} onClick={() => { selectSourcePlatform(platform.id); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={platform.id} /></Button></div>
       <div className="source-account-heading"><h2>{label}</h2></div>
-      <div className="actions"><PetPicker scope={`source:${source.id}`} name={label} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
+      <div className="actions"><PetPicker scope={`source:${source.id}`} name={label} platform={platform.id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
     </header>
     <div className="agent-view-scroll"><SourceDispatches sourceId={source.id} /></div>
   </>;

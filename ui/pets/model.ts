@@ -13,7 +13,7 @@ export function petBrand(product: string): PetBrand {
 export function defaultPet(packages: PetPackage[], assignments: Record<string, string>): PetPackage | undefined {
   return packages.find(p => p.key === assignments.default) ?? [...packages].sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key))[0];
 }
-export function selectPet(participant: Participant, packages: PetPackage[], assignments: Record<string, string>): PetPackage | undefined {
+export function selectPet(participant: Pick<Participant, 'id' | 'platform'>, packages: PetPackage[], assignments: Record<string, string>): PetPackage | undefined {
   const scopes = [participant.id, ...(participant.platform ? [`platform:${participant.platform}`] : [])];
   return scopes.map(scope => packages.find(p => p.key === assignments[scope])).find(Boolean) ?? defaultPet(packages, assignments);
 }

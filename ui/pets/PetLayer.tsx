@@ -43,7 +43,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const sources = orderedSources().filter(source => source.state !== 'revoked' && !isPendingSource(source, status?.ingresses ?? []));
   const participants: Participant[] = [
     ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, platform: controlSourcePlatform(s.product).id, kind: 'source' as const, brand: petBrand(s.product) })),
-    ...agentState.items.filter(a => a.installed && a.enabled).map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), kind: 'agent' as const, brand: petBrand(a.agent) })),
+    ...agentState.items.filter(a => a.installed && a.enabled).map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), platform: controlSourcePlatform(a.agent).id, kind: 'agent' as const, brand: petBrand(a.agent) })),
   ];
   const accountRows = accounts.use().items;
   const orderedRecords = [...records].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
