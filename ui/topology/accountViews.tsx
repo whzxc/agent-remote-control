@@ -23,11 +23,11 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
     const unmatched = side === -1 ? members.filter(v => !linked.some(a => a.sources.includes(v.id))) : [];
     const tasks = members.flatMap(v => v.tasks);
     if (linked.length === 1) {
-      // Preserve the existing node, label, quota, badges and panel behavior.
+      // Single-account platforms keep their node, label, quota and bubble slots.
       // Multiple connections of this identity still share just one node.
       const account = linked[0];
       return [{ ...first, label, accountId: account.id, sourceIds: covered.map(v => v.id), tasks,
-        selected: covered.some(v => v.selected) || side === -1 && actions.selectedPlatform === platform, sameIdentity: account.sources.length > 0 && account.agentProfiles.length > 0 }, ...unmatched];
+        selected: covered.some(v => v.selected) || actions.selectedPlatform === platform, sameIdentity: account.sources.length > 0 && account.agentProfiles.length > 0 }, ...unmatched];
     }
     // Equal aliases (including Unidentified) never merge distinct ARC account IDs.
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
@@ -56,11 +56,11 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       } satisfies NodeView;
     });
     const state = side === -1 ? (['normal', 'connecting', 'error', 'inactive'] as const).find(state => covered.some(view => view.state === state)) ?? first.state : first.state;
-    const selected = side === -1 ? actions.selectedPlatform === platform : covered.some(v => v.selected) && !childViews.some(v => v.selected);
+    const selected = actions.selectedPlatform === platform || side === 1 && covered.some(v => v.selected) && !childViews.some(v => v.selected);
     const platformView: NodeView = { ...first, id: side === 1 ? platform : sourcePlatformNodeId(platform), platform, platformRoot: side === -1,
       label, icon: platformIcon, state, sourceIds: covered.map(v => v.id), selected,
       tasks: tasks.filter(t => !linked.some(a => a.id === t.agentAccountId)),
-      content: <GraphNode label={label} state={state} highlighted={selected} onOpen={() => side === -1 ? actions.openPlatform?.(platform) : actions.open(side, platform, first.id)}>
+      content: <GraphNode label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>
         {platformIcon}<span className="graph-node-name">{label}</span>
       </GraphNode>,
     };

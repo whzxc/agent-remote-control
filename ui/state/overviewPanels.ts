@@ -5,6 +5,9 @@ import { sourcePlatformNodeId } from "../topology/accounts";
 import type { Ingress } from "./types";
 
 export const agentPanel = createStore<AgentPanelSelection>(undefined);
+export function agentPanelId(selection: NonNullable<AgentPanelSelection>) {
+  return `${selection.agent}:${selection.platform ? 'platform' : selection.accountId ?? ''}`;
+}
 export type IngressConnectionSelection = { client?: { id: string; name: string; source: string }; ingress: Ingress; editing?: boolean; field?: string; autoConnect?: boolean; closing?: boolean };
 export type SourcePlatformSelection = { platform: string; closing?: boolean };
 export type IngressPanelSelection = IngressConnectionSelection | SourcePlatformSelection;
@@ -15,7 +18,7 @@ export const ingressPanel = createStore<IngressPanelSelection | undefined>(undef
 export function selectAgentPanel(action: AgentPanelAction) {
   connectionSetup.set(undefined);
   onboarding.set(undefined);
-  if (["agent", "toggle", "task"].includes(action.type)) ingressPanel.set(undefined);
+  if (["agent", "toggle", "task", "platform"].includes(action.type)) ingressPanel.set(undefined);
   agentPanel.set(old => agentPanelSelection(old, action));
 }
 export function selectIngressPanel(ingress: Ingress, options: { client?: IngressConnectionSelection["client"]; editing?: boolean; field?: string; autoConnect?: boolean; toggle?: boolean } = {}) {

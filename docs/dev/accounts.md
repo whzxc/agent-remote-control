@@ -116,9 +116,11 @@ One side panel replaces the source panel layer one plus the Remote link source d
 - Header: platform icon linking to the platform panel, `Platform · Alias`, email, width control and close.
 - Content: stacked nonempty activity groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings. There are no tabs or connection controls.
 
-Source platform panels use Account and Connection tabs. Each account is one card combining identity and quota. Alias and plan sit together on the left, with Open account on the right. Shared-quota explanations, Agent links and notifications are omitted. Notification management stays in the Accounts workspace.
+Source platform panels use Account and Connection tabs. Each account is one card combining email and quota. Organization names and identity keys are omitted from platform cards. Alias and plan sit together on the left, with Open account on the right. Shared-quota explanations, Agent links and notifications are omitted. Notification management stays in the Accounts workspace.
 
 The platform header owns the connection runtime switch. It starts or stops the platform's connection; configured-enabled does not imply running. Connection shows the connection name, kind and address, with editing through IngressDialog and access to the connection workspace. It has no account-scoped authorization revocation or co-hosted-source summary. The platform view uses one connection per platform without a multi-connection reconciliation flow. Native source authorization and historical attribution remain account-scoped. Platform state aggregates its sources; any running source keeps the platform active.
+
+Agent platform nodes open a separate platform panel containing account cards and quota in topology account order. It has no connection controls, notification section or conversation list. Selecting an account alias opens that account's Agent activity panel; Open account opens the Accounts workspace. The logo in an Agent activity panel returns to its platform panel. Platform and account selections have distinct identities, so peer switching and closing never select an arbitrary account.
 
 ### Topology
 

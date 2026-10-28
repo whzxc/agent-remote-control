@@ -45,7 +45,7 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
     if (!marker || visible >= dispatches.length) return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) setVisible(count => count + 8);
-    }, { root: marker.closest(".side-panel-scroll, .workspace"), rootMargin: "0px 0px 120px 0px" });
+    }, { root: marker.closest(".agent-view-scroll, .workspace"), rootMargin: "0px 0px 120px 0px" });
     observer.observe(marker);
     return () => observer.disconnect();
   }, [visible, dispatches.length]);

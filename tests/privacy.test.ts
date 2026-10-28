@@ -64,6 +64,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const { default: AddAccount } = await server.ssrLoadModule('/ui/components/AddAccount.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
     const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
+    const { default: AgentPlatformView } = await server.ssrLoadModule('/ui/components/AgentPlatformView.tsx');
     const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
     const { ActivityBubble } = await server.ssrLoadModule('/ui/components/ActivityBubbles.tsx');
     const { CopyField, Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -113,7 +114,16 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     await render(h(Dialog, { title: 'Source platform', onClose() {} }, h(SourcePlatformView, { platform: source.product })));
     assertPrivate();
     await act(async () => setPrivacy(false));
-    assert.ok(page.getByText(sourceAccount.identityKey, { exact: true }));
+    assert.ok(page.getByText(sourceAccount.email, { exact: true }));
+    assert.equal(page.queryByText(sourceAccount.orgName, { exact: true }), null);
+    assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
+    await act(async () => setPrivacy(true));
+    await render(h(Dialog, { title: 'Agent platform', onClose() {} }, h(AgentPlatformView, { agent: { agent: 'codex' } })));
+    assertPrivate();
+    await act(async () => setPrivacy(false));
+    assert.ok(page.getByText(sourceAccount.email, { exact: true }));
+    assert.equal(page.queryByText(sourceAccount.orgName, { exact: true }), null);
+    assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
     const completed = { loginId: 'privacy-confirm', kind: 'claude', state: 'completed', accountId: account.id };
     await render(h(AddAccount, { initialLogin: completed, onClose() {} })); assertPrivate();

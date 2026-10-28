@@ -22,10 +22,10 @@ export default function SourcePanel({ source, widthControl }: { source: ControlS
   const platform = controlSource(source.product)?.displayName ?? agentName({ agent: source.product });
   return <>
     <header className="dialog-header source-account-header">
-      <div className="source-account-brand"><Button variant="ghost" aria-label={platform} onClick={() => { selectSourcePlatform(source.product); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={source.product} /></Button></div>
+      <div className="source-account-brand"><Button variant="link" aria-label={platform} onClick={() => { selectSourcePlatform(source.product); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={source.product} /></Button></div>
       <div className="source-account-heading"><h2>{platform} · {account?.alias ?? t('accounts.identityUnavailable')}</h2><Sensitive>{account?.email}</Sensitive></div>
       <div className="actions">{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
     </header>
-    <div className="side-panel-scroll source-panel-content"><SourceDispatches sourceId={source.id} /></div>
+    <div className="agent-view-scroll"><SourceDispatches sourceId={source.id} /></div>
   </>;
 }

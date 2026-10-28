@@ -1,5 +1,5 @@
 import { useReducedMotion } from "../state/appEnvironment";
-import { agentPanel, selectAgentPanel } from "../state/overviewPanels";
+import { agentPanel, selectAgentPanel, agentPanelId } from "../state/overviewPanels";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
@@ -14,7 +14,8 @@ import { compactAgentVersion, name, type Agent } from "../state/agents";
 import { connector } from "../state/connector";
 import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import { errorLabels } from "../subscriptions/presentation";
-import { Dialog, IconButton, Notice } from "./ui";
+import { Button, Dialog, IconButton, Notice } from "./ui";
+import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations from "./AgentConversations";
 import ActivityTimeline from "./ActivityTimeline";
 import type { SurfaceRect } from "../motion/surface";
@@ -45,7 +46,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   }
   return <section className="agent-panel-layer agent-overview-layer">
     <header className="dialog-header agent-panel-header">
-      <AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual />
+      <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual /></Button>
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
@@ -80,7 +81,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
   const accountState = useAccounts(), account = accountState.items.find(account => accountOwns(account, selected.accountId));
   const reduced = useReducedMotion(), previous = useRef(selected), content = useRef<HTMLDivElement>(null);
   const session = selected.session, taskTitleId = useId();
-  const returning = previous.current.agent === selected.agent && previous.current.accountId === selected.accountId && !!previous.current.session && !session;
+  const returning = !selected.platform && previous.current.agent === selected.agent && previous.current.accountId === selected.accountId && !!previous.current.session && !session;
   useLayoutEffect(() => {
     if (returning) {
       const id = previous.current.session!.id;
@@ -92,16 +93,18 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     }
     previous.current = selected;
   }, [selected]);
+  const panelId = agentPanelId(selected);
   return <Dialog width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
-    originKey={`${agent.agent}:${selected.accountId ?? ""}`} closeRequested={selected.closing}
-    onCloseStart={() => agentPanel.set(old => old?.agent === agent.agent && old.accountId === selected.accountId ? { ...old, closing: true } : old)}
-    onClose={() => { const current = agentPanel.get(); if (current?.agent === agent.agent && current.accountId === selected.accountId && current.closing) selectAgentPanel({ type: "closed" }); }}
-    returnFocus={`[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
+    originKey={panelId} closeRequested={selected.closing}
+    onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
+    onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}
+    returnFocus={selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
     {error && <span className="sr-only" role="status">{t("activity.disconnected")}</span>}
     <div ref={content} className="agent-panel-view">
-      <motion.div className="agent-panel-view" key={`${agent.agent}:${selected.accountId ?? ""}`} style={{ display: session ? "none" : "flex" }}
+      <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-        <AgentView resizable={!dockRect} agent={agent} account={account} accountId={selected.accountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />
+        {selected.platform ? <AgentPlatformView agent={agent} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView resizable={!dockRect} agent={agent} account={account} accountId={selected.accountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
         initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>

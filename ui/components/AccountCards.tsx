@@ -6,10 +6,20 @@ import { t } from '../i18n';
 import { copyText } from '../platform';
 import { sourceDate } from '../sourcePresentation';
 import { boundNotificationSessions, refreshAccounts } from '../state/accounts';
-import { Button, Dialog, Field, Icon, Notice, Status } from './ui';
+import { Button, Dialog, Field, Icon, Notice, Status, Tag } from './ui';
 import { Sensitive, SensitiveInput, useSensitiveText } from './Sensitive';
 import AgentQuota from './AgentQuota';
 import { accountQuotaProvider } from '../subscriptions/accountQuota';
+export function PlatformAccountCard({ account, onOpen, onSelect }: { account: Account; onOpen: () => void; onSelect?: () => void }) {
+  return <section className="account-card" aria-label={account.alias}>
+    <div className="source-section-heading">
+      <div className="actions"><h3>{onSelect ? <Button variant="link" onClick={onSelect}>{account.alias}</Button> : account.alias}</h3>{account.plan && <Tag>{account.plan}</Tag>}</div>
+      <Button variant="link" onClick={onOpen}>{t('accounts.openAccount')}</Button>
+    </div>
+    <Sensitive wrap>{account.email}</Sensitive>
+    <AccountQuota account={account} />
+  </section>;
+}
 export function AccountSharedNotice() {
   return <div className="account-shared-notice" role="note"><Icon icon={Link} /><span>{t('accounts.sharedQuota')}</span></div>;
 }

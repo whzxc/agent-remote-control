@@ -7,7 +7,7 @@ import { accountOwns } from '../accountPresentation';
 import { topologyMode, topologyAccountOrder } from '../topology/accountState';
 import { useAccounts } from '../state/accounts';
 import { scenarioName } from "../scenarioMode";
-import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId } from "../state/overviewPanels";
+import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
 import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
 import { orderActivity, visibleActivity, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
@@ -72,7 +72,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, [newSourceId, flow]);
   const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection;
   const [panelExpanded, setPanelExpanded] = useState(false);
-  const panelKey = selection && !selection.closing ? `agent:${selection.agent}:${selection.accountId ?? ""}`
+  const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
     : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
   appEnvironment.use();
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ width: PANEL_MIN_WIDTH, expanded: false });
@@ -265,7 +265,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: agent.enabled && !panelOpen,
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
-        highlighted={selected} onOpen={() => selectAgentPanel({ type: "toggle", agent: agent.agent, accountId: sharedAccount?.id })}>
+        highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
         <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />
         {selection && !selected && sessions.some(s => s.endedAt === undefined) && <span className="agent-task-count" data-attention={sessions.some(s => !!s.interaction) || undefined}>{sessions.filter(s => s.endedAt === undefined).length}</span>}
         <span className="graph-node-name">{name(agent)}</span>
@@ -312,7 +312,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     open: openAccountNode, openPlatform: platform => selectSourcePlatform(platform, true),
     selectedPlatform: sourceSelection && !sourceSelection.closing && 'platform' in sourceSelection ? sourceSelection.platform : undefined,
   });
-  const topologyRight = accountViews(agentViews, 1, accounts, mode, accountOrders, { open: openAccountNode });
+  const topologyRight = accountViews(agentViews, 1, accounts, mode, accountOrders, {
+    open: openAccountNode, openPlatform: agent => selectAgentPanel({ type: 'platform', agent, toggle: true }),
+    selectedPlatform: selection?.platform && !selection.closing ? selection.agent : undefined,
+  });
   const flatten = (nodes: NodeView[]): NodeView[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
   const reorderNodes = (side: -1 | 1, ids: string[]) => {
     const nodes = flatten(side === -1 ? topologyLeft : topologyRight), first = nodes.find(n => n.id === ids[0]);

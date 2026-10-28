@@ -314,6 +314,14 @@ test("Agent panel toggles the current node, switches peers in place, and returns
   view = agentPanelSelection(undefined, { type: "task", agent: "claude", session: first });
   assert.deepEqual(agentPanelSelection(view, { type: "back" }), { agent: "claude" });
   assert.equal(agentPanelSelection(view, { type: "dismiss" })?.session, first);
+  view = agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true });
+  assert.deepEqual(view, { agent: "claude", platform: true });
+  assert.equal(agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true })?.closing, true);
+  view = agentPanelSelection(view, { type: "toggle", agent: "claude", accountId: "account-one" });
+  assert.deepEqual(view, { agent: "claude", accountId: "account-one" });
+  view = agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true });
+  assert.deepEqual(view, { agent: "claude", platform: true });
+  assert.deepEqual(agentPanelSelection(view, { type: "toggle", agent: "claude" }), { agent: "claude" });
 });
 
 test("source dispatches filter ownership and never equate a dispatch receipt with task completion", async () => {

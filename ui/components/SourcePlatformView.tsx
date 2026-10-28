@@ -11,9 +11,8 @@ import { navigation } from '../state/navigation';
 import { ingressPanel } from '../state/overviewPanels';
 import { topologyAccountOrder } from '../topology/accountState';
 import { orderedSubset } from '../topology/order';
-import { Button, DialogClose, IconButton, Notice, SingleChoice, Switch, Tag } from './ui';
-import { Sensitive, SensitiveIdentity } from './Sensitive';
-import { AccountQuota } from './AccountCards';
+import { DialogClose, IconButton, Notice, SingleChoice, Switch } from './ui';
+import { PlatformAccountCard } from './AccountCards';
 import PlatformConnection from './PlatformConnection';
 import SourceIcon from './SourceIcon';
 
@@ -52,18 +51,10 @@ export default function SourcePlatformView({ platform, widthControl, onBusy }: {
       <SingleChoice label={label} value={tab} onChange={setTab} options={['account', 'connection'].map(value => ({ value, label: t(`accounts.tab.${value}`) }))} />
       {tab === 'account' && <>
         {state.error && <Notice>{state.error}</Notice>}
-        {accounts.map(account => <section className="account-card" key={account.id} aria-label={account.alias}>
-          <div className="source-section-heading">
-            <div className="actions"><h3>{account.alias}</h3>{account.plan && <Tag>{account.plan}</Tag>}</div>
-            <Button variant="link" onClick={() => {
-              ingressPanel.set(undefined);
-              navigation.set(old => ({ ...old, page: 'accounts', accountId: account.id, remoteSourceId: undefined }));
-            }}>{t('accounts.openAccount')}</Button>
-          </div>
-          <SensitiveIdentity email={account.email} orgName={account.orgName} wrap />
-          <div><Sensitive wrap>{account.identityKey}</Sensitive></div>
-          <AccountQuota account={account} />
-        </section>)}
+        {accounts.map(account => <PlatformAccountCard key={account.id} account={account} onOpen={() => {
+          ingressPanel.set(undefined);
+          navigation.set(old => ({ ...old, page: 'accounts', accountId: account.id, remoteSourceId: undefined }));
+        }} />)}
         {!accounts.length && !state.error && <p role="status" className="muted">{t(state.loading ? 'loading' : 'accounts.empty')}</p>}
       </>}
       {tab === 'connection' && (ingress ? <PlatformConnection key={ingress.id} ingress={ingress} onConnection={id => {
