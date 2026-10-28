@@ -1,26 +1,21 @@
 export type PetBrand = 'claude' | 'codex' | 'other';
 export interface PetPackage {
-  key: string; id: string; name: string; version: 1 | 2; origin: 'arc' | 'codex'; pixelArt: boolean;
+  key: string; id: string; name: string; description?: string | null; version: 1 | 2; origin: 'arc' | 'codex'; pixelArt: boolean;
   source: { site: string; pageUrl?: string | null; author?: string | null; license?: string | null; attribution?: string | null; installedAt?: string; sha256?: { petJson: string; spritesheet: string } };
 }
-export interface Participant { id: string; name: string; brand: PetBrand; kind: 'source' | 'agent'; nativeId: string }
+export interface Participant { id: string; name: string; brand: PetBrand; kind: 'source' | 'agent'; nativeId: string; platform?: string }
 export interface Point { x: number; y: number }
-export const recommendations = [
-  { brand: 'claude', name: 'Clawd', id: 'clawd--godxxy1229', url: 'https://codexpet.top/pets/clawd--godxxy1229', selected: false },
-  { brand: 'claude', name: 'Claude-maiden', id: 'claude-maiden', url: 'https://codex-pets.net/#/pets/claude-maiden', selected: true },
-  { brand: 'codex', name: 'GPT Dragon Girl', id: 'gpt-dragon-girl--legeling', url: 'https://codexpet.top/pets/gpt-dragon-girl--legeling', selected: true },
-  { brand: 'other', name: 'Maid DeepSeek Whale', id: 'maid-deepseek-whale', url: 'https://codex-pets.net/#/pets/maid-deepseek-whale', selected: true },
-] as const;
 export function petBrand(product: string): PetBrand {
   if (['claude', 'claude-code', 'claude-desktop', 'claude-web', 'anthropic'].includes(product)) return 'claude';
   if (['codex', 'chatgpt', 'chatgpt-web', 'chatgpt-desktop', 'openai'].includes(product)) return 'codex';
   return 'other';
 }
+export function defaultPet(packages: PetPackage[], assignments: Record<string, string>): PetPackage | undefined {
+  return packages.find(p => p.key === assignments.default) ?? [...packages].sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key))[0];
+}
 export function selectPet(participant: Participant, packages: PetPackage[], assignments: Record<string, string>): PetPackage | undefined {
-  const selected = assignments[participant.id] ?? assignments[`brand:${participant.brand}`];
-  if (selected) return packages.find(p => p.key === selected);
-  const recommendation = recommendations.find(p => p.brand === participant.brand && p.selected)!;
-  return packages.find(p => p.id === recommendation.id);
+  const scopes = [participant.id, ...(participant.platform ? [`platform:${participant.platform}`] : [])];
+  return scopes.map(scope => packages.find(p => p.key === assignments[scope])).find(Boolean) ?? defaultPet(packages, assignments);
 }
 export const rows = [6, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8] as const;
 export function atlasFrame(version: 1 | 2, row: number, frame = 0) {

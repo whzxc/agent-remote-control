@@ -22,5 +22,12 @@ export async function installPet(body: { url: string } | { zip: string }) {
   petLibrary.set({ ...value, loading: false, error: '' });
 }
 export function assignPet(id: string, key: string) {
-  petAssignments.set(old => { const next = { ...old }; if (key) next[id] = key; else delete next[id]; return next; });
+  petAssignments.set(old => { const next = Object.fromEntries(Object.entries(old).filter(([id]) => !id.startsWith('brand:'))); if (key) next[id] = key; else delete next[id]; return next; });
+}
+
+export async function removePet(key: string) {
+  const value = await api<Pick<ReturnType<typeof petLibrary.get>, 'packages' | 'errors'>>('pets/remove', 'POST', { key });
+  petLibrary.set({ ...value, loading: false, error: '' });
+  petAssets.set(old => { const next = { ...old }; delete next[key]; return next; });
+  petAssignments.set(old => Object.fromEntries(Object.entries(old).filter(([, value]) => value !== key)));
 }

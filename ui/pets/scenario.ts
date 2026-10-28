@@ -18,7 +18,7 @@ export function installPetFixture() {
     }
     const key = `fixture:${id}`;
     assets[key] = canvas.toDataURL('image/png');
-    packages.push({ key, id, name: `Synthetic ${index + 1}`, version, pixelArt: index === 0, origin: 'arc', source: { site: 'fixture', author: 'ARC fixture', license: 'MIT', attribution: 'Generated geometric placeholder' } });
+    packages.push({ key, id, name: `Synthetic ${index + 1}`, description: 'Animated geometric companion', version, pixelArt: index === 0, origin: index === 2 ? 'codex' : 'arc', source: { site: 'fixture', author: 'ARC fixture', license: 'MIT', attribution: 'Generated geometric placeholder' } });
   }
   petLibrary.set({ packages, errors: [], loading: false, error: '' }); petAssets.set(assets);
   return { packages, errors: [] };

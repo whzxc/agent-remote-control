@@ -74,7 +74,7 @@ No modal dialogs for updates. Remove `AppUpdateDialogs` and the replacement dial
 - Update panel: opens above the dock, in two columns. Left: notes (release notes, or commits since the installed build for local). Right: work impact grouped as Waits (questions answerable inline), Resumes and Unaffected, then the timing choices. Footer: a dismiss action (`Skip this version` for release, `Cancel replacement` for local) and a primary action matching the selected timing.
 - Topology: only blocking task bubbles get the amber outline and a "waiting for reply" tag. Other bubbles stay unchanged.
 - Countdown: the panel switches to a countdown with a six-step progress row (verify, back up, settle, restart, health check, resume) and Cancel / Restart now.
-- Outcomes: one toast per terminal state. Release succeeded (Release notes, Resumed tasks); local replaced; rolled back (View log, Retry); restore failed (backup path, Show in Finder, Copy path).
+- Outcomes: successful release installs and local replacements finish silently. Rolled-back and failed jobs retain actionable notices: View log and Retry, or the backup path with Show in Finder and Copy path when restoration fails. Durable outcome history and task resumption remain available through the existing update operations.
 - Settings > About: current version, Check for updates, an available-version entry when needed, and GitHub. Check feedback stays in the button and its tooltip. Sources, timing policy, local replacement history and backup restoration have no Settings surface. CLI and control-source update operations retain their existing contracts.
 
 All copy goes through i18n (en, zh-CN). Reference mockups live in the "ARC Unified Updates" design canvas from the planning conversation.

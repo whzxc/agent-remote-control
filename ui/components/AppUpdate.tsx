@@ -7,7 +7,7 @@ import { connector, notify } from "../state/connector";
 import { navigation } from "../state/navigation";
 import { agentActivity } from "../state/activity";
 import { useInterval } from "../state/hooks";
-import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, scheduleUpdate, skipUpdate, cancelDownload, dismissOutcome, retryUpdate, openReleaseNotes } from "../state/updates";
+import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, scheduleUpdate, skipUpdate, cancelDownload, dismissOutcome, retryUpdate } from "../state/updates";
 import { updateActive, updateCountdown, updateStep, type UpdateSnapshot, type UpdateTiming, type UpdateWork } from "../state/updateModel";
 import { Button, Group, Row, Notice, Progress, Icon, IconButton, SingleChoice, Tooltip } from "./ui";
 import TaskQuestion from "./TaskQuestion";
@@ -109,15 +109,14 @@ export function UpdateDock() {
 }
 export function UpdateOutcome() {
   const { outcome: job } = updates.use();
-  if (!job) return null;
+  if (!job || job.state === "succeeded") return null;
   const failedRestore = job.state === "failed" && job.backupMoved;
-  const title = failedRestore ? "updates.restoreFailed" : job.state === "succeeded" && job.source?.kind === "local" ? "updates.localReplaced" : `updates.state.${job.state}`;
+  const title = failedRestore ? "updates.restoreFailed" : `updates.state.${job.state}`;
   return <aside className="update-outcome" role="status" aria-live="polite">
     <header><strong>{t(title)}</strong><IconButton icon={X} label={t("dismissMessage")} onClick={dismissOutcome} /></header>
     {job.error && <p>{job.error}</p>}
     {failedRestore && <code>{job.backup}</code>}
     <div className="actions">
-      {job.state === "succeeded" && <><Button onClick={() => action(openReleaseNotes())}>{t("updates.notes")}</Button><Button onClick={() => { navigation.set(old => ({ ...old, page: "overview" })); dismissOutcome(); }}>{t("updates.resumedTasks", { count: job.resumedCount ?? 0 })}</Button></>}
       {job.state === "rolled-back" && <><Button disabled={!job.logPath} onClick={() => job.logPath && action(reveal(job.logPath))}>{t("updates.viewLog")}</Button><Button onClick={() => { action(retryUpdate(job)); dismissOutcome(); }}>{t("retryReplacement")}</Button></>}
       {failedRestore && job.backup && <><Button onClick={() => action(reveal(job.backup!))}>{t("updates.showInFinder")}</Button><Button onClick={() => action(copyText(job.backup!))}>{t("updates.copyPath")}</Button></>}
       {job.state === "failed" && !failedRestore && <Button onClick={() => { action(retryUpdate(job)); dismissOutcome(); }}>{t("retryReplacement")}</Button>}

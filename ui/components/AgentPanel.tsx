@@ -1,3 +1,4 @@
+import PetPicker from '../pets/PetPicker';
 import { useReducedMotion } from "../state/appEnvironment";
 import { agentPanel, selectAgentPanel, agentPanelId } from "../state/overviewPanels";
 import { useId, useLayoutEffect, useRef, useState } from "react";
@@ -58,7 +59,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
         </div>
         <span className="activity-panel-meta" title={agent.version || undefined}>{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span>
       </div>
-      <div className="actions">
+      <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} />
         <IconButton icon={Settings} label={t("agentDisplaySettings")} onClick={onSettings} />
         {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")}
           aria-pressed={expanded} onClick={onToggleWidth} />}

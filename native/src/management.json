@@ -3995,6 +3995,34 @@
       },
       "description": "Import a base64 ZIP up to 25 MB containing only pet.json and its spritesheet at the root.",
       "localOnly": true
+    },
+    {
+      "name": "pets.remove",
+      "method": "POST",
+      "route": "pets/remove",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ]
+      },
+      "description": "Remove one ARC-owned installed pet by its opaque key and return the remaining packages and errors. Codex packages are read-only. The UI clears bindings to the removed package.",
+      "localOnly": true
     }
   ]
 }

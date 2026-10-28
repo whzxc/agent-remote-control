@@ -44,13 +44,16 @@ test('wandering never crosses obstacles or leaves the scene', () => {
   assert.equal(wanderPost(from, bounds, [{ x: 0, y: 0, width: bounds.x, height: bounds.y }], size), undefined);
 });
 test('binding overrides are participant-specific and do not invent assets', () => {
-  // Property: participant assignments take precedence over brand defaults and never resolve missing packages.
-  const packages = ['a', 'b'].map(key => ({ key, id: key } as PetPackage));
-  const p: Participant = { id: 'agent:example', nativeId: 'example', name: 'Example', brand: 'other', kind: 'agent' };
-  assert.equal(selectPet(p, packages, {}), undefined);
-  assert.equal(selectPet(p, packages, { 'brand:other': 'a' })?.key, 'a');
-  assert.equal(selectPet(p, packages, { 'brand:other': 'a', [p.id]: 'b' })?.key, 'b');
-  assert.equal(selectPet(p, packages, { [p.id]: 'missing' }), undefined);
+  // Property: participant assignments override platform defaults, which override the global default; absent assets fall back to an installed package.
+  const packages = ['a', 'b'].map(key => ({ key, id: key, name: key } as PetPackage));
+  const p: Participant = { id: 'source:example', nativeId: 'example', name: 'Example', brand: 'other', kind: 'source', platform: 'example' };
+  assert.equal(selectPet(p, [], {}), undefined);
+  assert.equal(selectPet(p, packages, {})?.key, 'a');
+  assert.equal(selectPet(p, packages, { default: 'b' })?.key, 'b');
+  assert.equal(selectPet(p, packages, { default: 'b', 'platform:example': 'a' })?.key, 'a');
+  assert.equal(selectPet(p, packages, { default: 'a', 'platform:example': 'a', [p.id]: 'b' })?.key, 'b');
+  assert.equal(selectPet(p, packages, { [p.id]: 'missing', default: 'b' })?.key, 'b');
+  assert.equal(selectPet(p, packages, { [p.id]: 'missing', 'platform:example': 'a', default: 'b' })?.key, 'a');
   assert.equal(petBrand('claude'), 'claude'); assert.equal(petBrand('chatgpt'), 'codex'); assert.equal(petBrand('example'), 'other');
 });
 test('drag bounds are idempotent and exclude the title strip', () => {

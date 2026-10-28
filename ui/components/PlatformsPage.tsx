@@ -1,3 +1,4 @@
+import PetPicker from '../pets/PetPicker';
 import { t } from '../i18n';
 import { controlSourcePlatform, sourcePlatforms } from '../controlSources';
 import { connector } from '../state/connector';
@@ -18,6 +19,6 @@ export default function PlatformsPage() {
   return <div className="grid min-h-0 flex-1 grid-cols-3 gap-4">
     <nav className="min-h-0 overflow-y-auto" aria-label={t('platforms.title')}><SingleChoice navigation label={t('platforms.title')} value={platform.id} onChange={platformId => navigation.set(old => ({ ...old, platformId }))}
       options={sourcePlatforms.map(item => ({ value: item.id, label: item.id === 'custom' ? t('platforms.other') : item.displayName, graphic: <SourceIcon platform={item.id} /> }))} /></nav>
-    <section className="col-span-2 min-h-0 overflow-y-auto" aria-label={platform.id === 'custom' ? t('platforms.other') : platform.displayName}><PlatformConnectors platform={platform.id} /></section>
+    <section className="col-span-2 min-h-0 overflow-y-auto" aria-label={platform.id === 'custom' ? t('platforms.other') : platform.displayName}><header className="flex items-center justify-between gap-3"><h2>{platform.id === 'custom' ? t('platforms.other') : platform.displayName}</h2><PetPicker scope={`platform:${platform.id}`} name={platform.displayName} /></header><PlatformConnectors platform={platform.id} /></section>
   </div>;
 }

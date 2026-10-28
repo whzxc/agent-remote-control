@@ -159,7 +159,7 @@ pub fn validate(manifest: &[u8], sprite: &[u8]) -> Result<Value> {
         return Err("INVALID_ARGUMENT: atlas and spriteVersionNumber disagree".into());
     }
     Ok(
-        json!({"id":value["id"],"name":value.get("displayName").unwrap_or(&value["id"]),"version":version,"sprite":value["spritesheetPath"],"pixelArt":pixel_art}),
+        json!({"id":value["id"],"name":value.get("displayName").unwrap_or(&value["id"]),"description":value.get("description").and_then(Value::as_str),"version":version,"sprite":value["spritesheetPath"],"pixelArt":pixel_art}),
     )
 }
 pub fn unpack(data: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -417,6 +417,16 @@ pub async fn request(route: &str, method: &str, body: Value) -> Result<Value> {
                 Ok(json!({"dataUrl":format!("data:{};base64,{}", format.to_mime_type(), base64::engine::general_purpose::STANDARD.encode(sprite))}))
             }).await.map_err(|e| e.to_string())?
         }
+        ("POST", "pets/remove") => tokio::task::spawn_blocking(move || {
+            let key = string(&body, "key");
+            let (_, path, origin) = entries().into_iter().find(|(id, _, _)| id == key)
+                .ok_or("INVALID_ARGUMENT: pet not installed; refresh pets")?;
+            if origin != "arc" {
+                return Err("INVALID_ARGUMENT: Codex pets are read-only; remove them in their owning application".into());
+            }
+            std::fs::remove_dir_all(path).map_err(|e| format!("Failed to remove pet: {e}"))?;
+            Ok(list())
+        }).await.map_err(|e| e.to_string())?,
         ("POST", "pets/install") => install_link(string(&body, "url")).await,
         ("POST", "pets/import") => tokio::task::spawn_blocking(move || {
             let encoded = string(&body, "zip");

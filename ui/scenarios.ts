@@ -50,6 +50,13 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   const accountResult = accountResponse?.(path, method, body);
   if (accountResult !== undefined) return structuredClone(accountResult);
   if (path === 'pets' && method === 'GET') return responses.pets ?? { packages: [], errors: [] };
+  if (path === 'pets/remove' && method === 'POST') {
+    const library = responses.pets as { packages: import('./pets/model').PetPackage[]; errors: { key: string; error: string }[] };
+    const key = (body as { key: string }).key, pet = library?.packages.find(p => p.key === key);
+    if (!pet) throw new Error('INVALID_ARGUMENT: pet not installed; refresh pets');
+    if (pet.origin !== 'arc') throw new Error('INVALID_ARGUMENT: Codex pets are read-only; remove them in their owning application');
+    return responses.pets = { ...library, packages: library.packages.filter(p => p.key !== key) };
+  }
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
   if (path === 'updates/request' && method === 'POST') {
     const request = body as { action: string; seconds?: number }, snapshot = structuredClone(updates.get().snapshot);

@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { api } from '../api';
+import { controlSourcePlatform } from '../controlSources';
 import { t } from '../i18n';
 import { connector, orderedSources } from '../state/connector';
 import { agents, name } from '../state/agents';
@@ -39,7 +40,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
   const nextSocial = useRef(Date.now() + 8000);
   const sources = orderedSources();
   const participants: Participant[] = [
-    ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, kind: 'source' as const, brand: petBrand(s.product) })),
+    ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, platform: controlSourcePlatform(s.product).id, kind: 'source' as const, brand: petBrand(s.product) })),
     ...agentState.items.map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), kind: 'agent' as const, brand: petBrand(a.agent) })),
   ];
   const accountRows = accounts.use().items;

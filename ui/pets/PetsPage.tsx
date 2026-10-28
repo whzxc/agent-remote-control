@@ -1,30 +1,15 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { PawPrint } from 'lucide-react';
 import { t } from '../i18n';
 import { openUrl } from '../platform';
-import { Button, Field, Input, Notice, SingleChoice, Switch, Icon } from '../components/ui';
-import { connector, orderedSources } from '../state/connector';
-import { agents, name } from '../state/agents';
-import { petBrand, recommendations, type PetBrand, type PetPackage, type Participant } from './model';
-import { assignPet, installPet, petAsset, petAssets, petAssignments, petLibrary, refreshPets, showPets } from './state';
-import PetSprite from './PetSprite';
-import { usePetMotion } from './usePetMotion';
+import { Button, Field, Input, Notice, Switch } from '../components/ui';
+import { assignPet, installPet, removePet, petAssignments, petLibrary, refreshPets, showPets } from './state';
+import PetPreview from './PetPreview';
 export function PetsSwitch() { const checked = showPets.use(); return <Switch label={t('pets.show')} checked={checked} onChange={showPets.set} />; }
-function Preview({ pet }: { pet: PetPackage }) {
-  const assets = petAssets.use(), motion = usePetMotion();
-  useEffect(() => { void petAsset(pet.key).catch(() => {}); }, [pet.key]);
-  return assets[pet.key] ? <PetSprite pet={pet} url={assets[pet.key]} animate={motion.animate} slow /> : <Icon icon={PawPrint} size={20} />;
-}
 export default function PetsPage() {
   const library = petLibrary.use(), assignments = petAssignments.use();
-  const agentState = agents.use(); connector.use();
   const [url, setUrl] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => { void refreshPets(); }, []);
-  const participants: Participant[] = [
-    ...orderedSources().filter(s => s.state !== 'revoked').map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, kind: 'source' as const, brand: petBrand(s.product) })),
-    ...agentState.items.map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), kind: 'agent' as const, brand: petBrand(a.agent) })),
-  ];
   async function install(input: { url: string } | File) {
     setBusy(true); setError('');
     try {
@@ -33,47 +18,48 @@ export default function PetsPage() {
         const bytes = new Uint8Array(await input.arrayBuffer());
         let binary = ''; for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
         await installPet({ zip: btoa(binary) });
-      } else await installPet(input);
+      } else { await installPet(input); setUrl(''); }
     } catch (e) { setError(String(e)); document.getElementById('pet-link')?.focus(); }
     finally { setBusy(false); if (file.current) file.current.value = ''; }
+  }
+  async function remove(key: string) {
+    setBusy(true); setError('');
+    try { await removePet(key); }
+    catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
   }
   function visit(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault(); void openUrl(event.currentTarget.href).catch(error => setError(String(error)));
   }
-  const options = [{ value: '', label: t('pets.brandDefault') }, ...library.packages.map(p => ({ value: p.key, label: `${p.name} · ${p.origin === 'codex' ? 'Codex' : 'ARC'}` }))];
   return <div className="pets-page">
-    {error && <Notice tone="danger">{error}</Notice>}
+    <section className="pet-import">
+      <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
+      <form onSubmit={e => { e.preventDefault(); void install({ url }); }}>
+        <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" value={url} onChange={e => setUrl(e.target.value)} readOnly={busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
+        <div className="pet-actions"><Button type="submit" busy={busy} disabled={!url.trim()}>{t('pets.install')}</Button><Button disabled={busy} onClick={() => file.current?.click()}>{t('pets.chooseZip')}</Button></div>
+        <input hidden ref={file} type="file" accept=".zip,application/zip" onChange={e => { const selected = e.target.files?.[0]; if (selected) void install(selected); }} />
+      </form>
+      {error && <div id="pets-import-error" role="alert"><Notice tone="danger">{error}</Notice></div>}
+    </section>
     {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
-    <form onSubmit={e => { e.preventDefault(); void install({ url }); }}>
-      <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" value={url} onChange={e => setUrl(e.target.value)} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
-      {error && <span id="pets-import-error" role="alert">{error}</span>}
-      <div className="pet-actions"><Button type="submit" busy={busy} disabled={!url}>{t('pets.install')}</Button><Button disabled={busy} onClick={() => file.current?.click()}>{t('pets.chooseZip')}</Button></div>
-      <input hidden ref={file} type="file" accept=".zip,application/zip" onChange={e => { const selected = e.target.files?.[0]; if (selected) void install(selected); }} />
-    </form>
-    {(['claude', 'codex', 'other'] as PetBrand[]).map(brand => <section key={brand} className="pet-group">
-      <h2>{t(`pets.${brand}`)}</h2>
-      <SingleChoice label={t('pets.defaultPet')} value={assignments[`brand:${brand}`] ?? ''} options={options} onChange={key => assignPet(`brand:${brand}`, key)} />
-      <div className="pet-catalog">{recommendations.filter(r => r.brand === brand).map(rec => {
-        const installed = library.packages.find(p => p.id === rec.id);
-        return <article key={rec.id} className="pet-package">
-          <div className="pet-preview">{installed ? <Preview pet={installed} /> : <Icon icon={PawPrint} size={20} />}</div>
-          <h3>{rec.name}</h3>
-          <a onClick={visit} href={rec.url} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>
-          <Button busy={busy} disabled={!!installed} onClick={() => void install({ url: rec.url })}>{t(installed ? 'pets.installed' : 'pets.install')}</Button>
-        </article>;
-      })}</div>
-    </section>)}
     <section className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
       <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}>
-        <div className="pet-preview"><Preview pet={p} /></div>
-        <h3>{p.name}</h3>
-        {p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}
-        {p.origin === 'codex' && <p>{t('pets.readOnly')}</p>}
+        <PetPreview pet={p} />
+        <div className="pet-package-content">
+          <h3 title={p.name}>{p.name}</h3>
+          <p className="pet-description" title={p.description ?? undefined}>{p.description || (p.origin === 'codex' ? t('pets.readOnly') : p.source.site === 'zip' ? t('pets.localZip') : p.source.site)}</p>
+          <div className="pet-actions">
+            {p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}
+            {p.origin === 'codex' && p.description && <span className="muted">{t('pets.readOnly')}</span>}
+          </div>
+          <div className="pet-actions">
+            <Button disabled={busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
+            {p.origin === 'arc' && <Button variant="danger-outline" disabled={busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
+          </div>
+        </div>
       </article>)}</div>
       {library.errors.map(e => <Notice key={e.key} tone="danger">{e.error}</Notice>)}
     </section>
-    <section className="pet-group"><h2>{t('pets.participants')}</h2>{participants.map(p => <Field key={p.id} label={p.name}><SingleChoice label={p.name} value={assignments[p.id] ?? ''} options={options} onChange={key => assignPet(p.id, key)} /></Field>)}</section>
-    <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
     <footer>{t('pets.rights')}</footer>
   </div>;
 }

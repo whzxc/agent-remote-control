@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type CSSProperties } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref, type CSSProperties, type PointerEvent } from 'react';
 import { t } from '../i18n';
 import { scenarioName } from '../scenarioMode';
 import { type Point, type PetPackage } from './model';
@@ -18,7 +18,7 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const position = useRef<Point | null>(null), post = useRef<Point>({ x: 0, y: 0 }), bounds = useRef({ x: 0, y: 0, top: 0 });
-  const drag = useRef<{ pointer: number; x: number; y: number; moved: boolean; origin: Point; mode: 'post' | 'placed' } | null>(null);
+  const drag = useRef<{ pointer: number; x: number; y: number; moved: boolean; threshold: number; origin: Point; mode: 'post' | 'placed' } | null>(null);
   const frame = useRef(0);
   const mode = useRef<'post' | 'drag' | 'placed'>('post');
   const manualUntil = useRef(0), strolling = useRef(false), reacting = useRef(false);
@@ -78,6 +78,17 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
     reactionTimers.current.forEach(clearTimeout); reactionTimers.current = []; reacting.current = false; setReactionGesture(null);
     setAction(null); setLine('');
   }
+  function movePointer(event: PointerEvent<HTMLButtonElement>) {
+    const d = drag.current;
+    if (!d || d.pointer !== event.pointerId) return;
+    const dx = event.clientX - d.x, dy = event.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < d.threshold) return;
+    if (!d.moved) {
+      d.moved = true; suppress.current = true;
+      event.currentTarget.dataset.dangling = 'true'; setAction(6); setWalking(null);
+    }
+    position.current = clamp({ x: d.origin.x + dx, y: d.origin.y + dy }); paint();
+  }
   function finish(cancel = false) {
     const d = drag.current; if (!d && mode.current !== 'drag') return;
     drag.current = null; if (button.current) delete button.current.dataset.dangling;
@@ -99,20 +110,20 @@ export default function PetActor({ pet, url, label, tag, animate, slow, row = 0,
       if (e.button !== 0 || !e.isPrimary || !position.current || drag.current) return;
       stopReaction();
       e.stopPropagation(); cancelAnimationFrame(frame.current); frame.current = 0;
-      drag.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY, moved: false, origin: { ...position.current }, mode: mode.current === 'placed' ? 'placed' : 'post' }; suppress.current = false;
-      mode.current = 'drag'; e.currentTarget.dataset.dangling = 'true'; e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY, moved: false, threshold: e.pointerType === 'touch' ? 14 : 10, origin: { ...position.current }, mode: mode.current === 'placed' ? 'placed' : 'post' }; suppress.current = false;
+      mode.current = 'drag'; e.currentTarget.setPointerCapture(e.pointerId);
     }}
-    onPointerMove={e => {
-      const d = drag.current; if (!d || d.pointer !== e.pointerId || !position.current) return;
-      e.stopPropagation(); const dx = e.clientX - d.x, dy = e.clientY - d.y;
-      if (!d.moved && Math.hypot(dx, dy) < 4) return;
-      d.moved = true; suppress.current = true; d.x = e.clientX; d.y = e.clientY;
-      setAction(6); position.current = clamp({ x: position.current.x + dx, y: position.current.y + dy }); paint();
+    onPointerMove={e => { e.stopPropagation(); movePointer(e); }}
+    onPointerUp={e => {
+      if (drag.current?.pointer !== e.pointerId) return;
+      e.stopPropagation(); movePointer(e); finish();
     }}
-    onPointerUp={e => { e.stopPropagation(); finish(); }} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish(true)}
-    onKeyDown={e => { if (e.key === 'Escape' && mode.current === 'drag') { e.preventDefault(); e.stopPropagation(); finish(true); } }}
+    onPointerCancel={e => { if (drag.current?.pointer === e.pointerId) { e.stopPropagation(); suppress.current = true; finish(true); } }}
+    onLostPointerCapture={e => { if (drag.current?.pointer === e.pointerId) { e.stopPropagation(); finish(); } }}
+    onKeyDown={e => { if (e.key === 'Escape' && mode.current === 'drag') { e.preventDefault(); e.stopPropagation(); suppress.current = true; finish(true); } }}
     onClick={e => {
-      e.stopPropagation(); if (suppress.current) { suppress.current = false; return; }
+      e.stopPropagation(); if (suppress.current && e.detail !== 0) { suppress.current = false; return; }
+      suppress.current = false;
       onClick?.(); stopReaction(); clearTimeout(clear.current);
       if (!deck.current.length) deck.current = reactionDeck(previousReaction.current);
       const index = deck.current.shift()!; previousReaction.current = index;
