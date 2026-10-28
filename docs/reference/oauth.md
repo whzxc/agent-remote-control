@@ -63,6 +63,16 @@ Source management is available without a running OAuth listener: `cli source lis
 
 Client ID Metadata Documents, external authorization servers, per-tool OAuth scopes, and per-user task isolation are not implemented. Initial local consent is required. URL changes, revoked access, or discarded client credentials require a new authorization.
 
+## Request diagnostics
+
+The local diagnostics journal records header names, OAuth registration/authorization/token/revocation field names and JSON types, and authenticated MCP initialization parameter structure. OAuth metadata identifies fields outside the endpoint's recognized protocol fields. These observations do not change request acceptance or establish account identity. Client names identify software, not the signed-in provider account.
+
+Use query `logs` with `ingressId` and `grep:"Ingress"`. `request_received` contains header names; `request_metadata` contains `oauthEndpoint` and `location`, or `stage:"mcp-initialize"`. `traceId` joins these rows to HTTP status and completion timing. `oauthClientHash` is a SHA-256 reference to the public client identifier, linking registration, authorization, token exchange and authenticated MCP requests without retaining that identifier. Authenticated MCP rows include the server-owned `grantId` when available. Token exchanges identify only the recognized authorization-code or refresh flow, never an arbitrary grant-type value.
+
+Values, full URLs, credentials, OAuth state, authorization codes, PKCE values, cookies, tool arguments and responses are not retained. Schemas retain at most 64 nodes, three nesting levels and three sampled array items. Names must be ASCII letters, digits, underscores, hyphens or dots and at most 64 bytes; other names are omitted. Counts expose omitted fields, items and header names. Malformed or rejected-before-parse bodies have no schema. Absence from a truncated schema is not evidence that a field was absent from the request. Header names alone do not reveal their values.
+
+The existing private local journal retains up to seven days with a 16 MiB storage budget. Old payloads cannot be reconstructed. A new authorization or subsequent MCP initialization is needed to observe fields not recorded previously; ARC never reauthorizes a source automatically to collect diagnostics.
+
 ## Pairing display
 
 Each pending authorization has a stable four-character `pairingCode`, shown both by

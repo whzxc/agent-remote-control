@@ -1,4 +1,5 @@
-//! HTTP ingress metadata. Never retain URLs, headers, arguments, or response content.
+//! HTTP ingress metadata. Retain bounded field names/types, never values, URLs,
+//! tool arguments, credentials, or response content.
 use crate::*;
 use http_body_util::BodyExt;
 use hyper::body::{Body, Bytes, Frame, SizeHint};
@@ -54,6 +55,56 @@ fn record(mut row: Value, event: &str) {
     }
 }
 
+fn field_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
+// A shared node budget also bounds wide objects nested inside other objects/arrays.
+fn shape(value: &Value, depth: usize, budget: &mut usize) -> Value {
+    *budget = budget.saturating_sub(1);
+    let kind = match value {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    };
+    let mut result = json!({"type":kind});
+    match value {
+        Value::Object(fields) => {
+            let mut kept = serde_json::Map::new();
+            if depth < 3 {
+                for (key, item) in fields {
+                    if *budget > 0 && field_name(key) {
+                        kept.insert(key.clone(), shape(item, depth + 1, budget));
+                    }
+                }
+            }
+            result["omittedFields"] = json!(fields.len() - kept.len());
+            result["fields"] = json!(kept);
+        }
+        Value::Array(items) => {
+            let mut kept = Vec::new();
+            if depth < 3 {
+                for item in items.iter().take(3) {
+                    if *budget > 0 {
+                        kept.push(shape(item, depth + 1, budget));
+                    }
+                }
+            }
+            result["omittedItems"] = json!(items.len() - kept.len());
+            result["items"] = json!(kept);
+        }
+        _ => {}
+    }
+    result
+}
+
 pub(crate) fn connection(
     ingress: &crate::ingress::Ingress,
     connection: &str,
@@ -78,6 +129,66 @@ pub(crate) fn tunnel(ingress: &str, event: &str, mut details: Value) {
 #[derive(Clone)]
 pub(crate) struct Trace(Arc<StdMutex<Value>>);
 impl Trace {
+    pub(crate) fn oauth_client(&self, client: &str) {
+        if !client.is_empty() {
+            self.0.lock().unwrap_or_else(|e| e.into_inner())["oauthClientHash"] =
+                json!(hash(client));
+        }
+    }
+    pub(crate) fn oauth_fields(&self, endpoint: &str, location: &str, value: &Value) {
+        let known: &[&str] = match endpoint {
+            "/oauth/register" => &[
+                "client_name",
+                "redirect_uris",
+                "grant_types",
+                "response_types",
+                "scope",
+                "token_endpoint_auth_method",
+            ],
+            "/oauth/authorize" => &[
+                "client_id",
+                "redirect_uri",
+                "response_type",
+                "resource",
+                "scope",
+                "code_challenge",
+                "code_challenge_method",
+                "state",
+            ],
+            "/oauth/token" => &[
+                "client_id",
+                "client_secret",
+                "grant_type",
+                "code",
+                "code_verifier",
+                "redirect_uri",
+                "resource",
+                "scope",
+                "refresh_token",
+            ],
+            "/oauth/revoke" => &["token", "token_type_hint", "client_id", "client_secret"],
+            _ => return,
+        };
+        let mut row = self.0.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        row["oauthEndpoint"] = json!(endpoint);
+        row["location"] = json!(location);
+        row["schema"] = shape(value, 0, &mut 64);
+        row["unrecognizedFields"] = json!(row["schema"]["fields"]
+            .as_object()
+            .map(|fields| fields
+                .keys()
+                .filter(|key| !known.contains(&key.as_str()))
+                .collect::<Vec<_>>())
+            .unwrap_or_default());
+        if endpoint == "/oauth/token" {
+            row["grantType"] = json!(match value["grant_type"].as_str() {
+                Some("authorization_code") => "authorization_code",
+                Some("refresh_token") => "refresh_token",
+                _ => "other",
+            });
+        }
+        record(row, "request_metadata");
+    }
     pub(crate) fn result(&self, result: &Result<Value>) {
         let mut row = self.0.lock().unwrap_or_else(|e| e.into_inner());
         if let Ok(response) = result {
@@ -147,7 +258,17 @@ impl Request {
         let row = json!({"ingressId":ingress.id,"connectionId":connection,"traceId":id(),
             "route":route,"method":method,"cfRay":ray});
         ingress.requests.add(&[("received", 1)]);
-        record(row.clone(), "request_received");
+        let mut received = row.clone();
+        let names: Vec<_> = request
+            .headers()
+            .keys()
+            .map(|key| key.as_str())
+            .filter(|key| field_name(key))
+            .take(64)
+            .collect();
+        received["omittedHeaderNames"] = json!(request.headers().keys().count() - names.len());
+        received["headerNames"] = json!(names);
+        record(received, "request_received");
         Self {
             trace: Trace(Arc::new(StdMutex::new(row))),
             counters: ingress.requests.clone(),
@@ -155,8 +276,27 @@ impl Request {
             finished: false,
         }
     }
+    pub(crate) fn authenticated(&self, principal: &Value) {
+        self.trace.oauth_client(string(principal, "clientId"));
+        let mut row = self.trace.0.lock().unwrap_or_else(|e| e.into_inner());
+        row["authenticated"] = json!(true);
+        if let Some(grant) = principal["grantId"].as_str().filter(|s| {
+            !s.is_empty()
+                && s.len() <= 128
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+        }) {
+            row["grantId"] = json!(grant);
+        }
+    }
     pub(crate) fn dispatch(&self, request: &Value) {
         let mut row = self.trace.0.lock().unwrap_or_else(|e| e.into_inner());
+        if request["method"] == "initialize" {
+            let mut metadata = row.clone();
+            metadata["stage"] = json!("mcp-initialize");
+            metadata["schema"] = shape(&request["params"], 0, &mut 64);
+            record(metadata, "request_metadata");
+        }
         let tool = string(&request["params"], "name");
         let envelope = &request["params"]["arguments"];
         let op = if tool == "guide" {

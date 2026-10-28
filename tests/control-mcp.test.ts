@@ -990,6 +990,73 @@ test('HTTP ingress observations correlate failures and dropped streams without r
   } finally { await management(`ingress/${id}`,'DELETE'); }
 });
 
+test('OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials', async () => {
+  // Regression: successful OAuth logs could not distinguish absent account metadata from ignored request fields.
+  const id = 'observed-oauth';
+  const ingress = await management('ingress', 'POST', { id, name: 'Observed OAuth', controlSource: 'claude', transport: 'https', auth: 'oauth', toolPolicy: 'all', config: { httpsProvider: 'custom', httpsUrl: `https://${id}.example/mcp` } });
+  const url = (route: string) => `http://127.0.0.1:${ingress.config.httpsPort}${route}`;
+  const resource = `https://${id}.example/mcp`, redirect = 'https://client.example/callback';
+  const privateValue = 'PRIVATE_OBSERVED_ACCOUNT_VALUE';
+  const verifier = randomUUID().replaceAll('-', '').padEnd(64, 'v'), state = randomUUID();
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'X-User-Email': privateValue, Cookie: `session=${privateValue}` };
+  try {
+    await management(`ingress/${id}/start`, 'POST');
+    const registration = await fetch(url('/oauth/register'), { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ client_name: 'Claude', redirect_uris: [redirect], token_endpoint_auth_method: 'client_secret_post', user: { email: privateValue, organization: { id: privateValue } }, zz_padding: Object.fromEntries(Array.from({length:300},(_,n)=>[`field_${n}`,privateValue])), 'invalid@field': privateValue }) });
+    assert.equal(registration.status, 201);
+    const registered = await registration.json();
+    const query = new URLSearchParams({ client_id: registered.client_id, redirect_uri: redirect, response_type: 'code', resource, state, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url'), login_hint: privateValue });
+    const authorize = await fetch(url(`/oauth/authorize?${query}`), { redirect: 'manual' });
+    assert.equal(authorize.status, 303);
+    const pendingId = new URL(authorize.headers.get('location')!).searchParams.get('request')!;
+    const pending = (await management(`ingress/${id}/oauth`)).pending.find((p:any)=>p.id===pendingId);
+    await management(`source/${pending.sourceId}/claim`, 'POST', {sourceId:'new'});
+    const callback = await fetch(url(`/oauth/continue?request=${pendingId}`), {redirect:'manual'});
+    const code = new URL(callback.headers.get('location')!).searchParams.get('code')!;
+    const exchange = await fetch(url('/oauth/token'), { method:'POST', headers, body:new URLSearchParams({grant_type:'authorization_code',code,code_verifier:verifier,client_id:registered.client_id,client_secret:registered.client_secret,redirect_uri:redirect,resource,user_email:privateValue}) });
+    assert.equal(exchange.status,200);
+    const tokens = await exchange.json();
+    const initialized = await fetch(url('/mcp'), {method:'POST',headers:{...headers,'Content-Type':'application/json',Authorization:`Bearer ${tokens.access_token}`},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'Diagnostic fixture',version:'1'},_meta:{user:{email:privateValue}}}})});
+    assert.equal(initialized.status,200); await initialized.json();
+    const refresh = await fetch(url('/oauth/token'), {method:'POST',headers,body:new URLSearchParams({grant_type:'refresh_token',refresh_token:tokens.refresh_token,client_id:registered.client_id,client_secret:registered.client_secret,resource})});
+    assert.equal(refresh.status,200);
+    const refreshed = await refresh.json();
+    const revoke = await fetch(url('/oauth/revoke'), {method:'POST',headers,body:new URLSearchParams({token:refreshed.refresh_token,client_id:registered.client_id,client_secret:registered.client_secret})});
+    assert.equal(revoke.status,200); await revoke.text();
+    let logged = (await call('logs',{ingressId:id,grep:'Ingress',limit:2000})).result;
+    if(logged.outputId){
+      let text='',offset:number|null=0;
+      while(offset!==null){const page=(await call('control_output',{outputId:logged.outputId,offset,length:12000})).result;text+=page.text;offset=page.nextOffset;}
+      logged=JSON.parse(text);
+    }
+    assert.ok(Array.isArray(logged.rows),JSON.stringify(logged));
+    const rows:any[] = logged.rows;
+    const metadata = rows.filter(r=>r.event==='request_metadata');
+    const clientHash = createHash('sha256').update(registered.client_id).digest('hex');
+    assert.ok(metadata.every(r=>r.oauthClientHash===clientHash),'registration, authorization, tokens and MCP requests share a value-free client reference');
+    const registeredFields = metadata.find(r=>r.oauthEndpoint==='/oauth/register');
+    assert.equal(registeredFields.schema.fields.user.fields.email.type,'string');
+    assert.equal(registeredFields.schema.fields.user.fields.organization.fields.id.type,'string');
+    assert.ok(registeredFields.unrecognizedFields.includes('user'));
+    assert.equal(registeredFields.unrecognizedFields.includes('client_name'),false);
+    assert.ok(registeredFields.schema.omittedFields>0);
+    assert.ok(registeredFields.schema.fields.zz_padding.omittedFields>0);
+    assert.ok(metadata.every(r=>Buffer.byteLength(JSON.stringify(r))<16384),'request metadata remains bounded for wide inputs');
+    const authorizedFields = metadata.find(r=>r.oauthEndpoint==='/oauth/authorize');
+    assert.equal(authorizedFields.location,'query'); assert.ok(authorizedFields.unrecognizedFields.includes('login_hint'));
+    assert.ok(metadata.some(r=>r.oauthEndpoint==='/oauth/token'&&r.grantType==='authorization_code'&&r.unrecognizedFields.includes('user_email')));
+    assert.ok(metadata.some(r=>r.oauthEndpoint==='/oauth/token'&&r.grantType==='refresh_token'));
+    assert.ok(metadata.some(r=>r.oauthEndpoint==='/oauth/revoke'&&r.schema.fields.token.type==='string'));
+    const initialize = metadata.find(r=>r.stage==='mcp-initialize');
+    assert.equal(initialize.authenticated,true); assert.ok(initialize.grantId);
+    assert.equal(initialize.schema.fields._meta.fields.user.fields.email.type,'string');
+    const received = rows.find(r=>r.event==='request_received'&&r.traceId===initialize.traceId);
+    assert.ok(received.headerNames.includes('x-user-email')); assert.ok(received.headerNames.includes('authorization'));
+    for(const row of metadata) assert.ok(rows.some(r=>r.traceId===row.traceId&&r.event==='response_finished'));
+    const serialized = JSON.stringify(rows);
+    for(const secret of [privateValue,verifier,state,code,registered.client_id,registered.client_secret,tokens.access_token,tokens.refresh_token,refreshed.access_token,refreshed.refresh_token,redirect]) assert.equal(serialized.includes(secret),false);
+  } finally { await management(`ingress/${id}`,'DELETE'); }
+});
+
 test('managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect', {skip:process.platform==='win32'}, async () => {
   // Regression: managed provider recovery depended on UI or status reads and stopped in unattended Core sessions.
   const platform = process.platform === 'darwin' ? 'darwin' : 'linux';

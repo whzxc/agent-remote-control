@@ -150,9 +150,11 @@ async fn handle_inner(
         if !service.connected.load(std::sync::atomic::Ordering::SeqCst) {
             return error(503, "connector stopped");
         }
-        return Ok(crate::oauth::handle(request, &service, url.as_str())
-            .await
-            .map(|b| b.boxed()));
+        return Ok(
+            crate::oauth::handle(request, &service, url.as_str(), &observation.trace())
+                .await
+                .map(|b| b.boxed()),
+        );
     }
     if request.uri().path() != "/mcp" || request.uri().query().is_some() {
         return error(404, "not found");
@@ -172,6 +174,7 @@ async fn handle_inner(
         );
         return Ok(response);
     };
+    observation.authenticated(&principal);
     if let Some(value) = request.headers().get("origin") {
         if value.to_str().ok() != Some(origin.as_str()) {
             return error(403, "invalid origin");

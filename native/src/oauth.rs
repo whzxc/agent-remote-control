@@ -845,10 +845,11 @@ fn parameters(text: &str) -> Result<BTreeMap<String, String>> {
     }
     Ok(q)
 }
-pub async fn handle(
+pub(crate) async fn handle(
     request: Request<Incoming>,
     ingress: &crate::ingress::Ingress,
     resource: &str,
+    observation: &crate::ingress_observation::Trace,
 ) -> Response<Full<Bytes>> {
     let audit_path = match request.uri().path() {
         "/oauth/authorize" | "/oauth/register" | "/oauth/token" | "/oauth/revoke" => {
@@ -873,6 +874,7 @@ pub async fn handle(
             resource,
             &mut registration_field,
             &mut registration_detail,
+            observation,
         )
         .await
     };
@@ -964,11 +966,16 @@ async fn route(
     resource: &str,
     registration_field: &mut Option<&'static str>,
     registration_detail: &mut Option<String>,
+    observation: &crate::ingress_observation::Trace,
 ) -> Result<Response<Full<Bytes>>> {
     let path = request.uri().path().to_owned();
     let issuer = resource.trim_end_matches("/mcp");
     if request.method() == hyper::Method::GET {
         let q = parameters(request.uri().query().unwrap_or(""))?;
+        if path == "/oauth/authorize" {
+            observation.oauth_client(q.get("client_id").map(String::as_str).unwrap_or(""));
+        }
+        observation.oauth_fields(&path, "query", &json!(q));
         match path.as_str() {
             "/.well-known/oauth-protected-resource"
             | "/.well-known/oauth-protected-resource/mcp" => {
@@ -1108,7 +1115,12 @@ async fn route(
             *registration_field = Some("body");
             "invalid_request"
         })?;
-        let registered = oauth.register(&metadata, resource).await.map_err(|error| {
+        let registered = oauth.register(&metadata, resource).await;
+        if let Ok(client) = &registered {
+            observation.oauth_client(string(client, "client_id"));
+        }
+        observation.oauth_fields(&path, "body", &metadata);
+        let registered = registered.map_err(|error| {
             *registration_field = error.field;
             *registration_detail = error.detail;
             error.code
@@ -1121,6 +1133,14 @@ async fn route(
         return Err("invalid_request".into());
     }
     let q = parameters(std::str::from_utf8(&body).map_err(|_| "invalid_request")?)?;
+    observation.oauth_client(
+        basic
+            .as_ref()
+            .map(|(client, _)| client.as_str())
+            .or_else(|| q.get("client_id").map(String::as_str))
+            .unwrap_or(""),
+    );
+    observation.oauth_fields(&path, "body", &json!(q));
     if path == "/oauth/revoke" {
         oauth.revoke_token(&q, basic, resource).await?;
         Ok(response(200, json!({})))
