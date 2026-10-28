@@ -256,7 +256,6 @@ test('built-in local authority is absent from control sources, accounts and disc
     const { default: AccountsPage } = await server.ssrLoadModule('/ui/components/AccountsPage.tsx');
     const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
-    const { default: PlatformConnection } = await server.ssrLoadModule('/ui/components/PlatformConnection.tsx');
     const { default: SourceProductChoice } = await server.ssrLoadModule('/ui/components/SourceProductChoice.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
@@ -285,11 +284,6 @@ test('built-in local authority is absent from control sources, accounts and disc
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
       await render(h(SourcePanel, { source: local }));
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
-      await render(h(PlatformConnection, { ingress: { id: 'local-cli' }, onConnection() {} }));
-      assert.equal(page.queryByRole('button', { name: t('edit'), exact: true }), null);
-      const externalIngress = connector.get().status.ingresses.find((entry: any) => entry.id === external.ingressId);
-      await render(h(PlatformConnection, { ingress: externalIngress, onConnection() {} }));
-      assert.ok(page.getByRole('button', { name: t('edit'), exact: true }));
       await render(h(SourceProductChoice, { value: 'custom', onChange() {} }));
       const { controlSource } = await server.ssrLoadModule('/ui/controlSources.ts');
       await act(async () => { fireEvent.click(page.getByRole('combobox', { name: t('source.moreProducts'), exact: true })); });

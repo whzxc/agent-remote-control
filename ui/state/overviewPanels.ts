@@ -1,5 +1,6 @@
 import { onboarding, connectionSetup } from "./onboarding";
 import { createStore } from "./store";
+import { accounts } from "./accounts";
 import { agentPanelSelection, type AgentPanelSelection, type AgentPanelAction } from "./activityModel";
 import { sourcePlatformNodeId } from "../topology/accounts";
 import type { Ingress } from "./types";
@@ -16,6 +17,11 @@ export function sourcePanelId(selection: IngressPanelSelection) {
 }
 export const ingressPanel = createStore<IngressPanelSelection | undefined>(undefined);
 export function selectAgentPanel(action: AgentPanelAction) {
+  if (action.type === 'platform') {
+    const agent = action.agent;
+    const linked = accounts.get().items.filter(account => account.agentProfiles.some(profile => profile.agent === agent));
+    if (linked.length <= 1) action = { type: action.toggle ? 'toggle' : 'agent', agent: action.agent, accountId: linked[0]?.id };
+  }
   connectionSetup.set(undefined);
   onboarding.set(undefined);
   if (["agent", "toggle", "task", "platform"].includes(action.type)) ingressPanel.set(undefined);

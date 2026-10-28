@@ -1289,8 +1289,6 @@
   "accounts.testSent": "Test sent; receiver acknowledgement is not confirmed by this receipt.",
   "accounts.advanced": "Advanced",
   "accounts.tools": "Tools",
-  "accounts.tab.account": "Account",
-  "accounts.tab.connection": "Connection",
   "accounts.whoami": "whoami resolves this account from connection authorization.",
   "accounts.openAccount": "Open account",
   "accounts.unidentified": "Unidentified: this authorization contains no provider identity claims. Reauthorization cannot currently establish the provider identity.",

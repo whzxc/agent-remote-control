@@ -11,9 +11,8 @@ import { navigation } from '../state/navigation';
 import { ingressPanel } from '../state/overviewPanels';
 import { topologyAccountOrder } from '../topology/accountState';
 import { orderedSubset } from '../topology/order';
-import { DialogClose, IconButton, Notice, SingleChoice, Switch } from './ui';
+import { DialogClose, IconButton, Notice, Switch } from './ui';
 import { PlatformAccountCard } from './AccountCards';
-import PlatformConnection from './PlatformConnection';
 import SourceIcon from './SourceIcon';
 
 export default function SourcePlatformView({ platform, widthControl, onBusy }: { platform: string; widthControl?: ReactNode; onBusy?: (busy: boolean) => void }) {
@@ -24,7 +23,7 @@ export default function SourcePlatformView({ platform, widthControl, onBusy }: {
   const ingress = status?.ingresses.find(entry => entry.id === platformSources[0]?.ingressId);
   const accounts = orderedSubset(state.items.filter(account => account.sources.some(id => sourceIds.has(id))), orders[`-1:${platform}`] ?? []);
   const label = controlSource(platform)?.displayName ?? agentName({ agent: platform });
-  const [tab, setTab] = useState('account'), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
   async function connect(connected: boolean) {
     if (!ingress || busy) return;
@@ -48,19 +47,12 @@ export default function SourcePlatformView({ platform, widthControl, onBusy }: {
     </header>
     <div className="side-panel-scroll source-panel-content">
       {error && <Notice>{error}</Notice>}
-      <SingleChoice label={label} value={tab} onChange={setTab} options={['account', 'connection'].map(value => ({ value, label: t(`accounts.tab.${value}`) }))} />
-      {tab === 'account' && <>
-        {state.error && <Notice>{state.error}</Notice>}
-        {accounts.map(account => <PlatformAccountCard key={account.id} account={account} onOpen={() => {
-          ingressPanel.set(undefined);
-          navigation.set(old => ({ ...old, page: 'accounts', accountId: account.id, remoteSourceId: undefined }));
-        }} />)}
-        {!accounts.length && !state.error && <p role="status" className="muted">{t(state.loading ? 'loading' : 'accounts.empty')}</p>}
-      </>}
-      {tab === 'connection' && (ingress ? <PlatformConnection key={ingress.id} ingress={ingress} onConnection={id => {
+      {state.error && <Notice>{state.error}</Notice>}
+      {accounts.map(account => <PlatformAccountCard key={account.id} account={account} onOpen={() => {
         ingressPanel.set(undefined);
-        navigation.set(old => ({ ...old, page: 'remote', remoteSourceId: undefined, remoteConnectionId: id }));
-      }} /> : <Notice tone="warning">{t('source.connectionRemoved')}</Notice>)}
+        navigation.set(old => ({ ...old, page: 'accounts', accountId: account.id, remoteSourceId: undefined }));
+      }} />)}
+      {!accounts.length && !state.error && <p role="status" className="muted">{t(state.loading ? 'loading' : 'accounts.empty')}</p>}
     </div>
   </>;
 }

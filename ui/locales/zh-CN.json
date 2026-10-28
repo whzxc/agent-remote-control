@@ -1289,8 +1289,6 @@
   "accounts.testSent": "测试已发送；此回执不代表接收端已确认。",
   "accounts.advanced": "高级",
   "accounts.tools": "工具",
-  "accounts.tab.account": "账户",
-  "accounts.tab.connection": "连接",
   "accounts.whoami": "whoami 根据连接授权识别此账户。",
   "accounts.openAccount": "打开账户",
   "accounts.unidentified": "Unidentified：此授权没有提供服务商身份信息，目前重新授权也无法识别服务商身份。",

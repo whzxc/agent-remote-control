@@ -22,8 +22,8 @@ import type { SurfaceRect } from "../motion/surface";
 import type { ProviderAccount } from "../types";
 import { accountOwns } from "../accountPresentation";
 
-function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, resizable = true }: {
-  agent: Agent; active: boolean; resizable?: boolean; account?: ProviderAccount; accountId?: string;
+function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, platformAvailable, resizable = true }: {
+  agent: Agent; active: boolean; platformAvailable: boolean; resizable?: boolean; account?: ProviderAccount; accountId?: string;
   onSettings: () => void; expanded: boolean; onToggleWidth: () => void;
 }) {
   const { snapshot } = subscriptions.use(), { status } = connector.use();
@@ -46,7 +46,8 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   }
   return <section className="agent-panel-layer agent-overview-layer">
     <header className="dialog-header agent-panel-header">
-      <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual /></Button>
+      {platformAvailable ? <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual /></Button>
+        : <AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual />}
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
@@ -79,6 +80,10 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
 }) {
   const selected = agentPanel.use()!, { error } = agentActivity.use();
   const accountState = useAccounts(), account = accountState.items.find(account => accountOwns(account, selected.accountId));
+  const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
+  useLayoutEffect(() => {
+    if (selected.platform && !selected.closing && !accountState.loading && linkedAccounts.length <= 1) selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: linkedAccounts[0]?.id });
+  }, [selected.platform, selected.closing, accountState.loading, linkedAccounts.length, linkedAccounts[0]?.id, agent.agent]);
   const reduced = useReducedMotion(), previous = useRef(selected), content = useRef<HTMLDivElement>(null);
   const session = selected.session, taskTitleId = useId();
   const returning = !selected.platform && previous.current.agent === selected.agent && previous.current.accountId === selected.accountId && !!previous.current.session && !session;
@@ -104,7 +109,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
       <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
         {selected.platform ? <AgentPlatformView agent={agent} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
-          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView resizable={!dockRect} agent={agent} account={account} accountId={selected.accountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={selected.accountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
         initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>
