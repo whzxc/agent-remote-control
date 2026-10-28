@@ -19,6 +19,7 @@ impl WaitSource for AgentSource {
         true
     }
     async fn observe(&mut self) -> Result<Value> {
+        archive::ensure_observable(&self.agent, &self.task)?;
         let dispatches = self
             .host
             .operations
@@ -139,6 +140,7 @@ pub(super) async fn agent_wait(
     let started = Instant::now();
     let task = string(args, "taskId");
     task_path(task)?;
+    archive::ensure_observable(string(args, "agent"), task)?;
     let mut source = AgentSource {
         host: host.clone(),
         agent: string(args, "agent").into(),

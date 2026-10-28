@@ -3,9 +3,6 @@ use crate::*;
 use std::collections::BTreeMap;
 
 fn criteria(row: &mut Value, text: &str, key: &str, args: &Value) {
-    if text.is_empty() {
-        return;
-    }
     let digest = hash(text);
     row["criteriaHash"] = json!(digest);
     if args["knownCriteriaHash"].as_str() == Some(digest.as_str())
@@ -29,8 +26,22 @@ fn clean(value: &mut Value) {
                     v == "persistent-snapshot" || v == "persisted-session-snapshot"
                 });
             map.retain(|key, value| {
+                if key == "models" {
+                    if let Some(models) = value.as_array_mut() {
+                        // Compact strings may themselves be opaque IDs such as "unknown".
+                        models.iter_mut().for_each(clean);
+                        return true;
+                    }
+                }
                 clean(value);
-                !(key == "observedAt" && !stale || empty(value))
+                // Native identities and labels are data, even when their literal
+                // text equals a presentation sentinel. Empty model lists are facts.
+                (value.is_string()
+                    && matches!(
+                        key.as_str(),
+                        "model" | "displayName" | "name" | "id" | "value"
+                    ))
+                    || !(key == "observedAt" && !stale || empty(value))
             });
         }
         Value::Array(values) => {
@@ -48,55 +59,82 @@ fn empty(value: &Value) -> bool {
         || value.as_array().is_some_and(Vec::is_empty)
         || value.as_object().is_some_and(serde_json::Map::is_empty)
 }
-fn model_list(row: &Value) -> Vec<String> {
-    let models = row.get("models").unwrap_or(&row["capabilities"]["models"]);
-    models
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|m| {
-            let mut parts = vec![];
-            let efforts: Vec<_> = m["efforts"]
+fn model_list(models: &Value) -> Vec<String> {
+    let mut grouped = BTreeMap::<(String, String, String), Vec<String>>::new();
+    for m in models.as_array().into_iter().flatten() {
+        let mut parts = vec![];
+        let efforts: Vec<_> = m["efforts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        let order = [
+            "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
+        ];
+        if !efforts.is_empty() {
+            let contiguous = order.windows(efforts.len()).any(|v| v == efforts);
+            parts.push(if contiguous && efforts.len() > 2 {
+                format!("{}-{}", efforts[0], efforts[efforts.len() - 1])
+            } else {
+                efforts.join("/")
+            });
+        }
+        for tier in m["serviceTiers"].as_array().into_iter().flatten() {
+            parts.push(format!(
+                "{}={}",
+                string(tier, "name").to_lowercase(),
+                string(tier, "id")
+            ));
+        }
+        for option in m["options"].as_array().into_iter().flatten() {
+            let values = option["values"]
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter_map(Value::as_str)
-                .collect();
-            let order = [
-                "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
-            ];
-            if !efforts.is_empty() {
-                let contiguous = order.windows(efforts.len()).any(|v| v == efforts);
-                parts.push(if contiguous && efforts.len() > 2 {
-                    format!("{}-{}", efforts[0], efforts[efforts.len() - 1])
-                } else {
-                    efforts.join("/")
-                });
+                .filter_map(|v| v.as_str().or(v["value"].as_str()))
+                .collect::<Vec<_>>()
+                .join("/");
+            if !values.is_empty() {
+                parts.push(format!("{}={values}", string(option, "id")));
             }
-            for tier in m["serviceTiers"].as_array().into_iter().flatten() {
-                parts.push(format!(
-                    "{}={}",
-                    string(tier, "name").to_lowercase(),
-                    string(tier, "id")
-                ));
-            }
-            for option in m["options"].as_array().into_iter().flatten() {
-                let values = option["values"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|v| v["value"].as_str())
-                    .collect::<Vec<_>>()
-                    .join("/");
-                if !values.is_empty() {
-                    parts.push(format!("{}={values}", string(option, "id")));
-                }
-            }
-            let id = string(m, "model");
-            if parts.is_empty() {
-                id.into()
+        }
+        let id = string(m, "model");
+        let name = string(m, "displayName");
+        let label = if name.is_empty() || name == id {
+            id.to_owned()
+        } else {
+            format!("{name} ({id})")
+        };
+        // Use only explicit native metadata; model IDs remain opaque.
+        let provider = string(&m["provider"], "name");
+        let provider = if provider == id || provider == name {
+            ""
+        } else {
+            provider
+        };
+        let provider_id = if provider.is_empty() {
+            ""
+        } else {
+            string(&m["provider"], "id")
+        };
+        grouped
+            .entry((provider_id.into(), provider.into(), parts.join(", ")))
+            .or_default()
+            .push(label);
+    }
+    grouped
+        .into_iter()
+        .map(|((_, provider, settings), ids)| {
+            let labels = if provider.is_empty() {
+                ids.join(",")
             } else {
-                format!("{id}: {}", parts.join(", "))
+                format!("[{provider}] {}", ids.join(","))
+            };
+            if settings.is_empty() {
+                labels
+            } else {
+                format!("{labels}: {settings}")
             }
         })
         .collect()
@@ -110,32 +148,37 @@ fn history(row: &Value) -> Value {
         .into_iter()
         .flatten()
         .map(|g| {
-            let mut label = ["model", "effort", "serviceTier"]
+            let mut label = ["model", "effort"]
                 .iter()
                 .filter_map(|k| g[k].as_str())
                 .filter(|v| !v.is_empty() && *v != "unknown")
                 .collect::<Vec<_>>()
                 .join("/");
+            match g["serviceTier"].as_str() {
+                Some("default" | "") | None => {}
+                Some("unknown") => label.push_str("/?"),
+                Some(tier) => label.push_str(&format!("/{tier}")),
+            }
             for (k, v) in g["options"].as_object().into_iter().flatten() {
                 label.push_str(&format!(" {k}={}", v.as_str().unwrap_or("")));
             }
-            let mut s = format!("{label}: {} dispatches", g["dispatches"]);
+            let mut s = format!("{label}: n{}", g["dispatches"]);
             if let Some(ms) = g["medianObservedDurationMs"].as_f64() {
-                s.push_str(&format!(", {:.1}m median", ms / 60000.0));
+                s.push_str(&format!(" med{:.1}m", ms / 60000.0));
             }
             s.push_str(&format!(
-                ", {}/{}/{} pass/rework/unreviewed",
+                " pass{} rework{} unrev{}",
                 g["pass"], g["rework"], g["unreviewed"]
             ));
             if let Some(n) = g["external"]["reviews"].as_u64() {
                 s.push_str(&format!(
-                    ", {n} external reviews ({}/{} pass/rework)",
+                    " ext{n} pass{} rework{}",
                     g["external"]["pass"], g["external"]["rework"]
                 ));
             }
-            for k in ["failed", "interrupted"] {
+            for (k, short) in [("failed", "fail"), ("interrupted", "int")] {
                 if g[k].as_u64().unwrap_or(0) > 0 {
-                    s.push_str(&format!(", {} {k}", g[k]));
+                    s.push_str(&format!(" {short}{}", g[k]));
                 }
             }
             s
@@ -217,6 +260,42 @@ fn quotas(row: &Value) -> Vec<(String, Value)> {
     result
 }
 
+fn accounts(row: &Value) -> Value {
+    json!(row["accounts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|a| {
+            let mut out = json!({"id":a["id"],"alias":a["alias"],"health":a["health"]["state"]});
+            if a["default"] == true {
+                out["default"] = json!(true);
+            }
+            let q = &a["quota"];
+            let windows = q["windows"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|w| {
+                    let used = w["usedPercent"].as_f64()?;
+                    let label = w["label"].as_str().unwrap_or_else(|| string(w, "id"));
+                    let reset = w["resetsAt"]
+                        .as_str()
+                        .map(|at| format!(" reset={at}"))
+                        .unwrap_or_default();
+                    Some(format!("{label} {used}%{reset}"))
+                })
+                .collect::<Vec<_>>();
+            out["quota"] = json!({"state":q["state"],"summary":windows.join(", ")});
+            for key in ["observedAt", "error", "accountBlocked", "blockedPoolIds"] {
+                if q[key] != false {
+                    out["quota"][key] = q[key].clone();
+                }
+            }
+            out
+        })
+        .collect::<Vec<_>>())
+}
+
 pub(super) fn present(mut facts: Value, args: &Value) -> Value {
     let global = string(&facts, "criteria").to_owned();
     criteria(&mut facts, &global, "global", args);
@@ -247,7 +326,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         let text = string(policy, "criteria");
         let history = history(row);
         let no_policy = text.is_empty() && history.is_null();
-        let mut out = json!({"agent":agent,"accounts":row["accounts"],"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
+        let mut out = json!({"agent":agent,"accounts":accounts(row),"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
         if available["discoveryError"].is_string() {
             out["error"] = available["discoveryError"].clone();
         }
@@ -268,9 +347,22 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         ] {
             out[k] = policy[k].clone();
         }
+        let catalog = if agent == "codex" {
+            row
+        } else {
+            &row["capabilities"]
+        };
+        out["authoritative"] = json!(!no_policy && catalog["authoritative"] == true);
+        for key in ["source", "observedAt", "omittedModels", "unavailable"] {
+            out[key] = catalog[key].clone();
+        }
         if !no_policy {
             out["history"] = history;
-            out["models"] = json!(model_list(row));
+            out["models"] = if catalog["models"].is_array() {
+                json!(model_list(&catalog["models"]))
+            } else {
+                catalog["models"].clone()
+            };
             let options: Vec<_> = row["capabilities"]["options"]
                 .as_array()
                 .into_iter()
@@ -292,14 +384,6 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
                 out["optionsForModel"] = row["capabilities"]["optionsForModel"].clone();
                 out["currentModel"] = row["capabilities"]["currentModel"].clone();
             }
-            for k in ["source", "observedAt", "omittedModels", "unavailable"] {
-                out[k] = row["capabilities"][k].clone();
-            }
-            if row["models"].is_object() {
-                out["models"] = row["models"].clone();
-            } else if row["capabilities"]["models"].is_object() {
-                out["models"] = row["capabilities"]["models"].clone();
-            }
         }
         let mut quota = vec![];
         for (id, value) in quotas(row) {
@@ -319,7 +403,113 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         };
         rows.push(out);
     }
+    if rows.iter().any(|r| !r["history"].is_null()) {
+        facts["legend"] = json!("30d; no self-test; n=dispatches med=successful observed minutes unrev=unreviewed int=interrupted fail=failed ext=external reviews with own pass/rework; /tier omitted=default ?=unknown; other=mixed n<10; quota=% used");
+    }
     facts["agents"] = json!(rows);
     clean(&mut facts);
     facts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
+        // Property: compact projection retains account identity, readiness, quota units, resets and stale/blocking evidence without inventing usage.
+        let accounts = json!([
+            {"id":"account-one","alias":"Primary","default":true,"health":{"state":"attention"},
+             "agentProfiles":[{"profileId":"profile-one","state":"signed-in"}],
+             "quota":{"state":"stale","observedAt":"2026-01-01T00:00:00Z","accountBlocked":true,
+                      "windows":[{"id":"weekly","label":"7d","usedPercent":100,"resetsAt":"2026-01-02T00:00:00Z"}]}},
+            {"id":"account-two","alias":"Secondary","health":{"state":"ready"},"quota":{"state":"unavailable"}}
+        ]);
+        let facts = json!({"agents":[{"agent":"example","accounts":accounts,
+            "availability":{"installed":true,"enabled":true,"available":true},
+            "policy":{"criteria":"Use current evidence.","denyModels":["denied"]}}]});
+        let first = present(facts.clone(), &json!({}));
+        let row = &first["agents"][0];
+        let primary = &row["accounts"][0];
+        assert_eq!(primary["id"], accounts[0]["id"]);
+        assert_eq!(primary["alias"], accounts[0]["alias"]);
+        assert_eq!(primary["default"], true);
+        assert_eq!(primary["health"], accounts[0]["health"]["state"]);
+        assert_eq!(primary["quota"]["state"], "stale");
+        assert_eq!(
+            primary["quota"]["observedAt"],
+            accounts[0]["quota"]["observedAt"]
+        );
+        assert_eq!(primary["quota"]["accountBlocked"], true);
+        let summary = primary["quota"]["summary"].as_str().unwrap();
+        assert!(
+            summary.contains("7d")
+                && summary.contains("100%")
+                && summary.contains("2026-01-02T00:00:00Z")
+        );
+        assert_eq!(row["accounts"][1]["quota"]["state"], "unavailable");
+        assert!(row["accounts"][1]["quota"].get("summary").is_none());
+        assert_eq!(
+            row["denyModels"],
+            facts["agents"][0]["policy"]["denyModels"]
+        );
+        let cached = present(
+            facts.clone(),
+            &json!({"knownCriteriaHash":row["criteriaHash"]}),
+        );
+        assert_eq!(cached["agents"][0]["accounts"], row["accounts"]);
+        let full = present(facts, &json!({"view":"full"}));
+        assert_eq!(full["agents"][0]["accounts"], accounts);
+    }
+}
+
+#[cfg(test)]
+mod catalog_metadata_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_metadata_review_restores_compact_decision_and_full_metadata() {
+        // Regression: review of 136285a8 found per-model settings and context metadata bloated every decision read.
+        let mut models = json!(["alpha", "beta"])
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| {
+                json!({
+                    "model":id,"displayName":id,"contextWindow":131072,
+                    "efforts":["low","medium","high","xhigh","max","ultra"],
+                    "serviceTiers":[{"id":"priority","name":"Fast"}],
+                    "options":[{"id":"mode","values":[{"value":"a"},{"value":"b"}]}]
+                })
+            })
+            .collect::<Vec<_>>();
+        let opaque = "[\"profile\", \"opaque/id\"]";
+        models.push(json!({"model":opaque,"displayName":"Native model","provider":{"id":"p","name":"Provider"},"contextWindow":64000,"efforts":["low","high"]}));
+        models.push(json!({"model":"unknown","displayName":"unknown","provider":{"id":"unknown","name":"unknown"}}));
+        let facts = json!({"agents":[
+            {"agent":"codex","models":models,"authoritative":true,"policy":{"criteria":"Choose native models."}},
+            {"agent":"dsh","capabilities":{"models":models,"authoritative":false,"omittedModels":2},"policy":{"criteria":"Choose native models."}},
+            {"agent":"pi","capabilities":{"models":models,"authoritative":true}}
+        ]});
+        let result = present(facts.clone(), &json!({}));
+        for row in &result["agents"].as_array().unwrap()[..2] {
+            let compact = row["models"].as_array().unwrap();
+            assert_eq!(compact.len(), 3);
+            assert!(compact.contains(&json!("alpha,beta: low-ultra, fast=priority, mode=a/b")));
+            assert!(compact.contains(&json!(format!(
+                "[Provider] Native model ({opaque}): low/high"
+            ))));
+            assert!(compact.contains(&json!("unknown")));
+        }
+        assert_eq!(result["agents"][0]["authoritative"], true);
+        assert_eq!(result["agents"][1]["authoritative"], false);
+        assert_eq!(result["agents"][1]["omittedModels"], 2);
+        assert_eq!(result["agents"][2]["authoritative"], false);
+        assert!(result["agents"][2].get("models").is_none());
+        let full = present(facts, &json!({"view":"full"}));
+        assert_eq!(full["agents"][0]["models"], json!(models));
+        assert_eq!(full["agents"][1]["capabilities"]["models"], json!(models));
+        assert_eq!(full["agents"][0]["authoritative"], true);
+        assert_eq!(full["agents"][1]["capabilities"]["authoritative"], false);
+    }
 }

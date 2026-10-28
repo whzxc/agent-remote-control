@@ -836,7 +836,7 @@ pub(crate) fn unconfirmed(row: &Value) {
 }
 
 /// Persist native terminal evidence independently of push bindings, after event-lock release.
-pub(crate) fn native_terminal(method: &str, params: &Value) {
+pub(crate) async fn native_terminal(method: &str, params: &Value) {
     let thread = params["threadId"]
         .as_str()
         .or(params["conversationId"].as_str())
@@ -863,6 +863,9 @@ pub(crate) fn native_terminal(method: &str, params: &Value) {
             continue;
         }
         super::git_watch::terminal(thread, turn_id);
+        if let Some(capture) = crate::changes::terminal(thread, turn_id) {
+            let _ = capture.await;
+        }
         let row = json!({"threadId":thread,"turnId":turn_id});
         if let Ok(mut input) = base(
             &row,

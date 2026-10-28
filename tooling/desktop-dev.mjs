@@ -110,7 +110,7 @@ async function rebuildGeneration() {
         const executable = path.join(directory, path.basename(binary));
         cpSync(binary, executable);
         cpSync(path.join(root, 'dist/native'), path.join(directory, 'bin'), { recursive: true });
-        cpSync(path.join(root, 'skills/arc-setup'), path.join(directory, 'skills/arc-setup'), { recursive: true });
+        cpSync(path.join(root, 'skills'), path.join(directory, 'skills'), { recursive: true });
         app = child(executable, [], { env: { ...env, ARC_DEV_SUPERVISED: '1' }, stdio: ['pipe', 'inherit', 'inherit'] });
       }
       const endpoint = await waitForCore();
@@ -191,7 +191,7 @@ try {
   catch { /* Binding the strict port reports incompatible listeners. */ }
   if (existing && (existing.project !== root || existing.stateDirectory !== stateDir)) throw new Error('Port 5187 belongs to another checkout or state directory. Stop its DEV WEB before starting dev.');
   if (!existing) { server = await createServer({ configFile: path.join(root, 'vite.config.ts') }); await server.listen(); }
-  const sourceDirectories = ['native/src', 'desktop/src', 'skills/arc-setup'];
+  const sourceDirectories = ['native/src', 'desktop/src', 'skills'];
   const sourceFiles = ['Cargo.toml', 'Cargo.lock', 'native/Cargo.toml', 'native/build.rs', 'native/screen/main.swift', 'desktop/Cargo.toml', 'desktop/build.rs', 'desktop/tauri.conf.json', 'desktop/tauri.dev.conf.json', 'desktop/tauri.windows.conf.json', 'tooling/build-version.rs', 'tooling/build-native.mjs', 'tooling/macos-dev-app.mjs', 'tooling/dev-identity.mjs', 'docs/reference/cli.md'];
   function fingerprint() {
     const digest = createHash('sha256');

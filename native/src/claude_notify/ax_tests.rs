@@ -121,8 +121,8 @@ async fn ax_transient_delivery_failure_preserves_verified_route_across_reload() 
 }
 
 #[tokio::test]
-async fn ax_self_caused_acquisition_retains_history_without_waking_its_source() {
-    // Regression: AX-18 idle sends woke their own source with an unheld-to-connector handoff.
+async fn ax_acquisition_retains_history_without_waking_any_source() {
+    // Regression: bfbcc64 ownership handoffs must retain history without waking either their initiating or another source.
     for own in [true, false] {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -146,22 +146,24 @@ async fn ax_self_caused_acquisition_retains_history_without_waking_its_source() 
         .await
         .unwrap();
         let status = lifecycle_status(&dir.0, &b.source_id, 100);
-        assert_eq!(
-            status["deliveries"][0]["state"],
-            if own { "inbox-only" } else { "delivered" }
-        );
+        let deliveries = status["deliveries"].as_array().unwrap();
+        assert!(!deliveries.is_empty());
+        assert!(deliveries.iter().all(|d| d["state"] == "inbox-only"));
         let inbox = inbox_in(&dir.0, &b.source_id, &[], false, None).unwrap();
         assert_eq!(inbox["events"][0]["ownership"], handoff);
+        assert_eq!(inbox["events"][0]["next"]["op"], "codex_owner");
     }
 }
 
 #[tokio::test]
-async fn ax_lifecycle_outcome_supersedes_queued_and_late_settling() {
-    // Regression: AX-14 delayed settling woke after outcome; AX-20 and ax-e682ffe0 asked recipients to answer nonexistent interactions.
+async fn ax_lifecycle_outcome_and_late_settling_remain_queryable_without_waking() {
+    // Regression: bfbcc64 update lifecycle history must remain inbox-only, including replayed outcomes and late settling without an execution interaction.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
     b.waiting = vec!["waiting for input".into()];
     persist(&dir.0, &b).unwrap();
+    let read_inbox =
+        || inbox_select(&dir.0, &b.source_id, &[], false, None, Some(&json!({}))).unwrap();
     let at = chrono::Utc::now().timestamp();
     let mut receipt = json!({"id":"ordered","state":"settling","waiting":{"blockingTurns":[{"threadId":b.thread_id,"turnId":b.turn_id,"question":{"id":"pending","body":"PRIVATE_QUESTION"}}]}});
     recovery::update(&dir.0, &Mutex::new(()), &receipt, "settling", at)
@@ -169,36 +171,57 @@ async fn ax_lifecycle_outcome_supersedes_queued_and_late_settling() {
         .unwrap();
     assert_eq!(
         lifecycle_status(&dir.0, &b.source_id, at)["deliveries"][0]["state"],
-        "pending"
+        "inbox-only"
     );
+    let settling = read_inbox();
+    let settling_id = settling["events"][0]["eventId"].clone();
     receipt["state"] = json!("succeeded");
     receipt["shutdownRequested"] = json!(true);
     receipt["interruptedTurns"] = json!([{"threadId":b.thread_id,"turnId":b.turn_id,"state":"receipt-returned","resumeReceipt":{"state":"completed","turnId":"successor"}}]);
     recovery::update(&dir.0, &Mutex::new(()), &receipt, "outcome", at + 1)
         .await
         .unwrap();
+    let outcome = read_inbox()["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["eventId"] != settling_id)
+        .unwrap()
+        .clone();
+    assert_eq!(outcome["recovery"]["affectedTasks"], 1);
     recovery::update(&dir.0, &Mutex::new(()), &receipt, "settling", at + 2)
         .await
         .unwrap();
-    let fake = Fake::success();
-    flush(&fake, &dir.0, &Mutex::new(()), at + 40, 0, &json!({}))
+    recovery::update(&dir.0, &Mutex::new(()), &receipt, "outcome", at + 1)
         .await
         .unwrap();
+    flush(
+        &Fake::success(),
+        &dir.0,
+        &Mutex::new(()),
+        at + 40,
+        0,
+        &json!({}),
+    )
+    .await
+    .unwrap();
     let status = lifecycle_status(&dir.0, &b.source_id, at);
+    let deliveries = status["deliveries"].as_array().unwrap();
+    assert!(!deliveries.is_empty());
+    assert!(deliveries.iter().all(|d| d["state"] == "inbox-only"));
+    let inbox = read_inbox();
+    let events = inbox["events"].as_array().unwrap();
     assert_eq!(
-        status["deliveries"]
-            .as_array()
-            .unwrap()
+        events
             .iter()
-            .filter(|d| d["state"] == "delivered")
-            .count(),
-        1
+            .filter(|e| e["eventId"] == outcome["eventId"])
+            .collect::<Vec<_>>(),
+        vec![&outcome]
     );
-    for sent in fake.calls.lock().unwrap().iter() {
-        assert!(sent[1].starts_with(RECEIPT_HEADER));
-        assert!(!sent[1].contains("PRIVATE_QUESTION"));
+    for event in events {
+        assert_eq!(event["next"]["op"], "update_status");
+        assert!(event["interaction"].is_null());
     }
-    let before = status["deliveries"].as_array().unwrap().len();
     recovery::update(
         &dir.0,
         &Mutex::new(()),
@@ -208,18 +231,12 @@ async fn ax_lifecycle_outcome_supersedes_queued_and_late_settling() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        lifecycle_status(&dir.0, &b.source_id, at)["deliveries"]
-            .as_array()
-            .unwrap()
-            .len(),
-        before
-    );
+    assert_eq!(read_inbox()["events"], inbox["events"]);
 }
 
 #[tokio::test]
 async fn ax_lifecycle_counts_and_routes_only_affected_owners() {
-    // Regression: AX-15 and AX-21 counted retained finished turns and woke every verified target across sources.
+    // Regression: bfbcc64 lifecycle notices must remain inbox-only while AX-15 and AX-21 affected counts stay scoped to each source and target, excluding finished turns.
     let dir = Sandbox::new();
     let mut owner = fixture(&dir.0);
     owner.thread_title = "Affected task".into();
@@ -269,13 +286,9 @@ async fn ax_lifecycle_counts_and_routes_only_affected_owners() {
             &json!({}),
         )
         .unwrap();
-        let sent: Vec<_> = status["deliveries"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|d| d["state"] == "delivered")
-            .collect();
-        assert_eq!(sent.len(), usize::from(b.thread_id == owner.thread_id));
+        let deliveries = status["deliveries"].as_array().unwrap();
+        assert!(!deliveries.is_empty());
+        assert!(deliveries.iter().all(|d| d["state"] == "inbox-only"));
         let inbox = inbox_select(
             &dir.0,
             &b.source_id,
@@ -285,6 +298,11 @@ async fn ax_lifecycle_counts_and_routes_only_affected_owners() {
             Some(&json!({})),
         )
         .unwrap();
+        for event in inbox["events"].as_array().unwrap() {
+            assert_eq!(event["threadId"], b.thread_id);
+            assert_eq!(event["target"], json!(b.target));
+            assert_eq!(event["next"]["op"], "update_status");
+        }
         let counts: Vec<_> = inbox["events"]
             .as_array()
             .into_iter()

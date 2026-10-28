@@ -35,7 +35,7 @@ ARC derives a source's account from provider authorization facts when available 
 
 Current inbound MCP OAuth is ARC's authorization server, with locally generated opaque access/refresh tokens and grant/client/resource identifiers. Its registration and consent flow does not obtain provider email or organization claims, and it has no provider userinfo/introspection exchange. The official OpenAI Tunnel path supplies a configured tunnel ID/control-plane API key to Tunnel Client and forwards MCP over stdio with a local ARC ingress principal; ARC does not receive a per-caller provider identity from that bridge. Bearer/unauthenticated HTTPS similarly anchors one ingress source. MCP initialize reads protocolVersion but does not consume clientInfo identity. Connector observations retain operational metadata, not provider identity. Relay membership authenticates ARC instances by public key, not the ChatGPT/Claude user. Native Claude `auth status --json` provides email, accountId, orgId, orgName and subscriptionType when supplied by the CLI; Codex `account/read` provides the native account facts. Neither proves an inbound source owns that identity on its own.
 
-A second resolution path is the confirmed Claude cloud-session handshake. `notify_control` binds a source-owned target and selects a specific ARC Claude profile through `route` or unique session visibility. Verification pins that profile and snapshots its CLI identity before sending a source-bound challenge. Only `notification_ack` with the code received in that conversation links the source to the profile's account. Bind, visibility and send success alone are insufficient. A route change invalidates the pending challenge; missing profile identity keeps the source unresolved. Previously verified routes require a fresh handshake to supply identity evidence.
+A second resolution path is the confirmed Claude cloud-session handshake. `notify_control` binds a source-owned target and selects a specific ARC Claude profile through `route`, unique session visibility, or a match to the calling source origin `accountId` when no profile is confirmed visible. Verification pins that profile and snapshots its CLI identity before sending a source-bound challenge. Only `notification_ack` with the code received in that conversation links the source to the profile's account. Bind, visibility and send success alone are insufficient. A route change invalidates the pending challenge; missing profile identity keeps the source unresolved. Previously verified routes require a fresh handshake to supply identity evidence.
 
 External `whoami.identityResolution` and source reads report `state:unresolved|resolved|conflict`. Accounts expose `sourceIdentities` keyed by source ID. Authorization evidence records `kind:authorization`, `identityKey` and `observedAt`. Handshake evidence records `kind:claude-session-handshake`, `sourceId`, `target`, `profileId`, `accountId`, `identityKey` and `confirmedAt`. A conflicting handshake never replaces a confirmed account silently: keep the existing account and return `ACCOUNT_IDENTITY_CONFLICT` in the resolution with its reason and proposed evidence. Later provider facts take precedence while retaining the disagreement. Conflicts set account health to attention and remain visible until a new matching handshake reconciles them. Notification delivery may still be verified. Source IDs and historical origins are never rewritten.
 
@@ -68,6 +68,21 @@ Actions:
 - `codex_create`, `codex_send`, `agent_create` and `agent_send` accept optional `account` (account ID or alias). Omitted means the Agent's default. Receipts, tasks and activity record `agentAccountId`; origins record `origin.accountId` beside `origin.sourceId`.
 
 The management API mirrors these ops for the UI under `accounts/*` and replaces `claude-accounts/*`. Notification send/test stays under the account.
+
+## Source-account containers
+
+SRC accounts also own isolated website containers and an L3 conversation registry.
+Phase 1 opens one native window per account on macOS 14+, keeping existing panels
+unchanged. Account IDs key persistent random WK store UUIDs; no provider cookies
+enter the account JSON store. The `src_*` operations and Desktop bridge are defined
+in [Embedded control sources](embedded-control-sources.md#phase-1) and
+[Source conversations](../reference/tools.md#source-conversations). Identity merges
+do not silently transfer website sessions. Source login status remains separate
+from Agent profile authentication and notification verification. Handshake evidence
+retains the native org ID for in-process website import ownership checks.
+`src_conversations` reconciles and lists every SRC account independently of the
+write-operation ownership boundary. `src_login_clear` removes only website login
+data and the store UUID mapping, preserving conversations and task bindings.
 
 ## UI
 

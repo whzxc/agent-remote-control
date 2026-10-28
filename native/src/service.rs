@@ -513,8 +513,11 @@ impl Service {
         let audit = method != "GET"
             && ![
                 "runtime/lease",
+                "src-conversations/observe",
+                "src-conversations/query",
                 "logs/query",
                 "agents/conversations",
+                "agents/dispatch-catalog",
                 "agents/conversations/timeline",
                 "state/wait",
                 "setup/next",
@@ -651,6 +654,21 @@ impl Service {
         }
         if route.starts_with("local-access/") {
             return crate::local_access::request(self, route, method, body).await;
+        }
+        if route == "src-conversations/observe" && method == "POST" {
+            return crate::src_conversations::observe(&body);
+        }
+        if let Some(action) = route.strip_prefix("src-conversations/") {
+            let name = match (method, action) {
+                ("POST", "query") => "src_conversations",
+                ("GET", "profiles") => "src_chrome_profiles",
+                ("POST", "open") => "src_conversation_open",
+                ("POST", "import") => "src_login_import",
+                ("POST", "clear") => "src_login_clear",
+                ("POST", "bind") => "src_conversation_bind",
+                _ => return Err("UNKNOWN_ROUTE".into()),
+            };
+            return crate::src_conversations::op(name, body).await;
         }
         if route == "accounts" || route.starts_with("accounts/") {
             return self
@@ -848,6 +866,10 @@ impl Service {
                 )
                 .await;
         }
+        if route == "agents/dispatch-catalog" && method == "POST" {
+            crate::management::resolve("agents.dispatch_catalog", &json!({"body":body}))?;
+            return crate::dispatch_policy::catalog(&self.control, &self.agents, &body).await;
+        }
         if route == "agents/activity" && method == "GET" {
             return Ok(self.agents.activity(&self.control).await);
         }
@@ -897,8 +919,11 @@ impl Service {
                     item["name"] = json!(name);
                     item["description"] = tool["description"].clone();
                     item["via"] = json!(crate::egress::via(tool));
-                    item["available"] =
-                        json!(!name.starts_with("agent_") && name != "agents" || agents_available);
+                    item["available"] = json!(
+                        name == "agent_archive"
+                            || (!name.starts_with("agent_") && name != "agents")
+                            || agents_available
+                    );
                     item
                 })
                 .collect();

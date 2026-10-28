@@ -3,6 +3,7 @@ use crate::kernel::file_cache::{self, load};
 use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
+static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Default, Deserialize, Serialize)]
@@ -78,8 +79,10 @@ fn check_known(value: Option<&str>, allow: &[String], deny: &[String], field: &s
     }
 }
 fn read() -> Result<Policies> {
-    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = LOCK.lock().map_err(|e| e.to_string())?;
+    let _guard = POLICY_LOCK.lock().map_err(|e| e.to_string())?;
+    read_locked().map(|(policies, _)| policies)
+}
+fn read_locked() -> Result<(Policies, Value)> {
     let path = root().join("dispatch-policy.json");
     if !path.exists() {
         let mut bytes =
@@ -87,7 +90,8 @@ fn read() -> Result<Policies> {
         bytes.push(b'\n');
         save_bytes(&path, &bytes)?;
     }
-    let policies: Policies = serde_json::from_value(load(&path)?)
+    let value = load(&path)?;
+    let policies: Policies = serde_json::from_value(value.clone())
         .map_err(|e| format!("INVALID_DISPATCH_POLICY: dispatch-policy.json: {e}"))?;
     if policies
         .codex
@@ -106,8 +110,54 @@ fn read() -> Result<Policies> {
     {
         return Err("INVALID_DISPATCH_POLICY: model and effort must be nonempty or null".into());
     }
-    Ok(policies)
+    Ok((policies, value))
 }
+/// Serialize criteria compare-and-replace with other policy operations in Core.
+pub(crate) fn update(args: &Value) -> Result<Value> {
+    let _guard = POLICY_LOCK.lock().map_err(|e| e.to_string())?;
+    let (policies, previous) = read_locked()?;
+    let scope = string(args, "scope");
+    let current = match scope {
+        "global" => policies.criteria.as_str(),
+        "codex" => policies.codex.criteria.as_str(),
+        agent => policies
+            .agents
+            .get(agent)
+            .map(|p| p.criteria.as_str())
+            .unwrap_or(""),
+    };
+    let current_hash = hash(current);
+    if args["expectedCriteriaHash"] != current_hash {
+        return Err(json!({
+            "code":"DISPATCH_POLICY_CONFLICT","op":"dispatch_policy_update",
+            "scope":scope,"currentCriteriaHash":current_hash,
+            "message":"Criteria changed. Read dispatch_policy, review the current criteria, then retry dispatch_policy_update with expectedCriteriaHash set to currentCriteriaHash.",
+            "next":{"via":"query","op":"dispatch_policy","args":if scope == "global" {json!({})} else {json!({"agent":scope,"all":true})},
+                "hint":"Review the current criteria before retrying the full replacement with its criteriaHash."}
+        }).to_string());
+    }
+    let path = root().join("dispatch-policy.json");
+    let mut updated = previous.clone();
+    let criteria = string(args, "criteria");
+    if scope == "global" {
+        updated["criteria"] = json!(criteria);
+    } else {
+        if updated.get(scope).is_none() {
+            updated[scope] = json!({});
+        }
+        updated[scope]["criteria"] = json!(criteria);
+    }
+    let formatted = |value: &Value| -> Result<Vec<u8>> {
+        let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    };
+    let backup = root().join("dispatch-policy.json.bak");
+    save_bytes(&backup, &formatted(&previous)?)?;
+    save_bytes(&path, &formatted(&updated)?)?;
+    Ok(json!({"scope":scope,"criteriaHash":hash(criteria),"policyPath":path,"backupPath":backup}))
+}
+
 fn check(value: &str, allow: &[String], deny: &[String], field: &str) -> Result<()> {
     if deny.iter().any(|v| v == value) || (!allow.is_empty() && !allow.iter().any(|v| v == value)) {
         return Err(format!("DISPATCH_POLICY_DENIED: {field}={value}; read query dispatch_policy for allowed choices"));
@@ -256,13 +306,7 @@ async fn models(c: &control::Control) -> Result<Value> {
             .request("model/list", json!({"cursor":cursor}), 15000)
             .await?;
         for model in page["data"].as_array().ok_or("NATIVE_MODELS_MISSING")? {
-            rows.push(json!({
-                "model":model["model"],
-                "defaultServiceTier":model["defaultServiceTier"],
-                "serviceTiers":model["serviceTiers"],
-                "efforts":model["supportedReasoningEfforts"].as_array().into_iter().flatten()
-                    .map(|e| e["reasoningEffort"].clone()).collect::<Vec<_>>()
-            }));
+            rows.push(codex_model(model));
         }
         cursor = page["nextCursor"].clone();
         if cursor.is_null() {
@@ -271,6 +315,53 @@ async fn models(c: &control::Control) -> Result<Value> {
     }
     Ok(json!(rows))
 }
+pub(super) fn codex_model(model: &Value) -> Value {
+    let mut row = json!({
+        "model":model["model"], "name":model["displayName"],
+        "defaultServiceTier":model["defaultServiceTier"], "serviceTiers":model["serviceTiers"],
+        "efforts":model["supportedReasoningEfforts"].as_array().into_iter().flatten()
+            .map(|e| e["reasoningEffort"].clone()).collect::<Vec<_>>()
+    });
+    if model["displayName"].as_str().is_some_and(|s| !s.is_empty()) {
+        row["displayName"] = model["displayName"].clone();
+    }
+    let provider = &model["provider"];
+    if let Some(id) = provider["id"]
+        .as_str()
+        .or(provider.as_str())
+        .or(model["providerId"].as_str())
+        .filter(|s| !s.is_empty())
+    {
+        row["provider"] = json!({"id":id,"name":provider["name"].as_str().or(model["providerName"].as_str()).filter(|s| !s.is_empty()).unwrap_or(id)});
+    }
+    if model["contextWindow"].as_u64().is_some_and(|n| n > 0) {
+        row["contextWindow"] = model["contextWindow"].clone();
+    }
+    row
+}
+
+/// Read labels only; recorded specs and dispatch defaults are not changed.
+pub(crate) async fn catalog(
+    c: &control::Control,
+    agents: &agents::AgentHost,
+    args: &Value,
+) -> Result<Value> {
+    if args["agent"] == "codex" {
+        return Ok(
+            json!({"source":"codex-model-list","authoritative":true,"models":models(c).await?}),
+        );
+    }
+    let mut request = args.clone();
+    request["all"] = json!(true);
+    let rows = agents.dispatch_facts(&request).await?;
+    Ok(rows
+        .first()
+        .map(|row| row["capabilities"].clone())
+        .unwrap_or_else(
+            || json!({"authoritative":false,"unavailable":"agent-catalog-unavailable"}),
+        ))
+}
+
 async fn codex_facts(c: &control::Control, compact: bool) -> Result<Value> {
     let policy = read()?;
     let (models, quota) = tokio::join!(
@@ -296,8 +387,9 @@ async fn codex_facts(c: &control::Control, compact: bool) -> Result<Value> {
             pool
         }).collect::<Vec<_>>()})
     });
+    let authoritative = models.is_ok();
     Ok(json!({
-        "observedAt":now(),
+        "observedAt":now(),"authoritative":authoritative,
         "models":models.unwrap_or_else(|error| json!({"unavailable":error})),
         "policy":policy,
         "quota":quota.unwrap_or_else(|error| json!({"unavailable":error})),
@@ -343,7 +435,7 @@ pub(crate) async fn query(
         });
         if agent == "codex" {
             let facts = codex_facts(c, args["view"] != "full").await?;
-            for key in ["models", "quota", "history"] {
+            for key in ["models", "authoritative", "quota", "history"] {
                 row[key] = facts[key].clone();
             }
             row["policy"] = facts["policy"]["codex"].clone();
@@ -363,7 +455,7 @@ pub(crate) async fn query(
         }
     }
     Ok(decision::present(
-        json!({"observedAt":now(),"criteria":policies.criteria,"agents":rows}),
+        json!({"observedAt":now(),"policyPath":root().join("dispatch-policy.json"),"criteria":policies.criteria,"agents":rows}),
         args,
     ))
 }
@@ -498,7 +590,7 @@ pub(crate) fn summarize_history(
     if compact {
         let mut other = Group::default();
         groups.retain(|_, group| {
-            if group.dispatches + group.external_reviews >= 3 {
+            if group.dispatches >= 10 {
                 return true;
             }
             other.external_reviews += group.external_reviews;
@@ -543,8 +635,14 @@ pub(crate) fn summarize_history(
             g["dispatches"].as_u64().unwrap_or(0) + g["external"]["reviews"].as_u64().unwrap_or(0),
         )
     });
-    let omitted = groups.len().saturating_sub(12);
-    groups.truncate(12);
+    let omitted = if compact {
+        groups.len().saturating_sub(12)
+    } else {
+        0
+    };
+    if compact {
+        groups.truncate(12);
+    }
     let mut history = json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups});
     if omitted > 0 {
         history["omittedGroups"] = json!(omitted);
@@ -609,6 +707,9 @@ fn read_rows(dir: &Path) -> Result<Vec<Value>> {
     Ok(rows)
 }
 pub(crate) fn record(receipt: &Value) -> Result<()> {
+    crate::src_conversations::record(receipt).map_err(|e| {
+        format!("SUBMISSION_UNCONFIRMED: dispatch accepted; conversation record failed: {e}")
+    })?;
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut row = receipt["task"]["dispatch"].clone();
     for key in ["requestId", "threadId", "turnId", "dispatchMode"] {
@@ -616,6 +717,9 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     }
     row["title"] = json!(crate::control::dispatch_title(&receipt["task"]));
     row["origin"] = receipt["origin"].clone();
+    if let Some(caller) = crate::dispatch_caller::validated(&receipt["caller"]) {
+        row["caller"] = caller;
+    }
     row["agentAccountId"] = receipt["agentAccountId"].clone();
     row["agent"] = receipt["agent"]
         .as_str()
@@ -989,11 +1093,11 @@ fn save_review(thread: &str, turn: &str, args: &Value, external: &Value) -> Resu
 
 /// Snapshot at submission; later session changes never rewrite this turn's choices.
 pub(crate) fn agent_record(task: &Value, args: &Value) -> Result<()> {
-    record(
-        &json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
+    let mut receipt = json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
         "turnId":task["turnId"],"requestId":args["requestId"],"dispatchMode":"new-turn",
-        "arguments":args,"task":{"dispatch":task["dispatch"]}}),
-    )
+        "srcConversation":args["srcConversation"],"arguments":args,"task":{"dispatch":task["dispatch"]}});
+    crate::dispatch_caller::attach_current(&mut receipt);
+    record(&receipt)
 }
 /// The Agent transport has flushed the prompt frame; this is submission, not completion.
 pub(crate) fn agent_submitted(task: &Value) -> Result<()> {
@@ -1379,5 +1483,31 @@ mod inheritance_tests {
             json!({"model":"desktop-model","effort":"low"})
         );
         assert_eq!(inherited_configuration(&Value::Null, &[]), json!({}));
+    }
+}
+
+#[cfg(test)]
+mod catalog_metadata_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_metadata_codex_retains_only_native_display_fields() {
+        // Regression: Codex model/list display metadata was omitted from catalog rows.
+        let native = json!({"model":"opaque-id","displayName":"Native model","provider":{"id":"native","name":"Native provider"},"contextWindow":200000,"serviceTiers":[{"id":"priority"}],"supportedReasoningEfforts":[{"reasoningEffort":"high"}]});
+        let row = codex_model(&native);
+        for key in [
+            "model",
+            "displayName",
+            "provider",
+            "contextWindow",
+            "serviceTiers",
+        ] {
+            assert_eq!(row[key], native[key]);
+        }
+        assert_eq!(row["efforts"], json!(["high"]));
+        let absent = codex_model(&json!({"model":"openai/gpt-128k"}));
+        for key in ["displayName", "provider", "contextWindow"] {
+            assert!(absent.get(key).is_none());
+        }
     }
 }

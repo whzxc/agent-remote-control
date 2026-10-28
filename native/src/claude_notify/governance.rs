@@ -484,6 +484,7 @@ pub(crate) async fn notify_control(args: &Value) -> Result<Value> {
                 return Ok(result);
             }
         }
+        sync_src_conversation(&source_id, string(&result, "target"), false)?;
         if args["verify"] != false {
             match super::reachability::verify(&source_id, args).await {
                 Ok(mut verification) => {
@@ -513,13 +514,19 @@ pub(crate) async fn notify_control(args: &Value) -> Result<Value> {
         return super::reachability::verify(&source_id, args).await;
     }
     let _guard = LOCK.lock().await;
-    control_in(
+    let result = control_in(
         &directory(),
         &source_id,
         args,
         chrono::Utc::now().timestamp(),
         &settings()?,
-    )
+    )?;
+    if args["action"] == "rebind" {
+        if let Some(target) = args["target"].as_str() {
+            sync_src_conversation(&source_id, &session_id(target)?, false)?;
+        }
+    }
+    Ok(result)
 }
 pub(super) fn control_in(
     dir: &Path,
@@ -628,6 +635,7 @@ pub(super) fn control_in(
                 channel: Channel::ClaudeSession,
                 target: target.clone(),
             });
+            // Late binding intentionally keeps pending completion catch-up pushes.
             // Persist the override first; the next flush also applies it after a crash.
             state.save(dir)?;
             for b in all
@@ -784,6 +792,18 @@ async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
     let selected = if owners.len() == 1 && !candidates.iter().any(|p| p["visibility"] == "unknown")
     {
         visible.first().map(|p| string(p, "accountId").to_owned())
+    } else if visible.is_empty() {
+        // Source identity can select a route, but only the challenge ack verifies it.
+        let origin = crate::kernel::origin::current_origin();
+        origin["accountId"].as_str().and_then(|account_id| {
+            candidates
+                .iter()
+                .find(|p| {
+                    crate::accounts::profile_account(string(p, "accountId"))
+                        .is_ok_and(|a| a["id"] == account_id)
+                })
+                .map(|p| string(p, "accountId").to_owned())
+        })
     } else {
         None
     };

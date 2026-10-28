@@ -216,6 +216,32 @@ pub fn read(session: &str, offset: usize, length: usize) -> Result<(String, usiz
     }
     Ok((text, total))
 }
+
+/// Visit complete records under the archive lock, including compressed history.
+pub(crate) fn visit(session: &str, mut consume: impl FnMut(Value) -> Result<()>) -> Result<()> {
+    use std::io::BufRead;
+    let dir = directory(session)?;
+    let _lock = lock(&dir, true)?;
+    let mut paths = segments(&dir)?;
+    let tail = root().join("outputs").join(format!("{session}.jsonl"));
+    if tail.is_file() {
+        paths.push(tail);
+    }
+    for path in paths {
+        let file = File::open(&path).map_err(|e| e.to_string())?;
+        let reader: Box<dyn Read> = if path.extension().is_some_and(|e| e == "gz") {
+            Box::new(GzDecoder::new(file))
+        } else {
+            Box::new(file)
+        };
+        for line in std::io::BufReader::new(reader).lines() {
+            let line = line.map_err(|e| e.to_string())?;
+            consume(serde_json::from_str(&line).map_err(|e| e.to_string())?)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn compact_all() -> Result<Value> {
     let outputs = root().join("outputs");
     private_dir(&outputs)?;

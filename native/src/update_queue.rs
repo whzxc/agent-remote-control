@@ -63,7 +63,8 @@ pub(crate) async fn hold(name: &str, args: &mut Value, policy: &Value) -> Result
     {
         return Ok(None);
     }
-    let row = json!({"requestId":args["requestId"],"state":"held","operation":name,"args":args,"policy":policy,"origin":origin,"digest":digest,"createdAt":now()});
+    let mut row = json!({"requestId":args["requestId"],"state":"held","operation":name,"args":args,"policy":policy,"origin":origin,"digest":digest,"createdAt":now()});
+    crate::dispatch_caller::attach_current(&mut row);
     save(&file, &row)?;
     Ok(Some(public(&row)))
 }
@@ -110,10 +111,13 @@ pub(crate) fn start(execution: &Arc<crate::execution::Execution>) {
                     let result = crate::kernel::origin::ORIGIN
                         .scope(
                             row["origin"].clone(),
-                            execution.call_inner(
-                                string(&row, "operation"),
-                                row["args"].clone(),
-                                row["policy"].clone(),
+                            crate::dispatch_caller::CALLER.scope(
+                                crate::dispatch_caller::validated(&row["caller"]),
+                                execution.call_inner(
+                                    string(&row, "operation"),
+                                    row["args"].clone(),
+                                    row["policy"].clone(),
+                                ),
                             ),
                         )
                         .await;

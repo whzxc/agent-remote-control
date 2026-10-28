@@ -1,4 +1,4 @@
-//! Lifecycle events reach inboxes; only affected conversations wake.
+//! Lifecycle events remain queryable in inboxes without waking conversations.
 use super::*;
 
 pub(super) async fn enqueue(
@@ -18,8 +18,7 @@ async fn enqueue_notice(
     update: Option<(&Value, &str)>,
     interrupted: &std::collections::HashSet<(String, String)>,
 ) -> Result<()> {
-    // Serialize phase admission with transport: a later phase cannot overtake
-    // an already reserved send to the same destination.
+    // Serialize lifecycle recording with the shared task delivery state.
     let _operation = mcp_events::OPERATION.lock().await;
     let _guard = lock.lock().await;
     let mut all = records(dir)?;
@@ -39,7 +38,7 @@ async fn enqueue_notice(
                             || (b.channel == channel && b.target.as_deref() == Some(target)))
                 }) {
                     // A command submitter need not have dispatched an Agent task.
-                    // Bind the update job itself to reuse normal delivery controls.
+                    // Bind the update job itself to retain its source-scoped inbox history.
                     bind_in(dir, Some(""), &task, string(receipt, "id"), "")?;
                     let mut b = binding(dir, &task, string(receipt, "id"))?
                         .ok_or("UPDATE_BINDING_MISSING")?;
@@ -55,25 +54,6 @@ async fn enqueue_notice(
             }
         }
     }
-    if let Some((receipt, "outcome")) = update {
-        let prefix = format!("update:{}:", string(receipt, "id"));
-        for b in &mut all {
-            let mut changed = false;
-            for d in &mut b.deliveries {
-                if d.key.starts_with(&prefix)
-                    && !d.key.ends_with(":outcome")
-                    && matches!(d.status.as_str(), "pending" | "sending")
-                {
-                    supersede(d);
-                    changed = true;
-                }
-            }
-            if changed {
-                inbox_refresh(dir, b)?;
-                persist(dir, b)?;
-            }
-        }
-    }
     let mut state = State::load(dir)?;
     for target in &mut state.targets {
         target.reachability.expire(at);
@@ -82,21 +62,15 @@ async fn enqueue_notice(
         if let Some(rule) = state.rule(b) {
             governance::apply_rebind(b, rule);
         }
-        let interrupted = update.map_or_else(
-            || interrupted.contains(&(b.thread_id.clone(), b.turn_id.clone())),
-            |(receipt, _)| interrupted_by_update(b, receipt),
-        );
-        if interrupted {
-            let mut changed = false;
+        if update.is_some_and(|(receipt, _)| {
+            interrupted_turn(&b.thread_id, &b.turn_id, &b.agent, receipt).is_some_and(resumed)
+        }) {
             for d in &mut b.deliveries {
                 if d.task_state == "cancelled" && d.status == "pending" {
                     d.status = "inbox-only".into();
-                    changed = true;
                 }
             }
-            if changed {
-                persist(dir, b)?;
-            }
+            persist(dir, b)?;
         }
     }
     subscriptions::sync(&mut state, &all);
@@ -164,18 +138,6 @@ async fn enqueue_notice(
         if update.is_some_and(|(_, phase)| phase == "settling") && affected.is_empty() {
             continue;
         }
-        let superseded = update.is_some_and(|(receipt, phase)| {
-            phase != "outcome"
-                && all
-                    .iter()
-                    .filter(|b| b.source_id == source)
-                    .flat_map(|b| &b.deliveries)
-                    .any(|d| {
-                        d.channel == channel
-                            && d.target == target
-                            && d.key == format!("update:{}:outcome", string(receipt, "id"))
-                    })
-        });
         let Some(index) = initiator
             .or_else(|| affected.first().copied())
             .or_else(|| members.first().copied())
@@ -187,15 +149,7 @@ async fn enqueue_notice(
             .iter()
             .filter(|b| b.source_id == source)
             .flat_map(|b| &b.deliveries)
-            .any(|d| {
-                update.is_none()
-                    && (d.event_id == event_id
-                        || (d.task_state == "recovered"
-                            && d.key.starts_with("recovery:")
-                            && d.channel == channel
-                            && d.target == target
-                            && matches!(d.status.as_str(), "pending" | "sending")))
-            })
+            .any(|d| update.is_none() && d.event_id == event_id)
         {
             continue;
         }
@@ -268,32 +222,6 @@ async fn enqueue_notice(
             }
             Some((_, phase)) => format!("ARC update {phase}. Read update_status for details."),
         };
-        let awaiting_resume = update.is_some_and(|(receipt, phase)| {
-            phase == "outcome"
-                && affected.iter().any(|&i| {
-                    receipt["interruptedTurns"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .any(|row| same_turn(&all[i], row) && resume_pending(row))
-                })
-        });
-        let verified = subscriptions.iter().any(|s| match channel {
-            Channel::ClaudeSession => state.targets.iter().any(|t| {
-                t.source_id == source
-                    && t.channel == channel
-                    && t.target == target
-                    && t.reachability.state == "verified"
-            }),
-            Channel::McpEvents => s.webhook.as_ref().is_some_and(|w| w.verified_until > at),
-        });
-        let wake = verified
-            && !superseded
-            && !awaiting_resume
-            && match update {
-                Some((_, phase)) if initiator.is_some() => phase == "outcome",
-                _ => !affected.is_empty(),
-            };
         let recovery =
             json!({"recoveredAt":recovered_at,"affectedTasks":affected.len(),"message":message});
         if let Some((bi, di)) = all.iter().enumerate().find_map(|(bi, b)| {
@@ -307,10 +235,10 @@ async fn enqueue_notice(
                 .flatten()
         }) {
             // Resume receipts may settle after the worker's terminal outcome.
-            // Promote the original inbox event once; never stack a second wakeup.
+            // Refresh the original inbox event without creating a wakeup.
             let b = &mut all[bi];
             let d = &mut b.deliveries[di];
-            let status = if wake { "pending" } else { "inbox-only" };
+            let status = "inbox-only";
             if matches!(d.status.as_str(), "inbox-only" | "pending")
                 && (d.status != status || d.recovery != recovery)
             {
@@ -342,7 +270,7 @@ async fn enqueue_notice(
             created_at: at,
             state: "recovered".into(),
             task_state: "recovered".into(),
-            status: if wake { "pending" } else { "inbox-only" }.into(),
+            status: "inbox-only".into(),
             recovery,
             timing: DeliveryTiming {
                 queued_at: Some(at.saturating_mul(1000)),
@@ -365,6 +293,29 @@ fn same_turn(b: &Binding, row: &Value) -> bool {
             } else {
                 &b.agent
             }
+}
+
+pub(super) fn interrupted_turn<'a>(
+    thread: &str,
+    turn: &str,
+    agent: &str,
+    receipt: &'a Value,
+) -> Option<&'a Value> {
+    (receipt["shutdownRequested"] == true)
+        .then(|| {
+            receipt["interruptedTurns"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|row| {
+                    (row["threadId"] == thread || row["taskId"] == thread)
+                        && row["turnId"] == turn
+                        && row["agent"].as_str().unwrap_or("codex")
+                            == if agent.is_empty() { "codex" } else { agent }
+                        && row["state"] != "finished-before-shutdown"
+                })
+        })
+        .flatten()
 }
 
 // The journal proves activity at shutdown, even after the turn has resumed.
@@ -401,53 +352,7 @@ pub(super) fn resume_pending(row: &Value) -> bool {
     matches!(string(result, "state"), "reserved" | "pending" | "running")
 }
 
-// Older versions may have persisted a failed pre-outcome send. Never replay it
-// after the destination already has an outcome, including after another restart.
-pub(super) fn supersede_phases(bindings: &mut [Binding]) -> Vec<usize> {
-    let outcomes: std::collections::HashSet<_> = bindings
-        .iter()
-        .flat_map(|b| {
-            b.deliveries.iter().filter_map(|d| {
-                d.key
-                    .strip_suffix(":outcome")
-                    .filter(|key| key.starts_with("update:"))
-                    .map(|job| {
-                        (
-                            b.source_id.clone(),
-                            d.channel,
-                            d.target.clone(),
-                            job.to_owned(),
-                        )
-                    })
-            })
-        })
-        .collect();
-    let mut changed = Vec::new();
-    for (index, b) in bindings.iter_mut().enumerate() {
-        for d in &mut b.deliveries {
-            if !matches!(d.status.as_str(), "pending" | "sending") || d.key.ends_with(":outcome") {
-                continue;
-            }
-            if let Some((job, _)) = d.key.rsplit_once(':') {
-                if outcomes.contains(&(
-                    b.source_id.clone(),
-                    d.channel,
-                    d.target.clone(),
-                    job.to_owned(),
-                )) {
-                    supersede(d);
-                    if changed.last() != Some(&index) {
-                        changed.push(index);
-                    }
-                }
-            }
-        }
-    }
-    changed
-}
-
-fn supersede(d: &mut Delivery) {
-    d.status = "resolved".into();
-    queued(d, "superseded");
-    d.recovery["message"] = json!("Earlier ARC update notice superseded by its outcome. Read update_status for the current result.");
+pub(super) fn resumed(row: &Value) -> bool {
+    let result = row.get("resumeReceipt").unwrap_or(&row["receipt"]);
+    result["state"] == "completed" && result["turnId"].as_str().is_some_and(|id| !id.is_empty())
 }

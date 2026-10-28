@@ -204,10 +204,10 @@ async fn flush() -> Result<()> {
     let time = chrono::Utc::now().timestamp();
     for rows in with_store(|s| s.batches(time))? {
         let route = rows[0].route.clone().unwrap();
-        let valid = rows.iter().all(|r| {
-            authorized(string(&r.envelope, "fromSourceId")).is_ok()
-                || r.envelope["localOrigin"] == "arc"
-        }) && authorized(&route.source_id).is_ok()
+        let valid = rows
+            .iter()
+            .all(|r| authorized(string(&r.envelope, "fromSourceId")).is_ok())
+            && authorized(&route.source_id).is_ok()
             && rows
                 .iter()
                 .all(|r| session(&route.source_id, r.envelope["toSessionId"].as_str()).is_ok());
@@ -275,7 +275,7 @@ pub(super) fn binding_id(source: &Value, session: &Value) -> Result<Option<Strin
 pub(crate) fn migrate_routes() -> Result<()> {
     with_store(|_| Ok(()))
 }
-pub(super) fn recovery(blocker: &Value, recipient: &Value, plan: &Value) -> Result<()> {
+pub(super) fn recovery(blocker: &Value, recipient: &Value) -> Result<()> {
     let source = string(recipient, "sourceId");
     match authorized(source) {
         Ok(_) => {}
@@ -287,32 +287,10 @@ pub(super) fn recovery(blocker: &Value, recipient: &Value, plan: &Value) -> Resu
     if !super::bulletin::session_active(source, string(recipient, "sessionId"))? {
         return Ok(());
     }
-    let route = super::bulletin::route(source, string(recipient, "sessionId"))?;
-    with_store(|s| {
-        s.recovery(
-            blocker,
-            recipient,
-            plan,
-            route,
-            chrono::Utc::now().timestamp(),
-        )
-    })?;
+    with_store(|s| s.recovery(blocker, recipient, chrono::Utc::now().timestamp()))?;
     Ok(())
 }
 fn refresh_recovery() -> Result<()> {
     let (events, _) = super::recovery::events()?;
     with_store(|s| s.refresh_recovery(&events))
-}
-/// Shared wake reservation; callers retain their own inbox summary. No transport here.
-pub(crate) fn replacement_summary(
-    state_root: &Path,
-    source: &str,
-    target: &str,
-    replacement: &str,
-    time: i64,
-) -> Result<bool> {
-    let route = hash(json!(["claude-session", source, target]).to_string());
-    with_store_at(state_root.join("coordination/messages/state.json"), |s| {
-        s.replacement_summary(source, &route, replacement, time)
-    })
 }

@@ -14,6 +14,7 @@ for await(const line of createInterface({input:process.stdin})) {
     const threadId='00000000-0000-4000-8000-000000000001';
     for(const [op,args,code] of [
       ['codex_read',{threadId},'THREAD_WRITER_BUSY'],
+      ['codex_read',{threadId,view:'summary'},'THREAD_WRITER_BUSY'],
       ['codex_read',{threadId,statusOnly:true},'THREAD_WRITER_BUSY'],
       ['notify_control',{action:'verify',target:'session_011111111111111111111111'},'NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE'],
       ['notify_control',{action:'bind',target:'session_invalid'},'INVALID_CLAUDE_SESSION'],
@@ -23,7 +24,7 @@ for await(const line of createInterface({input:process.stdin})) {
     ] as const) {
       await assert.rejects(fixture.shell(`echo '${JSON.stringify(args)}' | arc cli control ${op} --stdin`),(error:any)=>{
         const response=JSON.parse(error.stdout);
-        assert.equal(error.code,1);assert.equal(response.ok,false);assert.equal(response.error.code,code);
+        assert.equal(error.code,1);assert.equal(response.ok,false);assert.equal(response.error.code,code,JSON.stringify({op,args,response}));
         assertNextCalls(response);
         const missing=structuredClone(response);delete missing.next;
         assert.throws(()=>assertNextCalls(missing),/missing next/);
@@ -69,13 +70,22 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.equal((await fixture.completed('codex_create',{prompt:'Interrupted read fixture',thread:{cwd:'/tmp'}})).state,'completed');
     for(const [op,args] of [
       ['codex_read',{threadId,statusOnly:true}],['codex_wait',{threadId,turnId,timeoutMs:1000}],
+      ['codex_read',{threadId,turnId,view:'summary'}],['codex_wait',{threadId,turnId,timeoutMs:1000,view:'summary'}],
     ] as const) {
       const {stdout}=await fixture.shell(`echo '${JSON.stringify(args)}' | arc cli control ${op} --stdin`);
       const response=JSON.parse(stdout);
       assert.equal(response.ok,true,JSON.stringify(response));assert.equal(response.schemaVersion,1);
       assert.equal(response.result.state,'cancelled');assert.equal(response.result.recordedStatus,'interrupted');
       assert.equal(response.result.stateScope,'turn');assert.equal(response.error,undefined);
+      if('view' in args){assert.equal(response.result.arcInbox,undefined);assert.equal(response.result.turnId,turnId);}
       assertNextCalls(response);
     }
+    const {stdout}=await fixture.shell(`echo '${JSON.stringify({threadId,turnId,view:'summary'})}' | arc cli wait --control --op codex_wait --stdin --until '/conditionMet==true' --timeout 2`);
+    const waited=JSON.parse(stdout);assert.equal(waited.schemaVersion,1);assert.equal(waited.ok,true);
+    assert.equal(waited.result.lastResult.turnId,turnId);assert.equal(waited.result.lastResult.arcInbox,undefined);
+    await assert.rejects(fixture.shell(`echo '${JSON.stringify({threadId,turnId,view:'summary'})}' | arc cli wait --control --op codex_wait --stdin --until '/state=="running"' --timeout 1`),(error:any)=>{
+      const timeout=JSON.parse(error.stdout);assert.equal(timeout.ok,false);assert.equal(timeout.error.code,'WAIT_TIMEOUT');
+      assert.equal(timeout.error.lastResult.turnId,turnId);assert.equal(timeout.error.lastResult.arcInbox,undefined);return true;
+    });
   }finally{await fixture.close();}
 });

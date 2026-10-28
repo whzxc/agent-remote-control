@@ -25,7 +25,7 @@ serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.12", features = ["tray-icon", "macos-private-api"] }
+tauri = { version = "2.12", features = ["tray-icon", "macos-private-api", "unstable"] }
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
@@ -51,3 +51,18 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSAp
 objc2 = "0.6.3"
 
 block2 = "0.6.2"
+
+wry = "=0.57.0"
+uuid = { version = "1", features = ["v4"] }
+aes = "0.8.4"
+cbc = { version = "0.1.2", features = ["alloc", "zeroize"] }
+pbkdf2 = "0.12.2"
+sha1 = "0.10.6"
+sha2 = "0.10"
+zeroize = "1.9"
+rusqlite = { version = "0.37", features = ["bundled"] }
+security-framework = "3.7"
+tempfile = "3"
+objc2-foundation = { version = "0.3.2", features = ["NSHTTPCookie", "NSDictionary", "NSString", "NSDate", "NSProcessInfo", "NSUUID"] }
+
+objc2-web-kit = { version = "0.3.2", default-features = false, features = ["WKWebsiteDataStore", "block2"] }

@@ -112,7 +112,7 @@ fn check_summary(item: &Value) -> String {
         None => format!("Native command status: {}.", string(item, "status")),
     }
 }
-fn native_files(items: &[Value]) -> Value {
+pub(crate) fn native_files(items: &[Value]) -> Value {
     if !items.iter().any(|i| i["type"] == "fileChange") {
         return Value::Null;
     }
@@ -147,16 +147,14 @@ fn native_files(items: &[Value]) -> Value {
         .map(|(path, (added, removed, unknown))| json!({"path":path,"added":if unknown{None}else{Some(added)},"removed":if unknown{None}else{Some(removed)}}))
         .collect::<Vec<_>>())
 }
-pub(crate) async fn turn(c: &control::Control, thread: &str, turn: &Value) -> Value {
+pub(crate) async fn turn(_c: &control::Control, thread: &str, turn: &Value) -> Value {
     let items = turn["items"].as_array().map(Vec::as_slice).unwrap_or(&[]);
     let message = items
         .iter()
         .rev()
         .find(|i| i["type"] == "agentMessage" && i["phase"] != "commentary")
         .and_then(|i| i["text"].as_str());
-    let files = crate::changes::review_files(c, thread, string(turn, "id"))
-        .await
-        .unwrap_or_else(|| native_files(items));
+    let evidence = crate::changes::review_evidence(thread, turn).await;
     let checks: Vec<_> = items
         .iter()
         .filter(|i| i["type"] == "commandExecution")
@@ -165,7 +163,13 @@ pub(crate) async fn turn(c: &control::Control, thread: &str, turn: &Value) -> Va
             Some(json!({"command":command,"exitCode":i["exitCode"],"summary":check_summary(i)}))
         })
         .collect();
-    json!({"turnId":turn["id"],"recordedStatus":turn["status"],"finalResponse":message,"files":files,"checks":checks})
+    let mut out = json!({"turnId":turn["id"],"recordedStatus":turn["status"],"finalResponse":message,"checks":checks});
+    for key in ["files", "changeEvidence", "attribution", "reason", "next"] {
+        if let Some(value) = evidence.get(key) {
+            out[key] = value.clone();
+        }
+    }
+    out
 }
 
 /// Compact native evidence for revisits; command exit codes retain their batch semantics.
@@ -241,5 +245,36 @@ pub(crate) async fn enrich_progress(thread: &str, progress: &mut Value) {
             }
         }
         Err(_) => progress["gitUnavailable"] = json!("git-progress-timeout"),
+    }
+}
+
+/// Pin explicit reads without assuming that the turn is on the newest page.
+pub(crate) async fn turn_page(c: &control::Control, args: &Value) -> Result<Value> {
+    let selected = args["turnId"].as_str();
+    let mut cursor = args["cursor"].clone();
+    loop {
+        let page = c.request("thread/turns/list", json!({"threadId":args["threadId"],"cursor":cursor,
+            "limit":if selected.is_some(){100}else{num(args,"limit",1)},"sortDirection":"desc","itemsView":"full"}),60000).await?;
+        let Some(selected) = selected else {
+            return Ok(page);
+        };
+        if let Some(turn) = page["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|t| t["id"] == selected)
+        {
+            return Ok(json!({"data":[turn],"nextCursor":null}));
+        }
+        let next = page["nextCursor"].clone();
+        if next.is_null() {
+            return Err(
+                "TURN_NOT_FOUND: read codex_read without turnId to discover current turns".into(),
+            );
+        }
+        if next == cursor {
+            return Err("NATIVE_CURSOR_REPEATED: cannot resolve the requested turn".into());
+        }
+        cursor = next;
     }
 }

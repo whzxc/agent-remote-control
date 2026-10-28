@@ -29,7 +29,7 @@
     "active": true,
     "resources": {
       "../dist/native/": "bin/",
-      "../skills/arc-setup/": "skills/arc-setup/",
+      "../skills/": "skills/",
       "../licenses/": "licenses/"
     },
     "targets": [

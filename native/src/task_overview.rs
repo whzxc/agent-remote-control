@@ -161,6 +161,8 @@ fn compact(
     out["title"] = title.cloned().unwrap_or(Value::Null);
     out["threadId"] = row["id"].clone();
     out["origin"] = crate::sources::task_origin(string(row, "id"), None);
+    out["srcConversation"] =
+        crate::src_conversations::task_ref("codex", string(row, "id")).unwrap_or(Value::Null);
     out["agentAccountId"] = crate::dispatch_policy::records(string(row, "id"))
         .ok()
         .and_then(|rows| rows.last().and_then(|r| r.get("agentAccountId")).cloned())

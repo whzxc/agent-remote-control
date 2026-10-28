@@ -27,6 +27,9 @@ impl Execution {
         self.control.auto_open_codex()
     }
     pub async fn available(&self, name: &str) -> bool {
+        if name == "agent_archive" {
+            return true; // Local cleanup does not require an enabled or installed Agent.
+        }
         if name == "agents" || name.starts_with("agent_") {
             return self.agents.ui_inventory(false).await["agents"]
                 .as_array()
@@ -42,9 +45,42 @@ impl Execution {
         if let Some(receipt) = crate::update_queue::hold(name, &mut args, &policy).await? {
             return Ok(receipt);
         }
-        self.call_inner(name, args, policy).await
+        let read_task = match name {
+            "codex_read" => Some(("codex".to_owned(), string(&args, "threadId").to_owned())),
+            "agent_read" => Some((
+                string(&args, "agent").to_owned(),
+                string(&args, "taskId").to_owned(),
+            )),
+            _ => None,
+        };
+        let summary = crate::task_summary::requested(name, &args);
+        let mut result = self.call_inner(name, args.clone(), policy).await?;
+        if !summary
+            && name == "codex_wait"
+            && result["turnId"].is_string()
+            && matches!(
+                result["state"].as_str(),
+                Some("completed" | "failed" | "cancelled")
+            )
+        {
+            let _ = crate::changes::query(
+                &self.control,
+                &json!({"threadId":args["threadId"],"turnId":result["turnId"],"limit":1}),
+            )
+            .await;
+        }
+        if summary {
+            crate::task_summary::evidence(&self.control, name, &args, &mut result).await?;
+        }
+        if let Some((agent, task)) = read_task.filter(|_| !summary) {
+            result["srcConversation"] = crate::src_conversations::task_ref(&agent, &task)?;
+        }
+        Ok(result)
     }
     pub(crate) async fn call_inner(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
+        if name.starts_with("src_") {
+            return crate::src_conversations::op(name, args).await;
+        }
         if matches!(name, "update_status" | "update_request") {
             let spec = catalog()["ops"]
                 .as_array()
@@ -130,6 +166,19 @@ impl Execution {
                 timeout,
             )
             .await;
+        }
+        if name == "dispatch_policy_update" {
+            let mut args = args;
+            // The frozen act request ID is transport metadata, not a policy field.
+            args.as_object_mut().map(|args| args.remove("requestId"));
+            let spec = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            return self.agents.update_dispatch_policy(&args);
         }
         if name == "dispatch_policy" {
             let catalog = crate::catalog();
@@ -234,9 +283,6 @@ impl Execution {
             };
         }
         if name == "receipt" {
-            if let Some(receipt) = crate::update_queue::receipt(&args).await? {
-                return Ok(receipt);
-            }
             let spec = crate::catalog()["ops"]
                 .as_array()
                 .unwrap()
@@ -244,6 +290,9 @@ impl Execution {
                 .find(|t| t["name"] == name)
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
+            if let Some(receipt) = crate::update_queue::receipt(&args).await? {
+                return Ok(receipt);
+            }
             if let Some(receipt) = self.agents.receipt(args.clone()).await? {
                 return Ok(receipt);
             }

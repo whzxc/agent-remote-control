@@ -196,13 +196,6 @@ fn body(messages: &[Value], escalated: bool) -> String {
     let previews: Vec<_> = messages
         .iter()
         .map(|m| {
-            // ARC recovery remains pointer-only. Only peer coordination metadata may
-            // include a preview, never Agent output or a pending interaction body.
-            if m["localOrigin"] == "arc" {
-                return json!({"type":"notice","fromSourceId":"arc","messageId":m["messageId"],
-                "resources":m["resources"],"negotiationId":m["negotiationId"],
-                "summary":"ARC coordination status changed. Read messages for details."});
-            }
             json!({"messageId":m["messageId"],"type":m["type"],"fromSourceId":m["fromSourceId"],
             "resources":m["resources"],"negotiationId":m["negotiationId"],
             "summary":receipt_line(string(m,"summary"),crate::coordination::messages::SUMMARY_LIMIT)})
@@ -601,11 +594,6 @@ mod tests {
             );
             assert!(preview.get("body").is_none());
         }
-        let recovery = body(
-            &[json!({"localOrigin":"arc","summary":"PRIVATE_AGENT_SUMMARY"})],
-            false,
-        );
-        assert!(!recovery.contains("PRIVATE_AGENT_SUMMARY"));
     }
 }
 #[test]

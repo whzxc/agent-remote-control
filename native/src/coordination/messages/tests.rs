@@ -294,27 +294,20 @@ fn message_corruption_is_preserved() {
     assert_eq!(std::fs::read(&f.path).unwrap(), b"{partial");
 }
 
-fn recovery_fixture() -> (Value, Value, Value) {
+fn recovery_fixture() -> (Value, Value) {
     (
         json!({"id":"blocker","revision":2,"resources":["app:installed"],"causeCode":"service-restart","summary":"Service recovered","clearedBy":{"sourceId":"one"},"fixingCommit":null,"reason":"Non-code recovery observed","evidenceIds":["evidence"],"suggestedNextStep":"consider-resume"}),
         json!({"sourceId":"two","sessionId":"session-two","threadRefs":[{"threadId":"thread","turnId":"old","interruptedAt":1000}]}),
-        json!({"replacementIds":["replacement"]}),
     )
 }
 #[test]
 // Contract: repeated blocker clear/restart creates one claim-labeled pull recovery message and no task dispatch.
 fn recovery_mail_dedupes_and_stays_advisory() {
     let mut f = Fixture::new();
-    let (blocker, recipient, plan) = recovery_fixture();
-    let first = f
-        .store
-        .recovery(&blocker, &recipient, &plan, None, f.time)
-        .unwrap();
+    let (blocker, recipient) = recovery_fixture();
+    let first = f.store.recovery(&blocker, &recipient, f.time).unwrap();
     f.restart();
-    let replay = f
-        .store
-        .recovery(&blocker, &recipient, &plan, None, f.time + 1)
-        .unwrap();
+    let replay = f.store.recovery(&blocker, &recipient, f.time + 1).unwrap();
     assert_eq!(
         first["message"]["messageId"],
         replay["message"]["messageId"]
@@ -334,65 +327,15 @@ fn recovery_mail_dedupes_and_stays_advisory() {
         .is_empty());
 }
 #[test]
-// Contract: recovery pushes only the original verified session generation and shares replacement wake dedupe in either order.
-fn recovery_mail_original_route_and_replacement_dedupe() {
-    for summary_first in [false, true] {
-        let mut f = Fixture::new();
-        let (blocker, mut recipient, plan) = recovery_fixture();
-        let mut bound = route();
-        bound.binding_id = Some(id());
-        recipient["threadRefs"][0]["sessionBindingId"] = json!(bound.binding_id);
-        if summary_first {
-            assert!(f
-                .store
-                .replacement_summary("two", "opaque-route", "replacement", f.time)
-                .unwrap());
-        }
-        let result = f
-            .store
-            .recovery(&blocker, &recipient, &plan, Some(bound), f.time)
-            .unwrap();
-        assert_eq!(
-            result["deliveryMode"],
-            if summary_first {
-                "pull-only"
-            } else {
-                "proactive"
-            }
-        );
-        assert_eq!(
-            f.store
-                .replacement_summary("two", "opaque-route", "replacement", f.time)
-                .unwrap(),
-            summary_first
-        );
-        assert_eq!(
-            f.store.batches(f.time + 60).unwrap().len(),
-            usize::from(!summary_first)
-        );
-    }
-    let mut f = Fixture::new();
-    let (blocker, recipient, plan) = recovery_fixture();
-    assert_eq!(
-        f.store
-            .recovery(&blocker, &recipient, &plan, Some(route()), f.time)
-            .unwrap()["deliveryMode"],
-        "pull-only"
-    );
-}
-#[test]
-// Contract: successor completion before delivery suppresses queued recovery and paged references remain recipient-private.
+// Contract: successor completion suppresses obsolete recovery mail and paged references remain recipient-private.
 fn recovery_mail_rechecks_completion_and_pages() {
     let mut f = Fixture::new();
-    let (blocker, mut recipient, plan) = recovery_fixture();
+    let (blocker, mut recipient) = recovery_fixture();
     let mut bound = route();
     bound.binding_id = Some(id());
     let binding = bound.binding_id.clone();
     recipient["threadRefs"]=json!((0..25).map(|i|json!({"threadId":format!("thread-{i}"),"turnId":"old","interruptedAt":1000,"sessionBindingId":binding})).collect::<Vec<_>>());
-    let sent = f
-        .store
-        .recovery(&blocker, &recipient, &plan, Some(bound), f.time)
-        .unwrap();
+    let sent = f.store.recovery(&blocker, &recipient, f.time).unwrap();
     let args = sent["message"]["next"]["args"].clone();
     let page = f.list("two", args.clone());
     let offset = args["recoveryCursor"]
@@ -406,12 +349,7 @@ fn recovery_mail_rechecks_completion_and_pages() {
     );
     assert!(f.store.list(&args, "one", "authority", f.time).is_err());
     let events=(0..25).map(|i|json!({"kind":"turn.terminal","status":"completed","threadRefs":[{"threadId":format!("thread-{i}"),"turnId":"old"}]})).collect::<Vec<_>>();
-    let pending = f.store.batches(f.time + 60).unwrap().remove(0);
-    assert!(f
-        .store
-        .reserve(&pending, &events, f.time + 60)
-        .unwrap()
-        .is_empty());
+    f.store.refresh_recovery(&events).unwrap();
     assert!(f.store.batches(f.time + 60).unwrap().is_empty());
     assert_eq!(
         f.list("two", json!({}))["messages"][0]["deliveryState"],

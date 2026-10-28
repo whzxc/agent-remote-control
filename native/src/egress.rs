@@ -129,6 +129,9 @@ pub(crate) fn minimal_text(response: &mut Value) {
 }
 
 pub fn failure(e: &str) -> Value {
+    if let Some(code) = crate::src_conversations::error_code(e) {
+        return json!({"code":code,"message":e,"retryable":false});
+    }
     if e == "REPLACE_PENDING" || e.starts_with("REPLACE_PENDING:") {
         return json!({"code":"REPLACE_PENDING","message":e});
     }
@@ -139,6 +142,8 @@ pub fn failure(e: &str) -> Value {
                 "PERMISSION_REQUIRED"
                     | "REPLACE_PENDING"
                     | "INVALID_ARGUMENTS"
+                    | "INVALID_OUTPUT_OFFSET"
+                    | "DISPATCH_POLICY_CONFLICT"
                     | "UNKNOWN_OP"
                     | "OP_UNAVAILABLE"
                     | "WRONG_TOOL"
@@ -150,6 +155,7 @@ pub fn failure(e: &str) -> Value {
                     | "ACCOUNT_ROUTE_CHANGED"
                     | "HANDSHAKE_INVALID_OR_EXPIRED"
                     | "DESKTOP_STEER_UNAVAILABLE"
+                    | "TASK_ARCHIVED"
                     | "ARCHIVE_ACTIVE_TURN"
                     | "ARCHIVE_WRITER_BUSY"
                     | "THREAD_WRITER_BUSY"
@@ -227,6 +233,27 @@ pub fn receipt(value: Value) -> Value {
         }
         out["origin"] = origin;
     }
+    let operation = string(&value, "operation");
+    let args = &value["arguments"];
+    if matches!(operation, "create" | "agent_create")
+        && args.is_object()
+        && string(args, "title").trim().is_empty()
+    {
+        out["titleHint"] = json!({
+            "code": "TITLE_FROM_PROMPT",
+            "message": "No non-blank title was supplied. The task title falls back to the first non-empty prompt line, truncated to 120 characters. Pass title next time: a short human-readable task title shown in task lists and notifications."
+        });
+        if operation == "create" {
+            out["titleHint"]["rename"] = json!({"via":"act","op":"codex_thread","args":{"action":"name/set","params":{"threadId":value["threadId"],"name":"<short task title>"}}});
+        }
+    } else if operation == "native"
+        && matches!(string(args, "method"), "thread/start" | "thread/fork")
+    {
+        out["titleHint"] = json!({
+            "code": "NATIVE_THREAD_TITLE",
+            "message": "This native operation uses native thread metadata without an ARC title argument. Set a short human-readable name of at most 120 characters with codex_thread action:name/set and params:{threadId:<returned threadId>,name:<title>}. Prefer codex_create with title for prompt dispatch."
+        });
+    }
     out["stateScope"] = json!("operation");
     if let Some(updated) = value["updatedAt"]
         .as_str()
@@ -259,6 +286,13 @@ pub fn receipt(value: Value) -> Value {
     if out["turnId"].is_null() && result["turn"]["id"].is_string() {
         out["turnId"] = result["turn"]["id"].clone();
     }
+    if out["titleHint"]["rename"].is_object() {
+        if out["threadId"].is_string() {
+            out["titleHint"]["rename"]["args"]["params"]["threadId"] = out["threadId"].clone();
+        } else {
+            out["titleHint"]["rename"]["args"]["params"]["threadId"] = json!("<created threadId>");
+        }
+    }
     if value.get("result").is_some() {
         let operation = string(&value, "operation");
         let mut result = result.clone();
@@ -285,7 +319,7 @@ pub fn receipt(value: Value) -> Value {
                 fields.remove(key);
             }
             if matches!(operation, "create" | "send" | "interrupt")
-                || operation.starts_with("agent_")
+                || (operation.starts_with("agent_") && operation != "agent_archive")
             {
                 fields.retain(|key, _| {
                     [
@@ -386,6 +420,9 @@ pub(crate) fn dispatch_summary(value: &Value) -> Option<Value> {
             .map(str::to_owned)
     };
     let mut summary = json!({});
+    if let Some(caller) = crate::dispatch_caller::validated(&value["caller"]) {
+        summary["caller"] = caller;
+    }
     if value["agentAccountId"].is_string() {
         summary["agentAccountId"] = value["agentAccountId"].clone();
     }
@@ -726,6 +763,23 @@ pub(crate) fn unknown_op(name: &str, ops: &[Value]) -> String {
 pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -> Value {
     let mut result = guide_content(origin, args, locale, ops);
     result["cliPath"] = json!(crate::cli_shim::executable().ok());
+    if origin["controlTransport"] == "cli" {
+        result["sourceId"] = origin["sourceId"].clone();
+    }
+    if result["profile"]["name"] == "local-code"
+        && args["view"] != "full"
+        && !args["op"].is_string()
+        && args["topic"].as_str().unwrap_or("loop") == "loop"
+    {
+        while result.to_string().chars().count() + 112 > 2500 {
+            if result["ops"]
+                .as_array_mut()
+                .is_none_or(|ops| ops.pop().is_none())
+            {
+                break;
+            }
+        }
+    }
     let digest = hash(result.to_string());
     if args["knownGuideHash"] == digest {
         return json!({"guideHash":digest,"unchanged":true,"cliPath":result["cliPath"]});
@@ -767,6 +821,7 @@ pub fn retry_contract(op: &Value) -> Value {
             | "agent_create"
             | "agent_send"
             | "agent_review"
+            | "agent_archive"
             | "agent_interrupt"
             | "agent_respond"
             | "command"
@@ -800,6 +855,9 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
         let spec = source_spec(spec, origin);
         let spec = &spec;
         return json!({"op":name,"via":via(spec),"description":spec["description"],"inputSchema":spec["inputSchema"],"signature":signature(spec),"example":example(spec),"retry":retry_contract(spec)});
+    }
+    if let Some(result) = crate::control_profiles::guide(origin, args, &ops) {
+        return result;
     }
     let maintainer = crate::preferences::maintainer_mode();
     let topic = args["topic"].as_str().unwrap_or("loop");
@@ -840,7 +898,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
                 "notify" => matches!(name, "request_route" | "notify_status" | "notify_control" | "notification_ack" | "inbox_wait" | "codex_create" | "codex_send" | "codex_read" | "agent_create" | "agent_send" | "agent_read"),
                 "review" => matches!(name, "codex_review" | "agent_review" | "codex_read" | "agent_read" | "codex_wait" | "agent_wait" | "agent_events" | "codex_changes" | "codex_items" | "codex_send" | "agent_send" | "receipt" | "task_reviews"),
                 "approvals" => matches!(name, "request_route" | "receipt" | "codex_pending" | "codex_interactions" | "codex_respond" | "agent_pending" | "agent_respond" | "codex_read" | "agent_read"),
-                _ => matches!(name, "board" | "notice_post" | "coordination_session" | "message_route" | "messages" | "message_send" | "ax_report" | "ax_list" | "notify_control" | "notify_status" | "notification_ack" | "dispatch_policy" | "command" | "read" | "write" | "edit" | "fs" | "git" | "codex_create" | "codex_send" | "codex_read" | "codex_wait" | "receipt" | "agent_create" | "agent_send" | "agent_read" | "agent_wait"),
+                _ => matches!(name, "board" | "notice_post" | "coordination_session" | "message_route" | "messages" | "message_send" | "ax_report" | "ax_list" | "notify_control" | "notify_status" | "notification_ack" | "dispatch_policy" | "dispatch_policy_update" | "command" | "read" | "write" | "edit" | "fs" | "git" | "codex_create" | "codex_send" | "codex_read" | "codex_wait" | "receipt" | "agent_create" | "agent_send" | "agent_read" | "agent_wait"),
             }
         })
         .map(|op| {
@@ -1079,6 +1137,47 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn creation_receipts_explain_missing_titles() {
+        // Regression: titleless dispatch receipts left callers unaware of prompt-derived task names.
+        for operation in ["create", "agent_create"] {
+            for title in [Value::Null, json!("  "), json!("Review project")] {
+                let out = receipt(
+                    json!({"requestId":"r", "state":"completed", "operation":operation,
+                    "arguments":{"title":title,"prompt":"Private prompt"}, "result":{"thread":{"id":"new-thread"}}}),
+                );
+                assert_eq!(
+                    out["titleHint"]["code"] == "TITLE_FROM_PROMPT",
+                    title != "Review project"
+                );
+                if operation == "create" && title != "Review project" {
+                    assert_eq!(out["titleHint"]["rename"]["op"], "codex_thread");
+                    assert_eq!(
+                        out["titleHint"]["rename"]["args"]["params"]["threadId"],
+                        "new-thread"
+                    );
+                }
+                assert!(out.get("arguments").is_none());
+            }
+        }
+        for method in ["thread/start", "thread/fork", "turn/start"] {
+            let out = receipt(
+                json!({"requestId":"r","state":"completed","operation":"native","arguments":{"method":method}}),
+            );
+            assert_eq!(
+                out["titleHint"]["code"] == "NATIVE_THREAD_TITLE",
+                method != "turn/start"
+            );
+        }
+        let out =
+            receipt(json!({"requestId":"r","state":"completed","operation":"send","arguments":{}}));
+        assert!(out.get("titleHint").is_none());
+        let held = receipt(
+            json!({"requestId":"r","state":"held","operation":"agent_create","heldForUpdate":true}),
+        );
+        assert!(held.get("titleHint").is_none());
+    }
 
     #[test]
     // Regression: ax-ce733eee the common guide hid coordination_session and message_route from Claude sources.

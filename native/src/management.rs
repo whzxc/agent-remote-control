@@ -226,7 +226,12 @@ async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdou
 pub fn desktop_route(route: &str) -> bool {
     matches!(
         route,
-        "permissions/desktop"
+        "src-containers/status"
+            | "src-containers/profiles"
+            | "src-containers/open"
+            | "src-containers/import"
+            | "src-containers/clear"
+            | "permissions/desktop"
             | "permissions/notify"
             | "appearance"
             | "app"
@@ -242,6 +247,9 @@ pub fn desktop_route(route: &str) -> bool {
 }
 
 pub fn error_code(message: &str) -> &str {
+    if let Some(code) = crate::src_conversations::error_code(message) {
+        return code;
+    }
     if message.contains("Cannot connect to local Core")
         || message.contains("Open Agent Remote Control first")
     {

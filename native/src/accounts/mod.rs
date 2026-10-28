@@ -382,6 +382,34 @@ pub(crate) fn profile_account(profile: &str) -> Result<Value> {
         .find(|a| live(a) && profiles(a).any(|p| p["profileId"] == profile))
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND".into())
 }
+/// Resolve native Claude login metadata without selecting today's default profile.
+pub fn claude_transcript_account(rows: &[Value], oauth_account: &Value) -> Option<String> {
+    let uuid_key = identity_key(
+        "anthropic",
+        &json!({"accountId":oauth_account["accountUuid"]}),
+    );
+    // Claude auth status can omit accountId. Use the same email + organization
+    // identity key as profile import, with both fields supplied by native login.
+    let email_key = oauth_account["organizationUuid"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .and_then(|org| {
+            identity_key(
+                "anthropic",
+                &json!({"email":oauth_account["emailAddress"],"orgId":org}),
+            )
+        });
+    let mut matches = rows.iter().filter(|row| {
+        live(row)
+            && [uuid_key.as_ref(), email_key.as_ref()]
+                .into_iter()
+                .flatten()
+                .any(|key| row["identityKey"].as_str() == Some(key.as_str()))
+            && profiles(row).any(|profile| profile["agent"] == "claude")
+    });
+    let account = matches.next()?["id"].as_str()?;
+    matches.next().is_none().then(|| account.to_owned())
+}
 pub(crate) fn claude_profile(account: &str) -> Result<String> {
     let row = resolve(account)?;
     if !live(&row) {
@@ -847,6 +875,55 @@ impl Manager {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn claude_transcript_identity_requires_one_native_account_match() {
+        // Regression: Claude transcript tasks had no execution account and were placed on the platform node.
+        let row = json!({"id":"account-a","identityKey":"anthropic:id:native-a","agentProfiles":[{"agent":"claude","default":false}]});
+        let identity = json!({"accountUuid":"native-a"});
+        assert_eq!(
+            super::claude_transcript_account(&[row.clone()], &identity).as_deref(),
+            Some("account-a")
+        );
+        assert_eq!(
+            super::claude_transcript_account(&[row.clone()], &json!({})),
+            None
+        );
+        assert_eq!(
+            super::claude_transcript_account(&[row.clone()], &json!({"accountUuid":"other"})),
+            None
+        );
+        let mut duplicate = row.clone();
+        duplicate["id"] = json!("account-b");
+        assert_eq!(
+            super::claude_transcript_account(&[row.clone(), duplicate.clone()], &identity),
+            None
+        );
+        duplicate["removedAt"] = json!("2026-01-01T00:00:00Z");
+        assert_eq!(
+            super::claude_transcript_account(&[row, duplicate], &identity).as_deref(),
+            Some("account-a")
+        );
+        let email_row = json!({"id":"email-account","identityKey":identity_key("anthropic", &json!({"email":"person@example.test","orgId":"org-a"})),"agentProfiles":[{"agent":"claude"}]});
+        let login = json!({"accountUuid":"native-a","emailAddress":"PERSON@example.test","organizationUuid":"org-a"});
+        assert_eq!(
+            super::claude_transcript_account(&[email_row.clone()], &login).as_deref(),
+            Some("email-account")
+        );
+        assert_eq!(
+            super::claude_transcript_account(
+                &[email_row.clone()],
+                &json!({"emailAddress":"person@example.test","organizationUuid":"org-b"})
+            ),
+            None
+        );
+        assert_eq!(
+            super::claude_transcript_account(
+                &[email_row],
+                &json!({"emailAddress":"person@example.test"})
+            ),
+            None
+        );
+    }
     use super::*;
     #[test]
     fn legacy_local_accounts_retire_without_losing_agent_membership() {
@@ -1044,4 +1121,14 @@ mod notification_projection_tests {
         assert_eq!(historical.len(), 3);
         assert_eq!(historical[1]["state"], "failed");
     }
+}
+
+/// Current source-account owners, excluding merged and removed tombstones.
+pub(crate) fn source_rows() -> Result<Vec<Value>> {
+    // Reconcile every current source before projecting account inventory.
+    crate::sources::list()?;
+    Ok(read()?
+        .into_iter()
+        .filter(|a| live(a) && a["sources"].as_array().is_some_and(|s| !s.is_empty()))
+        .collect())
 }

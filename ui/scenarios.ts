@@ -1,3 +1,4 @@
+import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts } from './topology/scenarioAccounts';
 import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
@@ -29,6 +30,7 @@ let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
 let accountResponse: ReturnType<typeof accountScenario> | undefined;
 let taskResponse: ReturnType<typeof taskScenario> | undefined;
+let srcConversationResponse = srcConversationsScenario();
 export function scenarioResponse(path: string, method: string, body?: unknown): unknown {
   try { return respondToScenario(path, method, body); }
   catch (error) {
@@ -41,6 +43,8 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     const now = Date.now();
     return { active: false, expiresAt: null, realNowMs: now, overrides: {}, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } } satisfies import('./state/appEnvModel').EnvSample;
   }
+  const srcResult = srcConversationResponse(path, method, body);
+  if (srcResult !== undefined) return structuredClone(srcResult);
   const accountResult = accountResponse?.(path, method, body);
   if (accountResult !== undefined) return structuredClone(accountResult);
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
@@ -259,6 +263,7 @@ export async function installScenario(name: string) {
   }])) };
   responses = { ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
+  srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
   responses['updates/status'] = { state: 'idle', when: 'settled', work: { blocking: [], willResume: [], unaffected: [] } };
   responses['service'] = { supported: true, enabled: false };

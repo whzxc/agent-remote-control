@@ -11,7 +11,9 @@ pub mod package;
 pub mod screen;
 mod setup_secret;
 mod shell_command;
+pub mod src_conversations;
 mod task_overview;
+mod task_summary;
 mod task_tracking;
 mod text_files;
 mod uninstall;
@@ -28,10 +30,12 @@ pub mod context;
 pub mod context_provider;
 pub mod control;
 mod control_metrics;
+mod control_profiles;
 pub mod control_sources;
 pub mod coordination;
 pub mod desktop;
 pub mod diagnostics;
+mod dispatch_caller;
 mod dispatch_policy;
 mod dispatch_queue;
 pub mod egress;
@@ -363,7 +367,7 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
     // Codex owns its history. Only Agent Remote Control-owned Agent streams need an archive.
     if !e.durable {
         drop(e);
-        crate::coordination::observers::native_terminal(method, &params);
+        crate::coordination::observers::native_terminal(method, &params).await;
         return;
     }
     let session = session.to_owned();

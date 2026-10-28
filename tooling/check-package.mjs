@@ -19,11 +19,14 @@ async function inspect(dir) {
   }
 }
 await inspect(root);
-const skill = path.join(root, ...(root.endsWith('.app') ? ['Contents', 'Resources'] : []), 'skills/arc-setup');
-for (const file of ['SKILL.md', ...(await readdir(new URL('../skills/arc-setup/playbooks/', import.meta.url))).map(name => `playbooks/${name}`)]) {
-  const actual = await readFile(path.join(skill, file), 'utf8');
-  const expected = await readFile(new URL(`../skills/arc-setup/${file}`, import.meta.url), 'utf8');
-  if (actual !== expected) throw new Error(`Packaged skill resource differs from source: ${file}`);
+for (const name of ['arc-setup', 'arc-local-code']) {
+  const skill = path.join(root, ...(root.endsWith('.app') ? ['Contents', 'Resources'] : []), `skills/${name}`);
+  const files = name === 'arc-setup' ? ['SKILL.md', ...(await readdir(new URL('../skills/arc-setup/playbooks/', import.meta.url))).map(file => `playbooks/${file}`)] : ['SKILL.md'];
+  for (const file of files) {
+    const actual = await readFile(path.join(skill, file), 'utf8');
+    const expected = await readFile(new URL(`../skills/${name}/${file}`, import.meta.url), 'utf8');
+    if (actual !== expected) throw new Error(`Packaged skill resource differs from source: ${name}/${file}`);
+  }
 }
 if (process.platform === 'darwin' && root.endsWith('.app')) {
   const identifier = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();

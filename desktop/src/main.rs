@@ -14,6 +14,8 @@ mod oauth_links;
 mod permissions;
 mod session;
 mod snapshot;
+#[cfg(target_os = "macos")]
+mod src_conversations;
 mod tray;
 mod updates;
 mod windows;
@@ -298,6 +300,8 @@ fn main() {
                 // On macOS this disables WKWebView's own opaque background.
                 window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0)))?;
             }
+            #[cfg(target_os = "macos")]
+            src_conversations::install(app.handle());
             windows::install(app.handle());
             oauth_links::install(app.handle()).map_err(std::io::Error::other)?;
             tray::install(app)?;
@@ -310,6 +314,8 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            src_conversations::window_event(window, event);
             if window.label() != "main" {
                 return;
             }

@@ -75,7 +75,8 @@ impl AgentHost {
                 } else {
                     sessionless_catalog(agent)
                 };
-                row["capabilities"] = facts.unwrap_or_else(|e| json!({"unavailable":e}));
+                row["capabilities"] =
+                    facts.unwrap_or_else(|e| json!({"authoritative":false,"unavailable":e}));
                 if filter.is_none() {
                     // Full native IDs remain available with an agent filter.
                     let facts = &mut row["capabilities"];
@@ -84,6 +85,7 @@ impl AgentHost {
                         models.truncate(8);
                         if omitted > 0 {
                             facts["omittedModels"] = json!(omitted);
+                            facts["authoritative"] = json!(false);
                         }
                     }
                 }
@@ -260,7 +262,7 @@ pub(super) fn catalog_facts(
 ) -> Value {
     let mut facts = json!({
         "source":source,"taskId":task["taskId"],"observedAt":observed,
-        "scope":"session","executionEvidence":serde_json::from_value::<crate::task_tracking::Timeline>(task["tracking"].clone()).unwrap_or_default().execution_evidence()
+        "scope":"session","authoritative":false,"executionEvidence":serde_json::from_value::<crate::task_tracking::Timeline>(task["tracking"].clone()).unwrap_or_default().execution_evidence()
     });
     if task["agent"] == "pi" {
         let model = &metadata["model"];
@@ -273,14 +275,15 @@ pub(super) fn catalog_facts(
         } else {
             Value::Null
         };
-        facts["models"] =
-            if let Some(models) = metadata["availableModels"].as_array() {
-                json!(models.iter().map(|m| json!({
-                    "model":format!("{}/{}",string(m,"provider"),string(m,"id")),"name":m["name"]
-                })).collect::<Vec<_>>())
-            } else {
-                json!({"unavailable":"requires-live-pi-session"})
-            };
+        facts["models"] = if let Some(models) = metadata["availableModels"].as_array() {
+            facts["authoritative"] = json!(source == "pi-rpc");
+            json!(models
+                .iter()
+                .map(|m| catalogs::pi_model(m, string(m, "provider")))
+                .collect::<Vec<_>>())
+        } else {
+            json!({"unavailable":"requires-live-pi-session"})
+        };
         facts["options"] = json!([{
             "id":"thinkingLevel","currentValue":metadata["thinkingLevel"],
             "values":levels.get("levels").cloned().unwrap_or_else(|| {
@@ -304,17 +307,16 @@ pub(super) fn catalog_facts(
         {
             facts["modelConfigId"] = config["id"].clone();
             facts["currentModel"] = config["currentValue"].clone();
-            models = values
-                .into_iter()
-                .map(|mut v| {
-                    v["model"] = v
-                        .as_object_mut()
+            models = catalogs::acp_models(&config["options"], string(task, "agent"));
+            facts["authoritative"] = json!(
+                source == "live-session-snapshot"
+                    && config["options"].is_array()
+                    && !config["options"]
+                        .as_array()
                         .unwrap()
-                        .remove("value")
-                        .unwrap_or(Value::Null);
-                    v
-                })
-                .collect();
+                        .iter()
+                        .any(|g| g["options"].as_array().is_some_and(Vec::is_empty))
+            );
         } else {
             options.push(json!({
                 "id":config["id"],"category":config["category"],"type":config["type"],
@@ -328,8 +330,11 @@ pub(super) fn catalog_facts(
             .as_array()
             .into_iter()
             .flatten()
-            .map(|m| json!({"model":m["modelId"],"name":m["name"]}))
+            .map(|m| catalogs::acp_model(m, "modelId", None, string(task, "agent")))
             .collect();
+        facts["authoritative"] = json!(
+            source == "live-session-snapshot" && metadata["models"]["availableModels"].is_array()
+        );
         if metadata["modes"].is_object() {
             options.push(json!({
                 "id":"mode","type":"select","currentValue":metadata["modes"]["currentModeId"],
@@ -338,7 +343,23 @@ pub(super) fn catalog_facts(
             }));
         }
     }
-    facts["models"] = if models.is_empty() {
+    for row in &mut models {
+        if let Some(native) = metadata["models"]["availableModels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|m| m["modelId"] == row["model"])
+        {
+            let mut extra = json!({});
+            catalogs::display_metadata(&mut extra, native, "name");
+            for (key, value) in extra.as_object().unwrap() {
+                if row.get(key).is_none() {
+                    row[key] = value.clone();
+                }
+            }
+        }
+    }
+    facts["models"] = if models.is_empty() && facts["authoritative"] != true {
         json!({"unavailable":"not-reported-by-session"})
     } else {
         json!(models)

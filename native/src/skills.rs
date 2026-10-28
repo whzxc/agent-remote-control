@@ -4,14 +4,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn source() -> Result<PathBuf> {
+fn source(name: &str) -> Result<PathBuf> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let directory = executable.parent().unwrap();
     // Linux / Windows desktop, bundled Core, and macOS desktop respectively.
     for relative in [
-        "skills/arc-setup",
-        "../skills/arc-setup",
-        "../Resources/skills/arc-setup",
+        format!("skills/{name}"),
+        format!("../skills/{name}"),
+        format!("../Resources/skills/{name}"),
     ] {
         let path = directory.join(relative);
         if path.join("SKILL.md").is_file() {
@@ -20,7 +20,7 @@ fn source() -> Result<PathBuf> {
     }
     #[cfg(debug_assertions)]
     {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../skills/arc-setup");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../skills/{name}"));
         if path.join("SKILL.md").is_file() {
             return Ok(path);
         }
@@ -37,8 +37,12 @@ pub fn playbook(id: &str) -> Result<Value> {
         | "cloudflare-login" | "claude-code-ready" => id,
         _ => return Err(format!("INVALID_ARGUMENT: unknown playbook {id}")),
     };
-    let markdown = fs::read_to_string(source()?.join("playbooks").join(format!("{file}.md")))
-        .map_err(|e| e.to_string())?;
+    let markdown = fs::read_to_string(
+        source("arc-setup")?
+            .join("playbooks")
+            .join(format!("{file}.md")),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(json!({"id":id,"markdown":markdown}))
 }
 
@@ -62,14 +66,24 @@ pub fn install(target: &str) -> Result<Value> {
         "claude-code" => ".claude",
         _ => return Err("INVALID_ARGUMENT: target must be codex or claude-code".into()),
     };
-    let source = source()?;
-    let destination = dirs::home_dir()
-        .ok_or("home directory unavailable")?
-        .join(agent)
-        .join("skills/arc-setup");
-    if destination.exists() {
-        fs::remove_dir_all(&destination).map_err(|e| e.to_string())?;
+    let names = if target == "claude-code" {
+        vec!["arc-setup", "arc-local-code"]
+    } else {
+        vec!["arc-setup"]
+    };
+    let sources = names
+        .iter()
+        .map(|name| source(name))
+        .collect::<Result<Vec<_>>>()?;
+    let home = dirs::home_dir().ok_or("home directory unavailable")?;
+    let mut paths = Vec::new();
+    for (name, source) in names.iter().zip(sources) {
+        let destination = home.join(agent).join("skills").join(name);
+        if destination.exists() {
+            fs::remove_dir_all(&destination).map_err(|e| e.to_string())?;
+        }
+        copy(&source, &destination).map_err(|e| e.to_string())?;
+        paths.push(destination);
     }
-    copy(&source, &destination).map_err(|e| e.to_string())?;
-    Ok(json!({"target":target,"path":destination}))
+    Ok(json!({"target":target,"path":paths[0],"paths":paths}))
 }

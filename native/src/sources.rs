@@ -201,6 +201,9 @@ pub fn list() -> Result<Vec<Value>> {
         } else {
             crate::accounts::source_resolution(string(source, "id"))?
         };
+        if source["capabilityProfileOffer"] == true {
+            source["capabilityProfileOffer"] = crate::control_profiles::offer(source);
+        }
         if !switch_live(source) {
             clear_switch(source);
         }
@@ -291,7 +294,7 @@ fn make(
         .collect::<Vec<_>>();
     json!({"id":id(),"ingressId":ingress["id"],"credential":credential,
         "product":product_id,"platform":p["platform"],"label":crate::control_sources::default_name(product_id,&names),
-        "createdAt":now(),"connectedAt":connected,"lastSeenAt":null,"state":"disconnected"})
+        "createdAt":now(),"connectedAt":connected,"lastSeenAt":null,"state":"disconnected","capabilityProfileOffer":true})
 }
 fn switch_live(s: &Value) -> bool {
     s["pendingSwitch"]["expiresAt"]
@@ -510,13 +513,11 @@ pub async fn update(id: &str, body: &Value) -> Result<Value> {
     let id = id.to_owned();
     let body = body.clone();
     if !body.is_object()
-        || body
-            .as_object()
-            .unwrap()
-            .keys()
-            .any(|k| !["label", "product", "minimalText"].contains(&k.as_str()))
+        || body.as_object().unwrap().keys().any(|k| {
+            !["label", "product", "minimalText", "capabilityProfile"].contains(&k.as_str())
+        })
     {
-        return Err("Expected label, product, and/or minimalText".into());
+        return Err("Expected label, product, minimalText, and/or capabilityProfile".into());
     }
     if body.get("minimalText").is_some_and(|v| !v.is_boolean()) {
         return Err("minimalText must be a boolean".into());
@@ -537,6 +538,11 @@ pub async fn update(id: &str, body: &Value) -> Result<Value> {
             .iter_mut()
             .find(|s| s["id"] == id)
             .ok_or("SOURCE_NOT_FOUND")?;
+        if let Some(profile) = body.get("capabilityProfile") {
+            crate::control_profiles::validate(s, profile)?;
+            s["capabilityProfile"] = profile.clone();
+            s.as_object_mut().unwrap().remove("capabilityProfileOffer");
+        }
         if let Some(p) = p {
             s["product"] = p["id"].clone();
             s["platform"] = p["platform"].clone();
@@ -1044,6 +1050,12 @@ fn migrate() -> Result<Value> {
             "local-cli",
             Value::Null,
         ));
+        for source in &mut rows {
+            source
+                .as_object_mut()
+                .unwrap()
+                .remove("capabilityProfileOffer");
+        }
         store["sources"] = json!(rows);
         save(&path(), &store)?;
     }

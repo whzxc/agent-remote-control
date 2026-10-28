@@ -3,6 +3,13 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod projection_tests;
+mod transcript_input;
+mod transcripts;
+pub(crate) use transcript_input::transcript_user_text;
+pub(crate) use transcripts::TranscriptTitle;
+
 const MAX_ENTRIES: usize = 2000;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const MAX_TEXT: usize = 256 * 1024;
@@ -227,6 +234,7 @@ fn tool_kind(kind: &str, name: &str, input: &Value) -> (&'static str, Option<&'s
     let leaf = name.rsplit(['/', '.', ':']).next().unwrap_or(&name);
     let leaf = leaf.rsplit("__").next().unwrap_or(leaf);
     if input["command"].is_string()
+        || input["cmd"].is_string()
         || matches!(
             leaf,
             "bash" | "shell" | "exec_command" | "run_command" | "terminal"
@@ -250,6 +258,85 @@ fn tool_kind(kind: &str, name: &str, input: &Value) -> (&'static str, Option<&'s
     }
 }
 
+fn parsed_input(input: &Value) -> Value {
+    input
+        .as_str()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_else(|| input.clone())
+}
+
+fn normalize_tool_input(row: &mut Value, input: &Value, locations: &Value) {
+    let input = parsed_input(input);
+    for (target, keys) in [
+        ("command", &["command", "cmd"][..]),
+        ("cwd", &["cwd", "workdir"][..]),
+        ("path", &["file_path", "path", "filePath"][..]),
+    ] {
+        if let Some(value) = keys.iter().find_map(|key| input[*key].as_str()) {
+            row[target] = json!(cut(&redact(value), SUMMARY).0);
+        }
+    }
+    let mut paths = Vec::new();
+    if let Some(path) = row["path"].as_str() {
+        paths.push(path.to_owned());
+    }
+    for path in input["paths"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .chain(
+            locations
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|location| location["path"].as_str()),
+        )
+    {
+        let path = cut(&redact(path), SUMMARY).0;
+        if !paths.contains(&path) && paths.len() < 100 {
+            paths.push(path);
+        }
+    }
+    if !paths.is_empty() {
+        row["path"] = json!(paths[0]);
+        row["paths"] = json!(paths);
+    }
+    let edits: Vec<_> = input["edits"]
+        .as_array()
+        .map(|edits| edits.iter().collect())
+        .unwrap_or_else(|| vec![&input]);
+    let edits: Vec<_> = edits
+        .into_iter()
+        .take(100)
+        .filter_map(|edit| {
+            let old = edit.get("old_string").or_else(|| edit.get("oldText"));
+            let new = edit
+                .get("new_string")
+                .or_else(|| edit.get("newText"))
+                .or_else(|| {
+                    (row["operation"] == "write" || row["operation"] == "create")
+                        .then(|| edit.get("content"))
+                        .flatten()
+                });
+            if old.is_none() && new.is_none() {
+                return None;
+            }
+            let mut value = json!({});
+            if let Some(old) = old {
+                value["oldText"] = summary(old);
+            }
+            if let Some(new) = new {
+                value["newText"] = summary(new);
+            }
+            Some(value)
+        })
+        .collect();
+    if !edits.is_empty() {
+        row["edits"] = json!(edits);
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(crate) struct Timeline {
@@ -259,6 +346,9 @@ pub(crate) struct Timeline {
     pub partial: bool,
     pub observed_events: u64,
     pub tool_observed: bool,
+    pub omitted_sidechain_records: u64,
+    #[serde(skip)]
+    transcript_activity: Option<(String, u64)>,
     pub info: Value,
     pub status: String,
     pub turn: String,
@@ -275,10 +365,73 @@ pub(crate) struct Timeline {
     #[serde(skip)]
     chunk: Option<(String, String, String)>,
     pi_message: u64,
+    pi_stop_reason: String,
+    pi_error: Value,
     #[serde(skip)]
     buffers: HashMap<String, String>,
 }
 impl Timeline {
+    fn notice(&mut self, id: Option<&str>, kind: &str, stage: &str, native: &Value, at: &str) {
+        // A lifecycle fact is complete as an observation, even when it describes
+        // a retry/compaction starting. It never settles or reopens the turn.
+        self.end_chunk(at);
+        let id = id
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("{}:notice:{}", self.turn, self.revision + 1));
+        let mut row = self.entry(&id, "notice", "completed");
+        if native["turnId"].is_string() {
+            row["turnId"] = native["turnId"].clone();
+        }
+        let mut notice = row.get("notice").cloned().unwrap_or(json!({}));
+        notice["kind"] = json!(kind);
+        notice["stage"] = json!(stage);
+        for (key, values) in [
+            ("attempt", vec![&native["attempt"]]),
+            ("maxAttempts", vec![&native["maxAttempts"]]),
+            (
+                "message",
+                vec![
+                    &native["errorMessage"],
+                    &native["finalError"],
+                    &native["message"],
+                    &native["error"]["message"],
+                    &native["description"],
+                ],
+            ),
+            ("title", vec![&native["title"]]),
+            ("severity", vec![&native["severity"]]),
+            ("nativeStatus", vec![&native["status"]]),
+            ("trigger", vec![&native["trigger"], &native["reason"]]),
+            (
+                "tokensBefore",
+                vec![
+                    &native["preTokens"],
+                    &native["tokensBefore"],
+                    &native["result"]["tokensBefore"],
+                ],
+            ),
+            (
+                "tokensAfter",
+                vec![&native["tokensAfter"], &native["result"]["tokensAfter"]],
+            ),
+            ("success", vec![&native["success"]]),
+            ("aborted", vec![&native["aborted"]]),
+        ] {
+            if let Some(value) = values.into_iter().find(|value| !value.is_null()) {
+                notice[key] = if let Some(text) = value.as_str() {
+                    let (text, truncated) = cut(&redact(text), SUMMARY);
+                    if truncated {
+                        row["truncated"] = json!(true);
+                    }
+                    json!(text)
+                } else {
+                    value.clone()
+                };
+            }
+        }
+        row["notice"] = notice;
+        self.put(row, at);
+    }
     pub fn turn_status(&self, turn: &str) -> Option<&str> {
         self.turn_statuses
             .get(turn)
@@ -321,6 +474,22 @@ impl Timeline {
             .unwrap_or_else(|| json!(index.map_or(self.revision + 1, |i| i as u64)));
         if !row["turnId"].is_string() {
             row["turnId"] = json!(self.turn);
+        }
+        if matches!(string(&row, "status"), "running" | "pending")
+            && self
+                .turn_statuses
+                .get(string(&row, "turnId"))
+                .is_some_and(|status| {
+                    matches!(status.as_str(), "completed" | "failed" | "cancelled")
+                })
+        {
+            row["status"] = json!(
+                if matches!(string(&row, "type"), "text" | "thinking" | "user") {
+                    "completed"
+                } else {
+                    "unknown"
+                }
+            );
         }
         if matches!(
             string(&row, "status"),
@@ -410,6 +579,12 @@ impl Timeline {
         timing.as_object_mut().unwrap().remove("endedAt");
     }
     pub fn finish(&mut self, status: &str, at: &str) {
+        // A lost observation or a late settlement cannot replace a known outcome.
+        let terminal = self
+            .turn_status(&self.turn)
+            .filter(|status| matches!(*status, "completed" | "failed" | "cancelled"))
+            .map(str::to_owned);
+        let status = terminal.as_deref().unwrap_or(status);
         if !self.turn.is_empty() {
             let timing = self
                 .turn_timings
@@ -498,17 +673,32 @@ impl Timeline {
         }
     }
     pub fn agent(&mut self, method: &str, msg: &Value, at: &str) {
+        let terminal = self
+            .turn_status(&self.turn)
+            .filter(|status| matches!(*status, "completed" | "failed" | "cancelled"))
+            .map(str::to_owned);
+        if terminal.is_some()
+            && matches!(
+                method,
+                "session/request_permission" | "extension_ui_request"
+            )
+        {
+            return;
+        }
         match method {
             "arc/user" => {
                 self.end_chunk(at);
                 self.turn = string(msg, "turnId").into();
                 self.turn_started_at = Some(at.into());
                 self.status = "running".into();
+                self.pi_stop_reason.clear();
+                self.pi_error = Value::Null;
                 self.start_turn(at);
                 self.record_turn_status();
                 let (text, truncated) = cut(&redact(string(msg, "text")), MAX_TEXT);
                 self.partial |= truncated;
-                self.put(json!({"id":format!("{}:user:{}",self.turn,self.revision+1),"type":"user","status":"completed","text":text,"truncated":truncated}), at);
+                let row = json!({"id":format!("{}:user:{}",self.turn,self.revision+1),"type":"user","status":"completed","text":text,"truncated":truncated});
+                self.put(row, at);
                 return;
             }
             "arc/settled" => {
@@ -528,6 +718,46 @@ impl Timeline {
             "session/update" => {
                 let u = &msg["params"]["update"];
                 match string(u, "sessionUpdate") {
+                    "notice" => self.notice(None, "warning", "message", u, at),
+                    "compaction_update" => {
+                        let id = format!("compaction:{}", string(u, "compactionId"));
+                        self.notice(
+                            Some(&id),
+                            "compaction",
+                            if u["status"] == "in_progress" {
+                                "start"
+                            } else {
+                                "end"
+                            },
+                            u,
+                            at,
+                        );
+                        let mut row = self.entry(&id, "notice", "completed");
+                        for key in ["summary", "error"] {
+                            if let Some(value) = u.get(key) {
+                                row[key] = if value.is_null() {
+                                    Value::Null
+                                } else {
+                                    summary(&json!(content(value)))
+                                };
+                            }
+                        }
+                        self.put(row, at);
+                    }
+                    "compaction_summary_chunk" => {
+                        let id = format!("compaction:{}", string(u, "compactionId"));
+                        let mut row = self.entry(&id, "notice", "completed");
+                        if row["notice"].is_null() {
+                            row["notice"] = json!({"kind":"compaction","stage":"start"});
+                        }
+                        let text = format!(
+                            "{}{}",
+                            string(&row["summary"], "text"),
+                            content(&u["content"])
+                        );
+                        row["summary"] = summary(&json!(text));
+                        self.put(row, at);
+                    }
                     "agent_message_chunk" => self.chunk("text", &content(&u["content"]), at),
                     "agent_thought_chunk" => self.chunk("thinking", &content(&u["content"]), at),
                     "user_message_chunk" => self.chunk("user", &content(&u["content"]), at),
@@ -543,6 +773,10 @@ impl Timeline {
                 }
             }
             "session/request_permission" | "extension_ui_request" => {
+                if method == "extension_ui_request" && msg["method"] == "notify" {
+                    self.notice(None, "warning", "message", msg, at);
+                    return;
+                }
                 if method == "extension_ui_request"
                     && !matches!(
                         string(msg, "method"),
@@ -616,6 +850,12 @@ impl Timeline {
                 let m = &msg["message"];
                 if m["role"] == "assistant" {
                     for (i, b) in m["content"].as_array().into_iter().flatten().enumerate() {
+                        if b["type"] == "toolCall" {
+                            if !self.entries.iter().any(|row| row["id"] == b["id"]) {
+                                self.tool(&json!({"toolCallId":b["id"],"title":b["name"],"rawInput":b["arguments"],"status":"unknown"}), at);
+                            }
+                            continue;
+                        }
                         let kind = match string(b, "type") {
                             "text" => "text",
                             "thinking" => "thinking",
@@ -627,25 +867,52 @@ impl Timeline {
                         self.buffers.remove(&id);
                         self.put(json!({"id":id,"type":kind,"status":"completed","text":text,"truncated":truncated}),at);
                     }
-                    if m["stopReason"] == "error" {
-                        self.status = "failed".into();
-                        self.error(&m["errorMessage"], at);
+                    // A failed model attempt can be retried. Only agent_settled
+                    // establishes the final outcome of the Pi turn.
+                    if terminal.is_none() {
+                        self.pi_stop_reason = string(m, "stopReason").into();
+                        self.pi_error = summary(&m["errorMessage"])["text"].clone();
                     }
-                    if m["stopReason"] == "aborted" {
-                        self.status = "cancelled".into();
-                    }
-                    self.record_turn_status();
                     self.pi_message += 1;
                 }
             }
             "agent_settled" => {
-                let status = if matches!(self.status.as_str(), "failed" | "cancelled") {
-                    self.status.clone()
-                } else {
-                    "completed".into()
+                let status = match self.pi_stop_reason.as_str() {
+                    "error" => "failed",
+                    "aborted" => "cancelled",
+                    _ => "completed",
                 };
-                self.finish(&status, at);
+                if terminal.is_none() && status == "failed" {
+                    self.error(&self.pi_error.clone(), at);
+                }
+                self.finish(status, at);
             }
+            "auto_retry_start" | "auto_retry_end" => self.notice(
+                None,
+                "retry",
+                if method.ends_with("start") {
+                    "start"
+                } else {
+                    "end"
+                },
+                msg,
+                at,
+            ),
+            "auto_compaction_start"
+            | "auto_compaction_end"
+            | "compaction_start"
+            | "compaction_end" => self.notice(
+                None,
+                "compaction",
+                if method.ends_with("start") {
+                    "start"
+                } else {
+                    "end"
+                },
+                msg,
+                at,
+            ),
+            "error" if msg["willRetry"] == true => self.notice(None, "retry", "start", msg, at),
             "error" => self.error(msg, at),
             _ => (),
         }
@@ -759,7 +1026,7 @@ impl Timeline {
                 .unwrap_or("running"),
         };
         let mut row = self.entry(id, "tool", status);
-        let input = &u["rawInput"];
+        let input = &parsed_input(&u["rawInput"]);
         if !input.is_null() || !u["kind"].is_null() || !u["title"].is_null() {
             let name = u["title"].as_str().unwrap_or(string(u, "name"));
             let (kind, operation) = tool_kind(string(u, "kind"), name, input);
@@ -773,22 +1040,9 @@ impl Timeline {
                 row["title"] = json!(cut(&redact(name), SUMMARY).0);
             }
             if !input.is_null() {
-                row["input"] = summary(input);
+                row["input"] = summary(&u["rawInput"]);
             }
-            for (target, keys) in [
-                ("command", vec!["command"]),
-                ("cwd", vec!["cwd"]),
-                ("path", vec!["file_path", "path", "filePath"]),
-            ] {
-                if let Some(v) = keys.iter().find_map(|k| input[*k].as_str()) {
-                    row[target] = json!(cut(&redact(v), SUMMARY).0);
-                }
-            }
-            if row["path"].is_null() {
-                if let Some(path) = u["locations"][0]["path"].as_str() {
-                    row["path"] = json!(cut(&redact(path), SUMMARY).0);
-                }
-            }
+            normalize_tool_input(&mut row, input, &u["locations"]);
             if row["command"].is_null() && kind == "command" && !name.is_empty() {
                 row["command"] = row["title"].clone();
             }
@@ -816,72 +1070,6 @@ impl Timeline {
             }
         }
         self.put(row, at);
-    }
-    /// Local Claude history uses the same text/tool vocabulary, without approvals.
-    pub fn backfill_claude(&mut self, records: &[Value]) {
-        for record in records {
-            let role = string(&record["message"], "role");
-            if record["isMeta"] == true || !matches!(role, "user" | "assistant") {
-                continue;
-            }
-            let at = string(record, "timestamp");
-            let id = string(record, "uuid");
-            if id.is_empty() || at.is_empty() {
-                self.partial = true;
-                continue;
-            }
-            self.info["project"] = record["cwd"].clone();
-            let raw = &record["message"]["content"];
-            let blocks = if raw.is_string() {
-                vec![json!({"type":"text","text":raw})]
-            } else {
-                raw.as_array().cloned().unwrap_or_default()
-            };
-            if role == "user" && blocks.iter().any(|b| b["type"] == "text") {
-                self.turn = id.into();
-                self.status.clear();
-            }
-            for (index, block) in blocks.iter().enumerate() {
-                match string(block, "type") {
-                    "text" | "thinking" => {
-                        let thinking = block["type"] == "thinking";
-                        let text = transcript_text(string(
-                            block,
-                            if thinking { "thinking" } else { "text" },
-                        ));
-                        if text.trim().is_empty() {
-                            continue;
-                        }
-                        let (text, truncated) = cut(&redact(&text), MAX_TEXT);
-                        self.put(json!({"id":format!("{id}:{index}"),"type":if role == "user" {"user"} else if thinking {"thinking"} else {"text"},"status":"completed","text":text,"truncated":truncated}), at);
-                    }
-                    "tool_use" => {
-                        self.tool(&json!({"toolCallId":block["id"],"title":block["name"],"rawInput":block["input"],"status":"unknown"}), at);
-                        // A request alone does not establish execution or an end time.
-                        if let Some(row) = self.entries.iter_mut().find(|r| r["id"] == block["id"])
-                        {
-                            row.as_object_mut().unwrap().remove("endedAt");
-                        }
-                    }
-                    "tool_result" => {
-                        if !self.entries.iter().any(|e| e["id"] == block["tool_use_id"]) {
-                            self.partial = true;
-                        }
-                        self.tool(&json!({"toolCallId":block["tool_use_id"],"rawOutput":block["content"],"status":if block["is_error"] == true {"failed"} else {"completed"}}), at);
-                    }
-                    _ => self.partial = true,
-                }
-            }
-            if role == "assistant"
-                && matches!(
-                    string(&record["message"], "stop_reason"),
-                    "end_turn" | "stop_sequence"
-                )
-            {
-                self.status = "completed".into();
-                self.record_turn_status();
-            }
-        }
     }
     /// Project history first, then overlay observations made while the read was in flight.
     pub fn backfill_codex(&mut self, thread: &Value, baseline: u64, observed: u64, at: &str) {
@@ -1023,7 +1211,8 @@ impl Timeline {
             | "webSearch"
             | "imageGeneration"
             | "collabAgentToolCall" => "tool",
-            "contextCompaction" | "enteredReviewMode" | "exitedReviewMode" => return,
+            "contextCompaction" => "notice",
+            "enteredReviewMode" | "exitedReviewMode" => return,
             _ => {
                 self.partial = true;
                 return;
@@ -1038,6 +1227,16 @@ impl Timeline {
             row["durationMs"] = item["durationMs"].clone();
         }
         match kind {
+            "notice" => {
+                self.notice(
+                    Some(id),
+                    "compaction",
+                    if status == "running" { "start" } else { "end" },
+                    item,
+                    at,
+                );
+                return;
+            }
             "user" | "text" | "thinking" => {
                 let text = if kind == "thinking" {
                     content(&item["summary"])
@@ -1087,6 +1286,7 @@ impl Timeline {
                 if let Some(operation) = changes.first().and_then(|c| c["operation"].as_str()) {
                     row["operation"] = json!(operation);
                 }
+                row["paths"] = json!(changes.iter().map(|c| &c["path"]).collect::<Vec<_>>());
                 row["changes"] = json!(changes);
             }
             "plan" => {
@@ -1103,6 +1303,13 @@ impl Timeline {
                 self.tool_observed |= kind == "tool";
                 row["title"] = json!(string(item, "tool"));
                 row["input"] = summary(&item["arguments"]);
+                let input = parsed_input(&item["arguments"]);
+                let (tool_type, operation) = tool_kind("", string(item, "tool"), &input);
+                row["type"] = json!(tool_type);
+                if let Some(operation) = operation {
+                    row["operation"] = json!(operation);
+                }
+                normalize_tool_input(&mut row, &input, &Value::Null);
                 row["output"] = summary(&item["result"]);
             }
         }
@@ -1143,6 +1350,9 @@ impl Timeline {
                 self.delta(string(params,"itemId"),kind,string(params,"delta"),at);
             }
             "turn/plan/updated" => self.put(json!({"id":format!("{}:plan",self.turn),"type":"plan","status":"completed","plan":self.plan(&params["plan"])}),at),
+            "thread/compacted" => self.notice(None, "compaction", "end", params, at),
+            "warning" => self.notice(None, "warning", "message", params, at),
+            "error" if params["willRetry"] == true => self.notice(None, "retry", "start", params, at),
             "error" => self.error(params,at),
             _=>(),
         }
@@ -1167,8 +1377,13 @@ impl Timeline {
             row["truncated"] == true
                 || row["input"]["truncated"] == true
                 || row["output"]["truncated"] == true
+                || row["summary"]["truncated"] == true
+                || row["error"]["truncated"] == true
         });
         let mut result = json!({"sessionId":session,"status":self.status,"entries":self.entries.iter().enumerate().filter(|(_,r)|r["cursor"].as_u64().unwrap_or(0)>after).map(|(i,r)| { let mut row=r.clone(); if row.get("position").is_none() { row["position"]=json!(i); } row }).collect::<Vec<_>>(),"cursor":self.revision,"coverage":{"state":if self.partial {"partial"} else {"complete"},"truncated":truncated},"executionEvidence":self.execution_evidence()});
+        if self.omitted_sidechain_records > 0 {
+            result["coverage"]["omittedSidechainRecords"] = json!(self.omitted_sidechain_records);
+        }
         if self.observation_lost {
             result["coverage"]["state"] = json!("partial");
             result["coverage"]["reason"] = json!(
@@ -1252,7 +1467,7 @@ impl Timeline {
         let latest = self
             .entries
             .iter()
-            .filter(|r| r["type"] != "interaction")
+            .filter(|r| !matches!(string(r, "type"), "interaction" | "notice"))
             .max_by_key(|r| {
                 (
                     matches!(string(r, "status"), "pending" | "running"),
@@ -1282,10 +1497,15 @@ impl Timeline {
         turns.insert(&self.turn);
         turns.remove("");
         row["turnCount"] = json!(turns.len());
-        if let Some(summary) =
-            dispatch_summaries(string(info, "id"), &self.turn_dispatch_summaries).get(&self.turn)
-        {
-            row["dispatchSummary"] = summary.clone();
+        // External tails have no ARC dispatch ownership. Their metadata clock
+        // supplies native configuration without per-poll dispatch-store reads.
+        if source != "transcript" {
+            if let Some(summary) =
+                dispatch_summaries(string(info, "id"), &self.turn_dispatch_summaries)
+                    .get(&self.turn)
+            {
+                row["dispatchSummary"] = summary.clone();
+            }
         }
         row["fallbackHeadline"] = json!(fallback);
         row["recentContent"] = json!(recent.iter().rev().collect::<Vec<_>>());
@@ -1434,6 +1654,42 @@ pub(crate) fn observe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stream_stability_late_events_do_not_reopen_terminal_turns() {
+        // Regression: reader EOF and late permission or Pi events overwrote terminal turn outcomes.
+        for status in ["completed", "failed", "cancelled"] {
+            let mut timeline = Timeline::default();
+            let at = "2026-01-01T00:00:00Z";
+            timeline.agent("arc/user", &json!({"turnId":"old","text":"fixture"}), at);
+            timeline.finish(status, at);
+            timeline.finish("unknown", "2026-01-01T00:00:01Z");
+            timeline.agent(
+                "session/request_permission",
+                &json!({"id":"late","params":{"toolCall":{"title":"late"}}}),
+                at,
+            );
+            timeline.agent("session/update", &json!({"params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"late evidence"}}}}), at);
+            timeline.agent("message_end", &json!({"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"late failure"}}), at);
+            timeline.agent("agent_settled", &json!({}), at);
+            assert_eq!(timeline.turn_status("old"), Some(status));
+            let response = timeline.response("fixture", 0);
+            assert_eq!(response["status"], status);
+            assert!(response["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|r| !matches!(string(r, "status"), "pending" | "running")));
+            assert!(response["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["text"] == "late evidence"));
+            timeline.agent("arc/user", &json!({"turnId":"new","text":"next"}), at);
+            assert_eq!(timeline.turn_status("new"), Some("running"));
+            assert_eq!(timeline.turn_status("old"), Some(status));
+        }
+    }
 
     #[test]
     fn finished_async_questions_do_not_reactivate_input_work_or_move_to_a_new_turn() {
@@ -2015,6 +2271,12 @@ mod tests {
         );
         assert_eq!(t.entries[2]["exitCode"], 0);
         assert_eq!(t.entries[2]["status"], "completed");
+        // The fixture turn has ended; a running command requires a new turn.
+        t.agent(
+            "arc/user",
+            &json!({"turnId":"next","text":"Run command"}),
+            AT,
+        );
         acp(
             &mut t,
             json!({"sessionUpdate":"tool_call","toolCallId":"pending-command","title":"Bash","status":"pending"}),

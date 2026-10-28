@@ -62,6 +62,43 @@ pub(crate) fn observations() -> Result<Vec<Value>> {
         .collect())
 }
 
+/// Each transcript directory carries its native login/profile provenance.
+/// A missing identity still permits transcript reads, with no account attribution.
+pub(crate) fn transcript_roots() -> Vec<(PathBuf, Option<String>)> {
+    let Some(home) = dirs::home_dir() else {
+        return Vec::new();
+    };
+    let custom = std::env::var_os("CLAUDE_CONFIG_DIR").filter(|value| !value.is_empty());
+    let config = custom
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".claude"));
+    let metadata = if custom.is_some() {
+        config.join(".claude.json")
+    } else {
+        home.join(".claude.json")
+    };
+    let rows = super::read().unwrap_or_default();
+    let login: Value = crate::kernel::file_cache::load(&metadata).unwrap_or(Value::Null);
+    let account = super::claude_transcript_account(&rows, &login["oauthAccount"]);
+    let mut roots = vec![(config.join("projects"), account)];
+    for profile in list_accounts().unwrap_or_default() {
+        let Ok(config) = config_dir(&profile.id) else {
+            continue;
+        };
+        let path = config.join("projects");
+        let account = super::profile_account(&profile.id)
+            .ok()
+            .and_then(|row| row["id"].as_str().map(str::to_owned));
+        if let Some(existing) = roots.iter_mut().find(|(root, _)| *root == path) {
+            existing.1 = account;
+        } else {
+            roots.push((path, account));
+        }
+    }
+    roots
+}
+
 pub(crate) async fn refresh_profile(id: &str) -> Result<Value> {
     let mut account = read_account(id)?;
     match account_identity(id).await {

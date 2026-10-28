@@ -166,9 +166,10 @@ impl AgentDriver {
             } else {
                 // Cursor's exploded variant catalog can omit saved parameter combinations.
                 // Negotiate its parameterized picker so catalog refreshes preserve native defaults.
-                let client_capabilities=if matches!(self,Self::Acp(m) if m.id=="cursor") {
+                let mut client_capabilities=if matches!(self,Self::Acp(m) if m.id=="cursor") {
                     json!({"_meta":{"parameterizedModelPicker":true}})
                 } else {json!({})};
+                client_capabilities["session"] = json!({"notices":{},"compaction":{}});
                 let init=p.call("initialize",json!({"protocolVersion":1,"clientCapabilities":client_capabilities,"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")}}),15000).await?;
                 if init["protocolVersion"]!=1 {return Err("ACP_VERSION_UNSUPPORTED".into());}
                 *p.capabilities.lock().await=init.clone();

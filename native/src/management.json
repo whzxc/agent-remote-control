@@ -1697,10 +1697,43 @@
       }
     },
     {
+      "name": "agents.dispatch_catalog",
+      "route": "agents/dispatch-catalog",
+      "method": "POST",
+      "description": "Read Agent-native model and option labels for recorded dispatch specs. Codex reads model/list. Other Agents reuse live or persisted session catalogs, or native catalog snapshots. This read never creates or resumes a task or changes dispatch configuration. taskId is optional and applies only to non-Codex ARC tasks.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "agent": {
+                "type": "string",
+                "minLength": 1
+              },
+              "taskId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "agent"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "agents.conversations",
       "route": "agents/conversations",
       "method": "POST",
-      "description": "Read a metadata-only conversation page in descending creation order. Codex uses native unarchived threads. Other Agents expose ARC-stored tasks only. limit defaults to 20 and is capped at 50. Reuse nextCursor unchanged. Listing never reads timelines or resumes sessions.",
+      "description": "Read a metadata-only conversation page. Codex keeps native unarchived threads in descending creation order. Claude Code and Pi v3 merge read-only native sessions with ARC tasks (scope:native-and-arc-tasks); other Agents expose ARC tasks. Non-Codex rows sort by updatedAt descending, then id ascending. ARC task identity wins nativeSessionId matches. Native rows use source:native, bounded head/tail metadata and a 30-second on-demand cache; metadataPartial marks incomplete samples and messageCount is null when unavailable. Claude child/sidechain sessions are excluded. limit defaults to 20 and is capped at 50. Reuse nextCursor unchanged. Open the returned id with agents.conversations.timeline. Listing never builds timelines or resumes sessions; transcript paths remain private.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -1739,7 +1772,7 @@
       "name": "agents.conversations.timeline",
       "route": "agents/conversations/timeline",
       "method": "POST",
-      "description": "Read the selected conversation timeline without resuming it. Unknown Codex histories remain read-only. Other Agents must own the ARC task ID. after is the last update cursor; readOnly responses are full snapshots.",
+      "description": "Read the selected conversation timeline without resuming it. Use the id returned by agents.conversations. Unknown Codex histories and indexed Claude Code/Pi native sessions remain read-only without joining ARC live ownership. Native Claude history uses the existing bounded transcript timeline; Pi v3 follows the latest leaf ancestry. Other Agents must own the ARC task ID. after is the last update cursor; readOnly responses are full snapshots with coverage and no transcript path.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -2933,6 +2966,36 @@
               "minimalText": {
                 "type": "boolean",
                 "description": "Opt in to minimal MCP text while retaining structuredContent. Omitted source settings default to false."
+              },
+              "capabilityProfile": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "hostAccess": {
+                    "type": "string",
+                    "enum": [
+                      "host",
+                      "none",
+                      "unknown"
+                    ]
+                  },
+                  "waitMode": {
+                    "type": "string",
+                    "enum": [
+                      "background-cli",
+                      "push",
+                      "poll"
+                    ]
+                  }
+                },
+                "required": [
+                  "hostAccess",
+                  "waitMode"
+                ],
+                "additionalProperties": false,
+                "description": "null restores Legacy. Built-in local authority accepts host/background-cli only; MCP sources accept none or unknown with push or poll. Changes discovery, never execution policy."
               }
             },
             "additionalProperties": false
@@ -2944,7 +3007,7 @@
           "body"
         ]
       },
-      "description": "Update a source label, registry product, or minimalText response setting.",
+      "description": "Update source label, product, minimalText, or capabilityProfile through local management. Local Code requires built-in local CLI authority.",
       "localOnly": true
     },
     {
@@ -3679,6 +3742,151 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "src.conversations.query",
+      "method": "POST",
+      "route": "src-conversations/query",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "description": "Read source-account container status and URL-only conversations with linked taskRefs. External callers see only their own account. Status is a URL heuristic, not proof of authentication or page contents. No cookies or page content are returned.",
+      "localOnly": true
+    },
+    {
+      "name": "src.conversations.profiles",
+      "method": "GET",
+      "route": "src-conversations/profiles",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "description": "List Chrome Local State profile directory and display name only. macOS only; other platforms report unsupported.",
+      "localOnly": true
+    },
+    {
+      "name": "src.conversations.open",
+      "method": "POST",
+      "route": "src-conversations/open",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "safariUserAgent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountId"
+        ],
+        "additionalProperties": false,
+        "not": {
+          "required": [
+            "conversationId",
+            "url"
+          ]
+        }
+      },
+      "description": "Open and focus one native window for this source account. Omit conversationId and url to open https://claude.ai/new. Otherwise use a registered conversationId or a claude.ai Chat/Cowork URL without query or fragment. safariUserAgent persists an optional override (default false); close an existing window before changing it. Closing unloads the view. macOS 14+ only. No remote IPC or scripts.",
+      "localOnly": true
+    },
+    {
+      "name": "src.conversations.import",
+      "method": "POST",
+      "route": "src-conversations/import",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allowUnverified": {
+            "type": "boolean",
+            "description": "Explicitly permit installation only when the imported organization is missing or unknown. Never overrides a known different-account mismatch."
+          }
+        },
+        "required": [
+          "accountId",
+          "profile"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Start a background Chrome login import for this source account and return immediately with {accountId,status:\"importing\",next:{via:\"query\",op:\"src_conversations\",args:{accountId}}}. Concurrent imports for the same account return the in-flight status. Poll src_conversations: importing -> signed-in-pending when cookies are installed, not-imported when none are imported, or import-blocked with reason and a human-action hint. URL observation later yields signed-in or expired. Keychain waits up to 180 seconds; timeout/denial become keychain-timeout/keychain-denied. Enter the macOS login password in the Chrome Safe Storage prompt and choose Always Allow; never work around a denial. Native cookie writes must complete before navigation (30-second write timeout). No cookies, keys, decrypted bytes or page content are returned. No automatic retry after completion or failure. Before native installation, compare the imported lastActiveOrg in-process with confirmed SRC organization identities. A different known SRC yields import-mismatch with detectedAccountId and no installation. Unknown/missing identity yields import-unverified and no installation unless allowUnverified:true. No cookie or organization UUID is returned.",
+      "localOnly": true
+    },
+    {
+      "name": "src.conversations.bind",
+      "method": "POST",
+      "route": "src-conversations/bind",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "accountId",
+          "agent",
+          "taskId",
+          "conversationId"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Manually bind a dispatched task to a registered conversation on its origin account. conversationId:null unbinds. Cross-account binding is rejected. The next dispatch/send re-evaluates automatic binding. Task reads expose srcConversation including accountId, kind, id, url and basis.",
+      "localOnly": true
+    },
+    {
+      "name": "src.conversations.clear",
+      "method": "POST",
+      "route": "src-conversations/clear",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Clear only the selected account website login container. Close its window, wait for WKWebsiteDataStore removal, then remove the persisted store UUID mapping. Return {accountId,status:\"not-imported\"}. Keep conversations and task bindings. An in-flight import or pending cookie write must finish before clearing. Failed or unconfirmed removal retains the mapping and blocks reopening until clear is confirmed. This action destroys this account website data; it does not sign out Chrome. macOS 14+ only. Read back src_conversations before retrying.",
+      "localOnly": true
     }
   ]
 }

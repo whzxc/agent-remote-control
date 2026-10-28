@@ -3,6 +3,7 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
 mod adapter;
+mod archive;
 mod conversations;
 mod dispatch;
 pub(crate) mod driver;
@@ -55,7 +56,9 @@ fn save_task(task: &Value) -> Result<()> {
         &task_path(string(task, "taskId"))?,
         task,
         crate::coordination::observers::Owner::Agent,
-    )?;
+    )
+}
+fn remember_task_configuration(task: &Value) -> Result<()> {
     if task["agent"] != "pi" {
         let facts = dispatch::catalog_facts(
             task,
@@ -163,6 +166,17 @@ impl AgentHost {
             return Err("CLAUDE_ADAPTER_NOT_READY".into());
         }
         Ok(())
+    }
+    pub(crate) fn update_dispatch_policy(&self, args: &Value) -> Result<Value> {
+        let scope = string(args, "scope");
+        if scope != "global" && !self.drivers.contains_key(scope) {
+            return Err(crate::egress::invalid_arguments(
+                "dispatch_policy_update",
+                "/scope",
+                "Use global or a registered Agent ID from dispatch_policy with all:true.",
+            ));
+        }
+        crate::dispatch_policy::update(args)
     }
     pub async fn set_enabled(self: &Arc<Self>, body: &Value) -> Result<Value> {
         let agent = string(body, "agent");
@@ -402,6 +416,9 @@ impl AgentHost {
                     }
                 })
                 .unwrap_or(Value::Null);
+            if task["archived"] == true {
+                continue;
+            }
             let state = string(&task, "status");
             let runtime = match state {
                 "running" | "starting" | "cancelling" => "active",
@@ -550,7 +567,11 @@ impl AgentHost {
         } else {
             Vec::new()
         };
+        let archived_sessions = archive::hidden_sessions().unwrap_or_default();
         for (agent, mut session) in transcripts {
+            if archived_sessions.contains(&(agent.clone(), string(&session, "id").to_owned())) {
+                continue;
+            }
             if agent == "codex" {
                 let external = self.activity.lock().await.external(string(&session, "id"));
                 if let Some(external) = external {
@@ -753,10 +774,12 @@ impl AgentHost {
             return Err("AGENT_TASK_MISMATCH".into());
         }
         value["observedAt"] = json!(now());
+        value["srcConversation"] = crate::src_conversations::task_ref(agent, task)?;
         Ok(value)
     }
     async fn process(&self, agent: &str, task: &str, resume: bool) -> Result<Arc<Process>> {
         let _lock = self.lifecycle.lock().await;
+        archive::ensure_unarchived(&self.task(agent, task).await?)?;
         if let Some(p) = self.processes.lock().await.get(task).cloned() {
             if p.alive.load(std::sync::atomic::Ordering::SeqCst) {
                 return Ok(p);
@@ -772,6 +795,7 @@ impl AgentHost {
         let p = self.drivers[agent]
             .start(state, true, self.wake.clone())
             .await?;
+        p.remember_configuration().await;
         self.processes.lock().await.insert(task.into(), p.clone());
         Ok(p)
     }
@@ -911,7 +935,9 @@ impl AgentHost {
         }
         let agent = agent.as_str();
         let driver = self.drivers.get(agent).ok_or("UNKNOWN_AGENT")?;
-        self.ensure_enabled(agent).await?;
+        if name != "agent_archive" {
+            self.ensure_enabled(agent).await?;
+        }
         if name == "agent_wait" {
             return wait::agent_wait(self, native, &args).await;
         }
@@ -930,7 +956,7 @@ impl AgentHost {
                 if path.extension().is_some_and(|e| e == "json") {
                     let result: Result<Option<Value>> = async {
                         let t = load(&path)?;
-                        if t["agent"] == agent {
+                        if t["agent"] == agent && t["archived"] != true {
                             Ok(Some(self.task(agent, string(&t, "taskId")).await?))
                         } else {
                             Ok(None)
@@ -1002,7 +1028,12 @@ impl AgentHost {
         }
         if !matches!(
             name,
-            "agent_create" | "agent_send" | "agent_interrupt" | "agent_respond" | "agent_review"
+            "agent_create"
+                | "agent_send"
+                | "agent_interrupt"
+                | "agent_respond"
+                | "agent_review"
+                | "agent_archive"
         ) {
             return Err("UNKNOWN_TOOL".into());
         }
@@ -1050,7 +1081,13 @@ impl AgentHost {
         } else {
             self.task(agent, &task).await?["turnId"].clone()
         };
-        let receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"pending"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        if matches!(name, "agent_create" | "agent_send") {
+            args["srcConversation"] = crate::src_conversations::capture(&args).await?;
+        }
+        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"pending"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        if matches!(name, "agent_create" | "agent_send") {
+            crate::dispatch_caller::attach_current(&mut receipt);
+        }
         RECEIPTS.reserve(&receipt)?;
         if needs_approval {
             return Ok(receipt);
@@ -1084,7 +1121,12 @@ impl AgentHost {
             let arguments = r["arguments"].clone();
             let task = string(&r, "taskId").to_owned();
             let name = string(&r, "operation").to_owned();
-            let result = host.perform(&driver, &name, &arguments, &task).await;
+            let result = crate::dispatch_caller::CALLER
+                .scope(
+                    crate::dispatch_caller::validated(&r["caller"]),
+                    host.perform(&driver, &name, &arguments, &task),
+                )
+                .await;
             match result {
                 Ok(v) => {
                     r["state"] = json!(if v["configurationError"].is_string() {
@@ -1104,7 +1146,7 @@ impl AgentHost {
                 }
                 Err(e) => {
                     r["state"] = json!(crate::kernel::receipts::failure_state(&e));
-                    r["error"] = json!(e);
+                    r["error"] = crate::egress::failure(&e);
                 }
             }
             // Failure leaves the original pending receipt; replay is always prohibited.
@@ -1130,6 +1172,9 @@ impl AgentHost {
         task: &str,
     ) -> Result<Value> {
         let agent = string(args, "agent");
+        if name == "agent_archive" {
+            return self.archive(agent, task).await;
+        }
         if name == "agent_review" {
             let mut snapshot = self.task(agent, task).await?;
             let facts = dispatch::catalog_facts(
@@ -1156,7 +1201,7 @@ impl AgentHost {
         self.ensure_enabled(agent).await?;
         let p = if name == "agent_create" {
             let _guard = self.lifecycle.lock().await;
-            let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":args["title"],"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"output":""});
+            let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"output":""});
             save_task(&t)?;
             let p = match driver.start(t, false, self.wake.clone()).await {
                 Ok(p) => p,
@@ -1168,6 +1213,7 @@ impl AgentHost {
                     return Err(e);
                 }
             };
+            p.remember_configuration().await;
             self.processes.lock().await.insert(task.into(), p.clone());
             p
         } else {
@@ -1181,6 +1227,7 @@ impl AgentHost {
                     .try_lock()
                     .map_err(|_| "TASK_BUSY_OR_UNCONFIRMED")?;
                 let snapshot = p.state.lock().await.clone();
+                archive::ensure_unarchived(&snapshot)?;
                 if !matches!(
                     string(&snapshot, "status"),
                     "idle" | "completed" | "cancelled" | "failed"

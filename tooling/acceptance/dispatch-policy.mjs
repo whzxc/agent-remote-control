@@ -34,6 +34,7 @@ try{
   const id=randomUUID();await put(`dispatches/${thread}/${id}.json`,{requestId:id,threadId:thread,turnId:randomUUID(),agent:'codex',purpose,dispatchMode:'new-turn',submittedAt:new Date().toISOString(),model,effort:'high',options:{},terminal:{state:'completed',observedDurationMs:minutes*60000},...(verdict?{review:{verdict}}:{})});
  }
  for(const m of [1,3,5])await record('sample-model',m,m===1?'pass':m===3?'rework':undefined);
+ for(let n=0;n<7;n++)await record('sample-model',3);
  await record('small-a',1,'pass');await record('small-b',9,'rework');await record('small-b',11);
  await record('self-test-only',100,'pass','self-test');
  const script=path.join(dir,'native.mjs');
@@ -45,10 +46,13 @@ try{
  await save('decision',decision);await save('full',full);
  const c=decision.agents.find(a=>a.agent==='codex'),f=full.agents.find(a=>a.agent==='codex');
  check('defaults and restrictions retained',c.defaults.model==='sample-model'&&c.defaults.effort==='high'&&c.denyModels[0]==='denied-model');
+ // Regression: review of 136285a8 requires compact grouped model settings in the decision view.
  check('native model ranges preserve gaps',c.models.includes('sample-model: low-ultra, fast=priority')&&c.models.includes('sparse-model: low/high'));
  check('quota usage summary',c.quota[0].summary==='weekly 22%');
- check('merged median uses original duration samples',c.history.groups.includes('other: 3 dispatches, 9.0m median, 1/1/1 pass/rework/unreviewed'));
- check('history keeps decision outcomes',c.history.groups.includes('sample-model/high: 3 dispatches, 3.0m median, 1/1/1 pass/rework/unreviewed'));
+ // Regression: sparse dispatch groups must preserve their original pooled duration median and outcomes.
+ check('merged median uses original duration samples',c.history.groups.some(row=>/other.*n3.*med9\.0m.*pass1 rework1 unrev1/.test(row)));
+ // Regression: ten-dispatch groups must remain individually comparable in the compact decision view.
+ check('history keeps decision outcomes',c.history.groups.some(row=>/sample-model\/high.*n10.*med3\.0m.*pass1 rework1 unrev8/.test(row)));
  check('full retains individual groups',f.history.groups.length===3&&!f.history.groups.some(g=>g.model==='other'));
  check('self-test history excluded',!JSON.stringify(decision).includes('self-test-only'));
  const empty=decision.agents.find(a=>a.agent==='claude');

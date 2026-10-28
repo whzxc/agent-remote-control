@@ -207,12 +207,12 @@ pub(super) fn broadcast(id: &str) -> Result<()> {
     } else {
         blocker["recoverySelection"].clone()
     };
-    // Outbox retention cannot resurrect an old wake after a long projection outage.
+    // Outbox retention cannot resurrect old advice after a long projection outage.
     if time(&blocker, "clearedAt") < chrono::Utc::now().timestamp_millis() - 86400_000 {
         return Ok(());
     }
     for recipient in plan["recipients"].as_array().into_iter().flatten() {
-        messages::recovery(&blocker, recipient, &plan)?;
+        messages::recovery(&blocker, recipient)?;
     }
     Ok(())
 }

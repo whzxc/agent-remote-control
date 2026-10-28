@@ -33,6 +33,12 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
         if method != "GET" {
             check_write(app)?;
         }
+        if route.starts_with("src-containers/") {
+            #[cfg(target_os = "macos")]
+            return crate::src_conversations::request(app, route, body.clone()).await;
+            #[cfg(not(target_os = "macos"))]
+            return Ok(json!({"status":"unsupported","profiles":[]}));
+        }
         match (method.as_str(), route.as_str()) {
             ("GET", "permissions/desktop") => return Ok(crate::permissions::status().await),
             ("POST", "permissions/notify") => return crate::permissions::notify(app, body).await,

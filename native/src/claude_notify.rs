@@ -117,7 +117,6 @@ struct Delivery {
 impl Delivery {
     fn urgent(&self) -> bool {
         self.task_state == "interaction-required"
-            || (self.key.starts_with("update:") && self.key.ends_with(":settling"))
     }
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -1009,7 +1008,7 @@ impl Executor for Cli {
         }
         let account = crate::accounts::profile_account(profile)?;
         Ok(
-            json!({"kind":"claude-session-handshake","profileId":profile,"accountId":account["id"],"identityKey":account["identityKey"]}),
+            json!({"kind":"claude-session-handshake","profileId":profile,"accountId":account["id"],"identityKey":account["identityKey"],"orgId":facts["orgId"]}),
         )
     }
 
@@ -1326,7 +1325,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
                 .is_some_and(|(observed, started)| observed >= started)
         {
             // Consume exactly the acquisition caused by this replacement resume.
-            // Keep its event and history; the merged update outcome owns the wake.
+            // Retain the acquisition event even when the predecessor is terminal.
             b.replacement_resume["handoffEventId"] = handoff["eventId"].clone();
             resolved = true;
         }
@@ -1367,20 +1366,6 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     let first = b.deliveries.len();
     for (key, state) in events {
         let handoff = key.starts_with("handoff:");
-        let inbox_only = handoff
-            && (b.replacement_resume["handoffEventId"]
-                .as_str()
-                .is_some_and(|id| key == format!("handoff:{id}"))
-                || observation["handoffs"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .any(|h| {
-                        key == format!("handoff:{}", string(h, "eventId"))
-                            && h["from"] == "unheld"
-                            && h["to"] == "connector"
-                            && h["causedBySourceId"] == b.source_id
-                    }));
         b.deliveries.push(Delivery {
             subscription: String::new(),
             channel: b.channel,
@@ -1448,7 +1433,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
                 string(observation, "state")
             }
             .into(),
-            status: if inbox_only { "inbox-only" } else { "pending" }.into(),
+            status: if handoff { "inbox-only" } else { "pending" }.into(),
         });
     }
     routing::refresh(dir, b)?;
@@ -1764,7 +1749,11 @@ pub(crate) async fn acknowledge(args: &Value) -> Result<Value> {
         return Err("SOURCE_REQUIRED".into());
     }
     let _guard = LOCK.lock().await;
-    acknowledge_in(&directory(), &source_id, args)
+    let result = acknowledge_in(&directory(), &source_id, args)?;
+    if result["reachability"] == "verified" {
+        sync_src_conversation(&source_id, string(&result, "target"), true)?;
+    }
+    Ok(result)
 }
 fn acknowledge_in(dir: &Path, source_id: &str, args: &Value) -> Result<Value> {
     if args.get("code").is_some() {
@@ -1943,6 +1932,13 @@ pub(crate) fn settings() -> Result<Value> {
     Ok(settings)
 }
 
+fn wakes(d: &Delivery) -> bool {
+    matches!(
+        d.task_state.as_str(),
+        "completed" | "failed" | "cancelled" | "interrupted" | "interaction-required"
+    )
+}
+
 fn queued(d: &mut Delivery, reason: &str) {
     if d.timing.queue_reason.as_deref() != Some(reason) {
         d.timing.queue_reason = Some(reason.into());
@@ -1983,9 +1979,6 @@ async fn flush(
             }
         }
     }
-    for index in recovery::supersede_phases(&mut all) {
-        inbox_refresh(dir, &all[index])?;
-    }
     let continuations = all
         .iter()
         .map(|b| {
@@ -2001,15 +1994,11 @@ async fn flush(
         .collect::<Vec<_>>();
     for (b, continuation) in all.iter_mut().zip(continuations) {
         let mut changed = false;
-        if quiet_terminal(b) {
-            for d in &mut b.deliveries {
-                if d.task_state == "handoff" && d.status == "pending" {
-                    d.status = "resolved".into();
-                    changed = true;
-                }
-            }
-        }
         for d in &mut b.deliveries {
+            if matches!(d.status.as_str(), "pending" | "sending") && !wakes(d) {
+                d.status = "inbox-only".into();
+                changed = true;
+            }
             if d.task_state == "cancelled" && d.status == "pending" && b.scope_end.is_some() {
                 d.status = "resolved".into();
                 queued(d, "superseded");
@@ -2034,23 +2023,18 @@ async fn flush(
         }
         routing::refresh(dir, b)?;
     }
-    subscriptions::route(&state, &mut all, now);
-    if all.iter().any(|b| {
+    // Keep interruptions pending while their automatic resume is undecided.
+    // A failed or skipped resume releases the original task-failure event.
+    let replacement = if all.iter().any(|b| {
         b.deliveries
             .iter()
             .any(|d| d.task_state == "cancelled" && d.status == "pending")
     }) {
-        let replacement = crate::app_replace::status().unwrap_or(Value::Null);
-        for b in &mut all {
-            if recovery::interrupted_by_update(b, &replacement) {
-                for d in &mut b.deliveries {
-                    if d.task_state == "cancelled" && d.status == "pending" {
-                        d.status = "inbox-only".into();
-                    }
-                }
-            }
-        }
-    }
+        crate::app_replace::status().unwrap_or(Value::Null)
+    } else {
+        Value::Null
+    };
+    subscriptions::route(&state, &mut all, now);
     let mut targets = Vec::new();
     for b in &mut all {
         if let Some(rule) = state.rule(b) {
@@ -2098,24 +2082,27 @@ async fn flush(
                 {
                     continue;
                 }
-                // Coordination and replacement share one wake reservation for this
-                // exact replacement and verified destination; inbox history remains.
-                if channel == Channel::ClaudeSession && d.task_state == "recovered" {
-                    if let Some(replacement) = d
-                        .key
-                        .strip_prefix("update:")
-                        .and_then(|key| key.strip_suffix(":outcome"))
-                    {
-                        if !crate::coordination::messages::replacement_summary(
-                            dir.parent().ok_or(
-                                "COORDINATION_STORAGE: notification state root unavailable",
-                            )?,
-                            &source_id,
-                            &target,
-                            replacement,
-                            now,
-                        )? {
+                if d.task_state == "cancelled" {
+                    if let Some(row) = recovery::interrupted_turn(
+                        b.thread_id.as_str(),
+                        b.turn_id.as_str(),
+                        &b.agent,
+                        &replacement,
+                    ) {
+                        if recovery::resumed(row) {
                             d.status = "inbox-only".into();
+                            continue;
+                        }
+                        if recovery::resume_pending(row)
+                            || (!matches!(
+                                string(&replacement, "state"),
+                                "succeeded" | "rolled-back" | "failed" | "cancelled"
+                            ) && matches!(
+                                string(row, "state"),
+                                "recorded" | "submitting" | "explicit-continuation"
+                            ))
+                        {
+                            queued(d, "automatic-resume");
                             continue;
                         }
                     }
@@ -2942,7 +2929,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     }
                 }
                 // Reuse the observer to reconcile delayed resume receipts. The
-                // outcome keeps its event ID and can become deliverable only once.
+                // outcome keeps its event ID while remaining inbox-only.
                 if !outcome_reconciled && replacement.is_some() {
                     let receipt = crate::app_replace::status()?;
                     if replacement
@@ -4717,7 +4704,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_merges_recovery_with_the_named_resumed_task() {
+    async fn update_retains_recovery_with_the_named_resumed_task_without_waking() {
         // Regression: ded33bbf sent pre-restart and separate recovered/outcome wakeups for one resumed task.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -4752,7 +4739,7 @@ mod tests {
             .iter()
             .filter(|d| d["state"] == "delivered")
             .collect::<Vec<_>>();
-        assert_eq!(sent.len(), 1);
+        assert!(sent.is_empty());
         let inbox = inbox_in(&dir.0, &b.source_id, &[], false, None).unwrap();
         assert!(inbox["events"]
             .as_array()
@@ -4763,7 +4750,10 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .find(|e| e["eventId"] == sent[0]["eventId"])
+            .find(|e| {
+                e["next"]["op"] == "update_status"
+                    && e["summary"].as_str().is_some_and(|s| s.contains("resumed"))
+            })
             .unwrap();
         assert_eq!(outcome["threadId"], b.thread_id);
         assert_eq!(outcome["recovery"]["affectedTasks"], 1);
@@ -4780,7 +4770,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn replacement_resume_handoff_stays_inbox_only_while_other_handoffs_wake() {
+    async fn replacement_resume_and_later_handoffs_stay_inbox_only() {
         // Regression: replacement resume woke the conversation twice, first with the merged resume notice and then unheld-to-connector handoff.
         for (handoff_before_outcome, handoff_before_adoption) in
             [(false, false), (true, false), (true, true)]
@@ -4848,7 +4838,7 @@ mod tests {
                     .iter()
                     .filter(|d| d["state"] == "delivered")
                     .count(),
-                1
+                0
             );
             let inbox = inbox_in(&dir.0, &original.source_id, &[], false, None).unwrap();
             let retained = inbox["events"]
@@ -4893,7 +4883,7 @@ mod tests {
                     .iter()
                     .filter(|d| d["state"] == "delivered")
                     .count(),
-                4
+                0
             );
             let inbox = inbox_select(
                 &dir.0,
@@ -4913,7 +4903,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delayed_resume_promotes_one_outcome_without_an_early_wakeup() {
+    async fn delayed_resume_refreshes_one_outcome_without_waking() {
         // Regression: replacement resume receipts can still be pending when the worker publishes its terminal outcome.
         let dir = Sandbox::new();
         let b = fixture(&dir.0);
@@ -4938,14 +4928,17 @@ mod tests {
             .iter()
             .filter(|d| d["state"] == "delivered")
             .collect::<Vec<_>>();
-        assert_eq!(sent.len(), 1);
+        assert!(sent.is_empty());
         let after = inbox_in(&dir.0, &b.source_id, &[], false, None).unwrap();
         assert_eq!(before["unread"], after["unread"]);
         let outcome = after["events"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|e| e["eventId"] == sent[0]["eventId"])
+            .find(|e| {
+                e["next"]["op"] == "update_status"
+                    && e["summary"].as_str().is_some_and(|s| s.contains("resumed"))
+            })
             .unwrap();
         assert!(before["events"]
             .as_array()
@@ -4956,15 +4949,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn settling_wakes_only_the_owner_of_the_blocking_question() {
+    async fn settling_question_wakes_once_without_a_separate_update_notice() {
         // Regression: ded33bbf broadcast settling blockers to every bound conversation instead of asking their owner.
         let dir = Sandbox::new();
-        let b = fixture(&dir.0);
+        let mut b = fixture(&dir.0);
         let mut unrelated = b.clone();
         unrelated.thread_id = "unrelated".into();
         unrelated.source_id = "other-source".into();
         verified_fixture_target(&dir.0, &unrelated);
         persist(&dir.0, &unrelated).unwrap();
+        super::process(&dir.0, &Mutex::new(()), &mut b,
+            &json!({"state":"interaction-required","interaction":[{"id":7,"method":"item/tool/requestUserInput","params":{"questions":[{"id":"q","question":"Choose a plan"}]}}]})).await.unwrap();
         let at = chrono::Utc::now().timestamp();
         let receipt = json!({"id":"question-update","state":"settling","waiting":{"blockingTurns":[
             {"agent":"codex","taskId":b.thread_id,"turnId":b.turn_id,"question":{"id":7}}]}});
@@ -4976,6 +4971,19 @@ mod tests {
             &dir.0,
             &Mutex::new(()),
             at + 31,
+            0,
+            &json!({}),
+        )
+        .await
+        .unwrap();
+        recovery::update(&dir.0, &Mutex::new(()), &receipt, "settling", at + 1)
+            .await
+            .unwrap();
+        flush(
+            &Fake::success(),
+            &dir.0,
+            &Mutex::new(()),
+            at + 32,
             0,
             &json!({}),
         )
@@ -4997,7 +5005,8 @@ mod tests {
             .find(|e| e["eventId"] == sent[0]["eventId"])
             .unwrap();
         assert_eq!(question["threadId"], b.thread_id);
-        assert!(question["summary"].as_str().unwrap().contains("Answer"));
+        assert_eq!(question["kind"], "needs-input");
+        assert_eq!(question["interaction"]["id"], 7);
         assert!(
             lifecycle_status(&dir.0, &unrelated.source_id, at)["deliveries"]
                 .as_array()
@@ -5008,7 +5017,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_submitter_receives_only_the_outcome_even_with_a_blocker() {
+    async fn update_submitter_keeps_outcome_inbox_only_even_with_a_blocker() {
         // Regression: ded33bbf woke the update submitter at settling, interruption and recovery before the outcome.
         let dir = Sandbox::new();
         let b = fixture(&dir.0);
@@ -5024,20 +5033,16 @@ mod tests {
             .iter()
             .filter(|d| d["state"] == "delivered")
             .collect::<Vec<_>>();
-        assert_eq!(sent.len(), 1);
+        assert!(sent.is_empty());
         let inbox = inbox_in(&dir.0, &b.source_id, &[], false, None).unwrap();
-        let outcome = inbox["events"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|e| e["eventId"] == sent[0]["eventId"])
-            .unwrap();
-        assert_eq!(outcome["next"]["op"], "update_status");
-        assert_eq!(outcome["recovery"]["affectedTasks"], 0);
+        let events = inbox["events"].as_array().unwrap();
+        assert!(events.iter().all(|e| e["next"]["op"] == "update_status"));
+        assert!(events.iter().any(|e| e["recovery"]["affectedTasks"] == 0));
+        assert!(events.iter().any(|e| e["recovery"]["affectedTasks"] == 1));
     }
 
     #[tokio::test]
-    async fn command_submitter_receives_outcome_without_a_codex_continuation() {
+    async fn command_submitter_retains_outcome_without_waking() {
         // Regression: replacement launched by a control-source command lost its submitter and never notified that conversation.
         let dir = Sandbox::new();
         let b = fixture(&dir.0);
@@ -5074,13 +5079,13 @@ mod tests {
             .iter()
             .filter(|d| d["state"] == "delivered")
             .collect::<Vec<_>>();
-        assert_eq!(sent.len(), 1);
+        assert!(sent.is_empty());
         let inbox = inbox_in(&dir.0, &b.source_id, &[], false, None).unwrap();
         let outcome = inbox["events"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|e| e["eventId"] == sent[0]["eventId"])
+            .find(|e| e["next"]["op"] == "update_status")
             .unwrap();
         assert_eq!(outcome["next"]["op"], "update_status");
         assert_eq!(outcome["recovery"]["affectedTasks"], 0);
@@ -5168,8 +5173,7 @@ mod tests {
         flush(&fake, &dir.0, &Mutex::new(()), at + 31, 0, &json!({}))
             .await
             .unwrap();
-        // The same recovery cannot replay after delivery. A later restart gets
-        // one new wakeup, and another rapid restart shares that pending event.
+        // Each restart retains one source-scoped inbox event without a wakeup.
         for restart in ["restart-1", "restart-2", "restart-2", "restart-3"] {
             recovery::enqueue(&dir.0, &Mutex::new(()), restart, at + 32, &interrupted)
                 .await
@@ -5189,14 +5193,14 @@ mod tests {
                 .iter()
                 .filter(|d| d["kind"] == "recovered")
                 .count(),
-            2
+            3
         );
         assert_eq!(
             deliveries
                 .iter()
                 .filter(|d| d["state"] == "delivered")
                 .count(),
-            1
+            0
         );
         let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
         for event in inbox["events"]
@@ -5369,8 +5373,8 @@ mod tests {
         assert_eq!(deliveries.len(), 1);
         assert_eq!(deliveries[0]["kind"], "recovered");
         assert_eq!(deliveries[0]["target"], b.target.as_deref().unwrap());
-        assert_eq!(deliveries[0]["state"], "pending");
-        assert_eq!(deliveries[0]["timing"]["queueReason"], "disabled");
+        assert_eq!(deliveries[0]["state"], "inbox-only");
+        assert!(deliveries[0]["timing"]["queueReason"].is_null());
         for target in waiting["targets"].as_array().unwrap() {
             let original = before["targets"]
                 .as_array()
@@ -5411,7 +5415,7 @@ mod tests {
             .any(|d| d["target"] == unverified.target.as_deref().unwrap()
                 && d["state"] == "inbox-only"));
         assert_eq!(sent["eventId"], deliveries[0]["eventId"]);
-        assert_eq!(sent["state"], "delivered");
+        assert_eq!(sent["state"], "inbox-only");
         let unverified = delivered["targets"]
             .as_array()
             .unwrap()
@@ -5423,7 +5427,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn recovery_waits_for_bucket_refill_and_keeps_its_event_id() {
+    async fn recovery_stays_inbox_only_across_bucket_refill() {
         // Regression: a recovery wakeup must not bypass a depleted bucket or duplicate across repeated restarts.
         let dir = Sandbox::new();
         let b = fixture(&dir.0);
@@ -5456,11 +5460,8 @@ mod tests {
         let waiting =
             governance::status_in(&dir.0, "claude", &json!({"all":true}), at + 31, &settings)
                 .unwrap();
-        assert_eq!(waiting["deliveries"][0]["state"], "pending");
-        assert_eq!(
-            waiting["deliveries"][0]["timing"]["queueReason"],
-            "token-wait"
-        );
+        assert_eq!(waiting["deliveries"][0]["state"], "inbox-only");
+        assert!(waiting["deliveries"][0]["timing"]["queueReason"].is_null());
         for restart in ["restart-1", "restart-2", "restart-3"] {
             recovery::enqueue(
                 &dir.0,
@@ -5478,17 +5479,22 @@ mod tests {
         let delivered =
             governance::status_in(&dir.0, "claude", &json!({"all":true}), at + 601, &settings)
                 .unwrap();
-        assert_eq!(delivered["deliveries"].as_array().unwrap().len(), 1);
-        assert_eq!(
-            delivered["deliveries"][0]["eventId"],
-            waiting["deliveries"][0]["eventId"]
-        );
-        assert_eq!(delivered["deliveries"][0]["state"], "delivered");
-        assert_eq!(delivered["targets"][0]["tokens"], 0);
+        assert_eq!(delivered["deliveries"].as_array().unwrap().len(), 3);
+        assert!(delivered["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["eventId"] == waiting["deliveries"][0]["eventId"]));
+        assert!(delivered["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["state"] == "inbox-only"));
+        assert_eq!(delivered["targets"][0]["tokens"], 1);
     }
 
     #[tokio::test]
-    async fn recovery_callbacks_require_verification_and_preserve_subscription_filters() {
+    async fn recovery_callbacks_stay_inbox_only_and_preserve_subscription_filters() {
         // Regression: recovery must wake only verified matching destinations without task-subscription fanout.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -5561,7 +5567,7 @@ mod tests {
         let deliveries = status["deliveries"].as_array().unwrap();
         assert!(deliveries
             .iter()
-            .any(|d| d["target"] == "verified-callback" && d["state"] == "callback-accepted"));
+            .any(|d| d["target"] == "verified-callback" && d["state"] == "inbox-only"));
         assert!(deliveries
             .iter()
             .filter(|d| d["target"] != "verified-callback")
@@ -5574,7 +5580,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn queued_handoff_is_resolved_if_task_ends_before_delivery() {
+    async fn handoff_stays_inbox_only_if_task_ends_before_delivery() {
         // Regression: persisted handoff queues replayed idle-thread wakeups after restart.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -5605,14 +5611,14 @@ mod tests {
         assert!(deliveries
             .iter()
             .filter(|d| d["kind"] == "handoff")
-            .all(|d| d["state"] == "resolved"));
+            .all(|d| d["state"] == "inbox-only"));
         assert!(deliveries
             .iter()
             .any(|d| d["kind"] == "completed" && d["state"] == "delivered"));
     }
 
     #[tokio::test]
-    async fn terminal_handoffs_stay_quiet_while_active_and_pending_tasks_still_push() {
+    async fn handoffs_retain_existing_inbox_coverage_without_push() {
         // Regression: every ended bound thread emitted connector-to-unheld and desktop-to-unheld notices after restart.
         for (state, terminal, expected) in [
             ("completed", true, 0),
@@ -5654,6 +5660,25 @@ mod tests {
                     .count(),
                 expected
             );
+            flush(
+                &Fake::success(),
+                &dir.0,
+                &Mutex::new(()),
+                chrono::Utc::now().timestamp() + 31,
+                0,
+                &json!({}),
+            )
+            .await
+            .unwrap();
+            let status =
+                governance::status_in(&dir.0, "claude", &json!({"all":true}), i64::MAX, &json!({}))
+                    .unwrap();
+            assert!(status["deliveries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|d| d["kind"] == "handoff")
+                .all(|d| d["state"] == "inbox-only"));
             let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
             assert_eq!(
                 inbox["events"]
@@ -6230,4 +6255,98 @@ pub(crate) async fn update_notice(args: &Value) -> Result<Value> {
     )
     .await?;
     Ok(json!({"queued":true}))
+}
+
+/// Project current source-owned notification bindings into the conversation registry.
+fn sync_src_conversation(source: &str, target: &str, handshake: bool) -> Result<()> {
+    let state = State::load(&directory())?;
+    let Some(verified) = state.targets.iter().find(|t| {
+        t.source_id == source
+            && t.target == target
+            && t.channel == Channel::ClaudeSession
+            && t.reachability.state == "verified"
+    }) else {
+        return Ok(());
+    };
+    let confirmed_at = handshake
+        .then(|| chrono::DateTime::from_timestamp_millis(verified.reachability.verified_at))
+        .flatten()
+        .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+    let Some(account) = crate::accounts::source_rows()?.into_iter().find(|a| {
+        a["provider"] == "anthropic"
+            && a["sources"]
+                .as_array()
+                .is_some_and(|sources| sources.iter().any(|s| s == source))
+    }) else {
+        return Ok(());
+    };
+    let tasks = records(&directory())?
+        .into_iter()
+        .filter(|b| {
+            b.source_id == source
+                && b.channel == Channel::ClaudeSession
+                && b.target.as_deref() == Some(target)
+                && b.scope_end.is_none()
+                && !b.continuation_bound
+        })
+        .map(|b| {
+            (
+                if b.agent.is_empty() {
+                    "codex".into()
+                } else {
+                    b.agent
+                },
+                b.thread_id,
+            )
+        })
+        .collect::<Vec<_>>();
+    crate::src_conversations::notify_target(
+        string(&account, "id"),
+        target,
+        confirmed_at.as_deref(),
+        &tasks,
+    )
+}
+
+/// Conversation association requires a verified target owned by this exact source.
+pub(crate) fn verified_conversation_target(source: &str, target: &str) -> Result<bool> {
+    let mut state = State::load(&directory())?;
+    Ok(state.targets.iter_mut().any(|t| {
+        t.reachability.expire(chrono::Utc::now().timestamp());
+        t.source_id == source
+            && t.target == target
+            && t.channel == Channel::ClaudeSession
+            && t.reachability.state == "verified"
+    }))
+}
+
+/// Registered, verified targets are URL evidence even before a local window opens.
+pub(crate) fn verified_conversation_targets(source_ids: &[String]) -> Result<Vec<String>> {
+    let mut state = State::load(&directory())?;
+    Ok(state
+        .targets
+        .iter_mut()
+        .filter_map(|t| {
+            t.reachability.expire(chrono::Utc::now().timestamp());
+            (source_ids.contains(&t.source_id)
+                && t.channel == Channel::ClaudeSession
+                && t.reachability.state == "verified")
+                .then(|| t.target.clone())
+        })
+        .collect())
+}
+/// Reuse only this task's still-open notification binding, never an account-wide guess.
+pub(crate) fn conversation_target_for_send(source: &str, task: &str) -> Result<Option<String>> {
+    Ok(records(&directory())?
+        .into_iter()
+        .filter(|b| {
+            b.source_id == source
+                && b.thread_id == task
+                && b.scope_end.is_none()
+                && !b.continuation_bound
+                && (b.agent.is_empty() || b.agent == "codex")
+                && b.channel == Channel::ClaudeSession
+        })
+        .max_by_key(|b| b.created_at)
+        .and_then(|b| b.target))
 }

@@ -179,6 +179,7 @@ export interface TaskOwnership {
 }
 
 export interface AgentTimeline {
+  srcConversation?: import("./srcConversations").SrcConversationRef | null;
   ownership?: TaskOwnership;
   turnTimings?: Record<string, TurnTiming>;
   projectName?: string | null;

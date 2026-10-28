@@ -55,3 +55,19 @@ Use the existing validator rather than a second defensive layer. Existing tests 
 - Invalid arguments and unknown ops provide usable correction evidence.
 - Guide changes alter arcVersion on tool results.
 - Existing checks and tests pass.
+
+
+## Profile projection
+
+[Control profiles](control-profiles.md) specialize initial discovery through `toolExposure` preset metadata.
+Profile selection never changes execution allowlists or runtime availability.
+Existing sources remain Legacy until explicitly changed.
+Local Code is restricted to built-in CLI authority; MCP sources use remote profiles.
+Local Code Layer 1 targets 2,500 serialized-result Unicode characters including index and hashes.
+The full view still exposes all policy-enabled operations.
+Notification workflow prose is automatic only for push profiles.
+Coordination, SRC, and context details use explicit query guide topics.
+Per-op guides retain complete schemas and retry contracts.
+The profile projection participates in `guideHash`.
+Summary task views use operation args and retain the existing result envelopes.
+Their final field allowlist excludes inbox and cross-thread state.

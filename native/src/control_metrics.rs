@@ -78,11 +78,15 @@ impl Call {
             ]),
             _ => Value::Null,
         };
+        let profile = crate::control_profiles::effective(origin);
         Self {
             started: std::time::Instant::now(),
             row: Some(json!({
                 "time":chrono::Utc::now().timestamp_millis(),"callId":id(),
                 "sourceId":identifier(&origin["sourceId"]),"controlSource":identifier(&origin["controlSource"]),
+                "profile":profile["name"],"transport":profile["transport"],
+                "guideLayer":if op!="guide"{Value::Null}else if args["op"].is_string(){json!(2)}else if args["view"]=="full"{json!(3)}else{json!(1)},
+                "dispatchOutcome":if matches!(op.as_str(),Some("codex_create"|"codex_send"|"agent_create"|"agent_send")){json!("pending")}else{Value::Null},
                 "op":op,"via":tool,"requestBytes":bytes(&json!({"name":tool,"arguments":envelope})),
                 "requestId":identifier(envelope.get("requestId").unwrap_or(&args["requestId"])),
                 "threadId":identifier(&args["threadId"]),"taskId":identifier(&args["taskId"]),"agent":identifier(&args["agent"]),
@@ -147,9 +151,24 @@ impl Call {
                     Value::Null
                 };
                 row["cacheHash"] = digest;
+                if !row["dispatchOutcome"].is_null() || crate::egress::dispatch_receipt(result) {
+                    row["dispatchOutcome"] = json!(if !row["errorCode"].is_null() {
+                        "failed"
+                    } else if result["state"] == "completed"
+                        && result["turnId"].is_string()
+                        && (result["threadId"].is_string() || result["taskId"].is_string())
+                    {
+                        "submitted"
+                    } else {
+                        "pending"
+                    });
+                }
             }
             Err(_) => {
                 row["errorCode"] = json!("TRANSPORT_ERROR");
+                if !row["dispatchOutcome"].is_null() {
+                    row["dispatchOutcome"] = json!("unconfirmed");
+                }
             }
         }
         persist(row).await;
@@ -161,6 +180,9 @@ impl Drop for Call {
             row["durationMs"] = json!(self.started.elapsed().as_millis() as u64);
             row["completedAt"] = json!(chrono::Utc::now().timestamp_millis());
             row["errorCode"] = json!("CANCELLED");
+            if !row["dispatchOutcome"].is_null() {
+                row["dispatchOutcome"] = json!("unconfirmed");
+            }
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                 runtime.spawn(persist(row));
             }
@@ -404,5 +426,105 @@ fn summarize(rows: &[Value], since: &str, malformed: u64) -> Value {
         }
         previous.insert(source, row);
     }
-    json!({"since":since,"retentionDays":RETENTION_DAYS,"maxBytes":MAX_BYTES,"sequenceGapSeconds":300,"metadataOnly":true,"malformedRows":malformed,"totals":total,"bySource":sources.into_values().collect::<Vec<_>>(),"byOp":ops.into_values().collect::<Vec<_>>(),"byDay":days.into_values().collect::<Vec<_>>(),"wasteCandidates":patterns,"tasks":tasks.into_values().collect::<Vec<_>>()})
+    json!({"profileSequences":profile_sequences(rows),"since":since,"retentionDays":RETENTION_DAYS,"maxBytes":MAX_BYTES,"sequenceGapSeconds":300,"metadataOnly":true,"malformedRows":malformed,"totals":total,"bySource":sources.into_values().collect::<Vec<_>>(),"byOp":ops.into_values().collect::<Vec<_>>(),"byDay":days.into_values().collect::<Vec<_>>(),"wasteCandidates":patterns,"tasks":tasks.into_values().collect::<Vec<_>>()})
+}
+
+/// Inactivity sequences are proxies, not conversation identities.
+fn profile_sequences(rows: &[Value]) -> Value {
+    let mut sequences: Vec<Value> = Vec::new();
+    let mut latest = BTreeMap::<String, usize>::new();
+    let mut previous_error = BTreeMap::<(usize, String), i64>::new();
+    for row in rows {
+        let source = string(row, "sourceId").to_owned();
+        let profile = row["profile"].as_str().unwrap_or("legacy");
+        let transport = row["transport"].as_str().unwrap_or("unknown");
+        let at = row["time"].as_i64().unwrap_or(0);
+        let index = latest
+            .get(&source)
+            .copied()
+            .filter(|i| {
+                let s = &sequences[*i];
+                at - s["completedAt"].as_i64().unwrap_or(0) <= 300_000
+                    && s["profile"] == profile
+                    && s["transport"] == transport
+            })
+            .unwrap_or_else(|| {
+                let i = sequences.len();
+                sequences.push(
+                    json!({"sourceId":source,"profile":profile,"transport":transport,"startedAt":at,
+                "calls":0,"guideResponseBytes":0,"guideTextBytes":0,"guideStructuredContentBytes":0,
+                "guideCalls":0,"cachedGuideCalls":0,"invalidArguments":0,"argumentErrorRetries":0,
+                "dispatchAttempts":0,"dispatchErrors":0,"callsBeforeFirstDispatch":null}),
+                );
+                latest.insert(source, i);
+                i
+            });
+        let s = &mut sequences[index];
+        if s["callsBeforeFirstDispatch"].is_null() && row["dispatchOutcome"] == "submitted" {
+            s["callsBeforeFirstDispatch"] = s["calls"].clone();
+        }
+        s["calls"] = json!(s["calls"].as_u64().unwrap() + 1);
+        s["completedAt"] = row["completedAt"].clone();
+        if row["op"] == "guide" {
+            for (output, input) in [
+                ("guideResponseBytes", "responseBytes"),
+                ("guideTextBytes", "textBytes"),
+                ("guideStructuredContentBytes", "structuredContentBytes"),
+            ] {
+                s[output] = json!(s[output].as_u64().unwrap() + row[input].as_u64().unwrap_or(0));
+            }
+            s["guideCalls"] = json!(s["guideCalls"].as_u64().unwrap() + 1);
+            if row["cacheRequested"] == true {
+                s["cachedGuideCalls"] = json!(s["cachedGuideCalls"].as_u64().unwrap() + 1);
+            }
+        }
+        let key = (index, string(row, "op").to_owned());
+        if previous_error
+            .remove(&key)
+            .is_some_and(|time| at - time <= 300_000)
+        {
+            s["argumentErrorRetries"] = json!(s["argumentErrorRetries"].as_u64().unwrap() + 1);
+        }
+        if row["errorCode"] == "INVALID_ARGUMENTS" {
+            s["invalidArguments"] = json!(s["invalidArguments"].as_u64().unwrap() + 1);
+            previous_error.insert(key, at);
+        }
+        if matches!(
+            row["op"].as_str(),
+            Some("codex_create" | "codex_send" | "agent_create" | "agent_send")
+        ) {
+            s["dispatchAttempts"] = json!(s["dispatchAttempts"].as_u64().unwrap() + 1);
+            if row["errorCode"].is_string() {
+                s["dispatchErrors"] = json!(s["dispatchErrors"].as_u64().unwrap() + 1);
+            }
+        }
+    }
+    let mut cohorts = BTreeMap::<String, Vec<&Value>>::new();
+    for sequence in &sequences {
+        cohorts
+            .entry(format!(
+                "{}:{}",
+                string(sequence, "profile"),
+                string(sequence, "transport")
+            ))
+            .or_default()
+            .push(sequence);
+    }
+    let cohorts: Vec<_> = cohorts.into_values().map(|rows| {
+        let mut cohort = json!({"profile":rows[0]["profile"],"transport":rows[0]["transport"],"sequences":rows.len(),
+            "withoutSuccessfulDispatch":rows.iter().filter(|r|r["callsBeforeFirstDispatch"].is_null()).count()});
+        for field in ["guideResponseBytes","guideTextBytes","guideStructuredContentBytes","callsBeforeFirstDispatch"] {
+            let mut values: Vec<_> = rows.iter().filter_map(|r|r[field].as_u64()).collect();
+            values.sort_unstable();
+            let percentile = |p: usize| values.get((values.len()*p).div_ceil(100).saturating_sub(1)).copied();
+            cohort[field] = json!({"median":percentile(50),"p95":percentile(95),"samples":values.len()});
+        }
+        let attempts: u64 = rows.iter().filter_map(|r|r["dispatchAttempts"].as_u64()).sum();
+        for field in ["dispatchAttempts","dispatchErrors","invalidArguments","argumentErrorRetries"] {
+            cohort[field] = json!(rows.iter().filter_map(|r|r[field].as_u64()).sum::<u64>());
+        }
+        cohort["argumentErrorRetriesPer100DispatchAttempts"] = if attempts==0 {Value::Null} else {json!(cohort["argumentErrorRetries"].as_u64().unwrap() as f64*100.0/attempts as f64)};
+        cohort
+    }).collect();
+    json!({"sessionProxy":true,"gapSeconds":300,"sequences":sequences,"cohorts":cohorts})
 }

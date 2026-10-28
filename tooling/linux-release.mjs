@@ -64,7 +64,7 @@ export async function buildLinux({ sourceSha, version, output, timer }) {
           await copyFile(binary, path.join(stage, 'arc'));
           await copyFile(path.join(source, 'LICENSE'), path.join(stage, 'LICENSE'));
           await mkdir(path.join(stage, 'skills'));
-          await cp(path.join(source, 'skills/arc-setup'), path.join(stage, 'skills/arc-setup'), { recursive: true });
+          await cp(path.join(source, 'skills'), path.join(stage, 'skills'), { recursive: true });
           await cp(path.join(source, 'licenses'), path.join(stage, 'licenses'), { recursive: true });
           const file = `agent-remote-control-v${version}-linux-${arch}.tar.gz`;
           await runCommand('tar', ['-czf', path.join(output, file), '-C', stage, 'arc', 'LICENSE', 'skills', 'licenses'], { env: { ...process.env, COPYFILE_DISABLE: '1' } });

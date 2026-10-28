@@ -95,7 +95,7 @@ const args=process.argv.slice(2),config=process.env.CLAUDE_CONFIG_DIR,id=path.ba
 if(args[0]==='auth' && args[1]==='login') {
   writeFileSync(path.join(config,'.credentials.json'),JSON.stringify({claudeAiOauth:{accessToken:'fixture-secret-'+id}}));
 } else if(args[0]==='auth' && args[1]==='status') {
-  console.log(JSON.stringify({loggedIn:true,authMethod:'claude.ai',email:id+'@example.com',orgName:'Fixture',subscriptionType:'pro',accessToken:'fixture-secret'}));
+  console.log(JSON.stringify({loggedIn:true,authMethod:'claude.ai',email:id+'@example.com',orgName:'Fixture',orgId:'550e8400-e29b-41d4-a716-446655440000',subscriptionType:'pro',accessToken:'fixture-secret'}));
 } else if(args[0]==='-p') {
   appendFileSync(${JSON.stringify(deliveries)},JSON.stringify({accountId:id,target:args[3],message:args[1]})+'\\n');
   console.log(JSON.stringify({ok:true,session_id:args[3]}));
@@ -149,16 +149,24 @@ for await(const line of createInterface({input:process.stdin})) {const {id}=JSON
     const delivered=(await readFile(deliveries,'utf8')).trim().split('\n').map(row=>JSON.parse(row)).find(row=>row.target===target && row.message.includes('notification_ack'));
     assert.ok(delivered);
     const challenge=JSON.parse(delivered.message.slice(delivered.message.indexOf('{'),delivered.message.lastIndexOf('}')+1));
+    const beforeAck=await fixture.sourceCall(owner.id,'src_conversations',{},'query');
+    assert.ok(beforeAck.accounts.every((a:any)=>a.conversations.length===0));
     const acknowledged=await call('notification_ack',challenge.args);
     assert.equal(acknowledged.reachability,'verified');
     assert.equal(acknowledged.identityResolution.state,'resolved');
     assert.equal(acknowledged.identityResolution.accountId,profiles[1]);
     assert.equal(acknowledged.identityResolution.evidence.kind,'claude-session-handshake');
+    assert.equal(acknowledged.identityResolution.evidence.orgId,'550e8400-e29b-41d4-a716-446655440000');
     assert.equal(acknowledged.identityResolution.evidence.target,target);
     assert.ok(acknowledged.identityResolution.evidence.confirmedAt);
     const linked=await call('whoami');
     assert.equal(linked.id,profiles[1]);
     assert.equal(linked.sourceId,unidentified.sourceId);
+    const sourceConversations=await fixture.sourceCall(owner.id,'src_conversations',{accountId:linked.id},'query');
+    const cowork=sourceConversations.accounts[0].conversations.find((r:any)=>r.id===target.replace('session_','cse_'));
+    assert.equal(cowork.accountId,linked.id);
+    assert.equal(cowork.basis,'notify-target');
+    assert.deepEqual(cowork.taskRefs,[]);
     assert.equal(linked.orgName,'Fixture');
     assert.deepEqual(linked.identityResolution,acknowledged.identityResolution);
     const replay=await call('notification_ack',challenge.args);

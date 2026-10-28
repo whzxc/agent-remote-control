@@ -230,6 +230,13 @@ for await (const line of createInterface({input:process.stdin})) {
   else if(r.method==='session/new')emit({jsonrpc:'2.0',id:r.id,result:{sessionId:'example-session'}});
   else if(r.method==='session/prompt') {
     promptId=r.id;
+    const prompt=r.params.prompt.map(item=>item.text??'').join('');
+    if(prompt.startsWith('fixture-final-text:')) {
+      const text=Array.from(prompt.slice('fixture-final-text:'.length));
+      for(let offset=0;offset<text.length;offset+=8192) update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:text.slice(offset,offset+8192).join('')}});
+      emit({jsonrpc:'2.0',id:promptId,result:{stopReason:'end_turn'}});
+      continue;
+    }
     update({sessionUpdate:'tool_call',toolCallId:'example-command',title:'Bash',kind:'other',status:'in_progress',rawInput:{command:'printf example',api_key:'fixture-secret-value'}});
     emit({jsonrpc:'2.0',id:'example-permission',method:'session/request_permission',params:{toolCall:{toolCallId:'example-command'},options:[{optionId:'allow',kind:'allow_once',name:'Allow'}]}});
   } else if(r.id==='example-permission') {
@@ -634,6 +641,12 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     for (const name of config.tools.filter(tool => !b.toolPolicy.allowlist.includes(tool.name) && !['notification_ack', 'notify_status', 'inbox_wait'].includes(tool.name)).map(tool => tool.name)) {
       assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: { action: 'approve', requestId: randomUUID() } })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE', name);
     }
+    const source=(await management('source')).sources.find((source:any)=>source.ingressId===b.id);
+    assert.ok(source.capabilityProfileOffer.choices.includes('remote-polling'));
+    assert.equal(source.capabilityProfile,undefined);
+    await management(`source/${source.id}`,'PUT',{capabilityProfile:{hostAccess:'none',waitMode:'poll'}});
+    assert.deepEqual((await management(`ingress/${b.id}`)).toolPolicy,b.toolPolicy);
+    assert.ok(!((await ingressRpc(b,'tools/call',{name:'query',arguments:{op:'guide',args:{}}})).result.structuredContent.result.ops).some((row:any)=>row.op==='command'));
     const args = { requestId: randomUUID(), method: 'fixture/counts', params: {} };
     const blocked = await ingressRpc(b, 'tools/call', { name: 'codex_call', arguments: args });
     assert.equal(blocked.result.isError, true);
@@ -1228,6 +1241,83 @@ test('wait omits repeated nonterminal text and retains complete terminal replies
   assert.equal(repeated.changed,false);assert.equal(repeated.finalResponse.text,'pong');assert.equal(repeated.finalResponseUnchanged,undefined);
 });
 
+async function readFinalText(summary: any, expected: string) {
+  assert.equal(summary.finalResponseTruncated, true);
+  const next = summary.finalResponseNext;
+  assert.equal(next.via, 'query');
+  assert.equal(next.op, 'control_output');
+  assert.equal(next.format, 'plain-text');
+  assert.equal(next.characters, expected.length);
+  assert.equal(next.sha256, createHash('sha256').update(expected).digest('hex'));
+  let offset: number | null = next.args.offset;
+  let text = '';
+  while (offset !== null) {
+    const page = (await call(next.op, {...next.args, offset, length: 4093})).result;
+    assert.equal(page.format, 'plain-text');
+    assert.equal(page.offset, text.length);
+    text += page.text;
+    if (page.nextOffset !== null) assert.equal(page.nextOffset, text.length);
+    offset = page.nextOffset;
+  }
+  assert.equal(text, expected);
+}
+
+test('final text continuation preserves long Codex messages and the selected turn', async () => {
+  // Regression: long final messages required parsing task-record JSON and could drift to a newer turn.
+  const task = await dispatchFixture('fixture-dispatch-completed');
+  const text = '🧪报告 "quoted" \\path\n\t\u0000\r\n'.repeat(4000);
+  await completed('codex_call', {method:'fixture/update-turn', params:{threadId:task.threadId, turnId:task.turnId,
+    patch:{items:[{id:'final-report', type:'agentMessage', phase:'final_answer', status:'completed', text},
+      {id:'commentary', type:'agentMessage', phase:'commentary', status:'completed', text:'Later commentary'}]}}, requestId:randomUUID()});
+  const summaries = [];
+  for (const op of ['codex_read', 'codex_wait']) {
+    const summary = (await call(op, {threadId:task.threadId, turnId:task.turnId, view:'summary',
+      ...(op === 'codex_wait' ? {timeoutMs:1000} : {})})).result;
+    assert.equal(summary.turnId, task.turnId);
+    assert.equal(summary.finalResponse, [...text].slice(0,800).join(''));
+    summaries.push(summary);
+  }
+  await completed('codex_send', {threadId:task.threadId, prompt:'A newer turn', requestId:randomUUID(), approval:'approved', purpose:'self-test'});
+  for (const summary of summaries) await readFinalText(summary, text);
+  const historical = (await call('codex_read', {threadId:task.threadId, turnId:task.turnId, view:'summary'})).result;
+  await readFinalText(historical, text);
+  const first = (await call('control_output', {...historical.finalResponseNext.args, length:1})).result;
+  assert.equal(first.text, '🧪');
+  assert.equal(first.nextOffset, 2);
+  const invalid = (await call('control_output', {...historical.finalResponseNext.args, offset:1})).result;
+  assert.equal(invalid.error.code, 'INVALID_OUTPUT_OFFSET');
+});
+
+test('final text continuation restores ACP archives and survives task reuse', async () => {
+  // Regression: ACP summaries exposed only an excerpt or a 256 KiB tail with task-record JSON as continuation.
+  const agent = 'tracking-example';
+  const text = '🧪报告 "quoted" \\path\n\t\u0000\r\n'.repeat(14000);
+  const created = await completed('agent_create', {agent, cwd:directory, prompt:'fixture-final-text:' + text,
+    title:'Final text fixture', requestId:randomUUID(), approval:'approved', purpose:'self-test'});
+  const taskId = created.taskId;
+  const summaries = [];
+  for (const op of ['agent_wait', 'agent_read']) {
+    const summary = (await call(op, {agent, taskId, view:'summary', ...(op === 'agent_wait' ? {timeoutMs:10000} : {})})).result;
+    assert.equal(summary.state, 'completed');
+    assert.equal(summary.finalResponse, [...text].slice(0,800).join(''));
+    assert.equal(summary.arcInbox, undefined);
+    summaries.push(summary);
+  }
+  const nextText = 'Second turn 🧩\\"\n'.repeat(20000);
+  await completed('agent_send', {agent, taskId, prompt:'fixture-final-text:' + nextText,
+    requestId:randomUUID(), approval:'approved', purpose:'self-test'});
+  const next = (await call('agent_read', {agent, taskId, view:'summary'})).result;
+  assert.notEqual(next.turnId, summaries[0].turnId);
+  for (const summary of summaries) await readFinalText(summary, text);
+  await readFinalText(next, nextText);
+  await completed('agent_send', {agent, taskId, prompt:'fixture-final-text:Short final',
+    requestId:randomUUID(), approval:'approved', purpose:'self-test'});
+  const short = (await call('agent_read', {agent, taskId, view:'summary'})).result;
+  assert.equal(short.finalResponse, 'Short final');
+  assert.equal(short.finalResponseTruncated, false);
+  assert.equal(short.finalResponseNext, undefined);
+});
+
 test('inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack', async () => {
   // Contract: inbox wait filters unread events before limiting, isolates ingress and cooperates with ack, including paged output.
   const inbox = async (filters: Record<string, unknown>) => {
@@ -1250,6 +1340,22 @@ test('inbox_wait filters unread events before limiting, isolates ingress and coo
   }
   const backlog = await inbox({timeoutMs:100,threadIds:unrelated});
   assert.equal(backlog.unread, unrelated.length);
+  const summaryTask=await dispatchFixture('fixture-dispatch-completed');
+  const finalText='🧪'.repeat(900);
+  const changes=Array.from({length:60},(_,i)=>({path:`src/summary-${i}.rs`,diff:'@@ -1 +1 @@\n-old\n+new'}));
+  await completed('codex_call',{method:'fixture/update-turn',params:{threadId:summaryTask.threadId,turnId:summaryTask.turnId,patch:{items:[{id:'summary-final',type:'agentMessage',phase:'final_answer',status:'completed',text:finalText},{id:'summary-files',type:'fileChange',status:'completed',changes}]}},requestId:randomUUID()});
+  for(const op of ['codex_wait','codex_read']) {
+    const summary=(await call(op,{threadId:summaryTask.threadId,turnId:summaryTask.turnId,view:'summary',...(op==='codex_wait'?{timeoutMs:1000}:{})})).result;
+    assert.equal(summary.state,'completed');assert.equal(summary.arcInbox,undefined);assert.equal(summary.externalUserInputs,undefined);assert.equal(summary.srcConversation,undefined);
+    assert.equal([...summary.finalResponse].length,800);assert.equal(summary.finalResponseTruncated,true);
+    assert.equal(summary.files.length,50);assert.equal(summary.filesTruncated,true);assert.equal(summary.diffstat.files,60);assert.equal(summary.diffstat.added,60);
+    assert.equal(summary.completeEvidence.args.turnId,summaryTask.turnId);
+    const evidence=(await call(summary.completeEvidence.op,summary.completeEvidence.args)).result;
+    assert.equal(evidence.turns[0].finalResponse,finalText);assert.equal(evidence.turns[0].files.length,60);
+    assert.ok(!unrelated.some(id=>JSON.stringify(summary).includes(id)));
+  }
+  assert.equal((await inbox({timeoutMs:100,threadIds:unrelated})).unread,unrelated.length);
+
   assert.ok(backlog.events.length < backlog.unread, 'unrelated unread events exceed the response limit');
   const wanted = await dispatchFixture('fixture-dispatch-completed');
   const args = {timeoutMs:100,threadIds:[wanted.threadId],eventTypes:['completed']};
@@ -1613,7 +1719,7 @@ test('external terminal reviews retain provenance, replay, rework links and sepa
   group=history.groups.find((g:any)=>g.model==='fixture-external-model');
   assert.deepEqual(group.external,{reviews:1,pass:1,rework:0});assert.equal(group.dispatches,0);
   const compact=(await call('dispatch_policy',{agent:'codex'})).result.agents.find((a:any)=>a.agent==='codex').history;
-  assert.ok(compact.groups.some((g:string)=>g.includes('external reviews')));
+  assert.ok(compact.groups.some((g:string)=>/\bext[1-9]\d* pass[1-9]/.test(g)));
   const noConfig=await seed(false);
   const nullable=(await call('codex_review',{threadId:noConfig.threadId,turnId:noConfig.turnId,verdict:'pass',requestId:randomUUID()})).result;
   assert.equal(nullable.state,'completed');
@@ -1648,6 +1754,10 @@ test('ACP task tracking keeps approvals active and projects context, SSE and inc
   assert.ok(agentInbox.events.every((event:any) => event.taskId === taskId && event.kind === 'needs-input'));
   const wait=(await call('agent_wait',{agent:'tracking-example',taskId,timeoutMs:10000})).result;
   assert.equal(wait.state,'interaction-required',JSON.stringify(wait));
+  const compactWait=(await call('agent_wait',{agent:'tracking-example',taskId,timeoutMs:1000,view:'summary'})).result;
+  assert.equal(compactWait.state,'interaction-required');assert.equal(compactWait.next.op,'agent_pending');
+  assert.equal(compactWait.arcInbox,undefined);assert.equal(compactWait.files,null);assert.equal(compactWait.diffstat,null);
+
 
   const activity=await management('agents/activity');
   assert.ok(activity.activeAgents.includes('tracking-example'));
@@ -1677,6 +1787,10 @@ test('ACP task tracking keeps approvals active and projects context, SSE and inc
   assert.equal(responded.state,'completed',JSON.stringify(responded));
   const settled=(await call('agent_wait',{agent:'tracking-example',taskId,timeoutMs:10000})).result;
   assert.equal(settled.state,'completed');
+  const compactAgent=(await call('agent_read',{agent:'tracking-example',taskId,view:'summary'})).result;
+  assert.equal(compactAgent.state,'completed');assert.equal(compactAgent.finalResponse,'All done');
+  assert.equal(compactAgent.arcInbox,undefined);assert.equal(compactAgent.dispatches,undefined);assert.equal(compactAgent.reviews,undefined);
+
   const repeatedWait=(await call('agent_wait',{agent:'tracking-example',taskId,timeoutMs:300000,expectedHash:settled.snapshotHash,until:'terminal'})).result;
   assert.equal(repeatedWait.changed,false);assert.equal(repeatedWait.finalResponse,settled.finalResponse);
   assert.equal(repeatedWait.finalResponseUnchanged,undefined);
@@ -1785,6 +1899,14 @@ test('source connection switching binds consent and preserves disconnected ident
 });
 
 
+test('frozen guide tool redirects query-only topics to query guide', async () => {
+  // Regression: guide({topic:"context"}) failed with a generic schema error whose next did not name query guide.
+  const {response,result}=await call('guide',{topic:'context'});
+  assert.equal(response.isError,true);
+  assert.equal(result.error.code,'WRONG_TOOL');
+  assert.deepEqual({via:result.next.via,op:result.next.op,args:result.next.args},{via:'query',op:'guide',args:{topic:'context'}});
+});
+
 test('guide progressively discloses every enabled op and caches projected content', async () => {
   // Contract: query guide caches the source-specific view without changing frozen tools.
   const readGuide = async (args: Record<string, unknown>) => (await client.callTool({name:'query',arguments:{op:'guide',args}})).structuredContent!.result as any;
@@ -1800,6 +1922,44 @@ test('guide progressively discloses every enabled op and caches projected conten
     const detail=await readGuide({op});
     assert.ok(detail.inputSchema.properties[canonical]);assert.equal(detail.inputSchema.properties[legacy],undefined);
     assert.equal((await readGuide({op,knownGuideHash:detail.guideHash})).unchanged,true);
+  }
+  for(const [topic,expected] of [['coordination','coordination_session'],['src','src_conversations'],['context','context_resolve']]) {
+    const detail=await readGuide({topic});
+    assert.ok(detail.ops.some((row:any)=>row.op===expected));
+    assert.ok(!detail.ops.some((row:any)=>row.op==='command'));
+  }
+  const sources=(await management('source')).sources;
+  const remote=sources.find((source:any)=>source.ingressId==='default');
+  const local=(args:Record<string,unknown>={})=>JSON.parse(execFileSync(fixtureCommand,['cli','control','guide','--stdin'],{env:fixtureEnv,encoding:'utf8',input:JSON.stringify(args)})).result;
+  const legacy=local();
+  assert.equal(legacy.profile,undefined);
+  const localId=legacy.sourceId;assert.ok(localId);
+  try {
+    await management(`source/${localId}`,'PUT',{capabilityProfile:{hostAccess:'host',waitMode:'background-cli'}});
+    const code=local();
+    assert.equal(code.profile.name,'local-code');assert.equal(code.profile.transport,'cli');
+    const characters=[...JSON.stringify(code)].length;
+    console.log('LOCAL_CODE_LAYER1_CHARACTERS '+characters);assert.ok(characters<=2500);
+    assert.ok(!code.ops.some((row:any)=>['command','notify_control','coordination_session','src_conversations'].includes(row.op)));
+    assert.equal(code.arcInbox,undefined);
+    assert.equal(local({knownGuideHash:code.guideHash}).unchanged,true);
+    assert.deepEqual(local({view:'full'}).ops.map((row:any)=>row.op),full.ops.map((row:any)=>row.op));
+    assert.ok(local({op:'command'}).inputSchema);
+    await management(`source/${remote.id}`,'PUT',{product:'claude',capabilityProfile:{hostAccess:'none',waitMode:'poll'}});
+    const polling=await readGuide({});
+    assert.equal(polling.profile.name,'remote-polling');assert.equal(polling.profile.transport,'mcp');
+    assert.ok(polling.ops.some((row:any)=>row.op==='command'));assert.ok(!polling.ops.some((row:any)=>row.op==='notify_control'));
+    assert.equal((await readGuide({knownGuideHash:compact.guideHash})).unchanged,undefined);
+    assert.equal((await call('codex_capabilities')).response.isError,false);
+    await management(`source/${remote.id}`,'PUT',{capabilityProfile:{hostAccess:'none',waitMode:'push'}});
+    assert.ok((await readGuide({})).ops.some((row:any)=>row.op==='notify_control'));
+    await assert.rejects(management(`source/${remote.id}`,'PUT',{capabilityProfile:{hostAccess:'host',waitMode:'background-cli'}}),/capabilityProfile/);
+    assert.equal((await readGuide({})).profile.name,'remote-push');
+    await management(`source/${remote.id}`,'PUT',{capabilityProfile:null,product:remote.product});
+    assert.equal((await readGuide({})).guideHash,compact.guideHash);
+  } finally {
+    await management(`source/${localId}`,'PUT',{capabilityProfile:null});
+    await management(`source/${remote.id}`,'PUT',{capabilityProfile:null,product:remote.product});
   }
 });
 
@@ -1825,6 +1985,12 @@ test('control stats report byte baselines and waste candidates without call cont
   assert.ok(r.wasteCandidates.lookupThenAct>0);assert.ok(r.wasteCandidates.uncachedUnchangedReads>0);assert.ok(r.wasteCandidates.argumentErrorRetries>0);
   const task=r.tasks.find((t:any)=>t.taskId===created.threadId);
   assert.equal(task.reviewed,true);assert.ok(task.calls>=3);assert.ok(task.responseBytes>0);
+  assert.equal(r.profileSequences.sessionProxy,true);
+  const cohorts=r.profileSequences.cohorts;
+  assert.ok(cohorts.some((c:any)=>c.profile==='local-code'&&c.transport==='cli'&&c.guideResponseBytes.median>0));
+  const remoteSequence=r.profileSequences.sequences.find((s:any)=>s.sourceId===created.origin?.sourceId) ?? r.profileSequences.sequences.find((s:any)=>s.profile==='legacy'&&s.transport==='mcp'&&s.callsBeforeFirstDispatch!==null);
+  assert.ok(remoteSequence);assert.equal(typeof remoteSequence.callsBeforeFirstDispatch,'number');
+  assert.ok(cohorts.some((c:any)=>c.invalidArguments>0&&c.argumentErrorRetries>0));
   assert.ok(!JSON.stringify(stats).includes('private-metric-payload'));
   console.log('CONTROL_BASELINE '+JSON.stringify(r.totals));
 });
@@ -1952,15 +2118,93 @@ test('historical review file counts stop at the next clean turn baseline',async(
   const git=(...args:string[])=>execFileSync('git',['-C',project,...args],{stdio:'pipe'});
   const commit=(subject:string)=>{git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgSign=false','commit','-m',subject);};
   git('init');await writeFile(path.join(project,'first.txt'),'before\n');commit('test: seed history');
-  const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch'},purpose:'self-test',notify:null,requestId:randomUUID()});
+  const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()});
   assert.equal(created.state,'completed');
   await writeFile(path.join(project,'first.txt'),'after\n');commit('test: complete reviewed work');
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
   const sent=await completed('codex_send',{threadId:created.threadId,prompt:'next harmless turn',purpose:'self-test',notify:null,requestId:randomUUID()});assert.equal(sent.state,'completed');
   await writeFile(path.join(project,'later.txt'),'later\n');commit('test: add later work');
   const latest=(await call('codex_read',{threadId:created.threadId,view:'review'})).result;
   const previous=(await call('codex_read',{threadId:created.threadId,view:'review',cursor:latest.nextCursor})).result;
   assert.equal(previous.turns[0].turnId,created.turnId);
   assert.deepEqual(previous.turns[0].files,[{path:'first.txt',added:1,removed:1}]);
+  const pinned=(await call('codex_read',{threadId:created.threadId,turnId:created.turnId,view:'review'})).result;
+  assert.equal(pinned.turns[0].turnId,created.turnId);assert.deepEqual(pinned.turns[0].files,previous.turns[0].files);
+  const summary=(await call('codex_read',{threadId:created.threadId,turnId:created.turnId,view:'summary'})).result;
+  assert.equal(summary.turnId,created.turnId);assert.deepEqual(summary.files,previous.turns[0].files);assert.deepEqual(summary.diffstat,{files:1,added:1,removed:1,unknown:0});
+
+});
+
+test('lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal',async()=>{
+  // Regression: lane task summaries missed committed files and removed lanes returned GIT_QUERY_FAILED or empty reviews.
+  for(const source of ['cli','mcp']) {
+    const project=path.join(directory,`summary-lane-${source}`);await mkdir(project);
+    const common=path.join(directory,`summary-objects-${source}`);
+    const git=(...args:string[])=>execFileSync('git',['-C',project,...args],{stdio:'pipe'});
+    const commit=(subject:string)=>{git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgSign=false','commit','-m',subject);};
+    git('init',`--separate-git-dir=${common}`);
+    await writeFile(path.join(project,'first.txt'),'before\n');commit('test: seed lane');
+    const args={project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()};
+    const created=source==='mcp'?await completed('codex_create',args):JSON.parse(execFileSync(fixtureCommand,['cli','control','codex_create','--stdin'],{env:fixtureEnv,input:JSON.stringify(args),encoding:'utf8'})).result;
+    assert.equal(created.state,'completed');assert.ok(created.turnId);
+    await writeFile(path.join(project,'first.txt'),'after\n');
+    await writeFile(path.join(project,'new.txt'),'one\ntwo\n');commit('test: finish lane work');
+    // The event must save evidence before any summary/changes read or notification binding.
+    await completed('codex_call',{method:'fixture/finish-with-pending',params:{threadId:created.threadId},requestId:randomUUID()});
+    const expected=[{path:'first.txt',added:1,removed:1},{path:'new.txt',added:2,removed:0}];
+    if(source==='cli') {
+      const live=JSON.parse(execFileSync(fixtureCommand,['cli','control','codex_read','--stdin'],{env:fixtureEnv,input:JSON.stringify({threadId:created.threadId,turnId:created.turnId,view:'summary'}),encoding:'utf8'})).result;
+      assert.deepEqual(live.files,expected);assert.deepEqual(live.diffstat,{files:2,added:3,removed:1,unknown:0});
+    }
+    await writeFile(path.join(project,'later.txt'),'unrelated\n');commit('test: later unrelated work');
+    await rm(project,{recursive:true});
+    for(const op of ['codex_read','codex_wait']) {
+      const summary=(await call(op,{threadId:created.threadId,turnId:created.turnId,view:'summary',...(op==='codex_wait'?{timeoutMs:1000}:{})})).result;
+      assert.deepEqual(summary.files,expected);assert.deepEqual(summary.diffstat,{files:2,added:3,removed:1,unknown:0});
+      assert.equal(summary.changeEvidence,'terminal-git-snapshot');
+    }
+    const changes=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId,limit:1})).result;
+    assert.equal(changes.fallback,false);assert.equal(changes.commitCount,1);assert.equal(changes.summary.files,2);assert.equal(changes.summary.added,3);
+    const diff=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId,path:'first.txt',length:12})).result;
+    assert.ok(diff.diff.text);assert.equal(diff.diff.text.length,12);assert.ok(diff.diff.nextOffset);
+    const review=(await call('codex_read',{threadId:created.threadId,turnId:created.turnId,view:'review'})).result;
+    assert.deepEqual(review.turns[0].files,expected);
+    await rm(common,{recursive:true});
+    const missingPatch=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId,path:'first.txt'})).result;
+    assert.equal(missingPatch.summary.files,2);assert.equal(missingPatch.diff,null);assert.ok(missingPatch.diffUnavailable);assert.ok(missingPatch.next.hint);
+  }
+});
+
+test('terminal snapshots preserve uncommitted text and binary statistics after workspace removal',async()=>{
+  // Regression: live-only lane evidence lost untracked changes when a terminal workspace was removed.
+  const project=path.join(directory,'dirty-summary-lane');await mkdir(project);
+  execFileSync('git',['init',project],{stdio:'pipe'});
+  const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()});
+  await writeFile(path.join(project,'draft.txt'),'draft\n');await writeFile(path.join(project,'asset.bin'),Buffer.from([0,255]));
+  const live=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId,path:'draft.txt'})).result;
+  assert.match(live.diff.text,/\+draft/);
+  // Terminal polling also captures evidence when an owner does not emit an event.
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
+  const summary=(await call('codex_read',{threadId:created.threadId,turnId:created.turnId,view:'summary'})).result;
+  assert.deepEqual(summary.diffstat,{files:2,added:1,removed:0,unknown:1});
+  await rm(project,{recursive:true});
+  const changes=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId,path:'draft.txt'})).result;
+  assert.equal(changes.summary.files,2);assert.equal(changes.summary.binaryOrUnreadable,1);assert.equal(changes.diff,null);assert.ok(changes.next.hint);
+});
+
+test('removed lane without terminal evidence reports an explicit gap instead of an empty success',async()=>{
+  // Regression: querying a removed lane without a snapshot leaked GIT_QUERY_FAILED or silently reported zero files.
+  const project=path.join(directory,'missing-summary-lane');await mkdir(project);
+  execFileSync('git',['init',project],{stdio:'pipe'});
+  const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()});
+  await rm(project,{recursive:true});
+  await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:created.threadId},requestId:randomUUID()});
+  const changes=(await call('codex_changes',{threadId:created.threadId,turnId:created.turnId})).result;
+  assert.equal(changes.files,null);assert.equal(changes.summary,null);assert.ok(changes.reason);assert.ok(changes.next.hint);assert.equal(changes.error,undefined);
+  const review=(await call('codex_read',{threadId:created.threadId,turnId:created.turnId,view:'review'})).result.turns[0];
+  assert.equal(review.files,null);assert.ok(review.reason);assert.ok(review.next.hint);
+  const summary=(await call('codex_wait',{threadId:created.threadId,turnId:created.turnId,view:'summary',timeoutMs:1000})).result;
+  assert.equal(summary.files,null);assert.equal(summary.diffstat,null);assert.match(summary.changeEvidence,/unavailable/);assert.ok(summary.changeCorrection.hint);
 });
 
 test('AX binary transfers verify bytes and reject duplicate append offsets', async () => {

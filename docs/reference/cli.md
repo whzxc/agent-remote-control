@@ -59,6 +59,8 @@ Removing a connection preserves established sources as disconnected with `connec
 ## Local control and condition waits
 
 `cli control <op> [--stdin]` acts as the built-in `local-cli` control source.
+Create/send dispatches capture `caller: {agent, conversationId}` from `CLAUDE_CODE_SESSION_ID` (Claude Code), `CODEX_THREAD_ID` (Codex), or `PI_SESSION_ID` (Pi); missing, unknown or ambiguous identities are omitted.
+The persisted caller appears in `dispatchSummary.caller` for display attribution only and does not affect authorization, source identity, notification binding or task ownership.
 Stdin is the op's **args object**, not the MCP envelope. `requestId` can be
 provided in that object where the op schema supports it. The existing
 control dispatcher chooses guide/query/act, validates the same schemas and
@@ -69,9 +71,27 @@ hints) under `error`, with a sibling `next`. Every failure includes a schema-val
 ```sh
 arc cli control guide
 arc cli control guide codex_create
-printf '%s' '{"prompt":"Do not call tools. Reply ARC_ACCEPTANCE_OK.","mode":"read-only"}' | arc cli control codex_create --stdin
+printf '%s' '{"title":"Verify dispatch","prompt":"Do not call tools. Reply ARC_ACCEPTANCE_OK.","mode":"read-only"}' | arc cli control codex_create --stdin
 printf '%s' '{"timeoutMs":1000}' | arc cli control inbox_wait --stdin
 ```
+
+Read `arc cli control dispatch_policy` for criteria hashes and the active `policyPath`.
+Use `all:true` when editing an uninstalled or disabled Agent. Agent hashes appear on
+decision rows or under `policy` in the full view; the global hash is top-level.
+Empty criteria also return a hash. Replace a scope's complete criteria with:
+
+```sh
+arc cli control guide dispatch_policy_update
+printf '%s' '{"scope":"codex","criteria":"Use current task evidence.","expectedCriteriaHash":"<current criteriaHash>"}' | arc cli control dispatch_policy_update --stdin
+```
+
+`scope` is `global` or a registered Agent ID. `criteria` may be empty to clear it.
+`expectedCriteriaHash` is required. `DISPATCH_POLICY_CONFLICT` carries
+`currentCriteriaHash` and a `next` read; review the current criteria before retrying
+with that hash. Success returns `scope`, `criteriaHash`, `policyPath`, and
+`backupPath`. ARC atomically saves formatted JSON and retains the previous policy
+in `dispatch-policy.json.bak`. Defaults, constraints and other scopes are preserved.
+After an uncertain result, read the policy before attempting another replacement.
 
 Dispatch defaults to `purpose:"self-test"` and `notify:null`. Explicit stdin
 values override these defaults. Archiving ended self-test threads is optional and
@@ -670,3 +690,76 @@ Seed/imported entries can only be triaged by local authority. Read the current
 revision with `arc cli control ax_list --stdin`, then run
 `arc cli control ax_triage --stdin` with `id`, `expectedRevision`, `action`, and
 `reason`. Source callers receive `AX_FORBIDDEN` with this local recovery command.
+
+
+## Source-account conversations
+
+Use `cli schema src.conversations.query` for the account-window registry and
+`cli schema src.conversations.profiles` for Chrome directory/display-name discovery.
+`src.conversations.open`, `src.conversations.import`, `src.conversations.clear` and `src.conversations.bind`
+mirror the source conversation ops through local management. Pass the operation's
+JSON arguments to `cli call <operation> --stdin`. The frozen control equivalents
+are `src_conversations`, `src_chrome_profiles`, `src_conversation_open`,
+`src_login_import`, `src_login_clear` and `src_conversation_bind`.
+
+Native containers require macOS 14+. Import returns `importing` immediately
+with a `next` call to poll `src_conversations`; duplicate same-account requests
+reuse the running import. The background Keychain wait is 180 seconds.
+Completion is `signed-in-pending` or `not-imported`; failure is `import-blocked`
+with a safe reason and human-action hint. For a Keychain prompt, enter the macOS
+login password and choose Always Allow. Never retry automatically or work around
+a denial. See [Source conversations](tools.md#source-conversations) for arguments,
+URL restrictions, binding provenance and the URL-only status limitation.
+
+Import ownership is checked using the imported organization and ARC's confirmed
+source identity. `import-mismatch` identifies `detectedAccountId` without installing
+cookies. `import-unverified` requires explicit `allowUnverified:true` before installation.
+The flag cannot bypass a known mismatch. `src.conversations.clear` removes only
+the account website store and UUID mapping; conversations and task bindings remain.
+
+
+## Local Code profile
+
+`cli control guide` returns the built-in local authority's `sourceId`.
+Enable its shared Local Code discovery preference through local management:
+
+```sh
+printf '%s' '{"capabilityProfile":{"hostAccess":"host","waitMode":"background-cli"}}' | arc cli source update <sourceId> --stdin
+arc cli control guide
+```
+
+This setting affects all built-in CLI callers and does not change execution permissions.
+Set `capabilityProfile:null` to restore Legacy.
+MCP sources instead accept `{hostAccess:"none"|"unknown",waitMode:"push"|"poll"}`.
+A `claude` MCP connector can serve Code, Chat and Cowork, so it cannot select Local Code.
+New sources offer a selection through `capabilityProfileOffer` and source setup; existing sources remain Legacy until explicitly changed.
+Source preferences follow the stable source ID across connection switches.
+
+Read `cli control dispatch_policy` and `cli control guide codex_create` before dispatch.
+Callers SHOULD always provide optional `title` on `codex_create` and `agent_create`: a short human-readable task title of at most 120 characters, shown in task lists and notifications. Omitted or blank titles use the first non-empty prompt line, truncated to 120 characters; the receipt includes an actionable `titleHint`. A promptless `agent_create` has an empty fallback. Rename Codex tasks with `codex_thread` using `action:"name/set"` and `params:{threadId,name}`. Native `codex_thread` fork and `codex_call` thread/start or thread/fork use native metadata without an ARC `title` argument; name the returned thread with that same operation. No Agent rename op is exposed.
+
+For ordinary work, explicitly provide `purpose:"task"` and `notify:null`.
+Retain the returned receipt, thread, and turn identifiers.
+Use the controller's background-command facility for the wait:
+
+```sh
+printf '%s' '{"threadId":"<threadId>","turnId":"<turnId>","until":"terminal-or-interaction","view":"summary"}' | arc cli wait --control --op codex_wait --stdin --until '/conditionMet==true' --timeout 1800
+```
+
+Session re-invocation depends on the controller's command facility, not shell backgrounding alone.
+No notification binding or verification handshake is required.
+`result.lastResult` contains the bounded outcome; timeout retains it under `error.lastResult` with `WAIT_TIMEOUT`.
+A matched wait may contain a failed or interrupted task, so inspect its status and `next` before reviewing.
+The summary excludes all inbox and cross-thread data.
+It includes an 800-character final-message excerpt, up to 50 changed paths, diffstat, truncation flags, and `completeEvidence`.
+Codex summaries reuse terminal Git snapshots, including committed work after a lane is removed, with native file changes as fallback.
+Git evidence may include concurrent or pre-existing workspace changes. Unavailable evidence is null with a reason and correction hint rather than an empty successful diff.
+Use `view:"summary"` on Codex/Agent reads and waits; Codex reads additionally accept `turnId`.
+When `finalResponseTruncated:true`, follow `finalResponseNext` for the selected turn's immutable plain-text message snapshot. Continue `control_output` using each returned `nextOffset` until null; concatenate `text` directly without JSON parsing. Offsets count UTF-16 units and preserve Unicode scalar boundaries. Read promptly: snapshots share the one-hour, 64 MiB output cache.
+Follow `completeEvidence` for full evidence before recording `codex_review` or `agent_review`.
+An independent model review requires a separate dispatched task.
+
+`cli skill install --target claude-code` installs both `arc-setup` and `arc-local-code`.
+`cli stats control --since 1d` includes profile/transport cohorts under `profileSequences`.
+Sequences use the existing five-minute inactivity threshold and are not conversation identities.
+Compare guide-byte median/p95, calls before confirmed dispatch, and argument-error retries per 100 dispatch attempts.

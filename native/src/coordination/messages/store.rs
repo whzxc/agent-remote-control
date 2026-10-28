@@ -18,8 +18,6 @@ struct Data {
     last_push: BTreeMap<String, i64>,
     #[serde(default, rename = "routes", skip_serializing_if = "BTreeMap::is_empty")]
     pub legacy_routes: BTreeMap<String, Route>,
-    #[serde(default)]
-    recovery_windows: BTreeMap<String, (String, i64)>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -59,6 +57,7 @@ impl Store {
             path.parent()
                 .ok_or("COORDINATION_STORAGE: invalid messages path")?,
         )?;
+        let mut migrated = false;
         let data = if path.exists() {
             if std::fs::metadata(&path)
                 .map_err(|_| "COORDINATION_STORAGE: cannot stat messages")?
@@ -67,10 +66,28 @@ impl Store {
             {
                 return Err("COORDINATION_CAPACITY: messages snapshot exceeds capacity".into());
             }
-            serde_json::from_slice(
-                &std::fs::read(&path).map_err(|_| "COORDINATION_STORAGE: cannot read messages")?,
-            )
-            .map_err(|_| "COORDINATION_CORRUPT: preserve messages snapshot for local recovery")?
+            let bytes =
+                std::fs::read(&path).map_err(|_| "COORDINATION_STORAGE: cannot read messages")?;
+            let mut value: Value = serde_json::from_slice(&bytes).map_err(|_| {
+                "COORDINATION_CORRUPT: preserve messages snapshot for local recovery"
+            })?;
+            // Retire the replacement wake reservation without retaining a second router.
+            if let Some(object) = value.as_object_mut() {
+                migrated |= object.remove("recoveryWindows").is_some();
+            }
+            let mut data: Data = serde_json::from_value(value).map_err(|_| {
+                "COORDINATION_CORRUPT: preserve messages snapshot for local recovery"
+            })?;
+            for row in &mut data.messages {
+                if row.envelope["localOrigin"] == "arc"
+                    && row.envelope["deliveryState"] == "pending"
+                {
+                    row.route = None;
+                    row.envelope["deliveryState"] = json!("pull-only");
+                    migrated = true;
+                }
+            }
+            data
         } else {
             Data {
                 epoch: id(),
@@ -79,7 +96,7 @@ impl Store {
             }
         };
         let store = Self { path, data };
-        if !store.path.exists() {
+        if !store.path.exists() || migrated {
             store.save()?;
         }
         Ok(store)
@@ -92,7 +109,6 @@ impl Store {
             || self.data.pending.len() > MAX_ROWS
             || self.data.last_push.len() > 128
             || self.data.legacy_routes.len() > 128
-            || self.data.recovery_windows.len() > 2000
         {
             return Err("COORDINATION_CAPACITY: use local messages management to resolve escalations; wait for closed history retention".into());
         }
@@ -174,9 +190,6 @@ impl Store {
             .negotiations
             .retain(|n| n.state == "escalated" || n.expires_at > time - 7 * DAY);
         self.data.last_push.retain(|_, at| *at > time - DAY);
-        self.data
-            .recovery_windows
-            .retain(|_, (_, at)| *at > time - 7 * DAY);
     }
     fn result(&self, row: &Row) -> Value {
         let n = self
@@ -385,16 +398,15 @@ impl Store {
                             && r.envelope["negotiationId"] == n.id
                     })
                     .cloned();
-                let route = recipient.as_ref().and_then(|r| r.route.clone());
                 let to_session = recipient
                     .as_ref()
                     .map(|r| r.envelope["toSessionId"].clone());
-                let envelope = json!({"messageId":format!("{}-{}",n.escalation_id.as_ref().unwrap(),hash(participant)),"negotiationId":n.id,"fromSourceId":null,"localOrigin":"arc","toSourceId":participant,"toSessionId":to_session,"type":"notice","resources":resources,"summary":"Automatic reply budget exhausted. Ask the user to mediate; further automatic negotiation is stopped.","automatic":true,"createdAt":time,"expiresAt":time+DAY,"deliveryState":if route.is_some(){"pending"}else{"pull-only"},"escalated":true,"dataOnly":true});
+                let envelope = json!({"messageId":format!("{}-{}",n.escalation_id.as_ref().unwrap(),hash(participant)),"negotiationId":n.id,"fromSourceId":null,"localOrigin":"arc","toSourceId":participant,"toSessionId":to_session,"type":"notice","resources":resources,"summary":"Automatic reply budget exhausted. Ask the user to mediate; further automatic negotiation is stopped.","automatic":true,"createdAt":time,"expiresAt":time+DAY,"deliveryState":"pull-only","escalated":true,"dataOnly":true});
                 self.data.messages.push(Row {
                     envelope,
                     sequence: self.data.next,
                     digest: String::new(),
-                    route,
+                    route: None,
                     due: time + 30,
                     attempts: 0,
                     recovery_refs: vec![],
@@ -603,14 +615,7 @@ fn limit() -> String {
 }
 
 impl Store {
-    pub fn recovery(
-        &mut self,
-        blocker: &Value,
-        recipient: &Value,
-        plan: &Value,
-        route: Option<Route>,
-        time: i64,
-    ) -> Result<Value> {
+    pub fn recovery(&mut self, blocker: &Value, recipient: &Value, time: i64) -> Result<Value> {
         let mid = hash(
             json!([
                 "recovery",
@@ -633,14 +638,8 @@ impl Store {
             let source = string(recipient,"sourceId");
             let session = string(recipient,"sessionId");
             let threads = recipient["threadRefs"].as_array().cloned().unwrap_or_default();
-            let mut route = route.filter(|route| route.binding_id.is_some() && threads.iter().all(|r| r["sessionBindingId"].as_str() == route.binding_id.as_deref()));
-            if let Some(destination) = route.clone() {
-                let keys: Vec<_> = plan["replacementIds"].as_array().into_iter().flatten().filter_map(Value::as_str).map(|replacement|hash(json!([replacement,source,destination.key()]).to_string())).collect();
-                if keys.iter().any(|key|s.data.recovery_windows.get(key).is_some_and(|(owner,_)|owner == "summary")) { route = None; }
-                else { for key in keys { s.data.recovery_windows.insert(key,(mid.clone(),time)); } }
-            }
-            let envelope = json!({"messageId":mid,"localOrigin":"arc","fromSourceId":null,"toSourceId":source,"toSessionId":session,"type":"recovery","resources":blocker["resources"],"blockerId":blocker["id"],"clearRevision":blocker["revision"],"causeCode":blocker["causeCode"],"summary":blocker["summary"],"provenance":"source-reported","clearance":"claim","clearedBy":blocker["clearedBy"],"fixingCommit":blocker["fixingCommit"],"reason":blocker["reason"],"evidenceIds":blocker["evidenceIds"],"suggestedNextStep":"inspect","reportedNextStep":blocker["suggestedNextStep"],"impact":"candidate-co-occurrence","openedAt":blocker["openedAt"],"clearedAt":blocker["clearedAt"],"automatic":true,"dataOnly":true,"automaticResume":false,"createdAt":time,"expiresAt":time+DAY,"deliveryState":if route.is_some(){"pending"}else{"pull-only"}});
-            let mut row = Row { envelope, sequence:s.data.next,digest:mid.clone(),route,due:time+30,attempts:0,recovery_refs:threads };
+            let envelope = json!({"messageId":mid,"localOrigin":"arc","fromSourceId":null,"toSourceId":source,"toSessionId":session,"type":"recovery","resources":blocker["resources"],"blockerId":blocker["id"],"clearRevision":blocker["revision"],"causeCode":blocker["causeCode"],"summary":blocker["summary"],"provenance":"source-reported","clearance":"claim","clearedBy":blocker["clearedBy"],"fixingCommit":blocker["fixingCommit"],"reason":blocker["reason"],"evidenceIds":blocker["evidenceIds"],"suggestedNextStep":"inspect","reportedNextStep":blocker["suggestedNextStep"],"impact":"candidate-co-occurrence","openedAt":blocker["openedAt"],"clearedAt":blocker["clearedAt"],"automatic":true,"dataOnly":true,"automaticResume":false,"createdAt":time,"expiresAt":time+DAY,"deliveryState":"pull-only"});
+            let mut row = Row { envelope, sequence:s.data.next,digest:mid.clone(),route:None,due:time+30,attempts:0,recovery_refs:threads };
             recovery_page(&mut row)?;
             s.data.messages.push(row);
             s.data.next += 1;
@@ -682,25 +681,6 @@ impl Store {
                 );
             }
             Ok(())
-        })
-    }
-    pub fn replacement_summary(
-        &mut self,
-        source: &str,
-        route: &str,
-        replacement: &str,
-        time: i64,
-    ) -> Result<bool> {
-        self.transaction(|s| {
-            s.maintain(time);
-            let key = hash(json!([replacement, source, route]).to_string());
-            if let Some((owner, _)) = s.data.recovery_windows.get(&key) {
-                return Ok(owner == "summary");
-            }
-            s.data
-                .recovery_windows
-                .insert(key, ("summary".into(), time));
-            Ok(true)
         })
     }
 }
