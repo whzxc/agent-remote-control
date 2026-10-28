@@ -186,6 +186,42 @@ printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "${ZDOTDIR:-$HOME}/.zshe
 Shell configuration is never modified automatically. Other shells report the
 probe result; configure their non-interactive startup explicitly.
 
+## Runtime diagnostics
+
+Run `arc cli call runtime.inspect` for a passive, content-free Core sample. Control
+sources can use `query({op:"runtime_metrics",args:{}})` through the existing MCP
+surface. Read `guide({op:"runtime_metrics"})` for its contract. Neither operation
+starts an Agent, reads conversation histories, or restarts a process.
+
+Compare samples from the same `instance` and `pid`. CPU percent is
+`100 * delta(process.cpuTotalMs) / delta(elapsedMs)`; one logical CPU is 100%.
+`process.residentBytes` is RSS/working set. macOS also reports
+`physicalFootprintBytes`. Unavailable measurements are null with an explicit
+state. These values describe Core, not the Desktop WebView or upstream Agents.
+
+`work` contains fixed-size counters for status, accounts, activity, notification
+observation/delivery, and Desktop frames. `totalWallMs` and `maxWallMs` include
+waiting and overlapping work; they are not CPU attribution. `inFlight` includes
+unfinished scopes. Counters reset on Core restart.
+
+`caches` reports entry counts, serialized source bytes and file/directory reads.
+`desktopIpc` reports pending requests, known owners and snapshot retention.
+`events` reports event bytes, timeline/entry counts and pending interactions.
+Cache byte counts are not heap measurements. Counts omit paths, identities,
+credentials and task content. A rising RSS sample alone does not prove a leak.
+
+For a time series from a source checkout:
+
+```sh
+node tooling/diagnostics/runtime.mjs --duration 180 --interval 5 --out /tmp/arc-runtime-sample
+```
+
+Use `--arc /absolute/path/to/arc` when needed. `ARC_STATE_DIR` selects the instance.
+The output directory must be new. `samples.jsonl` retains the observations and
+`summary.json` reports CPU, memory ranges/slopes and counter changes. A restart
+invalidates the comparison instead of silently combining instances. Use native
+sampling tools when wall-time counters cannot distinguish CPU from waiting.
+
 ## Resource diagnostics
 
 `cli status` (catalog operation `status`) and `cli doctor` expose the same Core

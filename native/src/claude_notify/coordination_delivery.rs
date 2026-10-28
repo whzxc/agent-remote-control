@@ -275,7 +275,7 @@ pub(crate) async fn deliver(request: Request) -> Result<Outcome> {
                 state: "unconfirmed".into(),
             });
         }
-        t.tokens -= 1;
+        t.charge(time, &settings);
         t.batches.push(governance::Batch {
             id: batch.clone(),
             at: time,

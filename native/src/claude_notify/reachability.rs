@@ -114,7 +114,7 @@ pub(super) async fn verify_in(
         if !t.reachability.challenge_hash.is_empty() {
             return Err("HANDSHAKE_PENDING: receive the code or retry after expiry".into());
         }
-        t.tokens -= 1;
+        t.charge(now, &settings);
         t.reachability = Reachability {
             reason: "handshake-pending".into(),
             attempts: t.reachability.attempts + 1,

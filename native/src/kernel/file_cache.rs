@@ -110,6 +110,11 @@ impl<T> Default for Cache<T> {
     }
 }
 impl<T> Cache<T> {
+    pub fn diagnostics(&self) -> Value {
+        json!({"files":self.files.len(),"directories":self.directories.len(),
+            "sourceBytes":self.bytes,"sourceByteLimit":32*1024*1024,"fileLimit":8192,
+            "fileOpens":self.io.file_opens,"directoryReads":self.io.directory_reads})
+    }
     pub fn io(&self) -> Io {
         self.io
     }
@@ -274,8 +279,16 @@ impl<T: Clone> Projection<T> {
     }
 }
 static JSON: LazyLock<std::sync::Mutex<Cache<Value>>> = LazyLock::new(Default::default);
+pub(crate) fn diagnostics() -> Value {
+    JSON.lock()
+        .map(|cache| cache.diagnostics())
+        .unwrap_or(Value::Null)
+}
+pub(crate) fn shared_load(path: &Path) -> Result<Arc<Value>> {
+    JSON.lock().map_err(|e| e.to_string())?.read(path)
+}
 pub(crate) fn load(path: &Path) -> Result<Value> {
-    Ok((*JSON.lock().map_err(|e| e.to_string())?.read(path)?).clone())
+    Ok((*shared_load(path)?).clone())
 }
 pub(crate) fn entries(path: &Path) -> Result<Arc<Vec<Entry>>> {
     JSON.lock().map_err(|e| e.to_string())?.entries(path)

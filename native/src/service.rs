@@ -191,6 +191,7 @@ fn normalize(mut entry: Value) -> Result<Value> {
 impl Service {
     pub fn new() -> Result<Arc<Self>> {
         crate::resources::initialize();
+        crate::runtime_metrics::initialize();
         init_crypto();
         crate::logs::record("INFO", "Service starting", None);
         private_dir(&root())?;
@@ -351,6 +352,7 @@ impl Service {
         }
     }
     pub async fn status(&self) -> Result<Value> {
+        let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Status);
         let mut status = if let Ok(primary) = self.primary().await {
             primary.status().await?
         } else {
@@ -747,6 +749,7 @@ impl Service {
                 crate::management::resolve("app.replace.ack", &json!({"body":body}))?;
                 return crate::app_replace::acknowledge(string(&body, "id"));
             }
+            ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
                 return Ok(

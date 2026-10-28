@@ -8,6 +8,7 @@ mod claude_notify;
 mod cloudflare;
 #[cfg(target_os = "macos")]
 pub mod package;
+mod runtime_metrics;
 pub mod screen;
 mod setup_secret;
 mod shell_command;

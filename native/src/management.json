@@ -15,6 +15,18 @@
       "localOnly": true
     },
     {
+      "name": "runtime.inspect",
+      "method": "GET",
+      "route": "runtime/metrics",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "description": "Read content-free process CPU/memory, bounded work counters, cache occupancy and Desktop IPC retention. Does not start upstream processes or load task histories. Counters reset on Core restart. CPU percent is 100 * delta process.cpuTotalMs / delta elapsedMs between samples of the same instance. Wall durations include waits and overlap; they are not CPU attribution. Cache sourceBytes/wireBytes are serialized sizes, not heap measurements. See cli guide Runtime diagnostics.",
+      "localOnly": true
+    },
+    {
       "name": "health",
       "method": "GET",
       "route": "health",

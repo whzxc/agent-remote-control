@@ -89,6 +89,19 @@ impl Control {
             Ok(self.binary.clone())
         }
     }
+    pub(crate) async fn runtime_metrics(&self) -> Value {
+        let mut result = crate::runtime_metrics::snapshot();
+        result["instance"] = json!(self.session);
+        let monitor = self.monitor.lock().await.clone();
+        result["desktopIpc"] = match monitor {
+            Some(ipc) => ipc.diagnostics().await,
+            None => json!({"connected":false,"pendingRequests":0,"owners":0,"snapshots":null}),
+        };
+        let events = self.events.lock().await;
+        result["events"] = json!({"rows":events.rows.len(),"wireBytes":events.bytes,"timelines":events.timelines.len(),
+            "timelineEntries":events.timelines.values().map(|t| t.entries.len()).sum::<usize>(),"pendingInteractions":events.pending.len()});
+        result
+    }
     pub async fn utility(&self) -> Result<Arc<Rpc>> {
         let mut rpc = self.rpc.lock().await;
         if rpc.as_ref().is_none_or(|r| !r.alive()) {
@@ -2165,6 +2178,7 @@ impl Control {
             return self.mutate("native", native_args).await;
         }
         match name {
+            "runtime_metrics" => Ok(self.runtime_metrics().await),
             "events" => crate::coordination::query(&args),
             "board"
             | "notice_post"

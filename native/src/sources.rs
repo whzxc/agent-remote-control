@@ -189,30 +189,31 @@ pub fn control_sources() -> Result<Vec<Value>> {
         .collect())
 }
 pub fn list() -> Result<Vec<Value>> {
-    let cache = cache()?.read().map_err(|e| e.to_string())?;
-    let mut rows = cache.current["sources"]
-        .as_array()
-        .ok_or("Invalid source store")?
-        .clone();
+    let mut rows = {
+        let cache = cache()?.read().map_err(|e| e.to_string())?;
+        cache.current["sources"]
+            .as_array()
+            .ok_or("Invalid source store")?
+            .clone()
+    };
+    crate::accounts::project_sources(&mut rows)?;
     for source in &mut rows {
-        decorate_source(source)?;
+        decorate_capabilities(source);
     }
     Ok(rows)
 }
 fn decorate_source(source: &mut Value) -> Result<()> {
-    source["accountId"] = json!(crate::accounts::source_account(source)?);
-    source["identityResolution"] = if is_local(source) {
-        json!({"state":"not-applicable"})
-    } else {
-        crate::accounts::source_resolution(string(source, "id"))?
-    };
+    crate::accounts::project_sources(std::slice::from_mut(source))?;
+    decorate_capabilities(source);
+    Ok(())
+}
+fn decorate_capabilities(source: &mut Value) {
     if source["capabilityProfileOffer"] == true {
         source["capabilityProfileOffer"] = crate::control_profiles::offer(source);
     }
     if !switch_live(source) {
         clear_switch(source);
     }
-    Ok(())
 }
 pub fn get(id: &str) -> Result<Value> {
     let mut source = {
@@ -425,8 +426,20 @@ pub fn ingress_retired(ingress: &str) -> bool {
     })
 }
 pub fn grant_active(ingress: &str, grant: &str) -> bool {
-    for_grant(ingress, grant)
-        .is_ok_and(|s| s["state"] != "revoked" && s["connectionRemoved"] != true)
+    // Authorization needs only the live authority store. Account projection is
+    // both irrelevant here and expensive when status enumerates every grant.
+    cache().is_ok_and(|cache| {
+        cache.read().is_ok_and(|cache| {
+            cache.current["sources"]
+                .as_array()
+                .is_some_and(|rows| active_grant(rows, ingress, grant))
+        })
+    })
+}
+pub(crate) fn active_grant(rows: &[Value], ingress: &str, grant: &str) -> bool {
+    rows.iter()
+        .find(|s| s["ingressId"] == ingress && s["credential"]["grantId"] == grant)
+        .is_some_and(|s| s["state"] != "revoked" && s["connectionRemoved"] != true)
 }
 pub async fn ensure_ingress(entry: &Value) -> Result<Value> {
     ensure_ingress_inner(entry, false).await
@@ -522,10 +535,18 @@ pub async fn pending(entry: &Value, grant: &str, client: &str, name: &str) -> Re
     .await
 }
 pub fn for_grant(ingress: &str, grant: &str) -> Result<Value> {
-    list()?
-        .into_iter()
-        .find(|s| s["ingressId"] == ingress && s["credential"]["grantId"] == grant)
-        .ok_or("SOURCE_NOT_FOUND".into())
+    let mut source = {
+        let cache = cache()?.read().map_err(|e| e.to_string())?;
+        cache.current["sources"]
+            .as_array()
+            .ok_or("Invalid source store")?
+            .iter()
+            .find(|s| s["ingressId"] == ingress && s["credential"]["grantId"] == grant)
+            .cloned()
+            .ok_or("SOURCE_NOT_FOUND")?
+    };
+    decorate_source(&mut source)?;
+    Ok(source)
 }
 pub async fn update(id: &str, body: &Value) -> Result<Value> {
     let id = id.to_owned();
@@ -1515,6 +1536,22 @@ pub(crate) fn minimal_text(source: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grant_authority_ignores_account_projection_and_tracks_revocation() {
+        // Regression: OAuth status projected every account for every grant, amplifying idle CPU.
+        let mut rows = vec![
+            json!({"ingressId":"ingress","credential":{"grantId":"grant"},"state":"connected","accountId":"missing-account"}),
+        ];
+        assert!(active_grant(&rows, "ingress", "grant"));
+        assert!(!active_grant(&rows, "other", "grant"));
+        assert!(!active_grant(&rows, "ingress", "other"));
+        rows[0]["state"] = json!("revoked");
+        assert!(!active_grant(&rows, "ingress", "grant"));
+        rows[0]["state"] = json!("connected");
+        rows[0]["connectionRemoved"] = json!(true);
+        assert!(!active_grant(&rows, "ingress", "grant"));
+    }
 
     fn local() -> Value {
         json!({"id":"example-local","ingressId":"local-cli","credential":{"type":"local"},"product":"local-cli","state":"connected","connectedAt":123})

@@ -891,7 +891,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
         .iter()
         .filter(|op| {
             let name = string(op, "name");
-            if !full && name.starts_with("ax_") {
+            if !full && (name.starts_with("ax_") || name == "runtime_metrics") {
                 return topic == "loop" && maintainer;
             }
             full || matches!(name, "guide" | "update_status" | "update_request") || match topic {

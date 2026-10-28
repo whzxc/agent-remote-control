@@ -55,6 +55,71 @@ const SNAPSHOT_TTL: Duration = Duration::from_secs(4);
 struct Snapshot {
     received: Instant,
     value: Value,
+    wire_bytes: usize,
+}
+const SNAPSHOT_BUDGET: usize = 32 * 1024 * 1024;
+#[derive(Default)]
+struct Snapshots {
+    rows: HashMap<String, Snapshot>,
+    evictions: u64,
+}
+impl Snapshots {
+    fn prune(&mut self) {
+        let before = self.rows.len();
+        self.rows.retain(|_, s| s.received.elapsed() < SNAPSHOT_TTL);
+        self.evictions += (before - self.rows.len()) as u64;
+    }
+    fn insert(&mut self, thread: String, value: Value, wire_bytes: usize) {
+        self.prune();
+        self.rows.remove(&thread);
+        let mut bytes: usize = self.rows.values().map(|s| s.wire_bytes).sum();
+        // One oversized frame remains readable until its TTL expires. Never
+        // reject a supported native history because of the cache budget.
+        while !self.rows.is_empty()
+            && (self.rows.len() >= 64 || bytes.saturating_add(wire_bytes) > SNAPSHOT_BUDGET)
+        {
+            let oldest = self
+                .rows
+                .iter()
+                .min_by_key(|(_, s)| s.received)
+                .map(|(id, _)| id.clone())
+                .unwrap();
+            bytes -= self.rows.remove(&oldest).unwrap().wire_bytes;
+            self.evictions += 1;
+        }
+        self.rows.insert(
+            thread,
+            Snapshot {
+                received: Instant::now(),
+                value,
+                wire_bytes,
+            },
+        );
+    }
+    fn remove(&mut self, thread: &str) {
+        self.rows.remove(thread);
+    }
+    fn get(&self, thread: &str) -> Option<&Snapshot> {
+        self.rows.get(thread)
+    }
+    fn clear(&mut self) {
+        self.rows.clear();
+    }
+    fn report(&self) -> Value {
+        json!({"entries":self.rows.len(),"wireBytes":self.rows.values().map(|s| s.wire_bytes).sum::<usize>(),
+            "budgetWireBytes":SNAPSHOT_BUDGET,"maxEntries":64,"ttlMs":SNAPSHOT_TTL.as_millis(),"evictions":self.evictions,
+            "oversizedEntry":self.rows.values().any(|s| s.wire_bytes > SNAPSHOT_BUDGET)})
+    }
+}
+type PendingRequests = Arc<std::sync::Mutex<HashMap<String, Pending>>>;
+struct PendingCall {
+    pending: PendingRequests,
+    key: String,
+}
+impl Drop for PendingCall {
+    fn drop(&mut self) {
+        self.pending.lock().unwrap().remove(&self.key);
+    }
 }
 struct Pending {
     tx: oneshot::Sender<Result<Value>>,
@@ -62,20 +127,22 @@ struct Pending {
 }
 pub struct Ipc {
     writer: Arc<Mutex<tokio::io::WriteHalf<DesktopStream>>>,
-    pending: Arc<Mutex<HashMap<String, Pending>>>,
+    pending: PendingRequests,
     owners: Arc<Mutex<HashMap<String, String>>>,
-    snapshots: Arc<Mutex<HashMap<String, Snapshot>>>,
+    snapshots: Arc<Mutex<Snapshots>>,
     wake: Arc<Notify>,
     pub(crate) changes: Arc<Notify>,
     client: String,
     session: String,
     events: SharedEvents,
     reader: tokio::task::JoinHandle<()>,
+    maintenance: tokio::task::JoinHandle<()>,
     alive: Arc<std::sync::atomic::AtomicBool>,
 }
 impl Drop for Ipc {
     fn drop(&mut self) {
         self.reader.abort();
+        self.maintenance.abort();
     }
 }
 impl Ipc {
@@ -99,11 +166,14 @@ impl Ipc {
         };
         #[cfg(windows)]
         let socket = windows::connect().await?;
+        Self::connect(socket, events, session).await
+    }
+    async fn connect(socket: DesktopStream, events: SharedEvents, session: &str) -> Result<Self> {
         let (mut rd, wr) = tokio::io::split(socket);
         let writer = Arc::new(Mutex::new(wr));
-        let pending: Arc<Mutex<HashMap<String, Pending>>> = Default::default();
+        let pending: PendingRequests = Default::default();
         let owners: Arc<Mutex<HashMap<String, String>>> = Default::default();
-        let snapshots: Arc<Mutex<HashMap<String, Snapshot>>> = Default::default();
+        let snapshots: Arc<Mutex<Snapshots>> = Default::default();
         let wake = Arc::new(Notify::new());
         let changes = Arc::new(Notify::new());
         let changed = changes.clone();
@@ -116,6 +186,14 @@ impl Ipc {
             wake.clone(),
             alive.clone(),
         );
+        let cleanup_snapshots = snapshots.clone();
+        let maintenance = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                cleanup_snapshots.lock().await.prune();
+            }
+        });
         let session = session.to_owned();
         let reader_session = session.clone();
         let reader_events = events.clone();
@@ -134,6 +212,8 @@ impl Ipc {
                 if rd.read_exact(&mut bytes).await.is_err() {
                     break;
                 }
+                let _scope =
+                    crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::DesktopFrame);
                 let Ok(msg) = serde_json::from_slice::<Value>(&bytes) else {
                     continue;
                 };
@@ -145,7 +225,7 @@ impl Ipc {
                         }
                     }
                     "response" => {
-                        if let Some(request) = p.lock().await.remove(string(&msg, "requestId")) {
+                        if let Some(request) = p.lock().unwrap().remove(string(&msg, "requestId")) {
                             let result = if msg["resultType"] == "error" {
                                 Err(format!("DESKTOP_REJECTED:{}", msg["error"]))
                             } else if request
@@ -180,6 +260,25 @@ impl Ipc {
                         {
                             continue;
                         }
+                        let revision = params["change"]["revision"].as_u64();
+                        let owner = string(&msg, "sourceClientId").to_owned();
+                        let snapshot_frame = params["change"]["type"] == "snapshot";
+                        let repeated = revision.is_some()
+                            && revisions.get(thread) == Some(&(owner.clone(), revision, true));
+                        if repeated && snapshot_frame {
+                            let mut snapshots = s.lock().await;
+                            if let Some(snapshot) = snapshots.rows.get_mut(thread) {
+                                snapshot.received = Instant::now();
+                            } else {
+                                snapshots.insert(
+                                    thread.into(),
+                                    params["change"].clone(),
+                                    len as usize,
+                                );
+                            }
+                            n.notify_waiters();
+                            continue;
+                        }
                         if params["change"]["type"] == "snapshot" {
                             interactions::sync(
                                 &events,
@@ -189,10 +288,8 @@ impl Ipc {
                             .await;
                             s.lock().await.insert(
                                 thread.into(),
-                                Snapshot {
-                                    received: Instant::now(),
-                                    value: params["change"].clone(),
-                                },
+                                params["change"].clone(),
+                                len as usize,
                             );
                         } else {
                             // Delta frames are not full snapshots. Request a fresh snapshot on the next read.
@@ -201,9 +298,13 @@ impl Ipc {
                         n.notify_waiters();
                         // Follow/read can repeat an unchanged snapshot. Wake task waiters
                         // only for a changed revision, not another reader's refresh.
-                        let revision = params["change"]["revision"].as_u64();
+                        if !revisions.contains_key(thread) && revisions.len() >= 2000 {
+                            revisions.clear();
+                        }
+                        let previous = revisions
+                            .insert(thread.to_owned(), (owner.clone(), revision, snapshot_frame));
                         if revision.is_none()
-                            || revisions.insert(thread.to_owned(), revision) != Some(revision)
+                            || previous.map(|r| (r.0, r.1)) != Some((owner, revision))
                         {
                             changed.notify_waiters();
                         }
@@ -223,7 +324,7 @@ impl Ipc {
             a.store(false, std::sync::atomic::Ordering::SeqCst);
             s.lock().await.clear();
             o.lock().await.clear();
-            for (_, r) in p.lock().await.drain() {
+            for (_, r) in p.lock().unwrap().drain() {
                 let _ = r.tx.send(Err("DESKTOP_DISCONNECTED".into()));
             }
             n.notify_waiters();
@@ -241,6 +342,7 @@ impl Ipc {
             session,
             events,
             reader,
+            maintenance,
             alive,
         };
         let init = ipc
@@ -267,6 +369,14 @@ impl Ipc {
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
         }
         result
+    }
+    pub(crate) async fn diagnostics(&self) -> Value {
+        let mut snapshots = self.snapshots.lock().await;
+        snapshots.prune();
+        let pending = self.pending.lock().unwrap().len();
+        let owners = self.owners.lock().await.len();
+        json!({"connected":self.alive(),"pendingRequests":pending,
+            "owners":owners,"snapshots":snapshots.report()})
     }
     pub fn alive(&self) -> bool {
         self.alive.load(std::sync::atomic::Ordering::SeqCst)
@@ -321,15 +431,18 @@ impl Ipc {
             msg["targetClientId"] = json!(t);
             msg["hostId"] = json!("local");
         }
-        self.pending.lock().await.insert(
+        self.pending.lock().unwrap().insert(
             request_id.clone(),
             Pending {
                 tx,
                 target: target.map(str::to_owned),
             },
         );
+        let _pending = PendingCall {
+            pending: self.pending.clone(),
+            key: request_id.clone(),
+        };
         if let Err(e) = self.write(msg).await {
-            self.pending.lock().await.remove(&request_id);
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
             return Err(submitted_error(e));
         }
@@ -342,7 +455,6 @@ impl Ipc {
             rx,
         )
         .await;
-        self.pending.lock().await.remove(&request_id);
         out.map_err(|_| format!("DESKTOP_REQUEST_TIMEOUT: {method}"))
             .and_then(|v| v.map_err(|_| "DESKTOP_DISCONNECTED".to_string()))
             .and_then(|v| v)
@@ -449,12 +561,7 @@ impl Ipc {
             return None;
         }
         let mut snapshots = self.snapshots.lock().await;
-        if snapshots
-            .get(thread)
-            .is_some_and(|s| s.received.elapsed() >= SNAPSHOT_TTL)
-        {
-            snapshots.remove(thread);
-        }
+        snapshots.prune();
         snapshots.get(thread).map(|s| {
             crate::acceptance_fault::snapshot(thread, s.value["conversationState"].clone())
         })
@@ -705,6 +812,94 @@ pub(crate) async fn open_url(url: Option<&str>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    async fn diagnostic_fixture() -> (Ipc, tokio::task::JoinHandle<()>) {
+        let (client, mut server) = UnixStream::pair().unwrap();
+        let peer = tokio::spawn(async move {
+            loop {
+                let Ok(len) = server.read_u32_le().await else {
+                    break;
+                };
+                let mut data = vec![0; len as usize];
+                if server.read_exact(&mut data).await.is_err() {
+                    break;
+                }
+                let request: Value = serde_json::from_slice(&data).unwrap();
+                let method = string(&request, "method");
+                let response = match method {
+                    "initialize" => {
+                        json!({"type":"response","requestId":request["requestId"],"result":{"clientId":"fixture-client"}})
+                    }
+                    "thread-owner-discovery" => {
+                        json!({"type":"response","requestId":request["requestId"],"handledByClientId":"fixture-owner","result":{}})
+                    }
+                    "thread-stream-following-changed" => {
+                        json!({"type":"broadcast","method":"thread-stream-state-changed","version":11,"sourceClientId":"fixture-owner",
+                        "params":{"hostId":"local","conversationId":request["params"]["conversationId"],"change":{"type":"snapshot","revision":1,"conversationState":{
+                            "id":request["params"]["conversationId"],"turnHistory":{"history":{"isComplete":true}},"fixture":"x".repeat(512*1024)}}}})
+                    }
+                    _ => continue, // Deliberately never answer the cancelled read.
+                };
+                let bytes = serde_json::to_vec(&response).unwrap();
+                if server.write_u32_le(bytes.len() as u32).await.is_err() {
+                    break;
+                }
+                if server.write_all(&bytes).await.is_err() {
+                    break;
+                }
+            }
+        });
+        (
+            Ipc::connect(client, Default::default(), "fixture")
+                .await
+                .unwrap(),
+            peer,
+        )
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelled_desktop_requests_release_pending_storage() {
+        // Regression: outer notification timeouts abandoned Desktop IPC pending requests indefinitely.
+        let (ipc, peer) = diagnostic_fixture().await;
+        for _ in 0..32 {
+            assert!(tokio::time::timeout(
+                Duration::from_millis(2),
+                ipc.request("fixture-unanswered-read", json!({}), None)
+            )
+            .await
+            .is_err());
+        }
+        assert_eq!(ipc.diagnostics().await["pendingRequests"], 0);
+        assert_eq!(
+            ipc.owner("after-cancellation").await.unwrap(),
+            "fixture-owner"
+        );
+        drop(ipc);
+        peer.await.unwrap();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn desktop_snapshots_are_bounded_and_expire_without_rereading_old_threads() {
+        // Regression: visited Desktop histories accumulated because TTL cleanup only visited the requested key.
+        let (ipc, peer) = diagnostic_fixture().await;
+        for n in 0..80 {
+            let thread = format!("fixture-{n}");
+            assert_eq!(ipc.read(&thread, true).await.unwrap()["id"], thread);
+        }
+        let report = ipc.diagnostics().await;
+        assert!(report["snapshots"]["entries"].as_u64().unwrap() <= 64);
+        assert!(report["snapshots"]["wireBytes"].as_u64().unwrap() <= 32 * 1024 * 1024);
+        assert!(report["snapshots"]["evictions"].as_u64().unwrap() > 0);
+        // Native history remains available after eviction; retention is not authorization.
+        assert_eq!(
+            ipc.read("fixture-0", true).await.unwrap()["id"],
+            "fixture-0"
+        );
+        tokio::time::sleep(Duration::from_millis(4100)).await;
+        assert_eq!(ipc.diagnostics().await["snapshots"]["entries"], 0);
+        drop(ipc);
+        peer.await.unwrap();
+    }
     #[test]
     fn only_definite_missing_owner_allows_loading_fallback() {
         // Property: only definite missing owner allows loading fallback.

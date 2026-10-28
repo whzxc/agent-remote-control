@@ -170,6 +170,12 @@ fn path_in(dir: &Path, thread: &str, turn: &str) -> PathBuf {
 }
 static BINDINGS: std::sync::LazyLock<std::sync::Mutex<file_cache::Cache<Binding>>> =
     std::sync::LazyLock::new(Default::default);
+pub(crate) fn diagnostics() -> Value {
+    BINDINGS
+        .lock()
+        .map(|cache| cache.diagnostics())
+        .unwrap_or(Value::Null)
+}
 fn binding_paths(dir: &Path) -> Result<Arc<Vec<file_cache::Entry>>> {
     BINDINGS
         .lock()
@@ -1963,6 +1969,8 @@ async fn flush(
     window: i64,
     settings: &Value,
 ) -> Result<()> {
+    let _scope =
+        crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::NotificationDelivery);
     let _operation = mcp_events::OPERATION.lock().await;
     let guard = lock.lock().await;
     let original = shared_records(dir)?;
@@ -2225,7 +2233,7 @@ async fn flush(
         {
             let t = state.target(&source_id, channel, &target, now, settings);
             if charged {
-                t.tokens -= 1;
+                t.charge(now, settings);
             }
             t.batches.push(governance::Batch {
                 id: batch.clone(),
@@ -2760,6 +2768,9 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 break;
             };
             let cycle = async {
+                let _scope = crate::runtime_metrics::Scope::new(
+                    crate::runtime_metrics::Work::NotificationObserve,
+                );
                 let replacement = replacement.as_ref().map_err(Clone::clone)?;
                 if recovering {
                     if let Some((_, turns)) = replacement {
@@ -3340,6 +3351,19 @@ mod tests {
         b.deliveries[0].changes = changes;
         b.deliveries[0].changes["fallback"] = json!(true);
         assert_eq!(message(&b), body);
+    }
+    #[test]
+    fn idle_bucket_spending_waits_a_complete_refill_interval() {
+        // Regression: eliminating idle bucket writes must not refund the first spent token immediately.
+        let mut state = State::default();
+        let settings = json!({"notificationBucketCapacity":1,"notificationRefillSeconds":60});
+        let target = state.target("source", Channel::ClaudeSession, "target", 100, &settings);
+        target.refill(1000, &settings);
+        target.charge(1000, &settings);
+        target.refill(1059, &settings);
+        assert_eq!(target.tokens, 0);
+        target.refill(1060, &settings);
+        assert_eq!(target.tokens, 1);
     }
     #[tokio::test]
     async fn bucket_refill_batches_interactions_and_survives_reload() {

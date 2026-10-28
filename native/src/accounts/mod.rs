@@ -17,9 +17,13 @@ fn read() -> Result<Vec<Value>> {
     if !path().exists() {
         return Ok(vec![]);
     }
-    serde_json::from_value(load(&path())?).map_err(|e| format!("ACCOUNTS_INVALID: {e}"))
+    match load(&path())? {
+        Value::Array(rows) => Ok(rows),
+        _ => Err("ACCOUNTS_INVALID: expected an array".into()),
+    }
 }
 fn change<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
+    let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Accounts);
     let _lock = STORE.lock().map_err(|e| e.to_string())?;
     let mut rows = read()?;
     let before = rows.clone();
@@ -299,6 +303,30 @@ pub(crate) fn source_account(source: &Value) -> Result<Option<String>> {
         return Ok(None);
     }
     change(|rows| Ok(Some(identity::observe_source(rows, source))))
+}
+/// Project an entire source response in one account transaction, including
+/// identity reconciliation. Do not decode and clone the index per source.
+pub(crate) fn project_sources(sources: &mut [Value]) -> Result<()> {
+    for source in sources.iter_mut().filter(|s| crate::sources::is_local(s)) {
+        source["accountId"] = Value::Null;
+        source["identityResolution"] = json!({"state":"not-applicable"});
+    }
+    if sources.iter().all(crate::sources::is_local) {
+        return Ok(());
+    }
+    change(|rows| {
+        for source in sources.iter_mut().filter(|s| !crate::sources::is_local(s)) {
+            let account = identity::observe_source(rows, source);
+            source["accountId"] = json!(account);
+            source["identityResolution"] = rows
+                .iter()
+                .find(|a| a["id"] == account && live(a))
+                .and_then(|a| a["sourceIdentities"].get(string(source, "id")))
+                .cloned()
+                .unwrap_or(json!({"state":"unresolved"}));
+        }
+        Ok(())
+    })
 }
 /// Detach legacy local memberships; retain empty account tombstones for history.
 pub fn retire_local_accounts(rows: &mut [Value], sources: &[Value], at: &str) {

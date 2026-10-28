@@ -200,6 +200,7 @@ impl ScanCache {
     }
 }
 fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
+    let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Activity);
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };

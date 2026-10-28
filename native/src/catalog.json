@@ -103,6 +103,37 @@
       "example": {}
     },
     {
+      "name": "runtime_metrics",
+      "description": "Read content-free Core CPU/memory, work counters, cache occupancy and Desktop IPC retention without waking Agents or loading histories. Compare samples with the same instance: CPU percent = 100 * delta process.cpuTotalMs / delta elapsedMs. Wall counters include waits and overlap, not CPU attribution. Byte units are explicit; cache sizes describe serialized input, not allocated heap. Counters reset on Core restart. Use for idle CPU or memory-growth diagnosis; never infer a leak from one RSS sample.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {}
+    },
+    {
       "name": "update_request",
       "description": "Schedule an update with submit, now, defer or cancel. submit requires local administration and source.kind local. Release updates start only from Desktop. End the replacing turn after its receipt; dispatches during settling are held until the terminal outcome.",
       "inputSchema": {
@@ -10582,6 +10613,16 @@
           "agent_pending",
           "receipt"
         ],
+        "tier": "default",
+        "conditional": false
+      },
+      "runtime_metrics": {
+        "group": "host",
+        "presets": [
+          "common",
+          "readOnly"
+        ],
+        "requires": [],
         "tier": "default",
         "conditional": false
       }

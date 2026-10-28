@@ -25,6 +25,29 @@ Status requests read resources on demand without a monitoring task. Core limits 
 
 Service status, CLI status/doctor, and Settings share resource snapshots and diagnostics. doctor uses `permissions/passive`. Codex login and command permissions remain unknown in passive reads. The explicit permission page retains active probing. Resource diagnostics never start app-server. See [CLI resource diagnostics](../reference/cli.md#resource-diagnostics).
 
+## Idle resource retention
+
+OAuth grant authorization reads the current source authority store directly.
+It does not resolve account labels or identities. Source response projection
+reconciles all rows in one account transaction. Notification subscription routing
+filters subscriptions before inspecting delivery bodies and does not clone the
+complete delivery collection to find existing routes. Full token buckets do not
+advance their persisted refill clock while idle; spending the first token starts
+the refill interval.
+
+Desktop IPC removes pending requests when their futures are dropped, including
+outer timeouts. Repeated snapshots of the same owner/revision refresh cache age
+without repeating event and interaction projection. Snapshot retention expires
+after four seconds, with a one-second cleanup cadence, and admits at most 64
+entries and 32 MiB of serialized frame weight. A single larger supported frame
+may exceed the byte budget until expiry so native history reads remain supported.
+Serialized weight is not a heap bound; the IPC frame limit remains independent.
+Eviction never deletes native history, changes authorization, or cancels a task.
+
+`runtime_metrics` and local `runtime.inspect` expose content-free process and
+retention diagnostics. Instrumentation uses a fixed set of aggregate counters;
+it does not retain per-request samples. See [Runtime diagnostics](../reference/cli.md#runtime-diagnostics).
+
 ## Claude login profiles
 
 Core owns Claude login profiles through the local-only `claude.accounts.*` management operations. Settings exposes a browser selector, official login, identity refresh, re-login, and removal. Browser discovery runs on the Core host. The default choice uses the system URL handler; explicit choices resolve installed applications without accepting arbitrary executable paths from the renderer.

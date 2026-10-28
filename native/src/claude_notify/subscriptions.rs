@@ -146,15 +146,15 @@ pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
 
 pub(super) fn route(state: &State, bindings: &mut [Binding], now: i64) {
     for b in bindings {
-        let sources = b.deliveries.clone();
+        let source_count = b.deliveries.len();
         for sub in &state.subscriptions {
-            if !sub.active(now.saturating_mul(1000)) {
+            if !sub.active(now.saturating_mul(1000)) || !sub.matches(b) {
                 continue;
             }
-            for source in &sources {
+            for source_index in 0..source_count {
+                let source = &b.deliveries[source_index];
                 // Only task outcomes and pending execution interactions may push.
                 if !wakes(source)
-                    || !sub.matches(b)
                     || matches!(source.status.as_str(), "resolved" | "inbox-only")
                     || source.interaction["resolved"] == true
                 {
@@ -177,10 +177,10 @@ pub(super) fn route(state: &State, bindings: &mut [Binding], now: i64) {
                 }
                 // The original Claude delivery is also the persisted source event.
                 if sub.channel == Channel::ClaudeSession {
-                    if let Some(d) = b.deliveries.iter_mut().find(|d| {
+                    if let Some(index) = b.deliveries.iter().position(|d| {
                         d.event_id == source.event_id && d.channel == Channel::ClaudeSession
                     }) {
-                        d.subscription = sub.id.clone();
+                        b.deliveries[index].subscription = sub.id.clone();
                         continue;
                     }
                 }

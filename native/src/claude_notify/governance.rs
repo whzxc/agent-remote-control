@@ -37,16 +37,26 @@ impl Target {
         let capacity = capacity(settings);
         let interval = refill_seconds(settings);
         self.tokens = self.tokens.min(capacity);
-        let ticks = now.saturating_sub(self.refilled_at).max(0) / interval;
-        self.tokens = self.tokens.saturating_add(ticks as u64).min(capacity);
-        if self.tokens == capacity {
-            self.refilled_at = now;
-        } else {
-            self.refilled_at = self
-                .refilled_at
-                .saturating_add(ticks.saturating_mul(interval));
+        // A full idle bucket has no clock to advance. Updating it on every
+        // delivery tick rewrites the complete subscription store every second.
+        if self.tokens < capacity {
+            let ticks = now.saturating_sub(self.refilled_at).max(0) / interval;
+            self.tokens = self.tokens.saturating_add(ticks as u64).min(capacity);
+            self.refilled_at = if self.tokens == capacity {
+                now
+            } else {
+                self.refilled_at
+                    .saturating_add(ticks.saturating_mul(interval))
+            };
         }
         self.batches.retain(|b| b.at > now.saturating_sub(3600));
+    }
+    pub fn charge(&mut self, now: i64, settings: &Value) {
+        // Idle time cannot immediately refill the first token spent from full.
+        if self.tokens == capacity(settings) {
+            self.refilled_at = now;
+        }
+        self.tokens = self.tokens.saturating_sub(1);
     }
     pub fn anomaly(&mut self, now: i64, waiting: bool, settings: &Value) -> Option<&'static str> {
         if self.tokens == 0 && waiting {
@@ -116,9 +126,12 @@ impl State {
         if !path.exists() {
             return Ok(Self::default());
         }
-        Self::decode(load(&path)?)
+        Self::decode_ref(file_cache::shared_load(&path)?.as_ref())
     }
     pub(super) fn decode(value: Value) -> Result<Self> {
+        Self::decode_ref(&value)
+    }
+    fn decode_ref(value: &Value) -> Result<Self> {
         if !value.is_object() {
             return Err("Invalid notification state".into());
         }
@@ -131,7 +144,7 @@ impl State {
                     if string(row, "sourceId").is_empty() {
                         return None;
                     }
-                    match serde_json::from_value(row.clone()) {
+                    match T::deserialize(row) {
                         Ok(row) => Some(row),
                         Err(_) => {
                             crate::logs::record(
@@ -154,7 +167,7 @@ impl State {
     pub fn save(&self, dir: &Path) -> Result<()> {
         let path = dir.join("subscriptions/state.json");
         let value = serde_json::to_value(self).map_err(|e| e.to_string())?;
-        if load(&path).ok().as_ref() == Some(&value) {
+        if file_cache::shared_load(&path).ok().as_deref() == Some(&value) {
             return Ok(());
         }
         save(&path, &value)

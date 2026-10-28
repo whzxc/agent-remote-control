@@ -2800,3 +2800,34 @@ test('Maintainer mode local import reads only the selected synthetic queue', asy
   assert.equal(importQueue().imported,0);
   assert.equal(importQueue().unchanged,1);
 });
+
+test('runtime diagnostics expose bounded content-free counters through query and management', async () => {
+  // Contract: runtime_metrics and runtime.inspect expose the same passive process instance and explicit units.
+  const first = (await call('runtime_metrics')).result;
+  const envelope = JSON.parse(execFileSync(fixtureCommand, ['cli','call','runtime.inspect'], {env:fixtureEnv,encoding:'utf8'}));
+  const second = envelope.result;
+  assert.equal(first.schemaVersion, 1);
+  assert.equal(second.instance, first.instance);
+  assert.equal(second.pid, first.pid);
+  assert.ok(second.elapsedMs >= first.elapsedMs);
+  for (const report of [first, second]) {
+    assert.ok(['available','partial','unavailable'].includes(report.process.state));
+    assert.ok(report.process.cpuTotalMs === null || report.process.cpuTotalMs >= 0);
+    assert.ok(report.process.residentBytes === null || report.process.residentBytes > 0);
+    assert.ok(report.work.every((row:any) => row.calls >= row.inFlight && row.totalWallMs >= 0));
+    assert.ok(!JSON.stringify(report).includes(directory));
+    assert.ok(!JSON.stringify(report).includes('fixture-client'));
+    assert.ok(!JSON.stringify(report).includes('access_token'));
+  }
+  const output = path.join(directory, 'runtime-samples');
+  const summary = JSON.parse(execFileSync(process.execPath, [
+    fileURLToPath(new URL('../tooling/diagnostics/runtime.mjs', import.meta.url)),
+    '--arc', fixtureCommand, '--duration', '2', '--interval', '1', '--out', output,
+  ], {env:fixtureEnv,encoding:'utf8'}));
+  assert.equal(summary.instance, first.instance);
+  assert.ok(summary.samples >= 2);
+  assert.ok(summary.cpuPercent === null || summary.cpuPercent >= 0);
+  const persisted = JSON.parse(await readFile(path.join(output, 'summary.json'), 'utf8'));
+  assert.equal(persisted.instance, first.instance);
+  assert.equal(persisted.samples, summary.samples);
+});
