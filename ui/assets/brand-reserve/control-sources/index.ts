@@ -10,9 +10,11 @@ import githubCopilot from './github-copilot/mono.svg?raw';
 import raycast from './raycast/mono.svg?raw';
 import gemini from '../agents/gemini/color.svg?raw';
 import grok from '../agents/grok/mono.svg?raw';
+import xai from './xai/mono.svg?raw';
 import grokBot from './grok-bot/app.png';
 export const sourceImages: Record<string, string> = { 'grok-bot': grokBot };
 export const sourceVectors: Record<string, string> = Object.fromEntries(Object.entries({
   chatgpt, notion, slack, claude, cursor, 'microsoft-copilot': microsoftCopilot,
   'github-copilot': githubCopilot, raycast, grok, gemini,
+  xai: xai.replace('<svg ', '<svg fill="currentColor" '),
 }).map(([name, svg]) => [name, decorativeSvg(svg)]));

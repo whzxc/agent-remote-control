@@ -15,6 +15,7 @@ Open [preview.html](preview.html) to inspect graphics. [manifest.json](manifest.
 | Entry | Collected files |
 | --- | --- |
 | control-sources/chatgpt | [app.png](control-sources/chatgpt/app.png), [mono.svg](control-sources/chatgpt/mono.svg), [wordmark.svg](control-sources/chatgpt/wordmark.svg) |
+| control-sources/xai | [mono.svg](control-sources/xai/mono.svg) |
 | control-sources/notion | [mono.svg](control-sources/notion/mono.svg), [wordmark.svg](control-sources/notion/wordmark.svg) |
 | agents/codex | [app.png](agents/codex/app.png), [color.svg](agents/codex/color.svg), [mono.svg](agents/codex/mono.svg), [wordmark.svg](agents/codex/wordmark.svg) |
 | agents/goose | [mono.svg](agents/goose/mono.svg) |

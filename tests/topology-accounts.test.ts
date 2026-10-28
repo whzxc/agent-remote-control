@@ -421,3 +421,52 @@ test('empty nodes hide disclosure controls even when an earlier collapse prefere
     assert.ok(fixture.page.getByRole('button', { name: 'Example task', exact: true }));
   } finally { await fixture.close(); }
 });
+
+test('Grok products share one X platform while retaining both source identities', async () => {
+  // Regression: Grok and Grok Bot from one X account rendered separate platform nodes.
+  const fixture = await harness();
+  try {
+    const { server, root, page } = fixture;
+    const { default: Overview } = await server.ssrLoadModule('/ui/components/ConnectionOverview.tsx');
+    const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
+    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
+    const { agents } = await server.ssrLoadModule('/ui/state/agents.ts');
+    const { topologyMode } = await server.ssrLoadModule('/ui/topology/accountState.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const sources = ['grok', 'grok-bot'].map(product => ({ id: `source-${product}`, ingressId: 'x-connection', product, platform: 'xai', label: product, credential: { type: 'ingress' }, state: 'connected' }));
+    const ingress = { id: 'x-connection', sources, name: 'X connection', controlSource: 'grok', enabled: true, running: true, state: 'ready', auth: 'none', transport: 'https', error: '', config: { configured: true } };
+    const account = { id: 'x-account', alias: 'Personal', provider: 'xai', identityKey: 'xai:example', sources: sources.map(source => source.id), agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
+    connector.set({ status: { ingresses: [ingress], core: { backendSession: 'fixture' }, platform: 'darwin', logs: [] }, sources, sourcesLoaded: true, loading: false, busy: '', error: '', feedback: { text: '', error: false } });
+    agents.set({ items: [], loading: false, error: '' });
+    globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/accounts') ? { accounts: [account], login: null }
+      : String(input).endsWith(`/accounts/${account.id}`) ? account : {}));
+    await act(() => root.render(h(UiProvider, null, h(Overview))));
+    for (const mode of ['tree', 'flat']) {
+      await act(() => topologyMode.set(mode));
+      assert.equal(page.getAllByRole('button', { name: `X: ${t('connected')}`, exact: true }).length, 1);
+      assert.equal(page.queryByRole('button', { name: /^Grok/ }), null);
+    }
+    assert.equal(connector.get().sources.length, 2);
+  } finally { await fixture.close(); }
+});
+
+test('merged source activity retains old and replacement connection history within its account', async () => {
+  // Regression: account merges kept historical sources but the account task panel showed only one connection's dispatches.
+  const fixture = await harness();
+  try {
+    const { server, root, page } = fixture;
+    const { default: SourceDispatches } = await server.ssrLoadModule('/ui/components/SourceDispatches.tsx');
+    const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
+    const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
+    const { tasks } = await server.ssrLoadModule('/ui/state/tasks.ts');
+    const account = { id: 'merged-account', alias: 'Personal', provider: 'anthropic', identityKey: 'anthropic:example', sources: ['old-connection-source', 'replacement-source'], agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
+    const records = ['old-connection-source', 'replacement-source', 'unrelated-source'].map((source, index) => ({ requestId: `dispatch-${index}`, origin: { sourceId: source }, state: 'completed', createdAt: new Date().toISOString(), task: { kind: 'create', title: `History ${source}`, prompt: '', input: {}, settings: {} } }));
+    globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/accounts') ? { accounts: [account], login: null } : account));
+    accounts.set({ items: [account], login: null, loading: false, error: '' });
+    tasks.set({ records, loading: false, error: '' });
+    await act(() => root.render(h(UiProvider, null, h(SourceDispatches, { sourceId: 'replacement-source' }))));
+    assert.ok(page.getByRole('button', { name: /History old-connection-source/ }));
+    assert.ok(page.getByRole('button', { name: /History replacement-source/ }));
+    assert.equal(page.queryByRole('button', { name: /History unrelated-source/ }), null);
+  } finally { await fixture.close(); }
+});

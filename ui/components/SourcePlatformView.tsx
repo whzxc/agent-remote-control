@@ -2,9 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../api';
 import { t } from '../i18n';
-import { controlSource } from '../controlSources';
+import { controlSourcePlatform } from '../controlSources';
 import { isPendingSource } from '../sourcePresentation';
-import { name as agentName } from '../state/agents';
 import { useAccounts } from '../state/accounts';
 import { connector, refreshConnector } from '../state/connector';
 import { navigation } from '../state/navigation';
@@ -17,12 +16,12 @@ import SourceIcon from './SourceIcon';
 
 export default function SourcePlatformView({ platform, widthControl, onBusy }: { platform: string; widthControl?: ReactNode; onBusy?: (busy: boolean) => void }) {
   const state = useAccounts(), { status, sources } = connector.use(), orders = topologyAccountOrder.use();
-  const platformSources = sources.filter(source => source.product === platform && source.state !== 'revoked'
+  const platformSources = sources.filter(source => controlSourcePlatform(source.product).id === platform && source.state !== 'revoked'
     && !isPendingSource(source, status?.ingresses ?? []));
   const sourceIds = new Set(platformSources.map(source => source.id));
   const ingress = status?.ingresses.find(entry => entry.id === platformSources[0]?.ingressId);
   const accounts = orderedSubset(state.items.filter(account => account.sources.some(id => sourceIds.has(id))), orders[`-1:${platform}`] ?? []);
-  const label = controlSource(platform)?.displayName ?? agentName({ agent: platform });
+  const label = controlSourcePlatform(platform).displayName;
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
   async function connect(connected: boolean) {

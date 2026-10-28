@@ -10,7 +10,7 @@ import type { SurfaceRect } from "../motion/surface";
 import IngressDialog from "./IngressDialog";
 import SourcePanel from "./SourcePanel";
 import SourcePlatformView from "./SourcePlatformView";
-import { controlSource } from "../controlSources";
+import { controlSourcePlatform } from "../controlSources";
 import ChangeConnection from "./ChangeConnection";
 import { connectionSwitch } from "../state/onboarding";
 import { Dialog, IconButton, Notice } from "./ui";
@@ -26,7 +26,7 @@ export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWi
   const source = connection && (sources.find(s => s.id === connection.client?.id) ?? sources.find(s => s.ingressId === entry?.id && s.state !== "revoked"));
   const client = source ? { id: source.id, name: source.label, source: source.product } : connection?.client;
   const panelId = sourcePanelId(selected);
-  const title = platform ? controlSource(platform)?.displayName ?? platform : client?.name ?? entry?.name ?? t('source.title');
+  const title = platform ? controlSourcePlatform(platform).displayName : client?.name ?? entry?.name ?? t('source.title');
   const ownsConnection = () => {
     const current = ingressPanel.get();
     return !!current && 'ingress' in current && current.ingress.id === entry?.id;

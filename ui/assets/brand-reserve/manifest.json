@@ -421,6 +421,13 @@
       "license": "Official application artwork; proprietary brand asset excluded from the project MIT license; trademarks reserved",
       "note": "PNG converted from icon.icns in the official Grok Bot desktop application 0.75.5. Distinct from the Grok mark.",
       "sha256": "ed98af275df444e2f08213537399cc458800831329f446f0402445640a21c61d"
+    },
+    {
+      "file": "control-sources/xai/mono.svg",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/x.svg",
+      "license": "CC0-1.0; brand trademarks reserved",
+      "note": "X platform mark shared by Grok and Grok Bot.",
+      "sha256": "693e68863eceb8dc9f72e2acd386ab9c20a10858dab2c076212f7084cb7a32fe"
     }
   ],
   "controlSourceUsage": {
@@ -433,6 +440,7 @@
     "cursor": "agents/cursor/mono.svg",
     "github-copilot": "control-sources/github-copilot/mono.svg",
     "raycast": "control-sources/raycast/mono.svg",
-    "grok-bot": "control-sources/grok-bot/app.png"
+    "grok-bot": "control-sources/grok-bot/app.png",
+    "xai": "control-sources/xai/mono.svg"
   }
 }

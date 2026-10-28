@@ -280,7 +280,9 @@ test('built-in local authority is absent from control sources, accounts and disc
       navigation.set((old: any) => ({ ...old, remoteSourceId: local.id, remoteConnectionId: undefined }));
       await render(h(RemoteLinkPage));
       assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) }), null);
-      assert.ok(page.getByRole('button', { name: name => name.startsWith(external.label) && name.endsWith(t('source.state.connected')) }));
+      const connection = connector.get().status.ingresses.find((entry: any) => entry.id === external.ingressId);
+      assert.ok(page.getByRole('button', { name: name => name.startsWith(connection.name) && name.includes(t('connect.online')) }));
+      assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
       await render(h(SourcePanel, { source: local }));
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
@@ -291,5 +293,27 @@ test('built-in local authority is absent from control sources, accounts and disc
       assert.equal(page.queryByRole('option', { name: controlSource('local-cli').shortName, exact: true }), null);
       assert.equal(page.queryByRole('radio', { name: controlSource('local-cli').shortName, exact: true }), null);
     } finally { accountsApi.list = list; accountsApi.get = get; }
+  });
+});
+
+test('connection management exposes connections without source or platform administration', async () => {
+  // Regression: connection management mixed duplicate source/account rows and platform grouping with connection lifecycle actions.
+  await withAccountUI(async ({ server, root }) => {
+    const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
+    const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
+    const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    navigation.set((old: any) => ({ ...old, page: 'remote', remoteSourceId: undefined, remoteConnectionId: undefined }));
+    await act(() => root.render(h(TooltipProvider, null, h(RemoteLinkPage))));
+    const page = within(document.body);
+    assert.ok(page.getByRole('button', { name: t('source.newConnection'), exact: true }));
+    assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
+    assert.equal(page.queryByRole('radiogroup', { name: t('source.grouping') }), null);
+    const connection = connector.get().status.ingresses.find((entry: any) => entry.transport !== 'local');
+    await act(() => fireEvent.click(page.getByRole('button', { name: name => name.startsWith(connection.name) && name.includes(t('connect.online')) })));
+    assert.ok(page.getByRole('heading', { name: connection.name, exact: true }));
+    assert.equal(page.queryByRole('button', { name: t('setup.addSourceForConnection'), exact: true }), null);
+    assert.ok(page.getByRole('button', { name: t('edit'), exact: true }));
   });
 });

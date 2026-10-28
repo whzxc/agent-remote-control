@@ -6,6 +6,12 @@ export const curatedSources = controlSources.filter(source => source.curated);
 export function controlSource(id: string) {
   return controlSources.find(source => source.id === id);
 }
+export function controlSourcePlatform(product: string) {
+  const source = controlSource(product);
+  return source?.platform === 'xai' || product === 'xai'
+    ? { id: 'xai', displayName: 'X' }
+    : { id: product, displayName: source?.displayName ?? product };
+}
 export function nextSourceName(id: string, names: string[]) {
   const base = controlSource(id)?.displayName || id;
   let name = base, suffix = 2;

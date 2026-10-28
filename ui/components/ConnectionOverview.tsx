@@ -1,6 +1,6 @@
 import { useAppNow } from "../state/appEnvironment";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
-import { controlSource } from '../controlSources';
+import { controlSourcePlatform } from '../controlSources';
 import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
 import { accountOwns } from '../accountPresentation';
@@ -235,15 +235,15 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     if (!ingress) return [];
     const state = source.state === "disconnected" ? "disconnected" : sourceState(ingress);
     const selected = !!sourceSelection && !sourceSelection.closing && "ingress" in sourceSelection && sourceSelection.client?.id === source.id;
-    const platformLabel = controlSource(source.product)?.displayName ?? source.product;
+    const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = accounts.some(account => account.sources.includes(source.id)) ? platformLabel : source.label;
     return [{
-      id: source.id, platform: source.product, platformLabel, label: nodeLabel,
-      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
+      id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
+      icon: <SourceIcon platform={platform.id} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
         onMove={panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
-        <SourceIcon platform={source.product} panelVisual /><span className="graph-node-name">{nodeLabel}</span>
+        <SourceIcon platform={platform.id} panelVisual /><span className="graph-node-name">{nodeLabel}</span>
       </GraphNode>,
     }];
   });

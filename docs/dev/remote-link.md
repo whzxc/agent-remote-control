@@ -117,7 +117,7 @@ Non-OAuth sources skip Approve and complete on an observed client connection, as
 
 ### Add a connection
 
-Remote link › Connections › Add connection opens it standalone. Add control source step 2, Change connection step 1, and Welcome (through Add control source) open it stacked. Steps: Method, Configure, Ready.
+Remote link › Connection management › Add connection opens it standalone. Add control source step 2, Change connection step 1, and Welcome (through Add control source) open it stacked. Steps: Method, Configure, Ready.
 
 1. Method: radio rows for Create my relay (recommended), Join a shared relay, Use your own address, OpenAI Secure Tunnel, and the local Claude Code/Desktop method. When opened for a product, incompatible methods stay visible and disabled with the reason. Create my relay's primary action reads "Sign in to Cloudflare and deploy" with an external-link icon.
 2. Configure: Create runs the existing RelayProgress (sign in, deploy, connect this computer) with account change, copy-login-link fallback and cancel; it advances automatically. Join asks for the invite link and this computer's device name, and says the host only sees the name and online times. Own address shows provider pills (Cloudflare Tunnel, ngrok, Pinggy, LocalXpose, other reverse proxy), domain without scheme or path, connection name, and a collapsed Advanced section for authentication; it reuses IngressDialog's form logic and native validation. Local installs the client configuration.
@@ -133,7 +133,7 @@ Source activity panels link to platform panels for accounts and runtime controls
 
 ### Connection detail
 
-Selecting a connection row opens Connection detail inside the Remote link workspace: kind icon, name, provider line, state pill, MCP address with Copy, "Sources using it" list linking to Source detail, "Add a source for it", provider facts, and for relays this computer hosts a link to Settings › Extras › Relay hosting. A bottom card removes the connection after a confirmation that names the affected sources and states that their names and history remain. Joined relays show Leave relay instead. Deleting a hosted relay itself stays in Relay hosting.
+Connection management lists external connections only, with Add connection and connection lifecycle actions. Selecting a row opens Connection detail inside the workspace: kind icon, name, provider, state, MCP address with Copy, provider facts, and a Relay hosting link for locally hosted relays. Account/source lists, platform grouping and source creation stay outside this workspace. A bottom card removes the connection after confirmation names affected sources and states that their names and history remain. Joined relays show Leave relay instead. Deleting a hosted relay stays in Relay hosting.
 
 ### Homepage
 
