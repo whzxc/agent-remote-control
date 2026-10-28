@@ -5,6 +5,23 @@
 .studio-backdrop[data-phase="night"] .studio-day { opacity: 0; }
 .studio-backdrop[data-phase="night"] .studio-night { opacity: 1; }
 .studio-atmosphere { position: absolute; inset: 0; background: radial-gradient(ellipse at 52% 45%, var(--studio-veil), transparent 72%); }
+.studio-motion { position: absolute; inset: 0; opacity: 1; transition: opacity 180ms ease; }
+.studio-motion > div { position: absolute; pointer-events: none; }
+.studio-window-light { left: -12%; top: -8%; width: 54%; height: 112%; opacity: .13; background: linear-gradient(112deg, transparent 30%, var(--studio-window-glow) 44%, transparent 65%); animation: studio-daylight 38s ease-in-out infinite alternate; }
+.studio-leaf-shadows { left: 13%; top: 18%; width: 27%; height: 66%; opacity: .065; transform-origin: 0 80%; background: radial-gradient(ellipse at 20% 18%, var(--studio-leaf-shadow) 0 3%, transparent 5%), radial-gradient(ellipse at 36% 28%, var(--studio-leaf-shadow) 0 5%, transparent 8%), radial-gradient(ellipse at 10% 47%, var(--studio-leaf-shadow) 0 5%, transparent 8%), radial-gradient(ellipse at 34% 60%, var(--studio-leaf-shadow) 0 4%, transparent 7%), radial-gradient(ellipse at 6% 81%, var(--studio-leaf-shadow) 0 8%, transparent 11%); animation: studio-leaves 23s ease-in-out infinite alternate; }
+.studio-lamp-light { display: none; right: -9%; bottom: -12%; width: 48%; height: 64%; border-radius: 50%; background: radial-gradient(ellipse at center, var(--studio-lamp-glow), transparent 65%); opacity: .09; animation: studio-lamp 19s ease-in-out infinite alternate; }
+.studio-window-glints { display: none; left: 0; top: 14%; width: 15%; height: 62%; opacity: .13; background: radial-gradient(circle at 28% 29%, var(--studio-night-glint) 0 1px, transparent 2px), radial-gradient(circle at 67% 57%, var(--studio-night-glint) 0 1px, transparent 2px), radial-gradient(circle at 42% 77%, var(--studio-night-glint) 0 1px, transparent 2px); animation: studio-glints 29s ease-in-out infinite alternate; }
+.studio-backdrop[data-phase="night"] .studio-window-light { display: none; }
+.studio-backdrop[data-phase="night"] .studio-leaf-shadows { opacity: .04; }
+.studio-backdrop[data-phase="night"] .studio-lamp-light, .studio-backdrop[data-phase="night"] .studio-window-glints { display: block; }
+.studio-backdrop[data-motion="quiet"] .studio-motion { opacity: .18; }
+.studio-backdrop[data-motion="quiet"] .studio-motion > div { animation-play-state: paused; }
+.studio-backdrop[data-motion="off"] .studio-motion { opacity: 0; transition: none; }
+.studio-backdrop[data-motion="off"] .studio-motion > div { animation: none; }
+@keyframes studio-daylight { from { transform: translate(-9px, -4px); opacity: .07; } to { transform: translate(14px, 8px); opacity: .14; } }
+@keyframes studio-leaves { from { transform: rotate(-.8deg) translateX(-4px); } to { transform: rotate(.8deg) translateX(5px); } }
+@keyframes studio-lamp { from { transform: scale(.98); opacity: .065; } to { transform: scale(1.025); opacity: .105; } }
+@keyframes studio-glints { from { opacity: .07; } to { opacity: .2; } }
 .app-scene[data-display="studio"] .home-workspace { position: relative; }
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
 .app-scene[data-display="studio"] .core-toggle { top: clamp(88px, 11dvh, 116px); }
@@ -16,6 +33,10 @@
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
   .studio-night { background-image: url('/studio/portrait-night.webp'); }
+  .studio-window-light { left: auto; right: -14%; top: -4%; width: 54%; height: 80%; transform-origin: right top; }
+  .studio-leaf-shadows { left: auto; right: 4%; top: 16%; width: 32%; height: 58%; transform-origin: right bottom; }
+  .studio-lamp-light { right: auto; left: -18%; bottom: -6%; width: 62%; height: 42%; }
+  .studio-window-glints { left: auto; right: 0; top: 15%; width: 24%; height: 49%; }
   .studio-clock { left: auto; right: clamp(24px, 9vw, 140px); top: clamp(54px, 6dvh, 100px); transform: none; font-size: clamp(26px, 4vw, 44px); }
   .app-scene[data-display="studio"] .core-toggle { top: clamp(48px, 6dvh, 96px); }
 }
@@ -24,5 +45,8 @@
   .app-scene[data-display="studio"] .core-toggle { top: 70px; }
   .studio-controls { padding: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { .studio-image, .studio-controls { transition: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-image, :root:not([data-reduced-motion]) .studio-controls { transition: none; } }
 :root[data-reduced-motion="true"] .studio-image, :root[data-reduced-motion="true"] .studio-controls { transition: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-motion { display: none; } :root:not([data-reduced-motion]) .studio-motion > div { animation: none; } }
+:root[data-reduced-motion="true"] .studio-motion { display: none; }
+:root[data-reduced-motion="true"] .studio-motion > div { animation: none; }

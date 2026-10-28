@@ -1,7 +1,12 @@
 import type { PetPackage } from './model';
 import { petAssets, petLibrary } from './state';
+import { builtinAssets, builtinPets } from './builtins';
 // Synthetic atlas pixels are generated only by development fixtures. No community art is bundled.
-export function installPetFixture() {
+export function installPetFixture(mascots = false) {
+  if (mascots) {
+    petLibrary.set({ packages: builtinPets, errors: [], loading: false, error: '' }); petAssets.set({ ...builtinAssets });
+    return { packages: [], errors: [] };
+  }
   const packages: PetPackage[] = [];
   const assets: Record<string, string> = {};
   for (const [index, id] of ['claude-maiden', 'gpt-dragon-girl--legeling', 'maid-deepseek-whale'].entries()) {

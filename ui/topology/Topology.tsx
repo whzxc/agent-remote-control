@@ -146,8 +146,12 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const petGeometry = (): PetGeometry => {
     const bounds = { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) };
     const hub = animator.current.values('hub');
-    const nodeRects = new Map<string, Rect>();
-    const obstacles: Rect[] = [];
+    const nodeRects = new Map<string, Rect>(), nodeLabels = new Map<string, Rect[]>();
+    const chrome = [...document.querySelectorAll<HTMLElement>('.core-toggle, .studio-clock, .navigation-capsule:not([hidden]), .studio-controls')].flatMap(element => {
+      const r = element.getBoundingClientRect();
+      return r.width && r.height ? [{ x: r.x - origin.current.x - 8, y: r.y - origin.current.y - 8, width: r.width + 16, height: r.height + 16 }] : [];
+    });
+    const obstacles: Rect[] = [...chrome];
     for (const n of latest.current.nodes) {
       const key = nodeKey(n.side, n.id), v = animator.current.values(key);
       if (!v || v.op < .02) continue;
@@ -160,7 +164,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         const r = label.getBoundingClientRect();
         if (r.width && r.height) parts.push({ x: r.x - origin.current.x, y: r.y - origin.current.y, width: r.width, height: r.height });
       }
-      obstacles.push(...parts);
+      obstacles.push(...parts); nodeLabels.set(key, parts.slice(1));
       const x = Math.min(...parts.map(r => r.x)), y = Math.min(...parts.map(r => r.y));
       nodeRects.set(key, { x, y, width: Math.max(...parts.map(r => r.x + r.width)) - x, height: Math.max(...parts.map(r => r.y + r.height)) - y });
     }
@@ -174,7 +178,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     };
     return {
       bounds, taskFrame,
-      interaction: (p, kind, pet) => {
+      taskPresent: (agent, id) => latest.current.tasks.some(task => task.side === 1 &&
+        (task.taskId === id || task.petTaskIds?.includes(id)) && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent)),
+      interaction: (p, kind, pet, anchors) => {
         if (!hub || latest.current.panelKey || drag.current || orientationPending.current) return undefined;
         const side = p.kind === 'source' ? -1 : 1;
         const candidates = latest.current.nodes.filter(n => !n.stacked && n.side === side && nodeRects.has(nodeKey(n.side, n.id)) &&
@@ -185,7 +191,14 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         let pivot: { x: number; y: number } | undefined;
         if (kind === 'sit') {
           const radius = hub.Re * 240 / 130 * 32 / 92;
-          const angle = -Math.PI / 2 + side * .48;
+          const mark = hubMarkGeometry(hub.dotSource, hub.dotAgent), rotation = hub.rotation * Math.PI / 180;
+          const desired = -Math.PI / 2 + side * .48;
+          const normalize = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+          const local = normalize(desired - rotation);
+          const arcs = [[-Math.PI + mark.sourceAngle + .12, -mark.agentAngle - .12], [mark.agentAngle + .12, Math.PI - mark.sourceAngle - .12]];
+          const angles = arcs.filter(([lo, hi]) => lo <= hi).map(([lo, hi]) => Math.max(lo, Math.min(hi, local)));
+          if (!angles.length) return undefined;
+          const angle = angles.sort((a, b) => Math.abs(normalize(a - local)) - Math.abs(normalize(b - local)))[0] + rotation;
           pivot = { x: hub.x + Math.cos(angle) * radius, y: hub.y + Math.sin(angle) * radius };
         } else if (kind === 'swing') {
           const point = orientation.current === 'portrait' ? portraitPainter.current?.contact(side, .2) : painter.current?.contact(key, .55);
@@ -194,12 +207,14 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         if (!pivot) return undefined;
         const pivots = kind === 'pull' && position ? [pivot, { x: 2 * position.x - pivot.x, y: pivot.y }] : [pivot];
         for (const contact of pivots) {
-          const horizontal = kind === 'pull' && position ? contact.x > position.x ? .25 : .75 : .5;
-          const point = { x: contact.x - pet.width * horizontal, y: contact.y - pet.height * (kind === 'sit' ? .73 : kind === 'swing' ? .28 : .5) };
+          const facing = (kind === 'pull' && position ? contact.x > position.x ? -1 : 1 : -side) as -1 | 1;
+          const rig = anchors?.(facing);
+          const anchor = rig ? kind === 'sit' ? rig.seat : rig.grip : { x: kind === 'pull' && position ? contact.x > position.x ? .25 : .75 : .5, y: kind === 'sit' ? .73 : kind === 'swing' ? .28 : .5 };
+          const point = { x: contact.x - pet.width * anchor.x, y: contact.y - pet.height * anchor.y };
           const footprint = { ...point, width: pet.width, height: pet.height + pet.tagHeight };
           if (point.x < 0 || point.y < bounds.top || point.x + pet.width > bounds.x || point.y + footprint.height > bounds.y ||
-            bubbleFrames.some(b => overlaps(footprint, b.rect)) || [...nodeRects].some(([id, r]) => !(kind === 'pull' && id === key) && overlaps(footprint, r))) continue;
-          return { point, pivot: contact, ...(kind === 'pull' ? { targetId: key } : {}) };
+            chrome.some(rect => overlaps(footprint, rect)) || bubbleFrames.some(b => overlaps(footprint, b.rect)) || kind === 'pull' && nodeLabels.get(key)?.some(label => overlaps(footprint, label)) || [...nodeRects].some(([id, r]) => !(kind === 'pull' && id === key) && overlaps(footprint, r))) continue;
+          return { point, pivot: contact, facing, ...(kind === 'pull' ? { targetId: key } : {}) };
         }
       },
       feedback: (key, amount) => {
@@ -209,7 +224,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         element.style.translate = value ? `${value * 9}px 0` : '';
         element.style.rotate = value ? `${value * 5}deg` : '';
       },
-      route: (from, to, size) => petPath(from, to, bounds, [...obstacles, ...bubbleFrames.map(b => b.rect),
+      route: (from, to, size, occupied = []) => petPath(from, to, bounds, [...obstacles, ...occupied, ...bubbleFrames.map(b => b.rect),
         ...(hub ? [{ x: hub.x - hub.Re, y: hub.y - hub.Re, width: hub.Re * 2, height: hub.Re * 2 }] : [])], size),
       wander: (from, pet, occupied) => {
         const bubbles = latest.current.tasks.flatMap(task => {
@@ -222,7 +237,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       },
       participant: (p, accountId, size = petSize('participant', p.brand === 'other')) => {
         const side = p.kind === 'source' ? -1 : 1;
-        const candidates = latest.current.nodes.filter(n => !n.stacked && n.side === side && nodeRects.has(nodeKey(n.side, n.id)) && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
+        const candidates = latest.current.nodes.filter(n => n.side === side && nodeRects.has(nodeKey(n.side, n.id)) && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
         const node = candidates.find(n => side === -1 && n.id === p.nativeId || accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
         const rect = node && nodeRects.get(nodeKey(side, node.id));
         return rect && hub ? participantPost(rect, { x: hub.x, y: hub.y }, obstacles, bounds, size) : undefined;

@@ -48,7 +48,7 @@ export default function PetsPage() {
         <div className="pet-package-content">
           <h3 title={p.name}>{p.name}</h3>
           <p className="pet-description" title={p.description ?? undefined}>
-            {p.origin === 'codex' ? t('pets.readOnly') : p.source.pageUrl ? <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{p.source.site}</a>
+            {p.origin === 'builtin' ? t('pets.builtIn') : p.origin === 'codex' ? t('pets.readOnly') : p.source.pageUrl ? <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{p.source.site}</a>
               : p.source.site === 'zip' ? t('pets.localZip') : p.description || p.source.site}
           </p>
           <div className="pet-actions">

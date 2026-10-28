@@ -11,11 +11,13 @@ import { createServer } from 'vite';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stateDir } from './dev-state.mjs';
 import { buildEnv } from './build-env.mjs';
+import { developmentConfig } from './dev-identity.mjs';
 import { coreRequest, processAlive, readCore, stopCore } from './dev-core.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 if (process.argv.length > 2) throw new Error('Usage: npm run dev. Use desktop:build for distribution builds.');
 const env = { ...buildEnv(), ARC_STATE_DIR: stateDir };
+const devUrl = developmentConfig(env).build.devUrl;
 const binary = path.join(root, 'target/debug', process.platform === 'win32' ? 'agent-remote-control-desktop.exe' : 'agent-remote-control-desktop');
 const lockPath = path.join(stateDir, 'app/dev.json');
 let server, app, build, restoreExecutable, currentInstance, developmentBuild;
@@ -116,7 +118,7 @@ async function rebuildGeneration() {
       const endpoint = await waitForCore();
       if (endpoint) {
         currentInstance = endpoint.instance;
-        console.log(`Development Core ready (PID ${endpoint.pid}). DEV WEB: http://127.0.0.1:5187/`);
+        console.log(`Development Core ready (PID ${endpoint.pid}). DEV WEB: ${devUrl}/`);
       }
       const launched = app;
       void launched.done.then(async () => {
@@ -187,9 +189,9 @@ try {
   }
   // Reuse an existing dev:ui server only for this checkout and state directory.
   let existing;
-  try { existing = await (await fetch('http://127.0.0.1:5187/__arc_dev', { signal: AbortSignal.timeout(1000) })).json(); }
+  try { existing = await (await fetch(`${devUrl}/__arc_dev`, { signal: AbortSignal.timeout(1000) })).json(); }
   catch { /* Binding the strict port reports incompatible listeners. */ }
-  if (existing && (existing.project !== root || existing.stateDirectory !== stateDir)) throw new Error('Port 5187 belongs to another checkout or state directory. Stop its DEV WEB before starting dev.');
+  if (existing && (existing.project !== root || existing.stateDirectory !== stateDir)) throw new Error(`${devUrl} belongs to another checkout or state directory. Choose another ARC_DEV_PORT before starting dev.`);
   if (!existing) { server = await createServer({ configFile: path.join(root, 'vite.config.ts') }); await server.listen(); }
   const sourceDirectories = ['native/src', 'desktop/src', 'skills'];
   const sourceFiles = ['Cargo.toml', 'Cargo.lock', 'native/Cargo.toml', 'native/build.rs', 'native/screen/main.swift', 'desktop/Cargo.toml', 'desktop/build.rs', 'desktop/tauri.conf.json', 'desktop/tauri.dev.conf.json', 'desktop/tauri.windows.conf.json', 'tooling/build-version.rs', 'tooling/build-native.mjs', 'tooling/macos-dev-app.mjs', 'tooling/dev-identity.mjs', 'docs/reference/cli.md'];

@@ -183,6 +183,10 @@
   --studio-wall: #eee4d6;
   --studio-veil: #fff9ee30;
   --studio-clock: #61516c;
+  --studio-window-glow: #ffecbd;
+  --studio-leaf-shadow: #5b644c;
+  --studio-lamp-glow: #ffd69a;
+  --studio-night-glint: #c6d7ff;
   --surface: #fffdf8;
   --surface-subtle: #f6f0e8;
   --surface-raised: #fffefa;
@@ -198,6 +202,10 @@
   --studio-wall: #272534;
   --studio-veil: #17152314;
   --studio-clock: #e3d2ee;
+  --studio-window-glow: #7e9dd8;
+  --studio-leaf-shadow: #080e26;
+  --studio-lamp-glow: #ffce83;
+  --studio-night-glint: #bfd3ff;
   --surface: #292735;
   --surface-subtle: #33303f;
   --surface-raised: #3a3547;

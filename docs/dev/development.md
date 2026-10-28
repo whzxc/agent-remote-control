@@ -24,6 +24,14 @@ Concurrent DEV WEB requests share an in-flight health probe for the same Core ow
 
 Both commands honor an explicit ARC_STATE_DIR for temporary acceptance instances. There is no separate default development data directory. Do not manually launch a development binary against an active installed instance. The supervisor preserves the single-Core lock and build-identity checks. Other local CLI/MCP clients must release Core before takeover or restart; the launcher reports an actionable error instead of terminating those clients. Core restarts temporarily interrupt connections and ARC-owned execution processes.
 
+Set `ARC_DEV_PORT` to an unused integer from 1 to 65535 to keep an existing DEV WEB running while using a separate development instance. The default is 5187. The native development URL, its content security policy, and Vite use the selected port together. DEV WEB accepts API requests only for that exact loopback host and origin.
+
+```sh
+ARC_DEV_PORT=5190 npm run dev:isolated
+```
+
+`dev:isolated` allocates a new temporary state directory and unique development app identity. Use the emitted `stateDirectory` and `bundleId` to address its CLI and native window. It does not replace the installed app or reuse installed state. See [Acceptance](acceptance.md) for native acceptance and cleanup.
+
 ## Existing checks
 
 ```sh

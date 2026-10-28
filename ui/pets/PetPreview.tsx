@@ -8,7 +8,7 @@ import { usePetMotion } from './usePetMotion';
 export default function PetPreview({ pet }: { pet: PetPackage }) {
   const assets = petAssets.use(), motion = usePetMotion();
   useEffect(() => { void petAsset(pet.key).catch(() => {}); }, [pet.key]);
-  return <span className="pet-preview" aria-hidden="true">{assets[pet.key]
-    ? <PetSprite pet={pet} url={assets[pet.key]} animate={motion.animate} slow />
+  return <span className="pet-preview" aria-hidden="true">{pet.mascot || assets[pet.key]
+    ? <PetSprite pet={pet} url={assets[pet.key] ?? pet.key} animate={motion.animate} slow />
     : <Icon icon={PawPrint} size={20} />}</span>;
 }

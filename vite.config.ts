@@ -8,9 +8,13 @@ import { request as httpRequest } from 'node:http';
 import path from 'node:path';
 import { stateDir } from './tooling/dev-state.mjs';
 import { requireMainCheckout } from './tooling/coding-lane.mjs';
+import { developmentPort } from './tooling/dev-identity.mjs';
 
 const stateRoot = stateDir;
 const packageVersion = buildVersion();
+const devPort = developmentPort();
+const devOrigin = new URL(`http://127.0.0.1:${devPort}`).origin;
+const devHost = new URL(devOrigin).host;
 type Endpoint = { port: number; token: string };
 export default defineConfig({
   root: fileURLToPath(new URL('./ui', import.meta.url)),
@@ -49,7 +53,7 @@ export default defineConfig({
         }
       }
       server.middlewares.use((request, response, next) => {
-        if (request.url === '/__arc_dev' && request.method === 'GET' && request.headers.host === '127.0.0.1:5187') {
+        if (request.url === '/__arc_dev' && request.method === 'GET' && request.headers.host === devHost) {
           response.setHeader('Cache-Control', 'no-store');
           response.setHeader('Content-Type', 'application/json');
           response.end(JSON.stringify({ project: fileURLToPath(new URL('.', import.meta.url)), stateDirectory: stateRoot }));
@@ -57,8 +61,8 @@ export default defineConfig({
         }
         if (!request.url?.startsWith('/api/')) return next();
         response.setHeader('Cache-Control', 'no-store');
-        if (request.headers.host !== '127.0.0.1:5187'
-          || (request.headers.origin && request.headers.origin !== 'http://127.0.0.1:5187')
+        if (request.headers.host !== devHost
+          || (request.headers.origin && request.headers.origin !== devOrigin)
           || request.headers['sec-fetch-site'] === 'cross-site'
           || ((request.method !== 'GET' || request.url === '/api/config/credentials') && request.headers['x-arc-request'] !== '1')) {
           response.writeHead(403, { 'Content-Type': 'application/json' });
@@ -117,5 +121,5 @@ export default defineConfig({
       },
     },
   },
-  server: { host: '127.0.0.1', port: 5187, strictPort: true },
+  server: { host: '127.0.0.1', port: devPort, strictPort: true },
 });

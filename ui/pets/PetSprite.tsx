@@ -1,7 +1,11 @@
 import type { CSSProperties } from 'react';
 import { petSize, type PetSize } from './geometry';
 import { atlasFrame, type PetPackage } from './model';
-export default function PetSprite({ pet, url, row = 0, animate = false, slow = false, frame = 0, size = petSize('preview'), tempo = 1, delay = 0 }: { pet: PetPackage; url: string; row?: number; animate?: boolean; slow?: boolean; frame?: number; size?: PetSize; tempo?: number; delay?: number }) {
+import type { PetAction } from './behavior';
+import { mascotActionForRow, type MascotContact } from './mascotGeometry';
+import Mascot from './Mascot';
+export default function PetSprite({ pet, url, row = 0, animate = false, slow = false, frame = 0, size = petSize('preview'), tempo = 1, delay = 0, action, contact, facing = row === 2 ? -1 : 1 }: { pet: PetPackage; url: string; row?: number; animate?: boolean; slow?: boolean; frame?: number; size?: PetSize; tempo?: number; delay?: number; action?: PetAction; contact?: MascotContact; facing?: -1 | 1 }) {
+  if (pet.mascot) return <Mascot kind={pet.mascot} size={size} animate={animate} slow={slow} tempo={tempo} delay={delay} action={action ?? mascotActionForRow(row)} contact={contact} facing={facing} walking={row === 1 || row === 2} />;
   const atlas = atlasFrame(pet.version, row, frame);
   return <span aria-hidden="true" className="pet-sprite" data-animated={animate || undefined} style={{
     width: size.width, height: size.height, imageRendering: pet.pixelArt ? 'pixelated' : 'auto',

@@ -1494,6 +1494,7 @@
   "pets.inherit": "Use default",
   "pets.inheritPlatform": "Use platform setting",
   "pets.setDefault": "Set as default",
+  "pets.builtIn": "Built in",
   "pets.localZip": "Local ZIP",
   "pets.remove": "Remove {name}",
   "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…",

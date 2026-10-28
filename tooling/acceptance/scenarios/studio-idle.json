@@ -1,0 +1,13 @@
+{
+  "studio": "day",
+  "pets": true,
+  "mascots": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": []
+}

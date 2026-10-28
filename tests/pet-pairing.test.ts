@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectLoopPair, taskColor, type RelayTask } from '../ui/pets/relay.ts';
+import { selectCompanions, selectLoopPair, taskColor, type RelayTask } from '../ui/pets/relay.ts';
 
 const sources = new Set(['source-a', 'source-b']);
 const agents = new Set(['agent-a', 'agent-b']);
@@ -63,4 +63,28 @@ test('a task retains its identification color across repeated projections', () =
   const keys = ['task-a', 'task-b', 'agent:task:turn', '任务一', ''];
   const first = new Map(keys.map(key => [key, taskColor(key)]));
   for (const key of [...keys].reverse()) assert.equal(taskColor(key), first.get(key));
+});
+
+test('available companions can share an idle studio without establishing a Loop', () => {
+  // Regression: the studio showed only one or no main pets until a task had an attributed source and executor.
+  const participants = [
+    { id: 'source:claude', kind: 'source' as const, brand: 'claude' },
+    { id: 'agent:codex', kind: 'agent' as const, brand: 'codex' },
+  ];
+  assert.deepEqual(selectCompanions(participants), participants.map(participant => participant.id));
+  assert.deepEqual(selectCompanions(participants.slice(1)), ['agent:codex']);
+  assert.equal(selectLoopPair([], undefined, new Set(['claude']), new Set(['codex'])), undefined);
+  assert.equal(selectLoopPair([task('native', { agent: 'codex', sourceId: undefined })], undefined, new Set(['claude']), new Set(['codex'])), undefined);
+});
+
+test('idle companions preserve their identities while those participants remain available', () => {
+  // Property: participant ordering and additional choices cannot replace an available resident of the same role.
+  const participants = [
+    { id: 'source:claude', kind: 'source' as const, brand: 'claude' }, { id: 'source:other', kind: 'source' as const, brand: 'other' },
+    { id: 'agent:codex', kind: 'agent' as const, brand: 'codex' }, { id: 'agent:other', kind: 'agent' as const, brand: 'other' },
+  ];
+  const previous = ['source:other', 'agent:other'];
+  assert.deepEqual(selectCompanions(participants, previous), previous);
+  assert.deepEqual(selectCompanions([...participants].reverse(), previous), previous);
+  assert.deepEqual(selectCompanions(participants.filter(participant => !previous.includes(participant.id)), previous), ['source:claude', 'agent:codex']);
 });

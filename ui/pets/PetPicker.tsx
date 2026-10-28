@@ -5,12 +5,12 @@ import { t } from '../i18n';
 import { Button, IconButton, Notice, SingleChoice } from '../components/ui';
 import { assignPet, petAssignments, petLibrary, refreshPets } from './state';
 import PetPreview from './PetPreview';
-import { defaultPet, selectPet } from './model';
+import { petBrand, selectPet } from './model';
 import './pets.css';
 export default function PetPicker({ scope, name, platform }: { scope: string; name: string; platform?: string }) {
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [open, setOpen] = useState(false);
-  const inherited = platform ? selectPet({ id: `platform:${platform}` }, library.packages, assignments) : defaultPet(library.packages, assignments);
+  const inherited = selectPet({ id: scope, platform, brand: petBrand(scope.startsWith('agent:') ? scope.slice(6) : platform ?? '') }, library.packages, { ...assignments, [scope]: '' });
   const selected = library.packages.some(p => p.key === assignments[scope]) ? assignments[scope] : '';
   return <Popover.Root open={open} onOpenChange={value => { setOpen(value); if (value) void refreshPets(); }}>
     <Popover.Trigger asChild><IconButton icon={PawPrint} label={t('pets.chooseFor', { name })} /></Popover.Trigger>

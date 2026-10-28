@@ -1,0 +1,42 @@
+.pet-mascot { display: block; overflow: visible; pointer-events: none; }
+.pet-mascot .mascot-arm, .pet-mascot .mascot-leg { transform-box: view-box; }
+.pet-mascot .mascot-arm-left { transform-origin: 53px 112px; }
+.pet-mascot .mascot-arm-right { transform-origin: 139px 112px; }
+.pet-mascot .mascot-leg-left { transform-origin: 72px 142px; }
+.pet-mascot .mascot-leg-right { transform-origin: 120px 142px; }
+.mascot-eye-closed { opacity: 0; }
+.pet-mascot[data-motion] .mascot-eye-open { animation: mascot-blink-open 5.4s infinite; animation-delay: var(--mascot-delay); }
+.pet-mascot[data-motion] .mascot-eye-closed { animation: mascot-blink-closed 5.4s infinite; animation-delay: var(--mascot-delay); }
+.pet-mascot[data-motion] .mascot-cursor { animation: mascot-cursor 4.6s infinite; animation-delay: var(--mascot-delay); }
+.pet-mascot[data-motion][data-action="idle"] .mascot-rig { animation: mascot-breathe calc(var(--mascot-tempo) * 3.4) ease-in-out infinite; transform-origin: 96px 171px; }
+.pet-mascot[data-motion][data-walking] .mascot-leg-left { animation: mascot-step calc(var(--mascot-tempo) * .42) ease-in-out infinite alternate; animation-delay: var(--leg-delay); }
+.pet-mascot[data-motion][data-walking] .mascot-leg-right { animation: mascot-step calc(var(--mascot-tempo) * .42) ease-in-out infinite alternate-reverse; animation-delay: var(--leg-delay); }
+.pet-mascot[data-motion][data-walking] .mascot-body { animation: mascot-walk-body calc(var(--mascot-tempo) * .42) ease-in-out infinite alternate; }
+.pet-mascot[data-motion][data-action="catch"] .mascot-arm-right { animation: mascot-catch calc(var(--mascot-tempo) * .7) ease-out 1; }
+.pet-mascot[data-motion][data-action="work"] .mascot-arm-left { animation: mascot-tap calc(var(--mascot-tempo) * .45) ease-in-out infinite alternate; }
+.pet-mascot[data-motion][data-action="work"] .mascot-arm-right { animation: mascot-tap calc(var(--mascot-tempo) * .45) ease-in-out infinite alternate-reverse; }
+.pet-mascot[data-motion][data-action="work"] .mascot-work-sparks { animation: mascot-work calc(var(--mascot-tempo) * .9) ease-out infinite; }
+.pet-mascot[data-motion][data-action="think"] .mascot-arm-right { animation: mascot-think calc(var(--mascot-tempo) * 2.7) ease-in-out infinite; }
+.pet-mascot[data-motion][data-action="wait"] .mascot-arm { animation: mascot-wait calc(var(--mascot-tempo) * 2.8) ease-in-out infinite; }
+.pet-mascot[data-motion][data-action="celebrate"] .mascot-arm-left { animation: mascot-cheer calc(var(--mascot-tempo) * .6) ease-in-out infinite alternate; }
+.pet-mascot[data-motion][data-action="celebrate"] .mascot-arm-right { animation: mascot-cheer calc(var(--mascot-tempo) * .6) ease-in-out infinite alternate-reverse; }
+.pet-mascot[data-motion][data-contact="sit"] .mascot-leg { animation: mascot-sit-feet 3.2s ease-in-out infinite alternate; }
+.pet-mascot[data-motion][data-contact="swing"] .mascot-leg-left { animation: mascot-swing-feet 2.7s ease-in-out infinite alternate; }
+.pet-mascot[data-motion][data-contact="swing"] .mascot-leg-right { animation: mascot-swing-feet 2.7s ease-in-out infinite alternate-reverse; }
+.pet-mascot[data-motion][data-contact] .mascot-rig, .pet-mascot[data-motion][data-contact] .mascot-arm { animation: none; }
+@keyframes mascot-blink-open { 0%, 45%, 48%, 100% { opacity: 1; } 46%, 47% { opacity: 0; } }
+@keyframes mascot-blink-closed { 0%, 45%, 48%, 100% { opacity: 0; } 46%, 47% { opacity: 1; } }
+@keyframes mascot-cursor { 0%, 68%, 78%, 100% { opacity: 1; } 72%, 74% { opacity: .15; } }
+@keyframes mascot-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes mascot-step { from { transform: rotate(-11deg) translateY(-1px); } to { transform: rotate(11deg) translateY(1px); } }
+@keyframes mascot-walk-body { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+@keyframes mascot-catch { 0% { transform: rotate(-12deg); } 65% { transform: rotate(5deg); } 100% { transform: rotate(0); } }
+@keyframes mascot-tap { from { transform: translateY(-2px); } to { transform: translateY(1px); } }
+@keyframes mascot-work { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-5px); } }
+@keyframes mascot-think { 0%, 100% { transform: rotate(0); } 45% { transform: rotate(-4deg); } }
+@keyframes mascot-wait { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes mascot-cheer { from { transform: rotate(-5deg); } to { transform: rotate(8deg); } }
+@keyframes mascot-sit-feet { from { transform: rotate(-3deg); } to { transform: rotate(5deg); } }
+@keyframes mascot-swing-feet { from { transform: rotate(-7deg); } to { transform: rotate(9deg); } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .pet-mascot * { animation: none !important; } }
+:root[data-reduced-motion="true"] .pet-mascot * { animation: none !important; }

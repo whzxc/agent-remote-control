@@ -9,6 +9,7 @@ import { panelLayers } from '../state/panels';
 import { appEnvironment, appNow } from '../state/appEnvironment';
 import { nextClockTick, parseStudioPhase, studioToneAt } from './model';
 import { studioEnabled, studioPhase, studioTone } from './state';
+import { useStudioMotion } from './useStudioMotion';
 import './studio.css';
 
 function useStudioClock(enabled: boolean) {
@@ -35,15 +36,17 @@ function useStudioClock(enabled: boolean) {
 
 export function StudioBackground({ clockVisible }: { clockVisible: boolean }) {
   const enabled = studioEnabled.use(), phase = studioPhase.use(), language = locale.use();
-  const now = useStudioClock(enabled), tone = studioToneAt(now, phase);
+  const motion = useStudioMotion(enabled && clockVisible);
+  const now = useStudioClock(enabled && motion.visible), tone = studioToneAt(now, phase);
   useLayoutEffect(() => { studioTone.set(enabled ? tone : null); }, [enabled, tone]);
   useLayoutEffect(() => () => studioTone.set(null), []);
   if (!enabled) return null;
   const date = new Date(now);
   return <>
-    <div className="studio-backdrop" data-phase={tone} aria-hidden="true">
+    <div className="studio-backdrop" data-phase={tone} data-motion={motion.state} aria-hidden="true">
       <div className="studio-image studio-day" /><div className="studio-image studio-night" />
       <div className="studio-atmosphere" />
+      <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
     </div>
     {clockVisible && <time className="studio-clock" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
       {new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}
@@ -86,9 +89,9 @@ export function StudioControls({ available }: { available: boolean }) {
     try {
       if (isDesktop) {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const window = getCurrentWindow(); await window.setFullscreen(value); setFullscreen(await window.isFullscreen());
-        wasFullscreen.current = value;
-        if (!value) restoreFocus();
+        const window = getCurrentWindow(); await window.setFullscreen(value);
+        const actual = await window.isFullscreen(); setFullscreen(actual); wasFullscreen.current = actual;
+        if (!value && !actual) restoreFocus();
       } else if (value) await document.documentElement.requestFullscreen();
       else if (document.fullscreenElement) await document.exitFullscreen();
     } catch { notify(t('studio.fullscreenFailed'), true); }

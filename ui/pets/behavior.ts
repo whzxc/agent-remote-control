@@ -2,7 +2,8 @@ import type { AgentPhase } from '../types.ts';
 import type { TaskState } from '../state/taskProjection.ts';
 
 export type PetGesture = 'still' | 'nod' | 'sway' | 'hop' | 'bounce' | 'wiggle' | 'spin' | 'stretch' | 'peek' | 'lean';
-export interface PetPose { row: number; gesture: PetGesture; tempo: number }
+export type PetAction = 'idle' | 'give' | 'catch' | 'carry' | 'work' | 'wait' | 'think' | 'celebrate' | 'tired';
+export interface PetPose { row: number; gesture: PetGesture; tempo: number; action?: PetAction }
 export const reactions = [
   { id: 'hello', rows: [3, 0], gesture: 'sway' },
   { id: 'highFive', rows: [3, 4, 3], gesture: 'hop' },
@@ -35,10 +36,10 @@ export function reactionDeck(previous?: number, random = Math.random) {
 
 export function activityPose(phase: AgentPhase, state: TaskState, participant: boolean, random = Math.random): PetPose {
   const pick = <T,>(values: readonly T[]) => values[Math.floor(random() * values.length)];
-  if (state === 'needsYou') return { row: 6, gesture: pick<PetGesture>(['peek', 'sway']), tempo: 1.1 + random() * .3 };
-  if (state === 'failed' || state === 'interrupted') return { row: 5, gesture: 'still', tempo: 1.1 + random() * .4 };
-  if (state === 'unknown') return { row: 8, gesture: 'lean', tempo: 1.1 + random() * .4 };
-  if (state === 'done' || phase === 'idle') return { row: pick([0, 0, 3]), gesture: pick<PetGesture>(['still', 'sway', 'stretch']), tempo: 1.1 + random() * .7 };
+  if (state === 'needsYou') return { row: 6, gesture: pick<PetGesture>(['peek', 'sway']), tempo: 1.1 + random() * .3, action: 'wait' };
+  if (state === 'failed' || state === 'interrupted') return { row: 5, gesture: 'still', tempo: 1.1 + random() * .4, action: 'tired' };
+  if (state === 'unknown') return { row: 8, gesture: 'lean', tempo: 1.1 + random() * .4, action: 'think' };
+  if (state === 'done' || phase === 'idle') return { row: pick([0, 0, 3]), gesture: pick<PetGesture>(['still', 'sway', 'stretch']), tempo: 1.1 + random() * .7, action: 'idle' };
   const rows = participant ? {
     thinking: [0, 8, 6], command: [8, 3, 0], file: [8, 0, 3], tool: [6, 8, 3], text: [3, 0, 4], interaction: [6], idle: [0],
   } : {
@@ -48,5 +49,5 @@ export function activityPose(phase: AgentPhase, state: TaskState, participant: b
     thinking: ['lean', 'peek', 'nod'], command: ['bounce', 'nod', 'still'], file: ['nod', 'lean', 'still'],
     tool: ['wiggle', 'nod', 'still'], text: ['sway', 'nod', 'hop'], interaction: ['peek'], idle: ['still'],
   };
-  return { row: pick(rows[phase]), gesture: pick(gestures[phase]), tempo: (participant ? 1.15 : .8) + random() * .55 };
+  return { row: pick(rows[phase]), gesture: pick(gestures[phase]), tempo: (participant ? 1.15 : .8) + random() * .55, action: phase === 'thinking' ? 'think' : phase === 'interaction' ? 'wait' : participant ? 'idle' : 'work' };
 }

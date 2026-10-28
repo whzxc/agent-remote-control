@@ -1464,6 +1464,7 @@
   "pets.inherit": "跟随默认",
   "pets.inheritPlatform": "跟随平台设置",
   "pets.setDefault": "设为默认",
+  "pets.builtIn": "内置",
   "pets.localZip": "本地 ZIP",
   "pets.remove": "删除 {name}",
   "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…",
