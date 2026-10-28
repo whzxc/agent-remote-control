@@ -20,7 +20,7 @@ import type { SurfaceRect } from "../motion/surface";
 
 export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccountId' | 'origin'>, Omit<PaintTask, "parent" | "side"> { content: ReactNode; reorderable?: boolean; taskId?: string; threadId?: string; count?: number; pending?: boolean; activityQueue?: string }
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; tasks: TaskView[]; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
-  account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
+  platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
   sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: PathTask['agentAccountId'];
 }
 type PositionedTask = TaskView & { parent: string; side: Side };
@@ -214,10 +214,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const selected = latest.current.nodes.find(n => n.selected);
     // Reserve only the minimum; following the measured panel would feed its
     // growing width back into the node layout and move the arc again.
-    const reservedWidth = Math.min(latest.current.panelExpanded ? innerWidth - 2 * PANEL_MARGIN : PANEL_MIN_WIDTH, innerWidth - 2 * PANEL_MARGIN);
+    const reservedWidth = Math.min(PANEL_MIN_WIDTH, innerWidth - 2 * PANEL_MARGIN);
     if (selected) sc.panel = { side: selected.side, selected: selected.id,
       edge: selected.side === 1 ? innerWidth - reservedWidth - PANEL_MARGIN - origin.current.x : PANEL_MARGIN + reservedWidth - origin.current.x,
-      narrow: innerWidth < 760 || latest.current.panelExpanded };
+      narrow: innerWidth < 760, overlay: latest.current.panelExpanded };
     if (!d?.active) return sc;
     const wing = d.side === -1 ? "left" : "right";
     if (d.kind === "node") {
@@ -259,7 +259,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const selectedNode = selected && layout.current.wings.find(w => w.side === selected.side)?.nodes.find(n => n.id === selected.id);
     const radius = selectedNode && (selectedNode.arc?.R ?? selectedNode.size * selectedNode.scale / 2 + latest.current.params.arcGap);
     let rect: SurfaceRect | undefined;
-    if (layout.current.portrait && selectedNode) {
+    if (layout.current.portrait && selectedNode && !latest.current.panelExpanded) {
       const container = boundary.current;
       const viewportTop = origin.current.y + (container?.scrollTop ?? 0);
       if (container && placedPanel.current !== latest.current.panelKey) {
@@ -446,7 +446,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : 'agent')}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
-      data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.sourceIds?.[0] ?? n.id : undefined}
+      data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
       data-account-id={n.accountId}
       className={`topology-node ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       data-collapse-visible={revealed === nodeKey(n.side, n.id) || focus?.side === n.side && focus.id === n.id || undefined}

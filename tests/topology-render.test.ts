@@ -186,6 +186,11 @@ test("control source dock preserves editing, field navigation and cross-side dis
       else if (path.endsWith("/oauth")) value = { grants: [] };
       else if (path.startsWith("tasks/runtime/")) value = { runtimeStatus: "active", observedAt: "2026-01-01" };
       else if (path.startsWith("agents/timeline/")) value = { sessionId: "thread", status: "running", entries: [], cursor: 0, coverage: { state: "complete" } };
+      else if (["ingress/one/start", "ingress/one/stop"].includes(path) && method === "POST") {
+        const running = path.endsWith("/start"), ingress = status.ingresses[0];
+        Object.assign(ingress, { running, state: running ? "ready" : "stopped" });
+        ingress.sources.forEach(source => { source.state = running ? "connected" : "disconnected"; });
+      }
       else if (path === "ingress/one" && method === "PUT") { Object.assign(status.ingresses[0], body); value = status.ingresses[0]; }
       else if (path === "ingress/one" && method === "DELETE") status.ingresses = status.ingresses.filter(i => i.id !== "one");
       return new Response(JSON.stringify(value), { status: 200 });
@@ -208,8 +213,9 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const shell = page.getByRole("dialog");
     assert.equal(shell.getAttribute("aria-modal"), null);
     await click(page.getByRole("switch"));
-    assert.equal(status.ingresses[0].enabled, false);
+    assert.ok(page.getByRole("switch", { checked: false }));
     await click(page.getByRole("switch"));
+    assert.ok(page.getByRole("switch", { checked: true }));
     await act(() => navigation.set({ ingressEdit: { id: "one" } })); await flush();
     assertNodeIdentity(page.getByRole("dialog"), shell);
     await click(button(t("back")));

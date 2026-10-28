@@ -47,7 +47,7 @@ export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default
 export type Side = -1 | 1;
 export interface Task { id: string; width: number; height: number }
 export interface Entity { id: string; tasks: readonly Task[]; children?: readonly Entity[]; collapsed?: boolean }
-export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; narrow?: boolean } }
+export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; narrow?: boolean; overlay?: boolean } }
 export interface Drag extends Point { kind: "node" | "task"; side: Side; id: string }
 export interface Point { x: number; y: number }
 export interface NodeGeometry extends Point {
@@ -226,15 +226,16 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
     for (const t of wing.tasks) { t.hidden = true; t.x -= wing.side * 12; }
     return wing;
   };
+  const reservePanel = !!sc.panel && !sc.panel.overlay;
   const measure = () => {
     const L = solveWing(sc.left, -1, at(0), Re, p, optL, null);
     const R = solveWing(sc.right, 1, at(0), Re, p, optR, null);
-    const extent = (wing: Wing) => extentOf(sc.panel?.side === wing.side ? { ...panelWing(wing), nodes: wing.nodes.filter(n => n.opacity > 0), tasks: [] } : wing, 0, Re);
+    const extent = (wing: Wing) => extentOf(reservePanel && sc.panel?.side === wing.side ? { ...panelWing(wing), nodes: wing.nodes.filter(n => n.opacity > 0), tasks: [] } : wing, 0, Re);
     return { eL: extent(L), eR: extent(R) };
   };
   let e = measure();
-  const leftEdge = sc.panel?.side === -1 ? sc.panel.edge + 40 : m;
-  const rightEdge = sc.panel?.side === 1 ? sc.panel.edge - 40 : vw - m;
+  const leftEdge = reservePanel && sc.panel?.side === -1 ? sc.panel.edge + 40 : m;
+  const rightEdge = reservePanel && sc.panel?.side === 1 ? sc.panel.edge - 40 : vw - m;
   const avail = rightEdge - leftEdge;
   if (e.eL.full + e.eR.full > avail) {
     let lo = preferredRe * MIN_HUB_RATIO, hi = preferredRe;
@@ -266,8 +267,8 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   let hx = vw / 2;
   const minX = leftEdge + e.eL.full, maxX = rightEdge - e.eR.full;
   if (minX <= maxX) hx = Math.max(minX, Math.min(maxX, hx));
-  else hx = sc.panel?.side === 1 ? maxX : minX; // A dock prioritizes its selected node; the far wing may clip.
-  if (sc.panel?.narrow) {
+  else hx = reservePanel && sc.panel?.side === 1 ? maxX : minX; // A dock prioritizes its selected node; the far wing may clip.
+  if (reservePanel && sc.panel?.narrow) {
     const side = sc.panel.side;
     const wing = panelWing(solveWing(side === 1 ? sc.right : sc.left, side, at(0), Re, p, side === 1 ? optR : optL, null));
     const selected = wing.nodes.find(n => n.id === sc.panel!.selected);

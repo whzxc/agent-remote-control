@@ -113,8 +113,10 @@ One persisted preference, selected in Settings > General through two icon option
 
 One side panel replaces the source panel layer one plus the Remote link source detail. Remote link keeps the source and connection lists; opening a source opens this panel.
 
-- Header: product icon, `Platform · Alias`, email only, connection enable switch, width control and close. There is no account-initial badge, state-chip strip or shared-connection helper line.
-- Tabs: Activity (stacked nonempty groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings), Account (identity card, `whoami` line, link to the same-identity Agent with quota, notification binding with Copy bind prompt and Bind manually), Connection (connection card with Change, address copy, authorized / last seen / client reports / tools facts, collapsed Advanced with product correction, Disconnect at the bottom).
+- Header: product icon, `Platform · Alias`, email only, a switch reflecting the connection runtime, width control and close. The switch starts or stops the connection; enabling its configuration alone does not mean it is running. There is no account-initial badge, state-chip strip or shared-connection helper line.
+- Tabs: Activity (stacked nonempty groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings), Connection (connection card with Change, address copy, authorized / last seen / client reports / tools facts, collapsed Advanced with product correction, Disconnect at the bottom).
+
+Multi-account source platform nodes open an independent platform panel. It stacks account identity cards, same-identity Agent links and quota in topology account order, without notifications. Notification management stays in the Accounts workspace. Individual source panels contain only Activity and Connection. Platform state aggregates its sources; any running source keeps the platform active.
 
 ### Topology
 

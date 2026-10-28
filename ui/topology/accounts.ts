@@ -10,6 +10,7 @@ export interface PathNode {
   id: string; side: Side; parent?: string; accountId?: string; sourceIds?: string[];
   tasks: PathTask[];
 }
+export const sourcePlatformNodeId = (platform: string) => `platform:${platform}`;
 export const accountNodeId = (platform: string, account: string) => JSON.stringify(['account', platform, account]);
 
 // Union complete paths before projecting hidden descendants onto visible ancestors.

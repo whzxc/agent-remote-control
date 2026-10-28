@@ -246,23 +246,22 @@ test('source dates treat zero and absent timestamps as never in every locale', a
   });
 });
 
-test('account source panels use product display names in every locale', async () => {
+test('source platform panels use product display names in every locale', async () => {
   // Regression: the same-identity Agent link rendered the internal codex ID instead of the Codex display name.
   await withAccountUI(async ({ server, root }) => {
     const { refreshAccounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
     const { accountsApi } = await server.ssrLoadModule('/ui/api.ts');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
-    const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
+    const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
     const { Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const { locale, t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const { locale } = await server.ssrLoadModule('/ui/i18n.ts');
     const { name } = await server.ssrLoadModule('/ui/state/agents.ts');
     await refreshAccounts();
     const account = await accountsApi.get('account-openai');
     const source = connector.get().sources.find((item: any) => account.sources.includes(item.id));
     const page = within(document.body);
     for (const language of ['en', 'zh-CN']) {
-      await act(async () => { locale.set(language); root.render(h(TooltipProvider, null, h(Dialog, { title: 'Source', onClose() {} }, h(SourcePanel, { source })))); });
-      await act(async () => { fireEvent.click(page.getByRole('radio', { name: t('accounts.tab.account'), exact: true })); });
+      await act(async () => { locale.set(language); root.render(h(TooltipProvider, null, h(Dialog, { title: 'Source', onClose() {} }, h(SourcePlatformView, { platform: source.product })))); });
       const label = `${name(account.agentProfiles[0])} · ${account.alias}`;
       assert.ok(page.getByRole('button', { name: label, exact: true }));
       assert.equal(page.queryByRole('button', { name: `${account.agentProfiles[0].agent} · ${account.alias}`, exact: true }), null);

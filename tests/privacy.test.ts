@@ -63,6 +63,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const { default: AccountsPage } = await server.ssrLoadModule('/ui/components/AccountsPage.tsx');
     const { default: AddAccount } = await server.ssrLoadModule('/ui/components/AddAccount.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
+    const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
     const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
     const { ActivityBubble } = await server.ssrLoadModule('/ui/components/ActivityBubbles.tsx');
     const { CopyField, Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -108,7 +109,8 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     }
     await act(async () => setPrivacy(true));
     await render(h(Dialog, { title: 'Source', onClose() {} }, h(SourcePanel, { source })));
-    await act(async () => { fireEvent.click(page.getByRole('radio', { name: t('accounts.tab.account'), exact: true })); });
+    assertPrivate();
+    await render(h(Dialog, { title: 'Source platform', onClose() {} }, h(SourcePlatformView, { platform: source.product })));
     assertPrivate();
     await act(async () => setPrivacy(false));
     assert.ok(page.getByText(sourceAccount.identityKey, { exact: true }));

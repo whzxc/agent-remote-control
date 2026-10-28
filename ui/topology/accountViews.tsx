@@ -1,10 +1,12 @@
 import GraphNode from '../components/GraphNode';
 import type { NodeView } from './Topology';
-import { accountNodeId, type TopologyAccount } from './accounts';
+import { accountNodeId, sourcePlatformNodeId, type TopologyAccount } from './accounts';
 import { orderedSubset } from './order';
 import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
 
 export interface AccountNodeActions {
+  selectedPlatform?: string;
+  openPlatform?: (platform: string) => void;
   open: (side: -1 | 1, platform: string, sourceId?: string, accountId?: string) => void;
 }
 // Stable account keys survive Tree/Flat switches. Connections never create identities.
@@ -53,11 +55,12 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
         </GraphNode>,
       } satisfies NodeView;
     });
-    const platformView: NodeView = { ...first, id: side === 1 ? platform : `platform:${platform}`, platform,
-      label, icon: platformIcon, sourceIds: covered.map(v => v.id),
-      selected: covered.some(v => v.selected) && !childViews.some(v => v.selected),
+    const state = side === -1 ? (['normal', 'connecting', 'error', 'inactive'] as const).find(state => covered.some(view => view.state === state)) ?? first.state : first.state;
+    const selected = side === -1 ? actions.selectedPlatform === platform : covered.some(v => v.selected) && !childViews.some(v => v.selected);
+    const platformView: NodeView = { ...first, id: side === 1 ? platform : sourcePlatformNodeId(platform), platform, platformRoot: side === -1,
+      label, icon: platformIcon, state, sourceIds: covered.map(v => v.id), selected,
       tasks: tasks.filter(t => !linked.some(a => a.id === t.agentAccountId)),
-      content: <GraphNode label={label} state={first.state} highlighted={members.some(v => v.selected)} onOpen={() => actions.open(side, platform, first.id)}>
+      content: <GraphNode label={label} state={state} highlighted={selected} onOpen={() => side === -1 ? actions.openPlatform?.(platform) : actions.open(side, platform, first.id)}>
         {platformIcon}<span className="graph-node-name">{label}</span>
       </GraphNode>,
     };

@@ -23,7 +23,7 @@ export function observeTopology(read: () => unknown) {
   return () => { if (topology === read) topology = undefined; };
 }
 export function viewModel(layoutSettled = false) {
-  const detail = taskPanelSnapshot();
+  const detail = taskPanelSnapshot(), sourcePanel = ingressPanel.get();
   return {
     env: environmentModel(appEnvironment.get(), Date.now(), {
       reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -39,7 +39,8 @@ export function viewModel(layoutSettled = false) {
     topology: topology?.() ?? null,
     taskDetail: detail,
     taskBubbles: activityBubbleSnapshot(),
-    panels: { agent: agentPanel.get() ?? null, source: ingressPanel.get()?.client?.id ?? null,
+    panels: { agent: agentPanel.get() ?? null, source: sourcePanel && 'ingress' in sourcePanel ? sourcePanel.client?.id ?? null : null,
+      sourcePlatform: sourcePanel && 'platform' in sourcePanel ? sourcePanel.platform : null,
       onboarding: onboarding.get()?.step ?? null, connectionSetup: connectionSetup.get() ?? null, connectionSwitch: connectionSwitch.get() ?? null, remoteSourceId: navigation.get().remoteSourceId ?? null, remoteConnectionId: navigation.get().remoteConnectionId ?? null, page: localStorage.getItem('arc-page') ?? 'overview' },
   };
 }
