@@ -70,8 +70,9 @@ pub(crate) fn check_read(method: &str, args: &Value) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn snapshot(thread: &str, mut state: Value) -> Value {
+pub(crate) fn snapshot(thread: &str, mut state: Arc<Value>) -> Arc<Value> {
     if active(thread, "placeholder") {
+        let state = Arc::make_mut(&mut state);
         let history = &mut state["turnHistory"]["history"];
         if history["entitiesByKey"].is_object() {
             history["entitiesByKey"]["arc-acceptance-placeholder"] =

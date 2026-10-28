@@ -2805,7 +2805,7 @@ pub(crate) fn thread(s: &Value, complete: bool) -> Result<Value> {
         t["modelProvider"] = provider.clone();
     }
     if complete {
-        t["turns"] = json!(desktop::turns(s)?)
+        t["turns"] = Value::Array(desktop::turns(s)?)
     }
     Ok(t)
 }

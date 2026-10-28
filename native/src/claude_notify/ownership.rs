@@ -65,6 +65,7 @@ pub(crate) async fn observe(thread: &str, ownership: &Value) -> Result<Value> {
     let (mut state, bindings) = {
         let _guard = LOCK.lock().await;
         let mut state = stored(thread)?;
+        let before = state.clone();
         let previous = state["currentOwner"]
             .as_str()
             .filter(|o| *o != "unknown")
@@ -104,7 +105,9 @@ pub(crate) async fn observe(thread: &str, ownership: &Value) -> Result<Value> {
         }
         state["state"] = ownership["state"].clone();
         state["observedAt"] = json!(now());
-        save(&path(thread)?, &state)?;
+        if observation_changed(&before, &state) {
+            save(&path(thread)?, &state)?;
+        }
         let bindings = if state["history"]
             .as_array()
             .is_some_and(|rows| !rows.is_empty())

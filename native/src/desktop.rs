@@ -54,7 +54,8 @@ pub fn require_installation() -> Result<Installation> {
 const SNAPSHOT_TTL: Duration = Duration::from_secs(4);
 struct Snapshot {
     received: Instant,
-    value: Value,
+    value: Arc<Value>,
+    revision: u64,
     wire_bytes: usize,
 }
 const SNAPSHOT_BUDGET: usize = 32 * 1024 * 1024;
@@ -69,7 +70,7 @@ impl Snapshots {
         self.rows.retain(|_, s| s.received.elapsed() < SNAPSHOT_TTL);
         self.evictions += (before - self.rows.len()) as u64;
     }
-    fn insert(&mut self, thread: String, value: Value, wire_bytes: usize) {
+    fn insert(&mut self, thread: String, mut value: Value, wire_bytes: usize) {
         self.prune();
         self.rows.remove(&thread);
         let mut bytes: usize = self.rows.values().map(|s| s.wire_bytes).sum();
@@ -91,7 +92,8 @@ impl Snapshots {
             thread,
             Snapshot {
                 received: Instant::now(),
-                value,
+                revision: value["revision"].as_u64().unwrap_or(0),
+                value: Arc::new(value["conversationState"].take()),
                 wire_bytes,
             },
         );
@@ -214,9 +216,10 @@ impl Ipc {
                 }
                 let _scope =
                     crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::DesktopFrame);
-                let Ok(msg) = serde_json::from_slice::<Value>(&bytes) else {
+                let Ok(mut msg) = serde_json::from_slice::<Value>(&bytes) else {
                     continue;
                 };
+                drop(bytes);
                 match string(&msg, "type") {
                     "client-discovery-request" => {
                         let reply = json!({"type":"client-discovery-response","requestId":msg["requestId"],"response":{"canHandle":false}});
@@ -254,8 +257,8 @@ impl Ipc {
                         if params["hostId"] != "local" {
                             continue;
                         }
-                        let thread = string(params, "conversationId");
-                        if o.lock().await.get(thread).map(String::as_str)
+                        let thread = string(params, "conversationId").to_owned();
+                        if o.lock().await.get(&thread).map(String::as_str)
                             != msg["sourceClientId"].as_str()
                         {
                             continue;
@@ -264,15 +267,15 @@ impl Ipc {
                         let owner = string(&msg, "sourceClientId").to_owned();
                         let snapshot_frame = params["change"]["type"] == "snapshot";
                         let repeated = revision.is_some()
-                            && revisions.get(thread) == Some(&(owner.clone(), revision, true));
+                            && revisions.get(&thread) == Some(&(owner.clone(), revision, true));
                         if repeated && snapshot_frame {
                             let mut snapshots = s.lock().await;
-                            if let Some(snapshot) = snapshots.rows.get_mut(thread) {
+                            if let Some(snapshot) = snapshots.rows.get_mut(&thread) {
                                 snapshot.received = Instant::now();
                             } else {
                                 snapshots.insert(
                                     thread.into(),
-                                    params["change"].clone(),
+                                    msg["params"]["change"].take(),
                                     len as usize,
                                 );
                             }
@@ -287,18 +290,18 @@ impl Ipc {
                             )
                             .await;
                             s.lock().await.insert(
-                                thread.into(),
+                                thread.clone(),
                                 params["change"].clone(),
                                 len as usize,
                             );
                         } else {
                             // Delta frames are not full snapshots. Request a fresh snapshot on the next read.
-                            s.lock().await.remove(thread);
+                            s.lock().await.remove(&thread);
                         }
                         n.notify_waiters();
                         // Follow/read can repeat an unchanged snapshot. Wake task waiters
                         // only for a changed revision, not another reader's refresh.
-                        if !revisions.contains_key(thread) && revisions.len() >= 2000 {
+                        if !revisions.contains_key(&thread) && revisions.len() >= 2000 {
                             revisions.clear();
                         }
                         let previous = revisions
@@ -308,7 +311,7 @@ impl Ipc {
                         {
                             changed.notify_waiters();
                         }
-                        let mut params = params.clone();
+                        let mut params = msg["params"].take();
                         params["ownerClientId"] = msg["sourceClientId"].clone();
                         crate::event(
                             &events,
@@ -493,7 +496,7 @@ impl Ipc {
     async fn follow_owner(&self, thread: &str, owner: &str) -> Result<()> {
         self.write(json!({"type":"broadcast","sourceClientId":self.client,"targetClientIds":[owner],"method":"thread-stream-following-changed","version":1,"params":{"hostId":"local","conversationId":thread,"following":true}})).await
     }
-    async fn wait(&self, thread: &str, revision: u64) -> Result<Value> {
+    async fn wait(&self, thread: &str, revision: u64) -> Result<Arc<Value>> {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
                 let wake = self.wake.notified();
@@ -503,10 +506,8 @@ impl Ipc {
                     return Err("DESKTOP_DISCONNECTED".into());
                 }
                 if let Some(s) = self.snapshots.lock().await.get(thread) {
-                    if s.received.elapsed() < SNAPSHOT_TTL
-                        && s.value["revision"].as_u64().unwrap_or(0) >= revision
-                    {
-                        return Ok(s.value["conversationState"].clone());
+                    if s.received.elapsed() < SNAPSHOT_TTL && s.revision >= revision {
+                        return Ok(s.value.clone());
                     }
                 }
                 wake.await;
@@ -515,7 +516,7 @@ impl Ipc {
         .await
         .map_err(|_| "DESKTOP_SNAPSHOT_TIMEOUT")?
     }
-    pub async fn read(&self, thread: &str, complete: bool) -> Result<Value> {
+    pub async fn read(&self, thread: &str, complete: bool) -> Result<Arc<Value>> {
         if let Some(state) = self.snapshot(thread).await {
             if !complete || state["turnHistory"]["history"]["isComplete"] == true {
                 return Ok(state);
@@ -529,7 +530,7 @@ impl Ipc {
         thread: &str,
         complete: bool,
         owner: &str,
-    ) -> Result<Value> {
+    ) -> Result<Arc<Value>> {
         let mut state = match self.snapshot(thread).await {
             Some(state) => state,
             None => {
@@ -556,15 +557,15 @@ impl Ipc {
         }
         Ok(crate::acceptance_fault::snapshot(thread, state))
     }
-    pub async fn snapshot(&self, thread: &str) -> Option<Value> {
+    pub async fn snapshot(&self, thread: &str) -> Option<Arc<Value>> {
         if !self.alive() {
             return None;
         }
         let mut snapshots = self.snapshots.lock().await;
         snapshots.prune();
-        snapshots.get(thread).map(|s| {
-            crate::acceptance_fault::snapshot(thread, s.value["conversationState"].clone())
-        })
+        snapshots
+            .get(thread)
+            .map(|s| crate::acceptance_fault::snapshot(thread, s.value.clone()))
     }
     pub async fn mutate(&self, method: &str, args: &Value) -> Result<Value> {
         let thread = string(args, "threadId");
@@ -882,6 +883,7 @@ mod tests {
     async fn desktop_snapshots_are_bounded_and_expire_without_rereading_old_threads() {
         // Regression: visited Desktop histories accumulated because TTL cleanup only visited the requested key.
         let (ipc, peer) = diagnostic_fixture().await;
+        let retained = ipc.read("retained-reader", true).await.unwrap();
         for n in 0..80 {
             let thread = format!("fixture-{n}");
             assert_eq!(ipc.read(&thread, true).await.unwrap()["id"], thread);
@@ -897,6 +899,9 @@ mod tests {
         );
         tokio::time::sleep(Duration::from_millis(4100)).await;
         assert_eq!(ipc.diagnostics().await["snapshots"]["entries"], 0);
+        // A reader's immutable history remains valid after cache eviction.
+        assert_eq!(retained["id"], "retained-reader");
+        assert_eq!(retained["fixture"].as_str().unwrap().len(), 512 * 1024);
         drop(ipc);
         peer.await.unwrap();
     }

@@ -186,6 +186,9 @@ fn persist(dir: &Path, b: &Binding) -> Result<()> {
     let path = path_in(dir, &b.thread_id, &b.turn_id);
     let before = file_cache::Stamp::read(path.parent().unwrap())?;
     let mut cache = BINDINGS.lock().map_err(|e| e.to_string())?;
+    if cache.read(&path).is_ok_and(|old| old.as_ref() == b) {
+        return Ok(());
+    }
     save(&path, &serde_json::to_value(b).map_err(|e| e.to_string())?)?;
     cache.written(&path, before, b.clone())
 }
@@ -1206,6 +1209,18 @@ fn quiet_terminal(b: &Binding) -> bool {
         })
 }
 
+/// Observation time is live evidence, not a durable state transition.
+/// Nested timestamps (including handoff history) remain significant.
+pub(crate) fn observation_changed(previous: &Value, current: &Value) -> bool {
+    match (previous.as_object(), current.as_object()) {
+        (Some(previous), Some(current)) => previous
+            .iter()
+            .chain(current.iter())
+            .any(|(key, _)| key != "observedAt" && previous.get(key) != current.get(key)),
+        _ => previous != current,
+    }
+}
+
 async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Value) -> Result<()> {
     let guard = lock.lock().await;
     let Some(current) = binding(dir, &b.thread_id, &b.turn_id)? else {
@@ -1235,8 +1250,10 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             "runtimeSource":observation["runtimeSource"],"runtimeStatus":observation["runtimeStatus"],
             "recordedStatus":observation["recordedStatus"],"observedAt":if observation["state"]=="unconfirmed" {b.observation["observedAt"].clone()}else{observation["observedAt"].clone()},
             "reconciliation":if observation["state"]=="unconfirmed" {"pending-after-restart"}else{"reconciled"}});
-        let changed = b.observation != diagnostic;
-        b.observation = diagnostic;
+        let changed = observation_changed(&b.observation, &diagnostic);
+        if changed {
+            b.observation = diagnostic;
+        }
         changed
     } else {
         false
@@ -2706,6 +2723,86 @@ pub(crate) async fn migrate() -> Result<()> {
     Ok(())
 }
 
+/// A dormant delivery pass may sleep only when no clock can change governance.
+pub(crate) fn delivery_has_deadline(state: &Value, capacity: u64) -> bool {
+    state["subscriptions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|s| !s["expiresAt"].is_null() || !s["webhook"]["previousSecret"].is_null())
+        || state["targets"].as_array().into_iter().flatten().any(|t| {
+            t["tokens"].as_u64().unwrap_or(0) != capacity
+                || t["batches"].as_array().is_some_and(|b| !b.is_empty())
+                || t["breaker"] == true
+                || !t["emptySince"].is_null()
+                || t["escalated"] == true
+                || !t["escalationError"].is_null()
+                || t["reachability"]["reason"] == "handshake-pending"
+        })
+}
+
+#[derive(PartialEq)]
+struct DeliveryInputs {
+    stamps: Vec<Option<file_cache::Stamp>>,
+    settings: Value,
+}
+impl DeliveryInputs {
+    fn read(dir: &Path, settings: Value) -> Result<Self> {
+        Ok(Self {
+            stamps: ["tasks", "subscriptions/state.json", "request-routing"]
+                .into_iter()
+                .map(|name| file_cache::Stamp::read(&dir.join(name)))
+                .collect::<Result<_>>()?,
+            settings,
+        })
+    }
+}
+
+#[derive(Default)]
+struct DeliveryIdle {
+    inputs: Option<DeliveryInputs>,
+    checked_at: Option<std::time::Instant>,
+}
+impl DeliveryIdle {
+    async fn flush(
+        &mut self,
+        executor: &impl Executor,
+        dir: &Path,
+        lock: &Mutex<()>,
+        now: i64,
+        settings: Value,
+    ) -> Result<()> {
+        let inputs = DeliveryInputs::read(dir, settings)?;
+        if self.inputs.as_ref() == Some(&inputs)
+            && self
+                .checked_at
+                .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
+        {
+            return Ok(());
+        }
+        self.inputs = None;
+        flush(executor, dir, lock, now, 30, &inputs.settings).await?;
+        let _guard = lock.lock().await;
+        let state = file_cache::shared_load(&dir.join("subscriptions/state.json"))?;
+        let dormant = !delivery_has_deadline(&state, governance::capacity(&inputs.settings))
+            && shared_records(dir)?.iter().all(|b| {
+                b.deliveries.iter().all(|d| {
+                    !matches!(d.status.as_str(), "pending" | "sending")
+                        || (d.status == "pending"
+                            && d.target.is_empty()
+                            && d.timing.queue_reason.as_deref() == Some("unbound"))
+                })
+            });
+        // Compare against the inputs from BEFORE flush. A concurrent mutation or
+        // this pass's own writes must trigger another pass, never be marked handled.
+        if dormant && DeliveryInputs::read(dir, inputs.settings.clone())? == inputs {
+            self.inputs = Some(inputs);
+            self.checked_at = Some(std::time::Instant::now());
+        }
+        Ok(())
+    }
+}
+
 pub(crate) fn start(service: &Arc<crate::service::Service>) {
     let control = &service.control;
     // Capture before the worker can finish recovery. The same journal drives
@@ -2728,15 +2825,15 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
         let wake = control.events.clone();
         tokio::spawn(async move {
             tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.wait_for(|ready| *ready) => {} }
+            let mut idle = DeliveryIdle::default();
             loop {
                 let result = async {
-                    flush(
+                    idle.flush(
                         &executor,
                         &directory(),
                         &LOCK,
                         chrono::Utc::now().timestamp(),
-                        30,
-                        &settings()?,
+                        settings()?,
                     )
                     .await
                 };
@@ -2995,6 +3092,51 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
 mod tests {
     use super::*;
     use std::sync::Mutex as SyncMutex;
+    #[test]
+    fn observation_clock_does_not_create_a_durable_transition() {
+        // Regression: unchanged terminal observations rewrote hundreds of task and handoff records every cycle.
+        let previous =
+            json!({"state":"completed","observedAt":"old","history":[{"observedAt":"transition"}]});
+        let mut current = previous.clone();
+        current["observedAt"] = json!("new");
+        assert!(!observation_changed(&previous, &current));
+        current["history"][0]["observedAt"] = json!("another-transition");
+        assert!(observation_changed(&previous, &current));
+        current = previous.clone();
+        current["state"] = json!("running");
+        assert!(observation_changed(&previous, &current));
+        current = previous.clone();
+        current["currentOwner"] = json!("desktop");
+        assert!(observation_changed(&previous, &current));
+        assert!(observation_changed(&Value::Null, &previous));
+    }
+    #[test]
+    fn delivery_clocks_keep_the_scheduler_awake() {
+        // Property: dormant delivery scheduling never skips expiring subscriptions, token refill, batch cleanup or reachability deadlines.
+        let settled = json!({"targets":[{"tokens":4,"batches":[],"breaker":false,"escalated":false}],"subscriptions":[]});
+        assert!(!delivery_has_deadline(&settled, 4));
+        for (field, value) in [
+            ("tokens", json!(3)),
+            ("batches", json!([{"at":1}])),
+            ("breaker", json!(true)),
+            ("emptySince", json!(1)),
+            ("escalated", json!(true)),
+            ("escalationError", json!("failed")),
+            ("reachability", json!({"reason":"handshake-pending"})),
+        ] {
+            let mut state = settled.clone();
+            state["targets"][0][field] = value;
+            assert!(delivery_has_deadline(&state, 4), "{field}");
+        }
+        for subscription in [
+            json!({"expiresAt":123}),
+            json!({"webhook":{"previousSecret":"rotating"}}),
+        ] {
+            let mut state = settled.clone();
+            state["subscriptions"] = json!([subscription]);
+            assert!(delivery_has_deadline(&state, 4));
+        }
+    }
     struct Sandbox(PathBuf);
     impl Sandbox {
         fn new() -> Self {
