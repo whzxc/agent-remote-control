@@ -9,14 +9,14 @@
 .pet-metadata { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 12px; margin-block: 8px; }
 .pet-metadata dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .pet-metadata dt { color: var(--text-secondary); }
-.pet-sprite { display: block; width: 72px; height: 78px; background-repeat: no-repeat; pointer-events: none; }
+.pet-sprite { display: block; background-repeat: no-repeat; pointer-events: none; }
 .pet-sprite[data-animated] { animation: pet-frames var(--pet-cadence) steps(var(--pet-frames)) infinite; }
 @keyframes pet-frames { from { background-position-x: 0; } to { background-position-x: var(--pet-end); } }
-.topology-pet { position: absolute; left: 0; top: 0; z-index: 2; width: 72px; height: 78px; border: 0; padding: 0; background: transparent; color: var(--text); touch-action: none; user-select: none; cursor: grab; visibility: hidden; }
+.topology-pet { position: absolute; left: 0; top: 0; z-index: 2; border: 0; padding: 0; background: transparent; color: var(--text); touch-action: none; user-select: none; cursor: grab; visibility: hidden; }
 .topology-pet:active { cursor: grabbing; }
 .topology-pet:focus-visible { outline: 2px solid var(--accent); border-radius: 8px; }
 .pet-name, .pet-speech { position: absolute; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 2px 6px; font-size: 11px; white-space: nowrap; pointer-events: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-.pet-name { bottom: -12px; }
+.pet-name { top: var(--pet-height); height: var(--pet-tag-height); max-width: 100%; box-sizing: border-box; line-height: 12px; }
 .pet-speech { bottom: 100%; }
 @media (prefers-reduced-motion: reduce) { .pet-sprite[data-animated] { animation: none; } }
 

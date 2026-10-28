@@ -1,3 +1,4 @@
+import { participantPost, petSize, bubbleTop, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -115,23 +116,45 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     primitives: Object.fromEntries([...animator.current.live.keys()].map(key => [key, animator.current.values(key)])),
     paths: [...((orientation.current === "portrait" ? portraitSvg.current : svg.current)?.querySelectorAll("path") ?? [])].map(path => ({ d: path.getAttribute("d"), class: path.getAttribute("class"), opacity: path.getAttribute("opacity"), mask: path.getAttribute("mask") })),
   })), []);
-  const petGeometry = (): PetGeometry => ({
-    bounds: { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) },
-    participant: (p, accountId) => {
-      const side = p.kind === 'source' ? -1 : 1;
-      const candidates = latest.current.nodes.filter(n => n.side === side && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
-      const node = candidates.find(n => accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
-      const v = node && animator.current.values(nodeKey(side, node.id));
-      return v && { x: v.x, y: v.y };
-    },
-    task: (agent, id) => {
-      const grouped = latest.current.tasks.find(task => task.side === 1 && task.petTaskIds?.includes(id) && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
-      const v = animator.current.values(taskKey(1, JSON.stringify([agent, id]))) ?? (grouped && animator.current.values(taskKey(1, grouped.id)));
-      return v && { x: v.x - v.anchor * v.width + v.width / 2, y: v.y - v.height / 2 };
-    },
-  });
+  const petGeometry = (): PetGeometry => {
+    const bounds = { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) };
+    const hub = animator.current.values('hub');
+    const nodeRects = new Map<string, Rect>();
+    const obstacles: Rect[] = [];
+    for (const n of latest.current.nodes) {
+      const key = nodeKey(n.side, n.id), v = animator.current.values(key);
+      if (!v || v.op < .02) continue;
+      const radius = v.size * v.scale / 2;
+      const icon = { x: v.x - radius, y: v.y - radius, width: radius * 2, height: radius * 2 };
+      const parts = [icon];
+      // Labels can be below or outside the rail and wrap in portrait layouts.
+      for (const label of elements.current.get(key)?.querySelectorAll<HTMLElement>('.graph-node-name, .agent-auto-compact') ?? []) {
+        const r = label.getBoundingClientRect();
+        if (r.width && r.height) parts.push({ x: r.x - origin.current.x, y: r.y - origin.current.y, width: r.width, height: r.height });
+      }
+      obstacles.push(...parts);
+      const x = Math.min(...parts.map(r => r.x)), y = Math.min(...parts.map(r => r.y));
+      nodeRects.set(key, { x, y, width: Math.max(...parts.map(r => r.x + r.width)) - x, height: Math.max(...parts.map(r => r.y + r.height)) - y });
+    }
+    return {
+      bounds,
+      participant: (p, accountId, size = petSize('participant', p.brand === 'other')) => {
+        const side = p.kind === 'source' ? -1 : 1;
+        const candidates = latest.current.nodes.filter(n => n.side === side && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
+        const node = candidates.find(n => accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
+        const rect = node && nodeRects.get(nodeKey(side, node.id));
+        return rect && hub ? participantPost(rect, { x: hub.x, y: hub.y }, obstacles, bounds, size) : undefined;
+      },
+      task: (agent, id) => {
+        // Use the actual rendered task identity, including account/aggregate projection.
+        const own = latest.current.tasks.filter(task => task.side === 1 && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
+        const task = own.find(task => task.taskId === id) ?? own.find(task => task.petTaskIds?.includes(id));
+        const v = task && animator.current.values(taskKey(task.side, task.id));
+        return v && bubbleTop({ x: v.x, y: v.y, width: v.width, height: v.height, anchor: v.anchor });
+      },
+    };
+  };
   const paint = useCallback(() => {
-    pets.current?.layout();
     const a = animator.current, h = a.values("hub"), root = graph.current;
     if (!h || !root) return;
     const portrait = orientation.current === 'portrait';
@@ -204,6 +227,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (blend > 0.001) portraitPainter.current?.paint(a, latest.current.allNodes, latest.current.allTasks, rect);
     if (blend < 0.999) painter.current?.paint(a, latest.current.allNodes, latest.current.allTasks, rect,
       latest.current.guides ? layout.current : null);
+    pets.current?.layout();
   }, [boundary]);
   const tick = useCallback((time: number) => {
     frame.current = 0;

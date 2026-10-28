@@ -93,6 +93,20 @@ fn safe_file(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
         && !name.starts_with('.')
 }
+/// A bounded palette is a deterministic pixel-art hint, independent of transparent RGB noise.
+pub fn pixel_art(image: &image::RgbaImage) -> bool {
+    let mut colors = std::collections::HashSet::new();
+    for pixel in image.pixels() {
+        if pixel[3] == 0 {
+            continue;
+        }
+        colors.insert(u32::from_le_bytes(pixel.0));
+        if colors.len() > 256 {
+            return false;
+        }
+    }
+    !colors.is_empty()
+}
 pub fn validate(manifest: &[u8], sprite: &[u8]) -> Result<Value> {
     if manifest.len() + sprite.len() > MAX_BYTES || manifest.len() > 65536 {
         return Err("INVALID_ARGUMENT: pet package exceeds size limit".into());
@@ -135,8 +149,9 @@ pub fn validate(manifest: &[u8], sprite: &[u8]) -> Result<Value> {
     if animated {
         return Err("INVALID_ARGUMENT: use a static atlas; ARC owns frame animation".into());
     }
-    image::load_from_memory(sprite)
+    let decoded = image::load_from_memory(sprite)
         .map_err(|e| format!("INVALID_ARGUMENT: spritesheet decode: {e}"))?;
+    let pixel_art = pixel_art(&decoded.to_rgba8());
     if value
         .get("spriteVersionNumber")
         .is_some_and(|v| v != version)
@@ -144,7 +159,7 @@ pub fn validate(manifest: &[u8], sprite: &[u8]) -> Result<Value> {
         return Err("INVALID_ARGUMENT: atlas and spriteVersionNumber disagree".into());
     }
     Ok(
-        json!({"id":value["id"],"name":value.get("displayName").unwrap_or(&value["id"]),"version":version,"sprite":value["spritesheetPath"]}),
+        json!({"id":value["id"],"name":value.get("displayName").unwrap_or(&value["id"]),"version":version,"sprite":value["spritesheetPath"],"pixelArt":pixel_art}),
     )
 }
 pub fn unpack(data: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -297,10 +312,19 @@ fn install(manifest: Vec<u8>, sprite: Vec<u8>, mut source: Value) -> Result<Valu
             std::fs::write(staging.join(string(&info, "sprite")), sprite)
                 .map_err(|e| e.to_string())?;
             save(&staging.join("source.json"), &source)?;
+            save(
+                &staging.join("rendering.json"),
+                &json!({"heuristicVersion":1,"pixelArt":info["pixelArt"]}),
+            )?;
             std::fs::rename(&staging, &dest).map_err(|e| e.to_string())
         })();
         let _ = std::fs::remove_dir_all(staging);
         result?;
+    } else {
+        save(
+            &dest.join("rendering.json"),
+            &json!({"heuristicVersion":1,"pixelArt":info["pixelArt"]}),
+        )?;
     }
     Ok(list())
 }
@@ -409,6 +433,35 @@ pub async fn request(route: &str, method: &str, body: Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pixel_art_is_invariant_to_transparent_rgb_and_palette_repetition() {
+        // Property: repeating a bounded visible palette or changing fully transparent RGB preserves classification.
+        for count in [1u32, 16, 256] {
+            let palette =
+                image::RgbaImage::from_fn(count, 1, |x, _| image::Rgba([x as u8, 40, 90, 255]));
+            assert!(pixel_art(&palette));
+            let repeated = image::RgbaImage::from_fn(count * 3, 4, |x, y| {
+                if y == 3 {
+                    image::Rgba([x as u8, (x / 256) as u8, 130, 0])
+                } else {
+                    *palette.get_pixel(x % count, 0)
+                }
+            });
+            assert_eq!(pixel_art(&palette), pixel_art(&repeated));
+        }
+        assert!(!pixel_art(&image::RgbaImage::new(8, 8)));
+    }
+    #[test]
+    fn adding_distinct_visible_colors_crosses_the_palette_limit() {
+        // Property: a palette above the heuristic limit remains smooth under repetition or pixel reordering.
+        let gradient = image::RgbaImage::from_fn(257, 1, |x, _| {
+            image::Rgba([x as u8, (x / 256) as u8, 70, 255])
+        });
+        assert!(!pixel_art(&gradient));
+        let reversed =
+            image::RgbaImage::from_fn(514, 2, |x, _| *gradient.get_pixel(256 - x % 257, 0));
+        assert_eq!(pixel_art(&gradient), pixel_art(&reversed));
+    }
     #[test]
     fn page_resolution_is_host_and_path_bounded() {
         // Property: only exact HTTPS community pet page hosts and single safe identifiers resolve.

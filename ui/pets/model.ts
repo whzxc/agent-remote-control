@@ -1,6 +1,6 @@
 export type PetBrand = 'claude' | 'codex' | 'other';
 export interface PetPackage {
-  key: string; id: string; name: string; version: 1 | 2; origin: 'arc' | 'codex';
+  key: string; id: string; name: string; version: 1 | 2; origin: 'arc' | 'codex'; pixelArt: boolean;
   source: { site: string; pageUrl?: string | null; author?: string | null; license?: string | null; attribution?: string | null; installedAt?: string; sha256?: { petJson: string; spritesheet: string } };
 }
 export interface Participant { id: string; name: string; brand: PetBrand; kind: 'source' | 'agent'; nativeId: string }
@@ -26,7 +26,4 @@ export const rows = [6, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8] as const;
 export function atlasFrame(version: 1 | 2, row: number, frame = 0) {
   const r = Math.max(0, Math.min(version === 2 ? 10 : 8, Math.floor(row)));
   return { row: r, frames: rows[r], frame: Math.max(0, Math.min(rows[r] - 1, Math.floor(frame))), height: version === 2 ? 2288 : 1872 };
-}
-export function boundPet(point: Point, width: number, height: number, top = 0): Point {
-  return { x: Math.max(0, Math.min(Math.max(0, width - 72), point.x)), y: Math.max(top, Math.min(Math.max(top, height - 78), point.y)) };
 }
