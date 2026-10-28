@@ -13,9 +13,9 @@
 .pet-preview { flex: 0 0 72px; width: 72px; height: 78px; display: grid; place-items: center; }
 .pets-page footer { color: var(--text-secondary); font-size: 12px; }
 .pet-picker { z-index: 120; width: min(360px, calc(100vw - 24px)); max-height: min(480px, var(--radix-popover-content-available-height)); overflow-y: auto; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-.pet-picker .pet-preview { flex-basis: 48px; width: 48px; height: 52px; }
-.pet-picker .pet-sprite { transform: scale(.6667); }
-.pet-picker .choice-option > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.pet-picker .choice-tiles .choice-radio { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); width: 100%; gap: 8px; }
+.pet-picker .choice-tiles .choice-option { min-height: 88px; padding: 4px; justify-content: center; }
+.pet-picker .choice-measure { display: none; }
 .pet-sprite { display: block; background-repeat: no-repeat; pointer-events: none; }
 .pet-sprite[data-animated] { animation: pet-frames var(--pet-cadence) steps(var(--pet-frames)) infinite; }
 @keyframes pet-frames { from { background-position-x: 0; } to { background-position-x: var(--pet-end); } }

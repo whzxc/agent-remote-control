@@ -1432,7 +1432,6 @@
   "pets.install": "安装",
   "pets.chooseZip": "选择 ZIP",
   "pets.defaultPet": "默认宠物",
-  "pets.originalPage": "原始页面",
   "pets.installed": "已安装",
   "pets.loading": "正在加载宠物…",
   "pets.empty": "安装宠物后可在首页显示。",
@@ -1470,5 +1469,6 @@
   "pets.inherit": "跟随默认",
   "pets.setDefault": "设为默认",
   "pets.localZip": "本地 ZIP",
-  "pets.remove": "删除 {name}"
+  "pets.remove": "删除 {name}",
+  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…"
 }

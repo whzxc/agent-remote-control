@@ -80,7 +80,7 @@ macOS uses an Icon Composer document, actool Assets.car, and a static ICNS fallb
 
 ## Subscription quota development
 
-Core owns quota reads, refresh scheduling, and reading caches. React shares QuotaBubble, QuotaRing, and hover details. Desktop receives subscriptions:changed. Browsers receive snapshots through authenticated /api/subscriptions/events forwarded by Vite. Disconnected streams follow the current owner again. Polling is a fallback only.
+Core owns quota reads, refresh scheduling, and reading caches. React shares QuotaBubble, QuotaRing, and hover details. Desktop receives subscriptions:changed. Production browser clients receive snapshots through authenticated /api/subscriptions/events; disconnected streams follow the current owner again. DEV WEB uses the existing read endpoints instead of EventSource so concurrent previews cannot exhaust the browser's HTTP/1 connection pool. Connector state and visible Agent activity poll every two seconds; visible subscription state polls every thirty seconds. Native Desktop keeps its event delivery. The preview trades push immediacy for bounded polling latency without reserving persistent HTTP slots.
 
 [Subscriptions](../reference/subscriptions.md) owns source, cache, and cadence rules. Verify native login, desktop events, and browser streams separately. Do not collect local usage logs, token statistics, or pricing data.
 

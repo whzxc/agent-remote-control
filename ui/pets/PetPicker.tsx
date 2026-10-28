@@ -16,7 +16,7 @@ export default function PetPicker({ scope, name }: { scope: string; name: string
       aria-label={t('pets.chooseFor', { name })} onEscapeKeyDown={event => event.stopPropagation()}>
       {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
       {!library.packages.length && <p role="status">{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
-      <SingleChoice cards label={t('pets.chooseFor', { name })} value={selected} onChange={key => { assignPet(scope, key); setOpen(false); }}
+      <SingleChoice tiles iconOnly label={t('pets.chooseFor', { name })} value={selected} onChange={key => { assignPet(scope, key); setOpen(false); }}
         options={[{ value: '', label: t('pets.inherit'), icon: PawPrint }, ...library.packages.map(p => ({ value: p.key, label: p.name, graphic: <PetPreview pet={p} /> }))]} />
     </Popover.Content></Popover.Portal>
   </Popover.Root>;

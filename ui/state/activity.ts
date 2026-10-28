@@ -73,7 +73,7 @@ export function startAgentActivity() {
       if (stopped) dispose();
       else { off = dispose; connected = true; void read(); }
     }).catch(() => { connected = false; void read(); });
-  } else if (typeof EventSource !== "undefined") {
+  } else if (!import.meta.env.DEV && typeof EventSource !== "undefined") {
     stream = new EventSource("/api/agents/activity/events");
     stream.onopen = () => { connected = true; };
     stream.addEventListener("snapshot", event => {
@@ -83,7 +83,7 @@ export function startAgentActivity() {
     stream.onerror = () => { connected = false; void read(); };
   }
   void read();
-  const timer = setInterval(() => { if (!document.hidden && !connected) void read(); }, 5000);
+  const timer = setInterval(() => { if (!document.hidden && !connected) void read(); }, import.meta.env.DEV ? 2000 : 5000);
   const resume = () => { if (!document.hidden) void read(); };
   document.addEventListener("visibilitychange", resume);
   return () => {

@@ -35,7 +35,7 @@ export default function PetsPage() {
     <section className="pet-import">
       <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
       <form onSubmit={e => { e.preventDefault(); void install({ url }); }}>
-        <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" value={url} onChange={e => setUrl(e.target.value)} readOnly={busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
+        <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" placeholder={t('pets.linkPlaceholder')} value={url} onChange={e => setUrl(e.target.value)} readOnly={busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
         <div className="pet-actions"><Button type="submit" busy={busy} disabled={!url.trim()}>{t('pets.install')}</Button><Button disabled={busy} onClick={() => file.current?.click()}>{t('pets.chooseZip')}</Button></div>
         <input hidden ref={file} type="file" accept=".zip,application/zip" onChange={e => { const selected = e.target.files?.[0]; if (selected) void install(selected); }} />
       </form>
@@ -47,11 +47,10 @@ export default function PetsPage() {
         <PetPreview pet={p} />
         <div className="pet-package-content">
           <h3 title={p.name}>{p.name}</h3>
-          <p className="pet-description" title={p.description ?? undefined}>{p.description || (p.origin === 'codex' ? t('pets.readOnly') : p.source.site === 'zip' ? t('pets.localZip') : p.source.site)}</p>
-          <div className="pet-actions">
-            {p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}
-            {p.origin === 'codex' && p.description && <span className="muted">{t('pets.readOnly')}</span>}
-          </div>
+          <p className="pet-description" title={p.description ?? undefined}>
+            {p.origin === 'codex' ? t('pets.readOnly') : p.source.pageUrl ? <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{p.source.site}</a>
+              : p.source.site === 'zip' ? t('pets.localZip') : p.description || p.source.site}
+          </p>
           <div className="pet-actions">
             <Button disabled={busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
             {p.origin === 'arc' && <Button variant="danger-outline" disabled={busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}

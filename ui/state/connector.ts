@@ -96,7 +96,9 @@ export function startConnector() {
     if (!stopped) void refreshConnector().catch(() => {});
   };
   read();
-  if (!isDesktop) {
+  // Dev previews share an HTTP/1 connection pool across IAB tabs. Use polling
+  // so three long-lived streams per preview cannot starve ordinary API reads.
+  if (!isDesktop && !import.meta.env.DEV) {
     stream = new EventSource("/api/events");
     stream.addEventListener("snapshot", (event) => {
       try {

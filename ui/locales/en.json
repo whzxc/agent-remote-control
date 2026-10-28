@@ -1462,7 +1462,6 @@
   "pets.install": "Install",
   "pets.chooseZip": "Choose ZIP",
   "pets.defaultPet": "Default pet",
-  "pets.originalPage": "Original page",
   "pets.installed": "Installed",
   "pets.loading": "Loading pets…",
   "pets.empty": "Install a pet to show it on the homepage.",
@@ -1500,5 +1499,6 @@
   "pets.inherit": "Use default",
   "pets.setDefault": "Set as default",
   "pets.localZip": "Local ZIP",
-  "pets.remove": "Remove {name}"
+  "pets.remove": "Remove {name}",
+  "pets.linkPlaceholder": "https://codex-pets.net/#/pets/…"
 }

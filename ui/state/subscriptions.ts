@@ -70,7 +70,7 @@ export function startSubscriptions() {
         else off = dispose;
       })
       .catch((e) => subscriptions.set((old) => ({ ...old, error: String(e) })));
-  else {
+  else if (!import.meta.env.DEV) {
     stream = new EventSource("/api/subscriptions/events");
     stream.addEventListener("snapshot", (event) => {
       try {
