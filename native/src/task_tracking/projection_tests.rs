@@ -38,7 +38,7 @@ fn claude_thinking_only_tail_preserves_activity_without_role_or_uuid() {
             assert!(row["turnStartedAt"].is_null());
             assert_eq!(row["turnCount"], 0);
             assert!(timeline.transcript_active(now, now + std::time::Duration::from_secs(90)));
-            assert!(!timeline.transcript_active(now, now + std::time::Duration::from_secs(91)));
+            assert!(timeline.transcript_active(now, now + std::time::Duration::from_secs(3600)));
             assert_eq!(types(&timeline), ["thinking"]);
             let entry_id = timeline.entries[0]["id"].clone();
             let mut reread = Timeline::default();
@@ -344,7 +344,7 @@ fn transcript_activity_preserves_expiry_and_filters_injected_content() {
         assert_eq!(row["fallbackHeadline"], "Actual update.");
         assert_eq!(row["turnId"], "user");
         assert!(t.transcript_active(now, now + std::time::Duration::from_secs(90)));
-        assert!(!t.transcript_active(now, now + std::time::Duration::from_secs(91)));
+        assert!(t.transcript_active(now, now + std::time::Duration::from_secs(3600)));
     }
 }
 

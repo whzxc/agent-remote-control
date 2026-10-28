@@ -275,7 +275,14 @@ fn scan_roots(
                 let Ok(modified) = metadata.modified() else {
                     continue;
                 };
-                if now.duration_since(modified).unwrap_or_default() > Duration::from_secs(300) {
+                // Keep already observed unfinished turns in the sample even when
+                // compaction or a long tool stops writing to their transcript.
+                let unfinished = cache.tails.get(path).is_some_and(|tail| {
+                    tail.timeline.transcript_active(modified, now)
+                });
+                if !unfinished
+                    && now.duration_since(modified).unwrap_or_default() > Duration::from_secs(300)
+                {
                     continue;
                 }
                 recent.insert(path.clone());

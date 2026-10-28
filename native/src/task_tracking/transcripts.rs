@@ -145,8 +145,8 @@ impl Timeline {
 
     pub fn transcript_active(
         &self,
-        modified: std::time::SystemTime,
-        now: std::time::SystemTime,
+        _modified: std::time::SystemTime,
+        _now: std::time::SystemTime,
     ) -> bool {
         if self.entries.is_empty() && self.omitted_sidechain_records > 0 {
             return false;
@@ -154,20 +154,9 @@ impl Timeline {
         if matches!(self.status.as_str(), "completed" | "failed" | "cancelled") {
             return false;
         }
-        let (at, grace) = self
-            .transcript_activity
-            .as_ref()
-            .map(|(at, grace)| {
-                (
-                    chrono::DateTime::parse_from_rfc3339(at)
-                        .ok()
-                        .map(|at| std::time::SystemTime::from(at.with_timezone(&chrono::Utc)))
-                        .unwrap_or(modified),
-                    *grace,
-                )
-            })
-            .unwrap_or((modified, 30));
-        now.duration_since(at).unwrap_or_default() <= std::time::Duration::from_secs(grace)
+        // Silence is not terminal evidence: compaction and long tools can stop
+        // transcript writes while the turn is still running.
+        !self.entries.is_empty() || matches!(self.status.as_str(), "running" | "inProgress")
     }
 
     pub fn transcript_session(&self, id: &str, agent: &str) -> Value {
