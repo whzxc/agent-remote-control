@@ -1,6 +1,6 @@
 import { useAppNow } from "../state/appEnvironment";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
-import { controlSourcePlatform } from '../controlSources';
+import { controlSource, controlSourcePlatform } from '../controlSources';
 import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
 import { accountOwns } from '../accountPresentation';
@@ -239,7 +239,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const nodeLabel = accounts.some(account => account.sources.includes(source.id)) ? platformLabel : source.label;
     return [{
       id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
-      icon: <SourceIcon platform={platform.id} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
+      sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
+      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
         onMove={panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
@@ -319,7 +320,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const flatten = (nodes: NodeView[]): NodeView[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
   const reorderNodes = (side: -1 | 1, ids: string[]) => {
     const nodes = flatten(side === -1 ? topologyLeft : topologyRight), first = nodes.find(n => n.id === ids[0]);
-    if (first?.account) {
+    if (first?.account && !first.sourceProduct) {
       topologyAccountOrder.set(old => ({ ...old, [`${side}:${first.platform}`]: ids.flatMap(id => nodes.find(n => n.id === id)?.accountId ?? []) }));
     } else if (side === -1) reorderSources(orderedSubset(controlSources, ids.flatMap(id => nodes.find(n => n.id === id)?.sourceIds ?? [id])).map(s => s.id));
     else reorderAgents(orderedSubset(agents.map(a => ({ id: a.agent })), ids).map(a => a.id));

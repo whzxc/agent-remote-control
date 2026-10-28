@@ -10,12 +10,15 @@ import { agentActivity } from "../state/activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { useAccounts } from "../state/accounts";
+import { connector } from "../state/connector";
 import { sourceDispatches, dispatchState, isLatestDispatch } from "../state/sourceDispatch";
 import { PhaseTile } from "./activity";
 import { Empty, Icon, Notice } from "./ui";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const account = useAccounts().items.find(account => account.sources.includes(sourceId));
+  const { sources } = connector.use(), product = sources.find(source => source.id === sourceId)?.product;
+  const historyIds = (account?.sources ?? [sourceId]).filter(id => !product || sources.some(source => source.id === id && source.product === product));
   const now = useAppNow(60_000), language = locale.use();
   const tracked = trackedActivity.use();
   const { records, error } = tasks.use(), { snapshot } = agentActivity.use();
@@ -34,7 +37,7 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
       && session.endedAt !== undefined && session.readAt === undefined
       && (!record.turnId || !session.turnId || record.turnId === session.turnId));
   };
-  const dispatches = [...new Map((account?.sources ?? [sourceId]).flatMap(id => sourceDispatches(records, id)).map(record => [record.requestId, record])).values()];
+  const dispatches = [...new Map(historyIds.flatMap(id => sourceDispatches(records, id)).map(record => [record.requestId, record])).values()];
   const sections = activitySections(dispatches, now, record => Date.parse(record.createdAt) || 0, record => {
     const state = stateOf(record);
     return state === 'pending' ? 'attention' : state === 'running' ? 'running' : unreadOf(record) ? 'unread' : undefined;

@@ -125,8 +125,8 @@ Agent platform nodes open a separate platform panel only when the Agent has mult
 ### Topology
 
 - Modes: Tree (default) and Flat, a persisted preference at the end of Settings > General. Switching never reorders nodes.
-- Tree: L1 is the platform. A platform with more than one account grows L2 account nodes (42px, platform logo, alias label). Agent tasks attach to their account node (L3). A single-account platform has no L2; tasks attach to the platform.
-- Flat: L1 is `Platform · Alias` (platform name alone for single-account platforms); same-platform nodes stay adjacent.
+- Tree: L1 is the platform. A platform with more than one account grows L2 account nodes (42px, platform logo, alias label). Distinct control-source products under one platform also grow separate L2 entries, including Grok and Grok Bot under X when both belong to one account. Connections of the same account and product share an entry. Agent tasks attach to their account node (L3). A single-account Agent platform has no L2; tasks attach to the platform.
+- Flat: L1 is `Platform · Alias` (platform name alone for single-entry platforms). Distinct control-source product entries use `Platform · Product`, adding the account alias when multiple accounts exist. Same-platform nodes stay adjacent.
 - Account visuals: both control-source and Agent account nodes reuse their platform logo. For multi-account Agents, the platform node shows only the logo; each account node shows its own quota ring from that account's profile quota. Missing account quota never falls back to another account's reading.
 - Same identity: hovering an account also lights its counterpart on the other side. Account labels contain no link icon.
 - Collapse: a hover-only 20px filled circle in the side's theme color (control sources orange, Agents blue-purple) with a white minus or plus, placed between the node and its outer arc, nearer the node. It collapses or expands the node's whole outer arc and children. Hovering the toggle keeps the node's path lit. Keyboard focus counts as hover.

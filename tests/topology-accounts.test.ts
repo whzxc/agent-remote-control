@@ -422,8 +422,8 @@ test('empty nodes hide disclosure controls even when an earlier collapse prefere
   } finally { await fixture.close(); }
 });
 
-test('Grok products share one X platform while retaining both source identities', async () => {
-  // Regression: Grok and Grok Bot from one X account rendered separate platform nodes.
+test('X keeps Grok and Grok Bot as separate entries of the same account', async () => {
+  // Regression: f8eebf3 hid both Grok entry points inside a single X account node.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -432,8 +432,8 @@ test('Grok products share one X platform while retaining both source identities'
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { agents } = await server.ssrLoadModule('/ui/state/agents.ts');
     const { topologyMode } = await server.ssrLoadModule('/ui/topology/accountState.ts');
-    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     const sources = ['grok', 'grok-bot'].map(product => ({ id: `source-${product}`, ingressId: 'x-connection', product, platform: 'xai', label: product, credential: { type: 'ingress' }, state: 'connected' }));
+    sources.push({ ...sources[0], id: 'second-grok-connection' });
     const ingress = { id: 'x-connection', sources, name: 'X connection', controlSource: 'grok', enabled: true, running: true, state: 'ready', auth: 'none', transport: 'https', error: '', config: { configured: true } };
     const account = { id: 'x-account', alias: 'Personal', provider: 'xai', identityKey: 'xai:example', sources: sources.map(source => source.id), agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
     connector.set({ status: { ingresses: [ingress], core: { backendSession: 'fixture' }, platform: 'darwin', logs: [] }, sources, sourcesLoaded: true, loading: false, busy: '', error: '', feedback: { text: '', error: false } });
@@ -441,12 +441,18 @@ test('Grok products share one X platform while retaining both source identities'
     globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/accounts') ? { accounts: [account], login: null }
       : String(input).endsWith(`/accounts/${account.id}`) ? account : {}));
     await act(() => root.render(h(UiProvider, null, h(Overview))));
-    for (const mode of ['tree', 'flat']) {
-      await act(() => topologyMode.set(mode));
-      assert.equal(page.getAllByRole('button', { name: `X: ${t('connected')}`, exact: true }).length, 1);
-      assert.equal(page.queryByRole('button', { name: /^Grok/ }), null);
+    const { ingressPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    await act(() => topologyMode.set('tree'));
+    assert.ok(page.getByRole('button', { name: 'X', exact: true }));
+    for (const [product, label] of [['grok', 'Grok'], ['grok-bot', 'Grok Bot']]) {
+      await act(() => fireEvent.click(page.getByRole('button', { name: label, exact: true })));
+      assert.equal(ingressPanel.get()?.client?.id, `source-${product}`);
+      await act(() => ingressPanel.set(undefined));
     }
-    assert.equal(connector.get().sources.length, 2);
+    await act(() => topologyMode.set('flat'));
+    assert.ok(page.getByRole('button', { name: 'X · Grok', exact: true }));
+    assert.ok(page.getByRole('button', { name: 'X · Grok Bot', exact: true }));
+    assert.equal(connector.get().sources.length, 3);
   } finally { await fixture.close(); }
 });
 
@@ -459,8 +465,10 @@ test('merged source activity retains old and replacement connection history with
     const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
     const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
     const { tasks } = await server.ssrLoadModule('/ui/state/tasks.ts');
-    const account = { id: 'merged-account', alias: 'Personal', provider: 'anthropic', identityKey: 'anthropic:example', sources: ['old-connection-source', 'replacement-source'], agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
-    const records = ['old-connection-source', 'replacement-source', 'unrelated-source'].map((source, index) => ({ requestId: `dispatch-${index}`, origin: { sourceId: source }, state: 'completed', createdAt: new Date().toISOString(), task: { kind: 'create', title: `History ${source}`, prompt: '', input: {}, settings: {} } }));
+    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
+    const account = { id: 'merged-account', alias: 'Personal', provider: 'xai', identityKey: 'xai:example', sources: ['old-connection-source', 'replacement-source', 'bot-source'], agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
+    connector.set({ ...connector.get(), sources: [{ id: 'old-connection-source', product: 'grok', state: 'revoked' }, { id: 'replacement-source', product: 'grok', state: 'connected' }, { id: 'bot-source', product: 'grok-bot', state: 'connected' }] });
+    const records = ['old-connection-source', 'replacement-source', 'bot-source', 'unrelated-source'].map((source, index) => ({ requestId: `dispatch-${index}`, origin: { sourceId: source }, state: 'completed', createdAt: new Date().toISOString(), task: { kind: 'create', title: `History ${source}`, prompt: '', input: {}, settings: {} } }));
     globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/accounts') ? { accounts: [account], login: null } : account));
     accounts.set({ items: [account], login: null, loading: false, error: '' });
     tasks.set({ records, loading: false, error: '' });
@@ -468,5 +476,9 @@ test('merged source activity retains old and replacement connection history with
     assert.ok(page.getByRole('button', { name: /History old-connection-source/ }));
     assert.ok(page.getByRole('button', { name: /History replacement-source/ }));
     assert.equal(page.queryByRole('button', { name: /History unrelated-source/ }), null);
+    assert.equal(page.queryByRole('button', { name: /History bot-source/ }), null);
+    await act(() => root.render(h(UiProvider, null, h(SourceDispatches, { sourceId: 'bot-source' }))));
+    assert.ok(page.getByRole('button', { name: /History bot-source/ }));
+    assert.equal(page.queryByRole('button', { name: /History replacement-source/ }), null);
   } finally { await fixture.close(); }
 });
