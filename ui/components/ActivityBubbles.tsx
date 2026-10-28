@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { locale, t } from "../i18n";
-import { PhaseTile, PhaseLabel, StepTrail, SpecPill, SourceBadge, dispatchSourceLabel } from "./activity";
+import { PhaseTile, PhaseLabel, StepTrail, SpecPill, SourceBadge } from "./activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { activityHeadline, type TrackedActivity, type BubbleDensity } from "../state/activityModel";
 import { useInterval } from "../state/hooks";
@@ -39,8 +39,8 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
   const paused = ["cancelled", "interrupted", "aborted"].includes(session.status ?? "");
   const historyState = historical ? taskState(session.status ?? undefined, false) : undefined;
   const outcome = historyState === "failed" || historyState === "unknown" ? historyState : undefined;
-  const completed = !paused && !outcome && (session.endedAt !== undefined || historyState === "done"), external = session.source === "transcript";
-  const running = !paused && !completed && !external && !session.interaction && session.phase !== "idle";
+  const completed = !paused && !outcome && (session.endedAt !== undefined || historyState === "done");
+  const running = !paused && !completed && !session.interaction && session.phase !== "idle";
   const unread = completed && !historical && session.readAt === undefined;
   const phase = session.interaction ? "interaction" : session.phase;
   const phaseLabel = outcome ? `detail.state.${outcome}` : completed ? "activity.completed" : session.interaction ? "activity.waitingConfirm" : `activity.phase.${phase}`;
@@ -56,7 +56,7 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
     {new Date(created).toLocaleDateString(language, { ...(new Date(created).getFullYear() !== new Date(now).getFullYear() ? { year: "numeric" } as const : {}), month: "short", day: "numeric" })}
   </time>;
   return <>
-    <PhaseTile phase={phase} running={running} completed={completed} paused={paused} animated={!external} outcome={outcome} source={showSourceBadge ? source : undefined} />
+    <PhaseTile phase={phase} running={running} completed={completed} paused={paused} outcome={outcome} source={showSourceBadge ? source : undefined} />
     {historical && <span className="sr-only">{t(outcome ? `detail.state.${outcome}` : paused ? "timeline.status.cancelled" : "activity.completed")}</span>}
     <span className="activity-copy">
       <span className="activity-title-row"><strong>{session.title || t("timeline.title")}</strong>
@@ -75,7 +75,6 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
         <SpecPill agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={session.dispatchSummary} />
         {conversation && !!session.turnCount && <span className="activity-spec">{t("timeline.turnCount", { count: session.turnCount })}</span>}
         {!conversation && project && <span className="activity-project" title={session.project!}>{project}</span>}
-        {density === "detailed" && source && <span className="activity-source-name" title={dispatchSourceLabel(source)}>{dispatchSourceLabel(source)}</span>}
         {conversation ? createdTime : <StepTrail steps={session.recentSteps} running={running} />}
       </span>}
     </span>
@@ -93,7 +92,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
   const hint = t("timeline.open");
   return <div className="activity-bubble-shell"><button type="button" className={`activity-bubble ${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
       data-update-blocking={blocking || undefined}
-      data-density={density} data-external={session.source === "transcript" || undefined}
+      data-density={density}
       data-timeline-anchor
       data-unread={unread || undefined}
       aria-keyshortcuts={onMove ? "ArrowUp ArrowDown" : undefined} aria-description={onMove ? t("reorderNodeHint") : undefined}

@@ -4,7 +4,7 @@ import { TopologyAnimator, nodeKey, taskKey } from "./animate";
 import type { SurfaceRect } from "../motion/surface";
 
 export type WireState = "normal" | "connecting" | "error" | "inactive";
-export type TaskState = "running" | "attention" | "completed" | "external" | "summary";
+export type TaskState = "running" | "attention" | "completed" | "summary";
 export interface PaintNode { id: string; side: Side; parent?: string; state: WireState; attention: boolean; selected: boolean; label?: string }
 export interface PaintTask { id: string; parent: string; side: Side; state: TaskState; selected: boolean }
 const ns = "http://www.w3.org/2000/svg";
@@ -103,11 +103,10 @@ export class TopologyPainter {
       controls(end, shape.c1, shape.c2, port);
       attr(b.group, { class: `topology-branch secondary ${bridge ? "panel-link" : ""} ${t.side === 1 ? "right" : "left"}`, "data-state": t.state,
         opacity: v.op });
-      attr(b.outline, { d: t.state === "external" ? shape.centerline : shape.outline, class: t.state === "external" ? "external-wire" : "task-body",
-        style: t.state === "external" ? `stroke-width:${1.5 + 0.25 * clamp(v.emphasis, 0, 1)}`
-          : `opacity:${v.bodyOpacity + 0.1 * clamp(v.emphasis, 0, 1)}` });
+      attr(b.outline, { d: shape.outline, class: "task-body",
+        style: `opacity:${v.bodyOpacity + 0.1 * clamp(v.emphasis, 0, 1)}` });
       attr(b.hit, { d: bridge || !animator.live.get(key)?.alive || v.op < 0.02 ? "" : shape.centerline, "aria-label": `${t.id} connection` });
-      attr(b.flow, { d: ["running", "external"].includes(t.state) ? shape.centerline : "", class: "activity-flow" });
+      attr(b.flow, { d: t.state === "running" ? shape.centerline : "", class: "activity-flow" });
     }
     for (const [key, b] of this.groups) if (!keep.has(key)) { b.group.remove(); this.groups.delete(key); }
     for (const side of [-1, 1] as const) {

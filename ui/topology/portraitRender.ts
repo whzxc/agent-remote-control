@@ -134,7 +134,7 @@ export class PortraitPainter {
         for (const { task, v, stub: d, hit } of branches) {
           const tk = taskKey(task.side, task.id);
           this.path(tk, d, `portrait-task ${sideClass}`, v.op, { 'data-state': task.state });
-          this.path(`${tk}:flow`, task.state === 'running' || task.state === 'external' ? d : '', `portrait-task activity-flow ${sideClass}`, v.op, { 'data-state': task.state });
+          this.path(`${tk}:flow`, task.state === 'running' ? d : '', `portrait-task activity-flow ${sideClass}`, v.op, { 'data-state': task.state });
           this.path(`${tk}:hit`, v.op > 0.02 && a.live.get(tk)?.alive ? hit : '', 'topology-path-hit', v.op, {}, { side: task.side, id: task.id, task: true });
         }
       }

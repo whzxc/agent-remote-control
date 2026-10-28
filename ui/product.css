@@ -890,7 +890,6 @@
 .topology-wires .task-body { fill: var(--task-color); opacity: 0.62; }
 .topology-wires .secondary[data-state="completed"] .task-body { opacity: 0.25; }
 .topology-wires .activity-flow { fill: none; stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 17; animation: activity-flow calc(1s * var(--topology-time-scale, 1)) linear infinite; }
-.topology-wires .external-wire { fill: none; stroke: var(--text-tertiary); stroke-width: 1.5; stroke-dasharray: 3 5; }
 @keyframes graph-connecting { to { stroke-dashoffset: -11; } }
 .activity-slot { position: absolute; left: 0; top: 0; z-index: 3; }
 .topology-scene [data-reorderable] { touch-action: none; user-select: none; }
@@ -942,11 +941,10 @@ button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(
 .activity-bubble .activity-phase > .activity-headline { flex: 1; min-width: 0; height: 17px; line-height: 17px; font-size: 11.5px; }
 .activity-detail-line { min-width: 0; height: 17px; line-height: 17px; font-size: 11px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-spec-row { display: flex; align-items: center; gap: 4px; min-width: 0; height: 17px; font-size: 10px; }
-.activity-spec, .activity-project { display: inline-flex; flex: none; align-items: center; gap: 3px; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 5px; background: transparent; color: var(--text-secondary); font-size: 10px; line-height: 15px; white-space: nowrap; }
+.activity-spec, .activity-project, .task-state, .task-source-chip, .task-ownership-chip.button { display: inline-flex; flex: none; align-items: center; gap: 3px; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 5px; background: transparent; color: var(--text-secondary); font-size: 10px; line-height: 15px; white-space: nowrap; }
 .activity-spec > span[role="img"] { display: flex; flex: none; color: var(--warning); }
-.activity-spec .icon { width: 12px; height: 12px; }
+.activity-spec .icon, .task-ownership-chip.button > .icon { width: 12px; height: 12px; }
 .activity-project { display: block; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.activity-source-name { min-width: 0; max-width: 25%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); }
 .activity-spec-row .step-trail { margin-left: auto; }
 .activity-source-badge { position: absolute; right: -4px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text-secondary); box-shadow: 0 0 0 1px var(--border); }
 .activity-source-badge > .icon, .activity-source-badge .source-icon, .activity-source-badge .source-icon svg { width: 12px; height: 12px; }
@@ -1085,8 +1083,8 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .task-detail-heading .activity-status { flex: none; margin-left: auto; }
 .task-detail-dispatch { flex-wrap: wrap; gap: 6px; }
 .task-detail-duration { flex: none; margin-left: auto; white-space: nowrap; }
-.task-source-chip, .timeline-turn-source { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: var(--text-xs); color: var(--text-secondary); }
-.task-source-chip { padding: 3px 6px; border-radius: 999px; background: var(--surface-subtle); max-width: 100%; }
+.timeline-turn-source { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.task-source-chip { max-width: 100%; }
 .task-source-chip > span:not(.activity-source-badge), .timeline-turn-source > span:not(.activity-source-badge) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-source-chip .activity-source-badge, .timeline-turn-source .activity-source-badge { position: static; flex: none; }
 .timeline-turn { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
@@ -1167,7 +1165,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
   content: ""; position: absolute; inset: -6px; border: 6px solid color-mix(in srgb, var(--warning) 16%, transparent);
   border-radius: 19px; pointer-events: none; animation: activity-attention 2.4s ease-in-out infinite;
 }
-.activity-bubble[data-external]::after, .activity-task-row[data-external]::after { animation: none; opacity: 0; }
 @keyframes activity-attention {
   0%, 100% { transform: scale(0.95, 0.82); opacity: 0; }
   50% { transform: scale(1); opacity: 1; }
@@ -1505,7 +1502,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .portrait-wires .portrait-task[data-state="completed"] { --task-color: var(--success); }
 .portrait-wires .portrait-task[data-state="attention"] { --task-color: var(--warning); }
 .portrait-wires .portrait-task[data-state="summary"] { --task-color: var(--border-strong); }
-.portrait-wires .portrait-task[data-state="external"] { --task-color: var(--text-tertiary); stroke-dasharray: 3 5; }
 .portrait-wires .portrait-task.activity-flow { stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-dasharray: 1 17; }
 .topology-wires[data-inactive="true"] .topology-path-hit { pointer-events: none; }
 .dialog.activity-panel[data-panel-geometry="portrait"] { height: var(--panel-layout-height); max-height: var(--panel-layout-height); }

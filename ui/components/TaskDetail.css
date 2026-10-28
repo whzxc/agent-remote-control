@@ -4,12 +4,12 @@
 .task-detail-navigation > .button { min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; color: var(--text-secondary); }
 .task-detail-header .activity-panel-title { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; line-height: 1.35; margin: 0; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.task-spec-chip, .task-ownership-chip.button { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 3px 9px; border: 0; border-radius: 999px; background: var(--surface-subtle); color: var(--text-secondary); font-size: 12px; line-height: 18px; }
-.task-spec-chip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-spec-chip > .icon, .task-ownership-chip > .icon { flex: none; }
-.task-ownership-chip.button { min-height: 28px; height: auto; }
+.task-ownership-chip.button { min-width: 0; max-width: 100%; min-height: 0; height: auto; }
+.task-ownership-chip > .icon { flex: none; }
 .task-ownership-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-detail-chips > .task-source-chip { padding: 3px 9px; font-size: 12px; line-height: 18px; }
+.task-detail-chips > .activity-spec { flex-shrink: 1; min-width: 0; max-width: 100%; }
+.task-detail-chips > .activity-spec > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.task-source-chip .activity-source-badge { width: 12px; height: 12px; background: transparent; box-shadow: none; }
 .task-duration { margin-left: auto; flex: none; white-space: nowrap; }
 .task-turn-progress { display: flex; gap: 4px; }
 .task-turn-progress > div { flex: 1; height: 3px; min-width: 0; overflow: hidden; border-radius: 4px; background: var(--surface-subtle); color: var(--text-tertiary); }
@@ -19,8 +19,8 @@
 .task-turn-progress > div > span { display: block; height: 100%; background: currentColor; border-radius: inherit; }
 .task-turn-progress > [data-indeterminate] > span { width: 100%; opacity: .4; }
 .task-turn-progress > [data-indeterminate][data-state=running] > span { animation: task-shimmer 1.8s infinite; }
-.task-state { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--text-secondary); background: var(--surface-subtle); }
-.task-state::before { content: ""; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
+.task-state { font-weight: 600; }
+.task-state::before { content: ""; width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
 .task-state[data-state=running] { color: var(--accent); background: var(--task-live-soft); }
 .task-state[data-state=needsYou] { color: var(--warning); background: var(--warning-soft); }
 .task-state[data-state=done] { color: var(--success); background: var(--success-soft); }
@@ -142,8 +142,6 @@
   .task-detail-navigation > .button > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .task-detail-header .activity-panel-title { font-size: 14.5px; }
   .task-detail-chips { gap: 6px; }
-  .task-state { flex: none; font-size: 11.5px; padding: 3px 8px; }
-  .task-detail-chips > .task-spec-chip, .task-detail-chips > .task-source-chip, .task-ownership-chip.button { font-size: 11.5px; padding-inline: 8px; }
   .task-duration { font-size: 11.5px; }
   .task-detail-layer .timeline-entries { padding: 12px; gap: 12px; }
   .task-agent-mark { display: none; }

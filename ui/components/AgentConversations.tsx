@@ -18,7 +18,7 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
   agent: string; session: TrackedActivity; live: boolean; now: number; index: number;
 }) {
   return <button type="button" className={`activity-bubble agent-conversation-row ${session.interaction ? "needs-attention" : ""}`}
-    data-density="standard" data-external={session.source === "transcript" || undefined} data-timeline-anchor
+    data-density="standard" data-timeline-anchor
     style={{ "--row-delay": `${Math.min(index, 5) * 24}ms` } as CSSProperties}
     data-activity-session={JSON.stringify([agent, session.id])}
     aria-label={`${session.title || t("timeline.title")} · ${t("timeline.open")}`}

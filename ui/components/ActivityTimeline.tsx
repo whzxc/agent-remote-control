@@ -8,7 +8,7 @@ import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
 import "./TaskDetail.css";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUpRight, ArrowLeft, ArrowDown, Maximize2, Minimize2, MoreHorizontal, Zap } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowDown, Maximize2, Minimize2, MoreHorizontal } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
@@ -16,15 +16,13 @@ import { activityApprovals, agentActivity, openActivitySession } from "../state/
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
-import { dispatchSourceLabel, SourceBadge } from "./activity";
+import { dispatchSourceLabel, SourceBadge, SpecPill } from "./activity";
 import { taskState } from "../state/taskProjection";
 import { timelineDuration, timelineGroups } from "../state/timelineGroups";
 import TaskNeedsYou from "./TaskNeedsYou";
 import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
 import type { TaskRuntime } from "../state/tasks";
-import { useDispatchCatalog } from "../state/dispatchCatalog";
-import { dispatchSpecParts } from "./composites/dispatchSpecLabel";
 
 import { name, orderedAgents } from "../state/agents";
 
@@ -146,9 +144,6 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const project = timeline?.projectName || nativeSession.projectName || session.projectName
     || session.project?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
   const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || timeline?.dispatchSummary || nativeSession.dispatchSummary;
-  const catalog = useDispatchCatalog(agent, session.source === "arc-task" ? session.id : undefined, !!latestSummary?.model)?.catalog;
-  const spec = dispatchSpecParts(latestSummary, catalog, t);
-  const fast = latestSummary?.serviceTier === "priority" || latestSummary?.serviceTier === "fast";
   const source = latestSummary?.controlSource;
   const sourceLabel = source && dispatchSourceLabel(source);
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
@@ -234,9 +229,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       </div>
       <h2 id={titleId} className="activity-panel-title">{title}</h2>
       <div className="task-detail-chips"><span className="task-state" data-state={state}>{t(`detail.state.${state}`)}</span>
-        {spec.model && <span className="task-spec-chip" title={latestSummary?.model}>{spec.model}</span>}
-        {spec.effort && <span className="task-spec-chip">{spec.effort}</span>}
-        {spec.tier && <span className="task-spec-chip">{fast && <Icon icon={Zap} />}{spec.tier}</span>}
+        <SpecPill agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary} />
         {source && <span className="task-source-chip"><SourceBadge source={source} /><span>{t("detail.via", { source: sourceLabel })}</span></span>}
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}

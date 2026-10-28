@@ -124,6 +124,8 @@ At narrow panel widths, open the needs-you banner to inspect the capped bottom s
 
 Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main. The runner uses browser fixtures and screenshots. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
 
+`bubbles-origins` places direct and dispatched Codex tasks together, with running command/file phases and an unread completed task. Open any task to inspect the shared compact execution-spec pill and metadata chips.
+
 For manual inspection, run npm run dev:ui and open `http://127.0.0.1:5187/?scenario=<scenario>`. Only Vite development loads scenarios. Release builds exclude fixture modules. Fixed time and reduced animation support layout comparison. These screenshots are the evidence for UI/UX acceptance; they do not cover real Agent or native-window behavior, which follows the runtime scope above.
 
 ## Notification reachability and guides

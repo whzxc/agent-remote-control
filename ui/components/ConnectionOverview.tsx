@@ -277,7 +277,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       </GraphNode>,
       tasks: [
         ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), width, height: bubbleHeights[effectiveDensity], taskId: session.id, threadId: session.nativeSessionId, agentAccountId: accountGroup(session.agentAccountId) ?? session.agentAccountId, origin: origin(session),
-          state: (session.endedAt !== undefined ? "completed" : session.interaction ? "attention" : session.source === "transcript" ? "external" : "running") as import("../topology/render").TaskState,
+          state: (session.endedAt !== undefined ? "completed" : session.interaction ? "attention" : "running") as import("../topology/render").TaskState,
           selected: selected && selection.session?.id === session.id, reorderable: !panelOpen,
           content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={panelOpen ? undefined : by => {
             const group = shown.sessions.filter(s => (accountIds.length <= 1 || accountGroup(s.agentAccountId) === accountGroup(session.agentAccountId)) && !!s.interaction === !!session.interaction);

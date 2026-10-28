@@ -1,0 +1,42 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "command",
+      "title": "Direct command",
+      "headline": "Inspect project files"
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Dispatched command",
+      "headline": "Inspect project files"
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "file",
+      "title": "Direct file update",
+      "headline": "/workspace/acceptance/config.json"
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "title": "Direct completed task",
+      "headline": "Updated project files",
+      "completed": true
+    }
+  ],
+  "bubbles": {
+    "density": "standard",
+    "width": "medium",
+    "autoCompact": false
+  }
+}
