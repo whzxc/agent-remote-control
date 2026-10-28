@@ -291,6 +291,46 @@ test('native history preserves confirmed, failed and unknown outcomes in its acc
   } finally { await fixture.close(); }
 });
 
+test('conversation pagination retains loaded rows without repeating the loading status', async () => {
+  // Regression: loading another history page flashed the timeline loading message beside already loaded conversations.
+  const fixture = await harness(), originalObserver = globalThis.IntersectionObserver;
+  try {
+    const { server, root, page } = fixture;
+    const { default: Conversations } = await server.ssrLoadModule('/ui/components/AgentConversations.tsx');
+    const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    let showNext: (() => void) | undefined, finishNext: ((response: Response) => void) | undefined;
+    class PagingObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        showNext = () => callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+      }
+      observe() {} unobserve() {} disconnect() {}
+    }
+    globalThis.IntersectionObserver = PagingObserver as unknown as typeof IntersectionObserver;
+    const conversation = (id: string) => ({ id, source: 'native', status: 'completed', title: id, createdAt: new Date().toISOString() });
+    globalThis.fetch = async (_input, init) => {
+      const args = JSON.parse(String(init?.body ?? '{}'));
+      if (args.cursor === 'later') return new Promise<Response>(resolve => { finishNext = resolve; });
+      return new Response(JSON.stringify({ data: [conversation('First conversation')], nextCursor: 'later' }));
+    };
+    await act(async () => root.render(h(UiProvider, null, h(Conversations, { agent: 'claude', active: true }))));
+    const row = (id: string) => page.getByRole('button', { name: `${id} · ${t('timeline.open')}` });
+    assert.ok(row('First conversation'));
+    assert.ok(showNext);
+    await act(async () => showNext!());
+    assert.ok(row('First conversation'));
+    assert.equal(page.queryByRole('status'), null);
+    assert.ok(finishNext);
+    await act(async () => finishNext!(new Response(JSON.stringify({ data: [conversation('Next conversation')], nextCursor: null }))));
+    assert.ok(row('First conversation'));
+    assert.ok(row('Next conversation'));
+    assert.equal(page.queryByRole('status'), null);
+  } finally {
+    await fixture.close();
+    globalThis.IntersectionObserver = originalObserver;
+  }
+});
+
 test('empty nodes hide disclosure controls even when an earlier collapse preference remains', async () => {
   // Regression: a stale collapse preference left plus/minus buttons on nodes without children or tasks.
   const fixture = await harness();

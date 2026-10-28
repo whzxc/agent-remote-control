@@ -1,6 +1,6 @@
 import { useAppNow } from "../state/appEnvironment";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MessagesSquare } from "lucide-react";
 import { api } from "../api";
 import { locale, t } from "../i18n";
 import { tasks, type TaskRuntime } from "../state/tasks";
@@ -11,7 +11,7 @@ import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, isLatestDispatch } from "../state/sourceDispatch";
 import { PhaseTile } from "./activity";
-import { Icon, Notice } from "./ui";
+import { Empty, Icon, Notice } from "./ui";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const now = useAppNow(60_000), language = locale.use();
@@ -68,7 +68,8 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
     void read(); const timer = setInterval(() => void read(), 10000);
     return () => { stopped = true; clearInterval(timer); };
   }, [sourceId, ids.slice().sort().join(",")]);
-  return <div className="source-dispatch-list">
+  const empty = !rows.length && !error;
+  return <div className={empty ? 'activity-task-list agent-conversations' : 'source-dispatch-list'} data-empty={empty || undefined}>
     {error && <Notice>{error}</Notice>}
     {sections.map(({ id: groupId, date, entries }) => {
       const shown = entries.filter(record => visibleIds.has(record.requestId));
@@ -103,7 +104,7 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
         })}</div>
       </section>;
     })}
-    {!rows.length && <p className="timeline-meta">{t("sourcePanel.noRecords")}</p>}
+    {empty && <Empty icon={MessagesSquare}>{t("sourcePanel.noRecords")}</Empty>}
     {visible < dispatches.length && <div ref={more} className="source-dispatch-more" aria-hidden="true" />}
   </div>;
 }

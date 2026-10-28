@@ -105,7 +105,14 @@ export default function AgentConversations({ agent, account, accountId, active }
   const sections = activitySections(visibleSessions, now, session => session.orderAt,
     session => live.has(session.id) ? session.interaction ? 'attention' : 'running' : unread.has(session.id) ? 'unread' : undefined);
   const empty = !loading && !error && !visibleSessions.length && !next;
-  return <div className="activity-task-list agent-conversations" data-empty={empty || undefined}>
+  const initialLoading = active && !error && !visibleSessions.length && (loading || next !== null);
+  const [showLoading, setShowLoading] = useState(false);
+  useEffect(() => {
+    if (!initialLoading) { setShowLoading(false); return; }
+    const timer = setTimeout(() => setShowLoading(true), 200);
+    return () => clearTimeout(timer);
+  }, [initialLoading]);
+  return <div className="activity-task-list agent-conversations" data-empty={empty || undefined} aria-busy={active && loading}>
     {sections.map(({ id, date, entries }) => {
       const label = date === undefined ? t(`agentPanel.${id}`) : new Date(date).toLocaleDateString(language, { month: 'short', day: 'numeric', weekday: 'short' });
       return entries.length > 0 && <section className="agent-task-section" key={id} aria-label={label}>
@@ -116,7 +123,7 @@ export default function AgentConversations({ agent, account, accountId, active }
           session={session} live={live.has(session.id)} now={now} index={index} />)}</div>
       </section>;
     })}
-    {loading && <Loading label={t("timeline.loading")} />}
+    {initialLoading && showLoading && <Loading />}
     {error && <Notice action={<Button onClick={() => setRetry(value => value + 1)}>{t("retry")}</Button>}>{error}</Notice>}
     {empty && <Empty icon={MessagesSquare}>{t("agentPanel.noConversations")}</Empty>}
     {next && <div ref={marker} className="agent-conversation-more" aria-hidden="true" />}
