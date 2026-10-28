@@ -5,9 +5,8 @@ import type { DispatchSummary } from '../../types';
 export function modelLabel(model: string, models: CatalogModel[] = []): string {
   const row = models.find(row => row.model === model);
   const label = row?.displayName || row?.name;
-  if (!label) return model;
-  const ambiguous = models.some(other => other.model !== model && (other.displayName || other.name) === label && other.provider?.name !== row?.provider?.name);
-  return ambiguous && row?.provider?.name ? `${label} · ${row.provider.name}` : label;
+  // Upstream catalog labels may already carry a provider after the separator.
+  return label?.split(/\s+·\s+/, 1)[0].trim() || model;
 }
 
 const efforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);

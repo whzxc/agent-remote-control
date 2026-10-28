@@ -232,8 +232,8 @@ export default function App() {
           e.preventDefault();
           if (page === "remote" && nav.remoteConnectionId) {
             navigation.set(old => ({ ...old, remoteConnectionId: undefined }));
-          } else if (page === "settings" && (nav.settingsExtras || nav.settingsUpdates)) {
-            navigation.set(old => ({ ...old, settingsExtras: undefined, settingsUpdates: undefined }));
+          } else if (page === "settings" && nav.settingsExtras) {
+            navigation.set(old => ({ ...old, settingsExtras: undefined }));
           } else void closeSheet();
         }
         if (e.key === "Tab" && page !== "overview" && !layers.length) {
@@ -297,11 +297,11 @@ export default function App() {
         >
           <div className="page-sheet-content">
             <header className="sheet-header">
-              {page === "settings" && (nav.settingsExtras || nav.settingsUpdates) && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExtras: undefined, settingsUpdates: undefined }))} />}
+              {page === "settings" && nav.settingsExtras && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExtras: undefined }))} />}
               {page === "remote" && nav.remoteConnectionId && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, remoteConnectionId: undefined }))} />}
               <h1 className="capsule-title" tabIndex={-1}>
                 {page === "remote" ? status?.ingresses.find(i => i.id === nav.remoteConnectionId)?.name ?? t("source.title") : pages.find((item) => item.id === page)?.label}
-                {page === "settings" && (nav.settingsExtras || nav.settingsUpdates) && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t(nav.settingsUpdates ? "appUpdates" : "extras.title")}</span></>}
+                {page === "settings" && nav.settingsExtras && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("extras.title")}</span></>}
                 {page === "logs" && (
                   <span className="muted small records-count">
                     {t("recentRecords", { count: status?.logs.length ?? 0 })}

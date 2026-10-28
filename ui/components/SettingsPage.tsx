@@ -12,20 +12,20 @@ import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
 import SettingsExtras from "./SettingsExtras";
-import { AppUpdate, UpdatesSettings } from "./AppUpdate";
+import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
   const { status, busy } = connector.use();
-  const { settingsExtras, settingsUpdates } = navigation.use();
+  const { settingsExtras } = navigation.use();
   const previousSettings = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
-    if (settingsExtras || settingsUpdates) {
+    if (settingsExtras) {
       document.querySelector<HTMLElement>(".capsule-title")?.focus({ preventScroll: true });
       document.querySelector(".workspace")?.scrollTo({ top: 0 });
     } else if (previousSettings.current) {
       document.getElementById(previousSettings.current)?.focus();
     }
-    previousSettings.current = settingsUpdates ? "settings-updates-entry" : settingsExtras ? "settings-extras-entry" : undefined;
-  }, [settingsExtras, settingsUpdates]);
+    previousSettings.current = settingsExtras ? "settings-extras-entry" : undefined;
+  }, [settingsExtras]);
   const currentTheme = theme.use(),
     color = themeColor.use(),
     currentLanguage = language.use();
@@ -100,7 +100,6 @@ export default function SettingsPage() {
       await refreshConnector();
     });
   }
-  if (settingsUpdates) return <UpdatesSettings />;
   if (settingsExtras) return <SettingsExtras />;
   return (
     <div className="settings-page">

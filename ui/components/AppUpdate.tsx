@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Popover } from "radix-ui";
-import { ArrowUp, Check, LoaderCircle, X } from "lucide-react";
+import { ArrowUp, Check, ExternalLink, LoaderCircle, X } from "lucide-react";
 import { t } from "../i18n";
-import { copyText, isDesktop } from "../platform";
+import { copyText, isDesktop, openUrl } from "../platform";
 import { connector, notify } from "../state/connector";
 import { navigation } from "../state/navigation";
 import { agentActivity } from "../state/activity";
 import { useInterval } from "../state/hooks";
-import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, scheduleUpdate, skipUpdate, cancelDownload, dismissOutcome, retryUpdate, submitLocal, openReleaseNotes, updateAutomatic, acceptLocal, resumeInterrupted, controlScheduling } from "../state/updates";
+import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, scheduleUpdate, skipUpdate, cancelDownload, dismissOutcome, retryUpdate, openReleaseNotes } from "../state/updates";
 import { updateActive, updateCountdown, updateStep, type UpdateSnapshot, type UpdateTiming, type UpdateWork } from "../state/updateModel";
-import { Button, Group, Row, Notice, Progress, Icon, IconButton, SingleChoice, Switch } from "./ui";
+import { Button, Group, Row, Notice, Progress, Icon, IconButton, SingleChoice, Tooltip } from "./ui";
 import TaskQuestion from "./TaskQuestion";
 import ActivityInteraction from "./ActivityInteraction";
 import "./AppUpdate.css";
@@ -125,28 +125,27 @@ export function UpdateOutcome() {
   </aside>;
 }
 export function AppUpdate() {
-  return <Group title={t("appUpdates")}><Row id="settings-updates-entry" title={t("appUpdates")} onNavigate={() => navigation.set(old => ({ ...old, settingsUpdates: true }))} /></Group>;
-}
-export function UpdatesSettings() {
-  const s = updates.use(), { status } = connector.use();
-  const automatic = updateAutomatic.use(), local = acceptLocal.use(), resume = resumeInterrupted.use(), scheduling = controlScheduling.use();
-  const [notes, setNotes] = useState(false);
-  return <div className="settings-page">
-    <Group title={t("updates.currentVersion")}><Row title={`Agent Remote Control v${status?.version ?? "—"}`}>
-      <Button onClick={() => action(openReleaseNotes())}>{t("updates.notes")}</Button><Button disabled={!isDesktop || s.requesting || updateActive(s.snapshot)} busy={s.snapshot.state === "checking"} onClick={() => action(checkUpdate())}>{t("checkForUpdates")}</Button>
-    </Row>{updateActive(s.snapshot) && <Row title={t(`updates.state.${s.snapshot.state}`)}><Button onClick={() => { navigation.set(old => ({ ...old, page: "overview" })); showUpdate(); }}>{t("viewUpdate")}</Button></Row>}{available() && <Row title={t("newVersionValue", { version: s.snapshot.source?.version })}><Button onClick={() => setNotes(!notes)}>{t("updates.notes")}</Button><Button onClick={() => action(installUpdate())}>{t("updates.action.settled")}</Button></Row>}{notes && <pre className="release-notes">{s.snapshot.notes}</pre>}
-      {s.error && <Notice>{s.error}</Notice>}{s.message && <p role="status">{s.message}</p>}
-    </Group>
-    <Group title={t("updates.sources")}><Row title={t("updates.releaseChannel")}><SingleChoice value="stable" label={t("updates.releaseChannel")} onChange={() => {}} options={[{ value: "stable", label: t("updates.stable") }]} /></Row>
-      <Row title={t("updates.acceptLocal")}><Switch label={t("updates.acceptLocal")} checked={local === "on"} onChange={value => acceptLocal.set(value ? "on" : "off")} /></Row></Group>
-    <Group title={t("updates.timing")}><Row title={t("updates.installTiming")}><SingleChoice value={automatic} label={t("updates.installTiming")} onChange={updateAutomatic.set} options={[{ value: "automatic", label: t("updates.automatic") }, { value: "ask", label: t("updates.ask") }]} /></Row>
-      <Row title={t("updates.resumeInterrupted")}><Switch label={t("updates.resumeInterrupted")} checked={resume === "on"} onChange={value => resumeInterrupted.set(value ? "on" : "off")} /></Row>
-      <Row title={t("updates.controlScheduling")}><Switch label={t("updates.controlScheduling")} checked={scheduling === "on"} onChange={value => controlScheduling.set(value ? "on" : "off")} /></Row></Group>
-    <Group title={t("updates.recent")}>
-      {!s.snapshot.recent?.length && <p>{t("updates.noHistory")}</p>}
-      {s.snapshot.recent?.map(job => <Row key={job.id} title={<span className="update-history-title"><Identity job={job} /><span>{job.instance} · {t(`updates.state.${job.state}`)}</span></span>}>
-        {job.backupReady && job.backup && <Button disabled={s.requesting || updateActive(s.snapshot)} onClick={() => action(submitLocal(job.backup!))}>{t("updates.restore")}</Button>}
-      </Row>)}
-    </Group>
-  </div>;
+  const { status } = connector.use(), state = updates.use();
+  const checking = state.snapshot.state === 'checking';
+  const feedback = state.error || state.message;
+  const label = checking ? t('checkingLabel') : state.snapshot.state === 'downloading'
+    ? t('downloadingValueMb', { size: ((state.snapshot.downloaded ?? 0) / 1048576).toFixed(1) })
+    : feedback ? state.error ? t('updateCheckRetry') : state.message : t('checkForUpdates');
+  return <Group title={t('aboutApp')}>
+    <Row title={`Agent Remote Control v${status?.version ?? '—'}`}>
+      <Tooltip text={feedback || label}>
+        <Button className="update-check" aria-busy={checking}
+          disabled={!isDesktop || state.requesting || updateActive(state.snapshot)} onClick={() => action(checkUpdate())}>
+          {[t('checkForUpdates'), t('youAreUpToDate'), t('updateCheckRetry')].map(text => <span key={text} className="update-check-size" aria-hidden="true">{text}</span>)}
+          <span className="update-check-label" aria-live="polite">{label}</span>
+        </Button>
+      </Tooltip>
+    </Row>
+    {available() && <Row title={t('newVersionValue', { version: state.snapshot.source?.version })}>
+      <Button onClick={() => { navigation.set(old => ({ ...old, page: 'overview' })); showUpdate(); }}>{t('viewUpdate')}</Button>
+    </Row>}
+    <Row title="whzxc/agent-remote-control">
+      <Button variant="ghost" onClick={() => action(openUrl('https://github.com/whzxc/agent-remote-control'))}>GitHub <Icon icon={ExternalLink} /></Button>
+    </Row>
+  </Group>;
 }

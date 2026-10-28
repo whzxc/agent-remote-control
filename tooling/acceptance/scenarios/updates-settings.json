@@ -50,6 +50,6 @@
       }
     ]
   },
-  "settingsUpdates": true,
+  "page": "settings",
   "updatePanel": false
 }

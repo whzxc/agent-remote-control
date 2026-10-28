@@ -5,10 +5,6 @@ import { isDesktop, openUrl } from "../platform";
 import { idleUpdate, mergeUpdateSnapshot, updateActive, updateTerminal, type UpdateSnapshot, type UpdateTiming } from "./updateModel";
 export const skipped = preference("update-skipped-version", "", value => value, value => value);
 const outcomeSeen = preference("update-outcome-seen", "", value => value, value => value);
-export const updateAutomatic = preference("update-timing", "ask", value => value, value => value);
-export const acceptLocal = preference("update-accept-local", "on", value => value, value => value);
-export const resumeInterrupted = preference("update-resume", "on", value => value, value => value);
-export const controlScheduling = preference("update-control-scheduling", "on", value => value, value => value);
 export const updates = createStore<{ snapshot: UpdateSnapshot; panelOpen: boolean; requesting: boolean; error: string; message: string; outcome?: UpdateSnapshot }>(
   { snapshot: idleUpdate(), panelOpen: false, requesting: false, error: "", message: "" });
 const patch = (next: Partial<ReturnType<typeof updates.get>>) => updates.set(old => ({ ...old, ...next }));

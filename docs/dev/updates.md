@@ -75,7 +75,7 @@ No modal dialogs for updates. Remove `AppUpdateDialogs` and the replacement dial
 - Topology: only blocking task bubbles get the amber outline and a "waiting for reply" tag. Other bubbles stay unchanged.
 - Countdown: the panel switches to a countdown with a six-step progress row (verify, back up, settle, restart, health check, resume) and Cancel / Restart now.
 - Outcomes: one toast per terminal state. Release succeeded (Release notes, Resumed tasks); local replaced; rolled back (View log, Retry); restore failed (backup path, Show in Finder, Copy path).
-- Settings > Updates: current version card (Release notes, Check for updates); Sources (release channel, accept local builds); Timing (automatic when settled or ask me, resume interrupted tasks, allow control sources to schedule updates); Recent updates with instance and outcome; Restore for kept backups.
+- Settings > About: current version, Check for updates, an available-version entry when needed, and GitHub. Check feedback stays in the button and its tooltip. Sources, timing policy, local replacement history and backup restoration have no Settings surface. CLI and control-source update operations retain their existing contracts.
 
 All copy goes through i18n (en, zh-CN). Reference mockups live in the "ARC Unified Updates" design canvas from the planning conversation.
 

@@ -48,3 +48,25 @@ test('recorded effort survives missing metadata and cannot borrow another model 
   assert.ok(dispatchSpecLabel(summary, catalog, key => key).includes(summary.effort));
   assert.ok(!dispatchSpecLabel(summary, catalog, key => key).includes('Current choice'));
 });
+
+test('recorded specifications omit providers even when model display names collide', () => {
+  // Regression: duplicate model labels appended the provider name to recorded execution specifications.
+  const models = ['official', 'hosted'].map(provider => ({ model: JSON.stringify([provider, 'model']), displayName: 'Example model',
+    provider: { id: provider, name: `Example provider ${provider}` } }));
+  for (const row of models) {
+    assert.equal(modelLabel(row.model, models), row.displayName);
+    const summary = { model: row.model, effort: 'max', serviceTier: 'priority' };
+    assert.equal(dispatchSpecLabel(summary, { models }, key => key), [row.displayName, 'dispatchSpec.effort.max', 'activity.fast'].join(' · '));
+    assert.equal(summary.model, row.model);
+  }
+});
+
+test('upstream provider decorations are removed without parsing opaque model identities', () => {
+  // Regression: native catalog display names embedded a provider suffix even after ARC stopped adding its own.
+  const model = JSON.stringify(['adapter', 'provider/model']);
+  const catalog = { models: [{ model, name: 'Example model · Hosted provider', displayName: 'Example model · Hosted provider',
+    provider: { id: 'adapter', name: 'Adapter' } }] };
+  assert.equal(modelLabel(model, catalog.models), 'Example model');
+  assert.equal(dispatchSpecLabel({ model, effort: 'high' }, catalog, key => key), ['Example model', 'dispatchSpec.effort.high'].join(' · '));
+  assert.equal(modelLabel(model), model);
+});

@@ -31,7 +31,7 @@ test('update reminder opens on request and answers blocking questions through th
     return new Response(JSON.stringify({ requestId: response?.args.requestId, state: 'completed' }), { status: 200 });
   };
   try {
-    const { UpdateDock } = await server.ssrLoadModule('/ui/components/AppUpdate.tsx');
+    const { UpdateDock, AppUpdate } = await server.ssrLoadModule('/ui/components/AppUpdate.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { updates, acceptUpdateSnapshot } = await server.ssrLoadModule('/ui/state/updates.ts');
     const { agentActivity } = await server.ssrLoadModule('/ui/state/activity.ts');
@@ -66,6 +66,17 @@ test('update reminder opens on request and answers blocking questions through th
     assert.equal(panel.queryByRole('button', { name: t('detail.sendAnswer') }), null);
     await act(async () => { updates.set((old: any) => ({ ...old, panelOpen: false })); });
     assert.equal(page.queryByRole('dialog'), null);
+    await act(async () => {
+      updates.set((old: any) => ({ ...old, snapshot: idleUpdate(), error: '', message: '' }));
+      root.render(h(TooltipProvider, null, h(AppUpdate)));
+    });
+    assert.ok(page.getByRole('heading', { name: t('aboutApp'), exact: true }));
+    assert.ok(page.getByRole('button', { name: t('checkForUpdates'), exact: true }));
+    assert.ok(page.getByRole('button', { name: 'GitHub', exact: true }));
+    assert.equal(page.queryByRole('switch'), null);
+    await act(async () => acceptUpdateSnapshot({ ...idleUpdate(), state: 'available', source: { kind: 'release', version: '1.2.4' } }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: t('viewUpdate'), exact: true })));
+    assert.equal(updates.get().panelOpen, true);
   } finally {
     await act(async () => root.unmount());
     await server.close();

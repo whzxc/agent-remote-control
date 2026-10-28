@@ -4,7 +4,6 @@ export const navigation = createStore<{
   accountId?: string;
   addAccount?: boolean;
   settingsExtras?: boolean;
-  settingsUpdates?: boolean;
   remoteSourceId?: string;
   remoteConnectionId?: string;
   page?: Page;

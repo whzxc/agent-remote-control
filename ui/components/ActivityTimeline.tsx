@@ -8,7 +8,7 @@ import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
 import "./TaskDetail.css";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUpRight, ArrowLeft, Maximize2, Minimize2, MoreHorizontal, Zap } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowDown, Maximize2, Minimize2, MoreHorizontal, Zap } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
@@ -292,7 +292,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           </>}
         </div>
       </div>
-      {!atLatest && <div className="actions"><Button variant="secondary" onClick={latest}>{t("timeline.latest")}</Button></div>}
+      {!atLatest && <IconButton className="timeline-latest" variant="secondary" icon={ArrowDown} size={20} label={t("timeline.latest")} onClick={latest} />}
     </div>
     {hasPending && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={sourceLabel} narrow={narrow} />}
   </section>;

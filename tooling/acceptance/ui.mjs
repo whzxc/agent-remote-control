@@ -135,8 +135,8 @@ try {
         if (fixture.update) {
           // Regression: update work groups and restart progress were hidden behind modal dialogs.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          if (fixture.settingsUpdates) {
-            await page.getByText(messages['updates.currentVersion'], { exact: true }).waitFor({ state: 'visible' });
+          if (fixture.page === 'settings') {
+            await page.getByRole('heading', { name: messages.aboutApp, exact: true }).waitFor({ state: 'visible' });
           } else if (['succeeded', 'rolled-back', 'failed', 'cancelled'].includes(fixture.update.state)) {
             const key = fixture.update.state === 'failed' && fixture.update.backupMoved ? 'updates.restoreFailed' : `updates.state.${fixture.update.state}`;
             await page.getByText(messages[key], { exact: true }).waitFor({ state: 'visible' });

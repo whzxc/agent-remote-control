@@ -63,7 +63,7 @@ phase/headline prefer pending/running noninteraction entries over the latest end
 
 recentSteps contains at most five observed types in stable-entry chronological order. Chunks/completion/results neither duplicate entries nor move old ones to the end. Include thinking/command/file/tool/text/interaction, excluding user/plan/error. Transcripts may omit it or return empty.
 
-dispatchSummary optionally describes the latest turn with controlSource (id, label, kind), model, effort, and serviceTier. ARC dispatch records take precedence. Persisted native Codex turn context supplies configuration for turns without ARC dispatch records. Pi and ACP supply known model metadata. Unknown fields are omitted. Local CLI origins use kind:local-cli. UI model labels shorten recognized GPT astra/sol/luna/terra IDs; Fast means serviceTier:priority.
+dispatchSummary optionally describes the latest turn with controlSource (id, label, kind), model, effort, and serviceTier. ARC dispatch records take precedence. Persisted native Codex turn context supplies configuration for turns without ARC dispatch records. Pi and ACP supply known model metadata. Unknown fields are omitted. Local CLI origins use kind:local-cli. UI model labels use exact native catalog identity matches and omit provider names, even when multiple providers share a model label. Missing labels retain the recorded model ID. Fast means a recorded serviceTier of fast or priority.
 
 Dispatch records and their activity, conversation, timeline and query dispatchSummary projections optionally carry caller: {agent, conversationId} captured from the calling Agent's CLI environment. Caller is display attribution only, never inferred from bindings, and does not change authorization, controlSource, notification binding or task ownership.
 
@@ -112,6 +112,8 @@ Activity checks around once per second ignore observedAt-only changes. Transcrip
 solve(scene,params,drag) owns both wings. Sources use 78px rows/56px minimum. Idle Agent rows use 78px/44px minimum when tasks exist. Active rows fit per-task heights plus taskGap, with 12px gaps between Agent rows. Collapsed queues have five slots maximum including overflow. Scene height is max(viewport,larger column + 140). Both wings align to scene center. Sources never shrink/fade because Agents are busy.
 
 Without tasks, both wings use normal size 1/source row spacing. Active Agents scale 1.1. Idle Agents stay 1 without indent when space permits, otherwise shrink to default 0.6 (adjustable 0.4), indent up to 22px, and use opacity 0.62. Base size is 44px, adjustable 32-60px. Names remain below. Horizontal fitting keeps the hub centered when feasible and otherwise translates only as far as the edge constraints require. When translation cannot fit both wings, the ring compresses first to a minimum ratio of 0.6, followed by equal compression of both column distances to minimum ratio 0.72, within 40px margins. Remaining overflow clips the right while preserving the left and vertically scrolling the scene.
+
+The Back to latest control is an accessible downward-arrow icon button floating at the bottom center of the timeline. It restores follow mode and returns keyboard focus to the timeline. Scroll content reserves clearance below the floating control.
 
 Keep node details, quota rings/QuotaBubble, and arrow sorting. Brand icons scale with nodes without loading spinners. Task bubbles/tentacles show activity. Counts appear only in the panel-open behavior below.
 
