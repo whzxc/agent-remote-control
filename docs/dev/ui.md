@@ -119,6 +119,8 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 
 ui/tokens.css owns semantic colors, type, spacing, radii, dimensions, and shadows. ui/theme.ts follows the system by default. Explicit light/dark overrides use opaque white/black canvases. System fonts use 13-14px body, 12px metadata, and 14px reading text. IDs/credentials use shared monospace styling.
 
+Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Agent roots, account children, panels, and quota views use the same mapping. Control-source products and provider platforms use separate mappings, even when they reuse the same SVG. The product picker reads the shared control-source registry; remote MCP clients are grouped under Remote connections.
+
 Functional icons use shared Icon with Lucide at 16/20px and 1.75px strokes. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
 Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared spring highlights following pointer, keyboard, and Radix state. reduced-motion removes unnecessary transitions.

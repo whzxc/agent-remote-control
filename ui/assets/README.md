@@ -13,6 +13,8 @@ Brand sources and both asset sets live in `assets/brand/`. `npm run brand -- pri
 
 The homepage center always displays the ARC mark.
 
-## Agent monochrome icons
+## Agent and platform icons
 
-Built-in Agent brand SVGs in `agents/` (including Claude, Cursor, Gemini, Grok, GitHub, Kimi, Qwen, Kiro, Devin, Cline, Junie, Hermes, OpenAI, Pi, and OpenCode) come from [Lobe Icons](https://github.com/lobehub/lobe-icons) under MIT. See `agents/LICENSE`. Trademarks belong to their respective owners.
+Runtime brand mappings live in [brand-reserve/magpie](brand-reserve/magpie/manifest.json), copied from Magpie's prepared resources. Agent icons are distinct from provider and product icons. Topology roots, account children, management cards, task prose, and quota views share the Agent mapping. See [brand-reserve/README.md](brand-reserve/README.md) for provenance and retained upstream assets.
+
+Legacy collected graphics remain under `agents/` and `brand-reserve/agents/` with their original license notices. Brand trademarks remain with their owners.

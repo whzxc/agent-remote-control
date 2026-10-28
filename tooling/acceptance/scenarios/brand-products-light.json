@@ -1,0 +1,12 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "tasks": [],
+  "sourceSetup": {
+    "step": "product"
+  }
+}

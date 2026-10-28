@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, ExternalLink, Plus } from "lucide-react";
 import { api } from "../api";
-import { controlSource, nextSourceName } from "../controlSources";
+import { controlSource, curatedSources, nextSourceName } from "../controlSources";
 import { locale, t } from "../i18n";
 import { openUrl } from "../platform";
 import { connector, refreshConnector } from "../state/connector";
@@ -13,13 +13,14 @@ import { ApprovalCard } from "./OAuthApproval";
 import { Button, CopyField, Field, Icon, Loading, Notice, SingleChoice } from "./ui";
 
 const steps: OnboardingStep[] = ["product", "connection", "address", "approval", "success"];
-const products = ["claude", "chatgpt", "gemini", "grok", "grok-bot", "microsoft-copilot", "local-code", "local-desktop", "custom"];
+const products = [...curatedSources.map(source => source.id), "grok-bot", "local-code", "local-desktop", "custom"];
 export default function AddControlSource({ returnFocus }: { returnFocus?: string }) {
   const flow = onboarding.use()!, { status, sources } = connector.use();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [route, setRoute] = useState("");
   const [credentials, setCredentials] = useState<{ ingressId: string; bearerToken: string }>();
   const product = flow.source ?? "custom", info = controlSource(product), name = info?.shortName ?? t("connect.other");
+  const settingsUrl = info?.setup?.url;
   const entries = status?.ingresses ?? [], current = entries.find(i => i.id === flow.ingressId);
   const visible = entries.filter(i => (!flow.localTarget || i.id === `local-claude-${flow.localTarget}`)
     && (i.transport !== "openai-tunnel" || product === "chatgpt"));
@@ -104,7 +105,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
           options={products.filter(id => (id.startsWith("local-") || id === "custom") === (group === "local")).map(id => {
             const localTarget = id.startsWith("local-") ? id.slice(6) as "code" | "desktop" : undefined;
             const reason = flow.fixedConnection && current ? connectionDisabledReason(current, localTarget ? "claude" : id, sources, localTarget) : "";
-            return { value: id, label: productName(id), disabled: !!reason, description: reason, graphic: <SourceIcon platform={id.startsWith("local-") ? "claude" : id} /> };
+            return { value: id, label: productName(id), disabled: !!reason, description: reason, graphic: <SourceIcon platform={id === "local-code" ? "claude-code" : id === "local-desktop" ? "claude" : id} /> };
           })} />
       </section>)}
       {flow.fixedConnection && current && <p className="muted">{t("setup.via", { name: current.name })}</p>}
@@ -132,7 +133,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
         <li><div><strong>{t("source.copyAddress")}</strong><CopyField value={current.url || current.config.tunnelId} label={t("source.copyAddress")} />
           {credentials?.ingressId === current.id && <Field label={t("source.bearerHeader")}><CopyField password value={`Bearer ${credentials.bearerToken}`} label={t("source.bearerHeader")} /></Field>}</div></li>
         <li><div><strong>{t("setup.configureProduct", { name })}</strong><p>{info?.setup?.path[locale.get()] ?? t("connect.customPath")}</p>
-          {info?.setup?.url && <Button onClick={() => void perform(() => openUrl(info.setup!.url))}>{t("connect.openSettings", { name })}<Icon icon={ExternalLink} /></Button>}</div></li>
+          {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}>{t("connect.openSettings", { name })}<Icon icon={ExternalLink} /></Button>}</div></li>
         <li><div><strong>{t("setup.clickConnect", { name })}</strong><p>{t(current.auth === "oauth" ? "setup.browserCode" : "source.noOAuthApproval")}</p></div></li>
       </ol>}
       {current.error && <Notice>{current.error}</Notice>}

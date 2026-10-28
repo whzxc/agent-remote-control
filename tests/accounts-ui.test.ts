@@ -105,7 +105,7 @@ test('platform workspace lists connector instances and excludes local Agent iden
     const second = within(page.getByRole('region', { name: 'Second connector' }));
     assert.equal(second.queryByText('connector@example.com'), null);
     assert.equal(page.queryByRole('region', { name: 'Retired connector' }), null);
-    assert.equal(page.queryByRole('radio', { name: 'Cursor' }), null);
+    assert.ok(page.getByRole('radio', { name: 'Cursor', exact: true }));
     assert.equal(page.queryByRole('radio', { name: 'GitHub', exact: true }), null);
     assert.ok(page.getByRole('radio', { name: 'Microsoft', exact: true }));
     await act(() => fireEvent.click(page.getByRole('radio', { name: 'Google' })));

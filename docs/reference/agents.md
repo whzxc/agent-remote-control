@@ -30,8 +30,12 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | codebuddy | `codebuddy --acp` | ACP v1 |
 | omp | `omp acp` | ACP v1 |
 | dsh | `dsh --profile acp` | ACP v1; CLI or Desktop-bundled CLI |
+| kilo | `kilo acp` | ACP v1 |
+| vibe | `vibe-acp` | ACP v1 |
 
 The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; the Gemini entry does not execute Antigravity.
+
+Kilo Code uses its native `kilo acp` entry. Mistral Vibe uses the separate `vibe-acp` executable from the official installation. Both reuse native provider configuration; neither provisions credentials or adds client filesystem/terminal capabilities. Vibe uses the Mistral brand artwork from the shared asset library.
 
 installed means an executable was found. available includes version and launch-condition checks. ready means an initialized ARC session exists. Read discoveryError for failures, and agent_capabilities with taskId for the actual negotiated initialize/session responses.
 

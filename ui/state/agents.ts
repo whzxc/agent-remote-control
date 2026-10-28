@@ -2,25 +2,8 @@ import { decorativeSvg } from "../assets/brand-reserve/decorative";
 import { api } from "../api";
 import { createStore, preference } from "./store";
 import builtins from "../../native/src/agents/builtins.json";
-import gooseIcon from "../assets/brand-reserve/agents/goose/mono.svg?raw";
-import codebuddyIcon from "../assets/brand-reserve/agents/codebuddy/mono.svg?raw";
-import antigravityIcon from "../assets/brand-reserve/agents/antigravity/mono.svg?raw";
-import geminiIcon from "../assets/brand-reserve/agents/gemini/mono.svg?raw";
-import codexIcon from "../assets/agents/openai.svg?raw";
-import piIcon from "../assets/brand-reserve/agents/pi/mono.svg?raw";
-import opencodeIcon from "../assets/brand-reserve/agents/opencode/mono.svg?raw";
-import claudeIcon from "../assets/brand-reserve/agents/claude/color.svg?raw";
-import cursorIcon from "../assets/brand-reserve/agents/cursor/mono.svg?raw";
-import grokIcon from "../assets/brand-reserve/agents/grok/mono.svg?raw";
-import copilotIcon from "../assets/brand-reserve/agents/copilot/color.svg?raw";
-import kimiIcon from "../assets/brand-reserve/agents/kimi/mono.svg?raw";
-import qwenIcon from "../assets/brand-reserve/agents/qwen/color.svg?raw";
-import kiroIcon from "../assets/brand-reserve/agents/kiro/color.svg?raw";
-import devinIcon from "../assets/brand-reserve/agents/devin/color.svg?raw";
-import clineIcon from "../assets/brand-reserve/agents/cline/mono.svg?raw";
+import { agentIcons } from "../assets/brand-reserve/magpie";
 import junieIcon from "../assets/brand-reserve/agents/junie/color.svg?raw";
-import hermesIcon from "../assets/brand-reserve/agents/hermes/mono.svg?raw";
-import dshIcon from "../assets/brand-reserve/agents/dsh/mono.svg?raw";
 
 export type Agent = {
   adapter?: { state: string; error?: string | null };
@@ -39,29 +22,7 @@ export type Agent = {
     compatibility?: { caveats?: string[]; sources?: string[] };
   };
 };
-export const icons: Record<string, string> = Object.fromEntries(
-  Object.entries({
-    antigravity: antigravityIcon,
-    goose: gooseIcon,
-    codebuddy: codebuddyIcon,
-    codex: codexIcon,
-    pi: piIcon,
-    opencode: opencodeIcon,
-    claude: claudeIcon,
-    cursor: cursorIcon,
-    gemini: geminiIcon,
-    grok: grokIcon,
-    copilot: copilotIcon,
-    kimi: kimiIcon,
-    qwen: qwenIcon,
-    kiro: kiroIcon,
-    devin: devinIcon,
-    cline: clineIcon,
-    junie: junieIcon,
-    hermes: hermesIcon,
-    dsh: dshIcon,
-  }).map(([name, svg]) => [name, decorativeSvg(svg)]),
-);
+export const icons: Record<string, string> = { ...agentIcons, junie: decorativeSvg(junieIcon) };
 export const agentLinks: Record<string, string> = {
   ...Object.fromEntries(builtins.map((agent) => [agent.id, agent.compatibility.sources[0]])),
   codex: "https://github.com/openai/codex",

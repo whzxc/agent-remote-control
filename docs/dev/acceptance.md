@@ -102,6 +102,8 @@ The first run creates a baseline. Later runs compare with the latest directory f
 
 Scenarios in tooling/acceptance/scenarios/*.json include idle, single-task, parallel-seven, approval, long-multilingual, narrow-tentacles, left-panel, right-panel, light, and dark. Left and right panels are captured separately under the product's single-panel rule. The `p3-*` scenarios cover source setup (including empty, local, and fixed-connection entry), standalone and stacked connection methods/configuration/ready, Welcome, and owned/joined Connection detail in both themes. Fixtures use `sourceSetup`, `connectionSetup`, `remoteLink`, and `relayProgress` to select real renderer states without contacting Core. Copy scenario JSON to change Agents, phases, text, themes, language, and panels without unit tests.
 
+The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects the normal homepage count setting; `topologyAccounts` installs the shared multi-account fixture.
+
 Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInteraction` in `ui/types.ts`. Ownership follows `control::observe_ownership` and `claude_notify::ownership`; request routing follows `claude_notify::routing`. No fixture contains real task content or provider identities.
 
 | Scenario | Target |

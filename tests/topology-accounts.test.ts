@@ -423,7 +423,7 @@ test('empty nodes hide disclosure controls even when an earlier collapse prefere
   } finally { await fixture.close(); }
 });
 
-test('X keeps Grok and Grok Bot as separate entries of the same account', async () => {
+test('provider grouping keeps Grok and Grok Bot as separate connector entries', async () => {
   // Regression: f8eebf3 hid both Grok entry points inside a single X account node.
   const fixture = await harness();
   try {
@@ -444,7 +444,8 @@ test('X keeps Grok and Grok Bot as separate entries of the same account', async 
     await act(() => root.render(h(UiProvider, null, h(Overview))));
     const { ingressPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
     await act(() => topologyMode.set('tree'));
-    assert.ok(page.getByRole('button', { name: 'X', exact: true }));
+    const { controlSourcePlatform } = await server.ssrLoadModule('/ui/controlSources.ts');
+    assert.ok(page.getByRole('button', { name: controlSourcePlatform('grok').displayName, exact: true }));
     for (const [product, label] of [['grok', 'Grok'], ['grok-bot', 'Grok Bot']]) {
       await act(() => fireEvent.click(page.getByRole('button', { name: label, exact: true })));
       assert.equal(ingressPanel.get()?.client?.id, `source-${product}`);

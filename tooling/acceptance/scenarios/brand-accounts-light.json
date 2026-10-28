@@ -1,0 +1,44 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "claude",
+      "phase": "thinking",
+      "title": "Review navigation",
+      "headline": "Checking the account routes"
+    },
+    {
+      "agent": "claude",
+      "phase": "command",
+      "title": "Validate workspace",
+      "headline": "Waiting for permission",
+      "approval": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Update documentation",
+      "headline": "Documentation updated",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Check configuration",
+      "headline": "Running the configuration check"
+    },
+    {
+      "agent": "dsh",
+      "phase": "thinking",
+      "title": "Review changes",
+      "headline": "Reading the project changes"
+    }
+  ],
+  "topologyAccounts": true
+}

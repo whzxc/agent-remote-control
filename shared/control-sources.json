@@ -407,6 +407,176 @@
     "platform": "raycast"
   },
   {
+    "id": "codex",
+    "displayName": "Codex",
+    "shortName": "Codex",
+    "platform": "openai",
+    "icon": "codex",
+    "curated": true,
+    "recommendedTransport": "https",
+    "recommendedAuth": "bearer",
+    "httpsAuth": "bearer",
+    "supportedAuth": [
+      "bearer",
+      "none",
+      "oauth"
+    ],
+    "remoteMcp": "supported",
+    "status": "conditional",
+    "clientAuth": [
+      "headers",
+      "none",
+      "oauth"
+    ],
+    "customHeaders": "Authorization: Bearer through native HTTP MCP configuration.",
+    "capability": "Remote MCP over Streamable HTTP",
+    "caveat": {
+      "en": "Configure a Streamable HTTP URL in mcp_servers. Use bearer_token_env_var or headers for Bearer authentication; OAuth requires local ARC consent.",
+      "zh-CN": "在 mcp_servers 配置 Streamable HTTP URL。Bearer 使用 bearer_token_env_var 或请求头；OAuth 需在本机 ARC 确认。"
+    },
+    "badge": {
+      "en": "",
+      "zh-CN": ""
+    },
+    "homeUrl": "https://developers.openai.com/codex/",
+    "docs": [
+      "https://developers.openai.com/codex/mcp/"
+    ],
+    "setup": {
+      "path": {
+        "en": "config.toml › mcp_servers",
+        "zh-CN": "config.toml › mcp_servers"
+      }
+    }
+  },
+  {
+    "id": "claude-code",
+    "displayName": "Claude Code",
+    "shortName": "Claude Code",
+    "platform": "anthropic",
+    "icon": "claude-code",
+    "curated": true,
+    "recommendedTransport": "https",
+    "recommendedAuth": "bearer",
+    "httpsAuth": "bearer",
+    "supportedAuth": [
+      "bearer",
+      "none",
+      "oauth"
+    ],
+    "remoteMcp": "supported",
+    "status": "conditional",
+    "clientAuth": [
+      "headers",
+      "none",
+      "oauth"
+    ],
+    "customHeaders": "Authorization: Bearer through native HTTP MCP configuration.",
+    "capability": "Remote MCP over Streamable HTTP",
+    "caveat": {
+      "en": "Add an HTTP MCP server with claude mcp add --transport http. Configure an Authorization header or complete OAuth with local ARC consent.",
+      "zh-CN": "使用 claude mcp add --transport http 添加 HTTP MCP 服务器，配置 Authorization 请求头或通过本机 ARC 确认 OAuth。"
+    },
+    "badge": {
+      "en": "",
+      "zh-CN": ""
+    },
+    "homeUrl": "https://code.claude.com/",
+    "docs": [
+      "https://code.claude.com/docs/en/mcp"
+    ],
+    "setup": {
+      "path": {
+        "en": "claude mcp add --transport http",
+        "zh-CN": "claude mcp add --transport http"
+      }
+    }
+  },
+  {
+    "id": "opencode",
+    "displayName": "OpenCode",
+    "shortName": "OpenCode",
+    "platform": "opencode",
+    "icon": "opencode",
+    "curated": true,
+    "recommendedTransport": "https",
+    "recommendedAuth": "bearer",
+    "httpsAuth": "bearer",
+    "supportedAuth": [
+      "bearer",
+      "none",
+      "oauth"
+    ],
+    "remoteMcp": "supported",
+    "status": "conditional",
+    "clientAuth": [
+      "headers",
+      "none",
+      "oauth"
+    ],
+    "customHeaders": "Authorization: Bearer through native HTTP MCP configuration.",
+    "capability": "Remote MCP over Streamable HTTP",
+    "caveat": {
+      "en": "Set type to remote and configure the MCP URL under mcp in opencode.json. Configure headers or use opencode mcp auth for OAuth.",
+      "zh-CN": "在 opencode.json 的 mcp 中设置 type 为 remote 并填写 MCP URL。配置请求头或使用 opencode mcp auth 完成 OAuth。"
+    },
+    "badge": {
+      "en": "",
+      "zh-CN": ""
+    },
+    "homeUrl": "https://opencode.ai/",
+    "docs": [
+      "https://opencode.ai/docs/mcp-servers/"
+    ],
+    "setup": {
+      "path": {
+        "en": "opencode.json › mcp › type: remote",
+        "zh-CN": "opencode.json › mcp › type: remote"
+      }
+    }
+  },
+  {
+    "id": "qwen-code",
+    "displayName": "Qwen Code",
+    "shortName": "Qwen Code",
+    "platform": "alibaba",
+    "icon": "qwen-code",
+    "curated": true,
+    "recommendedTransport": "https",
+    "recommendedAuth": "bearer",
+    "httpsAuth": "bearer",
+    "supportedAuth": [
+      "bearer",
+      "none"
+    ],
+    "remoteMcp": "supported",
+    "status": "conditional",
+    "clientAuth": [
+      "headers",
+      "none"
+    ],
+    "customHeaders": "Authorization: Bearer through native HTTP MCP configuration.",
+    "capability": "Remote MCP over Streamable HTTP",
+    "caveat": {
+      "en": "Set httpUrl under mcpServers in settings.json and configure Authorization: Bearer in headers. Native Qwen model login is separate from ARC MCP authentication.",
+      "zh-CN": "在 settings.json 的 mcpServers 中填写 httpUrl，并在 headers 配置 Authorization: Bearer。Qwen 模型登录与 ARC MCP 认证分开配置。"
+    },
+    "badge": {
+      "en": "",
+      "zh-CN": ""
+    },
+    "homeUrl": "https://qwenlm.github.io/qwen-code-docs/",
+    "docs": [
+      "https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/"
+    ],
+    "setup": {
+      "path": {
+        "en": "settings.json › mcpServers › httpUrl",
+        "zh-CN": "settings.json › mcpServers › httpUrl"
+      }
+    }
+  },
+  {
     "id": "grok-bot",
     "displayName": "Grok Bot",
     "shortName": "Grok Bot",

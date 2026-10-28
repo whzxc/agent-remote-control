@@ -51,14 +51,12 @@ See Slack's [media kit](https://slack.com/media-kit) and [brand terms](https://s
 
 This directory does not invent a desktop app logo for each CLI or use wordmarks as color icons.
 
-## Runtime control-source mappings
+## Runtime mappings
 
-ChatGPT, Notion, and Slack reuse their respective control-sources assets. Claude, Cursor, and Microsoft Copilot reuse the original bytes of agents/claude/color.svg, agents/cursor/mono.svg, and agents/copilot/color.svg respectively. Separate control-sources/index.ts owns their semantics. agents/copilot is Microsoft's color mark, not GitHub Copilot.
+[magpie/manifest.json](magpie/manifest.json) pins the Magpie revision, original filenames, source URLs, SHA-256 values, and Agent/platform/product mappings. These SVG files are copied unchanged from Magpie's bundled GUI resources. [magpie/index.ts](magpie/index.ts) resolves those mappings for the renderer. Magpie's MIT notice is bundled in [licenses/magpie-LICENSE.txt](../../../../licenses/magpie-LICENSE.txt). Brand trademarks remain with their owners.
 
-Gemini reuses agents/gemini/color.svg.
+Agent artwork distinguishes Codex from OpenAI, Claude Code from Claude, Gemini CLI from Gemini, and GitHub Copilot from Microsoft Copilot. Droid uses Factory's mark; Oh My Pi uses its own mark. Junie retains the existing upstream resource because the pinned Magpie library has no matching icon. Mistral Vibe uses the Mistral mark because that library has no separate Vibe symbol.
 
-GitHub Copilot uses control-sources/github-copilot/mono.svg from Lobe Icons 1.95.1 under MIT (licenses/lobe-icons-MIT.txt). Raycast uses control-sources/raycast/mono.svg from Simple Icons commit b86d5c9a0bdd4f3f5c30898a63654dd32f39fd76 under CC0-1.0 (licenses/simple-icons-CC0.txt). The license text comes from that commit's LICENSE.md. See the manifest for sources and SHA-256 values. Trademarks remain with their owners. Their use does not imply endorsement. No font files are copied.
+Agent management, topology roots and account children, task prose, and quota surfaces share the Agent mapping. Platform navigation uses provider marks; connector instances use product marks. Cursor has its own platform group. GitHub Copilot belongs to Microsoft. OpenCode and Alibaba group the additional OpenCode and Qwen Code MCP products.
 
-New monochrome graphics use currentColor for themes. Color graphics retain their original colors. Both uses share underlying assets. Do not treat an Agent instance or capability as a control source.
-
-Platform navigation uses the OpenAI, Anthropic, Google, Microsoft and GitHub marks independently of product marks. Google is from Simple Icons under CC0-1.0; the other platform marks reuse the pinned Lobe Icons package. Raycast, Google and X receive currentColor at render time without modifying the collected files.
+ChatGPT, Notion, Slack, and Grok Bot retain the existing resources where the Magpie library does not provide a separate matching product mark. Monochrome SVGs inherit currentColor; color graphics retain the original fills. SVG titles are removed only when rendering decorative artwork so the enclosing control owns its accessible name.

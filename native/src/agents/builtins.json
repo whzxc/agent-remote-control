@@ -624,5 +624,74 @@
         "https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp"
       ]
     }
+  },
+  {
+    "id": "kilo",
+    "displayName": "Kilo Code",
+    "command": "kilo",
+    "args": [
+      "acp"
+    ],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "acp",
+        "--help"
+      ],
+      "helpContains": [
+        "ACP"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Official Kilo CLI installation and its required runtime.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Only standard ACP methods and session-advertised configuration are exposed.",
+        "ARC does not advertise client filesystem or terminal capabilities; the agent must provide its own tool execution.",
+        "Continuing after process shutdown requires negotiated session/load support."
+      ],
+      "sources": [
+        "https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/code-with-ai/platforms/cli-reference.md"
+      ]
+    }
+  },
+  {
+    "id": "vibe",
+    "displayName": "Mistral Vibe",
+    "command": "vibe-acp",
+    "args": [],
+    "protocol": "acp-v1",
+    "integration": "native",
+    "aliases": [],
+    "searchDirs": [
+      "~/.local/bin"
+    ],
+    "versionArgs": [
+      "--version"
+    ],
+    "compatibility": {
+      "helpArgs": [
+        "--help"
+      ],
+      "helpContains": [
+        "ACP"
+      ],
+      "versionRequirement": "Requires a release exposing the documented ACP entry; startup is checked against the installed executable.",
+      "runtime": "Official Mistral Vibe installation with the vibe-acp executable.",
+      "authentication": "Existing agent login and provider configuration; ARC does not configure credentials.",
+      "caveats": [
+        "Only standard ACP methods and session-advertised configuration are exposed.",
+        "ARC does not advertise client filesystem or terminal capabilities; the agent must provide its own tool execution.",
+        "Continuing after process shutdown requires negotiated session/load support."
+      ],
+      "sources": [
+        "https://github.com/mistralai/mistral-vibe/blob/main/docs/acp-setup.md"
+      ]
+    }
   }
 ]

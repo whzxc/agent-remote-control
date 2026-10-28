@@ -10,7 +10,7 @@ import {
   quotaValue,
   quotaPercent,
 } from "./displayPreferences";
-import { readingStatus, brandIcon, quotaColor } from "./presentation";
+import { readingStatus, quotaColor } from "./presentation";
 import { isFiveHour, isWeekly, windowLabel } from "./labels";
 import { quotaPace } from "./pace";
 import { quotaPeriod } from "./quotaTiming";
@@ -166,7 +166,7 @@ export default function QuotaRing({
           />
         </svg>
         {running && <ActivityArc attention={attention} />}
-        <img src={brandIcon(provider.agentId)} alt="" />
+        <span className="quota-brand" aria-hidden="true" dangerouslySetInnerHTML={{ __html: icons[provider.agentId] }} />
       </span>
       {showPercentage && (
         <span

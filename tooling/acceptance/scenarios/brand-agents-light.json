@@ -1,0 +1,16 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex",
+    "claude",
+    "gemini",
+    "copilot",
+    "droid",
+    "omp",
+    "kilo",
+    "vibe"
+  ],
+  "tasks": [],
+  "maxVisibleAgents": 8
+}

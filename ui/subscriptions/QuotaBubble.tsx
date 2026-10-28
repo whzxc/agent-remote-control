@@ -1,5 +1,6 @@
 import { useSensitiveText } from "../components/Sensitive";
 import { useState } from "react";
+import { icons } from "../state/agents";
 import { RefreshCw, TriangleAlert, CircleAlert, Flame } from "lucide-react";
 import { t, locale } from "../i18n";
 import { openUrl } from "../platform";
@@ -15,7 +16,6 @@ import {
 } from "./displayPreferences";
 import { windowLabel, subscriptionLabel } from "./labels";
 import {
-  brandIcon,
   quotaColor,
   compactAge,
   compactReset,
@@ -124,9 +124,7 @@ export default function QuotaBubble({
             <header>
               <span
                 className="provider-logo"
-                style={{
-                  maskImage: `url(${JSON.stringify(brandIcon(provider.agentId))})`,
-                }}
+                dangerouslySetInnerHTML={{ __html: icons[provider.agentId] }}
                 aria-hidden="true"
               />
               <span className="subscription-heading">

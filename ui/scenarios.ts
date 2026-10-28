@@ -25,7 +25,7 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
@@ -107,7 +107,7 @@ export async function installScenario(name: string) {
   const fixture = await load() as Fixture;
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
-  const preferences = { 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
+  const preferences = { 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
   acceptPreferences(preferences);
   const now = new Date().toISOString();
   const defaults = Object.fromEntries(Object.entries(config.fields).map(([key, field]) => [key, field.default]));
@@ -142,7 +142,7 @@ export async function installScenario(name: string) {
       ...(task.interaction ? { interaction: task.interaction } : {}),
     });
   });
-  const topologyAccounts = name === 'topology-accounts' ? installTopologyAccounts(status, activity) : [];
+  const topologyAccounts = (fixture.topologyAccounts || name === 'topology-accounts') ? installTopologyAccounts(status, activity) : [];
   if (topologyAccounts.length) sources.splice(0, sources.length, ...status.ingresses.flatMap(i => i.sources ?? []));
   const timelines: Record<string, AgentTimeline> = {};
   fixture.tasks.forEach((task, taskIndex) => {

@@ -954,7 +954,7 @@
   "setup.claudeDesktop": "Claude Desktop",
   "setup.addProduct": "Add {name}",
   "setup.addAnother": "Add another",
-  "setup.group.remote": "Phone and web",
+  "setup.group.remote": "Remote connections",
   "setup.group.local": "This computer",
   "setup.via": "Via {name}",
   "setup.connectionPrompt": "Which connection should {name} use to reach this computer?",

@@ -20,6 +20,7 @@ export default function ChangeConnection() {
   const source = sources.find(s => s.id === flow.sourceId);
   const entries = status?.ingresses ?? [], current = entries.find(i => i.id === source?.ingressId), target = entries.find(i => i.id === flow.ingressId);
   const info = controlSource(source?.product ?? "custom"), productName = info?.shortName ?? t("connect.other");
+  const settingsUrl = info?.setup?.url;
   const addressInstruction = t(info?.setup?.editableUrl === true ? "switch.editAddress" : "switch.replaceConnector", { name: productName });
   const request = target?.oauth?.pending.find(p => p.id === flow.requestId || p.switchSourceId === source?.id && p.status === "pending");
   function reason(i: Ingress) {
@@ -80,7 +81,7 @@ export default function ChangeConnection() {
           <CopyField value={target.url || target.config.tunnelId} label={t("source.copyAddress")} />
           {credentials?.ingressId === target.id && <Field label={t("source.bearerHeader")}><CopyField password value={`Bearer ${credentials.bearerToken}`} label={t("source.bearerHeader")} /></Field>}
           {flow.step === "address" && <><p>{addressInstruction}</p><h3>{t("setup.configureProduct", { name: productName })}</h3><p>{info?.setup?.path[locale.get()] ?? t("connect.customPath")}</p>
-            {info?.setup?.url && <Button onClick={() => void perform(() => openUrl(info.setup!.url))}>{t("connect.openSettings", { name: productName })}<Icon icon={ExternalLink} /></Button>}
+            {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}>{t("connect.openSettings", { name: productName })}<Icon icon={ExternalLink} /></Button>}
             <p>{t(target.auth === "oauth" ? "setup.browserCode" : "source.noOAuthApproval")}</p>
             {target.state !== "ready" && <Button busy={busy} onClick={() => void perform(async () => { await api(`ingress/${target.id}/start`, "POST"); await refreshConnector(); })}>{t("retry")}</Button>}
           </>}

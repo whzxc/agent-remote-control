@@ -17,13 +17,10 @@
 }
 .provider-logo {
   flex: none;
-  background: currentColor;
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
   width: 16px;
   height: 16px;
 }
+.provider-logo svg { width: 100%; height: 100%; }
 .subscription-heading {
   display: flex;
   align-items: center;

@@ -455,24 +455,34 @@
     }
   ],
   "controlSourceUsage": {
-    "gemini": "agents/gemini/color.svg",
+    "gemini": "magpie/gemini-color.svg",
     "chatgpt": "control-sources/chatgpt/mono.svg",
-    "claude": "agents/claude/color.svg",
-    "microsoft-copilot": "agents/copilot/color.svg",
+    "claude": "magpie/claude-color.svg",
+    "microsoft-copilot": "magpie/copilot-color.svg",
     "notion": "control-sources/notion/mono.svg",
     "slack": "control-sources/slack/color.svg",
-    "cursor": "agents/cursor/mono.svg",
-    "github-copilot": "control-sources/github-copilot/mono.svg",
-    "raycast": "control-sources/raycast/mono.svg",
+    "cursor": "magpie/cursor.svg",
+    "github-copilot": "magpie/githubcopilot.svg",
+    "raycast": "magpie/raycast.svg",
     "grok-bot": "control-sources/grok-bot/app.png",
-    "xai": "control-sources/xai/mono.svg"
+    "xai": "magpie/xai.svg",
+    "codex": "magpie/codex-color.svg",
+    "claude-code": "magpie/claudecode-color.svg",
+    "grok": "magpie/grok.svg",
+    "opencode": "magpie/opencode.svg",
+    "qwen-code": "magpie/qwen-color.svg"
   },
   "platformUsage": {
-    "openai": "control-sources/chatgpt/mono.svg",
-    "anthropic": "control-sources/anthropic/mono.svg",
-    "google": "control-sources/google/mono.svg",
-    "xai": "control-sources/xai/mono.svg",
-    "microsoft": "control-sources/microsoft/mono.svg",
-    "github": "control-sources/github/mono.svg"
+    "openai": "magpie/openai.svg",
+    "anthropic": "magpie/anthropic.svg",
+    "google": "magpie/google-color.svg",
+    "xai": "magpie/xai.svg",
+    "microsoft": "magpie/microsoft-color.svg",
+    "github": "control-sources/github/mono.svg",
+    "raycast": "magpie/raycast.svg",
+    "alibaba": "magpie/alibaba-color.svg",
+    "mistral": "magpie/mistral-color.svg",
+    "cursor": "magpie/cursor.svg",
+    "opencode": "magpie/opencode.svg"
   }
 }

@@ -954,7 +954,7 @@
   "setup.claudeDesktop": "Claude 桌面版",
   "setup.addProduct": "添加 {name}",
   "setup.addAnother": "再添加一个",
-  "setup.group.remote": "手机和网页",
+  "setup.group.remote": "远程连接",
   "setup.group.local": "这台电脑",
   "setup.via": "经由 {name}",
   "setup.connectionPrompt": "{name} 通过哪个连接找到这台电脑？",
