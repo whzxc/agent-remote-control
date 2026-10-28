@@ -1,17 +1,18 @@
 import { useId } from "react";
 import { t } from "../i18n";
+import { hubMarkGeometry } from "./geometry";
 
 export default function Hub({ sourceEmpty, agentEmpty, onAddSource, onManageAgents }: {
   sourceEmpty: boolean; agentEmpty: boolean; onAddSource: () => void; onManageAgents: () => void;
 }) {
-  const id = useId();
+  const id = useId(), mark = hubMarkGeometry();
   return <>
     <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control">
       <defs><linearGradient id={`${id}-arc`} gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="92" y2="50">
         <stop stopColor="var(--mark-agent-start)" /><stop offset="1" stopColor="var(--mark-agent-end)" />
       </linearGradient></defs>
-      <path d="M23.35 32.29 A32 32 0 0 1 76.65 32.29" fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" />
-      <path d="M76.65 67.71 A32 32 0 0 1 23.35 67.71" fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" />
+      <path data-hub-arc="top" d={mark.top} fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" />
+      <path data-hub-arc="bottom" d={mark.bottom} fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" />
     </svg>
     {(["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;

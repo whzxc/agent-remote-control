@@ -51,3 +51,16 @@ export function tentacle(end: Point, port: Point, radial: Point, side: Side, sca
   const c2 = { x: port.x + radial.x * distance * shape.t2Root, y: port.y + radial.y * distance * shape.t2Root };
   return { ...grownWire(end, c1, c2, port, scale, shape.flare, true, connecting), c1, c2 };
 }
+
+// Arc caps keep their clearance from each independently growing DOT.
+export function hubMarkGeometry(sourceScale = 1, agentScale = 1) {
+  const end = (scale: number) => 2 * Math.asin(Math.min(1, (10 * Math.max(1, scale) + 4.5 + 4) / 64));
+  const source = end(sourceScale), agent = end(agentScale);
+  const sourceX = 50 - 32 * Math.cos(source), sourceY = 32 * Math.sin(source);
+  const agentX = 50 + 32 * Math.cos(agent), agentY = 32 * Math.sin(agent);
+  return {
+    top: `M${sourceX} ${50 - sourceY} A32 32 0 0 1 ${agentX} ${50 - agentY}`,
+    bottom: `M${agentX} ${50 + agentY} A32 32 0 0 1 ${sourceX} ${50 + sourceY}`,
+    sourceAngle: source, agentAngle: agent,
+  };
+}

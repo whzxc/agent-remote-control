@@ -88,7 +88,7 @@ export function AgentQuotaIcon({ agent, dual = false, quota }: { agent: string; 
       : [];
   const current = windows.find((w) => w.id === provider?.displayWindowId);
   const pair = provider ? agentQuotaWindows({ ...provider, windows }) : { short: undefined, weekly: undefined };
-  const rings = dual ? [{ window: pair.weekly, radius: 21 }, { window: pair.short, radius: 16.5 }]
+  const rings = dual ? [{ window: pair.weekly ?? (current?.id !== pair.short?.id ? current : undefined), radius: 21 }, { window: pair.short, radius: 16.5 }]
     : [{ window: current, radius: 21 }];
   const label = rings.flatMap(({ window }) => window
     ? [`${windowLabel(window.label)} · ${quotaLabel()} ${quotaPercent(window)}`] : []).join(" · ") || undefined;

@@ -290,3 +290,32 @@ test('native history preserves confirmed, failed and unknown outcomes in its acc
     }
   } finally { await fixture.close(); }
 });
+
+test('empty nodes hide disclosure controls even when an earlier collapse preference remains', async () => {
+  // Regression: a stale collapse preference left plus/minus buttons on nodes without children or tasks.
+  const fixture = await harness();
+  try {
+    const { default: Topology } = await fixture.server.ssrLoadModule('/ui/topology/Topology.tsx');
+    const { topologyCollapsed } = await fixture.server.ssrLoadModule('/ui/topology/accountState.ts');
+    const { nodeKey } = await fixture.server.ssrLoadModule('/ui/topology/animate.ts');
+    const { t } = await fixture.server.ssrLoadModule('/ui/i18n.ts');
+    const node = { id: 'empty', label: 'Example Agent', side: 1, state: 'normal', attention: false, selected: false,
+      content: h('button', null, 'Example Agent'), tasks: [] };
+    const render = async (tasks: unknown[]) => {
+      await act(() => fixture.root.render(h(Topology, { boundary: { current: fixture.mount }, left: [], right: [{ ...node, tasks }],
+        accountsEnabled: true, onReorderNodes() {}, onReorderTasks() {} })));
+      await fixture.settle();
+    };
+    for (const closed of [false, true]) {
+      await act(() => topologyCollapsed.set({ [nodeKey(1, node.id)]: closed }));
+      await render([]);
+      assert.ok(fixture.page.getByRole('button', { name: node.label, exact: true }));
+      for (const action of ['topology.expand', 'topology.collapse'])
+        assert.equal(fixture.page.queryByRole('button', { name: `${t(action)} ${node.label}`, exact: true }), null);
+    }
+    await render([{ id: 'work', state: 'running', selected: false, width: 200, height: 60, content: h('button', null, 'Example task') }]);
+    await act(() => fireEvent.click(fixture.page.getByRole('button', { name: `${t('topology.expand')} ${node.label}`, exact: true })));
+    await fixture.settle();
+    assert.ok(fixture.page.getByRole('button', { name: 'Example task', exact: true }));
+  } finally { await fixture.close(); }
+});

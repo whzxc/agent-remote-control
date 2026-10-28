@@ -1,3 +1,4 @@
+import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
@@ -59,6 +60,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const collapsed = topologyCollapsed.use();
   const [hover, setHover] = useState<{ side: Side; id: string; task?: boolean } | null>(null);
   const [focus, setFocus] = useState<typeof hover>(null);
+  const [hubInteraction, setHubInteraction] = useState<Scene["hubInteraction"]>();
   const [revealed, setRevealed] = useState<string | null>(null);
   const hideToggle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const changeHover = useCallback((next: typeof hover) => {
@@ -71,7 +73,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     else hideToggle.current = setTimeout(() => { hideToggle.current = null; setRevealed(null); }, 200);
   }, []);
   const clearInteraction = useCallback(() => {
-    setHover(null); setFocus(null); setRevealed(null);
+    setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
   }, []);
@@ -99,8 +101,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   // Retain departing HTML until its primitive has collapsed into the port.
   const [retained, setRetained] = useState<PositionedTask[]>([]);
   const allTasks = [...new Map([...retained, ...tasks].map(t => [taskKey(t.side, t.id), t])).values()];
-  const latest = useRef({ nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
-  latest.current = { nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
+  const latest = useRef({ nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
+  latest.current = { nodes, allNodes, tasks, allTasks, left, right, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
   useEffect(() => observeTopology(() => ({
     orientation: orientation.current, source: orientationSource.current, orientationPending: orientationPending.current,
     origin: origin.current, size: size.current, panel: panel.current,
@@ -125,6 +127,11 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     root.style.height = `${a.values("scene")!.height}px`;
     boundary.current?.style.setProperty("--topology-hub-x", `${h.x}px`);
     if (hub.current) {
+      const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
+      hub.current.querySelector('[data-hub-arc="top"]')?.setAttribute('d', mark.top);
+      hub.current.querySelector('[data-hub-arc="bottom"]')?.setAttribute('d', mark.bottom);
+      hub.current.style.setProperty('--source-dot-scale', String(h.dotSource));
+      hub.current.style.setProperty('--agent-dot-scale', String(h.dotAgent));
       const size = h.Re * 240 / 130; // Preserve the ARC mark's existing earmuff clearance.
       hub.current.style.width = hub.current.style.height = `${size}px`;
       hub.current.style.setProperty('--hub-rotation', `${h.rotation}deg`);
@@ -203,7 +210,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   }, [paint]);
   const wake = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(tick); }, [tick]);
   const scene = useCallback((): Scene => {
-    const sc: Scene = { ...size.current!, left: latest.current.left, right: latest.current.right }, d = drag.current;
+    const sc: Scene = { ...size.current!, left: latest.current.left, right: latest.current.right, hubInteraction: latest.current.hubInteraction }, d = drag.current;
     const selected = latest.current.nodes.find(n => n.selected);
     // Reserve only the minimum; following the measured panel would feed its
     // growing width back into the node layout and move the arc again.
@@ -278,6 +285,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       latest.current.onPanelLayout?.(next);
     }
     animator.current.setTargets(layout.current, d?.active ? d : null);
+    animator.current.appearance(latest.current.nodes, latest.current.tasks);
     animator.current.highlight(latest.current.lit);
     // Pins follow the pointer immediately; their neighbours continue springing.
     animator.current.step(0, !!latest.current.reduced);
@@ -432,7 +440,11 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     } }}>
     <svg ref={svg} className="topology-wires" aria-hidden="true" />
     <svg ref={portraitSvg} className="topology-wires portrait-wires" aria-hidden="true" />
-    <div ref={hub} className="topology-hub">{brand}</div>
+    <div ref={hub} className="topology-hub"
+      onPointerMove={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
+      onPointerLeave={() => setHubInteraction(undefined)}
+      onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : 'agent')}
+      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
       data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.sourceIds?.[0] ?? n.id : undefined}
       data-account-id={n.accountId}
@@ -450,7 +462,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       onPointerDown={n.reorderable ? event => startDrag(event, "node", n.side, n.id) : undefined}
       onClickCapture={event => suppressClick(event, nodeKey(n.side, n.id))}>{n.content}{accountsEnabled && (() => {
         const full = fullNodes.find(p => p.side === n.side && p.id === n.id);
-        if (!full || !full.children?.length && !full.tasks.length && collapsed[nodeKey(n.side, n.id)] === undefined) return null;
+        if (!full || !full.children?.length && !full.tasks.length) return null;
         const closed = collapsed[nodeKey(n.side, n.id)] === true;
         const collect = (node: NodeView): TaskView[] => [...node.tasks, ...(node.children ?? []).flatMap(collect)];
         const ownTasks = collect(full);

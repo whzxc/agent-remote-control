@@ -1,4 +1,4 @@
-import { ACCOUNT_NODE_SIZE, DEFAULTS, NODE_R, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
+import { ACCOUNT_NODE_SIZE, DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
 import { bubbleWidths } from '../state/activityModel.ts';
 
 export interface PortraitGeometry {
@@ -16,7 +16,8 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const column = Math.min(88, Math.max(56, vw * 88 / 900));
   const busGap = Math.min(62, Math.max(30, vw * 62 / 900));
   const finalStub = Math.min(24, Math.max(12, vw * 24 / 900));
-  const Re = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale;
+  const preferredRe = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale;
+  const Re = Math.max(preferredRe * MIN_HUB_RATIO, Math.min(preferredRe, (vw - 32) * 130 / 240));
   const hubGap = Math.min(56, Re / 2);
   const earOffset = Re, earHalf = Re * 72 / 112;
   const hasTasks = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasks));
@@ -93,7 +94,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   }
   const sourceTop = 74, left = wing(sc.left, -1, sourceTop);
   const sourceBottom = sourceTop + left.H;
-  const hub = { x: vw / 2, y: sourceBottom + hubGap + earOffset, Re };
+  const hub = { x: vw / 2, y: sourceBottom + hubGap + earOffset, Re, ...hubDots(sc.hubInteraction) };
   const agentTop = hub.y + earOffset + hubGap, agents = wing(right, 1, agentTop);
   const agentBottom = agentTop + agents.H;
   for (const wing of [left, agents]) {

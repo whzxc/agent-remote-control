@@ -1,7 +1,8 @@
-import { arcPath, grownWire } from "../ui/topology/geometry.ts";
+import { arcPath, grownWire, hubMarkGeometry } from "../ui/topology/geometry.ts";
+import { TopologyAnimator, nodeKey } from "../ui/topology/animate.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, PARAMETERS, PARAMETER_GROUPS, distribute, extentOf, solve, LABEL_W, NODE_R, PANEL_ARC_GAP, type Scene } from "../ui/topology/solve.ts";
+import { DEFAULTS, PARAMETERS, PARAMETER_GROUPS, MIN_HUB_RATIO, distribute, extentOf, solve, LABEL_W, NODE_R, PANEL_ARC_GAP, type Scene } from "../ui/topology/solve.ts";
 import { clampParameter, emptyParameters, importParameters, loadParameters, parameterDiff } from "../ui/topology/parameters.ts";
 
 const entities = (prefix: string, counts: number[]) => counts.map((count, i) => ({ id: `${prefix}${i}`,
@@ -97,17 +98,68 @@ test("side panels leave the hub centered when their reserved space already fits"
   }
 });
 
-test("column compression exhausts the left column before the right; overflow clips on the right", () => {
-  // Property: column compression exhausts the left column before the right; overflow clips on the right.
-  for (let vw = 1400; vw >= 700; vw -= 10) {
-    const layout = solve({ ...fixtures.multi, vw }), { hub } = layout;
-    const ratio = (side: number) => Math.abs(layout.wings[side].nodes[0].x - hub.x) / (hub.Re * DEFAULTS.colDist);
-    assert.ok(ratio(0) >= DEFAULTS.squeezeMin - 1e-9);
-    assert.ok(ratio(1) >= DEFAULTS.squeezeMin - 1e-9);
-    if (ratio(1) < 1 - 1e-9) assert.ok(Math.abs(ratio(0) - DEFAULTS.squeezeMin) < 1e-9);
+test("ring compression precedes balanced columns and respects its lower bound", () => {
+  // Property: fitting compresses the ring before equal column ratios, without shrinking the ring below its lower bound.
+  let ringCompressed = false, columnsCompressed = false;
+  for (let vw = 1600; vw >= 500; vw -= 10) {
+    const scene = { ...fixtures.multi, vw }, layout = solve(scene);
+    const reference = solve({ ...scene, left: [], right: [] });
+    const ratio = layout.hub.Re / reference.hub.Re;
+    assert.ok(ratio >= MIN_HUB_RATIO - 1e-9 && ratio <= 1);
+    assert.equal(layout.balance[0].squeeze, layout.balance[1].squeeze);
+    assert.ok(layout.balance.every(wing => wing.squeeze >= DEFAULTS.squeezeMin));
+    if (ratio < 1) ringCompressed = true;
+    if (layout.balance[0].squeeze < 1) {
+      columnsCompressed = true;
+      assert.ok(Math.abs(ratio - MIN_HUB_RATIO) < 1e-9);
+    }
   }
-  const narrow = solve({ ...fixtures.bilateral, vw: 700 });
-  assert.ok(narrow.hub.x + extentOf(narrow.wings[1], narrow.hub.x, narrow.hub.Re).full > 700 - DEFAULTS.margin);
+  assert.ok(ringCompressed && columnsCompressed);
+});
+test("hub arc ends maintain clearance from each growing dot", () => {
+  // Property: growing either DOT independently shortens both adjacent arcs while retaining equal cap clearance.
+  const base = hubMarkGeometry();
+  const clearance = (angle: number, scale: number) => 2 * 32 * Math.sin(angle / 2) - 10 * scale;
+  for (const scale of [1.1, 1.25]) {
+    const source = hubMarkGeometry(scale, 1), agent = hubMarkGeometry(1, scale);
+    assert.ok(source.sourceAngle > base.sourceAngle);
+    assert.equal(source.agentAngle, base.agentAngle);
+    assert.ok(agent.agentAngle > base.agentAngle);
+    assert.equal(agent.sourceAngle, base.sourceAngle);
+    assert.ok(Math.abs(clearance(source.sourceAngle, scale) - clearance(base.sourceAngle, 1)) < 1e-9);
+    assert.equal(source.sourceAngle, agent.agentAngle);
+    assert.notEqual(source.top, base.top);
+    assert.notEqual(source.bottom, base.bottom);
+  }
+});
+test("wire dimming and availability recover continuously without following scale thresholds", () => {
+  // Regression: primary tentacles jumped in opacity when animated scale crossed one during idle/active transitions.
+  const scene = { vw: 1600, vh: 220, left: [], right: entities('agent', [0, 1]) };
+  const animator = new TopologyAnimator(), key = nodeKey(1, 'agent0');
+  const paintNodes = scene.right.map(node => ({ id: node.id, side: 1 as const, state: 'normal' as const, selected: false, attention: false }));
+  const target = (tasks: number, inactive = false) => {
+    animator.setTargets(solve({ ...scene, right: entities('agent', [tasks, 1]) }));
+    animator.appearance(paintNodes.map(n => ({ ...n, state: inactive ? 'inactive' : 'normal' })), []);
+  };
+  target(0); animator.step(0, true);
+  const idle = animator.values(key)!.wireOpacity;
+  target(1);
+  assert.equal(animator.values(key)!.wireOpacity, idle);
+  animator.step(1 / 60);
+  const partial = animator.values(key)!.wireOpacity;
+  animator.step(0, true);
+  const active = animator.values(key)!.wireOpacity;
+  assert.ok(partial > idle && partial < active);
+  target(0); animator.step(1 / 60);
+  assert.ok(animator.values(key)!.wireOpacity > idle && animator.values(key)!.wireOpacity < active);
+  target(0, true); animator.step(1 / 60);
+  assert.ok(animator.values(key)!.availability > 0 && animator.values(key)!.availability < 1);
+  animator.step(0, true);
+  assert.equal(animator.values(key)!.availability, 0);
+  target(0); animator.step(1 / 60);
+  assert.ok(animator.values(key)!.availability > 0 && animator.values(key)!.availability < 1);
+  animator.step(0, true);
+  assert.equal(animator.values(key)!.availability, 1);
 });
 test("ports fit the arc and drag is confined to its wing and item", () => {
   // Property: ports fit the arc and drag is confined to its wing and item.

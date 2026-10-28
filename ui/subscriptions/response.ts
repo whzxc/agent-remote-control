@@ -68,6 +68,8 @@ export function presentSubscription(provider: ProviderSnapshot): ProviderSnapsho
   }
   if (plan?.trim().toLowerCase() === 'free') plan = 'Free';
   const weekly = windows.filter(w => isWeekly(w.label));
-  const displayWindowId = weekly.find(w => w.id === provider.displayWindowId)?.id ?? weekly[0]?.id;
+  const displayWindowId = weekly.find(w => w.id === provider.displayWindowId)?.id ?? weekly[0]?.id
+    ?? windows.find(w => w.id === provider.displayWindowId && Number.isFinite(w.usedPercent))?.id
+    ?? windows.find(w => Number.isFinite(w.usedPercent))?.id;
   return {...provider, windows, displayWindowId, plan, availableResetCount, creditBalance, resetCredits, productUsage};
 }

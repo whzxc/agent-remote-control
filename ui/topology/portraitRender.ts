@@ -104,7 +104,7 @@ export class PortraitPainter {
       const key = nodeKey(node.side, node.id), n = a.values(key);
       if (!n) continue;
       const sideClass = node.side === -1 ? 'left' : 'right';
-      const opacity = n.presence * (node.state === 'inactive' ? 0.2 : 0.55 + 0.3 * n.emphasis);
+      const opacity = n.presence * (0.2 + 0.35 * n.availability + 0.3 * n.emphasis);
       const descendants = nodes.filter(c => c.parent === node.id && c.side === node.side).map(c => ({ node: c, value: a.values(nodeKey(c.side, c.id)) })).filter(c => c.value);
       if (descendants.length) {
         const bx = n.childBusX, start = point(n.x - node.side * (n.size * n.scale / 2 + 4), n.y);

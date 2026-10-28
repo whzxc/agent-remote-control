@@ -47,7 +47,7 @@ export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default
 export type Side = -1 | 1;
 export interface Task { id: string; width: number; height: number }
 export interface Entity { id: string; tasks: readonly Task[]; children?: readonly Entity[]; collapsed?: boolean }
-export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; panel?: { side: Side; edge: number; selected: string; narrow?: boolean } }
+export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; narrow?: boolean } }
 export interface Drag extends Point { kind: "node" | "task"; side: Side; id: string }
 export interface Point { x: number; y: number }
 export interface NodeGeometry extends Point {
@@ -60,9 +60,14 @@ interface WingOptions { idleStyle: boolean; rowScale: number; squeeze: number }
 interface Row { e: Entity; n: number; h: number }
 export interface Wing { side: Side; H: number; nodes: NodeGeometry[]; ear: { lo: number; hi: number }; tasks: TaskGeometry[] }
 export interface WingBalance { core: number; full: number; squeeze: number }
-export interface Layout { portrait?: PortraitGeometry; balance: WingBalance[]; vw: number; vh: number; sceneH: number; hub: Point & { Re: number }; wings: Wing[] }
+export interface Layout { portrait?: PortraitGeometry; balance: WingBalance[]; vw: number; vh: number; sceneH: number; hub: Point & { Re: number; dotSource?: number; dotAgent?: number }; wings: Wing[] }
 export const deg = (d: number) => d * Math.PI / 180;
 export const NODE_R = 22, LABEL_W = 110;
+export const MIN_HUB_RATIO = 0.6;
+export function hubDots(interaction: Scene["hubInteraction"]) {
+  return { dotSource: interaction === 'source' ? 1.25 : interaction ? 1.1 : 1,
+    dotAgent: interaction === 'agent' ? 1.25 : interaction ? 1.1 : 1 };
+}
 export const ACCOUNT_NODE_SIZE = 42;
 export const PANEL_MIN_WIDTH = 400, PANEL_MARGIN = 16, PANEL_ARC_GAP = 40;
 
@@ -185,7 +190,8 @@ export function extentOf(w: Wing, hubX: number, Re: number) {
 
 export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null): Layout {
   const vw = sc.vw, vh = sc.vh, pad = 70, m = p.margin;
-  const Re = Math.max(vw < 600 ? 48 : 80, Math.min(130, vw * 0.13, vh * 0.2)) * p.ringScale;
+  const preferredRe = Math.max(vw < 600 ? 48 : 80, Math.min(130, vw * 0.13, vh * 0.2)) * p.ringScale;
+  let Re = preferredRe;
   const hasTasksIn = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasksIn));
   const hasTasks = [...sc.left, ...sc.right].some(hasTasksIn);
   // Vertical: each wing compresses its own rows; whatever still overflows scrolls.
@@ -209,7 +215,7 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   const sceneH = Math.max(vh, Math.max(hL, hR) + pad * 2);
   const at = (x: number) => ({ x, y: sceneH / 2 });
   const dragOf = (side: Side) => drag && drag.side === side ? drag : null;
-  // Horizontal: squeeze column distances only when the whole scene cannot fit.
+  // Fit the central ring first, then compress both columns by the same ratio.
   const panelWing = (wing: Wing) => {
     if (sc.panel?.side !== wing.side) return wing;
     const hidden = new Set<string>();
@@ -230,11 +236,30 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   const leftEdge = sc.panel?.side === -1 ? sc.panel.edge + 40 : m;
   const rightEdge = sc.panel?.side === 1 ? sc.panel.edge - 40 : vw - m;
   const avail = rightEdge - leftEdge;
-  for (let i = 0; i < 24 && e.eL.full + e.eR.full > avail; i++) {
-    if (optL.squeeze > p.squeezeMin) optL.squeeze = Math.max(p.squeezeMin, optL.squeeze - 0.02);
-    else if (optR.squeeze > p.squeezeMin) optR.squeeze = Math.max(p.squeezeMin, optR.squeeze - 0.02);
-    else break;
-    e = measure();
+  if (e.eL.full + e.eR.full > avail) {
+    let lo = preferredRe * MIN_HUB_RATIO, hi = preferredRe;
+    Re = lo; e = measure();
+    if (e.eL.full + e.eR.full <= avail) {
+      for (let i = 0; i < 24; i++) {
+        Re = (lo + hi) / 2;
+        const candidate = measure();
+        if (candidate.eL.full + candidate.eR.full <= avail) lo = Re;
+        else hi = Re;
+      }
+      Re = lo; e = measure();
+    } else {
+      let lo = p.squeezeMin, hi = 1;
+      optL.squeeze = optR.squeeze = lo; e = measure();
+      if (e.eL.full + e.eR.full <= avail) {
+        for (let i = 0; i < 24; i++) {
+          optL.squeeze = optR.squeeze = (lo + hi) / 2;
+          const candidate = measure();
+          if (candidate.eL.full + candidate.eR.full <= avail) lo = optL.squeeze;
+          else hi = optL.squeeze;
+        }
+        optL.squeeze = optR.squeeze = lo; e = measure();
+      }
+    }
   }
   // Keep the hub at the viewport center whenever both wings fit. Only an
   // actual edge constraint may displace it, by the smallest distance needed.
@@ -252,7 +277,7 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
       hx = sc.panel.edge - side * (radius + stroke + PANEL_ARC_GAP) - selected.x;
     }
   }
-  const hub = { x: hx, y: sceneH / 2, Re };
+  const hub = { x: hx, y: sceneH / 2, Re, ...hubDots(sc.hubInteraction) };
   const L = panelWing(solveWing(sc.left, -1, hub, Re, p, optL, dragOf(-1)));
   const R = panelWing(solveWing(sc.right, 1, hub, Re, p, optR, dragOf(1)));
   return { vw, vh, sceneH, hub, wings: [L, R], balance: [

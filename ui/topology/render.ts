@@ -77,7 +77,7 @@ export class TopologyPainter {
       attr(b.fade, { offset: n.state === "connecting" ? Math.min(1, 26 * scale / Math.max(1, D)) : 0.3,
         "stop-opacity": n.state === "connecting" ? 0 : 0.7 });
       attr(b.end, { "stop-opacity": n.state === "connecting" ? 0 : n.side === 1 ? 0.42 : 0.32 });
-      attr(b.outline, { d: shape.outline, fill: `url(#${b.gradient.id})`, opacity: n.state === "inactive" ? 0 : n.selected ? 1 : (v.scale < 1 ? 0.3 : 0.78) + 0.12 * clamp(v.emphasis, 0, 1) });
+      attr(b.outline, { d: shape.outline, fill: `url(#${b.gradient.id})`, opacity: v.availability * clamp(v.wireOpacity + 0.12 * clamp(v.emphasis, 0, 1), 0, 1) });
       attr(b.flow, { class: "connecting-wire", d: n.state === "connecting" ? shape.centerline : "", "stroke-width": 3 * scale });
       attr(b.gap, { class: "wire-break", d: n.state === "error" ? shape.gap : "", "stroke-width": 18 * scale });
       attr(b.arc, { class: `topology-outer-arc ${n.attention ? "needs-attention" : ""}`,
@@ -92,7 +92,7 @@ export class TopologyPainter {
     for (const t of [...tasks, ...bridges]) {
       const key = taskKey(t.side, t.id), n = animator.values(nodeKey(t.side, t.parent));
       const bridge = bridges.includes(t);
-      const v = bridge && n ? { x: n.x, y: n.y, port: 0, op: 1, emphasis: n.emphasis } : animator.values(key);
+      const v = bridge && n ? { x: n.x, y: n.y, port: 0, op: 1, bodyOpacity: 0.62, emphasis: n.emphasis } : animator.values(key);
       if (!v || !n) continue;
       keep.add(key);
       const b = this.branch(key), a = deg(v.port), radial = { x: t.side * Math.cos(a), y: Math.sin(a) };
@@ -105,7 +105,7 @@ export class TopologyPainter {
         opacity: v.op });
       attr(b.outline, { d: t.state === "external" ? shape.centerline : shape.outline, class: t.state === "external" ? "external-wire" : "task-body",
         style: t.state === "external" ? `stroke-width:${1.5 + 0.25 * clamp(v.emphasis, 0, 1)}`
-          : `opacity:${(t.state === "completed" ? 0.25 : 0.62) + 0.1 * clamp(v.emphasis, 0, 1)}` });
+          : `opacity:${v.bodyOpacity + 0.1 * clamp(v.emphasis, 0, 1)}` });
       attr(b.hit, { d: bridge || !animator.live.get(key)?.alive || v.op < 0.02 ? "" : shape.centerline, "aria-label": `${t.id} connection` });
       attr(b.flow, { d: ["running", "external"].includes(t.state) ? shape.centerline : "", class: "activity-flow" });
     }
