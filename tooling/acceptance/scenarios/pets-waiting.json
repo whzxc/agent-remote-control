@@ -1,0 +1,26 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Waiting task",
+      "headline": "Choose a response",
+      "question": true
+    },
+    {
+      "agent": "claude",
+      "phase": "idle",
+      "title": "Unknown task",
+      "headline": "Awaiting execution evidence",
+      "unconfirmed": true
+    }
+  ]
+}

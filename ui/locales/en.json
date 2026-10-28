@@ -1482,5 +1482,9 @@
   "pets.community": "Pet communities",
   "pets.rights": "Asset rights belong to their original authors. For personal, non-commercial use.",
   "pets.sizeLimit": "ZIP must be 25 MB or smaller.",
-  "pets.hello": "Hello!"
+  "pets.hello": "Hello!",
+  "pets.hurry": "Let’s keep going!",
+  "pets.wellDone": "👍 Well done!",
+  "pets.participantPet": "{name} pet",
+  "pets.taskPet": "Open task: {name}"
 }

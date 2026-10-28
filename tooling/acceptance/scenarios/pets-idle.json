@@ -1,0 +1,19 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Completed handoff",
+      "headline": "Ready for the next task",
+      "completed": true
+    }
+  ]
+}

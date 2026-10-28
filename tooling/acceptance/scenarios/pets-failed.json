@@ -1,0 +1,19 @@
+{
+  "pets": true,
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Failed task",
+      "headline": "Execution failed",
+      "outcome": "failed"
+    }
+  ]
+}

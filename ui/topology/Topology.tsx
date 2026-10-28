@@ -19,7 +19,7 @@ import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
 import type { SurfaceRect } from "../motion/surface";
 
-export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccountId' | 'origin'>, Omit<PaintTask, "parent" | "side"> { content: ReactNode; reorderable?: boolean; taskId?: string; threadId?: string; count?: number; pending?: boolean; activityQueue?: string }
+export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccountId' | 'origin'>, Omit<PaintTask, "parent" | "side"> { content: ReactNode; reorderable?: boolean; taskId?: string; petTaskIds?: string[]; threadId?: string; count?: number; pending?: boolean; activityQueue?: string }
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; tasks: TaskView[]; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
   sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: PathTask['agentAccountId'];
@@ -125,7 +125,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       return v && { x: v.x, y: v.y };
     },
     task: (agent, id) => {
-      const v = animator.current.values(taskKey(1, JSON.stringify([agent, id])));
+      const grouped = latest.current.tasks.find(task => task.side === 1 && task.petTaskIds?.includes(id) && latest.current.nodes.some(n => n.id === task.parent && (n.platform ?? n.id) === agent));
+      const v = animator.current.values(taskKey(1, JSON.stringify([agent, id]))) ?? (grouped && animator.current.values(taskKey(1, grouped.id)));
       return v && { x: v.x - v.anchor * v.width + v.width / 2, y: v.y - v.height / 2 };
     },
   });

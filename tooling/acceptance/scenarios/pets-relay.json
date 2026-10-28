@@ -1,0 +1,24 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Relay task",
+      "headline": "Executing the dispatched task"
+    },
+    {
+      "agent": "dsh",
+      "phase": "thinking",
+      "title": "Other Agent",
+      "headline": "Planning the next step"
+    }
+  ]
+}

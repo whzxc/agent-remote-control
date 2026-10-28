@@ -1452,5 +1452,9 @@
   "pets.community": "宠物社区",
   "pets.rights": "素材权利归原作者所有，仅供个人非商业使用。",
   "pets.sizeLimit": "ZIP 不能超过 25 MB。",
-  "pets.hello": "你好！"
+  "pets.hello": "你好！",
+  "pets.hurry": "加把劲！",
+  "pets.wellDone": "👍 做得好！",
+  "pets.participantPet": "{name} 的宠物",
+  "pets.taskPet": "打开任务：{name}"
 }

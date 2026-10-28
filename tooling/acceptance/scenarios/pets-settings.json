@@ -1,0 +1,12 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "page": "pets",
+  "tasks": []
+}

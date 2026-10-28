@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { PawPrint } from 'lucide-react';
 import { t } from '../i18n';
+import { openUrl } from '../platform';
 import { Button, Field, Input, Notice, SingleChoice, Switch, Icon } from '../components/ui';
 import { connector, orderedSources } from '../state/connector';
 import { agents, name } from '../state/agents';
@@ -36,6 +37,9 @@ export default function PetsPage() {
     } catch (e) { setError(String(e)); document.getElementById('pet-link')?.focus(); }
     finally { setBusy(false); if (file.current) file.current.value = ''; }
   }
+  function visit(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault(); void openUrl(event.currentTarget.href).catch(error => setError(String(error)));
+  }
   const options = [{ value: '', label: t('pets.brandDefault') }, ...library.packages.map(p => ({ value: p.key, label: `${p.name} · ${p.origin === 'codex' ? 'Codex' : 'ARC'}` }))];
   const metadata = (pet?: PetPackage) => <dl className="pet-metadata">
     <dt>{t('pets.author')}</dt><dd>{pet?.source.author || t('pets.notProvided')}</dd>
@@ -59,17 +63,17 @@ export default function PetsPage() {
         return <article key={rec.id} className="pet-package">
           <div className="pet-preview">{installed ? <Preview pet={installed} /> : <Icon icon={PawPrint} size={20} />}</div>
           <div><h3>{rec.name}{rec.selected && <span className="pet-default">{t('pets.recommendedDefault')}</span>}</h3>
-            <a href={rec.url} target="_blank" rel="noreferrer">{new URL(rec.url).hostname} · {t('pets.originalPage')}</a>
+            <a onClick={visit} href={rec.url} target="_blank" rel="noreferrer">{new URL(rec.url).hostname} · {t('pets.originalPage')}</a>
             {metadata(installed)}<Button busy={busy} disabled={!!installed} onClick={() => void install({ url: rec.url })}>{t(installed ? 'pets.installed' : 'pets.install')}</Button></div>
         </article>;
       })}</div>
     </section>)}
     <section className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
-      <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}><div className="pet-preview"><Preview pet={p} /></div><div><h3>{p.name}</h3><p>{p.source.site} · {p.origin === 'codex' ? t('pets.readOnly') : 'ARC'}</p>{metadata(p)}{p.source.pageUrl && <a href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}</div></article>)}</div>
+      <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}><div className="pet-preview"><Preview pet={p} /></div><div><h3>{p.name}</h3><p>{p.source.site} · {p.origin === 'codex' ? t('pets.readOnly') : 'ARC'}</p>{metadata(p)}{p.source.pageUrl && <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{t('pets.originalPage')}</a>}</div></article>)}</div>
       {library.errors.map(e => <Notice key={e.key} tone="danger">{e.error}</Notice>)}
     </section>
     <section className="pet-group"><h2>{t('pets.participants')}</h2>{participants.map(p => <Field key={p.id} label={p.name}><SingleChoice label={p.name} value={assignments[p.id] ?? ''} options={options} onChange={key => assignPet(p.id, key)} /></Field>)}</section>
-    <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
+    <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
     <footer>{t('pets.rights')}</footer>
   </div>;
 }

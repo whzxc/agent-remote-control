@@ -1,0 +1,19 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "claude",
+    "codex",
+    "dsh"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Completed task",
+      "headline": "Changes are ready",
+      "completed": true
+    }
+  ]
+}

@@ -121,6 +121,20 @@ pub fn validate(manifest: &[u8], sprite: &[u8]) -> Result<Value> {
             )
         }
     };
+    // Intrinsically animated files would bypass CSS pause and reduced-motion controls.
+    let animated = match image::guess_format(sprite).map_err(|e| e.to_string())? {
+        image::ImageFormat::WebP => image::codecs::webp::WebPDecoder::new(Cursor::new(sprite))
+            .map_err(|e| e.to_string())?
+            .has_animation(),
+        image::ImageFormat::Png => image::codecs::png::PngDecoder::new(Cursor::new(sprite))
+            .map_err(|e| e.to_string())?
+            .is_apng()
+            .map_err(|e| e.to_string())?,
+        _ => return Err("INVALID_ARGUMENT: use a static PNG or WebP spritesheet".into()),
+    };
+    if animated {
+        return Err("INVALID_ARGUMENT: use a static atlas; ARC owns frame animation".into());
+    }
     image::load_from_memory(sprite)
         .map_err(|e| format!("INVALID_ARGUMENT: spritesheet decode: {e}"))?;
     if value

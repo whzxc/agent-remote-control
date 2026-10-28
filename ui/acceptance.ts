@@ -1,3 +1,4 @@
+import { petSnapshot } from "./pets/snapshot";
 import { updates } from "./state/updates";
 import { appEnvironment, refreshAppEnvironment } from "./state/appEnvironment";
 import { environmentModel } from "./state/appEnvModel";
@@ -39,6 +40,7 @@ export function viewModel(layoutSettled = false) {
     topology: topology?.() ?? null,
     taskDetail: detail,
     taskBubbles: activityBubbleSnapshot(),
+    pets: petSnapshot(),
     panels: { agent: agentPanel.get() ?? null, source: sourcePanel && 'ingress' in sourcePanel ? sourcePanel.client?.id ?? null : null,
       sourcePlatform: sourcePanel && 'platform' in sourcePanel ? sourcePanel.platform : null,
       onboarding: onboarding.get()?.step ?? null, connectionSetup: connectionSetup.get() ?? null, connectionSwitch: connectionSwitch.get() ?? null, remoteSourceId: navigation.get().remoteSourceId ?? null, remoteConnectionId: navigation.get().remoteConnectionId ?? null, page: localStorage.getItem('arc-page') ?? 'overview' },
