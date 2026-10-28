@@ -279,6 +279,16 @@ pub fn match_product(name: &str) -> String {
     }
     "custom".into()
 }
+/// Client metadata supplies a correctable product default, never account identity.
+pub fn oauth_product(entry: &Value, client_name: &str) -> String {
+    let inferred = match_product(client_name);
+    if inferred != "custom" || entry["transport"] == "relay" {
+        inferred
+    } else {
+        normalized(string(entry, "controlSource")).into()
+    }
+}
+
 fn make(
     rows: &[Value],
     ingress: &Value,
@@ -468,11 +478,7 @@ pub async fn pending(entry: &Value, grant: &str, client: &str, name: &str) -> Re
         {
             return Ok(s.clone());
         }
-        let product = if entry["transport"] == "relay" {
-            match_product(&name)
-        } else {
-            normalized(string(&entry, "controlSource")).into()
-        };
+        let product = oauth_product(&entry, &name);
         let expected = rows.iter_mut().find(|s| {
             switch_live(s)
                 && s["pendingSwitch"]["ingressId"] == entry["id"]
@@ -1015,10 +1021,11 @@ fn migrate() -> Result<Value> {
                 for grant in oauth["grants"].as_array().into_iter().flatten() {
                     let product = if let Some(p) = labels[string(grant, "id")].as_str() {
                         normalized(p).into()
-                    } else if entry["transport"] != "relay" {
-                        normalized(string(&entry, "controlSource")).into()
                     } else {
-                        match_product(string(&oauth["clients"][string(grant, "client")], "name"))
+                        oauth_product(
+                            &entry,
+                            string(&oauth["clients"][string(grant, "client")], "name"),
+                        )
                     };
                     let mut s = make(
                         &rows,
@@ -1555,5 +1562,25 @@ mod tests {
         let mut source = local();
         source["state"] = json!("revoked");
         assert!(!repair_local(&mut source, "https"));
+    }
+}
+
+#[cfg(test)]
+mod product_tests {
+    use super::*;
+
+    #[test]
+    fn oauth_clients_on_shared_https_connections_keep_their_own_product() {
+        // Regression: a Claude OAuth client on a ChatGPT HTTPS connection inherited the ChatGPT product.
+        for (configured, transport, client, expected) in [
+            ("chatgpt", "https", "Claude", "claude"),
+            ("claude", "https", "ChatGPT", "chatgpt"),
+            ("chatgpt", "https", "Unknown client", "chatgpt"),
+            ("shared-relay", "relay", "Claude", "claude"),
+            ("shared-relay", "relay", "Unknown client", "custom"),
+        ] {
+            let entry = json!({"controlSource":configured,"transport":transport});
+            assert_eq!(oauth_product(&entry, client), expected);
+        }
     }
 }

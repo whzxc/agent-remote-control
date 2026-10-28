@@ -33,7 +33,7 @@ A control source is one account, bot, or local client that dispatches work. Two 
 | createdAt, connectedAt, lastSeenAt | Lifecycle times. |
 | state | connected, disconnected, or revoked. |
 
-The credential is the identity anchor. OAuth client names are self-reported and MUST NOT identify a source. Product and label are user-correctable at any time.
+The credential is the identity anchor. OAuth client names are self-reported and MUST NOT identify a source or provider account. For every OAuth transport, a known registry match on the client name supplies the initial product default. Unknown clients use the configured connection product, or custom on shared relays. Product and label are user-correctable at any time.
 
 The registry gains a `platform` field per product. Display layers MAY aggregate sources by platform. Storage, provenance, and isolation MUST use the source ID.
 
@@ -66,7 +66,7 @@ Core owns a source store in the state directory. The UI preference `arc.approved
 
 One-time migration runs at Core startup after the state lock.
 
-1. Each existing OAuth grant becomes a source. Product comes from the UI label preference when present, otherwise from the ingress `controlSource` for non-relay ingresses, otherwise from the registry match on client name, otherwise custom.
+1. Each existing OAuth grant becomes a source. Product comes from the UI label preference when present, otherwise from a known registry match on client name, otherwise from the ingress `controlSource` for non-relay ingresses or custom for shared relays.
 2. Each non-OAuth ingress becomes one source with the ingress's `controlSource` as product.
 3. Labels default to the ingress name for single-source ingresses and to the product name plus connection date otherwise. Add numeric suffixes to colliding migration-generated defaults on the same ingress. Renamed labels are not rewritten; version-1 repair only disambiguates labels that still equal the exact legacy generated default.
 4. Existing records with only ingressId map to a source only when that ingress has exactly one source. Others remain unattributed. Provenance MUST NOT be inferred. Drop unattributable subscriptions, governance controls, and respond tokens. Keep unattributed bindings and dispatch history inert; fail active unattributed queue rows with `source-unattributed`.

@@ -9,6 +9,24 @@ pub(super) fn has_conflict(account: &Value) -> bool {
 
 pub(super) fn observe_source(rows: &mut Vec<Value>, source: &Value) -> String {
     let source_id = string(source, "id");
+    let provider = provider(string(source, "platform"));
+    // An unidentified source-only account has no provider identity to preserve.
+    // Reclassify its namespace after a product correction without changing its ID.
+    if let Some(row) = rows.iter_mut().find(|row| {
+        live(row)
+            && row["sources"]
+                .as_array()
+                .is_some_and(|ids| ids.len() == 1 && ids[0] == source_id)
+    }) {
+        let unidentified = format!("{}:unidentified:{source_id}", string(row, "provider"));
+        if row["provider"] != provider
+            && row["identityKey"] == unidentified
+            && profiles(row).next().is_none()
+        {
+            row["provider"] = json!(provider);
+            row["identityKey"] = json!(format!("{provider}:unidentified:{source_id}"));
+        }
+    }
     let old = rows
         .iter()
         .find(|a| {
@@ -19,7 +37,6 @@ pub(super) fn observe_source(rows: &mut Vec<Value>, source: &Value) -> String {
         })
         .cloned();
     let facts = &source["authorizationFacts"];
-    let provider = provider(string(source, "platform"));
     let key = identity_key(provider, facts);
     let account_id = observe(rows, provider, facts, source_id, None, Some(source_id));
     if let Some(key) = key {
@@ -130,6 +147,47 @@ pub fn link_source_identity(rows: &mut [Value], source: &str, evidence: Value) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_product_correction_reclassifies_only_its_unidentified_account() {
+        // Regression: correcting a source from ChatGPT to Claude left its unidentified account under OpenAI.
+        let mut rows = vec![];
+        let mut source = json!({"id":"source-one","platform":"openai"});
+        let account_id = observe_source(&mut rows, &source);
+        rows[0]["alias"] = json!("Custom alias");
+        let other_id = observe_source(&mut rows, &json!({"id":"source-two","platform":"openai"}));
+        let other = rows
+            .iter()
+            .find(|row| row["id"] == other_id)
+            .unwrap()
+            .clone();
+        source["platform"] = json!("anthropic");
+        assert_eq!(observe_source(&mut rows, &source), account_id);
+        let account = rows.iter().find(|row| row["id"] == account_id).unwrap();
+        assert_eq!(account["provider"], "anthropic");
+        assert_eq!(account["identityKey"], "anthropic:unidentified:source-one");
+        assert_eq!(account["alias"], "Custom alias");
+        assert_eq!(account["sources"], json!(["source-one"]));
+        assert_eq!(
+            *rows.iter().find(|row| row["id"] == other_id).unwrap(),
+            other
+        );
+    }
+
+    #[test]
+    fn product_metadata_never_reclassifies_a_confirmed_account() {
+        // Property: client product metadata cannot overwrite a confirmed provider identity or detach its source.
+        let mut rows = vec![];
+        let mut source = json!({"id":"source-confirmed","platform":"openai","authorizationFacts":{"accountId":"provider-account"}});
+        let account_id = observe_source(&mut rows, &source);
+        source["platform"] = json!("anthropic");
+        source["authorizationFacts"] = Value::Null;
+        assert_eq!(observe_source(&mut rows, &source), account_id);
+        let account = rows.iter().find(|row| row["id"] == account_id).unwrap();
+        assert_eq!(account["provider"], "openai");
+        assert_eq!(account["identityKey"], "openai:id:provider-account");
+        assert_eq!(account["sources"], json!(["source-confirmed"]));
+    }
+
     #[test]
     fn confirmed_identity_never_overwrites_another_provider_identity() {
         // Property: conflicting handshake evidence preserves the authoritative source account and records the disagreement.
