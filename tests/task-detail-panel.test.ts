@@ -30,6 +30,7 @@ test("task detail projects native titles, compact ownership and pending input wi
     if (route.startsWith("tasks/runtime/")) return new Response(JSON.stringify({ title: nativeTitle }));
     if (route.startsWith("agents/timeline/")) return new Response(JSON.stringify(timeline));
     if (route === "tasks") return new Response(JSON.stringify({ records: [] }));
+    if (route === "agents/dispatch-catalog") return new Response(JSON.stringify({ models: [] }));
     if (route === "tasks/reviews") return new Response(JSON.stringify({ reviews: [] }));
     if (body.op === "codex_queue") return new Response(JSON.stringify({ error: "SOURCE_REVOKED" }), { status: 400 });
     if (body.op === "codex_resume") { observedResume = body.args; return new Response(JSON.stringify({ state: "completed" })); }
@@ -43,7 +44,7 @@ test("task detail projects native titles, compact ownership and pending input wi
     const dispatch = "You are working in an assigned coding lane";
     const entry = (id: string, turnId: string, type: string, text: string, extra = {}) => ({ id, turnId, type, text, status: "completed", startedAt: null, updatedAt: "", cursor: 1, ...extra });
     const observedAt = new Date(Date.now() - 120000).toISOString();
-    const ownership = { currentOwner: "desktop", history: [{ eventId: "handoff", from: "connector", to: "desktop", observedAt }] };
+    const ownership = { owner: "desktop", currentOwner: "desktop", state: "held", observedAt };
     const source = { kind: "claude", label: "Fixture control source" };
     const session = { id: "detail", title: dispatch, turnId: "current", source: "arc-task", phase: "text", headline: "", phaseSince: null, orderAt: 0, timeline: true };
     const base = { sessionId: session.id, status: "interrupted", cursor: 1, coverage: { state: "complete" }, ownership,
@@ -76,25 +77,13 @@ test("task detail projects native titles, compact ownership and pending input wi
       await act(() => fireEvent.click(within(outcome).getByRole("button", { name: t("detail.resumeInterrupted"), exact: true })));
       assert.equal((observedResume as { threadId: string }).threadId, session.id);
       assert.equal((observedResume as { turnId: string }).turnId, session.turnId);
-      const ownerName = `${t("detail.owner", { owner: t("detail.owner.desktop") })} · ${t("detail.handoffHistory")}`;
-      const trigger = page.getByRole("button", { name: ownerName });
-      let ownerFocused = false;
-      trigger.addEventListener("focus", () => { ownerFocused = true; });
-      trigger.addEventListener("blur", () => { ownerFocused = false; });
-      assert.equal(page.queryByRole("list", { name: t("detail.handoffHistory") }), null);
-      await act(() => { trigger.focus(); fireEvent.click(trigger, { detail: 0 }); });
-      const dialog = page.getByRole("dialog", { name: t("detail.handoffHistory") });
-      assert.ok(within(dialog).getByRole("list", { name: t("detail.handoffHistory") }));
-      assert.ok(within(dialog).getByText(`${t("detail.owner.connector")} → ${t("detail.owner.desktop")}`));
-      const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(-2, "minute");
-      assert.ok(within(dialog).getByText(relative));
-      assert.ok(within(dialog).getByTitle(new Date(observedAt).toLocaleString(language)));
-      await act(() => fireEvent.keyDown(dialog, { key: "Escape" }));
-      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
-      assert.equal(page.queryByRole("dialog", { name: t("detail.handoffHistory") }), null);
-      assert.equal(ownerFocused, true);
-      await render({ ...base, ownership: { currentOwner: "connector", history: ownership.history } });
+      const ownerName = t("detail.owner", { owner: t("detail.owner.desktop") });
+      assert.ok(page.getByLabelText(ownerName));
       assert.equal(page.queryByRole("button", { name: ownerName }), null);
+      await render({ ...base, ownership: { owner: "connector", currentOwner: "connector", state: "held" } });
+      assert.ok(page.getByLabelText(t("detail.owner", { owner: t("detail.owner.connector") })));
+      await render({ ...base, ownership: { owner: "external", currentOwner: "external", state: "held" } });
+      assert.equal(page.queryByLabelText(ownerName), null);
       const pending = entry("question", "current", "interaction", "", { status: "pending", interaction: { kind: "question", summary: "A pending choice", method: "item/tool/requestUserInput",
         questions: [{ id: "q", question: "Choose", options: [{ label: "Alpha" }] }], respond: { op: "codex_respond", args: { respondToken: "fixture" } } } });
       const running = { ...base, status: "running", entries: [base.entries.at(-1)] };

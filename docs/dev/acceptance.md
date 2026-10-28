@@ -106,8 +106,8 @@ Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInt
 
 | Scenario | Target |
 | --- | --- |
-| `task-owner-connector` | Connector ownership hides the owner chip. |
-| `task-owner-desktop` | Desktop ownership shows the owner chip; open it to inspect handoff history. |
+| `task-owner-connector` | Confirmed ARC ownership shows a static owner chip. |
+| `task-owner-desktop` | Confirmed Desktop ownership shows a static owner chip. |
 | `task-routing-deferred` | A 15-second countdown with pause and handoff controls. |
 | `task-routing-paused` | Paused routing with resume and handoff controls. |
 | `task-routing-routed` | Routed status without delay controls. |
@@ -123,6 +123,8 @@ Task dialogs take their accessible name from the visible native task-title headi
 At narrow panel widths, open the needs-you banner to inspect the capped bottom sheet in either long-input scenario.
 
 Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main. The runner uses browser fixtures and screenshots. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
+
+`task-states` covers all six execution states in the Agent panel. `dispatch-states` covers turn-bound historical results and separate submission states. `task-review-unavailable` keeps a completed execution readable while optional review retrieval fails.
 
 `bubbles-origins` places direct and dispatched Codex tasks together, with running command/file phases and an unread completed task. Open any task to inspect the shared compact execution-spec pill and metadata chips.
 

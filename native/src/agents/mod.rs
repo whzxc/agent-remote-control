@@ -1004,7 +1004,9 @@ impl AgentHost {
                 Value::Null
             };
             task["dispatches"] = json!(crate::dispatch_policy::records(string(&args, "taskId"))?);
-            task["reviews"] = json!(crate::dispatch_policy::reviews(string(&args, "taskId"))?);
+            if let Ok(reviews) = crate::dispatch_policy::reviews(string(&args, "taskId")) {
+                task["reviews"] = json!(reviews);
+            }
             task.as_object_mut().unwrap().remove("tracking");
             return Ok(task);
         }

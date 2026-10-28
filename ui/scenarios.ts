@@ -20,11 +20,12 @@ import type { Snapshot } from './subscriptions/types';
 import { selectAgentPanel } from './state/overviewPanels';
 import type { Status } from './state/types';
 import config from '../native/src/ingress/config.json';
+import { acceptTaskExecution, resetTaskExecutions } from './state/taskExecution';
 import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
@@ -66,6 +67,9 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   }
   if (path === 'updates/check' && method === 'POST') return {};
 
+  if (path === 'agents/dispatch-catalog' && method === 'POST') return {
+    authoritative: true, source: 'fixture', models: [{ model: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol' }, { model: 'gpt-5.6-sol', displayName: 'GPT-5.6 Sol' }],
+  };
   if (path === 'agents/conversations/timeline' && method === 'POST') {
     const timeline = responses[`agents/timeline/${(body as { id: string }).id}`];
     if (timeline) return structuredClone(timeline);
@@ -78,6 +82,7 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     return { data: structuredClone(rows.slice(start, start + size)), nextCursor: start + size < rows.length ? `fixture-page-${start + size}` : null,
       scope: agent === 'codex' ? 'native-unarchived' : 'arc-tasks' };
   }
+  if (path === 'tasks/reviews' && responses.reviewUnavailable) throw new Error('SCENARIO_REVIEW_UNAVAILABLE');
   if (method === 'POST') {
     const result = taskResponse?.(path, body);
     if (result !== undefined) return structuredClone(result);
@@ -150,7 +155,7 @@ export async function installScenario(name: string) {
       const turnId = `fixture-turn-${taskIndex}-${turnIndex}`;
       const outcome = turnIndex === count ? task.outcome : undefined;
       const live = !task.completed && !outcome && turnIndex === count;
-      turnStatuses[turnId] = outcome ?? (live ? 'running' : 'completed');
+      turnStatuses[turnId] = task.unconfirmed ? 'unknown' : outcome ?? (live ? 'running' : 'completed');
       const start = Date.parse(session.turnStartedAt!) - (count - turnIndex) * 180000;
       const rows: (Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>)[] = [
         { type: 'user', status: 'completed', text: turnIndex === 1 ? 'Review the project and check the configuration.\n\nKeep the existing behavior while making the requested changes.' : 'Apply the changes and run the project checks.' },
@@ -176,7 +181,7 @@ export async function installScenario(name: string) {
         ? { controlSource: { kind: 'local-cli' }, model: 'gpt-5.6-sol', effort: 'medium' }
         : session.dispatchSummary!;
     }
-    timelines[`agents/timeline/${session.id}`] = { sessionId: session.id, status: task.outcome ?? (task.completed ? 'completed' : 'running'), entries,
+    timelines[`agents/timeline/${session.id}`] = { sessionId: session.id, status: task.unconfirmed ? 'unknown' : task.outcome ?? (task.completed ? 'completed' : 'running'), entries,
       cursor: entries.length, executionEvidence: true, coverage: { state: 'complete', truncated: false },
       dispatchSummary: session.dispatchSummary, turnDispatchSummaries: summaries, turnStatuses, ownership: task.ownership };
   });
@@ -199,10 +204,18 @@ export async function installScenario(name: string) {
   const records = fixture.tasks.flatMap((task, index) => {
     if (task.direct) return [];
     const session = activity.agents[task.agent].sessions.find(s => s.id === `fixture-task-${index}`)!;
-    return [{ requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: now, updatedAt: now,
+    return [{ agent: task.agent, turnId: session.turnId ?? undefined, requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: now, updatedAt: now,
     origin: { ingressId: 'fixture-source', sourceId: 'fixture-source', ...(topologyAccounts.length ? session.origin : {}) },
-    ...(topologyAccounts.length ? { agent: task.agent, agentAccountId: session.agentAccountId } : {}), approval: { decision: 'automatic', source: 'remote', at: now }, task: { kind: 'create', title: task.title, prompt: task.headline, input: [], directory: '/workspace/acceptance', settings: {} } }];
+    ...(topologyAccounts.length ? { agentAccountId: session.agentAccountId } : {}), approval: { decision: 'automatic', source: 'remote', at: now }, task: { kind: 'create', title: task.title, prompt: task.headline, input: [], directory: '/workspace/acceptance', settings: {} } }];
   });
+  if (fixture.dispatchHistory && records[0]) {
+    records.push({ ...records[0], requestId: 'fixture-historical-dispatch', turnId: 'fixture-turn-0-1', createdAt: new Date(Date.parse(now) - 86400000).toISOString(),
+      task: { ...records[0].task, title: 'Earlier completed dispatch' } });
+    for (const [index, state] of ['awaiting-approval', 'reserved', 'not-executed', 'unconfirmed', 'failed'].entries()) {
+      records.push({ ...records[0], requestId: `fixture-submission-${index}`, turnId: undefined, state,
+        task: { ...records[0].task, title: `Submission ${state}` } });
+    }
+  }
   const routingByTask: Record<string, RequestRouting> = Object.fromEntries(fixture.tasks.flatMap((task, index) => task.requestRouting ? [[`fixture-task-${index}`, {
     state: task.requestRouting, deferUntil: task.requestRouting === 'deferred' ? Date.parse(now) + 15000 : null,
     pausedBy: task.requestRouting === 'paused' ? 'user' : null,
@@ -234,9 +247,9 @@ export async function installScenario(name: string) {
     ],
   }] : [] };
   const initialActivity = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
-    sessions: group.sessions.filter(session => !fixture.tasks[Number(session.id.replace('fixture-task-', ''))]?.outcome),
+    sessions: group.sessions.filter(session => { const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))]; return !task?.outcome && !task?.unconfirmed; }),
   }])) };
-  responses = { ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
+  responses = { reviewUnavailable: fixture.reviewUnavailable, ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
@@ -245,7 +258,10 @@ export async function installScenario(name: string) {
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
+  resetTaskExecutions();
+  acceptActivity(activity);
   acceptActivity(initialActivity);
+  for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
   tasks.set({ records, loading: false, error: '' });
   permissions.set({ data: permissionData, loading: false, error: '' });
   subscriptions.set({ snapshot: subscriptionData, error: '' });
@@ -255,18 +271,19 @@ export async function installScenario(name: string) {
       const finished = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, data]) => [agent, {
         sessions: data.sessions.filter(session => {
           const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))];
-          return !task?.completed && !task?.outcome;
+          return !task?.completed && !task?.outcome && !task?.unconfirmed;
         }),
       }])) };
       responses['agents/activity'] = finished;
       acceptActivity(finished);
+      for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
     }
     openSnapshotPanel(fixture.panel);
     if (fixture.detailTask !== undefined) {
       await settledViewModel();
       const task = fixture.tasks[fixture.detailTask];
       const session = activity.agents[task.agent].sessions.find(session => session.id === `fixture-task-${fixture.detailTask}`)!;
-      selectAgentPanel({ type: 'task', agent: task.agent, session: { ...session, orderAt: Date.parse(session.startedAt!), ...(task.outcome ? { endedAt: Date.parse(now) } : {}) } });
+      selectAgentPanel({ type: 'task', agent: task.agent, session: { ...session, orderAt: Date.parse(session.startedAt!), observed: !task.completed && !task.outcome && !task.unconfirmed, ...(task.outcome || task.completed ? { status: task.outcome ?? "completed", endedAt: Date.parse(now) } : {}) } });
     }
     if (fixture.sourceSetup) onboarding.set(fixture.sourceSetup);
     if (fixture.connectionSetup) connectionSetup.set(fixture.connectionSetup);

@@ -3,11 +3,11 @@ import { turnEntries, workState } from "./timelineGroups.ts";
 
 export type TaskState = "running" | "needsYou" | "done" | "failed" | "interrupted" | "unknown";
 export function taskState(status: string | undefined, live: boolean, pending = false): TaskState {
-  if (pending) return "needsYou";
+  if (pending && live) return "needsYou";
   if (live) return "running";
   if (["failed", "error"].includes(status ?? "")) return "failed";
-  if (["cancelled", "interrupted", "canceled"].includes(status ?? "")) return "interrupted";
-  if (["completed", "idle"].includes(status ?? "")) return "done";
+  if (["cancelled", "interrupted", "canceled", "aborted"].includes(status ?? "")) return "interrupted";
+  if (status === "completed") return "done";
   return "unknown";
 }
 export type ProcessRow = { kind: "tools"; id: string; entries: AgentTimelineEntry[] } | { kind: "entry"; id: string; entry: AgentTimelineEntry };

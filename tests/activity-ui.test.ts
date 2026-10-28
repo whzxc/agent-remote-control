@@ -60,16 +60,17 @@ test("start order is stable across phases, payload order and corrected timestamp
   const fallback = trackActivity([], [session("b"), session("a")], 100);
   assert.deepEqual(trackActivity(fallback, [session("a"), session("b")], 200).map(s => s.orderAt), [100, 100]);
 });
-test("missing sessions retain unread completions; read completions expire after two seconds plus fade", () => {
-  // Property: missing sessions retain unread completions; read completions expire after two seconds plus fade.
+test("activity disappearance stays unconfirmed until terminal evidence arrives", () => {
+  // Regression: disappearing activity was marked successful without a terminal event.
   const active = trackActivity([], [session("one", permission)], 100);
-  const ended = trackActivity(active, [], 500);
-  assert.equal(ended[0].endedAt, 500);
-  assert.equal(ended[0].interaction, undefined);
-  assert.equal(trackActivity(ended, [], 2499)[0].endedAt, 500);
-  assert.equal(trackActivity([{ ...ended[0], readAt: 500 }], [], 2800).length, 0);
-  assert.equal(trackActivity(ended, [], 2799).length, 1);
-  assert.equal(trackActivity(ended, [], 2800).length, 1);
+  const missing = trackActivity(active, [], 500);
+  assert.equal(missing[0].endedAt, undefined);
+  assert.equal(missing[0].observed, false);
+  assert.equal(missing[0].interaction, undefined);
+  const ended = [{ ...missing[0], status: "completed", endedAt: 700 }];
+  assert.equal(trackActivity(ended, [], 2499)[0].endedAt, 700);
+  assert.equal(trackActivity([{ ...ended[0], readAt: 700 }], [], 3000).length, 0);
+  assert.equal(trackActivity(ended, [], 3000).length, 1);
   assert.equal(trackActivity(ended, [session("one")], 1000)[0].endedAt, undefined);
   assert.equal(trackActivity(ended, [session("one")], 1000)[0].orderAt, active[0].orderAt);
 });
@@ -79,7 +80,7 @@ test("an open task keeps its origin and branch for focus restoration, even beyon
   const shown = visibleActivity(active, "6");
   assert.deepEqual(shown.sessions.map(s => s.id), ["0", "1", "2", "6"]);
   assert.equal(shown.hidden, 3);
-  const ended = trackActivity(active, [], 500).map(s => ({ ...s, readAt: 500 }));
+  const ended = trackActivity(active, [], 500).map(s => ({ ...s, status: "completed", endedAt: 500, readAt: 500 }));
   assert.deepEqual(trackActivity(ended, [], 5000, "6").map(s => s.id), ["6"]);
   assert.equal(trackActivity(ended, [], 5000).length, 0);
 });
@@ -324,22 +325,24 @@ test("Agent panel toggles the current node, switches peers in place, and returns
   assert.deepEqual(agentPanelSelection(view, { type: "toggle", agent: "claude" }), { agent: "claude" });
 });
 
-test("source dispatches filter ownership and never equate a dispatch receipt with task completion", async () => {
-  // Property: source dispatches filter ownership and never equate a dispatch receipt with task completion.
-  const { sourceDispatches, dispatchState, isLatestDispatch } = await import("../ui/state/sourceDispatch.ts");
-  const row = (id: string, source: string, date: string) => ({ requestId: id, origin: { sourceId: source }, state: "completed", createdAt: date,
-    updatedAt: date, approval: { decision: "allowed", source: "local", at: date }, task: { kind: "create", threadId: "thread", prompt: "Fixture", input: {}, settings: {} } });
+test("dispatch records use their own turn results and keep submission separate", async () => {
+  // Regression: old dispatches became unknown or borrowed another turn's live state.
+  const { sourceDispatches, dispatchState } = await import("../ui/state/sourceDispatch.ts");
+  const row = (id: string, source: string, date: string) => ({ requestId: id, turnId: id, threadId: "thread", origin: { sourceId: source }, state: "completed", createdAt: date,
+    updatedAt: date, approval: { decision: "allowed", source: "local", at: date }, task: { kind: "create", prompt: "Fixture", input: {}, settings: {} } });
   const older = row("older", "left", "2026-01-01"), latest = row("latest", "left", "2026-01-02"), other = row("other", "right", "2026-01-03");
   assert.deepEqual(sourceDispatches([older, other, latest], "left").map(r => r.requestId), ["latest", "older"]);
-  assert.equal(isLatestDispatch(latest, [older, latest]), true);
-  assert.equal(isLatestDispatch(latest, [older, latest, other]), false, "a later dispatch from another source owns current thread state");
-  assert.equal(dispatchState(latest, undefined, undefined), "unknown");
-  assert.equal(dispatchState(latest, { runtimeStatus: "idle", observedAt: "", stale: true }, undefined), "unknown");
-  assert.equal(dispatchState(latest, { runtimeStatus: "idle", observedAt: "" }, undefined), "completed");
-  assert.equal(dispatchState(latest, { runtimeStatus: "active", observedAt: "" }, undefined), "running");
-  assert.equal(dispatchState(latest, undefined, session("thread", permission)), "pending");
-  assert.equal(dispatchState({ ...latest, state: "failed" }, undefined, undefined), "failed");
-  assert.deepEqual(sourceDispatches([{ ...latest, origin: undefined, task: { ...latest.task, origin: { sourceId: "left" } } }], "left").length, 1);
+  const execution = { status: "running", turnId: "other", turnStatuses: { older: "completed", latest: "failed", other: "running" }, interactions: [] };
+  const live = { ...session("thread", permission), turnId: "other" };
+  assert.equal(dispatchState(older, execution, live), "done");
+  assert.equal(dispatchState(latest, execution, live), "failed");
+  assert.equal(dispatchState(other, execution, live), "needsYou");
+  assert.equal(dispatchState(latest, undefined, live), "unknown");
+  assert.equal(dispatchState({ ...latest, state: "awaiting-approval" }, undefined, live), "awaitingApproval");
+  assert.equal(dispatchState({ ...latest, state: "failed" }, undefined, undefined), "submissionFailed");
+  assert.equal(dispatchState({ ...latest, state: "unconfirmed" }, undefined, undefined), "submissionUnknown");
+  assert.equal(dispatchState({ ...latest, state: "reserved" }, undefined, undefined), "submitting");
+  assert.equal(dispatchState({ ...latest, state: "not-executed" }, undefined, undefined), "notExecuted");
 });
 
 test("timeline turns keep every work kind together and preserve steering requests", async () => {

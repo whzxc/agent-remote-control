@@ -1,0 +1,54 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Running task",
+      "headline": "Inspecting project files"
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Waiting for input",
+      "headline": "Choose an option",
+      "question": true
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Completed task",
+      "headline": "Finished",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Failed task",
+      "headline": "Check failed",
+      "outcome": "failed"
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Interrupted task",
+      "headline": "Execution interrupted",
+      "outcome": "cancelled"
+    },
+    {
+      "agent": "codex",
+      "phase": "idle",
+      "title": "Unobserved task",
+      "headline": "Last observed work",
+      "unconfirmed": true
+    }
+  ]
+}

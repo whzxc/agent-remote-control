@@ -54,6 +54,39 @@ try {
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
+        if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {
+          // Regression: activity disappearance and unrelated review failures changed execution results.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          if (name === 'task-review-unavailable') {
+            const panel = page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true });
+            await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+            if (await panel.getByRole('alert').count()) throw new Error('Review was loaded before requesting supplementary information');
+            await panel.getByRole('button', { name: messages['detail.reviewInfo'], exact: true }).click();
+            await panel.getByText(messages['detail.reviewUnavailable'], { exact: true }).waitFor();
+            await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+            const view = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
+            if (view.taskDetail?.state && view.taskDetail.state !== 'done') throw new Error('Review availability changed execution state');
+          }
+          if (name === 'task-states') {
+            const panel = page.getByRole('dialog', { name: 'Codex', exact: true });
+            const expected = ['running', 'needsYou', 'done', 'failed', 'interrupted', 'unknown'];
+            for (const [index, state] of expected.entries()) {
+              const button = panel.getByRole('button', { name: new RegExp(`^${fixture.tasks[index].title} ·`) });
+              await button.waitFor();
+              if (!await button.getByText(messages[`detail.state.${state}`], { exact: true }).count() && state !== 'running') throw new Error(`Missing ${state} execution state`);
+            }
+          }
+          if (name === 'dispatch-states') {
+            await page.getByRole('button', { name: /Earlier completed dispatch/ }).getByText(messages['detail.state.done'], { exact: true }).waitFor();
+            await page.getByRole('button', { name: /Current running dispatch/ }).getByText(messages['detail.state.running'], { exact: true }).waitFor();
+            await page.getByRole('button', { name: /Submission awaiting-approval/ }).getByText(messages['sourcePanel.awaitingApproval'], { exact: true }).waitFor();
+            await page.getByRole('button', { name: /Submission reserved/ }).getByText(messages['sourcePanel.submitting'], { exact: true }).waitFor();
+            await page.getByRole('button', { name: /Earlier completed dispatch/ }).click();
+            await page.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+            await page.getByText(messages['detail.selectedTurn'].replace('{count}', '1'), { exact: true }).waitFor();
+          }
+          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-states.png`), animations: 'disabled' });
+        }
         if (name === 'agent-panel-unread') {
           // Regression: completed unread tasks were mixed into date groups instead of appearing between Running and Today.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));

@@ -108,3 +108,35 @@ test('lifecycle notices do not displace the final reply or create error rows', (
   assert.equal(result.final, answer);
   assert.equal(result.rows.length, 0);
 });
+
+
+test("task evidence is scoped to its turn and idle is not completion", async () => {
+  // Regression: idle and a newer turn's result were presented as successful execution.
+  const { executionStatus, activityState, executionPhase } = await import("../ui/state/taskExecutionModel.ts");
+  const execution = { status: "completed", turnId: "new", turnStatuses: { old: "failed", new: "completed" }, interactions: [] };
+  const session = { id: "task", source: "transcript" as const, turnId: "old", phase: "tool" as const, phaseSince: null, headline: "", timeline: true, observed: false };
+  assert.equal(executionStatus(execution, "old"), "failed");
+  assert.equal(executionStatus(execution, "missing"), undefined);
+  assert.equal(activityState(session, execution), "failed");
+  assert.equal(activityState({ ...session, observed: true, turnId: "new" }, execution), "running");
+  assert.equal(taskState("idle", false), "unknown");
+  assert.equal(taskState("running", false), "unknown");
+  assert.equal(taskState("completed", false, true), "done");
+  assert.equal(executionPhase("interaction", "needsYou"), undefined);
+  assert.equal(executionPhase("idle", "running"), undefined);
+  assert.equal(executionPhase("tool", "done"), undefined);
+  assert.equal(executionPhase("tool", "running"), "tool");
+});
+
+
+test("resolved and previous-turn interactions do not recreate waiting input", async () => {
+  // Regression: historical or answered pending entries disagreed with the task header's input state.
+  const { pendingSessions } = await import("../ui/state/taskInteractions.ts");
+  const interaction = { kind: "question" as const, summary: "Choose", respond: { op: "codex_respond" as const, args: { id: "question" } } };
+  const session = { id: "task", source: "codex-thread" as const, turnId: "current", phase: "text" as const, phaseSince: null, headline: "", timeline: true };
+  const old = entry("old", "interaction", { turnId: "previous", status: "pending", interaction });
+  const answered = entry("answered", "interaction", { turnId: "current", status: "pending", interaction, response: { origin: {}, resolvedAt: "2026-01-01" } });
+  assert.equal(pendingSessions("codex", session, [old, answered]).length, 0);
+  const pending = entry("new", "interaction", { turnId: "current", status: "pending", interaction });
+  assert.equal(pendingSessions("codex", session, [old, answered, pending])[0].turnId, "current");
+});

@@ -14,7 +14,7 @@ export function PhaseTile({ phase, running = false, completed = false, paused = 
 }) {
   const mask = useId();
   const drawing = animated && (completed || (running && phase === "file"));
-  return <span className="phase-tile" style={drawing ? { "--phase-mask": `url(#${mask})` } as CSSProperties : undefined} data-phase={completed ? "completed" : phase}
+  return <span className="phase-tile" style={drawing ? { "--phase-mask": `url(#${mask})` } as CSSProperties : undefined} data-phase={outcome ?? (paused ? "interrupted" : completed ? "completed" : phase)}
     data-running={running || undefined} data-animated={animated || undefined} aria-hidden="true">
     {running && <span className="phase-orbit" />}
     {drawing && <svg className="phase-mask" width="0" height="0"><defs>
@@ -23,7 +23,7 @@ export function PhaseTile({ phase, running = false, completed = false, paused = 
       </mask>
     </defs></svg>}
     <Icon icon={outcome === "unknown" ? Circle : outcome === "failed" ? AlertCircle : paused ? CirclePause : completed ? Check : { thinking: Brain, command: Terminal, file: Pencil, tool: Wrench,
-      text: MessageSquare, interaction: ShieldAlert, idle: Check }[phase]} />
+      text: MessageSquare, interaction: ShieldAlert, idle: Circle }[phase]} />
     {source && <SourceBadge source={source} />}
   </span>;
 }

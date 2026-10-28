@@ -277,9 +277,10 @@ fn scan_roots(
                 };
                 // Keep already observed unfinished turns in the sample even when
                 // compaction or a long tool stops writing to their transcript.
-                let unfinished = cache.tails.get(path).is_some_and(|tail| {
-                    tail.timeline.transcript_active(modified, now)
-                });
+                let unfinished = cache
+                    .tails
+                    .get(path)
+                    .is_some_and(|tail| tail.timeline.transcript_active(modified, now));
                 if !unfinished
                     && now.duration_since(modified).unwrap_or_default() > Duration::from_secs(300)
                 {
@@ -739,7 +740,7 @@ mod tests {
         }
     }
     #[test]
-    fn activity_polls_skip_unchanged_files_but_discover_changes_and_expire_work() {
+    fn activity_polls_preserve_unfinished_work_until_a_terminal_event() {
         // Regression: the two-second activity poll reopened every recent rollout and the entire title index.
         let dir = Sandbox(std::env::temp_dir().join(format!("arc-activity-cache-{}", id())));
         let sessions = dir.0.join("sessions");
@@ -778,8 +779,10 @@ mod tests {
             assert_eq!(rows[0].session["turnCount"], 1);
         }
         assert_eq!(cache.io(), warm);
-        // Time still advances even when the transcript bytes do not.
-        assert!(scan_roots(&roots, &index, start + Duration::from_secs(91), &mut cache).is_empty());
+        // Neither a silent tool nor the metadata age cutoff is terminal evidence.
+        let silent = scan_roots(&roots, &index, start + Duration::from_secs(600), &mut cache);
+        assert_eq!(silent[0].session["id"], "first");
+        assert_eq!(silent[0].session["turnId"], "turn");
         assert_eq!(cache.io(), warm);
         std::fs::write(
             &index,

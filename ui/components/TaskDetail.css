@@ -4,7 +4,7 @@
 .task-detail-navigation > .button { min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; color: var(--text-secondary); }
 .task-detail-header .activity-panel-title { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; line-height: 1.35; margin: 0; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.task-ownership-chip.button { min-width: 0; max-width: 100%; min-height: 0; height: auto; }
+.task-ownership-chip { min-width: 0; max-width: 100%; }
 .task-ownership-chip > .icon { flex: none; }
 .task-ownership-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-detail-chips > .activity-spec { flex-shrink: 1; min-width: 0; max-width: 100%; }
@@ -166,16 +166,11 @@
 .task-queued-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-queued-message > span { color: var(--text-secondary); font-size: 12px; }
 
-.task-ownership-history.popover { box-sizing: border-box; width: 280px; max-width: calc(100vw - 24px); padding: 12px; animation-duration: 180ms; }
-.task-ownership-history ol { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0; }
-.task-ownership-history li { display: grid; gap: 3px; overflow-wrap: anywhere; }
-.task-ownership-history time { color: var(--text-secondary); font-size: 11px; }
-.task-ownership-history p { margin: 0; }
-:root[data-reduced-motion="true"] {
-  .task-ownership-history { animation: none !important; transition: none !important; }
-}
 
 .request-routing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
 .request-routing > span { overflow-wrap: anywhere; }
 .request-routing .actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .request-routing button { white-space: normal; overflow-wrap: anywhere; }
+
+.task-review-info > .timeline-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.task-review-info > .timeline-meta > p { flex-basis: 100%; margin: 0; white-space: pre-wrap; }

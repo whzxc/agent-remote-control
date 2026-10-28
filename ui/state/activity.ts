@@ -1,4 +1,7 @@
 import { trackedActivity, resetActivityBubbles, observeActivityTurn, restoreActivityReads, rememberActivityRead, controlActivityBubble } from "./activityBubbles";
+import { resetTaskExecutions, refreshTaskExecution } from "./taskExecution";
+import { taskState } from "./taskProjection";
+import { terminalState } from "./taskExecutionModel";
 import { agentPanel } from "./overviewPanels";
 import { useEffect, useRef } from "react";
 import { createStore } from "./store";
@@ -14,6 +17,7 @@ export function resetActivityCore(core: string) {
   if (activityCore && activityCore !== core) {
     agentActivity.set({ error: "" });
     resetActivityBubbles();
+    resetTaskExecutions();
   }
   activityCore = core;
 }
@@ -30,6 +34,12 @@ export function acceptActivity(snapshot: AgentActivitySnapshot) {
       return [agent, restoreActivityReads(agent, trackActivity(previous, live, now, pinnedId), now, pinnedId)];
     })));
   agentActivity.set({ snapshot: next, error: "" });
+  const missing = Object.entries(trackedActivity.get()).flatMap(([agent, sessions]) => sessions
+    .filter(session => session.observed === false && !terminalState(taskState(session.status ?? undefined, false)))
+    .map(session => [agent, session.id] as const));
+  void (async () => {
+    for (let i = 0; i < missing.length; i += 4) await Promise.all(missing.slice(i, i + 4).map(([agent, id]) => refreshTaskExecution(agent, id).catch(() => {})));
+  })();
   const keys = new Set(Object.entries(next.agents).flatMap(([agent, value]) => value.sessions
     .filter(session => session.interaction).map(session => interactionKey(agent, session))));
   const retained = agentPanel.get();

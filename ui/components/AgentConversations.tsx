@@ -1,3 +1,6 @@
+import { taskExecution, taskExecutions } from "../state/taskExecution";
+import { activityApprovals } from "../state/activity";
+import { pendingSessions } from "../state/taskInteractions";
 import { useAppNow } from "../state/appEnvironment";
 import { MessagesSquare } from "lucide-react";
 import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
@@ -30,6 +33,8 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
 
 export default function AgentConversations({ agent, account, accountId, active }: { agent: string; account?: ProviderAccount; accountId?: string; active: boolean }) {
   const language = locale.use();
+  taskExecutions.use();
+  const submissions = activityApprovals.use();
   const { snapshot } = agentActivity.use();
   const tracked = trackedActivity.use(), retained = tracked[agent] ?? [];
   const unread = new Set(retained.filter(session => session.endedAt !== undefined && session.readAt === undefined).map(session => session.id));
@@ -42,7 +47,7 @@ export default function AgentConversations({ agent, account, accountId, active }
   const belongs = (session: Pick<TrackedActivity, "agentAccountId" | "dispatchSummary">) => !accountId || (account
     ? accountOwns(account, session.agentAccountId ?? session.dispatchSummary?.agentAccountId)
     : (session.agentAccountId ?? session.dispatchSummary?.agentAccountId) === accountId);
-  const live = new Map(snapshot?.agents[agent]?.sessions.filter(belongs).map(session => [session.id, session]) ?? []);
+  const live = new Map(snapshot?.agents[agent]?.sessions.filter(belongs).map(session => [session.id, { ...session, interaction: pendingSessions(agent, session, taskExecution(agent, session.id)?.interactions ?? [], submissions)[0]?.interaction }]) ?? []);
   const now = useAppNow(active && live.size ? 1000 : 60000);
   useEffect(() => {
     const sessions = [...(tracked[agent] ?? []), ...(snapshot?.agents[agent]?.sessions ?? [])];
@@ -80,7 +85,7 @@ export default function AgentConversations({ agent, account, accountId, active }
     return () => observer.disconnect();
   }, [active, next, loading, error]);
   const sessions = new Map<string, TrackedActivity>(rows.map(conversation => [conversation.id, {
-    id: conversation.id, source: conversation.source === "native" ? "transcript" : conversation.source, status: conversation.status, title: conversation.title || undefined, phase: "idle", phaseSince: null,
+    id: conversation.id, source: conversation.source === "native" ? "transcript" : conversation.source, status: conversation.status, title: conversation.title || undefined, phase: "idle", observed: false, phaseSince: null,
     headline: "", startedAt: conversation.createdAt, project: conversation.project, projectName: conversation.projectName,
     dispatchSummary: conversation.dispatchSummary ?? undefined, turnCount: conversation.turnCount ?? undefined,
     agentAccountId: conversation.agentAccountId ?? conversation.dispatchSummary?.agentAccountId,
@@ -89,11 +94,11 @@ export default function AgentConversations({ agent, account, accountId, active }
   }]));
   for (const remembered of [...Object.values(observed), ...retained, ...live.values()]) {
     const current = live.get(remembered.id), history = sessions.get(remembered.id);
-    const session = current ?? { ...remembered, phase: "idle" as const, phaseSince: null, interaction: undefined, turnStartedAt: undefined };
+    const session = current ? { ...current, observed: true } : { ...remembered, observed: false, phase: "idle" as const, phaseSince: null, interaction: undefined };
     sessions.set(session.id, { ...history, ...session,
       startedAt: history?.startedAt ?? session.startedAt,
       title: session.title || history?.title,
-      status: current ? undefined : history?.status,
+      status: current ? undefined : (remembered as TrackedActivity).status ?? history?.status,
       dispatchSummary: session.dispatchSummary ?? history?.dispatchSummary,
       agentAccountId: session.agentAccountId ?? history?.agentAccountId,
       turnCount: session.turnCount === undefined ? history?.turnCount : Math.max(session.turnCount, history?.turnCount ?? 0),

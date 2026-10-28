@@ -1,6 +1,6 @@
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 
-// Activity events are complete snapshots: absent sessions have ended.
+// Activity events describe current observations; absence is not a terminal result.
 export function mergeActivity(current: AgentActivitySnapshot | undefined, next: AgentActivitySnapshot) {
   return current && Date.parse(next.observedAt) < Date.parse(current.observedAt) ? current : next;
 }
@@ -12,7 +12,7 @@ export type BubbleWidth = keyof typeof bubbleWidths;
 export function effectiveBubbleDensity(density: BubbleDensity, autoCompact: boolean, count: number): BubbleDensity {
   return autoCompact && count > 4 ? density === "detailed" ? "standard" : "compact" : density;
 }
-export type TrackedActivity = AgentActivitySession & { orderAt: number; endedAt?: number; readAt?: number; conversation?: boolean; status?: string | null };
+export type TrackedActivity = AgentActivitySession & { orderAt: number; observed?: boolean; selectedTurnId?: string; endedAt?: number; readAt?: number; conversation?: boolean; status?: string | null };
 export interface ActivityRead {
   agent: string; id: string; readAt: number; turnId?: string; turnStartedAt?: string;
 }
@@ -53,9 +53,9 @@ export function trackActivity(previous: readonly TrackedActivity[], sessions: re
   const old = new Map(previous.map(s => [s.id, s]));
   const live = new Set(sessions.map(s => s.id));
   return [
-    ...sessions.map(s => ({ ...s, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
-    ...previous.filter(s => !live.has(s.id)).map(s => ({ ...s, interaction: undefined, endedAt: s.endedAt ?? now,
-      readAt: s.readAt ?? (s.id === pinnedId ? now : undefined) }))
+    ...sessions.map(s => ({ ...s, observed: true, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
+    ...previous.filter(s => !live.has(s.id)).map(s => ({ ...s, observed: false, phase: "idle" as const, interaction: undefined,
+      readAt: s.readAt ?? (s.endedAt !== undefined && s.id === pinnedId ? now : undefined) }))
       .filter(s => s.readAt === undefined || s.id === pinnedId || now < s.readAt + activityLayout.hold + activityLayout.fade),
   ].sort((a, b) => Number(!!b.interaction) - Number(!!a.interaction) || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
 }

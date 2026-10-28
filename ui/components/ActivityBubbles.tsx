@@ -11,7 +11,10 @@ import { activityHeadline, type TrackedActivity, type BubbleDensity } from "../s
 import { useInterval } from "../state/hooks";
 import FilePath from "./FilePath";
 import { Button, Icon } from "./ui";
-import { taskState } from "../state/taskProjection";
+import { activityState, executionPhase } from "../state/taskExecutionModel";
+import { useTaskExecution } from "../state/taskExecution";
+import { activityApprovals } from "../state/activity";
+import { pendingSessions } from "../state/taskInteractions";
 
 export function elapsed(since: string | null | undefined, now: number) {
   const seconds = since ? Math.max(0, Math.floor((now - Date.parse(since)) / 1000)) : NaN;
@@ -36,14 +39,16 @@ function Headline({ session }: { session: TrackedActivity }) {
 }
 export function ActivityBubbleContent({ agent, session, now, density = "standard", historical = false, conversationRow = false, showSourceBadge = true }: { agent?: string; session: TrackedActivity; now: number; density?: BubbleDensity; historical?: boolean; conversationRow?: boolean; showSourceBadge?: boolean }) {
   const language = locale.use();
-  const paused = ["cancelled", "interrupted", "aborted"].includes(session.status ?? "");
-  const historyState = historical ? taskState(session.status ?? undefined, false) : undefined;
-  const outcome = historyState === "failed" || historyState === "unknown" ? historyState : undefined;
-  const completed = !paused && !outcome && (session.endedAt !== undefined || historyState === "done");
-  const running = !paused && !completed && !session.interaction && session.phase !== "idle";
+  const live = !historical && session.observed !== false && session.endedAt === undefined;
+  const execution = useTaskExecution(agent ?? "", session.id, session.turnId, !live);
+  const submissions = activityApprovals.use();
+  const pending = agent ? pendingSessions(agent, session, execution?.interactions ?? [], submissions).length > 0 : !!session.interaction;
+  const state = activityState(session, execution, pending, live);
+  const paused = state === "interrupted", completed = state === "done", running = state === "running";
+  const outcome = state === "failed" || state === "unknown" ? state : undefined;
   const unread = completed && !historical && session.readAt === undefined;
-  const phase = session.interaction ? "interaction" : session.phase;
-  const phaseLabel = outcome ? `detail.state.${outcome}` : completed ? "activity.completed" : session.interaction ? "activity.waitingConfirm" : `activity.phase.${phase}`;
+  const phase = executionPhase(session.phase, state) ?? (state === "needsYou" ? "interaction" : "idle");
+  const phaseLabel = running && phase !== "idle" ? `activity.phase.${phase}` : `detail.state.${state}`;
   const source = session.dispatchSummary?.controlSource;
   const project = (session.projectName || session.project)?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
   const previous = session.recentContent?.filter(text => text !== activityHeadline(session).text).at(-1);
@@ -57,11 +62,11 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
   </time>;
   return <>
     <PhaseTile phase={phase} running={running} completed={completed} paused={paused} outcome={outcome} source={showSourceBadge ? source : undefined} />
-    {historical && <span className="sr-only">{t(outcome ? `detail.state.${outcome}` : paused ? "timeline.status.cancelled" : "activity.completed")}</span>}
+    {historical && <span className="sr-only">{t(`detail.state.${state}`)}</span>}
     <span className="activity-copy">
       <span className="activity-title-row"><strong>{session.title || t("timeline.title")}</strong>
         {unread && <span className="activity-unread" role="img" aria-label={t("activity.unread")} />}
-        {session.interaction ? <span className="activity-pending">{t("activity.pending")}</span> : !historical && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
+        {state === "needsYou" ? <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
       </span>
       {(!historical || !conversation) && <span className="activity-phase">
         {historical ? createdTime : <>

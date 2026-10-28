@@ -32,7 +32,7 @@ export function answerLabel(payload: ApprovalPayload) {
 
 export function pendingSessions(agent: string, session: import("../types.ts").AgentActivitySession, entries: import("../types.ts").AgentTimelineEntry[], submissions: Record<string, ApprovalSubmission> = {}) {
   const sameRequest = (interaction: AgentInteraction | undefined) => JSON.stringify(interaction?.respond) === JSON.stringify(session.interaction?.respond);
-  const pending: import("../types.ts").AgentActivitySession[] = entries.filter(e => e.type === "interaction" && e.status === "pending" && !e.response && e.interaction)
+  const pending: import("../types.ts").AgentActivitySession[] = entries.filter(e => e.type === "interaction" && e.status === "pending" && !e.response && e.interaction && (!session.turnId || !e.turnId || e.turnId === session.turnId))
     .map(e => ({ ...session, turnId: e.turnId || session.turnId, phaseSince: e.startedAt, interaction: e.interaction }));
   // A stale activity snapshot must not resurrect a request already resolved in history.
   if (session.interaction && !entries.some(e => e.type === "interaction" && sameRequest(e.interaction))) pending.push(session);

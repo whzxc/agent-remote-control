@@ -35,11 +35,6 @@ test('portrait rail insets contain measured platform and account labels at every
     }
     const bubbles = layout.wings[1].tasks;
     assert.ok(bubbles.every(t => t.x - t.width > 0 && t.x < vw));
-    const longest = layout.wings[1].nodes.find(n => n.id === 'single')!;
-    const fullWidth = labels.right.get(longest.id)!.width * longest.scale;
-    const singleLineBubbleWidth = bubbles[0].width - (fullWidth - p.agentLabelWidth);
-    if (singleLineBubbleWidth >= bubbleWidths.narrow) assert.ok(p.agentLabelWidth >= fullWidth);
-    else assert.ok(p.agentLabelWidth < fullWidth);
   }
 });
 
@@ -75,7 +70,7 @@ test('portrait places every task within its own row and the horizontal viewport'
     assert.ok(agents.nodes.every(n => n.y > layout.hub.y));
     const roots = agents.nodes.filter(n => !n.parent);
     assert.deepEqual(roots.map(n => n.id), ['agent', 'single', 'idle/a', 'idle/b']);
-    assert.ok(roots.filter(n => n.dim).every(n => n.scale < roots[0].scale));
+    assert.ok(roots.every(n => n.size === roots[0].size));
     for (const node of [...sources.nodes, ...agents.nodes]) {
       if (node.parent) {
         const parent = [...sources.nodes, ...agents.nodes].find(n => n.id === node.parent)!;

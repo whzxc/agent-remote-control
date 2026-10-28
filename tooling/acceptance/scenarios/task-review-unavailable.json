@@ -1,0 +1,27 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "reviewUnavailable": true,
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Completed without review availability",
+      "headline": "The task is complete",
+      "completed": true,
+      "ownership": {
+        "owner": "connector",
+        "currentOwner": "connector",
+        "state": "held"
+      }
+    }
+  ]
+}

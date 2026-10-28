@@ -77,7 +77,7 @@ export class TopologyAnimator {
     }
     for (const task of tasks) {
       const fields = this.live.get(taskKey(task.side, task.id))?.fields;
-      if (fields) fields.bodyOpacity.t = task.state === 'completed' ? 0.25 : 0.62;
+      if (fields) fields.bodyOpacity.t = task.state === 'done' ? 0.25 : 0.62;
     }
   }
   highlight(nodes: Set<string> | null) {

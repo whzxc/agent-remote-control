@@ -46,7 +46,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
       const icon = <AgentQuotaIcon agent={platform} quota={account.quota ?? null} />;
       return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, selected, account: true, label: nodeLabel, icon,
-        attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'attention' || t.pending)),
+        attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
         tasks: tasks.filter(t => t.agentAccountId === account.id),
         content: <GraphNode label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
           {icon}<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>

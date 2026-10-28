@@ -4,7 +4,7 @@ import { TopologyAnimator, nodeKey, taskKey } from "./animate";
 import type { SurfaceRect } from "../motion/surface";
 
 export type WireState = "normal" | "connecting" | "error" | "inactive";
-export type TaskState = "running" | "attention" | "completed" | "summary";
+export type TaskState = import("../state/taskProjection").TaskState | "summary";
 export interface PaintNode { id: string; side: Side; parent?: string; state: WireState; attention: boolean; selected: boolean; label?: string }
 export interface PaintTask { id: string; parent: string; side: Side; state: TaskState; selected: boolean }
 const ns = "http://www.w3.org/2000/svg";

@@ -1,3 +1,7 @@
+import { activityState } from "../state/taskExecutionModel";
+import { taskExecution, taskExecutions } from "../state/taskExecution";
+import { pendingSessions } from "../state/taskInteractions";
+import { activityApprovals } from "../state/activity";
 import { useAppNow } from "../state/appEnvironment";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { controlSource, controlSourcePlatform } from '../controlSources';
@@ -63,6 +67,8 @@ function wireState(state: string): WireState {
 }
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const tuning = topologyTuningEnabled.use();
+  taskExecutions.use();
+  const submissions = activityApprovals.use();
   const { tracked, markRead } = useActivityTracking(), manualOrder = taskOrder.use(), selection = agentPanel.use(), sourceSelection = ingressPanel.use();
   const flow = onboarding.use(), newConnection = connectionSetup.use(), switching = connectionSwitch.use(), nav = navigation.use();
   const newSourceId = addedSource.use();
@@ -252,7 +258,11 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     }];
   });
   const agentViews: NodeView[] = agents.map(agent => {
-    const sessions = orderActivity(tracked[agent.agent] ?? [], manualOrder[agent.agent] ?? []), selected = !selection?.closing && selection?.agent === agent.agent;
+    const sessions = orderActivity((tracked[agent.agent] ?? []).map(session => {
+      const execution = taskExecution(agent.agent, session.id);
+      const pending = pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions);
+      return { ...session, interaction: session.observed === false ? undefined : pending[0]?.interaction };
+    }), manualOrder[agent.agent] ?? []), selected = !selection?.closing && selection?.agent === agent.agent;
     const agentAccounts = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
     const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
     const accountIds = agentAccounts.map(a => a.id);
@@ -277,7 +287,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       </GraphNode>,
       tasks: [
         ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), width, height: bubbleHeights[effectiveDensity], taskId: session.id, threadId: session.nativeSessionId, agentAccountId: accountGroup(session.agentAccountId) ?? session.agentAccountId, origin: origin(session),
-          state: (session.endedAt !== undefined ? "completed" : session.interaction ? "attention" : "running") as import("../topology/render").TaskState,
+          state: (() => {
+            const execution = taskExecution(agent.agent, session.id);
+            return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);
+          })(),
           selected: selected && selection.session?.id === session.id, reorderable: !panelOpen,
           content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={panelOpen ? undefined : by => {
             const group = shown.sessions.filter(s => (accountIds.length <= 1 || accountGroup(s.agentAccountId) === accountGroup(session.agentAccountId)) && !!s.interaction === !!session.interaction);

@@ -14,11 +14,13 @@ import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
-import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
+import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
 import { dispatchSourceLabel, SourceBadge, SpecPill } from "./activity";
 import { taskState } from "../state/taskProjection";
-import { timelineDuration, timelineGroups } from "../state/timelineGroups";
+import { acceptTaskExecution } from "../state/taskExecution";
+import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
+import { timelineDuration, timelineGroups, turnDuration } from "../state/timelineGroups";
 import TaskNeedsYou from "./TaskNeedsYou";
 import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
@@ -43,6 +45,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   }, []);
   const submissions = activityApprovals.use();
   const [atLatest, setAtLatest] = useState(true);
+  const [showReview, setShowReview] = useState(false);
   const [timeline, setTimeline] = useState<AgentTimeline>();
   const [taskTitle, setTaskTitle] = useState<{ id: string; title: string }>();
   const [continuing, setContinuing] = useState(false);
@@ -53,11 +56,11 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const viewport = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null);
   const following = useRef(true), initial = useRef(true), previousRunning = useRef(true), previousTop = useRef(0);
   const manualDisclosure = useRef(false);
-  const live = snapshot?.agents[agent]?.sessions.find(s => s.id === session.id);
+  const live = snapshot?.agents[agent]?.sessions.find(s => s.id === session.id && (!session.selectedTurnId || s.turnId === session.selectedTurnId));
   const external = session.source === "transcript";
   useTaskPresence(agent, session.id, !external);
-  // Completed history entries do not override a session in the live snapshot.
-  const running = !!live || session.endedAt === undefined && !external && !timeline?.readOnly && ["running", "inProgress", "starting", "waiting-permission", "cancelling"].includes(timeline?.status ?? "");
+  // Only current activity establishes execution; persisted running/idle is not a result.
+  const running = !!live;
 
   const now = useAppNow(running ? 1000 : null);
   const userScroll = useRef(false);
@@ -111,7 +114,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           }
           manualDisclosure.current = false;
         }
-        current = next; setTimeline(next); setError("");
+        current = next; setTimeline(next); acceptTaskExecution(agent, session.id, next); setError("");
       } catch (error) { if (!stopped) setError(String(error)); }
       if (!stopped) timer = setTimeout(read, external || current?.readOnly ? 5000 : 1000);
     }
@@ -136,25 +139,22 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     return () => observer.disconnect();
   }, []);
   const groups = timelineGroups(timeline?.entries ?? []);
-  const historyTurn = groups.at(-1)?.turnId || session.turnId;
+  const historyTurn = session.selectedTurnId || groups.at(-1)?.turnId || session.turnId;
   const nativeSession = live ?? { ...session, turnId: historyTurn, interaction: undefined,
     dispatchSummary: historyTurn === session.turnId ? session.dispatchSummary : undefined };
   const agentName = name(orderedAgents().find(a => a.agent === agent) ?? { agent });
-  const duration = timelineDuration(timeline?.entries ?? [], now, running, nativeSession.turnId, timeline?.turnTimings, nativeSession.turnStartedAt);
+  const selectedEntries = session.selectedTurnId ? groups.find(group => group.turnId === session.selectedTurnId)?.entries : undefined;
+  const duration = session.selectedTurnId ? turnDuration(selectedEntries ?? [], now, running, nativeSession.turnStartedAt, timeline?.turnTimings?.[session.selectedTurnId])
+    : timelineDuration(timeline?.entries ?? [], now, running, nativeSession.turnId, timeline?.turnTimings, nativeSession.turnStartedAt);
   const project = timeline?.projectName || nativeSession.projectName || session.projectName
     || session.project?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
-  const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || timeline?.dispatchSummary || nativeSession.dispatchSummary;
+  const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || (!session.selectedTurnId ? timeline?.dispatchSummary : undefined) || nativeSession.dispatchSummary;
   const source = latestSummary?.controlSource;
   const sourceLabel = source && dispatchSourceLabel(source);
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
-  const state = taskState(timeline?.status, running, hasPending);
+  const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
-  const turnSource = timeline
-    ? (turnId && timeline.turnDispatchSummaries?.[turnId]?.controlSource) || timeline.dispatchSummary?.controlSource
-      || groups.find(group => group.turnId === turnId)?.entries.find(entry => entry.type === "user")?.controlSource
-    : source;
-  const fromControlSource = !!turnSource && turnSource.kind !== "ARC";
-  const { review, reviewError } = useTaskReview(session.id, turnId, !external && !timeline?.readOnly && fromControlSource);
+  const { review, reviewError, reviewLoading, reloadReview } = useTaskReview(session.id, turnId, showReview && terminalState(state));
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
   const latest = () => {
     const node = viewport.current;
@@ -228,7 +228,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         ]} /></div>}
       </div>
       <h2 id={titleId} className="activity-panel-title">{title}</h2>
-      <div className="task-detail-chips"><span className="task-state" data-state={state}>{t(`detail.state.${state}`)}</span>
+      <div className="task-detail-chips"><span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>
+        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-spec">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <SpecPill agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary} />
         {source && <span className="task-source-chip"><SourceBadge source={source} /><span>{t("detail.via", { source: sourceLabel })}</span></span>}
         <TaskOwnership ownership={timeline?.ownership} />
@@ -270,10 +271,10 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           if ((event.target as Element).closest("button, .timeline-turn[data-state=closed]")) manualDisclosure.current = true;
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
-          {(error || openError || reviewError) && <p className="timeline-error" role="alert">{taskErrorText(openError || error || reviewError)}</p>}
+          {(error || openError) && <p className="timeline-error" role="alert">{taskErrorText(openError || error)}</p>}
           {timeline?.coverage.state === "partial" && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
           {!session.timeline && <section className="activity-session-summary">
-            <span className="timeline-meta">{t(`activity.phase.${nativeSession.phase}`)}</span>
+            {executionPhase(nativeSession.phase, state) && <span className="timeline-meta">{t(`activity.phase.${nativeSession.phase}`)}</span>}
             {(nativeSession.recentContent?.length ? nativeSession.recentContent : [activityHeadline(nativeSession, t("timeline.title")).text])
               .map((text, index) => <p key={index}>{text}</p>)}
           </section>}
@@ -282,6 +283,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             onResume={agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
           <TaskQueuedMessages queue={queue} />
+          {terminalState(state) && <section className="task-review-info">
+            <Button variant="ghost" aria-expanded={showReview} onClick={() => setShowReview(!showReview)}>{t("detail.reviewInfo")}</Button>
+            {showReview && (reviewLoading ? <LoadingIndicator label={t("detail.reviewInfo")} /> : reviewError ? <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice>
+              : review ? <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
+                {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
+                <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
+                {review.note && <p>{review.note}</p>}</div> : <p className="timeline-meta">{t("detail.reviewEmpty")}</p>)}
+          </section>}
+
           </>}
         </div>
       </div>

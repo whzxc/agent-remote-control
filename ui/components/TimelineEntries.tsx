@@ -14,7 +14,7 @@ import { timelineGroups, turnDuration } from "../state/timelineGroups";
 import { Button, Icon, IconButton } from "./ui";
 import { dispatchSourceLabel } from "./activity";
 import { icons } from "../state/agents";
-import { answerLabel, interactionSummary } from "../state/taskInteractions";
+import { answerLabel, interactionSummary, pendingSessions } from "../state/taskInteractions";
 import { copyText } from "../platform";
 import { processOpen, projectTurn, taskState, toolCounts, type ProcessRow } from "../state/taskProjection";
 import { taskErrorText } from "../state/taskErrors";
@@ -149,23 +149,24 @@ function ToolRun({ entries, live }: { entries: AgentTimelineEntry[]; live: boole
   </Fold>;
 }
 export default function TimelineEntries({ entries, agent, session, now, running = false, turnStatuses, turnTimings, status, onResume, onRetry, continuing }: {
-  entries: AgentTimelineEntry[]; agent: string; session: AgentActivitySession; now: number; running?: boolean; turnDispatchSummaries?: Record<string, DispatchSummary>; turnStatuses?: Record<string, string>; status?: string; turnTimings?: Record<string, TurnTiming>;
+  entries: AgentTimelineEntry[]; agent: string; session: AgentActivitySession & { selectedTurnId?: string }; now: number; running?: boolean; turnDispatchSummaries?: Record<string, DispatchSummary>; turnStatuses?: Record<string, string>; status?: string; turnTimings?: Record<string, TurnTiming>;
   onResume?: () => void; onRetry?: () => void; continuing?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const submissions = activityApprovals.use();
   const change = (id: string) => (open: boolean) => setExpanded(previous => ({ ...previous, [id]: open }));
   const groups = timelineGroups(entries);
   return <TimelineResources agent={agent} id={session.id}>{groups.map((group, index) => {
     const latest = index === groups.length - 1;
     const current = !session.turnId || !group.turnId || group.turnId === session.turnId;
     const live = latest && current && running;
-    const pending = group.entries.some(entry => entry.type === "interaction" && entry.status === "pending");
+    const pending = live && pendingSessions(agent, session, group.entries, submissions).length > 0;
     const state = taskState((group.turnId ? turnStatuses?.[group.turnId] : undefined) ?? (latest && current ? status : undefined), live, pending);
     const projection = projectTurn(group.entries, state);
     const { prompt, final, rows } = projection;
     const duration = turnDuration(group.entries, now, live, latest && current ? session.turnStartedAt : undefined, group.turnId ? turnTimings?.[group.turnId] : undefined);
     const source = prompt?.controlSource;
-    const workId = `process:${group.id}:${state}`, turnOpen = latest || pending || (expanded[group.id] ?? false);
+    const workId = `process:${group.id}:${state}`, turnOpen = (session.selectedTurnId ? group.turnId === session.selectedTurnId : latest) || pending || (expanded[group.id] ?? false);
     const renderRow = (row: ProcessRow) => row.kind === "tools" ? <ToolRun key={row.id} entries={row.entries} live={live} /> : <ProcessEntry key={row.id} entry={row.entry} agent={agent} session={session} />;
     const process = <div className="task-process-rows">{rows.map(renderRow)}</div>;
     return <section className="task-turn" key={group.id} data-timeline-id={group.id}>

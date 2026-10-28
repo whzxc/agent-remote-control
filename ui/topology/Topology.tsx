@@ -227,8 +227,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     else {
       const tasks = latest.current.tasks.filter(t => t.side === d.side && t.parent === d.parent);
-      const attention = tasks.find(t => t.id === d.id)?.state === "attention";
-      const allowed = new Set(tasks.filter(t => t.reorderable && (t.state === "attention") === attention).map(t => t.id));
+      const attention = tasks.find(t => t.id === d.id)?.state === "needsYou";
+      const allowed = new Set(tasks.filter(t => t.reorderable && (t.state === "needsYou") === attention).map(t => t.id));
       d.order = d.order.filter(id => allowed.has(id));
       const reorder = (items: NodeView[]): NodeView[] => items.map(n => ({ ...n, tasks: n.id === d.parent ? orderedSubset(n.tasks, d.order) : n.tasks, children: reorder(n.children ?? []) }));
       sc[wing] = reorder(sc[wing] as NodeView[]);
@@ -321,7 +321,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       && !!n.account === !!draggedNode?.account && n.parent === draggedNode?.parent
       && (!draggedNode?.account || n.platform === draggedNode.platform))
       : latest.current.tasks.filter(t => t.side === side && t.parent === parent && t.reorderable
-        && (t.state === "attention") === (latest.current.tasks.find(t => t.side === side && t.id === id)?.state === "attention"));
+        && (t.state === "needsYou") === (latest.current.tasks.find(t => t.side === side && t.id === id)?.state === "needsYou"));
     drag.current = { kind, side, id, parent, x: v.x, y: v.y, pointer: event.pointerId, startClientX: event.clientX, startClientY: event.clientY,
       grabX: event.clientX - origin.current.x - v.x, grabY: event.clientY - origin.current.y - v.y, order: candidates.map(n => n.id), active: false, control,
       target: button, slot: event.currentTarget, key };
@@ -481,7 +481,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
             onPointerDown={event => event.stopPropagation()} onClick={() => { topologyCollapsed.set(old => ({ ...old, [nodeKey(n.side, n.id)]: !closed })); }}>
             <CollapseSymbol collapsed={closed} />
           </button>
-          {(closed || panelKey?.startsWith('agent:') && n.side === 1 && !n.selected && !n.children?.length) && count > 0 && <span className="agent-task-count" data-attention={hiddenTasks.some(t => t.state === 'attention' || t.pending) || undefined} aria-label={t('topology.hiddenTasks', { count })}>{count}</span>}
+          {(closed || panelKey?.startsWith('agent:') && n.side === 1 && !n.selected && !n.children?.length) && count > 0 && <span className="agent-task-count" data-attention={hiddenTasks.some(t => t.state === 'needsYou' || t.pending) || undefined} aria-label={t('topology.hiddenTasks', { count })}>{count}</span>}
         </>;
       })()}</div>)}
     {allTasks.map(t => <div key={taskKey(t.side, t.id)} ref={el => { const key = taskKey(t.side, t.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}

@@ -739,29 +739,12 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     let write = || -> Result<()> {
         let dir = directory(string(receipt, "threadId"))?;
         uuid::Uuid::parse_str(string(receipt, "requestId")).map_err(|_| "INVALID_REQUEST_ID")?;
-        let mut previous = read_records(string(receipt, "threadId"))?;
+        let previous = read_records(string(receipt, "threadId"))?;
         row["purpose"] = receipt["arguments"]
             .get("purpose")
             .cloned()
             .or_else(|| previous.last().and_then(|r| r.get("purpose")).cloned())
             .unwrap_or(json!("task"));
-        if row["dispatchMode"] == "new-turn" {
-            previous.extend(read_external_reviews(string(receipt, "threadId"))?);
-            let rework = previous
-                .iter()
-                .filter(|r| r["review"]["verdict"] == "rework")
-                .filter(|r| {
-                    !previous.iter().any(|next| {
-                        next["dispatchMode"] == "new-turn"
-                            && next.get("submission").is_none_or(|v| v == "accepted")
-                            && string(next, "submittedAt") > string(&r["review"], "reviewedAt")
-                    })
-                })
-                .max_by_key(|r| string(&r["review"], "reviewedAt"));
-            if let Some(rework) = rework {
-                row["reworkOf"] = rework["turnId"].clone();
-            }
-        }
         crate::coordination::observers::save_owner(
             &dir.join(format!("{}.json", string(receipt, "requestId"))),
             &row,

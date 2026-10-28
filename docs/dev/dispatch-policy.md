@@ -88,7 +88,7 @@ Terminal records measure submission to first terminal observation. This observed
 
 review stores verdict, note, reviewedAt, requestId, reviewer, dispatchOrigin, and dispatchRequestId. reviewer records the authenticated sourceId and controlSource, plus sessionId and target when available (otherwise null). dispatchOrigin is arc when an ARC dispatch record exists, with its dispatchRequestId, or external with a null dispatchRequestId. External reviews also snapshot model, effort, and serviceTier from native persisted turn context, turn metadata, then thread metadata; unavailable fields remain null. External reviews are stored separately from dispatch records and appear in reviews on full task/read results. The latest verdict replaces previous judgments. Safe retries reuse requestId. Changed verdicts use a new ID. Review and dispatch share the thread lock. Completion metadata cannot overwrite reviews.
 
-After rework, the next new-turn dispatch records reworkOf. Steering does not consume the association. Dispatch uses the latest effective rework verdict. Once created, the link persists despite later verdict changes. Queues link at execution. codex_tasks view:full returns current reviews and links. Existing completion notifications remain creation-time snapshots.
+Review verdicts are supplementary feedback. A subsequent dispatch does not read review storage or infer a rework association. Missing or unavailable reviews do not block dispatch. codex_tasks view:full returns available reviews separately from execution results. Completion notifications remain creation-time snapshots.
 
 ## History and usage boundaries
 

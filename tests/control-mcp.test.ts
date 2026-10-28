@@ -1745,7 +1745,7 @@ test('large Git diff is bounded and its immutable output pages retain text and f
   assert.equal(narrow.truncated,false);assert.equal(narrow.output,undefined);assert.ok(narrow.text.includes('+after'));
 });
 
-test('external terminal reviews retain provenance, replay, rework links and separate history', async()=>{
+test('external terminal reviews remain supplementary across dispatch and history', async()=>{
   // Regression: REVIEW_DISPATCH_NOT_FOUND prevented reviewing turns started directly in Codex Desktop.
   await management('task-settings','PUT',{autoOpenCodex:false});
   const seed=async(known=true)=>{
@@ -1784,7 +1784,12 @@ test('external terminal reviews retain provenance, replay, rework links and sepa
   const next=(await call('codex_send',{threadId,prompt:'Revise fixture',purpose:'self-test',requestId:randomUUID()})).result;
   assert.equal(next.state,'completed',JSON.stringify(next));
   const tasks=(await call('codex_tasks',{searchTerm:'fixture-external-review',view:'full'})).result.tasks;
-  assert.equal(tasks.find((t:any)=>t.threadId===threadId).dispatches.find((d:any)=>d.turnId===next.turnId).reworkOf,turnId);
+  assert.equal(tasks.find((t:any)=>t.threadId===threadId).dispatches.find((d:any)=>d.turnId===next.turnId).turnId,next.turnId);
+  const reviewDirectory=path.join(stateDir,'reviews',threadId);
+  await completed('write',{path:path.join(reviewDirectory,'unreadable-feedback.json'),content:'{invalid review'});
+  const independent=(await call('codex_send',{threadId,prompt:'Continue independently of review metadata',purpose:'self-test',requestId:randomUUID()})).result;
+  assert.equal(independent.state,'completed',JSON.stringify(independent));
+  await completed('write',{path:path.join(reviewDirectory,'unreadable-feedback.json'),content:'{}'});
   const changed=(await call('codex_review',{threadId,turnId,verdict:'pass',requestId:randomUUID()})).result;
   assert.equal(changed.state,'completed');assert.equal(changed.result.review.dispatchOrigin,'external');
   const read=(await call('codex_read',{threadId,view:'full'})).result;

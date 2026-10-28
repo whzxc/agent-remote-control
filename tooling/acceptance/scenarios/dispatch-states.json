@@ -1,0 +1,42 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "timeline": "multi-turn",
+  "dispatchHistory": true,
+  "panel": {
+    "kind": "source",
+    "id": "fixture-source"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Current running dispatch",
+      "headline": "/workspace/acceptance/config.json"
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Completed dispatch",
+      "headline": "Done",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Failed execution",
+      "headline": "Failed",
+      "outcome": "failed"
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Interrupted execution",
+      "headline": "Stopped",
+      "outcome": "cancelled"
+    }
+  ]
+}
