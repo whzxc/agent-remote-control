@@ -42,8 +42,8 @@ async function harness() {
     async close() { await act(() => root.unmount()); await server.close(); await window.happyDOM.close(); globalThis.fetch = originalFetch; } };
 }
 
-test('topology account source keeps its platform name in both modes', async () => {
-  // Regression: single-account Tree nodes displayed a source alias instead of their platform name.
+test('topology shows platform roots and independent connector names', async () => {
+  // Regression: connector instances were collapsed into account nodes and lost their custom names.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -70,12 +70,13 @@ test('topology account source keeps its platform name in both modes', async () =
         : { hasState: false, complete: true, steps: [], progress: { done: 0, total: 0 } }));
     };
     await act(() => root.render(h(UiProvider, null, h(Overview))));
-    const label = `${controlSource(source.product).displayName}: ${t('connected')}`;
+    const label = source.label;
     for (const mode of ['tree', 'flat']) {
       await act(() => topologyMode.set(mode));
+      await fixture.settle();
       assert.ok(page.getByRole('button', { name: label, exact: true }));
       assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) || name.includes(controlSource('local-cli').displayName) }), null);
-      assert.equal(page.queryByRole('button', { name: name => name.startsWith(source.label) }), null);
+      assert.equal(!!page.queryByRole('button', { name: 'OpenAI', exact: true }), mode === 'tree');
     }
   } finally { await fixture.close(); }
 });
@@ -432,8 +433,8 @@ test('X keeps Grok and Grok Bot as separate entries of the same account', async 
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { agents } = await server.ssrLoadModule('/ui/state/agents.ts');
     const { topologyMode } = await server.ssrLoadModule('/ui/topology/accountState.ts');
-    const sources = ['grok', 'grok-bot'].map(product => ({ id: `source-${product}`, ingressId: 'x-connection', product, platform: 'xai', label: product, credential: { type: 'ingress' }, state: 'connected' }));
-    sources.push({ ...sources[0], id: 'second-grok-connection' });
+    const sources = ['grok', 'grok-bot'].map(product => ({ id: `source-${product}`, ingressId: 'x-connection', product, platform: 'xai', label: product === 'grok' ? 'Grok' : 'Grok Bot', credential: { type: 'ingress' }, state: 'connected' }));
+    sources.push({ ...sources[0], id: 'second-grok-connection', label: 'Grok secondary' });
     const ingress = { id: 'x-connection', sources, name: 'X connection', controlSource: 'grok', enabled: true, running: true, state: 'ready', auth: 'none', transport: 'https', error: '', config: { configured: true } };
     const account = { id: 'x-account', alias: 'Personal', provider: 'xai', identityKey: 'xai:example', sources: sources.map(source => source.id), agentProfiles: [], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } };
     connector.set({ status: { ingresses: [ingress], core: { backendSession: 'fixture' }, platform: 'darwin', logs: [] }, sources, sourcesLoaded: true, loading: false, busy: '', error: '', feedback: { text: '', error: false } });
@@ -450,14 +451,15 @@ test('X keeps Grok and Grok Bot as separate entries of the same account', async 
       await act(() => ingressPanel.set(undefined));
     }
     await act(() => topologyMode.set('flat'));
-    assert.ok(page.getByRole('button', { name: 'X · Grok', exact: true }));
-    assert.ok(page.getByRole('button', { name: 'X · Grok Bot', exact: true }));
-    assert.equal(connector.get().sources.length, 3);
+    assert.ok(page.getByRole('button', { name: 'Grok', exact: true }));
+    assert.ok(page.getByRole('button', { name: 'Grok Bot', exact: true }));
+    await act(() => fireEvent.click(page.getByRole('button', { name: 'Grok secondary', exact: true })));
+    assert.equal(ingressPanel.get()?.client?.id, 'second-grok-connection');
   } finally { await fixture.close(); }
 });
 
-test('merged source activity retains old and replacement connection history within its account', async () => {
-  // Regression: account merges kept historical sources but the account task panel showed only one connection's dispatches.
+test('connector activity does not combine other instances of the same account', async () => {
+  // Regression: source activity combined distinct connector histories through shared account membership.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -473,7 +475,7 @@ test('merged source activity retains old and replacement connection history with
     accounts.set({ items: [account], login: null, loading: false, error: '' });
     tasks.set({ records, loading: false, error: '' });
     await act(() => root.render(h(UiProvider, null, h(SourceDispatches, { sourceId: 'replacement-source' }))));
-    assert.ok(page.getByRole('button', { name: /History old-connection-source/ }));
+    assert.equal(page.queryByRole('button', { name: /History old-connection-source/ }), null);
     assert.ok(page.getByRole('button', { name: /History replacement-source/ }));
     assert.equal(page.queryByRole('button', { name: /History unrelated-source/ }), null);
     assert.equal(page.queryByRole('button', { name: /History bot-source/ }), null);

@@ -2,7 +2,7 @@
 
 [UI conventions](ui.md) · [Coding lanes](worktrees.md) · [Architecture](architecture.md) · [Tools](../reference/tools.md)
 
-This page describes account ownership, identity resolution and the Accounts workspace.
+This page describes account ownership, identity resolution and the separation between platform connectors and local Agent accounts.
 
 ## Model
 
@@ -88,22 +88,15 @@ data and the store UUID mapping, preserving conversations and task bindings.
 
 ### Entry
 
-The bottom-left capsule becomes horizontal: Tasks, Records, Remote link, Accounts, Permissions & readiness, Settings. Accounts is a first-level workspace. Claude accounts leave Settings.
+The bottom-left capsule opens Tasks, Records, Connection management, Platforms, Permissions & readiness, and Settings.
 
-### Accounts workspace
+### Platforms workspace
 
-- Title bar: Accounts, count line, primary Add account, close.
-- Left list (about 330px) grouped by known provider family or platform. List and detail scroll independently below the fixed title bar. Rows use platform logos, alias, an email line only when present, role chips SRC / AGENT, and a warning dot when notifications or a profile need attention. Row height follows its content.
-- Detail: header with platform logo, inline-editable alias, `email · org`, plan pill, and Merge accounts. The merge dialog selects confirmed account IDs, the resulting alias and an optional shared quota provider.
-- Where this account works: two cards. Control source lists connections with state dots and last seen, plus Open source panel. Agent shows profile state and kind, a Default for new dispatches switch and Sign in again. An empty side says so and offers to add that role.
-- Same identity notice: dispatching to this Agent draws from the same subscription quota.
-- Notifications card: state pill (Verified, Not bound, MCP Events, n/a), bound sessions with last delivery, Send test, and a secondary Bind manually. Sessions bind themselves through `notify_control`; nobody pastes IDs in the normal path.
-- Quota: before notifications, reuse the Agent panel window cards, including remaining/used display, reset times, pace, update age, and refresh. Percentage and pace text align at the bottom.
-- Bottom: Remove with its consequence (running tasks finish first; history keeps the tombstone).
+The left menu lists supported platforms with their logos and names. The right pane contains one card per authorized connector instance for the selected platform. Empty platforms remain selectable. A connector is identified by its control-source ID, not by an account, email, product name, or connection address. Two instances remain separate even when they share all those values.
 
-### Add account
+ARC receives connectors passively after users copy a connection link into an external product and authorize access. This workspace has no Add account or Add connector flow. Cards show the product, client name when distinct, connection, creation time, authorization time, and last activity when available. Authorization-provided email, organization and account identifier appear only when present on that instance. Missing identity data is omitted. Local Agent profiles and merged account metadata do not supply connector facts. Connector labels can be edited independently.
 
-Centered dialog, no scrim, three steps: Account type (Claude, ChatGPT / Codex, API key, Detect on this computer) → Sign in (waiting state, browser choice as pills inside this step, Copy login link, Paste a code instead, one line noting that `account_add` lets Agents run the flow) → Confirm (detected identity, alias field, an identity-match notice when it matches an existing source, Use this account for checkboxes).
+The existing `accounts` page identifier remains the native navigation boundary. Account management APIs remain available for local Agent profiles, quota and historical attribution; the workspace does not expose those management operations.
 
 ### Privacy mode
 
@@ -111,38 +104,24 @@ One persisted preference, selected in Settings > General through two icon option
 
 ### Control source panel
 
-One side panel replaces the source panel layer one plus the Remote link source detail. Remote link keeps the source and connection lists; opening a source opens this panel.
+Homepage connector nodes open their own activity panel. Its header contains a platform logo linking to connector information, the instance label, width control and close. Activity is scoped to the selected source ID and uses the same stacked groups as Agent conversations. There are no account, connection or activity tabs.
 
-- Header: platform icon linking to the platform panel, `Platform · Alias`, email, width control and close.
-- Content: stacked nonempty activity groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings. There are no tabs or connection controls.
+Source platform panels show the same connector cards as the Platforms workspace, without Agent accounts, quota, notifications or a platform-wide connection switch. Connection configuration remains in Connection management.
 
-Source platform panels show accounts directly, without tabs or connection details. Each account is one card combining email and quota. Organization names and identity keys are omitted from platform cards. Alias and plan sit together on the left, with Open account on the right. Shared-quota explanations, Agent links and notifications are omitted. Notification management stays in the Accounts workspace.
-
-The platform header owns the connection runtime switch. It starts or stops the platform's connection; configured-enabled does not imply running. Connection configuration remains in the Remote link workspace. The platform panel has no connection editing, account-scoped authorization revocation or co-hosted-source summary. The platform view uses one connection per platform without a multi-connection reconciliation flow. Native source authorization and historical attribution remain account-scoped. Platform state aggregates its sources; any running source keeps the platform active.
-
-Agent platform nodes open a separate platform panel only when the Agent has multiple accounts. With one account they open that account's activity directly; with none they open unscoped Agent activity. Platform panels contain account cards and quota in topology account order. It has no connection controls, notification section or conversation list. Selecting an account alias opens that account's Agent activity panel; Open account opens the Accounts workspace. The logo in an Agent activity panel links to its platform panel only when multiple accounts exist. Platform and account selections have distinct identities, so peer switching and closing never select an arbitrary account.
+Local Agents are separate from platforms. An Agent with multiple profiles opens an account selector with email and quota; selecting an account opens its scoped activity. A single profile opens activity directly. These cards do not navigate to the Platforms workspace.
 
 ### Topology
 
 - Modes: Tree (default) and Flat, a persisted preference at the end of Settings > General. Switching never reorders nodes.
-- Tree: L1 is the platform. A platform with more than one account grows L2 account nodes (42px, platform logo, alias label). Distinct control-source products under one platform also grow separate L2 entries, including Grok and Grok Bot under X when both belong to one account. Connections of the same account and product share an entry. Agent tasks attach to their account node (L3). A single-account Agent platform has no L2; tasks attach to the platform.
-- Flat: L1 is `Platform · Alias` (platform name alone for single-entry platforms). Distinct control-source product entries use `Platform · Product`, adding the account alias when multiple accounts exist. Same-platform nodes stay adjacent.
-- Account visuals: both control-source and Agent account nodes reuse their platform logo. For multi-account Agents, the platform node shows only the logo; each account node shows its own quota ring from that account's profile quota. Missing account quota never falls back to another account's reading.
-- Same identity: hovering an account also lights its counterpart on the other side. Account labels contain no link icon.
+- Tree: source-side L1 is a platform and L2 is one node per connector instance. Agent-side L1 is a local tool; multiple local accounts form L2 nodes and their tasks form L3. A single-account Agent keeps tasks directly on the tool node.
+- Flat: connector instances retain their labels and stable source IDs. Agent accounts retain `Agent · Alias` labels. Nodes from the same group stay adjacent.
+- Connector marks identify the external product; platform roots use platform marks. Local Agent account nodes retain their own quota rings. No Agent account identity merges source-side nodes.
 - Collapse: a hover-only 20px filled circle in the side's theme color (control sources orange, Agents blue-purple) with a white minus or plus, placed between the node and its outer arc, nearer the node. It collapses or expands the node's whole outer arc and children. Hovering the toggle keeps the node's path lit. Keyboard focus counts as hover.
-- Auto rules: L2 expands when a platform has more than one account; L3 expands when an account has tasks; manual choices persist and win. A collapsed node shows a badge with the hidden task count, in warning color when any is pending. Pending work is never hidden without that badge.
-- Path highlight: hovering a task or node lights the union of its paths (source account → source platform → hub → agent platform → agent account → task). Everything else dims (lines about 0.18, nodes 0.32, bubbles 0.35). Lit nodes scale slightly with a soft ring; lit bubbles shift about 6px outward with a stronger shadow. When the target is collapsed, the nearest visible ancestor lights.
+- Auto rules: Source L2 exposes added connector instances; Agent L2 expands when the tool has multiple profiles; L3 expands when an account has tasks; manual choices persist and win. A collapsed node shows a badge with the hidden task count, in warning color when any is pending. Pending work is never hidden without that badge.
+- Path highlight: hovering a task or node lights the union of its paths (connector instance → source platform → hub → local Agent → Agent account → task). Everything else dims (lines about 0.18, nodes 0.32, bubbles 0.35). Lit nodes scale slightly with a soft ring; lit bubbles shift about 6px outward with a stronger shadow. When the target is collapsed, the nearest visible ancestor lights.
 - Account panels: Agent account nodes open an account-scoped panel with the account alias, its quota, and tasks with recorded attribution to that account. Task details and Back retain the selected account. Selected nodes keep an outer arc on both sides, including when they have no tasks.
 - Geometry stays in `ui/topology/solve.ts` and the existing animator; no per-frame React renders.
 
 ## Fixtures
 
 Fixtures, scenarios and docs use invented identities on `example.com` and placeholder organizations. No real emails, organization names or session IDs.
-
-## Lanes
-
-- `accounts-core`: native model, identity resolution, migration, ops, management API, dispatch `account` parameter, task and activity attribution, reference docs.
-- `accounts-ui`: capsule, Accounts workspace, Add account, privacy mode, control source panel. Builds against this contract with `?scenario=accounts` and `?scenario=source-panel` mocks until core lands.
-- `topology-accounts`: modes, L2/L3, collapse, path highlight. Builds against this contract with a `?scenario=topology-accounts` mock until core lands.
-
-Shared files such as `ui/types.ts` and locale JSON are expected to conflict lightly; resolve on landing.

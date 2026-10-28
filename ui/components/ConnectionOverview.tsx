@@ -236,7 +236,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const state = source.state === "disconnected" ? "disconnected" : sourceState(ingress);
     const selected = !!sourceSelection && !sourceSelection.closing && "ingress" in sourceSelection && sourceSelection.client?.id === source.id;
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
-    const nodeLabel = accounts.some(account => account.sources.includes(source.id)) ? platformLabel : source.label;
+    const nodeLabel = source.label;
     return [{
       id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
@@ -345,7 +345,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             </span>
           </button>
         </div>
-        <Topology ref={topology} boundary={core} accountsEnabled={accounts.length > 0} left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
+        <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
           onReorderNodes={reorderNodes}
           onReorderTasks={(_side, parent, ids) => {
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;

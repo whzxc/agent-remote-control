@@ -60,8 +60,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { accountsApi } = await server.ssrLoadModule('/ui/api.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    const { default: AccountsPage } = await server.ssrLoadModule('/ui/components/AccountsPage.tsx');
-    const { default: AddAccount } = await server.ssrLoadModule('/ui/components/AddAccount.tsx');
+    const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
     const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
     const { default: AgentPlatformView } = await server.ssrLoadModule('/ui/components/AgentPlatformView.tsx');
@@ -73,7 +72,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const page = within(document.body), account = accounts.get().items.find((item: any) => item.id === 'account-claude');
     const sourceAccount = accounts.get().items.find((item: any) => item.id === 'account-openai');
     const source = connector.get().sources.find((item: any) => sourceAccount.sources.includes(item.id));
-    navigation.set((old: any) => ({ ...old, accountId: account.id }));
+    navigation.set((old: any) => ({ ...old, platformId: 'openai' }));
     const address = connector.get().status.ingresses.find((item: any) => item.id === source.ingressId).url;
     const raw = accounts.get().items.flatMap((item: any) => [item.email, item.orgName, item.identityKey, ...item.notifications.sessions.map((session: any) => session.target)]).filter(Boolean).concat(connector.get().status.ingresses.map((item: any) => item.url).filter(Boolean));
     // Inspect content and attributes together: a hidden raw mirror is still a leak.
@@ -99,14 +98,14 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     for (const theme of ['light', 'dark']) {
       document.documentElement.dataset.theme = theme;
       await act(async () => setPrivacy(true));
-      await render(h(AccountsPage)); assertPrivate();
-      await act(async () => { fireEvent.click(page.getByRole('button', { name: t('accounts.editAlias', { alias: account.alias }), exact: true })); });
-      assert.ok(page.getByRole('textbox', { name: t('accounts.alias'), exact: true }));
+      await render(h(PlatformsPage)); assertPrivate();
+      await act(async () => { fireEvent.click(page.getByRole('button', { name: t('platforms.rename', { name: source.label }), exact: true })); });
+      assert.ok(page.getByRole('textbox', { name: t('platforms.name'), exact: true }));
       assertPrivate();
-      await act(async () => { fireEvent.keyDown(page.getByRole('textbox', { name: t('accounts.alias'), exact: true }), { key: 'Escape' }); });
+      await act(async () => { fireEvent.click(page.getByRole('button', { name: t('cancel'), exact: true })); });
       await act(async () => setPrivacy(false));
-      assert.ok(page.getAllByText(account.email, { exact: true }).length > 0);
-      assert.ok(page.getByText(account.orgName, { exact: true }));
+      assert.equal(page.queryByText(account.email, { exact: true }), null);
+      assert.equal(page.queryByText(account.orgName, { exact: true }), null);
     }
     await act(async () => setPrivacy(true));
     await render(h(Dialog, { title: 'Source', onClose() {} }, h(SourcePanel, { source })));
@@ -114,7 +113,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     await render(h(Dialog, { title: 'Source platform', onClose() {} }, h(SourcePlatformView, { platform: source.product })));
     assertPrivate();
     await act(async () => setPrivacy(false));
-    assert.ok(page.getByText(sourceAccount.email, { exact: true }));
+    assert.equal(page.queryByText(sourceAccount.email, { exact: true }), null);
     assert.equal(page.queryByText(sourceAccount.orgName, { exact: true }), null);
     assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
@@ -125,11 +124,6 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     assert.equal(page.queryByText(sourceAccount.orgName, { exact: true }), null);
     assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
-    const completed = { loginId: 'privacy-confirm', kind: 'claude', state: 'completed', accountId: account.id };
-    await render(h(AddAccount, { initialLogin: completed, onClose() {} })); assertPrivate();
-    assert.ok(page.getByRole('button', { name: t('accounts.confirm'), exact: true }));
-    await render(h(AddAccount, { key: 'add-role', forAccount: sourceAccount, onClose() {} })); assertPrivate();
-    assert.ok(page.getByRole('dialog', { name: t('accounts.addAgentFor', { alias: sourceAccount.alias }), exact: true }));
     await act(async () => navigation.set((old: any) => ({ ...old, remoteSourceId: undefined, remoteConnectionId: undefined })));
     await render(h(RemoteLinkPage)); assertPrivate();
     await render(h(CopyField, { value: address, label: 'Connection address' })); assertPrivate();

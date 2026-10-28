@@ -1444,5 +1444,17 @@
   "dispatchSpec.effort.high": "High",
   "dispatchSpec.effort.xhigh": "Extra high",
   "dispatchSpec.effort.max": "Max",
-  "dispatchSpec.effort.ultra": "Ultra"
+  "dispatchSpec.effort.ultra": "Ultra",
+  "platforms.title": "Platforms",
+  "platforms.product": "Product",
+  "platforms.client": "Client",
+  "platforms.connection": "Connection",
+  "platforms.added": "Added",
+  "platforms.rename": "Rename {name}",
+  "platforms.empty": "No connectors connected.",
+  "platforms.email": "Email",
+  "platforms.organization": "Organization",
+  "platforms.accountId": "Account ID",
+  "platforms.other": "Other",
+  "platforms.name": "Name"
 }

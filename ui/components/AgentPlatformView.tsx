@@ -3,12 +3,11 @@ import { X } from 'lucide-react';
 import { t } from '../i18n';
 import { useAccounts } from '../state/accounts';
 import { name, type Agent } from '../state/agents';
-import { navigation } from '../state/navigation';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { topologyAccountOrder } from '../topology/accountState';
 import { orderedSubset } from '../topology/order';
 import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
-import { PlatformAccountCard } from './AccountCards';
+import { AgentAccountCard } from './AccountCards';
 import { DialogClose, IconButton, Notice } from './ui';
 
 export default function AgentPlatformView({ agent, widthControl }: { agent: Agent; widthControl?: ReactNode }) {
@@ -22,12 +21,8 @@ export default function AgentPlatformView({ agent, widthControl }: { agent: Agen
     </header>
     <div className="agent-view-scroll">
       {state.error && <Notice>{state.error}</Notice>}
-      {accounts.map(account => <PlatformAccountCard key={account.id} account={account}
-        onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: account.id })}
-        onOpen={() => {
-          selectAgentPanel({ type: 'closed' });
-          navigation.set(old => ({ ...old, page: 'accounts', accountId: account.id, remoteSourceId: undefined }));
-        }} />)}
+      {accounts.map(account => <AgentAccountCard key={account.id} account={account}
+        onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: account.id })} />)}
       {!accounts.length && !state.error && <p role="status" className="muted">{t(state.loading ? 'loading' : 'accounts.empty')}</p>}
     </div>
   </section>;

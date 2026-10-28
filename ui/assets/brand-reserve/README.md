@@ -15,6 +15,10 @@ Open [preview.html](preview.html) to inspect graphics. [manifest.json](manifest.
 | Entry | Collected files |
 | --- | --- |
 | control-sources/chatgpt | [app.png](control-sources/chatgpt/app.png), [mono.svg](control-sources/chatgpt/mono.svg), [wordmark.svg](control-sources/chatgpt/wordmark.svg) |
+| control-sources/google | [mono.svg](control-sources/google/mono.svg) |
+| control-sources/anthropic | [mono.svg](control-sources/anthropic/mono.svg) |
+| control-sources/microsoft | [mono.svg](control-sources/microsoft/mono.svg) |
+| control-sources/github | [mono.svg](control-sources/github/mono.svg) |
 | control-sources/xai | [mono.svg](control-sources/xai/mono.svg) |
 | control-sources/notion | [mono.svg](control-sources/notion/mono.svg), [wordmark.svg](control-sources/notion/wordmark.svg) |
 | agents/codex | [app.png](agents/codex/app.png), [color.svg](agents/codex/color.svg), [mono.svg](agents/codex/mono.svg), [wordmark.svg](agents/codex/wordmark.svg) |
@@ -56,3 +60,5 @@ Gemini reuses agents/gemini/color.svg.
 GitHub Copilot uses control-sources/github-copilot/mono.svg from Lobe Icons 1.95.1 under MIT (licenses/lobe-icons-MIT.txt). Raycast uses control-sources/raycast/mono.svg from Simple Icons commit b86d5c9a0bdd4f3f5c30898a63654dd32f39fd76 under CC0-1.0 (licenses/simple-icons-CC0.txt). The license text comes from that commit's LICENSE.md. See the manifest for sources and SHA-256 values. Trademarks remain with their owners. Their use does not imply endorsement. No font files are copied.
 
 New monochrome graphics use currentColor for themes. Color graphics retain their original colors. Both uses share underlying assets. Do not treat an Agent instance or capability as a control source.
+
+Platform navigation uses the OpenAI, Anthropic, Google, Microsoft and GitHub marks independently of product marks. Google is from Simple Icons under CC0-1.0; the other platform marks reuse the pinned Lobe Icons package. Raycast, Google and X receive currentColor at render time without modifying the collected files.

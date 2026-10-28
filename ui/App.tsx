@@ -49,7 +49,7 @@ import TasksPage from "./components/TasksPage";
 import RecordsPage from "./components/RecordsPage";
 import SettingsPage from "./components/SettingsPage";
 import RemoteLinkPage from "./components/RemoteLinkPage";
-import AccountsPage, { AccountsActions } from "./components/AccountsPage";
+import PlatformsPage from "./components/PlatformsPage";
 import { usePrivacy } from "./state/privacy";
 import { UpdateDock, UpdateOutcome } from "./components/AppUpdate";
 import { Button, Icon, IconButton, Notice, HoverScope } from "./components/ui";
@@ -214,7 +214,7 @@ export default function App() {
     { id: "tasks" as const, label: t("tasks"), icon: LayoutDashboard },
     { id: "logs" as const, label: t("records"), icon: Logs },
     { id: "remote" as const, label: t("connect.remoteLink"), icon: Network },
-    { id: "accounts" as const, label: t("accounts.title"), icon: Users },
+    { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     { id: "settings" as const, label: t("settings"), icon: Settings },
   ];
@@ -308,7 +308,6 @@ export default function App() {
                   </span>
                 )}
               </h1>
-              {page === "accounts" && <AccountsActions />}
               {page === "permissions" && <IconButton
                 icon={RefreshCw}
                 label={t("permissionsRefresh")}
@@ -339,7 +338,7 @@ export default function App() {
               ) : page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
-                <AccountsPage />
+                <PlatformsPage />
               ) : page === "remote" ? (
                 <RemoteLinkPage />
               ) : (

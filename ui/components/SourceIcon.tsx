@@ -1,4 +1,4 @@
-import { controlSource } from "../controlSources";
+import { controlSource, sourcePlatforms } from "../controlSources";
 import { Plus, Plug } from "lucide-react";
 import { sourceImages, sourceVectors } from "../assets/brand-reserve/control-sources";
 import { Icon } from "./ui";
@@ -11,7 +11,7 @@ export default function SourceIcon({
   add?: boolean;
   panelVisual?: boolean;
 }) {
-  const icon = controlSource(platform)?.icon || platform;
+  const icon = sourcePlatforms.find(p => p.id === platform)?.icon || controlSource(platform)?.icon || platform;
   const raw = sourceVectors[icon], image = sourceImages[icon];
   return (
     <span className="source-icon" data-panel-visual={panelVisual || undefined} aria-hidden="true">

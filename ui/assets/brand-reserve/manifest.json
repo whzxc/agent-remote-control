@@ -428,6 +428,30 @@
       "license": "CC0-1.0; brand trademarks reserved",
       "note": "X platform mark shared by Grok and Grok Bot.",
       "sha256": "693e68863eceb8dc9f72e2acd386ab9c20a10858dab2c076212f7084cb7a32fe"
+    },
+    {
+      "file": "control-sources/google/mono.svg",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg",
+      "license": "CC0-1.0; brand trademarks reserved",
+      "sha256": "d8cf9fb2d5e234e03254f1d6400d8cc8160c309b010d031a64f37084b5a21d01"
+    },
+    {
+      "file": "control-sources/anthropic/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/anthropic.svg",
+      "license": "MIT; brand trademarks reserved",
+      "sha256": "e833fdfa7e7187a86a05b870925067556a506dcd4239089aed73e1e58c9366a3"
+    },
+    {
+      "file": "control-sources/microsoft/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/microsoft.svg",
+      "license": "MIT; brand trademarks reserved",
+      "sha256": "0617d6111e99845e7ab06dd4ff1e16c2c1ad381575b3204ef02dd71b716ffa4b"
+    },
+    {
+      "file": "control-sources/github/mono.svg",
+      "source": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/github.svg",
+      "license": "MIT; brand trademarks reserved",
+      "sha256": "1bd763b5d53ab1618e0afce72aacffc7e93d1249c395f713b3b055c087526625"
     }
   ],
   "controlSourceUsage": {
@@ -442,5 +466,13 @@
     "raycast": "control-sources/raycast/mono.svg",
     "grok-bot": "control-sources/grok-bot/app.png",
     "xai": "control-sources/xai/mono.svg"
+  },
+  "platformUsage": {
+    "openai": "control-sources/chatgpt/mono.svg",
+    "anthropic": "control-sources/anthropic/mono.svg",
+    "google": "control-sources/google/mono.svg",
+    "xai": "control-sources/xai/mono.svg",
+    "microsoft": "control-sources/microsoft/mono.svg",
+    "github": "control-sources/github/mono.svg"
   }
 }

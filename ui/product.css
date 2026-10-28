@@ -1488,45 +1488,9 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .sensitive-identity { min-width: 0; }
 .copy-value { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; }
 .page-sheet .workspace.accounts-workspace-container { display: flex; flex-direction: column; overflow: hidden; }
-.accounts-workspace { container-type: inline-size; display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 12px; }
-.accounts-columns { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(220px, 330px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 24px; }
-.account-list { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 6px; }
-.account-list h3 { margin: 18px 10px 8px; color: var(--text-secondary); font-size: 12px; }
-.account-list-row { width: 100%; height: auto; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px; }
-.account-list-row[aria-current="true"] { background: var(--hover); }
-.account-avatar { width: 36px; height: 36px; display: grid; place-items: center; flex-shrink: 0; }
-.account-avatar .source-icon, .account-avatar .source-icon > span, .account-avatar .agent-logo { display: grid; place-items: center; width: 100%; height: 100%; }
-.account-avatar svg, .account-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.account-row-copy { display: grid; align-content: start; gap: 5px; min-width: 0; flex: 1; }
-.account-row-copy > strong, .account-row-copy > .sensitive-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-roles, .account-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.account-warning { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
-.account-detail { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; align-content: start; gap: 16px; padding-right: 6px; }
-.account-detail-header { display: flex; align-items: center; gap: var(--space-3); }
-.account-detail-header > .account-avatar { width: 48px; height: 48px; font-size: var(--text-lg); }
-.account-detail-identity { min-width: 0; flex: 1; display: grid; gap: var(--space-1); }
-.account-detail-identity h2 { margin: 0; min-width: 0; font-size: var(--text-lg); }
-.account-alias-trigger { max-width: 100%; font: inherit; text-align: start; overflow-wrap: anywhere; }
-.account-alias-trigger > .icon { flex: none; color: var(--text-tertiary); }
-.account-alias-editor { min-width: 0; }
-.account-alias-editor .field { gap: 0; }
-.account-detail-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); color: var(--text-secondary); font-size: var(--text-sm); min-width: 0; }
-.account-role-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .account-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; background: var(--surface); overflow-wrap: anywhere; }
 .account-card > * { min-width: 0; max-width: 100%; }
-.account-card h3, .account-detail h3 { margin: 0; font-size: 14px; }
-.account-connection, .account-profile, .account-session { display: grid; gap: 8px; min-width: 0; }
-.account-connection + .account-connection, .account-profile + .account-profile { padding-top: 12px; border-top: 1px solid var(--border); }
-.account-sessions { display: grid; gap: var(--space-3); list-style: none; margin: 0; padding: 0; }
-.account-session + .account-session { padding-top: var(--space-3); border-top: 1px solid var(--border); }
-.account-session .source-section-heading > .sensitive-value { flex: 0 1 auto; }
-.account-actions { flex-wrap: wrap; }
-.account-merge-members { display: grid; gap: 12px; max-height: 40dvh; overflow-y: auto; }
-.account-remove { display: flex; gap: 16px; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 16px; }
-.account-form { display: grid; gap: 16px; }
-.account-form fieldset { border: 0; padding: 0; display: grid; gap: 8px; }
-.account-steps { display: flex; list-style: none; gap: var(--space-3); padding: 0; margin: 0 var(--setup-spacing); flex-wrap: wrap; color: var(--text-secondary); }
-.account-steps [aria-current="step"] { color: var(--accent); font-weight: 650; }
+.account-card h3 { margin: 0; font-size: 14px; }
 .source-account-header { flex-wrap: wrap; gap: 12px; }
 .source-account-brand { flex-shrink: 0; }
 .source-account-heading { min-width: 0; flex: 1; }
@@ -1534,19 +1498,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .source-account-heading > .sensitive-value { color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; }
 .source-account-header > .actions { margin-left: auto; }
 .source-panel-content { display: flex; flex-direction: column; gap: 16px; }
-.account-advanced > summary { cursor: pointer; margin-bottom: 12px; }
-@container (max-width: 760px) {
-  .accounts-columns { grid-template-columns: minmax(140px, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
-  .account-role-cards { grid-template-columns: 1fr; }
-}
-@media (max-width: 600px) {
-  .sheet-header:has(+ .workspace .accounts-workspace) { flex-wrap: wrap; }
-  .sheet-header:has(+ .workspace .accounts-workspace) .capsule-title { flex: 1 1 100%; }
-}
-
-.account-shared-notice { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text-secondary); font-size: var(--text-sm); }
-.account-shared-notice > .icon { flex: none; margin-top: 2px; }
-
 /* Portrait geometry is solver-owned; only label placement belongs to CSS. */
 .topology-hub .graph-brand { transform: rotate(var(--hub-rotation, 0deg)); }
 .hub-source { left: var(--source-dot-x, calc(14 / 92 * 100%)); top: var(--source-dot-y, 50%); }

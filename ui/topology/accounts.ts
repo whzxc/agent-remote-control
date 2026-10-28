@@ -29,7 +29,7 @@ export function highlightedPaths(nodes: PathNode[], target: { side: Side; id: st
   const seeds = nodes.filter(descendants);
   seeds.forEach(add);
   for (const agent of nodes.filter(n => n.side === 1)) for (const task of agent.tasks) {
-    const sources = nodes.filter(n => n.side === -1 && (task.members ?? [task]).some(({ origin }) => origin?.accountId ? n.accountId === origin.accountId : !!origin?.sourceId && n.sourceIds?.includes(origin.sourceId)));
+    const sources = nodes.filter(n => n.side === -1 && (task.members ?? [task]).some(({ origin }) => origin?.sourceId ? n.sourceIds?.includes(origin.sourceId) : !!origin?.accountId && n.accountId === origin.accountId));
     const relevant = target.task ? task.id === target.id : seeds.includes(agent) || sources.some(n => seeds.includes(n));
     if (!relevant) continue;
     add(agent); sources.forEach(add); lit.add(JSON.stringify(['task', 1, task.id]));

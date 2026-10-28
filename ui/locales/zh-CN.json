@@ -1414,5 +1414,17 @@
   "dispatchSpec.effort.high": "高",
   "dispatchSpec.effort.xhigh": "极高",
   "dispatchSpec.effort.max": "最高",
-  "dispatchSpec.effort.ultra": "超高"
+  "dispatchSpec.effort.ultra": "超高",
+  "platforms.title": "平台",
+  "platforms.product": "产品",
+  "platforms.client": "客户端",
+  "platforms.connection": "连接",
+  "platforms.added": "添加时间",
+  "platforms.rename": "重命名 {name}",
+  "platforms.empty": "暂无已接入的连接器。",
+  "platforms.email": "邮箱",
+  "platforms.organization": "组织",
+  "platforms.accountId": "账号标识",
+  "platforms.other": "其他",
+  "platforms.name": "名称"
 }
