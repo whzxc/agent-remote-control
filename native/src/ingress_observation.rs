@@ -291,9 +291,20 @@ impl Request {
     }
     pub(crate) fn dispatch(&self, request: &Value) {
         let mut row = self.trace.0.lock().unwrap_or_else(|e| e.into_inner());
-        if request["method"] == "initialize" {
+        let method = string(request, "method");
+        row["mcpMethod"] = json!(match method {
+            "initialize" | "server/discover" | "ping" | "tools/list" | "tools/call"
+            | "events/list" | "events/subscribe" | "events/unsubscribe" => method,
+            _ => "other",
+        });
+        if matches!(method, "initialize" | "server/discover") {
             let mut metadata = row.clone();
-            metadata["stage"] = json!("mcp-initialize");
+            metadata["stage"] = json!(if method == "initialize" {
+                "mcp-initialize"
+            } else {
+                "mcp-discover"
+            });
+            metadata["paramsPresent"] = json!(request.get("params").is_some());
             metadata["schema"] = shape(&request["params"], 0, &mut 64);
             record(metadata, "request_metadata");
         }

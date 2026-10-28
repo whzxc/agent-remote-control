@@ -991,7 +991,7 @@ test('HTTP ingress observations correlate failures and dropped streams without r
 });
 
 test('OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials', async () => {
-  // Regression: successful OAuth logs could not distinguish absent account metadata from ignored request fields.
+  // Regression: OAuth metadata was unobservable and Claude server/discover handshakes bypassed initialization diagnostics.
   const id = 'observed-oauth';
   const ingress = await management('ingress', 'POST', { id, name: 'Observed OAuth', controlSource: 'claude', transport: 'https', auth: 'oauth', toolPolicy: 'all', config: { httpsProvider: 'custom', httpsUrl: `https://${id}.example/mcp` } });
   const url = (route: string) => `http://127.0.0.1:${ingress.config.httpsPort}${route}`;
@@ -1017,6 +1017,10 @@ test('OAuth diagnostics reveal supplied identity field structure without retaini
     const tokens = await exchange.json();
     const initialized = await fetch(url('/mcp'), {method:'POST',headers:{...headers,'Content-Type':'application/json',Authorization:`Bearer ${tokens.access_token}`},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'Diagnostic fixture',version:'1'},_meta:{user:{email:privateValue}}}})});
     assert.equal(initialized.status,200); await initialized.json();
+    for(const request of [{jsonrpc:'2.0',id:2,method:'server/discover',params:{_meta:{user:{email:privateValue}}}},{jsonrpc:'2.0',id:3,method:'server/discover'}]){
+      const discovered=await fetch(url('/mcp'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${tokens.access_token}`},body:JSON.stringify(request)});
+      assert.equal(discovered.status,200);await discovered.json();
+    }
     const refresh = await fetch(url('/oauth/token'), {method:'POST',headers,body:new URLSearchParams({grant_type:'refresh_token',refresh_token:tokens.refresh_token,client_id:registered.client_id,client_secret:registered.client_secret,resource})});
     assert.equal(refresh.status,200);
     const refreshed = await refresh.json();
@@ -1048,7 +1052,11 @@ test('OAuth diagnostics reveal supplied identity field structure without retaini
     assert.ok(metadata.some(r=>r.oauthEndpoint==='/oauth/revoke'&&r.schema.fields.token.type==='string'));
     const initialize = metadata.find(r=>r.stage==='mcp-initialize');
     assert.equal(initialize.authenticated,true); assert.ok(initialize.grantId);
+    assert.equal(initialize.mcpMethod,'initialize');assert.equal(initialize.paramsPresent,true);
     assert.equal(initialize.schema.fields._meta.fields.user.fields.email.type,'string');
+    const discoveries=metadata.filter(r=>r.stage==='mcp-discover');
+    assert.ok(discoveries.some(r=>r.mcpMethod==='server/discover'&&r.paramsPresent===true&&r.schema.fields._meta.fields.user.fields.email.type==='string'));
+    assert.ok(discoveries.some(r=>r.mcpMethod==='server/discover'&&r.paramsPresent===false&&r.schema.type==='null'));
     const received = rows.find(r=>r.event==='request_received'&&r.traceId===initialize.traceId);
     assert.ok(received.headerNames.includes('x-user-email')); assert.ok(received.headerNames.includes('authorization'));
     for(const row of metadata) assert.ok(rows.some(r=>r.traceId===row.traceId&&r.event==='response_finished'));
