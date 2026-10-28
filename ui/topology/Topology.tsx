@@ -1,4 +1,4 @@
-import { participantPost, petSize, bubbleEnd, type Rect } from '../pets/geometry';
+import { participantPost, petSize, bubbleEnd, wanderPost, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { hubMarkGeometry } from "./geometry";
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -138,6 +138,15 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     return {
       bounds,
+      wander: (from, pet, occupied) => {
+        const bubbles = latest.current.tasks.flatMap(task => {
+          const v = animator.current.values(taskKey(task.side, task.id));
+          return v && v.op > .02 ? [{ x: v.x - v.anchor * v.width, y: v.y - v.height / 2, width: v.width, height: v.height }] : [];
+        });
+        const bottom = (boundary.current?.getBoundingClientRect().bottom ?? innerHeight) - origin.current.y - 16;
+        const hubRect = hub ? [{ x: hub.x - hub.Re, y: hub.y - hub.Re, width: hub.Re * 2, height: hub.Re * 2 }] : [];
+        return wanderPost(from, { ...bounds, y: Math.min(bounds.y, bottom) }, [...obstacles, ...bubbles, ...hubRect, ...occupied], pet);
+      },
       participant: (p, accountId, size = petSize('participant', p.brand === 'other')) => {
         const side = p.kind === 'source' ? -1 : 1;
         const candidates = latest.current.nodes.filter(n => n.side === side && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
@@ -363,6 +372,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       && !!n.account === !!draggedNode?.account && n.parent === draggedNode?.parent
       && (!draggedNode?.account || n.platform === draggedNode.platform))
       : latest.current.tasks.filter(t => t.side === side && t.parent === parent && t.reorderable
+        && t.parentTaskId === latest.current.tasks.find(t => t.side === side && t.id === id)?.parentTaskId
         && (t.state === "needsYou") === (latest.current.tasks.find(t => t.side === side && t.id === id)?.state === "needsYou"));
     drag.current = { kind, side, id, parent, x: v.x, y: v.y, pointer: event.pointerId, startClientX: event.clientX, startClientY: event.clientY,
       grabX: event.clientX - origin.current.x - v.x, grabY: event.clientY - origin.current.y - v.y, order: candidates.map(n => n.id), active: false, control,
@@ -528,6 +538,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         </>;
       })()}</div>)}
     {allTasks.map(t => <div key={taskKey(t.side, t.id)} ref={el => { const key = taskKey(t.side, t.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
+      id={`${prefix}-task-${encodeURIComponent(t.id)}`} role={t.parentTaskId ? 'group' : undefined}
+      aria-details={t.parentTaskId ? `${prefix}-task-${encodeURIComponent(t.parentTaskId)}` : undefined} data-parent-task={t.parentTaskId}
       className="activity-slot" data-highlighted={t.selected || undefined} data-reorderable={t.reorderable || undefined} data-activity-queue={t.activityQueue}
       onPointerEnter={() => changeHover({ side: t.side, id: t.id, task: true })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
       onFocusCapture={() => setFocus({ side: t.side, id: t.id, task: true })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) changeHover(null); }}

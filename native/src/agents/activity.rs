@@ -33,6 +33,7 @@ pub(super) struct TurnClock {
     native_title: crate::task_tracking::TranscriptTitle,
     project: Option<String>,
     created_at: Value,
+    parent_session_id: Option<String>,
 }
 #[derive(Clone)]
 pub(super) struct External {
@@ -304,6 +305,9 @@ fn scan_roots(
                         session["project"] = json!(clock.project)
                     }
                     session["startedAt"] = clock.created_at.clone();
+                    if let Some(parent) = &clock.parent_session_id {
+                        session["parentSessionId"] = json!(parent);
+                    }
                     session["turnCount"] = json!(clock.turns.len());
                     if !clock.turn_id.is_empty() {
                         session["turnId"] = json!(clock.turn_id)
@@ -406,6 +410,13 @@ fn read_clock(mut file: File, agent: &str, clock: &mut TurnClock) -> Result<Valu
 }
 
 fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
+    if agent == "codex" && record["type"] == "session_meta" {
+        clock.parent_session_id = record["payload"]["source"]["subagent"]["thread_spawn"]
+            ["parent_thread_id"]
+            .as_str()
+            .filter(|parent| !parent.is_empty())
+            .map(str::to_owned);
+    }
     if record["isSidechain"] == true {
         return;
     }
@@ -639,6 +650,30 @@ mod tests {
                 json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call","call_id":call,"name":"exec_command","arguments":"{\"cmd\":\"cat src/example.rs\"}"}}),
             ]
         }
+    }
+
+    #[test]
+    fn codex_subagent_parent_survives_tail_sampling() {
+        // Regression: subagent sessions lost their native parent and appeared as independent Agent tasks.
+        let (directory, path, now, at) = fixture();
+        append(
+            &path,
+            &[json!({"type":"session_meta","timestamp":at,"payload":{"source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}}})],
+        );
+        append(&path, &prompt("codex", "turn", "Review a module", &at));
+        append(&path, &tool_call("codex", "read-first", &at));
+        append(&path, &large_tool_output("codex", "read-first", &at));
+        append(&path, &tool_call("codex", "read-tail", &at));
+        let mut cache = ScanCache::default();
+        assert_eq!(
+            snapshot(&directory, "codex", now, &mut cache)["parentSessionId"],
+            "parent-thread"
+        );
+        append(&path, &tool_call("codex", "read-next", &at));
+        assert_eq!(
+            snapshot(&directory, "codex", now, &mut cache)["parentSessionId"],
+            "parent-thread"
+        );
     }
 
     #[test]

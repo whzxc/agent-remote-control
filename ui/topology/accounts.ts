@@ -5,7 +5,7 @@ import type { ProviderAccount, AgentActivitySession } from '../types';
 // Topology consumes the native account identity and recorded task attribution.
 export type TopologyAccount = Pick<ProviderAccount, 'id' | 'provider' | 'identityKey' | 'alias' | 'sources' | 'agentProfiles' | 'quota'>;
 export type AccountAttribution = Pick<AgentActivitySession, 'agentAccountId' | 'origin'>;
-export interface PathTask extends AccountAttribution { id: string; members?: (AccountAttribution & { pending?: boolean })[] }
+export interface PathTask extends AccountAttribution { id: string; parentTaskId?: string; members?: (AccountAttribution & { pending?: boolean })[] }
 export interface PathNode {
   id: string; side: Side; parent?: string; accountId?: string; sourceIds?: string[];
   tasks: PathTask[];
@@ -28,9 +28,18 @@ export function highlightedPaths(nodes: PathNode[], target: { side: Side; id: st
   const descendants = (n: PathNode | undefined): boolean => !!n && (n === selected || !!n.parent && descendants(nodes.find(p => p.side === n.side && p.id === n.parent)));
   const seeds = nodes.filter(descendants);
   seeds.forEach(add);
+  const tasks = new Map(nodes.filter(n => n.side === target.side).flatMap(n => n.tasks).map(task => [task.id, task]));
+  const ancestorOf = (ancestor: string, id: string) => {
+    const seen = new Set<string>();
+    for (let current: string | undefined = id; current && !seen.has(current); current = tasks.get(current)?.parentTaskId) {
+      if (current === ancestor) return true;
+      seen.add(current);
+    }
+    return false;
+  };
   for (const agent of nodes.filter(n => n.side === 1)) for (const task of agent.tasks) {
     const sources = nodes.filter(n => n.side === -1 && (task.members ?? [task]).some(({ origin }) => origin?.sourceId ? n.sourceIds?.includes(origin.sourceId) : !!origin?.accountId && n.accountId === origin.accountId));
-    const relevant = target.task ? task.id === target.id : seeds.includes(agent) || sources.some(n => seeds.includes(n));
+    const relevant = target.task ? ancestorOf(task.id, target.id) || ancestorOf(target.id, task.id) : seeds.includes(agent) || sources.some(n => seeds.includes(n));
     if (!relevant) continue;
     add(agent); sources.forEach(add); lit.add(JSON.stringify(['task', 1, task.id]));
   }

@@ -13,7 +13,7 @@ import { useAccounts } from '../state/accounts';
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
 import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
-import { orderActivity, visibleActivity, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
+import { orderActivity, visibleActivity, activityHierarchy, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
 import { taskOrder, reorderTasks } from "../state/taskOrder";
 import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
 import { subscriptions } from "../state/subscriptions";
@@ -267,10 +267,16 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
     const accountIds = agentAccounts.map(a => a.id);
     const accountGroup = (id: string | null | undefined) => agentAccounts.find(account => accountOwns(account, id))?.id;
+    const family = activityHierarchy(sessions);
+    const parents = new Map(family.map(row => [row.task.id, row.parentTaskId]));
+    const familyAccounts = new Map<string, string | undefined>();
+    for (const { task, parentTaskId } of family) familyAccounts.set(task.id, task.agentAccountId ? accountGroup(task.agentAccountId) : parentTaskId ? familyAccounts.get(parentTaskId) : undefined);
+    for (const [id, parent] of parents) if (parent && familyAccounts.get(id) !== familyAccounts.get(parent)) parents.delete(id);
+    const sessionAccount = (session: typeof sessions[number] | undefined) => session && familyAccounts.get(session.id);
     const origin = (session: typeof sessions[number]) => session.origin && { ...session.origin,
       accountId: accounts.find(account => accountOwns(account, session.origin?.accountId))?.id ?? session.origin.accountId };
-    const groups = accountIds.length > 1 ? [...new Set(sessions.map(s => accountGroup(s.agentAccountId)))].map(id => sessions.filter(s => accountGroup(s.agentAccountId) === id)) : [sessions];
-    const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? accountGroup(group[0]?.agentAccountId) : null]);
+    const groups = accountIds.length > 1 ? [...new Set(sessions.map(sessionAccount))].map(id => sessions.filter(s => sessionAccount(s) === id)) : [sessions];
+    const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? sessionAccount(group[0]) : null]);
     const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group)), group }));
     const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
     const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
@@ -286,24 +292,24 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}
       </GraphNode>,
       tasks: [
-        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), width, height: bubbleHeights[effectiveDensity], taskId: session.id, threadId: session.nativeSessionId, agentAccountId: accountGroup(session.agentAccountId) ?? session.agentAccountId, origin: origin(session),
+        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session) ?? session.agentAccountId, origin: origin(session),
           state: (() => {
             const execution = taskExecution(agent.agent, session.id);
             return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);
           })(),
           selected: selected && selection.session?.id === session.id, reorderable: !panelOpen,
           content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={panelOpen ? undefined : by => {
-            const group = shown.sessions.filter(s => (accountIds.length <= 1 || accountGroup(s.agentAccountId) === accountGroup(session.agentAccountId)) && !!s.interaction === !!session.interaction);
+            const group = shown.sessions.filter(s => (accountIds.length <= 1 || sessionAccount(s) === sessionAccount(session)) && parents.get(s.id) === parents.get(session.id) && !!s.interaction === !!session.interaction);
             const from = group.findIndex(s => s.id === session.id), to = from + by;
             if (to < 0 || to >= group.length) return;
             const ids = group.map(s => s.id); ids.splice(from, 1); ids.splice(to, 0, session.id);
             reorderTasks(agent.agent, ids, sessions);
           }} />,
         })),
-        ...shownGroups.flatMap(group => group.hidden ? [{ id: JSON.stringify(accountIds.length > 1 ? [agent.agent, null, accountGroup(group.group[0]?.agentAccountId)] : [agent.agent, null]), activityQueue: queueKey(group.group),
+        ...shownGroups.flatMap(group => group.hidden ? [{ id: JSON.stringify(accountIds.length > 1 ? [agent.agent, null, sessionAccount(group.group[0])] : [agent.agent, null]), activityQueue: queueKey(group.group),
           petTaskIds: group.group.filter(s => !group.sessions.includes(s)).map(s => s.id),
-          members: group.group.filter(s => !group.sessions.includes(s)).map(s => ({ origin: origin(s), agentAccountId: accountGroup(s.agentAccountId) ?? s.agentAccountId, pending: !!s.interaction })),
-          agentAccountId: accountIds.length > 1 ? accountGroup(group.group[0]?.agentAccountId) : undefined, count: group.hidden, pending: group.group.some(s => !!s.interaction && !group.sessions.includes(s)), width, height: bubbleHeights.compact, state: "summary" as const, selected: false,
+          members: group.group.filter(s => !group.sessions.includes(s)).map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s) ?? s.agentAccountId, pending: !!s.interaction })),
+          agentAccountId: accountIds.length > 1 ? sessionAccount(group.group[0]) : undefined, count: group.hidden, pending: group.group.some(s => !!s.interaction && !group.sessions.includes(s)), width, height: bubbleHeights.compact, state: "summary" as const, selected: false,
           content: <button type="button" className="activity-bubble activity-summary" aria-expanded={false} onClick={event => {
             setExpandedQueue(queueKey(group.group));
             if (event.detail === 0) {

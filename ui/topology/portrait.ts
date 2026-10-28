@@ -1,5 +1,6 @@
 import { DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
 import { bubbleWidths } from '../state/activityModel.ts';
+import { taskHierarchy } from '../state/taskHierarchy.ts';
 
 export interface PortraitGeometry {
   sourceX: number; agentX: number; sourceTop: number; sourceBottom: number; agentTop: number; agentBottom: number;
@@ -75,11 +76,13 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
       }
       nodes.push(node);
       let taskY = nested.length ? y + 10 : node.y - stackHeight(e) / 2;
-      for (const task of own) {
-        const width = Math.min(Math.max(bubbleWidths.narrow, Math.min(480, taskRight - 16)), Math.max(1, taskRight - 16));
+      for (const { task, depth, parentTaskId } of taskHierarchy(own)) {
+        const available = Math.min(Math.max(bubbleWidths.narrow, Math.min(480, taskRight - 16)), Math.max(1, taskRight - 16));
+        const indent = Math.min(depth * 28, Math.max(0, available - 160));
+        const width = available - indent;
         const moved = drag?.kind === 'task' && drag.side === side && drag.id === task.id;
-        bubbles.push({ ...task, width, parent: e.id, side, port: 0, anchor: 1,
-          x: moved ? Math.max(width + 16, Math.min(taskRight, drag.x)) : taskRight,
+        bubbles.push({ ...task, parentTaskId, width, parent: e.id, side, port: 0, anchor: 1,
+          x: moved ? Math.max(width + 16, Math.min(taskRight - indent, drag.x)) : taskRight - indent,
           y: moved ? drag.y : taskY + task.height / 2 });
         taskY += task.height + p.taskGap;
       }

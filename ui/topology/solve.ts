@@ -1,4 +1,5 @@
 import type { PortraitGeometry } from "./portrait.ts";
+import { taskHierarchy } from '../state/taskHierarchy.ts';
 // Metadata is the single source for solver defaults, controls and validation.
 export const PARAMETER_GROUPS = {
   balance: { en: "Fitting", "zh-CN": "空间适配" },
@@ -42,7 +43,7 @@ export type ParameterKey = typeof PARAMETERS[number]["key"];
 export type Params = Record<ParameterKey, number>;
 export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default])) as Params;
 export type Side = -1 | 1;
-export interface Task { id: string; width: number; height: number }
+export interface Task { id: string; width: number; height: number; parentTaskId?: string }
 export interface Entity { id: string; tasks: readonly Task[]; children?: readonly Entity[]; collapsed?: boolean }
 export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; narrow?: boolean; overlay?: boolean } }
 export interface Drag extends Point { kind: "node" | "task"; side: Side; id: string }
@@ -140,7 +141,8 @@ function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, 
     const R = n.size / 2 * n.scale + p.arcGap;
     const height = n.tasks.reduce((height, task) => height + task.height, 0) + (n.tasks.length - 1) * p.taskGap;
     let edge = rows[index].e.children?.length ? n.y - rows[index].h / 2 + 10 : n.y - height / 2;
-    const slots = n.tasks.map(task => {
+    const family = taskHierarchy(n.tasks);
+    const slots = family.map(({ task }) => {
       const center = edge + task.height / 2;
       edge += task.height + p.taskGap;
       return center;
@@ -148,10 +150,11 @@ function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, 
     const rawT = slots.map(y => Math.atan2(y - n.y, p.bubbleOffset) * 180 / Math.PI);
     const tA = distribute(rawT, p.arcFollow, 9, p.arcMax);
     n.arc = { R, lo: Math.min(-14, tA[0] - p.arcPad), hi: Math.max(14, tA[tA.length - 1] + p.arcPad) };
-    n.tasks.forEach((t, i) => {
+    family.forEach(({ task: t, depth, parentTaskId }, i) => {
       const taskDrag = drag && drag.kind === 'task' && drag.id === t.id;
-      tasks.push({ id: t.id, width: t.width, height: t.height, parent: n.id, side, port: tA[i],
-        x: taskDrag ? drag.x : n.x + side * p.bubbleOffset, y: taskDrag ? drag.y : slots[i] });
+      const indent = Math.min(depth * 28, Math.max(0, t.width - 160));
+      tasks.push({ id: t.id, width: t.width - indent, height: t.height, parent: n.id, parentTaskId, side, port: tA[i],
+        x: taskDrag ? drag.x : n.x + side * (p.bubbleOffset + indent), y: taskDrag ? drag.y : slots[i] });
     });
   });
   // Accounts reuse the mirrored wing algorithm, including their own task arcs.

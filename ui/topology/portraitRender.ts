@@ -118,7 +118,7 @@ export class PortraitPainter {
           this.path(`${key}:${child.id}:hit`, v!.presence >= 0.02 && a.live.get(nodeKey(node.side, child.id))?.alive ? d : '', 'topology-path-hit', v!.presence, {}, { side: node.side, id: child.id });
         }
       }
-      const own = tasks.filter(t => t.side === node.side && t.parent === node.id).map(t => ({ task: t, value: a.values(taskKey(t.side, t.id)) })).filter(t => t.value);
+      const own = tasks.filter(t => t.side === node.side && t.parent === node.id && !t.parentTaskId).map(t => ({ task: t, value: a.values(taskKey(t.side, t.id)) })).filter(t => t.value);
       if (own.length) {
         const bx = n.taskBusX, start = point(n.x - n.size * n.scale / 2 - 4, n.y);
         const branches = own.map(({ task, value }) => {
@@ -145,6 +145,17 @@ export class PortraitPainter {
           : portraitSourcePanelRoute({ x: n.x, y: n.y, size: n.size, scale: n.scale }, panel);
         this.path(`${key}:panel`, railPath(route), `portrait-rail ${sideClass}`, 0.9);
       }
+    }
+    for (const task of tasks.filter(task => task.parentTaskId)) {
+      const key = taskKey(task.side, task.id), child = a.values(key), parent = a.values(taskKey(task.side, task.parentTaskId!));
+      if (!child || !parent) continue;
+      const start = point(parent.x + (1 - parent.anchor) * parent.width - 12, parent.y + parent.height / 2);
+      const end = point(child.x + (1 - child.anchor) * child.width, child.y);
+      const d = railPath([start, point(start.x, end.y), end]);
+      const opacity = Math.min(child.op, parent.op), sideClass = task.side === 1 ? 'right' : 'left';
+      this.path(key, d, `portrait-task ${sideClass}`, opacity, { 'data-state': task.state });
+      this.path(`${key}:flow`, task.state === 'running' ? d : '', `portrait-task activity-flow ${sideClass}`, opacity, { 'data-state': task.state });
+      this.path(`${key}:hit`, opacity > 0.02 && a.live.get(key)?.alive ? d : '', 'topology-path-hit', opacity, {}, { side: task.side, id: task.id, task: true });
     }
     for (const [key, path] of this.paths) if (!this.keep.has(key)) { path.remove(); this.paths.delete(key); }
   }

@@ -30,3 +30,27 @@
 .pet-carried-card { position: absolute; width: 18px; height: 12px; right: 8px; bottom: 14px; border-radius: 2px; background: var(--surface); border: 1px solid var(--border-strong); pointer-events: none; transform: rotate(-12deg); }
 .pet-carried-card[data-tone="success"] { background: var(--success); }
 .pet-carried-card[data-tone="danger"] { background: var(--danger); }
+
+.pet-pose { display: block; position: relative; transform-origin: center bottom; }
+.topology-pet[data-motion] .pet-pose { animation-duration: var(--pet-beat); animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.topology-pet[data-motion] .pet-pose[data-gesture="nod"] { animation-name: pet-nod; }
+.topology-pet[data-motion] .pet-pose[data-gesture="sway"] { animation-name: pet-sway; }
+.topology-pet[data-motion] .pet-pose[data-gesture="hop"] { animation-name: pet-hop; }
+.topology-pet[data-motion] .pet-pose[data-gesture="bounce"] { animation-name: pet-bounce; }
+.topology-pet[data-motion] .pet-pose[data-gesture="wiggle"] { animation-name: pet-wiggle; }
+.topology-pet[data-motion] .pet-pose[data-gesture="spin"] { animation-name: pet-spin; }
+.topology-pet[data-motion] .pet-pose[data-gesture="stretch"] { animation-name: pet-stretch; }
+.topology-pet[data-motion] .pet-pose[data-gesture="peek"] { animation-name: pet-peek; }
+.topology-pet[data-motion] .pet-pose[data-gesture="lean"] { animation-name: pet-lean; }
+.topology-pet[data-dangling][data-motion] .pet-pose[data-gesture] { animation: none; }
+.pet-play-token { position: absolute; top: 0; left: 0; color: var(--accent); font-size: 24px; line-height: 1; }
+@keyframes pet-nod { 0%, 100% { transform: rotate(0); } 45% { transform: rotate(6deg) scaleY(.94); } }
+@keyframes pet-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes pet-hop { 0%, 65%, 100% { transform: translateY(0); } 30% { transform: translateY(-9px) rotate(4deg); } }
+@keyframes pet-bounce { 0%, 100% { transform: scaleY(1); } 45% { transform: scaleY(.92) scaleX(1.04); } 65% { transform: scaleY(1.04); } }
+@keyframes pet-wiggle { 0%, 100% { transform: rotate(-8deg); } 30% { transform: rotate(8deg); } 60% { transform: rotate(-4deg); } }
+@keyframes pet-spin { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
+@keyframes pet-stretch { 0%, 100% { transform: scale(1); } 50% { transform: scale(.94, 1.08); } }
+@keyframes pet-peek { 0%, 100% { transform: translateX(-3px) rotate(-4deg); } 50% { transform: translateX(3px) rotate(4deg); } }
+@keyframes pet-lean { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) { .topology-pet .pet-pose { animation: none !important; } }

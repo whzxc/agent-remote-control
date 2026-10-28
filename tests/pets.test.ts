@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { atlasFrame, petBrand, selectPet, type PetPackage, type Participant } from '../ui/pets/model.ts';
-import { boundPet, petSize, participantPost, overlaps, bubbleEnd, taskPost } from '../ui/pets/geometry.ts';
+import { boundPet, petSize, participantPost, overlaps, bubbleEnd, taskPost, wanderPost } from '../ui/pets/geometry.ts';
+import { reactions, reactionDeck, activityPose } from '../ui/pets/behavior.ts';
 
 test('atlas frames stay inside each supported row', () => {
   // Property: every clamped frame remains in its supported v1 or v2 atlas cell.
@@ -10,6 +11,37 @@ test('atlas frames stay inside each supported row', () => {
     assert.ok(a.row >= 0 && a.row < (version === 1 ? 9 : 11));
     assert.ok(a.frame >= 0 && a.frame < a.frames);
   }
+});
+test('click feedback visits every reaction without a boundary repeat', () => {
+  // Property: a reaction deck is a permutation of all responses and its first entry differs from the previous response.
+  for (const random of [() => 0, () => .4, () => .999]) for (let previous = 0; previous < reactions.length; previous++) {
+    const deck = reactionDeck(previous, random);
+    assert.equal(new Set(deck).size, reactions.length);
+    assert.notEqual(deck[0], previous);
+    assert.ok(deck.every(index => index >= 0 && index < reactions.length));
+  }
+});
+test('phase gestures preserve attention and failure meaning', () => {
+  // Property: failure and pending-input poses retain their semantic rows for every role and random sample.
+  for (const participant of [false, true]) for (const random of [() => 0, () => .5, () => .999]) {
+    assert.equal(activityPose('command', 'failed', participant, random).row, 5);
+    assert.equal(activityPose('thinking', 'needsYou', participant, random).row, 6);
+    const pose = activityPose('file', 'running', participant, random);
+    assert.ok(pose.row >= 0 && pose.row <= 8 && pose.tempo > 0);
+  }
+});
+test('wandering never crosses obstacles or leaves the scene', () => {
+  // Property: every accepted walk has its complete swept footprint inside the bounds and outside obstacles.
+  const size = petSize('participant'), from = { x: 300, y: 300 }, bounds = { x: 900, y: 800, top: 40 };
+  const obstacles = [{ x: 100, y: 100, width: 90, height: 300 }];
+  for (const value of [0, .2, .4, .6, .8]) {
+    const to = wanderPost(from, bounds, obstacles, size, () => value);
+    if (!to) continue;
+    const swept = { x: Math.min(from.x, to.x), y: Math.min(from.y, to.y), width: Math.abs(to.x - from.x) + size.width, height: Math.abs(to.y - from.y) + size.height };
+    assert.ok(swept.x >= 0 && swept.y >= bounds.top && swept.x + swept.width <= bounds.x && swept.y + swept.height <= bounds.y);
+    assert.ok(obstacles.every(rect => !overlaps(swept, rect)));
+  }
+  assert.equal(wanderPost(from, bounds, [{ x: 0, y: 0, width: bounds.x, height: bounds.y }], size), undefined);
 });
 test('binding overrides are participant-specific and do not invent assets', () => {
   // Property: participant assignments take precedence over brand defaults and never resolve missing packages.

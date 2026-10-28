@@ -1,0 +1,14 @@
+{
+  "pets": true,
+  "theme": "light",
+  "language": "en",
+  "agents": ["claude", "codex"],
+  "tasks": [
+    { "agent": "codex", "phase": "thinking", "title": "Coordinate the feature", "headline": "Reviewing child progress" },
+    { "agent": "codex", "parent": 0, "direct": true, "phase": "file", "title": "Implement the interface", "headline": "Editing the shared components" },
+    { "agent": "codex", "parent": 1, "direct": true, "phase": "command", "title": "Check accessibility", "headline": "Inspecting keyboard navigation" },
+    { "agent": "codex", "parent": 0, "direct": true, "phase": "tool", "title": "Review the data adapter", "headline": "Reading the current schema" },
+    { "agent": "codex", "parent": 0, "direct": true, "phase": "text", "title": "Document the behavior", "headline": "Writing the guide" },
+    { "agent": "codex", "direct": true, "phase": "thinking", "title": "Independent task", "headline": "Planning another change" }
+  ]
+}

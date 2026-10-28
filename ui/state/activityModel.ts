@@ -1,4 +1,5 @@
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
+import { taskHierarchy } from './taskHierarchy.ts';
 
 // Activity events describe current observations; absence is not a terminal result.
 export function mergeActivity(current: AgentActivitySnapshot | undefined, next: AgentActivitySnapshot) {
@@ -53,7 +54,7 @@ export function trackActivity(previous: readonly TrackedActivity[], sessions: re
   const old = new Map(previous.map(s => [s.id, s]));
   const live = new Set(sessions.map(s => s.id));
   return [
-    ...sessions.map(s => ({ ...s, observed: true, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
+    ...sessions.map(s => ({ ...s, parentSessionId: s.parentSessionId ?? old.get(s.id)?.parentSessionId, observed: true, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
     ...previous.filter(s => !live.has(s.id)).map(s => ({ ...s, observed: false, phase: "idle" as const, interaction: undefined,
       readAt: s.readAt ?? (s.endedAt !== undefined && s.id === pinnedId ? now : undefined) }))
       .filter(s => s.readAt === undefined || s.id === pinnedId || now < s.readAt + activityLayout.hold + activityLayout.fade),
@@ -73,8 +74,21 @@ export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?:
   const visible = ordered.slice(0, expanded ? ordered.length : ordered.length > 5 ? 4 : 5);
   const pinned = sessions.find(s => s.id === pinnedId);
   if (pinned && !visible.includes(pinned)) visible[visible.length - 1] = pinned;
-  const hidden = sessions.length - visible.length;
-  return { sessions: visible, hidden, count: visible.length + Number(hidden > 0) };
+  const family = activityHierarchy(ordered);
+  const byId = new Map(family.map(row => [row.task.id, row]));
+  const included = new Set(visible.map(session => session.id));
+  for (const session of visible) {
+    let parent = byId.get(session.id)?.parentTaskId;
+    while (parent) { included.add(parent); parent = byId.get(parent)?.parentTaskId; }
+  }
+  const originals = new Map(sessions.map(session => [session.id, session]));
+  const shown = family.filter(row => included.has(row.task.id)).map(row => originals.get(row.task.id)!);
+  const hidden = sessions.length - shown.length;
+  return { sessions: shown, hidden, count: shown.length + Number(hidden > 0) };
+}
+export function activityHierarchy(sessions: readonly TrackedActivity[]) {
+  const ids = new Map(sessions.flatMap(session => [[session.id, session.id], ...(session.nativeSessionId ? [[session.nativeSessionId, session.id]] : [])] as [string, string][]));
+  return taskHierarchy(sessions.map(session => ({ ...session, parentTaskId: session.parentSessionId ? ids.get(session.parentSessionId) : undefined })));
 }
 export function interactionKey(agent: string, session: AgentActivitySession) {
   return JSON.stringify([agent, session.id, session.phaseSince, session.interaction?.respond]);

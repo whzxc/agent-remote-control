@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../ui/types.ts";
+import { taskHierarchy } from '../ui/state/taskHierarchy.ts';
 const permission: AgentInteraction = { kind: "permission", summary: "Run example command", respond: { via: "act", op: "agent_respond", args: { agent: "claude", taskId: "task-example", interactionId: 1 } }, options: [{ kind: "allow_once", optionId: "yes" }, { kind: "reject_once", optionId: "no" }] };
 function session(id: string, interaction?: AgentInteraction): AgentActivitySession {
   return { id, source: "arc-task", phase: interaction ? "interaction" : "command", phaseSince: "2026-01-01T00:00:00Z", headline: "printf example", timeline: true, interaction };
@@ -9,6 +10,32 @@ function session(id: string, interaction?: AgentInteraction): AgentActivitySessi
 function snapshot(at: number, sessions: AgentActivitySession[]): AgentActivitySnapshot {
   return { observedAt: `2026-01-01T00:00:0${at}Z`, activeAgents: [], agents: { claude: { sessions } } };
 }
+test('nested activity keeps ancestors visible and preserves session identity', () => {
+  // Regression: subagent activity was flattened onto its Agent and overflow could hide its parent.
+  const parent = { ...session('parent'), nativeSessionId: 'native-parent', orderAt: 8, endedAt: 1 };
+  const child = { ...session('child'), parentSessionId: 'native-parent', orderAt: 1 };
+  const grandchild = { ...session('grandchild'), parentSessionId: 'child', orderAt: 0 };
+  const others = Array.from({ length: 6 }, (_, i) => ({ ...session(`other-${i}`), orderAt: i + 2 }));
+  const shown = visibleActivity([grandchild, child, ...others, parent]);
+  const ids = shown.sessions.map(s => s.id);
+  assert.ok(ids.indexOf('parent') < ids.indexOf('child'));
+  assert.ok(ids.indexOf('child') < ids.indexOf('grandchild'));
+  assert.equal(shown.sessions.find(s => s.id === 'parent'), parent);
+  assert.equal(shown.sessions.find(s => s.id === 'child'), child);
+  assert.equal(shown.hidden + shown.sessions.length, 9);
+});
+test('task ancestry terminates for cycles and never invents missing parents', () => {
+  // Property: every input task appears exactly once and each emitted parent precedes its child.
+  for (const rows of [
+    [{ id: 'a', parentTaskId: 'b' }, { id: 'b', parentTaskId: 'a' }, { id: 'c', parentTaskId: 'b' }],
+    [{ id: 'a', parentTaskId: 'a' }, { id: 'b', parentTaskId: 'missing' }],
+    [{ id: 'c', parentTaskId: 'b' }, { id: 'b', parentTaskId: 'a' }, { id: 'a' }],
+  ]) {
+    const family = taskHierarchy(rows), ids = family.map(row => row.task.id);
+    assert.deepEqual([...ids].sort(), rows.map(row => row.id).sort());
+    for (const row of family) if (row.parentTaskId) assert.ok(ids.indexOf(row.parentTaskId) < ids.indexOf(row.task.id));
+  }
+});
 test("full snapshots update sessions, remove completed ones and reject older observations", () => {
   // Property: full snapshots update sessions, remove completed ones and reject older observations.
   const first = snapshot(1, [session("one"), session("two")]);

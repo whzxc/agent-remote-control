@@ -51,9 +51,9 @@ export class TopologyAnimator {
         }
       }
       for (const t of w.tasks) {
-        const parent = nodeKey(w.side, t.parent), n = this.values(parent)!;
+        const parent = t.parentTaskId ? taskKey(w.side, t.parentTaskId) : nodeKey(w.side, t.parent), n = this.values(parent)!;
         const s = this.spring(taskKey(w.side, t.id), { x: t.x, y: t.y, width: t.width, height: t.height, anchor: t.anchor ?? (t.side === -1 ? 1 : 0), port: t.port, op: t.hidden ? 0 : 1, bodyOpacity: 0.62, emphasis: 0 },
-          { x: n.x + (layout.portrait ? -t.side : t.side) * n.radius, y: n.y, port: 0, op: 0 });
+          { x: n.x + (layout.portrait ? -t.side : t.side) * (n.radius ?? 0), y: n.y + (n.height ?? 0) / 2, port: 0, op: 0 });
         s.parent = parent; s.side = w.side;
         if (drag?.kind === "task" && drag.side === w.side && drag.id === t.id) {
           s.fields.x.pin = drag.x; s.fields.y.pin = drag.y;
@@ -101,7 +101,7 @@ export class TopologyAnimator {
     for (const [key, s] of this.live) {
       if (!s.alive && s.parent) {
         const n = this.values(s.parent);
-        if (n) { s.fields.x.t = n.x + (this.live.get("hub")!.fields.rotation.t ? -s.side! : s.side!) * n.radius; s.fields.y.t = n.y; }
+        if (n) { s.fields.x.t = n.x + (this.live.get("hub")!.fields.rotation.t ? -s.side! : s.side!) * (n.radius ?? 0); s.fields.y.t = n.y + (n.height ?? 0) / 2; }
       }
       for (const f of Object.values(s.fields)) {
         if (f.pin !== undefined || direct) { f.x = f.pin ?? f.t; f.v = 0; continue; }

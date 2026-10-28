@@ -34,3 +34,14 @@ export function bubbleEnd(frame: { x: number; y: number; width: number; height: 
 export function taskPost(anchor: Point, size: PetSize): Point {
   return { x: anchor.x - size.width / 2, y: anchor.y - size.height };
 }
+
+export function wanderPost(from: Point, bounds: PetBounds, obstacles: Rect[], size: PetSize, random = Math.random): Point | undefined {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const angle = random() * Math.PI * 2, distance = 60 + random() * 120;
+    const to = boundPet({ x: from.x + Math.cos(angle) * distance, y: from.y + Math.sin(angle) * distance }, bounds.x, bounds.y, bounds.top, size);
+    if (Math.hypot(to.x - from.x, to.y - from.y) < 24) continue;
+    // The entire straight walk must fit in free space, not just its endpoint.
+    const swept = { x: Math.min(from.x, to.x), y: Math.min(from.y, to.y), width: Math.abs(to.x - from.x) + size.width, height: Math.abs(to.y - from.y) + size.height + size.tagHeight };
+    if (swept.x >= 0 && swept.y >= bounds.top && swept.x + swept.width <= bounds.x && swept.y + swept.height <= bounds.y && obstacles.every(rect => !overlaps(swept, rect))) return to;
+  }
+}

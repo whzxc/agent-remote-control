@@ -6,7 +6,7 @@ import type { SurfaceRect } from "../motion/surface";
 export type WireState = "normal" | "connecting" | "error" | "inactive";
 export type TaskState = import("../state/taskProjection").TaskState | "summary";
 export interface PaintNode { id: string; side: Side; parent?: string; state: WireState; attention: boolean; selected: boolean; label?: string }
-export interface PaintTask { id: string; parent: string; side: Side; state: TaskState; selected: boolean }
+export interface PaintTask { id: string; parent: string; parentTaskId?: string; side: Side; state: TaskState; selected: boolean }
 const ns = "http://www.w3.org/2000/svg";
 function element<K extends keyof SVGElementTagNameMap>(tag: K, parent: SVGElement, attrs: Record<string, string> = {}) {
   const el = document.createElementNS(ns, tag);
@@ -95,8 +95,10 @@ export class TopologyPainter {
       const v = bridge && n ? { x: n.x, y: n.y, port: 0, op: 1, bodyOpacity: 0.62, emphasis: n.emphasis } : animator.values(key);
       if (!v || !n) continue;
       keep.add(key);
-      const b = this.branch(key), a = deg(v.port), radial = { x: t.side * Math.cos(a), y: Math.sin(a) };
-      const port = { x: n.x + n.radius * radial.x, y: n.y + n.radius * radial.y };
+      const ancestor = t.parentTaskId ? animator.values(taskKey(t.side, t.parentTaskId)) : undefined;
+      const b = this.branch(key), a = deg(v.port), radial = ancestor ? { x: 0, y: 1 } : { x: t.side * Math.cos(a), y: Math.sin(a) };
+      const port = ancestor ? { x: ancestor.x + ((t.side === 1 ? 0 : 1) - ancestor.anchor) * ancestor.width + t.side * 12, y: ancestor.y + ancestor.height / 2 }
+        : { x: n.x + n.radius * radial.x, y: n.y + n.radius * radial.y };
       const end = bridge && panel ? { x: t.side === 1 ? panel.x : panel.x + panel.width,
         y: clamp(v.y, panel.y + 27, panel.y + panel.height - 27) } : { x: v.x + ((t.side === -1 ? 1 : 0) - (v.anchor ?? 0)) * (v.width ?? 0), y: v.y };
       const shape = tentacle(end, port, radial, t.side, scale, { t2End: p.t2End, t2Root: p.t2Root, flare: p.flare });

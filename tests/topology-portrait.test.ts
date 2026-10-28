@@ -11,6 +11,21 @@ const right: Entity[] = [{ id: 'idle/a', tasks: [] }, { id: 'agent', tasks: [], 
   { id: 'account/a', tasks: tasks('a', 5) }, { id: 'account/b', tasks: tasks('b', 2) },
 ] }, { id: 'single', tasks: tasks('single', 1) }, { id: 'idle/b', tasks: [] }];
 const measured = (width: number) => ({ width, twoLineWidth: Math.ceil(width * 0.6), height: 14 });
+test('task families keep their ancestry and separate rows in either orientation', () => {
+  // Property: nested tasks follow their parents without overlapping row extents, with finite animator values through removal.
+  const family = [{ id: 'grandchild', parentTaskId: 'child', width: 264, height: 54 }, { id: 'parent', width: 264, height: 76 }, { id: 'child', parentTaskId: 'parent', width: 264, height: 54 }];
+  for (const solveScene of [solve, solvePortrait]) for (const vw of [390, 900, 1440]) {
+    const scene = { vw, vh: 900, left: [], right: [{ id: 'agent', tasks: family }] };
+    const layout = solveScene(scene), rows = layout.wings[1].tasks;
+    assert.deepEqual(rows.map(row => row.id), ['parent', 'child', 'grandchild']);
+    assert.equal(rows[1].parentTaskId, 'parent'); assert.equal(rows[2].parentTaskId, 'child');
+    for (let i = 1; i < rows.length; i++) assert.ok(rows[i].y - rows[i].height / 2 >= rows[i - 1].y + rows[i - 1].height / 2);
+    const animator = new TopologyAnimator(); animator.setTargets(layout); animator.step(1, true);
+    animator.setTargets(solveScene({ ...scene, right: [{ id: 'agent', tasks: family.filter(task => task.id !== 'grandchild') }] }));
+    animator.step(.016);
+    for (const row of rows) for (const value of Object.values(animator.values(taskKey(1, row.id)) ?? {})) assert.ok(Number.isFinite(value));
+  }
+});
 const labels: PortraitLabels = {
   left: new Map([['source', measured(74)], ['source/a', measured(84)], ['source/b', measured(110)]]),
   right: new Map([['agent', measured(108)], ['single', measured(150)], ['idle/a', measured(140)], ['idle/b', measured(100)],

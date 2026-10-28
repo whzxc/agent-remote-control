@@ -83,6 +83,7 @@ export interface AgentInteraction {
   questions?: { id: string; question: string; isOther?: boolean; isSecret?: boolean; multiSelect?: boolean; options?: { label: string; description?: string }[] }[];
 }
 export interface AgentActivitySession {
+  parentSessionId?: string;
   turnCount?: number;
   projectName?: string | null;
   dispatchSummary?: DispatchSummary;
