@@ -162,9 +162,9 @@ test('built-in local authority is absent from control sources, accounts and disc
       await render(null);
       navigation.set((old: any) => ({ ...old, remoteSourceId: local.id, remoteConnectionId: undefined }));
       await render(h(ConnectionsContent));
-      assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) }), null);
+      assert.equal(page.queryByRole('img', { name: local.label, exact: true }), null);
       const connection = connector.get().status.ingresses.find((entry: any) => entry.transport !== 'local');
-      assert.ok(page.getByRole('button', { name: name => name.startsWith(connection.name) && name.includes(t('connect.online')) }));
+      assert.ok(page.getByRole('region', { name: connection.name, exact: true }));
       assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
       await render(h(SourcePanel, { source: local }));
@@ -194,10 +194,13 @@ test('connection management exposes connections without source or platform admin
     assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
     assert.equal(page.queryByRole('radiogroup', { name: t('source.grouping') }), null);
     const connection = connector.get().status.ingresses.find((entry: any) => entry.transport !== 'local');
-    await act(() => fireEvent.click(page.getByRole('button', { name: name => name.startsWith(connection.name) && name.includes(t('connect.online')) })));
+    const card = within(page.getByRole('region', { name: connection.name, exact: true }));
+    assert.ok(card.getByRole('textbox', { name: t('source.copyAddress'), exact: true }));
+    await act(() => fireEvent.click(card.getByRole('button', { name: t('remove'), exact: true })));
+    await act(() => fireEvent.click(within(page.getByRole('dialog')).getByRole('button', { name: t('cancel'), exact: true })));
+    assert.ok(card.getByRole('button', { name: t('edit'), exact: true }));
     assert.ok(page.getByRole('heading', { name: connection.name, exact: true }));
     assert.equal(page.queryByRole('button', { name: t('setup.addSourceForConnection'), exact: true }), null);
-    assert.ok(page.getByRole('button', { name: t('edit'), exact: true }));
   });
 });
 

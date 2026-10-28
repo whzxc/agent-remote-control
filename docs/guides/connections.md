@@ -31,13 +31,13 @@ Use the left dot on the center ring to open product connection guidance. ARC rec
 
 Choosing **Add a source for it** after connection setup preselects that connection. Local clients and connections without OAuth complete after the client connects, without pairing-code approval.
 
-## Connection detail
+## Connection cards
 
-Click the upper arc and open a connection to see its address, provider, online state and associated connector count. Copy its address into the products you want to connect. Non-local, non-relay connections offer **Edit**.
+Click the upper arc to see connection cards with their address, provider and online state. Associated connectors appear as small product logos; hover or focus a logo to see its name. Copy the address directly from the card into the products you want to connect. Edit and remove use icon buttons on the card. Non-local, non-relay connections offer **Edit**.
 
 **Remove connection** disconnects its sources and retains their names and history. Reconnect them with Change connection. Joined relays offer **Leave relay**. A hosted relay has a link to its management page in Settings; deleting the relay itself happens there.
 
-For daily use, choose a fixed address. If a temporary address changes, remove and re-add the client's connector with the new address, or edit its URL where supported, and authorize again. Use Connection detail for provider errors; see [FAQ](../faq.md) for client issues.
+For daily use, choose a fixed address. If a temporary address changes, remove and re-add the client's connector with the new address, or edit its URL where supported, and authorize again. Check the connection card for provider errors; see [FAQ](../faq.md) for client issues.
 
 ## Use a custom reverse proxy
 

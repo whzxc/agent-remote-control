@@ -335,7 +335,7 @@ export default function App() {
       >
         <HoverScope
           activeKey={page !== "overview" || modalOpen ? "" : undefined}
-          className="capsule-icons"
+          className="capsule-icons justify-center"
           inert={page !== "overview"}
           aria-hidden={page !== "overview"}
         >

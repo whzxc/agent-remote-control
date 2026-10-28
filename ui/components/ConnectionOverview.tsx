@@ -21,7 +21,7 @@ import {
   useState,
   useRef,
 } from "react";
-import { ArrowLeft, Power, LoaderCircle } from "lucide-react";
+import { Power, LoaderCircle } from "lucide-react";
 import { t } from "../i18n";
 import { api } from "../api";
 import { ingressState, connector, run, refreshConnector, orderedSources, reorderSources } from "../state/connector";
@@ -50,7 +50,7 @@ import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, conne
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Button, Dialog, Icon, IconButton, Notice } from "./ui";
+import { Button, Dialog, Icon, Notice } from "./ui";
 import AgentPanel from "./AgentPanel";
 import ChangeConnection from "./ChangeConnection";
 import ConnectionsContent from "./ConnectionsContent";
@@ -378,8 +378,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         )}
       </section>
       {visible && tuning && <TuningPanel />}
-      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={connections.find(item => item.id === nav.remoteConnectionId)?.name ?? t("connections.title")} width={680}
-        leading={nav.remoteConnectionId && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, remoteConnectionId: undefined }))} />}
+      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
         returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
         <ConnectionsContent />
       </Dialog>}
