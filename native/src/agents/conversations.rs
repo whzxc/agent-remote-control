@@ -14,7 +14,7 @@ use std::{
 pub(super) struct Cache {
     sampled: Option<Instant>,
     rows: Vec<Value>,
-    clocks: HashMap<PathBuf, activity::TurnClock>,
+    clocks: HashMap<PathBuf, activity::ConversationMetadata>,
     native_index: native::Index,
     native_sessions: Vec<native::Session>,
 }
@@ -264,7 +264,13 @@ impl AgentHost {
                     "createdAt":timestamp(&row["createdAt"]),"source":"codex-thread"});
                 item["dispatchSummary"] = metadata["dispatchSummary"].clone();
                 item["turnCount"] = metadata["turnCount"].clone();
-                item["status"] = row["status"].as_str().or_else(|| row["status"]["type"].as_str()).map(|s| json!(s)).unwrap_or(Value::Null);
+                let native_status = row["status"].as_str().or_else(|| row["status"]["type"].as_str());
+                item["status"] = if matches!(native_status, Some("active" | "running" | "inProgress")) {
+                    native_status.map(|s| json!(s)).unwrap_or(Value::Null)
+                } else {
+                    metadata["status"].as_str().or(native_status).map(|s| json!(s)).unwrap_or(Value::Null)
+                };
+                item["metadataPartial"] = metadata["metadataPartial"].clone();
                 if let Some(open) = self.task_navigation(agent, string(row, "id")) {
                     item["open"] = open;
                 }

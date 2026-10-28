@@ -3,7 +3,7 @@ use super::*;
 use crate::kernel::file_cache::{Cache as DirectoryCache, Stamp};
 use std::{io::Read, time::SystemTime};
 
-const DERIVATION_VERSION: u32 = 2;
+const DERIVATION_VERSION: u32 = 3;
 const HEAD_BYTES: u64 = 64 * 1024;
 const TAIL_BYTES: u64 = 128 * 1024;
 
@@ -252,6 +252,18 @@ pub(super) fn derive(
             preview = short(&text, 240);
         }
     }
+    let status = if agent == "claude" {
+        let mut latest = crate::task_tracking::Timeline::default();
+        if let Some(record) = records.iter().rev().find(|record| {
+            record["isMeta"] != true
+                && matches!(string(&record["message"], "role"), "user" | "assistant")
+        }) {
+            latest.backfill_claude(std::slice::from_ref(record));
+        }
+        (!latest.status.is_empty()).then_some(latest.status)
+    } else {
+        None
+    };
     let updated = chrono::DateTime::<chrono::Utc>::from(modified)
         .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let created = records
@@ -261,7 +273,7 @@ pub(super) fn derive(
     Some(
         json!({"agent":agent,"id":id,"nativeSessionId":id,"source":"native",
         "title":title.value(),"preview":preview,
-        "project":project,"createdAt":created,"updatedAt":updated,"status":null,
+        "project":project,"createdAt":created,"updatedAt":updated,"status":status,
         "messageCount":if complete { Some(messages) } else { None },"metadataPartial":!complete}),
     )
 }

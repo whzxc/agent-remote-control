@@ -305,3 +305,45 @@ fn fork_notice_is_not_a_native_conversation_title_or_preview() {
     assert_eq!(conversation["title"], "Review the parser");
     assert_eq!(conversation["preview"], "Parser reviewed");
 }
+
+#[test]
+fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
+    // Regression: opening a Codex list replayed full rollouts and then loaded a detail timeline for each row.
+    let records = vec![
+        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:00Z","payload":{"type":"task_started","turn_id":"turn-one"}}),
+        json!({"type":"turn_context","payload":{"turn_id":"turn-one","model":"model-one","effort":"high"}}),
+        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:01Z","payload":{"type":"task_complete"}}),
+    ];
+    let complete = activity::conversation_projection(&records, false);
+    assert_eq!(complete["status"], "completed");
+    assert_eq!(complete["turnCount"], 1);
+    assert_eq!(complete["dispatchSummary"]["model"], "model-one");
+    let partial = activity::conversation_projection(&records, true);
+    assert_eq!(partial["status"], "completed");
+    assert!(partial["turnCount"].is_null());
+    assert_eq!(partial["metadataPartial"], true);
+    let mut newer = records;
+    newer.push(json!({"type":"turn_context","payload":{"turn_id":"turn-two","model":"model-two"}}));
+    let unconfirmed = activity::conversation_projection(&newer, false);
+    assert!(unconfirmed["status"].is_null());
+    assert_eq!(unconfirmed["turnCount"], 2);
+    assert_eq!(unconfirmed["dispatchSummary"]["model"], "model-two");
+    newer.push(json!({"type":"event_msg","timestamp":"2026-01-01T00:00:02Z","payload":{"type":"turn_aborted"}}));
+    assert_eq!(
+        activity::conversation_projection(&newer, false)["status"],
+        "cancelled"
+    );
+}
+
+#[test]
+fn claude_list_metadata_confirms_only_the_latest_explicit_outcome() {
+    // Regression: native Claude list rows fetched full detail histories even when their latest record already confirmed completion.
+    let completed = json!({"type":"assistant","uuid":"reply","timestamp":"2026-01-01T00:00:01Z","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"Done"}]}});
+    assert_eq!(
+        row(&[user("Review project"), completed.clone()], &[])["status"],
+        "completed"
+    );
+    assert!(row(&[completed], &[user("Continue")])["status"].is_null());
+    let pending = json!({"type":"assistant","timestamp":"2026-01-01T00:00:02Z","message":{"role":"assistant","stop_reason":"tool_use","content":[]}});
+    assert!(row(&[user("Inspect")], &[pending])["status"].is_null());
+}

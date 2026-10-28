@@ -11,8 +11,9 @@ import { activityHeadline, type TrackedActivity, type BubbleDensity } from "../s
 import { useInterval } from "../state/hooks";
 import FilePath from "./FilePath";
 import { Button, Icon } from "./ui";
-import { activityState, executionPhase } from "../state/taskExecutionModel";
+import { activityState, executionPhase, terminalState } from "../state/taskExecutionModel";
 import { useTaskExecution } from "../state/taskExecution";
+import { taskState } from "../state/taskProjection";
 import { activityApprovals } from "../state/activity";
 import { pendingSessions } from "../state/taskInteractions";
 
@@ -40,7 +41,9 @@ function Headline({ session }: { session: TrackedActivity }) {
 export function ActivityBubbleContent({ agent, session, now, density = "standard", historical = false, conversationRow = false, showSourceBadge = true }: { agent?: string; session: TrackedActivity; now: number; density?: BubbleDensity; historical?: boolean; conversationRow?: boolean; showSourceBadge?: boolean }) {
   const language = locale.use();
   const live = !historical && session.observed !== false && session.endedAt === undefined;
-  const execution = useTaskExecution(agent ?? "", session.id, session.turnId, !live);
+  const confirmed = !live && terminalState(taskState(session.status ?? undefined, false));
+  const observedExecution = useTaskExecution(agent ?? "", session.id, session.turnId, !live && !confirmed && !conversationRow);
+  const execution = confirmed ? undefined : observedExecution;
   const submissions = activityApprovals.use();
   const pending = agent ? pendingSessions(agent, session, execution?.interactions ?? [], submissions).length > 0 : !!session.interaction;
   const state = activityState(session, execution, pending, live);

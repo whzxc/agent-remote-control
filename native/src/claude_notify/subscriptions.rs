@@ -100,23 +100,28 @@ pub(super) fn validate(arguments: &Value) -> Result<Value> {
 }
 
 pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
-    // Task bindings retain dispatch metadata; all actual destinations live here.
+    // Derive each persistent identity once. Historical bindings must not turn
+    // every delivery tick into a subscription-by-binding hash scan.
+    let bindings: Vec<_> = bindings
+        .iter()
+        .filter(|b| !b.source_id.is_empty() && b.target.is_some())
+        .map(|b| (claude_id(b), b))
+        .collect();
+    let ids: std::collections::HashSet<_> = bindings.iter().map(|(id, _)| id.as_str()).collect();
     state.subscriptions.retain(|s| {
         !s.source_id.is_empty()
-            && (s.channel != Channel::ClaudeSession
-                || bindings
-                    .iter()
-                    .any(|b| !b.source_id.is_empty() && claude_id(b) == s.id && b.target.is_some()))
+            && (s.channel != Channel::ClaudeSession || ids.contains(s.id.as_str()))
     });
-    for b in bindings {
-        if b.source_id.is_empty() {
-            continue;
-        }
-        let Some(target) = &b.target else { continue };
-        let id = claude_id(b);
-        if let Some(s) = state.subscriptions.iter_mut().find(|s| s.id == id) {
-            s.target = target.clone();
+    let mut positions = std::collections::HashMap::new();
+    for (index, subscription) in state.subscriptions.iter().enumerate() {
+        positions.entry(subscription.id.clone()).or_insert(index);
+    }
+    for (id, b) in bindings {
+        let target = b.target.as_ref().unwrap();
+        if let Some(index) = positions.get(&id) {
+            state.subscriptions[*index].target = target.clone();
         } else {
+            positions.insert(id.clone(), state.subscriptions.len());
             state.subscriptions.push(Subscription {
                 id,
                 source_id: b.source_id.clone(),

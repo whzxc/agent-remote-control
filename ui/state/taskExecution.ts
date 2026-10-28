@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { api } from "../api";
 import type { AgentTimeline } from "../types";
 import { createStore } from "./store";
@@ -17,16 +17,24 @@ export function taskExecution(agent: string, id: string) { return taskExecutions
 export function acceptTaskExecution(agent: string, id: string, timeline: AgentTimeline) {
   const execution = executionSnapshot(timeline);
   if (JSON.stringify(taskExecution(agent, id)) !== JSON.stringify(execution)) taskExecutions.set(old => ({ ...old, [key(agent, id)]: execution }));
-  trackedActivity.set(old => ({ ...old, [agent]: (old[agent] ?? []).map(session => {
-    if (session.id !== id || session.observed !== false) return session;
-    const status = executionStatus(execution, session.turnId);
-    if (!terminalState(taskState(status, false))) return session;
-    const nativeEnd = Date.parse(execution.turnTimings?.[session.turnId ?? execution.turnId ?? ""]?.endedAt ?? "");
-    const selected = agentPanel.get(), readAt = selected?.agent === agent && selected.session?.id === id ? Date.now() : session.readAt;
-    const next = { ...session, status, endedAt: Number.isFinite(nativeEnd) ? nativeEnd : session.endedAt ?? Date.now(), ...(readAt === undefined ? {} : { readAt }) };
-    if (readAt !== undefined) rememberActivityRead(agent, next, readAt);
-    return next;
-  }) }));
+  trackedActivity.set(old => {
+    let changed = false;
+    const sessions = (old[agent] ?? []).map(session => {
+      if (session.id !== id || session.observed !== false) return session;
+      const status = executionStatus(execution, session.turnId);
+      if (!terminalState(taskState(status, false))) return session;
+      const nativeEnd = Date.parse(execution.turnTimings?.[session.turnId ?? execution.turnId ?? ""]?.endedAt ?? "");
+      const selected = agentPanel.get();
+      const readAt = session.readAt ?? (selected?.agent === agent && selected.session?.id === id ? Date.now() : undefined);
+      const endedAt = Number.isFinite(nativeEnd) ? nativeEnd : session.endedAt ?? Date.now();
+      if (session.status === status && session.endedAt === endedAt && session.readAt === readAt) return session;
+      changed = true;
+      const next = { ...session, status, endedAt, ...(readAt === undefined ? {} : { readAt }) };
+      if (readAt !== undefined) rememberActivityRead(agent, next, readAt);
+      return next;
+    });
+    return changed ? { ...old, [agent]: sessions } : old;
+  });
 }
 export function refreshTaskExecution(agent: string, id: string): Promise<void> {
   const identity = key(agent, id), pending = reads.get(identity);
@@ -40,7 +48,7 @@ export function refreshTaskExecution(agent: string, id: string): Promise<void> {
   reads.set(identity, read); return read;
 }
 export function useTaskExecution(agent: string, id: string, turnId: string | null | undefined, enabled: boolean) {
-  const execution = taskExecutions.use()[key(agent, id)];
+  const execution = useSyncExternalStore(taskExecutions.subscribe, () => taskExecution(agent, id));
   const terminal = terminalState(taskState(executionStatus(execution, turnId), false));
   useEffect(() => {
     if (!enabled || !agent || terminal) return;

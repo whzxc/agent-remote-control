@@ -66,3 +66,25 @@ test('an incoming preference event cannot overwrite the current remote preferenc
     assert.equal(remote[key], 'local-choice');
   });
 });
+
+test('unchanged terminal evidence preserves the activity snapshot and read acknowledgement', async () => {
+  // Regression: every historical timeline response replaced the entire tracked activity store and extended completion read timestamps.
+  await harness(async server => {
+    const { trackedActivity } = await server.ssrLoadModule('/ui/state/activityBubbles.ts');
+    const { acceptTaskExecution, taskExecution } = await server.ssrLoadModule('/ui/state/taskExecution.ts');
+    const { agentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    const session = { id: 'task', turnId: 'turn', source: 'arc-task', observed: false, phase: 'idle', phaseSince: null, headline: '', timeline: true, orderAt: 1 };
+    trackedActivity.set({ codex: [session] });
+    agentPanel.set({ agent: 'codex', session });
+    const timeline = { status: 'completed', turnStatuses: { turn: 'completed' }, entries: [{ id: 'reply', type: 'text', turnId: 'turn', status: 'completed', text: 'Done' }] };
+    acceptTaskExecution('codex', 'task', timeline);
+    const settled = trackedActivity.get(), execution = taskExecution('codex', 'task');
+    assert.equal(settled.codex[0].status, 'completed');
+    assert.ok(Number.isFinite(settled.codex[0].readAt));
+    acceptTaskExecution('codex', 'task', structuredClone(timeline));
+    assert.equal(trackedActivity.get(), settled);
+    assert.equal(taskExecution('codex', 'task'), execution);
+    acceptTaskExecution('codex', 'another-task', { ...timeline, status: 'failed' });
+    assert.equal(trackedActivity.get(), settled);
+  });
+});

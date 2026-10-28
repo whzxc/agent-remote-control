@@ -48,7 +48,7 @@ pub(crate) fn session_id(value: &str) -> Result<String> {
     Ok(id.into())
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct DeliveryTiming {
     queued_at: Option<i64>,
@@ -60,7 +60,7 @@ struct DeliveryTiming {
     queue_reason: Option<String>,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Delivery {
     #[serde(default)]
@@ -119,7 +119,7 @@ impl Delivery {
         self.task_state == "interaction-required"
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Binding {
     thread_id: String,
@@ -1854,6 +1854,13 @@ fn records(dir: &Path) -> Result<Vec<Binding>> {
     matching_records(dir, |_| true)
 }
 fn matching_records(dir: &Path, matches: impl Fn(&Binding) -> bool) -> Result<Vec<Binding>> {
+    Ok(shared_records(dir)?
+        .into_iter()
+        .filter(|binding| matches(binding))
+        .map(|binding| (*binding).clone())
+        .collect())
+}
+fn shared_records(dir: &Path) -> Result<Vec<Arc<Binding>>> {
     // Bindings are owned by Core and atomically replaced. A directory stamp can
     // reuse the parsed collection across nested routing/ownership queries.
     type Snapshot = (PathBuf, file_cache::Projection<Vec<Arc<Binding>>>);
@@ -1881,11 +1888,7 @@ fn matching_records(dir: &Path, matches: impl Fn(&Binding) -> bool) -> Result<Ve
         snapshot.set(&dependencies, stamps, bindings.clone())?;
         bindings
     };
-    Ok(bindings
-        .into_iter()
-        .filter(|binding| matches(binding))
-        .map(|binding| (*binding).clone())
-        .collect())
+    Ok(bindings)
 }
 
 pub(crate) fn settings() -> Result<Value> {
@@ -1962,11 +1965,8 @@ async fn flush(
 ) -> Result<()> {
     let _operation = mcp_events::OPERATION.lock().await;
     let guard = lock.lock().await;
-    let mut all = records(dir)?;
-    let original = all
-        .iter()
-        .map(|b| serde_json::to_value(b).unwrap())
-        .collect::<Vec<_>>();
+    let original = shared_records(dir)?;
+    let mut all: Vec<_> = original.iter().map(|binding| (**binding).clone()).collect();
     let mut state = State::load(dir)?;
     subscriptions::sync(&mut state, &all);
     state
@@ -2272,7 +2272,7 @@ async fn flush(
     // never duplicates an event or permits an uncharged burst after restart.
     state.save(dir)?;
     for (b, old) in all.iter().zip(original) {
-        if serde_json::to_value(b).unwrap() != old {
+        if b != old.as_ref() {
             persist(dir, b)?;
         }
     }
@@ -3225,6 +3225,48 @@ mod tests {
         persist(dir, &b).unwrap();
         b
     }
+    #[test]
+    fn historical_subscription_sync_preserves_scope_and_delivery_preferences() {
+        // Regression: 698 historical bindings caused subscription synchronization to repeatedly hash every binding for every subscription.
+        let dir = Sandbox::new();
+        let base = fixture(&dir.0);
+        let mut bindings: Vec<_> = (0..1500)
+            .map(|index| {
+                let mut binding = base.clone();
+                binding.thread_id = format!("task-{index}");
+                binding.source_id = format!("source-{}", index % 2);
+                binding
+            })
+            .collect();
+        let mut state = State::default();
+        subscriptions::sync(&mut state, &bindings);
+        let id = subscriptions::claude_id(&bindings[0]);
+        let saved = state.subscriptions.iter_mut().find(|s| s.id == id).unwrap();
+        saved.muted = true;
+        saved.until = Some(999);
+        saved.expires_at = Some(999_000);
+        let created = saved.created_at;
+        bindings[0].target = Some("session_010000000000000000000002".into());
+        bindings[1].target = None;
+        bindings[2].source_id.clear();
+        subscriptions::sync(&mut state, &bindings);
+        let public: Vec<_> = state.subscriptions.iter().map(|s| s.public(1)).collect();
+        let saved = public.iter().find(|s| s["id"] == id).unwrap();
+        assert_eq!(
+            saved["target"],
+            bindings[0].target.as_ref().unwrap().as_str()
+        );
+        assert_eq!(saved["muted"], true);
+        assert_eq!(saved["until"], 999);
+        assert_eq!(saved["expiresAt"], 999_000);
+        assert_eq!(saved["createdAt"], created);
+        assert_eq!(public.len(), 1498);
+        for subscription in &state.subscriptions {
+            assert!(bindings.iter().any(|b| subscription.matches(b)
+                && b.target.as_deref() == Some(subscription.target.as_str())));
+        }
+    }
+
     fn interaction(id: Value) -> Value {
         json!({"state":"interaction-required", "interaction":[{"id":id,"method":"item/commandExecution/requestApproval","params":{"command":"SECRET_COMMAND"}}],"activeFlags":["waitingOnApproval"],"finalResponse":"SECRET_OUTPUT","error":"SECRET_ERROR"})
     }

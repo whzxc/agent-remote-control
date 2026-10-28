@@ -195,26 +195,38 @@ pub fn list() -> Result<Vec<Value>> {
         .ok_or("Invalid source store")?
         .clone();
     for source in &mut rows {
-        source["accountId"] = json!(crate::accounts::source_account(source)?);
-        source["identityResolution"] = if is_local(source) {
-            json!({"state":"not-applicable"})
-        } else {
-            crate::accounts::source_resolution(string(source, "id"))?
-        };
-        if source["capabilityProfileOffer"] == true {
-            source["capabilityProfileOffer"] = crate::control_profiles::offer(source);
-        }
-        if !switch_live(source) {
-            clear_switch(source);
-        }
+        decorate_source(source)?;
     }
     Ok(rows)
 }
+fn decorate_source(source: &mut Value) -> Result<()> {
+    source["accountId"] = json!(crate::accounts::source_account(source)?);
+    source["identityResolution"] = if is_local(source) {
+        json!({"state":"not-applicable"})
+    } else {
+        crate::accounts::source_resolution(string(source, "id"))?
+    };
+    if source["capabilityProfileOffer"] == true {
+        source["capabilityProfileOffer"] = crate::control_profiles::offer(source);
+    }
+    if !switch_live(source) {
+        clear_switch(source);
+    }
+    Ok(())
+}
 pub fn get(id: &str) -> Result<Value> {
-    list()?
-        .into_iter()
-        .find(|s| s["id"] == id)
-        .ok_or("SOURCE_NOT_FOUND".into())
+    let mut source = {
+        let cache = cache()?.read().map_err(|e| e.to_string())?;
+        cache.current["sources"]
+            .as_array()
+            .ok_or("Invalid source store")?
+            .iter()
+            .find(|source| source["id"] == id)
+            .cloned()
+            .ok_or("SOURCE_NOT_FOUND")?
+    };
+    decorate_source(&mut source)?;
+    Ok(source)
 }
 /// One cached source snapshot per coordination query; the caller validates it before reading.
 /// Never resolve accounts per event.

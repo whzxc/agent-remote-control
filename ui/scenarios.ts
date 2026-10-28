@@ -25,7 +25,7 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
@@ -189,15 +189,16 @@ export async function installScenario(name: string) {
     const current = activity.agents[agent].sessions.map(session => ({ id: session.id, source: session.source as AgentConversation['source'], title: session.title,
       project: session.project, createdAt: session.startedAt ?? null }));
     const today = new Date(now); today.setHours(0, 0, 0, 0);
-    const history: AgentConversation[] = fixture.panelHistory ? Array.from({ length: 24 }, (_, index) => {
+    const history: AgentConversation[] = fixture.panelHistory ? Array.from({ length: fixture.historyRows ?? 24 }, (_, index) => {
       const id = `fixture-history-${agent}-${index}`, title = `Review project change ${index + 1}`;
       const start = index < 3 ? Math.max(today.getTime(), Date.parse(now) - (index + 1) * 60000) : today.getTime() - (index - 2) * 86400000;
       const createdAt = new Date(start).toISOString(), endedAt = new Date(start + 83000).toISOString(), turnId = `${id}-turn`;
-      timelines[`agents/timeline/${id}`] = { sessionId: id, status: 'completed', entries: [
+      if (!fixture.metadataOnlyHistory) timelines[`agents/timeline/${id}`] = { sessionId: id, status: 'completed', entries: [
         { id: `${id}-prompt`, turnId, type: 'user', status: 'completed', startedAt: createdAt, updatedAt: createdAt, text: title, cursor: 1, position: 0 },
         { id: `${id}-answer`, turnId, type: 'text', status: 'completed', phase: 'final_answer', startedAt: endedAt, updatedAt: endedAt, endedAt, text: 'The project changes have been reviewed.', cursor: 2, position: 1 },
       ], cursor: 2, executionEvidence: true, coverage: { state: 'complete', truncated: false }, turnStatuses: { [turnId]: 'completed' } };
-      return { id, source: agent === 'codex' ? 'codex-thread' : 'arc-task', title, project: '/workspace/acceptance', createdAt };
+      return { id, source: agent === 'codex' ? 'codex-thread' : 'arc-task', title, project: '/workspace/acceptance', createdAt,
+        ...(fixture.metadataOnlyHistory ? { status: ['completed', 'failed', 'cancelled', null][index % 4] } : {}) };
     }) : [];
     return [agent, [...current, ...history]];
   }));

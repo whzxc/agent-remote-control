@@ -29,7 +29,9 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
     onClick={() => selectAgentPanel({ type: "task", agent, session })}>
     <ActivityBubbleContent agent={agent} session={session} now={now} density="standard" historical={!live} conversationRow />
   </button>;
-});
+}, (previous, next) => previous.agent === next.agent && previous.live === next.live && previous.index === next.index
+  && (next.live ? previous.now === next.now : new Date(previous.now).getFullYear() === new Date(next.now).getFullYear())
+  && JSON.stringify(previous.session) === JSON.stringify(next.session));
 
 export default function AgentConversations({ agent, account, accountId, active }: { agent: string; account?: ProviderAccount; accountId?: string; active: boolean }) {
   const language = locale.use();
@@ -51,7 +53,10 @@ export default function AgentConversations({ agent, account, accountId, active }
   const now = useAppNow(active && live.size ? 1000 : 60000);
   useEffect(() => {
     const sessions = [...(tracked[agent] ?? []), ...(snapshot?.agents[agent]?.sessions ?? [])];
-    if (sessions.length) setObserved(old => ({ ...old, ...Object.fromEntries(sessions.map(session => [session.id, session])) }));
+    if (sessions.length) setObserved(old => {
+      const changed = sessions.filter(session => JSON.stringify(old[session.id]) !== JSON.stringify(session));
+      return changed.length ? { ...old, ...Object.fromEntries(changed.map(session => [session.id, session])) } : old;
+    });
   }, [agent, snapshot, tracked]);
   useEffect(() => {
     const key = cursor ?? "";

@@ -104,6 +104,8 @@ Scenarios in tooling/acceptance/scenarios/*.json include idle, single-task, para
 
 The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects the normal homepage count setting; `topologyAccounts` installs the shared multi-account fixture.
 
+The `agent-list-codex-*` and `agent-list-claude-*` fixtures supply 240 paged metadata rows with confirmed and unknown outcomes. History detail routes are intentionally unavailable so background timeline prefetch fails fixture readiness.
+
 Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInteraction` in `ui/types.ts`. Ownership follows `control::observe_ownership` and `claude_notify::ownership`; request routing follows `claude_notify::routing`. No fixture contains real task content or provider identities.
 
 | Scenario | Target |

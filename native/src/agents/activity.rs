@@ -21,6 +21,7 @@ pub(super) struct Monitor {
 #[derive(Default)]
 pub(super) struct TurnClock {
     offset: u64,
+    status: Option<String>,
     started_at: Value,
     turn_id: String,
     turns: HashSet<String>,
@@ -332,15 +333,45 @@ fn scan_roots(
     active
 }
 
-// Keep session metadata and turn configuration independently of the headline tail. Each
-// complete record is scanned once while a transcript remains active.
-pub(super) fn conversation_metadata(thread: &Value, clock: &mut TurnClock) -> Result<Value> {
-    read_clock(
-        crate::control::open_persisted_history(thread)?,
-        "codex",
-        clock,
-    )?;
-    Ok(json!({"dispatchSummary":clock.dispatch_summary,"turnCount":clock.turns.len()}))
+// List metadata is bounded independently from the active transcript clock.
+#[derive(Default)]
+pub(super) struct ConversationMetadata {
+    stamp: Option<Stamp>,
+    row: Value,
+}
+
+pub(super) fn conversation_metadata(
+    thread: &Value,
+    cached: &mut ConversationMetadata,
+) -> Result<Value> {
+    let mut file = crate::control::open_persisted_history(thread)?;
+    let metadata = file.metadata().map_err(|e| e.to_string())?;
+    let stamp = Stamp::from_metadata(&metadata);
+    if cached.stamp.as_ref() == Some(&stamp) {
+        return Ok(cached.row.clone());
+    }
+    // Listing must never replay a whole rollout or build a detail timeline.
+    // A partial tail can report explicit outcomes and the latest model, but
+    // cannot claim an exact total turn count or an earlier thread setting.
+    let offset = metadata.len().saturating_sub(128 * 1024);
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    file.take(128 * 1024)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    let mut lines = bytes.split_inclusive(|byte| *byte == b'\n');
+    if offset > 0 {
+        lines.next();
+    }
+    let records: Vec<Value> = lines
+        .filter(|line| line.last() == Some(&b'\n'))
+        .filter_map(|line| serde_json::from_slice(line).ok())
+        .collect();
+    let row = conversation_projection(&records, offset > 0);
+    cached.stamp = Some(stamp);
+    cached.row = row.clone();
+    Ok(row)
 }
 
 fn turn_started_at(path: &Path, agent: &str, clock: &mut TurnClock) -> Result<Value> {
@@ -366,72 +397,92 @@ fn read_clock(mut file: File, agent: &str, clock: &mut TurnClock) -> Result<Valu
             break;
         }
         if let Ok(record) = serde_json::from_slice::<Value>(&line) {
-            if record["isSidechain"] == true {
-                clock.offset += count as u64;
-                continue;
-            }
-            if clock.created_at.is_null() && record["timestamp"].is_string() {
-                clock.created_at = record["timestamp"].clone();
-            }
-            if let Some(project) = record["cwd"]
-                .as_str()
-                .or_else(|| record["payload"]["cwd"].as_str())
-            {
-                clock.project = Some(project.into());
-            }
-            let mut projection = Timeline::default();
-            projection.turn = clock.turn_id.clone();
-            projection.backfill_transcript(agent, std::slice::from_ref(&record));
-            if agent == "claude" {
-                clock.native_title.observe(&record);
-                clock.title = clock.native_title.value().unwrap_or_default().into();
-            } else if clock.title.is_empty() {
-                clock.title = projection.prompt_headline();
-            }
-            if agent == "codex"
-                && record["type"] == "event_msg"
-                && record["payload"]["type"] == "thread_settings_applied"
-            {
-                clock.thread_tier = record["payload"]["thread_settings"]["service_tier"].clone();
-            }
-            if let Some((turn, start)) = projection.transcript_turn_start() {
-                clock.started_at = json!(start);
-                clock.turn_tier = clock.thread_tier.clone();
-                if clock.turn_id != turn {
-                    clock.dispatch_summary = None;
-                }
-                clock.turn_id = turn.into();
-                clock.turns.insert(turn.into());
-            }
-            if let Some(summary) = projection.turn_dispatch_summaries.get(&clock.turn_id) {
-                clock.dispatch_summary = Some(summary.clone());
-                clock
-                    .turn_dispatch_summaries
-                    .insert(clock.turn_id.clone(), summary.clone());
-            }
-            if agent == "codex" && record["type"] == "turn_context" {
-                if let Some(turn) = record["payload"]["turn_id"].as_str() {
-                    if clock.turn_id != turn {
-                        clock.turn_tier = clock.thread_tier.clone();
-                    }
-                    clock.turn_id = turn.into();
-                    clock.turns.insert(turn.into());
-                    let context = &record["payload"];
-                    clock.dispatch_summary = crate::egress::dispatch_summary(&json!({
-                        "model":context["model"],"effort":context["effort"],
-                        "serviceTier":context["service_tier"],"threadServiceTier":clock.turn_tier
-                    }));
-                    if let Some(summary) = &clock.dispatch_summary {
-                        clock
-                            .turn_dispatch_summaries
-                            .insert(turn.into(), summary.clone());
-                    }
-                }
-            }
+            observe_clock(&record, agent, clock);
         }
         clock.offset += count as u64;
     }
     Ok(clock.started_at.clone())
+}
+
+fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
+    if record["isSidechain"] == true {
+        return;
+    }
+    if clock.created_at.is_null() && record["timestamp"].is_string() {
+        clock.created_at = record["timestamp"].clone();
+    }
+    if let Some(project) = record["cwd"]
+        .as_str()
+        .or_else(|| record["payload"]["cwd"].as_str())
+    {
+        clock.project = Some(project.into());
+    }
+    let mut projection = Timeline::default();
+    projection.turn = clock.turn_id.clone();
+    projection.backfill_transcript(agent, std::slice::from_ref(record));
+    if agent == "claude" {
+        clock.native_title.observe(record);
+        clock.title = clock.native_title.value().unwrap_or_default().into();
+    } else if clock.title.is_empty() {
+        clock.title = projection.prompt_headline();
+    }
+    if agent == "codex"
+        && record["type"] == "event_msg"
+        && record["payload"]["type"] == "thread_settings_applied"
+    {
+        clock.thread_tier = record["payload"]["thread_settings"]["service_tier"].clone();
+    }
+    if let Some((turn, start)) = projection.transcript_turn_start() {
+        clock.status = None;
+        clock.started_at = json!(start);
+        clock.turn_tier = clock.thread_tier.clone();
+        if clock.turn_id != turn {
+            clock.dispatch_summary = None;
+        }
+        clock.turn_id = turn.into();
+        clock.turns.insert(turn.into());
+    }
+    if !projection.status.is_empty() {
+        clock.status = Some(projection.status.clone());
+    } else if !projection.prompt_headline().is_empty() {
+        clock.status = None;
+    }
+    if let Some(summary) = projection.turn_dispatch_summaries.get(&clock.turn_id) {
+        clock.dispatch_summary = Some(summary.clone());
+        clock
+            .turn_dispatch_summaries
+            .insert(clock.turn_id.clone(), summary.clone());
+    }
+    if agent == "codex" && record["type"] == "turn_context" {
+        if let Some(turn) = record["payload"]["turn_id"].as_str() {
+            if clock.turn_id != turn {
+                clock.status = None;
+                clock.turn_tier = clock.thread_tier.clone();
+            }
+            clock.turn_id = turn.into();
+            clock.turns.insert(turn.into());
+            let context = &record["payload"];
+            clock.dispatch_summary = crate::egress::dispatch_summary(&json!({
+                "model":context["model"],"effort":context["effort"],
+                "serviceTier":context["service_tier"],"threadServiceTier":clock.turn_tier
+            }));
+            if let Some(summary) = &clock.dispatch_summary {
+                clock
+                    .turn_dispatch_summaries
+                    .insert(turn.into(), summary.clone());
+            }
+        }
+    }
+}
+
+pub(super) fn conversation_projection(records: &[Value], partial: bool) -> Value {
+    let mut clock = TurnClock::default();
+    for record in records {
+        observe_clock(record, "codex", &mut clock);
+    }
+    json!({"dispatchSummary":clock.dispatch_summary,
+        "turnCount":if partial { None } else { Some(clock.turns.len()) },
+        "status":clock.status,"metadataPartial":partial})
 }
 
 pub(super) fn agent_summary(state: &Value) -> Option<Value> {

@@ -1,0 +1,17 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "tasks": [],
+  "panel": {
+    "kind": "agent",
+    "id": "claude"
+  },
+  "panelHistory": true,
+  "historyRows": 240,
+  "metadataOnlyHistory": true,
+  "quota": true
+}

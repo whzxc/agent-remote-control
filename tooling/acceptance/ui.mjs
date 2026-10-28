@@ -87,6 +87,17 @@ try {
           }
           if (screenshots) await page.screenshot({ path: path.join(out, `${key}-states.png`), animations: 'disabled' });
         }
+        if (fixture.metadataOnlyHistory) {
+          // Regression: opening and paging history prefetched one full timeline per row and stalled list rendering.
+          const started = performance.now();
+          for (const count of [20, 40, 60]) {
+            const row = page.getByRole('button', { name: new RegExp(`^Review project change ${count} ·`) });
+            await row.waitFor();
+            await row.scrollIntoViewIfNeeded();
+          }
+          row.historyPaginationMs = Math.round(performance.now() - started);
+          await page.getByRole('button', { name: /^Review project change 1 ·/ }).scrollIntoViewIfNeeded();
+        }
         if (name === 'agent-panel-unread') {
           // Regression: completed unread tasks were mixed into date groups instead of appearing between Running and Today.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
