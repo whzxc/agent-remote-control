@@ -29,8 +29,9 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   const { snapshot } = subscriptions.use(), { status } = connector.use();
   const activity = agentActivity.use().snapshot;
   const [error, setError] = useState(""), [refreshing, setRefreshing] = useState(false);
-  const provider = accountId ? account ? accountQuotaProvider(agent.agent, account.quota) : undefined
-    : snapshot?.settings.enabled ? snapshot.providers.find(p => p.agentIds.includes(agent.agent) && p.eligible) : undefined;
+  const accountQuota = account && (accountId !== undefined || account.quota.windows.length > 0);
+  const provider = accountQuota ? accountQuotaProvider(agent.agent, account.quota)
+    : !accountId && snapshot?.settings.enabled ? snapshot.providers.find(p => p.agentIds.includes(agent.agent) && p.eligible) : undefined;
   const title = account?.alias ?? name(agent);
   const sessions = activity?.agents[agent.agent]?.sessions.filter(session => !accountId || (account
     ? accountOwns(account, session.agentAccountId ?? session.dispatchSummary?.agentAccountId)
@@ -40,14 +41,14 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   async function refresh() {
     if (!provider) return;
     setRefreshing(true); setError("");
-    try { if (accountId) await refreshAccounts(); else await refreshSubscription(provider.providerId); }
+    try { if (accountQuota) await refreshAccounts(); else await refreshSubscription(provider.providerId); }
     catch (error) { setError(String(error)); }
     finally { setRefreshing(false); }
   }
   return <section className="agent-panel-layer agent-overview-layer">
     <header className="dialog-header agent-panel-header">
-      {platformAvailable ? <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual /></Button>
-        : <AgentQuotaIcon agent={agent.agent} quota={accountId ? account?.quota ?? null : undefined} dual />}
+      {platformAvailable ? <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual /></Button>
+        : <AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual />}
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
@@ -79,8 +80,11 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const selected = agentPanel.use()!, { error } = agentActivity.use();
-  const accountState = useAccounts(), account = accountState.items.find(account => accountOwns(account, selected.accountId));
+  const accountState = useAccounts();
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
+  const account = accountState.items.find(account => accountOwns(account, selected.accountId)) ?? (linkedAccounts.length === 1 ? linkedAccounts[0] : undefined);
+  // A single-account platform opens its Agent history, including native rows without ownership metadata.
+  const scopedAccountId = !accountState.loading && linkedAccounts.length === 1 ? undefined : selected.accountId;
   useLayoutEffect(() => {
     if (selected.platform && !selected.closing && !accountState.loading && linkedAccounts.length <= 1) selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: linkedAccounts[0]?.id });
   }, [selected.platform, selected.closing, accountState.loading, linkedAccounts.length, linkedAccounts[0]?.id, agent.agent]);
@@ -109,7 +113,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
       <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
         {selected.platform ? <AgentPlatformView agent={agent} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
-          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={selected.accountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
         initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>

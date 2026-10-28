@@ -16,7 +16,7 @@ async function harness() {
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, { window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,
     HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement, HTMLSelectElement: window.HTMLSelectElement,
-    Node: window.Node, NodeFilter: window.NodeFilter, DocumentFragment: window.DocumentFragment,
+    Node: window.Node, NodeFilter: window.NodeFilter, NodeList: window.NodeList, HTMLCollection: window.HTMLCollection, SVGElement: window.SVGElement, DocumentFragment: window.DocumentFragment,
     MutationObserver: window.MutationObserver, CustomEvent: window.CustomEvent, Event: window.Event,
     DOMRect: window.DOMRect, CSS: window.CSS, localStorage: window.localStorage,
     ResizeObserver: Observer, matchMedia: window.matchMedia, getComputedStyle: window.getComputedStyle.bind(window),
@@ -287,6 +287,68 @@ test('native history preserves confirmed, failed and unknown outcomes in its acc
     await act(async () => root.render(h(UiProvider, null, h(Conversations, { agent: 'claude', active: true }))));
     for (const [i, state] of ['unknown', 'failed', 'done'].entries()) {
       assert.equal(page.getByRole('button', { name: `History ${i} · ${t('timeline.open')}` }).getAttribute('aria-description'), t(`detail.state.${state}`));
+    }
+  } finally { await fixture.close(); }
+});
+
+test('single-account Agent panels retain native history and shared quota without weakening multi-account scope', async () => {
+  // Regression: single-account panels filtered out unattributed Codex/DeepSeek history and hid the shared Cursor quota source.
+  const fixture = await harness();
+  try {
+    const { server, root } = fixture;
+    const { default: AgentPanel } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
+    const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
+    const { subscriptions } = await server.ssrLoadModule('/ui/state/subscriptions.ts');
+    const { selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    const { quotaValue } = await server.ssrLoadModule('/ui/subscriptions/displayPreferences.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const page = within(document.body), now = new Date().toISOString();
+    const quotaWindow = (usedPercent: number) => ({ id: 'weekly', poolId: 'main', label: 'weekly', usedPercent, resetsAt: new Date(Date.now() + 86400000).toISOString() });
+    for (const [agent, multiple] of [['codex', false], ['dsh', false], ['cursor', false], ['claude', true]] as const) {
+      const account = { id: `account-${agent}`, alias: `Account ${agent}`, provider: agent, identityKey: `${agent}:example`, sources: [],
+        agentProfiles: [{ agent, profileId: `profile-${agent}`, kind: 'cli-profile', state: 'signed-in', default: true }],
+        notifications: { state: 'n/a', sessions: [] }, quota: { state: agent === 'codex' ? 'ready' : 'unavailable', windows: agent === 'codex' ? [quotaWindow(37)] : [] } };
+      const peer = { ...account, id: 'account-other', alias: 'Other account' };
+      const items = multiple ? [account, peer] : [account];
+      const history = [{ id: 'unattributed', title: 'Unattributed native history' }, { id: 'owned', title: 'Selected account history', agentAccountId: account.id }, { id: 'foreign', title: 'Other account history', agentAccountId: peer.id }]
+        .map(row => ({ ...row, source: 'native', createdAt: now }));
+      const shared = { providerId: `shared-${agent}`, agentId: agent, agentIds: [agent], name: agent, eligible: true, state: 'ready', refreshing: false,
+        observedAt: now, windows: [quotaWindow(53)], displayWindowId: 'weekly', blockedPoolIds: [], hasCredential: true, acceptsKey: false };
+      let finishAccountLoad: (() => void) | undefined;
+      globalThis.fetch = async input => {
+        const route = String(input);
+        if (multiple && route.endsWith('/accounts')) return new Promise<Response>(resolve => { finishAccountLoad = () => resolve(new Response(JSON.stringify({ accounts: items, login: null }))); });
+        return new Response(JSON.stringify(route.endsWith('/accounts') ? { accounts: items, login: null }
+          : items.find(a => route.endsWith(`/accounts/${a.id}`)) ?? (route.endsWith('/agents/conversations') ? { data: history, nextCursor: null } : {})));
+      };
+      await act(async () => {
+        accounts.set({ items: multiple ? [] : items, login: null, loading: multiple, error: '' });
+        subscriptions.set({ snapshot: { instanceId: 'fixture', revision: 1, settings: { enabled: true }, providers: [shared] }, error: '' });
+        selectAgentPanel({ type: 'agent', agent, accountId: account.id });
+        root.render(h(UiProvider, null, h(AgentPanel, { key: agent, agent: { agent, installed: true, enabled: true }, expanded: false, onSettings() {}, onPanelFrame() {}, onToggleWidth() {} })));
+      });
+      if (multiple) {
+        const pendingDialog = within(page.getByRole('dialog'));
+        assert.equal(pendingDialog.queryByRole('button', { name: `Unattributed native history · ${t('timeline.open')}` }), null);
+        assert.equal(pendingDialog.queryByRole('button', { name: `Other account history · ${t('timeline.open')}` }), null);
+        assert.ok(finishAccountLoad);
+        await act(async () => finishAccountLoad!());
+      }
+      const dialog = within(page.getByRole('dialog'));
+      const row = (title: string) => dialog.queryByRole('button', { name: `${title} · ${t('timeline.open')}`, exact: true });
+      assert.ok(row('Selected account history'));
+      if (multiple) {
+        assert.equal(row('Unattributed native history'), null);
+        assert.equal(row('Other account history'), null);
+        assert.equal(dialog.queryByRole('meter'), null, 'a different account quota must not fill the selected account');
+      } else {
+        assert.ok(row('Unattributed native history'));
+        assert.ok(row('Other account history'), 'the single-account entry exposes Agent-wide history without assigning ownership');
+        const expected = agent === 'codex' ? account.quota.windows[0] : shared.windows[0];
+        assert.equal(dialog.getByRole('meter').getAttribute('aria-valuenow'), String(quotaValue(expected)));
+      }
+      await act(async () => root.render(null));
     }
   } finally { await fixture.close(); }
 });
