@@ -1,8 +1,9 @@
 import { navigation } from "../state/navigation";
+import { usePrivacy, setPrivacy } from "../state/privacy";
 import { notificationsPreference } from "../state/store";
 import { topologyMode } from "../topology/accountState";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Monitor, Sun, Moon } from "lucide-react";
+import { Monitor, Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { t, language, languageOptions, setLanguage } from "../i18n";
 import { theme, themeColor, themeColors, type Theme } from "../theme";
 import { api } from "../api";
@@ -40,7 +41,7 @@ export default function SettingsPage() {
     }),
     [appearanceReady, setAppearanceReady] = useState(false),
     [service, setService] = useState<Service>();
-  const notifications = notificationsPreference.use(), topology = topologyMode.use();
+  const notifications = notificationsPreference.use(), topology = topologyMode.use(), privateMode = usePrivacy();
   const mac = isDesktop && navigator.platform.toLowerCase().includes("mac");
   useEffect(() => {
     if (mac)
@@ -232,6 +233,12 @@ export default function SettingsPage() {
           <SingleChoice label={t("topology.mode")} value={topology}
             options={[{ value: "tree", label: t("topology.tree") }, { value: "flat", label: t("topology.flat") }]}
             onChange={value => topologyMode.set(value as "tree" | "flat")} />
+        </Row>
+        <Row title={t('accounts.privacy')}>
+          <SingleChoice iconOnly label={t('accounts.privacy')} value={privateMode ? 'hidden' : 'visible'}
+            onChange={value => setPrivacy(value === 'hidden')}
+            options={[{ value: 'visible', label: t('accounts.privacy.show'), icon: Eye },
+              { value: 'hidden', label: t('accounts.privacy.hide'), icon: EyeOff }]} />
         </Row>
       </Group>
       <Group title={t("network")}>

@@ -12,7 +12,6 @@ import { sourceDate } from '../sourcePresentation';
 import { navigation } from '../state/navigation';
 import { openOnboarding } from '../state/onboarding';
 import { Button, Dialog, Empty, Field, HoverScope, Icon, Input, Notice, Status, Switch, Tag } from './ui';
-import { PrivacyToggle } from './Privacy';
 import { Sensitive, SensitiveIdentity } from './Sensitive';
 import { AccountNotifications, AccountQuota, AccountSharedNotice } from './AccountCards';
 import AddAccount from './AddAccount';
@@ -22,7 +21,7 @@ import MergeAccounts from './MergeAccounts';
 
 export function AccountsActions() {
   const { items } = accounts.use();
-  return <><span className="muted small">{t('accounts.count', { count: items.length })}</span><PrivacyToggle /><Button variant="primary" onClick={() => navigation.set(old => ({ ...old, addAccount: true }))}>{t('accounts.add')}</Button></>;
+  return <><span className="muted small">{t('accounts.count', { count: items.length })}</span><Button variant="primary" onClick={() => navigation.set(old => ({ ...old, addAccount: true }))}>{t('accounts.add')}</Button></>;
 }
 export default function AccountsPage() {
   const state = useAccounts(), nav = navigation.use();

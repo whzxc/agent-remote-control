@@ -92,7 +92,7 @@ The bottom-left capsule becomes horizontal: Tasks, Records, Remote link, Account
 
 ### Accounts workspace
 
-- Title bar: Accounts, count line, Privacy toggle, primary Add account, close.
+- Title bar: Accounts, count line, primary Add account, close.
 - Left list (about 330px) grouped by known provider family or platform. List and detail scroll independently below the fixed title bar. Rows use platform logos, alias, an email line only when present, role chips SRC / AGENT, and a warning dot when notifications or a profile need attention. Row height follows its content.
 - Detail: header with platform logo, inline-editable alias, `email · org`, plan pill, and Merge accounts. The merge dialog selects confirmed account IDs, the resulting alias and an optional shared quota provider.
 - Where this account works: two cards. Control source lists connections with state dots and last seen, plus Open source panel. Agent shows profile state and kind, a Default for new dispatches switch and Sign in again. An empty side says so and offers to add that role.
@@ -107,14 +107,14 @@ Centered dialog, no scrim, three steps: Account type (Claude, ChatGPT / Codex, A
 
 ### Privacy mode
 
-One persisted preference, toggled from the Accounts title bar and the source panel header. It blurs emails, organizations, identity keys, session names and connection addresses everywhere they render. `cli app snapshot` and UI scenario screenshots default to privacy on. The topology shows aliases only, so it needs no blurring.
+One persisted preference, selected in Settings > General through two icon options: show sensitive information (Eye) or hide sensitive information (EyeOff). Accounts and source-panel headers have no privacy control. It blurs emails, organizations, identity keys, session names and connection addresses everywhere they render. `cli app snapshot` and UI scenario screenshots default to privacy on. The topology shows aliases only, so it needs no blurring.
 
 ### Control source panel
 
 One side panel replaces the source panel layer one plus the Remote link source detail. Remote link keeps the source and connection lists; opening a source opens this panel.
 
-- Header: product icon with a small account-initial badge, `Platform · Alias`, email only, connection enable switch, privacy toggle, close. Chips: state, connection, notification state.
-- Tabs: Activity (needs you / running / today counts, recent dispatches with pending rows first), Account (identity card, `whoami` line, link to the same-identity Agent with quota, notification binding with Copy bind prompt and Bind manually), Connection (connection card with Change, address copy, authorized / last seen / client reports / tools facts, collapsed Advanced with product correction, Disconnect at the bottom).
+- Header: product icon, `Platform · Alias`, email only, connection enable switch, width control and close. There is no account-initial badge, state-chip strip or shared-connection helper line.
+- Tabs: Activity (stacked nonempty groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings), Account (identity card, `whoami` line, link to the same-identity Agent with quota, notification binding with Copy bind prompt and Bind manually), Connection (connection card with Change, address copy, authorized / last seen / client reports / tools facts, collapsed Advanced with product correction, Disconnect at the bottom).
 
 ### Topology
 

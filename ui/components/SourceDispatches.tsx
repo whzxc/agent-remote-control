@@ -2,17 +2,20 @@ import { useAppNow } from "../state/appEnvironment";
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { api } from "../api";
-import { t } from "../i18n";
+import { locale, t } from "../i18n";
 import { tasks, type TaskRuntime } from "../state/tasks";
+import { trackedActivity } from "../state/activityBubbles";
+import { activitySections } from "../state/activitySections";
 import { agentActivity } from "../state/activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, isLatestDispatch } from "../state/sourceDispatch";
 import { PhaseTile } from "./activity";
-import { Icon, Notice, Tag } from "./ui";
+import { Icon, Notice } from "./ui";
 
-export default function SourceDispatches({ sourceId, summary = false }: { sourceId: string; summary?: boolean }) {
-  const now = useAppNow(60_000);
+export default function SourceDispatches({ sourceId }: { sourceId: string }) {
+  const now = useAppNow(60_000), language = locale.use();
+  const tracked = trackedActivity.use();
   const { records, error } = tasks.use(), { snapshot } = agentActivity.use();
   const [runtimes, setRuntimes] = useState<Record<string, TaskRuntime>>({});
   const [visible, setVisible] = useState(8);
@@ -20,10 +23,23 @@ export default function SourceDispatches({ sourceId, summary = false }: { source
   const stateOf = (record: typeof records[number]) => {
     const id = record.threadId || record.task.threadId;
     const latest = isLatestDispatch(record, records);
-    return dispatchState(record, latest && id ? runtimes[id] ?? record.runtime : undefined, latest ? snapshot?.agents.codex?.sessions.find(s => s.id === id) : undefined);
+    return dispatchState(record, latest && id ? runtimes[id] ?? record.runtime : undefined, latest ? snapshot?.agents[record.agent ?? "codex"]?.sessions.find(s => s.id === id) : undefined);
   };
-  const dispatches = sourceDispatches(records, sourceId).sort((a, b) => Number(stateOf(b) === 'pending') - Number(stateOf(a) === 'pending'));
-  const rows = dispatches.slice(0, visible);
+  const unreadOf = (record: typeof records[number]) => {
+    if (!isLatestDispatch(record, records)) return;
+    const id = record.threadId || record.task.threadId;
+    return tracked[record.agent ?? 'codex']?.find(session => session.id === id
+      && session.endedAt !== undefined && session.readAt === undefined
+      && (!record.turnId || !session.turnId || record.turnId === session.turnId));
+  };
+  const dispatches = sourceDispatches(records, sourceId);
+  const sections = activitySections(dispatches, now, record => Date.parse(record.createdAt) || 0, record => {
+    const state = stateOf(record);
+    return state === 'pending' ? 'attention' : state === 'running' ? 'running' : unreadOf(record) ? 'unread' : undefined;
+  });
+  const rows = sections.flatMap(section => section.entries).slice(0, visible);
+  const visibleIds = new Set(rows.map(record => record.requestId));
+  useEffect(() => { setRuntimes({}); setVisible(8); }, [sourceId]);
   useEffect(() => {
     const marker = more.current;
     if (!marker || visible >= dispatches.length) return;
@@ -36,7 +52,6 @@ export default function SourceDispatches({ sourceId, summary = false }: { source
   const ids = [...new Set(rows.filter(r => isLatestDispatch(r, records)).map(r => r.threadId || r.task.threadId).filter((id): id is string => !!id))];
   useEffect(() => {
     let stopped = false, reading = false;
-    setRuntimes({});
     const read = async () => {
       if (reading || document.hidden) return;
       reading = true;
@@ -54,29 +69,39 @@ export default function SourceDispatches({ sourceId, summary = false }: { source
     return () => { stopped = true; clearInterval(timer); };
   }, [sourceId, ids.slice().sort().join(",")]);
   return <div className="source-dispatch-list">
-    {summary && <div className="account-chips">{['pending', 'running', 'today'].map(state => <Tag key={state}>{t(`accounts.count.${state}`, { count: dispatches.filter(record => state === 'today' ? new Date(record.createdAt).toDateString() === new Date(now).toDateString() : stateOf(record) === state).length })}</Tag>)}</div>}
     {error && <Notice>{error}</Notice>}
-    {rows.map(record => {
-      const id = record.threadId || record.task.threadId;
-      const latest = isLatestDispatch(record, records);
-      const live = latest ? snapshot?.agents.codex?.sessions.find(s => s.id === id) : undefined;
-      const runtime = latest && id ? runtimes[id] ?? record.runtime : undefined;
-      const state = dispatchState(record, runtime, live);
-      const title = record.task.title || live?.title || runtime?.title || record.task.prompt.split("\n")[0] || t("taskRequest");
-      const phase = state === "pending" ? "interaction" : state === "running" ? live?.phase ?? "thinking" : "idle";
-      const canOpen = !!id && (state === "running" || state === "pending") && (live || runtime && !runtime.stale);
-      return <button key={record.requestId} className="source-dispatch-row" disabled={!canOpen} data-state={state} onClick={() => {
-        if (!id || !canOpen) return;
-        selectAgentPanel({ type: "task", agent: "codex", session: live ? { ...live, orderAt: Date.parse(record.createdAt) } : {
-          id, source: "codex-thread", title, phase, headline: title, phaseSince: null, timeline: true,
-          project: record.task.project || record.task.directory, startedAt: record.createdAt, orderAt: Date.parse(record.createdAt),
-        } });
-        navigation.set(old => ({ ...old, page: "overview" }));
-      }}>
-        <PhaseTile phase={phase} completed={state === "completed"} animated={false} />
-        <span><strong>{title}</strong><span className="source-dispatch-meta">{record.agent ?? "Codex"} · <span>{t(`sourcePanel.${state}`)}</span></span></span>
-        {canOpen && <Icon icon={ChevronRight} />}
-      </button>;
+    {sections.map(({ id: groupId, date, entries }) => {
+      const shown = entries.filter(record => visibleIds.has(record.requestId));
+      if (!shown.length) return null;
+      const label = date === undefined ? t(`agentPanel.${groupId}`) : new Date(date).toLocaleDateString(language, { month: 'short', day: 'numeric', weekday: 'short' });
+      return <section className="agent-task-section" key={groupId} aria-label={label}>
+        <h3 className="agent-task-section-heading" data-attention={groupId === 'attention' || undefined}>
+          {label}<span className="agent-section-count">{entries.length}</span>
+        </h3>
+        <div className="agent-task-section-rows">{shown.map(record => {
+          const id = record.threadId || record.task.threadId;
+          const agent = record.agent ?? "codex", unread = unreadOf(record);
+          const latest = isLatestDispatch(record, records);
+          const live = latest ? snapshot?.agents[record.agent ?? "codex"]?.sessions.find(s => s.id === id) : undefined;
+          const runtime = latest && id ? runtimes[id] ?? record.runtime : undefined;
+          const state = dispatchState(record, runtime, live);
+          const title = record.task.title || live?.title || runtime?.title || record.task.prompt.split("\n")[0] || t("taskRequest");
+          const phase = state === "pending" ? "interaction" : state === "running" ? live?.phase ?? "thinking" : "idle";
+          const canOpen = !!id && (unread || (state === "running" || state === "pending") && (live || runtime && !runtime.stale));
+          return <button key={record.requestId} className="source-dispatch-row" disabled={!canOpen} data-state={state} onClick={() => {
+            if (!id || !canOpen) return;
+            selectAgentPanel({ type: "task", agent, session: live ? { ...live, orderAt: Date.parse(record.createdAt) } : unread ? { ...unread, orderAt: Date.parse(record.createdAt) } : {
+              id, source: "codex-thread", title, phase, headline: title, phaseSince: null, timeline: true,
+              project: record.task.project || record.task.directory, startedAt: record.createdAt, orderAt: Date.parse(record.createdAt),
+            } });
+            navigation.set(old => ({ ...old, page: "overview" }));
+          }}>
+            <PhaseTile phase={phase} completed={state === "completed"} animated={false} />
+            <span><strong>{title}</strong><span className="source-dispatch-meta">{record.agent ?? "Codex"} · <span>{t(`sourcePanel.${state}`)}</span></span></span>
+            {canOpen && <Icon icon={ChevronRight} />}
+          </button>;
+        })}</div>
+      </section>;
     })}
     {!rows.length && <p className="timeline-meta">{t("sourcePanel.noRecords")}</p>}
     {visible < dispatches.length && <div ref={more} className="source-dispatch-more" aria-hidden="true" />}

@@ -9,6 +9,7 @@ import { agentActivity } from "../state/activity";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
 import type { TrackedActivity } from "../state/activityModel";
+import { activitySections } from "../state/activitySections";
 import { taskState } from "../state/taskProjection";
 import { ActivityBubbleContent } from "./ActivityBubbles";
 import { Button, Empty, Loading, Notice } from "./ui";
@@ -100,36 +101,21 @@ export default function AgentConversations({ agent, account, accountId, active }
       conversation: history?.conversation || session.source !== "transcript",
     });
   }
-  const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
-  const yesterday = new Date(midnight); yesterday.setDate(yesterday.getDate() - 1);
-  const week = new Date(midnight); week.setDate(week.getDate() - (week.getDay() + 6) % 7);
-  type Group = { id: string; label: string; entries: TrackedActivity[] };
-  const groups = Object.fromEntries(["attention", "running", "unread", "today", "yesterday", "earlier"].map(id => [id, { id, label: t(`agentPanel.${id}`), entries: [] as TrackedActivity[] }])) as Record<string, Group>;
-  const dates = new Map<number, Group>();
   const visibleSessions = [...sessions.values()].filter(belongs).sort((a, b) => b.orderAt - a.orderAt || b.id.localeCompare(a.id));
-  for (const session of visibleSessions) {
-    let group = live.has(session.id) ? groups[session.interaction ? "attention" : "running"]
-      : unread.has(session.id) ? groups.unread
-      : session.orderAt >= midnight.getTime() ? groups.today
-      : session.orderAt >= yesterday.getTime() ? groups.yesterday : groups.earlier;
-    if (!live.has(session.id) && group === groups.earlier && session.orderAt >= week.getTime()) {
-      const date = new Date(session.orderAt); date.setHours(0, 0, 0, 0);
-      const key = date.getTime();
-      group = dates.get(key) ?? { id: `date:${key}`, label: date.toLocaleDateString(language, { month: "short", day: "numeric", weekday: "short" }), entries: [] };
-      dates.set(key, group);
-    }
-    group.entries.push(session);
-  }
-  const sections = [groups.attention, groups.running, groups.unread, groups.today, groups.yesterday, ...dates.values(), groups.earlier];
+  const sections = activitySections(visibleSessions, now, session => session.orderAt,
+    session => live.has(session.id) ? session.interaction ? 'attention' : 'running' : unread.has(session.id) ? 'unread' : undefined);
   const empty = !loading && !error && !visibleSessions.length && !next;
   return <div className="activity-task-list agent-conversations" data-empty={empty || undefined}>
-    {sections.map(({ id, label, entries }) => entries.length > 0 && <section className="agent-task-section" key={id} aria-label={label}>
-      <h3 className="agent-task-section-heading" data-attention={id === "attention" || undefined}>
-        {label}<span className="agent-section-count">{entries.length}</span>
-      </h3>
-      <div className="agent-task-section-rows">{entries.map((session, index) => <ConversationRow key={session.id} agent={agent}
-        session={session} live={live.has(session.id)} now={now} index={index} />)}</div>
-    </section>)}
+    {sections.map(({ id, date, entries }) => {
+      const label = date === undefined ? t(`agentPanel.${id}`) : new Date(date).toLocaleDateString(language, { month: 'short', day: 'numeric', weekday: 'short' });
+      return entries.length > 0 && <section className="agent-task-section" key={id} aria-label={label}>
+        <h3 className="agent-task-section-heading" data-attention={id === "attention" || undefined}>
+          {label}<span className="agent-section-count">{entries.length}</span>
+        </h3>
+        <div className="agent-task-section-rows">{entries.map((session, index) => <ConversationRow key={session.id} agent={agent}
+          session={session} live={live.has(session.id)} now={now} index={index} />)}</div>
+      </section>;
+    })}
     {loading && <Loading label={t("timeline.loading")} />}
     {error && <Notice action={<Button onClick={() => setRetry(value => value + 1)}>{t("retry")}</Button>}>{error}</Notice>}
     {empty && <Empty icon={MessagesSquare}>{t("agentPanel.noConversations")}</Empty>}

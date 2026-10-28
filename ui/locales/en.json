@@ -1243,6 +1243,8 @@
   "accounts.add": "Add account",
   "accounts.count": "{count} accounts",
   "accounts.privacy": "Privacy mode",
+  "accounts.privacy.show": "Show sensitive information",
+  "accounts.privacy.hide": "Hide sensitive information",
   "accounts.hidden": "Hidden in privacy mode",
   "accounts.type": "Account type",
   "accounts.signin": "Sign in",

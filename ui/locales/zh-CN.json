@@ -1243,6 +1243,8 @@
   "accounts.add": "添加账户",
   "accounts.count": "{count} 个账户",
   "accounts.privacy": "隐私模式",
+  "accounts.privacy.show": "显示敏感信息",
+  "accounts.privacy.hide": "隐藏敏感信息",
   "accounts.hidden": "隐私模式下已隐藏",
   "accounts.type": "账户类型",
   "accounts.signin": "登录",

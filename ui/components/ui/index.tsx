@@ -346,6 +346,7 @@ export function SingleChoice({
   label,
   disabled,
   swatches = false,
+  iconOnly = false,
   compact = false,
   cards = false,
   navigation = false,
@@ -357,6 +358,7 @@ export function SingleChoice({
   label: string;
   disabled?: boolean;
   swatches?: boolean;
+  iconOnly?: boolean;
   compact?: boolean;
   cards?: boolean;
   navigation?: boolean;
@@ -380,7 +382,7 @@ export function SingleChoice({
     if (container.current) observer.observe(container.current);
     if (measure.current) observer.observe(measure.current);
     return () => observer.disconnect();
-  }, [options]);
+  }, [options, iconOnly]);
   return (
     <div
       ref={container}
@@ -391,7 +393,7 @@ export function SingleChoice({
         <div ref={measure} className="choice-measure" aria-hidden="true">
           {options.map((option) => (
             <span key={option.value}>
-              {option.icon && <Icon icon={option.icon} />} {option.label}
+              {option.icon && <Icon icon={option.icon} />} {!iconOnly && option.label}
             </span>
           ))}
         </div>
@@ -413,7 +415,7 @@ export function SingleChoice({
               className="choice-option"
               data-hover-target={navigation ? option.value : undefined}
               aria-label={option.label}
-              title={option.disabled ? option.description : undefined}
+              title={iconOnly ? option.label : option.disabled ? option.description : undefined}
               style={
                 option.color
                   ? ({ "--swatch": option.color } as CSSProperties)
@@ -426,7 +428,7 @@ export function SingleChoice({
                 <>
                   {option.graphic}
                   {option.icon && <Icon icon={option.icon} />}
-                  <span>{option.label}{(cards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>
+                  {!iconOnly && <span>{option.label}{(cards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
                 </>
               )}
             </RadioGroup.Item>

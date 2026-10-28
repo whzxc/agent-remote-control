@@ -1530,8 +1530,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .account-steps { display: flex; list-style: none; gap: var(--space-3); padding: 0; margin: 0 var(--setup-spacing); flex-wrap: wrap; color: var(--text-secondary); }
 .account-steps [aria-current="step"] { color: var(--accent); font-weight: 650; }
 .source-account-header { flex-wrap: wrap; gap: 12px; }
-.source-account-brand { position: relative; flex-shrink: 0; }
-.source-account-badge { position: absolute; bottom: -4px; right: -6px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); font-size: 10px; }
+.source-account-brand { flex-shrink: 0; }
 .source-account-heading { min-width: 0; flex: 1; }
 .source-account-heading h2 { margin: 0 0 4px; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .source-account-heading > .sensitive-value { color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; }
