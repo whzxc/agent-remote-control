@@ -6,9 +6,7 @@
   ],
   "tasks": [],
   "remoteLink": {
-    "switching": true,
-    "switched": true
+    "empty": true
   },
-  "page": "remote",
-  "remoteSourceId": "source-personal"
+  "page": "overview"
 }

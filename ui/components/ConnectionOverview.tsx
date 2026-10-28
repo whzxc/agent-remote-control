@@ -6,7 +6,6 @@ import { accountViews } from '../topology/accountViews';
 import { accountOwns } from '../accountPresentation';
 import { topologyMode, topologyAccountOrder } from '../topology/accountState';
 import { useAccounts } from '../state/accounts';
-import { scenarioName } from "../scenarioMode";
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
 import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
@@ -14,7 +13,7 @@ import { orderActivity, visibleActivity, effectiveBubbleDensity, bubbleWidths, b
 import { taskOrder, reorderTasks } from "../state/taskOrder";
 import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
 import { subscriptions } from "../state/subscriptions";
-import { navigation } from "../state/navigation";
+import { navigation, openConnections } from "../state/navigation";
 import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import {
   useCallback,
@@ -22,7 +21,7 @@ import {
   useState,
   useRef,
 } from "react";
-import { Power, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Power, LoaderCircle } from "lucide-react";
 import { t } from "../i18n";
 import { api } from "../api";
 import { ingressState, connector, run, refreshConnector, orderedSources, reorderSources } from "../state/connector";
@@ -47,12 +46,14 @@ import type { SurfaceRect } from "../motion/surface";
 import type { WireState } from "../topology/render";
 import Onboarding from "./Onboarding";
 import AddConnection from "./AddConnection";
-import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
+import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Button, Icon, Notice } from "./ui";
+import { Button, Dialog, Icon, IconButton, Notice } from "./ui";
 import AgentPanel from "./AgentPanel";
+import ChangeConnection from "./ChangeConnection";
+import ConnectionsContent from "./ConnectionsContent";
 import Hub from "../topology/Hub";
 function wireState(state: string): WireState {
   if (["connected", "agentAvailable"].includes(state)) return "normal";
@@ -63,14 +64,14 @@ function wireState(state: string): WireState {
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const tuning = topologyTuningEnabled.use();
   const { tracked, markRead } = useActivityTracking(), manualOrder = taskOrder.use(), selection = agentPanel.use(), sourceSelection = ingressPanel.use();
-  const flow = onboarding.use(), newConnection = connectionSetup.use();
+  const flow = onboarding.use(), newConnection = connectionSetup.use(), switching = connectionSwitch.use(), nav = navigation.use();
   const newSourceId = addedSource.use();
   useEffect(() => {
     if (!newSourceId || onboarding.get()) return;
     const timer = setTimeout(() => addedSource.set(undefined), 2000);
     return () => clearTimeout(timer);
   }, [newSourceId, flow]);
-  const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection;
+  const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection || !!nav.connectionsOpen || !!switching;
   const [panelExpanded, setPanelExpanded] = useState(false);
   const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
     : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
@@ -84,7 +85,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, []);
   const panelReady = panelLayout.key === panelKey;
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
-  const { status, sources: sourceRecords, sourcesLoaded, busy, loading, error } = connector.use();
+  const { status, busy, loading, error } = connector.use();
   const inventory = agentStore.use();
   const { items: accounts } = useAccounts(), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
   const max = maxVisibleAgents.use();
@@ -110,15 +111,17 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     window.addEventListener("keydown", escape);
     return () => { window.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", escape); };
   }, [expandedQueue]);
-  const { snapshot } = subscriptions.use(), nav = navigation.use();
+  const { snapshot } = subscriptions.use();
   const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
-  const initialSetupShown = useRef(false);
-  useEffect(() => {
-    if (scenarioName || !visible || initialSetupShown.current || !status || !sourcesLoaded || loading || error) return;
-    initialSetupShown.current = true;
-    if (!flow && !newConnection && !detailOpen && !sourceRecords.some(s => s.state !== "revoked" && !isPendingSource(s, status.ingresses))) openOnboarding("welcome");
-  }, [visible, status, sourceRecords, sourcesLoaded, loading, error, flow, newConnection, detailOpen]);
   const sources = status?.ingresses ?? [];
+  const connections = sources.filter(ingress => ingress.id !== "local-cli" || ingress.transport !== "local");
+  useEffect(() => {
+    if (nav.connectionsOpen) { agentPanel.set(undefined); ingressPanel.set(undefined); }
+  }, [nav.connectionsOpen]);
+  function manageConnections() {
+    openConnections();
+    if (!connections.length) openConnectionSetup();
+  }
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
   const agents = orderedAgents()
     .filter((a) => a.installed && a.enabled === true)
@@ -351,7 +354,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
             reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? []);
           }}
-          brand={<Hub sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
+          brand={<Hub connectionEmpty={!connections.length} onConnections={manageConnections} sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
         {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
@@ -375,10 +378,17 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         )}
       </section>
       {visible && tuning && <TuningPanel />}
+      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={connections.find(item => item.id === nav.remoteConnectionId)?.name ?? t("connections.title")} width={680}
+        leading={nav.remoteConnectionId && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, remoteConnectionId: undefined }))} />}
+        returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
+        <ConnectionsContent />
+      </Dialog>}
+      {switching && visible && <ChangeConnection />}
       {flow && visible && <Onboarding />}
       {newConnection && visible && <AddConnection options={newConnection} onClose={() => connectionSetup.set(undefined)} onAdded={id => {
         if (newConnection.forSwitch) connectionSwitch.set(old => old && { ...old, ingressId: id });
         if (newConnection.forSource) onboarding.set(old => old?.step === "connection" ? { ...old, step: "address", ingressId: id, baseline: (connector.get().status?.ingresses.find(i => i.id === id)?.oauth?.pending ?? []).map(p => p.id) } : old);
+        if (!newConnection.forSource && !newConnection.forSwitch) navigation.set(old => ({ ...old, connectionsOpen: true, remoteConnectionId: id }));
         connectionSetup.set(undefined);
       }} />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}

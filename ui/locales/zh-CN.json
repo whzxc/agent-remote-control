@@ -1426,5 +1426,8 @@
   "platforms.organization": "组织",
   "platforms.accountId": "账号标识",
   "platforms.other": "其他",
-  "platforms.name": "名称"
+  "platforms.name": "名称",
+  "platforms.remove": "移除 {name}",
+  "platforms.removeConfirm": "撤销此连接器的访问权限并保留历史记录。其他连接器和设备连接不受影响。",
+  "connections.title": "连接"
 }

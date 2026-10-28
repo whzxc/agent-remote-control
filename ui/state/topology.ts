@@ -7,13 +7,14 @@ export const topologyParameters = preference("arc.topology-parameters", emptyPar
   const input = JSON.parse(raw);
   const overrides = input?.schemaVersion === 1 && input.overrides && typeof input.overrides === "object" && !Array.isArray(input.overrides)
     ? input.overrides : null;
-  const migrated = overrides && (Object.hasOwn(overrides, "pitch") || Object.hasOwn(overrides, "bubbleWeight"));
+  const removed = ["bubbleWeight", "activeScale", "idleScale", "minIdleScale"];
+  const migrated = overrides && ["pitch", ...removed].some(key => Object.hasOwn(overrides, key));
   if (overrides && Object.hasOwn(overrides, "pitch")) {
     if (typeof overrides.pitch !== "number" || !Number.isFinite(overrides.pitch)) throw new Error("Invalid task pitch");
     if (!Object.hasOwn(overrides, "taskGap")) overrides.taskGap = Math.max(0, overrides.pitch - 54);
     delete overrides.pitch;
   }
-  if (overrides) delete overrides.bubbleWeight;
+  if (overrides) for (const key of removed) delete overrides[key];
   const result = importParameters(JSON.stringify(input));
   if (!result.ok) throw new Error(result.error);
   if (migrated) queueMicrotask(() => {

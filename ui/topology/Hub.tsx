@@ -1,19 +1,35 @@
-import { useId } from "react";
+import { useId, useRef, useEffect, useState } from "react";
+import { animate } from "motion";
+import { reducedMotion } from "../motion/surface";
 import { t } from "../i18n";
 import { hubMarkGeometry } from "./geometry";
 
-export default function Hub({ sourceEmpty, agentEmpty, onAddSource, onManageAgents }: {
+export default function Hub({ sourceEmpty, agentEmpty, connectionEmpty, onConnections, onAddSource, onManageAgents }: {
+  connectionEmpty: boolean; onConnections: () => void;
   sourceEmpty: boolean; agentEmpty: boolean; onAddSource: () => void; onManageAgents: () => void;
 }) {
   const id = useId(), mark = hubMarkGeometry();
+  const top = useRef<HTMLDivElement>(null), [hovered, setHovered] = useState(false), [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!top.current) return;
+    const animation = animate(top.current, { y: hovered || focused ? -5 : 0 }, reducedMotion() ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 22 });
+    return () => animation.stop();
+  }, [hovered, focused]);
   return <>
     <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control">
       <defs><linearGradient id={`${id}-arc`} gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="92" y2="50">
         <stop stopColor="var(--mark-agent-start)" /><stop offset="1" stopColor="var(--mark-agent-end)" />
       </linearGradient></defs>
-      <path data-hub-arc="top" d={mark.top} fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" />
       <path data-hub-arc="bottom" d={mark.bottom} fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" />
     </svg>
+    <div ref={top} className="hub-connection-motion"><div className="hub-connection-orbit"><button type="button" className="hub-connections" aria-label={t(connectionEmpty ? "source.newConnection" : "connections.title")} aria-haspopup="dialog"
+      data-panel-anchor onClick={onConnections} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
+      <svg viewBox="4 4 92 92" aria-hidden="true">
+        <path data-hub-arc="top" d={mark.top} fill="none" stroke="transparent" strokeWidth="18" />
+        <path data-hub-arc="top" data-panel-visual d={mark.top} fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" pathLength="100" strokeDasharray={connectionEmpty ? "35 30 35" : undefined} />
+      </svg>
+      {connectionEmpty && <span className="hub-connection-add rounded-full border border-solid border-border bg-background px-3 py-2 text-sm shadow-sm">+ {t("source.newConnection")}</span>}
+    </button></div></div>
     {(["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;
       const label = t(source ? "addControlSource" : empty ? "addAgent" : "manageAgents");

@@ -28,7 +28,7 @@ for (const [name, scene] of Object.entries(fixtures)) test(`topology lab: ${name
       assert.equal(wing.nodes.length, (wing.side === -1 ? scene.left : scene.right).length);
       for (let i = 1; i < wing.nodes.length; i++) assert.ok(wing.nodes[i].port - wing.nodes[i - 1].port >= DEFAULTS.earSep - 1e-9);
       for (const node of wing.nodes) {
-        if (wing.side === -1) { assert.equal(node.scale, node.active ? DEFAULTS.activeScale : 1); assert.equal(node.opacity, 1); }
+        if (wing.side === -1) { assert.equal(node.scale, 1); assert.equal(node.opacity, 1); }
         const tasks = wing.tasks.filter(t => t.parent === node.id);
         for (let i = 1; i < tasks.length; i++) {
           assert.equal(tasks[i].y - tasks[i - 1].y, (tasks[i].height + tasks[i - 1].height) / 2 + parameters.taskGap);
@@ -286,7 +286,7 @@ test("Agent dock reserves its width and label clearance without reordering or mo
       const node = docked.wings[1].nodes.find(n => n.id === selected)!;
       assert.ok(node.x + LABEL_W * node.scale * node.size / (NODE_R * 2) / 2 <= edge - PANEL_ARC_GAP + 1e-6);
       assert.ok(node.x - node.size * node.scale / 2 >= 0);
-      assert.ok(node.scale <= Math.max(1, DEFAULTS.activeScale));
+      assert.ok(node.scale <= 1);
       for (const n of docked.wings[1].nodes) assert.equal(n.arc !== null, n.active || n.id === selected, n.id);
       assert.ok(docked.wings[1].tasks.every(t => t.hidden));
       assert.ok(docked.balance.every(w => w.squeeze >= DEFAULTS.squeezeMin));
@@ -319,5 +319,16 @@ test("source dock reserves clearance and keeps Agent bubbles in their original r
       assert.ok(docked.wings[1].tasks.every(t => !t.hidden));
       assert.deepEqual(docked.wings[1].tasks.map(t => [t.id, t.y]), base.wings[1].tasks.map(t => [t.id, t.y]));
     }
+  }
+});
+
+test("hierarchy and activity do not change node size in either orientation", () => {
+  // Property: every platform, connector, Agent and profile has the same visual node size.
+  const left = [{ id: 'platform', tasks: [], children: entities('connector', [0, 1]) }];
+  const right = [{ id: 'agent', tasks: [], children: entities('profile', [0, 1]) }, ...entities('standalone', [0, 2])];
+  for (const [vw, vh] of [[1600, 900], [600, 1000]]) {
+    const nodes = solve({ vw, vh, left, right }).wings.flatMap(wing => wing.nodes);
+    assert.ok(nodes.some(node => node.parent));
+    assert.equal(new Set(nodes.map(node => node.size * node.scale)).size, 1);
   }
 });

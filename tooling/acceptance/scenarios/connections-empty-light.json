@@ -6,8 +6,7 @@
   ],
   "tasks": [],
   "remoteLink": {
-    "switching": true,
-    "disconnected": true
+    "empty": true
   },
-  "page": "remote"
+  "page": "overview"
 }

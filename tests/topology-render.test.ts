@@ -16,7 +16,7 @@ test("Agent panel keeps a nonmodal shell across task/back/peer navigation and re
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, {
-    window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element, Node: window.Node,
+    window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element, Node: window.Node, NodeList: window.NodeList,
     NodeFilter: window.NodeFilter, DocumentFragment: window.DocumentFragment, HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement, HTMLSelectElement: window.HTMLSelectElement, CustomEvent: window.CustomEvent,
     Event: window.Event, MutationObserver: window.MutationObserver, DOMRect: window.DOMRect, CSS: window.CSS,
     localStorage: window.localStorage, getComputedStyle: window.getComputedStyle.bind(window),
@@ -129,7 +129,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, {
-    window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element, Node: window.Node,
+    window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element, Node: window.Node, NodeList: window.NodeList,
     NodeFilter: window.NodeFilter, DocumentFragment: window.DocumentFragment, HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement, HTMLSelectElement: window.HTMLSelectElement,
     CustomEvent: window.CustomEvent, Event: window.Event, MutationObserver: window.MutationObserver, DOMRect: window.DOMRect, CSS: window.CSS,
     localStorage: window.localStorage, getComputedStyle: window.getComputedStyle.bind(window),
@@ -207,6 +207,14 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const escape = async () => { await act(() => document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); await flush(); };
     await act(() => root.render(h(UiProvider, null, h("div", { onClickCapture: (e: { target: EventTarget }) => capturePanelOrigin(e.target) }, h(Overview)))));
     await flush();
+    await click(button(t("connections.title")));
+    assert.ok(page.getByRole("dialog", { name: t("connections.title"), exact: true }));
+    await click(button(t("source.newConnection")));
+    assert.ok(page.getByRole("dialog", { name: t("source.newConnection"), exact: true }));
+    await escape();
+    assert.ok(page.getByRole("dialog", { name: t("connections.title"), exact: true }));
+    await escape();
+    assert.ok(button(t("connections.title")).matches(":focus"));
     const first = () => page.getByRole("button", { name: "Source one", exact: true });
     const second = () => page.getByRole("button", { name: "Source two", exact: true });
     await click(first());
@@ -259,19 +267,6 @@ test("control source dock preserves editing, field navigation and cross-side dis
     await click(button(t("remove")));
     assert.equal(ingressPanel.get(), undefined); assertNodeIdentity(page.queryByRole("dialog"), null);
     assertNodeIdentity(page.queryByRole("button", { name: /Source one/ }), null);
-    const { default: RecordsPage } = await server.ssrLoadModule("/ui/components/RecordsPage.tsx");
-    await act(() => {
-      connector.set({ ...connector.get(), status: { ...status, ingresses: [source("one"), source("two")], logs: [
-        JSON.stringify({ ingressId: "one", msg: "Request processed: fixture-one" }),
-        JSON.stringify({ ingressId: "two", msg: "Request processed: fixture-two" }),
-      ] } });
-      navigation.set({ recordsSource: "one" }); root.render(h(UiProvider, null, h(RecordsPage)));
-    });
-    await flush();
-    assert.ok(page.getByRole("cell", { name: /fixture-one/ }));
-    assertNodeIdentity(page.queryByRole("cell", { name: /fixture-two/ }), null);
-    assert.ok(page.getByRole("button", { name: /Dispatch fixture/ }));
-
   } finally {
     await act(() => root.unmount()); globalThis.fetch = originalFetch;
     await server.close(); await window.happyDOM.close();
@@ -285,7 +280,7 @@ test("timeline turn disclosures preserve choices through incremental work and re
   window.matchMedia = () => media as unknown as MediaQueryList;
   Object.assign(globalThis, {
     window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,
-    Node: window.Node, DocumentFragment: window.DocumentFragment, localStorage: window.localStorage,
+    Node: window.Node, NodeList: window.NodeList, DocumentFragment: window.DocumentFragment, localStorage: window.localStorage,
     getComputedStyle: window.getComputedStyle.bind(window), matchMedia: window.matchMedia,
     requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 0),
     cancelAnimationFrame: clearTimeout, IS_REACT_ACT_ENVIRONMENT: true,
@@ -382,7 +377,7 @@ test("task detail limits input to pending execution requests and consolidates he
     notify() { this.callback([...this.targets].map(target => ({ target }))); }
   }
   Object.assign(globalThis, { window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,
-    Node: window.Node, DocumentFragment: window.DocumentFragment, MutationObserver: window.MutationObserver,
+    Node: window.Node, NodeList: window.NodeList, DocumentFragment: window.DocumentFragment, MutationObserver: window.MutationObserver,
     NodeFilter: window.NodeFilter, HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement,
     HTMLSelectElement: window.HTMLSelectElement, Event: window.Event, CSS: window.CSS, innerHeight: 800,
     CustomEvent: window.CustomEvent, DOMRect: window.DOMRect, localStorage: window.localStorage,
@@ -467,7 +462,7 @@ test("timeline UI and agent navigation restore follow mode and focus", { timeout
   window.matchMedia = () => media as unknown as MediaQueryList;
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, { window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,
-    Node: window.Node, DocumentFragment: window.DocumentFragment, MutationObserver: window.MutationObserver,
+    Node: window.Node, NodeList: window.NodeList, DocumentFragment: window.DocumentFragment, MutationObserver: window.MutationObserver,
     NodeFilter: window.NodeFilter, HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement,
     HTMLSelectElement: window.HTMLSelectElement, Event: window.Event, CustomEvent: window.CustomEvent,
     DOMRect: window.DOMRect, CSS: window.CSS, localStorage: window.localStorage,

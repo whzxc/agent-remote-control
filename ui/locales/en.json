@@ -1456,5 +1456,8 @@
   "platforms.organization": "Organization",
   "platforms.accountId": "Account ID",
   "platforms.other": "Other",
-  "platforms.name": "Name"
+  "platforms.name": "Name",
+  "platforms.remove": "Remove {name}",
+  "platforms.removeConfirm": "Revoke access for this connector and retain its history. Other connectors and the device connection are kept.",
+  "connections.title": "Connections"
 }

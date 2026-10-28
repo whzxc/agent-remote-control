@@ -8,8 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  LayoutDashboard,
-  Logs,
   Settings,
   X,
   Maximize2,
@@ -17,7 +15,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   RefreshCw,
-  Network,
   Users,
 } from "lucide-react";
 import { animate } from "motion";
@@ -28,7 +25,7 @@ import { connector, notify, startConnector } from "./state/connector";
 import { startAgents } from "./state/agents";
 import { startSubscriptions } from "./state/subscriptions";
 import { startAgentActivity } from "./state/activity";
-import { startTasks, tasks } from "./state/tasks";
+import { startTasks } from "./state/tasks";
 import {
   startUpdateChecks,
   updates,
@@ -37,7 +34,7 @@ import {
   updateVisible,
 } from "./state/updates";
 import { onboarding } from "./state/onboarding";
-import { navigation, type Page } from "./state/navigation";
+import { navigation, openConnections, type Page } from "./state/navigation";
 import { panelLayers, panelAnchorAt } from "./state/panels";
 import {
   capturePanelOrigin,
@@ -45,10 +42,7 @@ import {
 import { displayMessage } from "./messages";
 import OAuthApproval from "./components/OAuthApproval";
 import ConnectionOverview from "./components/ConnectionOverview";
-import TasksPage from "./components/TasksPage";
-import RecordsPage from "./components/RecordsPage";
 import SettingsPage from "./components/SettingsPage";
-import RemoteLinkPage from "./components/RemoteLinkPage";
 import PlatformsPage from "./components/PlatformsPage";
 import { usePrivacy } from "./state/privacy";
 import { UpdateDock, UpdateOutcome } from "./components/AppUpdate";
@@ -62,8 +56,7 @@ export default function App() {
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
-  const { feedback, status } = connector.use(),
-    taskState = tasks.use();
+  const { feedback, status } = connector.use();
   updates.use();
   const permissionState = permissions.use();
   const ready = !!status && permissionsReady(status.ingresses);
@@ -73,11 +66,11 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "logs", "tasks", "remote", "accounts", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
-    lastPage = useRef<Page>(page === "overview" ? "tasks" : page),
+    lastPage = useRef<Page>(page === "overview" ? "accounts" : page),
     sheetClosing = useRef(false),
     backdropDown = useRef(false);
   const welcome = onboarding.use()?.step === "welcome" && page === "overview";
@@ -165,7 +158,9 @@ export default function App() {
           void checkUpdate();
         }),
         listen<string>("navigate", (e) => {
-          if (["overview", "settings", "logs", "tasks", "remote", "accounts", "permissions"].includes(e.payload))
+          if (e.payload === "remote") { openConnections(); return; }
+          if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
+          if (["overview", "settings", "accounts", "permissions"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -194,7 +189,7 @@ export default function App() {
         navigate("overview");
       } else if (url.hostname === "oauth") setOauthRequest({ id: url.searchParams.get("request") ?? "" });
       else if (url.hostname === "permissions") navigate("permissions");
-      else if (url.hostname === "remote") navigate("remote");
+      else if (url.hostname === "remote") openConnections();
       else if (url.hostname === "accounts") navigate("accounts");
       else if (url.hostname === "settings") navigate("settings");
       else if (url.hostname === "setup" && ["claude-login", "cloudflare-login"].includes(url.searchParams.get("target") ?? "")) {
@@ -207,13 +202,7 @@ export default function App() {
     window.addEventListener("arc:open-url", handle);
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);
-  const pending = taskState.records.filter(
-    (r) => r.state === "awaiting-approval",
-  ).length;
   const pages = [
-    { id: "tasks" as const, label: t("tasks"), icon: LayoutDashboard },
-    { id: "logs" as const, label: t("records"), icon: Logs },
-    { id: "remote" as const, label: t("connect.remoteLink"), icon: Network },
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     { id: "settings" as const, label: t("settings"), icon: Settings },
@@ -230,9 +219,7 @@ export default function App() {
           !layers.length
         ) {
           e.preventDefault();
-          if (page === "remote" && nav.remoteConnectionId) {
-            navigation.set(old => ({ ...old, remoteConnectionId: undefined }));
-          } else if (page === "settings" && nav.settingsExtras) {
+          if (page === "settings" && nav.settingsExtras) {
             navigation.set(old => ({ ...old, settingsExtras: undefined }));
           } else void closeSheet();
         }
@@ -283,7 +270,7 @@ export default function App() {
       )}
       <div
         hidden={welcome}
-        className={`navigation-surface ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
+        className={`navigation-surface ${updateVisible() ? "w-48" : "w-36"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
         aria-hidden="true"
       />
       {page !== "overview" && (
@@ -298,15 +285,10 @@ export default function App() {
           <div className="page-sheet-content">
             <header className="sheet-header">
               {page === "settings" && nav.settingsExtras && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExtras: undefined }))} />}
-              {page === "remote" && nav.remoteConnectionId && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, remoteConnectionId: undefined }))} />}
               <h1 className="capsule-title" tabIndex={-1}>
-                {page === "remote" ? status?.ingresses.find(i => i.id === nav.remoteConnectionId)?.name ?? t("source.title") : pages.find((item) => item.id === page)?.label}
+                {pages.find((item) => item.id === page)?.label}
                 {page === "settings" && nav.settingsExtras && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("extras.title")}</span></>}
-                {page === "logs" && (
-                  <span className="muted small records-count">
-                    {t("recentRecords", { count: status?.logs.length ?? 0 })}
-                  </span>
-                )}
+
               </h1>
               {page === "permissions" && <IconButton
                 icon={RefreshCw}
@@ -329,18 +311,13 @@ export default function App() {
               />
             </header>
             <main
-              className={`workspace ${page === "logs" ? "records-workspace" : page === "accounts" ? "accounts-workspace-container" : ""}`}
+              className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
             >
-              {page === "tasks" ? (
-                <TasksPage />
-              ) : page === "logs" ? (
-                <RecordsPage />
-              ) : page === "permissions" ? (
+              {page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />
-              ) : page === "remote" ? (
-                <RemoteLinkPage />
+
               ) : (
                 <SettingsPage />
               )}
@@ -350,7 +327,7 @@ export default function App() {
         </section>
       )}
       <nav
-        className={`navigation-capsule ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
+        className={`navigation-capsule ${updateVisible() ? "w-48" : "w-36"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
         inert={welcome || page !== "overview" || modalOpen}
         aria-hidden={welcome || page !== "overview"}
         hidden={welcome}
@@ -372,9 +349,7 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
-              {item.id === "tasks" && pending > 0 && (
-                <span className="task-count">{pending}</span>
-              )}
+
             </button>
           ))}
           <UpdateDock />

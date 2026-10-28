@@ -6,12 +6,12 @@ This page describes account ownership, identity resolution and the separation be
 
 ## Model
 
-ARC manages control sources and Agents by Platform → Account → Task.
+The platform UI uses Platform → Connector instance → Activity. Local Agents use Agent → Profile → Task. Native provider accounts retain identity and quota associations without merging connector instances in the UI.
 
-- Platform: a control-source product (Claude, ChatGPT, ...) or an Agent (claude, codex, dsh, ...). Unchanged.
+- Platform: a supported product family such as OpenAI, Anthropic, Google, X, or Microsoft. GitHub products belong to Microsoft. Each authorized connector instance is a separate child, even when two instances share an upstream identity. Agents are not platform menu items.
 - Account: one provider identity, independent of side.
   - `id` (stable ARC ID), `provider` (provider family, including `anthropic`, `openai`, `deepseek`, `google`, `xai`, or another known platform), `identityKey` (provider account ID when known, else a hash of normalized email + organization), `alias` (user-editable; defaults to the organization name or `Personal`), optional `email`, `orgName`, `plan`, plus `createdAt` and `observedAt`.
-  - `sources`: control-source IDs authorized as this account. Several connections or devices of one account are several sources sharing one `accountId`; they never add account nodes.
+  - `sources`: control-source IDs authorized as this account. Several connections or devices of one account may share one `accountId`; each source remains a separate connector instance in the platform UI.
   - `agentProfiles`: list of `{ agent, profileId, kind, state, default }` with kind `cli-profile`, `codex-home` or `api-key` and state `signed-in`, `signed-out`, `unfinished` or `invalid`. The isolated Claude CLI profiles in `native/src/claude_accounts` become `claude` profiles. Codex's current login is one `codex-home` profile. Key-based Agents expose one `api-key` profile.
   - `notifications`: Claude routes and bound cloud sessions move under the account. ChatGPT accounts report MCP Events reachability. Agent-only accounts report `n/a`.
   - `quota`: subscription windows belong to the account. An account with both sources and agent profiles shows one shared quota. Optional `quotaProviderId` selects an existing shared SubscriptionService provider; otherwise detail reads use the native account profile.

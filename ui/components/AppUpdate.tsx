@@ -117,7 +117,7 @@ export function UpdateOutcome() {
     {job.error && <p>{job.error}</p>}
     {failedRestore && <code>{job.backup}</code>}
     <div className="actions">
-      {job.state === "succeeded" && <><Button onClick={() => action(openReleaseNotes())}>{t("updates.notes")}</Button><Button onClick={() => { navigation.set(old => ({ ...old, page: "tasks" })); dismissOutcome(); }}>{t("updates.resumedTasks", { count: job.resumedCount ?? 0 })}</Button></>}
+      {job.state === "succeeded" && <><Button onClick={() => action(openReleaseNotes())}>{t("updates.notes")}</Button><Button onClick={() => { navigation.set(old => ({ ...old, page: "overview" })); dismissOutcome(); }}>{t("updates.resumedTasks", { count: job.resumedCount ?? 0 })}</Button></>}
       {job.state === "rolled-back" && <><Button disabled={!job.logPath} onClick={() => job.logPath && action(reveal(job.logPath))}>{t("updates.viewLog")}</Button><Button onClick={() => { action(retryUpdate(job)); dismissOutcome(); }}>{t("retryReplacement")}</Button></>}
       {failedRestore && job.backup && <><Button onClick={() => action(reveal(job.backup!))}>{t("updates.showInFinder")}</Button><Button onClick={() => action(copyText(job.backup!))}>{t("updates.copyPath")}</Button></>}
       {job.state === "failed" && !failedRestore && <Button onClick={() => { action(retryUpdate(job)); dismissOutcome(); }}>{t("retryReplacement")}</Button>}

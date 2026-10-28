@@ -1,4 +1,4 @@
-import { ACCOUNT_NODE_SIZE, DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
+import { DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
 import { bubbleWidths } from '../state/activityModel.ts';
 
 export interface PortraitGeometry {
@@ -25,17 +25,16 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const right = [...sc.right.filter(hasTasks), ...sc.right.filter(e => !hasTasks(e))];
   const children = (e: Entity) => e.collapsed ? [] : e.children ?? [];
   const tasks = (e: Entity) => e.collapsed ? [] : e.tasks;
-  const scale = (e: Entity, side: Side, account = false) => account ? ACCOUNT_NODE_SIZE / (NODE_R * 2)
-    : p.nodeSize / (NODE_R * 2) * (hasTasks(e) ? p.activeScale : side === 1 && busy ? p.minIdleScale : 1);
+  const scale = () => p.nodeSize / (NODE_R * 2);
   const label = (e: Entity, side: Side) => labels?.[side === -1 ? 'left' : 'right'].get(e.id);
-  const extents = (list: readonly Entity[], side: Side, account = false) => ({
-    width: Math.max(0, ...list.map(e => (label(e, side)?.width ?? 0) * scale(e, side, account))),
-    twoLineWidth: Math.max(0, ...list.map(e => (label(e, side)?.twoLineWidth ?? 0) * scale(e, side, account))),
-    offset: Math.max(0, ...list.map(e => (NODE_R + 12) * scale(e, side, account))),
+  const extents = (list: readonly Entity[], side: Side) => ({
+    width: Math.max(0, ...list.map(e => (label(e, side)?.width ?? 0) * scale())),
+    twoLineWidth: Math.max(0, ...list.map(e => (label(e, side)?.twoLineWidth ?? 0) * scale())),
+    offset: list.length ? (NODE_R + 12) * scale() : 0,
   });
   const sourceLabels = extents(sc.left, -1), agentLabels = extents(right, 1);
-  const sourceAccounts = extents(sc.left.flatMap(children), -1, true);
-  const agentAccounts = extents(right.flatMap(children), 1, true);
+  const sourceAccounts = extents(sc.left.flatMap(children), -1);
+  const agentAccounts = extents(right.flatMap(children), 1);
   const hierarchy = (right.some(e => children(e).length) ? column : 0) + busGap + finalStub;
   // Keep complete single-line labels until the narrow bubble floor no longer fits.
   // Two-line measurements are the lower bound; bubbles absorb any remaining squeeze.
@@ -53,12 +52,12 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const stackHeight = (e: Entity) => tasks(e).reduce((h, t) => h + t.height, 0) + Math.max(0, tasks(e).length - 1) * p.taskGap;
   const rowHeight = (e: Entity, side: Side, account = false): number => {
     const nested = children(e), own = stackHeight(e);
-    const base = account ? ACCOUNT_NODE_SIZE + 24 : side === -1 ? p.sourceRow : busy && !hasTasks(e) ? p.minIdleRow : p.idleRow;
+    const base = account ? p.nodeSize + 24 : side === -1 ? p.sourceRow : busy && !hasTasks(e) ? p.minIdleRow : p.idleRow;
     const subtree = nested.reduce((h, child) => h + rowHeight(child, side, true), 0) + Math.max(0, nested.length - 1) * (side === -1 ? 0 : p.rowGap);
-    const measured = label(e, side), s = scale(e, side, account);
+    const measured = label(e, side), s = scale();
     const labelWidth = side === -1 ? account ? sourceAccountLabelWidth : sourceLabelWidth : account ? agentAccountLabelWidth : agentLabelWidth;
     const labelHeight = (measured?.height ?? 0) * s * (measured && measured.width * s > labelWidth ? 2 : 1);
-    const labelRow = account ? 2 * (ACCOUNT_NODE_SIZE / 2 + 4 * s + labelHeight) : labelHeight + 16;
+    const labelRow = account ? 2 * (p.nodeSize / 2 + 4 * s + labelHeight) : labelHeight + 16;
     return Math.max(base, labelRow, own + (own ? 20 : 0) + subtree + (own && subtree ? p.rowGap : 0));
   };
   function wing(list: readonly Entity[], side: Side, top: number): Wing {
@@ -67,7 +66,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
       const height = rowHeight(e, side, !!parent), own = tasks(e), nested = children(e);
       const active = hasTasks(e), idle = side === 1 && busy && !active && !parent;
       const node: NodeGeometry = { id: e.id, parent, tasks: own, active, side, x, y: y + height / 2,
-        size: parent ? ACCOUNT_NODE_SIZE : p.nodeSize, scale: parent ? 1 : active ? p.activeScale : idle ? p.minIdleScale : 1,
+        size: p.nodeSize, scale: 1,
         opacity: idle ? 0.62 : 1, dim: idle, port: 0, arc: null,
         taskBusX: x - busGap, childBusX: x - side * column / 2 };
       if (drag?.kind === 'node' && drag.side === side && drag.id === e.id) {

@@ -27,17 +27,14 @@ export const PARAMETERS = [
   { key: "bubbleOffset", group: "secondary", label: { en: "Bubble offset", "zh-CN": "气泡距节点" }, min: 60, max: 220, step: 2, default: 104 },
   { key: "t2Root", group: "secondary", label: { en: "Root tension", "zh-CN": "根部端张力" }, min: 0.05, max: 0.7, step: 0.02, default: 0.34 },
   { key: "t2End", group: "secondary", label: { en: "Bubble tension", "zh-CN": "气泡端张力" }, min: 0.1, max: 0.8, step: 0.02, default: 0.5 },
-  { key: "nodeSize", group: "rows", label: { en: "Node size", "zh-CN": "节点大小" }, min: 32, max: 60, step: 1, default: 44 },
+  { key: "nodeSize", group: "rows", label: { en: "Node size", "zh-CN": "节点大小" }, min: 32, max: 60, step: 1, default: 42 },
   { key: "colDist", group: "rows", label: { en: "Column distance", "zh-CN": "节点列距" }, min: 2, max: 3.2, step: 0.02, default: 2.6 },
   { key: "taskGap", group: "rows", labelKey: "topology.taskGap", min: 0, max: 30, step: 1, default: 10 },
   { key: "rowGap", group: "rows", label: { en: "Row gap", "zh-CN": "行间距" }, min: 0, max: 30, step: 1, default: 12 },
   { key: "sourceRow", group: "rows", label: { en: "Source row height", "zh-CN": "控制源行高" }, min: 56, max: 96, step: 1, default: 78 },
   { key: "idleRow", group: "rows", label: { en: "Idle Agent row height", "zh-CN": "Agent 空闲行高" }, min: 40, max: 96, step: 1, default: 78 },
   { key: "idleIndent", group: "rows", label: { en: "Idle indentation", "zh-CN": "空闲左缩进" }, min: 0, max: 60, step: 1, default: 22 },
-  { key: "activeScale", group: "rows", label: { en: "Active scale", "zh-CN": "活跃缩放" }, min: 1, max: 1.4, step: 0.02, default: 1.1 },
-  { key: "idleScale", group: "rows", label: { en: "Idle scale", "zh-CN": "空闲缩放" }, min: 0.6, max: 1, step: 0.02, default: 1 },
-  { key: "minIdleScale", group: "rows", label: { en: "Minimum idle scale", "zh-CN": "空闲缩放下限" }, min: 0.4, max: 0.9, step: 0.02, default: 0.6 },
-  { key: "minIdleRow", group: "rows", label: { en: "Minimum idle row height", "zh-CN": "压缩下限" }, min: 34, max: 60, step: 1, default: 44 },
+  { key: "minIdleRow", group: "rows", label: { en: "Minimum idle row height", "zh-CN": "压缩下限" }, min: 34, max: 60, step: 1, default: 42 },
   { key: "stiffness", group: "motion", label: { en: "Stiffness", "zh-CN": "刚度" }, min: 60, max: 600, step: 5, default: 210 },
   { key: "damping", group: "motion", label: { en: "Damping", "zh-CN": "阻尼" }, min: 8, max: 60, step: 1, default: 26 },
 ] as const;
@@ -68,7 +65,6 @@ export function hubDots(interaction: Scene["hubInteraction"]) {
   return { dotSource: interaction === 'source' ? 1.25 : interaction ? 1.1 : 1,
     dotAgent: interaction === 'agent' ? 1.25 : interaction ? 1.1 : 1 };
 }
-export const ACCOUNT_NODE_SIZE = 42;
 export const PANEL_MIN_WIDTH = 400, PANEL_MARGIN = 16, PANEL_ARC_GAP = 40;
 
 export const COLLAPSE_HIT_SIZE = 32, COLLAPSE_SYMBOL_SIZE = 20;
@@ -123,15 +119,13 @@ function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, 
   const rowCompression = p.idleRow > p.minIdleRow ? (p.idleRow * opt.rowScale - p.minIdleRow) / (p.idleRow - p.minIdleRow) : 1;
   const columnCompression = p.squeezeMin < 1 ? (opt.squeeze - p.squeezeMin) / (1 - p.squeezeMin) : 1;
   const compression = Math.max(0, Math.min(1, rowCompression, columnCompression));
-  const minIdleScale = Math.min(p.minIdleScale, p.idleScale);
-  const idleScale = minIdleScale + (p.idleScale - minIdleScale) * compression;
   const idleIndent = p.idleIndent * (1 - compression);
   const nodes: NodeGeometry[] = rows.map((r) => {
     const active = r.n > 0, idle = opt.idleStyle && !active;
     const ny = y + r.h / 2; y += r.h + p.rowGap;
     const nodeDrag = drag && drag.kind === 'node' && drag.id === r.e.id;
     return { id: r.e.id, port: 0, arc: null, tasks: r.e.collapsed ? [] : r.e.tasks, active, x: nodeDrag ? drag.x : colX - side * (idle ? idleIndent : 0),
-      y: nodeDrag ? drag.y : ny, size: p.nodeSize, scale: active ? p.activeScale : idle ? idleScale : 1, opacity: idle ? 0.62 : 1, dim: idle, side };
+      y: nodeDrag ? drag.y : ny, size: p.nodeSize, scale: 1, opacity: idle ? 0.62 : 1, dim: idle, side };
   });
   // Earmuff ports follow the direction from the hub to each node.
   const raw = nodes.map((n) => Math.atan2(n.y - hub.y, Math.abs(n.x - hub.x)) * 180 / Math.PI);
@@ -170,7 +164,7 @@ function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, 
     const angles = distribute(child.nodes.filter(n => !n.parent).map(n => Math.atan2(n.y - parent.y, p.bubbleOffset) * 180 / Math.PI), p.arcFollow, 9, p.arcMax);
     let i = 0;
     for (const n of child.nodes) {
-      if (!n.parent) { n.parent = parent.id; n.port = angles[i++]; n.size = ACCOUNT_NODE_SIZE; n.scale = 1; n.opacity = 1; if (n.arc) n.arc.R = ACCOUNT_NODE_SIZE / 2 + p.arcGap; }
+      if (!n.parent) { n.parent = parent.id; n.port = angles[i++]; n.opacity = 1; }
       descendants.push(n);
     }
     parent.arc = { R: parent.size / 2 * parent.scale + p.arcGap, lo: Math.min(parent.arc?.lo ?? -14, angles[0] - p.arcPad), hi: Math.max(parent.arc?.hi ?? 14, angles.at(-1)! + p.arcPad) };

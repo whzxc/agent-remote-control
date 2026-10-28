@@ -89,6 +89,8 @@ test('platform workspace lists connector instances and excludes local Agent iden
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { controlSourcePlatform } = await server.ssrLoadModule('/ui/controlSources.ts');
+    assert.equal(controlSourcePlatform('github-copilot').id, 'microsoft');
     const { setPrivacy } = await server.ssrLoadModule('/ui/state/privacy.ts');
     setPrivacy(false);
     const original = connector.get();
@@ -104,6 +106,8 @@ test('platform workspace lists connector instances and excludes local Agent iden
     assert.equal(second.queryByText('connector@example.com'), null);
     assert.equal(page.queryByRole('region', { name: 'Retired connector' }), null);
     assert.equal(page.queryByRole('radio', { name: 'Cursor' }), null);
+    assert.equal(page.queryByRole('radio', { name: 'GitHub', exact: true }), null);
+    assert.ok(page.getByRole('radio', { name: 'Microsoft', exact: true }));
     await act(() => fireEvent.click(page.getByRole('radio', { name: 'Google' })));
     assert.equal(page.queryByRole('region', { name: source.label }), null);
     assert.ok(page.getByRole('region', { name: 'Google' }));
@@ -133,7 +137,7 @@ test('built-in local authority is absent from control sources, accounts and disc
     const { accountsApi } = await server.ssrLoadModule('/ui/api.ts');
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
-    const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
+    const { default: ConnectionsContent } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
     const { default: SourceProductChoice } = await server.ssrLoadModule('/ui/components/SourceProductChoice.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -157,9 +161,9 @@ test('built-in local authority is absent from control sources, accounts and disc
       assert.equal(page.queryByRole('button', { name: name => name.includes(legacy.alias) }), null);
       await render(null);
       navigation.set((old: any) => ({ ...old, remoteSourceId: local.id, remoteConnectionId: undefined }));
-      await render(h(RemoteLinkPage));
+      await render(h(ConnectionsContent));
       assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) }), null);
-      const connection = connector.get().status.ingresses.find((entry: any) => entry.id === external.ingressId);
+      const connection = connector.get().status.ingresses.find((entry: any) => entry.transport !== 'local');
       assert.ok(page.getByRole('button', { name: name => name.startsWith(connection.name) && name.includes(t('connect.online')) }));
       assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
@@ -178,13 +182,13 @@ test('built-in local authority is absent from control sources, accounts and disc
 test('connection management exposes connections without source or platform administration', async () => {
   // Regression: connection management mixed duplicate source/account rows and platform grouping with connection lifecycle actions.
   await withAccountUI(async ({ server, root }) => {
-    const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
+    const { default: ConnectionsContent } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    navigation.set((old: any) => ({ ...old, page: 'remote', remoteSourceId: undefined, remoteConnectionId: undefined }));
-    await act(() => root.render(h(TooltipProvider, null, h(RemoteLinkPage))));
+    navigation.set((old: any) => ({ ...old, page: 'overview', connectionsOpen: true, remoteSourceId: undefined, remoteConnectionId: undefined }));
+    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsContent))));
     const page = within(document.body);
     assert.ok(page.getByRole('button', { name: t('source.newConnection'), exact: true }));
     assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
@@ -194,5 +198,33 @@ test('connection management exposes connections without source or platform admin
     assert.ok(page.getByRole('heading', { name: connection.name, exact: true }));
     assert.equal(page.queryByRole('button', { name: t('setup.addSourceForConnection'), exact: true }), null);
     assert.ok(page.getByRole('button', { name: t('edit'), exact: true }));
+  });
+});
+
+test('connector removal revokes only the selected instance and retains the device connection', async () => {
+  // Regression: platform connector cards had no removal action for obsolete authorizations.
+  await withAccountUI(async ({ server, root }) => {
+    const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
+    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
+    const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
+    const { controlSourcePlatform } = await server.ssrLoadModule('/ui/controlSources.ts');
+    const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const source = connector.get().sources.find((item: any) => item.credential.type !== 'local');
+    assert.ok(source);
+    const connectionIds = connector.get().status.ingresses.map((item: any) => item.id);
+    const otherIds = connector.get().sources.filter((item: any) => item.id !== source.id && item.state !== 'revoked').map((item: any) => item.id);
+    navigation.set({ platformId: controlSourcePlatform(source.product).id });
+    await act(() => root.render(h(TooltipProvider, null, h(PlatformsPage))));
+    const page = within(document.body);
+    await act(() => fireEvent.click(page.getByRole('button', { name: t('platforms.remove', { name: source.label }), exact: true })));
+    await act(() => fireEvent.click(within(page.getByRole('dialog')).getByRole('button', { name: t('cancel'), exact: true })));
+    assert.notEqual(connector.get().sources.find((item: any) => item.id === source.id).state, 'revoked');
+    await act(() => fireEvent.click(page.getByRole('button', { name: t('platforms.remove', { name: source.label }), exact: true })));
+    await act(async () => fireEvent.click(within(page.getByRole('dialog')).getByRole('button', { name: t('remove'), exact: true })));
+    assert.equal(connector.get().sources.find((item: any) => item.id === source.id).state, 'revoked');
+    assert.equal(page.queryByRole('region', { name: source.label }), null);
+    assert.deepEqual(connector.get().status.ingresses.map((item: any) => item.id), connectionIds);
+    assert.deepEqual(connector.get().sources.filter((item: any) => item.id !== source.id && item.state !== 'revoked').map((item: any) => item.id), otherIds);
   });
 });

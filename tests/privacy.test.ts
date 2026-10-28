@@ -64,7 +64,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
     const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
     const { default: AgentPlatformView } = await server.ssrLoadModule('/ui/components/AgentPlatformView.tsx');
-    const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
+    const { default: ConnectionsContent } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
     const { ActivityBubble } = await server.ssrLoadModule('/ui/components/ActivityBubbles.tsx');
     const { CopyField, Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { Sensitive, SensitiveInput } = await server.ssrLoadModule('/ui/components/Sensitive.tsx');
@@ -125,7 +125,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
     await act(async () => navigation.set((old: any) => ({ ...old, remoteSourceId: undefined, remoteConnectionId: undefined })));
-    await render(h(RemoteLinkPage)); assertPrivate();
+    await render(h(ConnectionsContent)); assertPrivate();
     await render(h(CopyField, { value: address, label: 'Connection address' })); assertPrivate();
     await act(async () => { fireEvent.click(page.getByRole('button', { name: t('copy'), exact: true })); });
     assert.equal(copied, address);

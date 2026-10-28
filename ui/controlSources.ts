@@ -14,7 +14,6 @@ export const sourcePlatforms = [
   { id: 'microsoft', displayName: 'Microsoft', icon: 'microsoft' },
   { id: 'notion', displayName: 'Notion', icon: 'notion' },
   { id: 'slack', displayName: 'Slack', icon: 'slack' },
-  { id: 'github', displayName: 'GitHub', icon: 'github' },
   { id: 'raycast', displayName: 'Raycast', icon: 'raycast' },
   { id: 'custom', displayName: 'Other', icon: 'custom' },
 ];

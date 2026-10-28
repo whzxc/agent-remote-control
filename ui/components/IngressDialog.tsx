@@ -16,7 +16,7 @@ import {
   credentialSaved,
   secretFields,
 } from "../ingressConfig";
-import { validDomain } from "../formRules";
+import { connectionDomain, validDomain } from "../formRules";
 import { connectionForm, type ConnectionForm } from "../state/connectionForm";
 import { connector, refreshConnector } from "../state/connector";
 import type { Ingress } from "../state/types";
@@ -185,7 +185,7 @@ export default function IngressDialog({
       if (!form.apiKey.trim() && !ingress?.config.hasApiKey)
         next.apiKey = t("fieldRequired");
     } else {
-      if (fixedDomain(form) && !validDomain(form.domain))
+      if (fixedDomain(form) && !validDomain(connectionDomain(form.domain)))
         next.domain = t("validDomain");
       const key = provider.credential;
       if (
@@ -216,7 +216,7 @@ export default function IngressDialog({
       const config: Record<string, unknown> = { ...form };
       delete config.connectionMode;
       delete config.domain;
-      const origin = fixedDomain(form) ? `https://${form.domain.trim()}` : "";
+      const origin = fixedDomain(form) ? `https://${connectionDomain(form.domain)}` : "";
       config.httpsUrl = origin ? `${origin}/mcp` : "";
       config.ngrokEndpoint = form.httpsProvider === "ngrok" ? origin : "";
       if (!ingress) {
@@ -276,7 +276,7 @@ export default function IngressDialog({
     <Field
       id={`ingress-${key}`}
       label={label}
-      help={key === "domain" ? t("setup.domainHint") : help}
+      help={help}
       error={errors[key]}
     >
       <SensitiveInput
@@ -288,6 +288,11 @@ export default function IngressDialog({
         autoComplete={password ? "new-password" : "off"}
         value={String(form[key])}
         onChange={(e) => change(key, e.target.value as never)}
+        onPaste={key === "domain" ? event => {
+          const domain = connectionDomain(event.clipboardData.getData("text"));
+          if (validDomain(domain)) { event.preventDefault(); change(key, domain as never); }
+        } : undefined}
+        onBlur={key === "domain" ? () => change(key, connectionDomain(form.domain) as never) : undefined}
         placeholder={placeholder}
         disabled={working}
         required={key === "domain" || key === "tunnelId"}
@@ -496,7 +501,6 @@ export default function IngressDialog({
               {fixedDomain(form) &&
                 textField("domain", t("domain"), false, "mcp.example.com")}
               {setupFormId && nameField}
-              <details className="connection-advanced" open={Object.keys(errors).some(key => !["name", "domain"].includes(key)) || undefined}><summary>{t("setup.advanced")}</summary>
               {needsCredential(form) &&
                 provider.credential &&
                 textField(
@@ -522,7 +526,6 @@ export default function IngressDialog({
                 />
               </Field>
               {!ingress && <ToolPolicyField value={toolPolicy} onChange={setToolPolicy} disabled={working} />}
-              </details>
             </>
           )}
           {!https && setupFormId && nameField}

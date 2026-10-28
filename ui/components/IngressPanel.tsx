@@ -11,14 +11,11 @@ import IngressDialog from "./IngressDialog";
 import SourcePanel from "./SourcePanel";
 import SourcePlatformView from "./SourcePlatformView";
 import { controlSourcePlatform } from "../controlSources";
-import ChangeConnection from "./ChangeConnection";
-import { connectionSwitch } from "../state/onboarding";
 import { Dialog, IconButton, Notice } from "./ui";
 
 export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWidth, dockRect }: {
   onPanelFrame: (rect: SurfaceRect | null) => void; width?: number; dockRect?: SurfaceRect; expanded: boolean; onToggleWidth: () => void;
 }) {
-  const switching = connectionSwitch.use();
   const selected = ingressPanel.use()!, { status, sources } = connector.use();
   const connection = 'ingress' in selected ? selected : undefined;
   const platform = 'platform' in selected ? selected.platform : undefined;
@@ -64,7 +61,6 @@ export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWi
         onSaved={ingress => { if (ownsConnection()) selectIngressPanel(ingress, { autoConnect: true }); }} /> : <>
         {source ? <SourcePanel key={source.id} source={source} widthControl={widthControl} /> : <Notice>{t("accounts.unidentified")}</Notice>}
         {error && <Notice>{error}</Notice>}
-        {switching && <ChangeConnection />}
       </>}
     </motion.div>
   </Dialog>;

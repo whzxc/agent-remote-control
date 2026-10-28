@@ -367,7 +367,7 @@
       "https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/extend-copilot-chat-with-mcp",
       "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers"
     ],
-    "platform": "github"
+    "platform": "microsoft"
   },
   {
     "id": "raycast",

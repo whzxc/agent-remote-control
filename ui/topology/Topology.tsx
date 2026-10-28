@@ -129,7 +129,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     boundary.current?.style.setProperty("--topology-hub-x", `${h.x}px`);
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
-      hub.current.querySelector('[data-hub-arc="top"]')?.setAttribute('d', mark.top);
+      hub.current.querySelectorAll('[data-hub-arc="top"]').forEach(path => path.setAttribute('d', mark.top));
       hub.current.querySelector('[data-hub-arc="bottom"]')?.setAttribute('d', mark.bottom);
       hub.current.style.setProperty('--source-dot-scale', String(h.dotSource));
       hub.current.style.setProperty('--agent-dot-scale', String(h.dotAgent));
@@ -444,7 +444,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     <div ref={hub} className="topology-hub"
       onPointerMove={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onPointerLeave={() => setHubInteraction(undefined)}
-      onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : 'agent')}
+      onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
       data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}

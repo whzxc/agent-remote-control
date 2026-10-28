@@ -4,15 +4,11 @@ import { t } from '../i18n';
 import { controlSourcePlatform } from '../controlSources';
 import { isLocalSource } from '../sourcePresentation';
 import { navigation } from '../state/navigation';
-import { ingressPanel, selectSourcePlatform } from '../state/overviewPanels';
+import { selectSourcePlatform } from '../state/overviewPanels';
 import type { ControlSource } from '../state/types';
 import { Button, DialogClose, IconButton } from './ui';
 import SourceDispatches from './SourceDispatches';
 import SourceIcon from './SourceIcon';
-export function openSourceWorkspace(id: string) {
-  ingressPanel.set(undefined);
-  navigation.set(old => ({ ...old, page: 'remote', remoteSourceId: id, remoteConnectionId: undefined }));
-}
 export default function SourcePanel({ source, widthControl }: { source: ControlSource; widthControl?: ReactNode }) {
   if (isLocalSource(source)) return null;
   const platform = controlSourcePlatform(source.product);

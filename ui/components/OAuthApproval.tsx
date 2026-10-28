@@ -62,7 +62,7 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
     connectionSetup.set(undefined);
     if (target.request.switchSourceId) {
       onboarding.set(undefined);
-      navigation.set(old => ({ ...old, page: "remote", remoteSourceId: target.request.switchSourceId, remoteConnectionId: undefined }));
+      navigation.set(old => ({ ...old, page: "overview", connectionsOpen: true, remoteSourceId: target.request.switchSourceId, remoteConnectionId: undefined }));
       connectionSwitch.set({ sourceId: target.request.switchSourceId, ingressId: target.ingress.id, requestId: target.request.id, step: "approval" });
       onClose(); return;
     }

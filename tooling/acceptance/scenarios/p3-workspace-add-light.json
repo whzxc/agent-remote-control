@@ -9,5 +9,6 @@
     "pending": false,
     "connected": false
   },
-  "page": "remote"
+  "page": "overview",
+  "connectionsOpen": true
 }

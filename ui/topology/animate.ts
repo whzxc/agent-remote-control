@@ -43,7 +43,7 @@ export class TopologyAnimator {
       for (const n of w.nodes) {
         const parent = n.parent ? this.values(nodeKey(w.side, n.parent)) : undefined;
         const s = this.spring(nodeKey(w.side, n.id), { x: n.x, y: n.y, size: n.size, scale: n.scale, op: n.opacity, port: n.port,
-          taskBusX: n.taskBusX ?? n.x, childBusX: n.childBusX ?? n.x, radius: n.arc?.R ?? n.size / 2 * n.scale + this.params.arcGap, alo: n.arc?.lo ?? 0, ahi: n.arc?.hi ?? 0, aop: n.arc ? 1 : 0, presence: n.opacity === 0 ? 0 : 1, wireOpacity: n.scale < 1 ? 0.3 : 0.78, availability: 1, emphasis: 0 },
+          taskBusX: n.taskBusX ?? n.x, childBusX: n.childBusX ?? n.x, radius: n.arc?.R ?? n.size / 2 * n.scale + this.params.arcGap, alo: n.arc?.lo ?? 0, ahi: n.arc?.hi ?? 0, aop: n.arc ? 1 : 0, presence: n.opacity === 0 ? 0 : 1, wireOpacity: n.dim ? 0.3 : 0.78, availability: 1, emphasis: 0 },
         { aop: 0, alo: 0, ahi: 0, ...(parent ? { x: parent.x + (layout.portrait ? -w.side : w.side) * parent.radius, y: parent.y, op: 0, presence: 0, scale: 0.6 } : {}) });
         s.side = w.side; s.parent = n.parent ? nodeKey(w.side, n.parent) : undefined;
         if (drag?.kind === "node" && drag.side === w.side && drag.id === n.id) {

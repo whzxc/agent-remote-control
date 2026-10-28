@@ -425,7 +425,6 @@
   pointer-events: none;
   left: var(--dock-left);
   bottom: var(--dock-bottom);
-  width: 250px;
   height: 50px;
   max-width: calc(100vw - 32px);
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
@@ -440,7 +439,6 @@
 }
 
 .navigation-capsule {
-  width: 250px;
   height: 50px;
   max-width: calc(100vw - 32px);
   display: block;
@@ -478,7 +476,6 @@
 
 .navigation-surface.has-update,
 .navigation-capsule.has-update {
-  width: 298px;
   height: 50px;
 }
 
@@ -1279,12 +1276,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .pairing-card h3, .pairing-card p { margin:0; }
 .pairing-code { font:600 42px ui-monospace,monospace; letter-spacing:.18em; text-align:center; padding:12px 0; }
 .pairing-card details { font-size:12px; overflow-wrap:anywhere; }
-.remote-link-page { min-width: 0; }
 .relay-settings { padding-block:16px; border-bottom:1px solid var(--border); }
 .relay-settings .actions { flex-wrap:wrap; margin-block:12px; }
 .relay-settings h3 { margin-bottom:6px; }
 /* Source workspaces keep their shell while nested content changes. */
-.remote-link-page, .source-detail, .connection-detail { display:grid; gap:var(--space-6); min-width:0; }
+.source-detail, .connection-detail { display:grid; gap:var(--space-6); min-width:0; }
 .source-detail > section > h3 { margin-bottom:var(--space-2); }
 .source-section-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--space-3); }
 .source-section-heading h3 { margin:0; }
@@ -1413,8 +1409,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .setup-success p { color: var(--text-secondary); font-size: var(--text-sm); }
 .setup-success > .field { width: 100%; text-align: start; margin-top: 18px; }
 .setup-connection-card { display: grid; width: 100%; gap: 8px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-card); text-align: start; }
-.connection-advanced > summary { font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; margin-bottom: 12px; }
-.connection-advanced > .field { margin-block: 12px; }
 .welcome-page { position: fixed; inset: 0; z-index: 30; background: var(--canvas); display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: auto; padding: 48px 24px; }
 .welcome-mark { width: 64px; height: 64px; }
 .welcome-page h1 { margin: 24px 0 0; font-size: var(--text-title); font-weight: 600; letter-spacing: -.01em; }
@@ -1529,3 +1523,13 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-wires[data-inactive="true"] .topology-path-hit { pointer-events: none; }
 .dialog.activity-panel[data-panel-geometry="portrait"] { height: var(--panel-layout-height); max-height: var(--panel-layout-height); }
 .activity-panel[data-panel-geometry="portrait"] > .elastic-panel-content { height: calc(var(--panel-layout-height) - 2px); max-height: calc(var(--panel-layout-height) - 2px); }
+
+/* Connection motion stays screen-relative while the mark follows the topology orientation. */
+.hub-connection-motion { position: absolute; inset: 0; pointer-events: none; }
+.hub-connection-orbit { position: absolute; inset: 0; transform: rotate(var(--hub-rotation, 0deg)); pointer-events: none; }
+.hub-connections { position: absolute; inset: 0 0 auto; width: 100%; height: 40%; padding: 0; border: 0; background: transparent; color: var(--text); cursor: pointer; pointer-events: auto; }
+.hub-connections > svg { display: block; width: 100%; height: 250%; overflow: visible; }
+.hub-connections path { pointer-events: stroke; }
+.hub-connections:focus-visible { outline: none; }
+.hub-connections:focus-visible path[data-panel-visual] { stroke: var(--accent); }
+.hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }

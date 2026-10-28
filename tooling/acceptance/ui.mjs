@@ -31,7 +31,7 @@ try {
   browser = await ({ chromium, webkit }[engine]).launch();
   for (const file of scenarios) {
     const fixture = JSON.parse(await readFile(path.join(root, 'tooling/acceptance/scenarios', file), 'utf8'));
-    const setup = !!(fixture.sourceSetup && fixture.sourceSetup.step !== 'welcome' || fixture.connectionSetup || fixture.switchFlow);
+    const setup = !!(fixture.sourceSetup && fixture.sourceSetup.step !== 'welcome' || fixture.connectionSetup);
     if (setupOnly && !setup) continue;
     for (const { width, height } of report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;

@@ -4,7 +4,7 @@ import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, acceptUpdateSnapshot } from './state/updates';
 import type { UpdateSnapshot } from './state/updateModel';
-import { onboarding, connectionSetup, connectionSwitch, type ConnectionSwitch, type SourceSetup, type ConnectionSetup } from './state/onboarding';
+import { onboarding, connectionSetup, type SourceSetup, type ConnectionSetup } from './state/onboarding';
 import { navigation, type Page } from './state/navigation';
 import type { RelayProgress } from './state/relay';
 import { connector } from './state/connector';
@@ -24,7 +24,7 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean; switching?: boolean; disconnected?: boolean; switched?: boolean }; switchFlow?: ConnectionSwitch; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
@@ -125,32 +125,6 @@ export async function installScenario(name: string) {
     if (remote.local) status.ingresses = [{ ...base, id: 'local-claude-code', name: 'Claude Code', sources: [{ ...base.sources![0], id: 'local-source', ingressId: 'local-claude-code', connectedAt: null, lastSeenAt: null }] }];
   }
   const sources = status.ingresses.flatMap(i => i.sources ?? []);
-  if (fixture.remoteLink?.switching || fixture.remoteLink?.disconnected) {
-    const old = status.ingresses[0], source = sources.find(s => s.id === 'source-personal')!;
-    const target = { ...old, id: 'tunnel-next', name: 'Cloudflare Tunnel', transport: 'https', url: 'https://tunnel.example.com/mcp', sources: [], oauth: { pending: [], grants: [] } } as typeof old;
-    const peer = { ...source, id: 'source-bot', label: 'Grok Bot', product: 'grok-bot', platform: 'xai', credential: { type: 'oauth-grant' as const, grantId: 'grant-bot' } };
-    sources.push(peer); old.sources!.push(peer);
-    const occupied = status.ingresses.find(i => i.id === 'secure-tunnel')!;
-    occupied.sources = [{ ...source, id: 'source-secure', ingressId: occupied.id, label: 'ChatGPT', product: 'chatgpt', platform: 'openai', credential: { type: 'ingress' } }];
-    sources.push(...occupied.sources);
-    status.ingresses.push(target);
-    if (fixture.switchFlow && fixture.switchFlow.step !== 'connection') {
-      source.pendingSwitch = { ingressId: target.id, expiresAt: Math.floor(Date.now() / 1000) + 300, ...(fixture.switchFlow.step === 'approval' ? { requestId: 'request-switch' } : {}) };
-      if (fixture.switchFlow.step === 'approval') {
-        const pending = { ...source, id: 'source-switch', switchSourceId: source.id, ingressId: target.id, credential: { type: 'oauth-grant' as const, grantId: 'request-switch' }, pendingSwitch: undefined, connectedAt: null, lastSeenAt: null, state: 'disconnected' as const };
-        sources.push(pending); target.sources = [pending];
-        target.oauth!.pending = [{ id: 'request-switch', sourceId: pending.id, switchSourceId: source.id, product: source.product, clientName: 'Claude', redirectUri: 'https://claude.ai/api/mcp/auth_callback', resource: target.url, pairingCode: '4F7K', status: 'pending' }];
-      }
-    }
-    if (fixture.remoteLink?.switched) {
-      old.sources = old.sources!.filter(s => s.id !== source.id);
-      source.ingressId = target.id; target.sources = [source];
-    }
-    if (fixture.remoteLink?.disconnected) {
-      for (const s of sources.filter(s => s.ingressId === old.id)) { s.state = 'disconnected'; s.connectionRemoved = true; s.connectionName = old.name; }
-      status.ingresses = status.ingresses.filter(i => i.id !== old.id);
-    }
-  }
   const inventory: Agent[] = fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
   fixture.tasks.forEach((task, index) => {
@@ -293,10 +267,9 @@ export async function installScenario(name: string) {
       const session = activity.agents[task.agent].sessions.find(session => session.id === `fixture-task-${fixture.detailTask}`)!;
       selectAgentPanel({ type: 'task', agent: task.agent, session: { ...session, orderAt: Date.parse(session.startedAt!), ...(task.outcome ? { endedAt: Date.parse(now) } : {}) } });
     }
-    if (fixture.switchFlow) connectionSwitch.set(fixture.switchFlow);
     if (fixture.sourceSetup) onboarding.set(fixture.sourceSetup);
     if (fixture.connectionSetup) connectionSetup.set(fixture.connectionSetup);
-    if (fixture.page) navigation.set({ page: fixture.page, remoteConnectionId: fixture.remoteConnectionId, remoteSourceId: fixture.remoteSourceId });
+    if (fixture.page) navigation.set({ page: fixture.page, connectionsOpen: fixture.connectionsOpen, remoteConnectionId: fixture.remoteConnectionId, remoteSourceId: fixture.remoteSourceId });
     if (fixture.update) {
       const snapshot = structuredClone(fixture.update);
       if (snapshot.state === 'countdown') snapshot.restartAt = new Date(Date.now() + 10000).toISOString();

@@ -6,7 +6,7 @@ Call `guide` first for this connection’s workflow, enabled ops, and examples. 
 
 ## Install and connect
 
-[Install ARC](installation.md), open it, and sign in to Codex. Welcome offers **This computer** for Claude Code or Claude Desktop, and **Phone and web** for remote platforms. Both open Add control source. Use the footer shortcuts to check login and permissions, or **Have a relay invite link?** to join a relay. Later, open setup from the homepage left dot or **Remote link → Add control source**.
+[Install ARC](installation.md), open it, and sign in to Codex. Click the upper arc of the center ring to manage connections. With no connection, the broken arc shows **Add connection**. We recommend one connection per device, reused by all platforms. Use the left dot to copy a connection address for a product and approve its connector after the product connects.
 
 ### Add a control source
 
@@ -18,7 +18,7 @@ Call `guide` first for this connection’s workflow, enabled ops, and examples. 
 
 ### Add a connection
 
-Open **Remote link → Connections → Add connection**. Choose **Create my relay**, **Paste relay link**, **Use your own address**, **OpenAI Secure Tunnel**, **Claude Code**, or **Claude Desktop**. Configure the chosen method, then finish on **Ready**. From a stacked dialog, choose **Continue with this connection**; standalone setup offers **Done** or **Add a source for it**. Creating a connection does not itself authorize a control source. See [Connections](guides/connections.md) for each method.
+Click the upper arc of the center ring, then **Add connection**. Choose **Create my relay**, **Paste relay link**, **Use your own address**, **OpenAI Secure Tunnel**, **Claude Code**, or **Claude Desktop**. Configure the chosen method, then finish on **Ready**. From a stacked dialog, choose **Continue with this connection**; standalone setup offers **Done** or **Add a source for it**. Creating a connection does not itself authorize a control source. See [Connections](guides/connections.md) for each method.
 
 ### Local clients
 
@@ -26,7 +26,7 @@ Choose **Claude Code** or **Claude Desktop** when adding a source, then select i
 
 ### Manage sources and connections
 
-**Remote link** lists sources and connections separately. Open a source to edit its account name or product, view dispatches, disconnect it, or choose **Change connection**. Open a connection to copy its address, see the sources using it, add a source, or remove it. Removing a connection retains source names and history for later reconnection.
+**Platforms** lists supported platform families and their authorized connector instances. Each card shows the information received during authorization and its timestamps, with rename and remove actions. Removal revokes that connector while retaining its history. The center ring’s upper arc opens device connections for address copying, editing, and removal. Local Agents remain separate.
 
 To change a source's connection, select the target in ARC first. In the client, delete the old ARC connector and add it again with the new address; editing the URL also works where supported. Return to ARC, compare the code, check **Claim as <account name>**, and approve the switch. Name, history and notification settings stay; the old grant is revoked after the new authorization completes.
 
