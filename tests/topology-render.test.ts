@@ -212,10 +212,16 @@ test("control source dock preserves editing, field navigation and cross-side dis
     await click(first());
     const shell = page.getByRole("dialog");
     assert.equal(shell.getAttribute("aria-modal"), null);
+    assert.equal(page.queryByRole("switch"), null);
+    const { controlSource } = await server.ssrLoadModule("/ui/controlSources.ts");
+    await click(button(controlSource("claude").displayName));
+    assertNodeIdentity(page.getByRole("dialog"), shell);
     await click(page.getByRole("switch"));
     assert.ok(page.getByRole("switch", { checked: false }));
     await click(page.getByRole("switch"));
     assert.ok(page.getByRole("switch", { checked: true }));
+    await click(first());
+    assertNodeIdentity(page.getByRole("dialog"), shell);
     await act(() => navigation.set({ ingressEdit: { id: "one" } })); await flush();
     assertNodeIdentity(page.getByRole("dialog"), shell);
     await click(button(t("back")));
@@ -238,7 +244,6 @@ test("control source dock preserves editing, field navigation and cross-side dis
     await click(first()); assert.equal(agentPanel.get(), undefined); assert.ok(ingressPanel.get());
     await escape();
     const { onboarding } = await server.ssrLoadModule("/ui/state/onboarding.ts");
-    const { controlSource } = await server.ssrLoadModule("/ui/controlSources.ts");
     for (const id of ["claude", "chatgpt", "custom"]) {
       await click(button(t("addControlSource")));
       await click(page.getByRole("radio", { name: id === "custom" ? t("setup.otherClient") : controlSource(id).displayName, exact: true }));

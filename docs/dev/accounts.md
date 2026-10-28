@@ -113,10 +113,12 @@ One persisted preference, selected in Settings > General through two icon option
 
 One side panel replaces the source panel layer one plus the Remote link source detail. Remote link keeps the source and connection lists; opening a source opens this panel.
 
-- Header: product icon, `Platform · Alias`, email only, a switch reflecting the connection runtime, width control and close. The switch starts or stops the connection; enabling its configuration alone does not mean it is running. There is no account-initial badge, state-chip strip or shared-connection helper line.
-- Tabs: Activity (stacked nonempty groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings), Connection (connection card with Change, address copy, authorized / last seen / client reports / tools facts, collapsed Advanced with product correction, Disconnect at the bottom).
+- Header: platform icon linking to the platform panel, `Platform · Alias`, email, width control and close.
+- Content: stacked nonempty activity groups for needs you, running, unread, today, yesterday, earlier weekdays and older dispatches, sharing Agent conversation ordering and headings. There are no tabs or connection controls.
 
-Multi-account source platform nodes open an independent platform panel. It stacks account identity cards, same-identity Agent links and quota in topology account order, without notifications. Notification management stays in the Accounts workspace. Individual source panels contain only Activity and Connection. Platform state aggregates its sources; any running source keeps the platform active.
+Source platform panels use Account and Connection tabs. Each account is one card combining identity and quota. Alias and plan sit together on the left, with Open account on the right. Shared-quota explanations, Agent links and notifications are omitted. Notification management stays in the Accounts workspace.
+
+The platform header owns the connection runtime switch. It starts or stops the platform's connection; configured-enabled does not imply running. Connection shows the connection name, kind and address, with editing through IngressDialog and access to the connection workspace. It has no account-scoped authorization revocation or co-hosted-source summary. The platform view uses one connection per platform without a multi-connection reconciliation flow. Native source authorization and historical attribution remain account-scoped. Platform state aggregates its sources; any running source keeps the platform active.
 
 ### Topology
 

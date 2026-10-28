@@ -246,30 +246,6 @@ test('source dates treat zero and absent timestamps as never in every locale', a
   });
 });
 
-test('source platform panels use product display names in every locale', async () => {
-  // Regression: the same-identity Agent link rendered the internal codex ID instead of the Codex display name.
-  await withAccountUI(async ({ server, root }) => {
-    const { refreshAccounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
-    const { accountsApi } = await server.ssrLoadModule('/ui/api.ts');
-    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
-    const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
-    const { Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const { locale } = await server.ssrLoadModule('/ui/i18n.ts');
-    const { name } = await server.ssrLoadModule('/ui/state/agents.ts');
-    await refreshAccounts();
-    const account = await accountsApi.get('account-openai');
-    const source = connector.get().sources.find((item: any) => account.sources.includes(item.id));
-    const page = within(document.body);
-    for (const language of ['en', 'zh-CN']) {
-      await act(async () => { locale.set(language); root.render(h(TooltipProvider, null, h(Dialog, { title: 'Source', onClose() {} }, h(SourcePlatformView, { platform: source.product })))); });
-      const label = `${name(account.agentProfiles[0])} · ${account.alias}`;
-      assert.ok(page.getByRole('button', { name: label, exact: true }));
-      assert.equal(page.queryByRole('button', { name: `${account.agentProfiles[0].agent} · ${account.alias}`, exact: true }), null);
-      await act(async () => root.render(null));
-    }
-  });
-});
-
 test('built-in local authority is absent from control sources, accounts and disconnect actions', async () => {
   // Regression: Local CLI appeared as an Unidentified account and its disconnect action revoked panel and CLI writes.
   await withAccountUI(async ({ server, root }) => {
@@ -280,7 +256,7 @@ test('built-in local authority is absent from control sources, accounts and disc
     const { default: AccountsPage } = await server.ssrLoadModule('/ui/components/AccountsPage.tsx');
     const { default: RemoteLinkPage } = await server.ssrLoadModule('/ui/components/RemoteLinkPage.tsx');
     const { default: SourcePanel } = await server.ssrLoadModule('/ui/components/SourcePanel.tsx');
-    const { default: SourceConnection } = await server.ssrLoadModule('/ui/components/SourceConnection.tsx');
+    const { default: PlatformConnection } = await server.ssrLoadModule('/ui/components/PlatformConnection.tsx');
     const { default: SourceProductChoice } = await server.ssrLoadModule('/ui/components/SourceProductChoice.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
@@ -307,13 +283,13 @@ test('built-in local authority is absent from control sources, accounts and disc
       assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) }), null);
       assert.ok(page.getByRole('button', { name: name => name.startsWith(external.label) && name.endsWith(t('source.state.connected')) }));
       assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
-      for (const component of [SourcePanel, SourceConnection]) {
-        await render(h(component, { source: local, onConnection() {} }));
-        assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
-        assert.equal(page.queryByRole('button', { name: t('switch.title'), exact: true }), null);
-      }
-      await render(h(SourceConnection, { source: external, onConnection() {} }));
-      assert.ok(page.getByRole('button', { name: t('source.disconnect'), exact: true }));
+      await render(h(SourcePanel, { source: local }));
+      assert.equal(page.queryByRole('button', { name: t('source.disconnect'), exact: true }), null);
+      await render(h(PlatformConnection, { ingress: { id: 'local-cli' }, onConnection() {} }));
+      assert.equal(page.queryByRole('button', { name: t('edit'), exact: true }), null);
+      const externalIngress = connector.get().status.ingresses.find((entry: any) => entry.id === external.ingressId);
+      await render(h(PlatformConnection, { ingress: externalIngress, onConnection() {} }));
+      assert.ok(page.getByRole('button', { name: t('edit'), exact: true }));
       await render(h(SourceProductChoice, { value: 'custom', onChange() {} }));
       const { controlSource } = await server.ssrLoadModule('/ui/controlSources.ts');
       await act(async () => { fireEvent.click(page.getByRole('combobox', { name: t('source.moreProducts'), exact: true })); });

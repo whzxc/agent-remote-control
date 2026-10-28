@@ -83,7 +83,7 @@ Local management adds `source list`, `source update` (label, product), `source d
 The workspace subject is control sources and how each one connects.
 
 - The primary list shows one row per source: product icon, label, connection chip, and state. A persisted toggle groups rows by platform.
-- Selecting a source opens its detail: label edit, product correction, connection, connected time, last seen, address copy, and Disconnect.
+- Selecting a source opens its activity panel. Its platform icon opens the platform panel, where Account combines identity and quota and Connection owns configuration and runtime controls.
 - A Connections section lists one row per connection: kind, address, health, and the number of sources it carries. Selecting a connection opens its detail: address copy, provider, edit for dedicated tunnels, retry or update for relay links, and Leave for joined relays.
 - Pending reauthorizations appear on the affected source row until claimed or dismissed.
 - Grants without a source cannot exist after migration. The separate Approved list is removed.
@@ -125,7 +125,7 @@ Remote link › Connections › Add connection opens it standalone. Add control 
 
 ### Change a source's connection
 
-Source detail's connection card has Change connection. Steps: Connection, Update address, Reauthorize.
+Source activity panels link to platform panels for connection configuration and runtime controls. Cross-connection source migration starts through management ops or CLI. The pending migration dialog uses Connection, Update address and Reauthorize steps.
 
 1. Connection: "Currently via <name>", compatible connections as radio rows, disabled incompatible ones and non-OAuth connections that already carry a source, and a dashed New connection row that stacks Add connection. A warning note uses the registry's `setup.editableUrl` capability: unless explicitly true, remove the old ARC connector in the platform and add it again with the new address (editing the URL also works where supported). It explains that reauthorization is required, that name, history and notification settings are kept, and that the old grant is revoked after success.
 2. Update address: the new address with Copy, the same registry-driven replacement instruction, and the platform's settings path. The footer waits for a request on the new connection.

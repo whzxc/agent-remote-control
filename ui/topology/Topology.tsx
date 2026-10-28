@@ -447,6 +447,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
       data-agent-node={n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
+      data-source-platform={n.side === -1 ? n.platform : undefined}
       data-account-id={n.accountId}
       className={`topology-node ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       data-collapse-visible={revealed === nodeKey(n.side, n.id) || focus?.side === n.side && focus.id === n.id || undefined}

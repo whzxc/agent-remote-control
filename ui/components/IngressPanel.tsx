@@ -56,10 +56,10 @@ export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWi
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => ingressPanel.set(old => old && sourcePanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = ingressPanel.get(); if (current && sourcePanelId(current) === panelId && current.closing) ingressPanel.set(undefined); }}
-    returnFocus={`[data-source-node="${CSS.escape(platform ? panelId : client?.id ?? entry?.id ?? panelId)}"] button`} onPanelFrame={onPanelFrame}>
+    returnFocus={platform ? `[data-source-platform="${CSS.escape(platform)}"] button` : `[data-source-node="${CSS.escape(client?.id ?? entry?.id ?? panelId)}"] button`} onPanelFrame={onPanelFrame}>
     <motion.div className="side-panel-layer" key={`${panelId}:${connection?.editing ? "edit" : "view"}`}
       initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : connection?.editing ? -12 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-      {platform ? <SourcePlatformView platform={platform} widthControl={widthControl} /> : connection?.editing && entry ? <IngressDialog embedded ingress={entry} focusField={connection.field} onBusy={setBusy}
+      {platform ? <SourcePlatformView platform={platform} widthControl={widthControl} onBusy={setBusy} /> : connection?.editing && entry ? <IngressDialog embedded ingress={entry} focusField={connection.field} onBusy={setBusy}
         onClose={() => selectIngressPanel(entry)} onRemoved={() => { if (ownsConnection()) ingressPanel.set(undefined); }}
         onSaved={ingress => { if (ownsConnection()) selectIngressPanel(ingress, { autoConnect: true }); }} /> : <>
         {source ? <SourcePanel key={source.id} source={source} widthControl={widthControl} /> : <Notice>{t("accounts.unidentified")}</Notice>}

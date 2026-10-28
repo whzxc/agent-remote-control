@@ -27,7 +27,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       // Multiple connections of this identity still share just one node.
       const account = linked[0];
       return [{ ...first, label, accountId: account.id, sourceIds: covered.map(v => v.id), tasks,
-        selected: covered.some(v => v.selected), sameIdentity: account.sources.length > 0 && account.agentProfiles.length > 0 }, ...unmatched];
+        selected: covered.some(v => v.selected) || side === -1 && actions.selectedPlatform === platform, sameIdentity: account.sources.length > 0 && account.agentProfiles.length > 0 }, ...unmatched];
     }
     // Equal aliases (including Unidentified) never merge distinct ARC account IDs.
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
