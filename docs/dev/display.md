@@ -1,6 +1,6 @@
 # Studio display
 
-The homepage can display a day/night studio scene, a local clock, and the existing task topology. Display settings are available from the monitor button. Panels, tasks, and the connection power control remain interactive.
+The homepage can display a day/night studio scene, a local clock, and the existing task topology. Studio display is experimental and defaults off. Enable it in Settings → Extras → Experimental. The homepage monitor button is available only while studio display is enabled and provides lighting and full-screen controls. Panels, tasks, and the connection power control remain interactive.
 
 `arc.display.enabled` and `arc.display.phase` use Core-backed preferences. Lighting accepts `auto`, `day`, or `night`. Automatic lighting follows local time: day starts at 07:00 and night starts at 19:00. The clock displays local hours and minutes in the selected UI locale. It schedules the next minute boundary, stops its timer while the document is hidden, and refreshes on visibility, focus, page restoration, or an application clock override.
 

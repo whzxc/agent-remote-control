@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { t } from '../i18n';
 import { openUrl } from '../platform';
-import { Button, Field, Input, Notice, Switch } from '../components/ui';
-import { assignPet, installPet, removePet, petAssignments, petLibrary, refreshPets, showPets } from './state';
+import { Button, Field, Input, Notice } from '../components/ui';
+import { assignPet, installPet, removePet, petAssignments, petLibrary, refreshPets } from './state';
 import PetPreview from './PetPreview';
-export function PetsSwitch() { const checked = showPets.use(); return <Switch label={t('pets.show')} checked={checked} onChange={showPets.set} />; }
 export default function PetsPage() {
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [url, setUrl] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');

@@ -1,5 +1,5 @@
 import { createStore } from "./store";
-export type Page = "overview" | "accounts" | "permissions" | "settings" | "pets";
+export type Page = "overview" | "accounts" | "permissions" | "settings";
 export const navigation = createStore<{
   connectionsOpen?: boolean;
   platformId?: string;

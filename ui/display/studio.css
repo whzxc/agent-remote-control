@@ -29,7 +29,6 @@
 .studio-controls { position: absolute; right: var(--dock-left); bottom: var(--dock-bottom); z-index: 50; border-radius: 50%; padding: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); opacity: .7; transition: opacity 160ms ease; }
 .studio-controls:hover, .studio-controls:focus-within, .studio-controls:has([data-state="open"]) { opacity: 1; }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-.studio-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-weight: 500; }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
   .studio-night { background-image: url('/studio/portrait-night.webp'); }

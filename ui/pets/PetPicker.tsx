@@ -3,13 +3,15 @@ import { Popover } from 'radix-ui';
 import { PawPrint } from 'lucide-react';
 import { t } from '../i18n';
 import { Button, IconButton, Notice, SingleChoice } from '../components/ui';
-import { assignPet, petAssignments, petLibrary, refreshPets } from './state';
+import { assignPet, petAssignments, petLibrary, refreshPets, showPets } from './state';
 import PetPreview from './PetPreview';
 import { petBrand, selectPet } from './model';
 import './pets.css';
 export default function PetPicker({ scope, name, platform }: { scope: string; name: string; platform?: string }) {
+  const enabled = showPets.use();
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [open, setOpen] = useState(false);
+  if (!enabled) return null;
   const inherited = selectPet({ id: scope, platform, brand: petBrand(scope.startsWith('agent:') ? scope.slice(6) : platform ?? '') }, library.packages, { ...assignments, [scope]: '' });
   const selected = library.packages.some(p => p.key === assignments[scope]) ? assignments[scope] : '';
   return <Popover.Root open={open} onOpenChange={value => { setOpen(value); if (value) void refreshPets(); }}>

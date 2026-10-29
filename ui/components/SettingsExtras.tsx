@@ -5,10 +5,15 @@ import { Group, HoverScope, Row, SingleChoice, Switch } from "./ui";
 import { api } from "../api";
 import { connector, run } from "../state/connector";
 import { acceptPreferences, maintainerMode } from "../state/store";
+import PetsPage from "../pets/PetsPage";
+import { showPets } from "../pets/state";
+import { StudioLighting } from "../display/Studio";
+import { studioEnabled } from "../display/state";
 import RelayHosting from "./RelayHosting";
 
 export default function SettingsExtras() {
   const [pane, setPane] = useState("hosting"), tuning = topologyTuningEnabled.use();
+  const pets = showPets.use(), studio = studioEnabled.use();
   const maintainer = maintainerMode.use(), { busy, status } = connector.use();
   async function saveMaintainer(enabled: boolean) {
     await run("maintainer-mode", async () => {
@@ -33,6 +38,14 @@ export default function SettingsExtras() {
           <Row title={t("topology.tuning")} description={t("topology.settingDescription")}>
             <Switch label={t("topology.tuning")} checked={tuning} onChange={topologyTuningEnabled.set} />
           </Row>
+          <Row title={t("pets.title")}>
+            <Switch label={t("pets.show")} checked={pets} onChange={showPets.set} />
+          </Row>
+          <Row title={t("studio.enabled")}>
+            <Switch label={t("studio.enabled")} checked={studio} onChange={studioEnabled.set} />
+          </Row>
+          {studio && <Row title={t("studio.light")}><StudioLighting /></Row>}
+          {pets && <PetsPage />}
         </Group>}
       </div>
     </div>

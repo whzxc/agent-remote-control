@@ -1,6 +1,5 @@
 import { StudioBackground, StudioControls } from './display/Studio';
 import { studioEnabled } from './display/state';
-import PetsPage, { PetsSwitch } from "./pets/PetsPage";
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
 import { captureRequest, type PanelRequest } from "./acceptance";
@@ -19,7 +18,6 @@ import {
   ShieldCheck,
   RefreshCw,
   Users,
-  PawPrint,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -71,7 +69,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", "pets"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -165,7 +163,7 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
-          if (["overview", "settings", "accounts", "permissions", "pets"].includes(e.payload))
+          if (["overview", "settings", "accounts", "permissions"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -211,7 +209,6 @@ export default function App() {
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     { id: "settings" as const, label: t("settings"), icon: Settings },
-    { id: "pets" as const, label: t("pets.title"), icon: PawPrint },
   ];
   return (
     <div
@@ -248,7 +245,7 @@ export default function App() {
       }}
     >
       <StudioBackground clockVisible={page === "overview" && !welcome && !modalOpen} />
-      <StudioControls available={page === "overview" && !welcome && !modalOpen} />
+      <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}
@@ -299,7 +296,6 @@ export default function App() {
                 {page === "settings" && nav.settingsExtras && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("extras.title")}</span></>}
 
               </h1>
-              {page === "pets" && <PetsSwitch />}
               {page === "permissions" && <IconButton
                 icon={RefreshCw}
                 label={t("permissionsRefresh")}
@@ -323,7 +319,7 @@ export default function App() {
             <main
               className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
             >
-              {page === "pets" ? <PetsPage /> : page === "permissions" ? (
+              {page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />

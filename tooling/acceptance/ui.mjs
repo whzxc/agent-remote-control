@@ -54,6 +54,16 @@ try {
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
+        if (fixture.settingsExtras) {
+          // Regression: experimental pets were exposed as a primary navigation page.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('radio', { name: messages['topology.experimental'] }).click();
+          const pets = page.getByRole('switch', { name: messages['pets.show'], exact: true });
+          const studio = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
+          if (await pets.isChecked() !== !!fixture.pets || await studio.isChecked() !== !!fixture.studio) throw new Error('Experimental defaults differ from fixture preferences');
+          await pets.click();
+          await pets.click();
+        }
         if (fixture.studio) {
           // Regression: changing studio lighting must not replace the saved application theme.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -63,13 +73,16 @@ try {
           const phase = fixture.studio === 'night' ? 'day' : 'night';
           await page.getByRole('radio', { name: messages[`studio.${phase}`], exact: true }).click();
           await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, phase === 'day' ? 'light' : 'dark');
+          await page.keyboard.press('Escape');
+          await page.getByRole('button', { name: messages.settings, exact: true }).click();
+          await page.getByRole('button', { name: messages['extras.entryTitle'] }).click();
+          await page.getByRole('radio', { name: messages['topology.experimental'] }).click();
           const enabled = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
           await enabled.click();
-          await page.getByTitle(messages['studio.clock'], { exact: true }).waitFor({ state: 'hidden' });
           await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, fixture.theme);
           await enabled.click();
           await page.getByRole('radio', { name: messages[`studio.${fixture.studio}`], exact: true }).click();
-          await page.keyboard.press('Escape');
+          await page.getByRole('button', { name: messages.backToHome, exact: true }).click();
           await settings.waitFor({ state: 'visible' });
         }
         if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {

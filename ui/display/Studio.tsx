@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
-import { Button, Icon, IconButton, SingleChoice, Switch } from '../components/ui';
+import { Button, Icon, IconButton, SingleChoice } from '../components/ui';
 import { locale, t } from '../i18n';
 import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
@@ -54,8 +54,14 @@ export function StudioBackground({ clockVisible }: { clockVisible: boolean }) {
   </>;
 }
 
+export function StudioLighting() {
+  const phase = studioPhase.use();
+  return <SingleChoice label={t('studio.light')} value={phase} onChange={value => studioPhase.set(parseStudioPhase(value))}
+    options={[{ value: 'auto', label: t('studio.auto'), icon: Sunrise }, { value: 'day', label: t('studio.day'), icon: Sun }, { value: 'night', label: t('studio.night'), icon: Moon }]} />;
+}
+
 export function StudioControls({ available }: { available: boolean }) {
-  const enabled = studioEnabled.use(), phase = studioPhase.use();
+  const enabled = studioEnabled.use();
   const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [busy, setBusy] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null), wasFullscreen = useRef(false), pendingFullscreen = useRef(false);
   const restoreFocus = () => {
@@ -117,9 +123,7 @@ export function StudioControls({ available }: { available: boolean }) {
       <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} label={t('studio.settings')} /></Popover.Trigger>
       <Popover.Portal><Popover.Content className="studio-settings" side="top" align="end" sideOffset={12} collisionPadding={16}
         aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
-        <div className="studio-setting-row"><span>{t('studio.enabled')}</span><Switch checked={enabled} onChange={studioEnabled.set} label={t('studio.enabled')} /></div>
-        {enabled && <SingleChoice label={t('studio.light')} value={phase} onChange={value => studioPhase.set(parseStudioPhase(value))}
-          options={[{ value: 'auto', label: t('studio.auto'), icon: Sunrise }, { value: 'day', label: t('studio.day'), icon: Sun }, { value: 'night', label: t('studio.night'), icon: Moon }]} />}
+        {enabled && <StudioLighting />}
         <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>
           <Icon icon={fullscreen ? Minimize : Expand} />{t(fullscreen ? 'studio.exitFullscreen' : 'studio.fullscreen')}
         </Button>
