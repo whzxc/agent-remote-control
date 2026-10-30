@@ -233,7 +233,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
     await click(button(t("back")));
     assertNodeIdentity(page.getByRole("dialog"), shell);
     await act(() => navigation.set({ ingressEdit: { id: "one", field: "name" } })); await flush();
-    assert.ok(page.getByRole("textbox", { name: t("sourceName") }).matches(":focus"));
+    assert.ok(page.getByRole("textbox", { name: t("setup.connectionName") }).matches(":focus"));
     assert.equal(navigation.get().ingressEdit, undefined);
     await click(button(t("save")));
     assertNodeIdentity(page.getByRole("dialog"), shell);
