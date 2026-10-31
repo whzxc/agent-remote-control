@@ -16,7 +16,7 @@ export async function testInputs() {
   if (capture('git', ['status', '--porcelain'])) return undefined;
   const env = testEnvironment();
   const inputs = { schema: 1, testVersion: env.ARC_BUILD_VERSION, tree: capture('git', ['rev-parse', 'HEAD^{tree}']), platform: process.platform, arch: process.arch,
-    os: release(), node: process.version, npm: capture('npm', ['--version']), rustc: capture(env.RUSTC || 'rustc', ['-vV']), cargo: capture('cargo', ['--version']),
+    os: release(), node: process.version, npm: process.platform === 'win32' ? capture('cmd.exe', ['/d', '/s', '/c', 'npm --version']) : capture('npm', ['--version']), rustc: capture(env.RUSTC || 'rustc', ['-vV']), cargo: capture('cargo', ['--version']),
     flags: inputKey(['RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_BUILD_TARGET', 'CC', 'CFLAGS', 'RUSTDOCFLAGS', 'RUSTC', 'RUSTC_WRAPPER',
       'RUSTC_WORKSPACE_WRAPPER', 'RUSTUP_TOOLCHAIN', 'CARGO_HOME', 'RUSTUP_HOME', 'CARGO_TARGET_DIR', 'SDKROOT'].map(key => [key, env[key] ?? null])), files: {} };
   if (process.platform === 'darwin') inputs.sdk = capture('xcrun', ['--show-sdk-version']);
