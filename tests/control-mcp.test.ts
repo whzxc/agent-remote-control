@@ -1,4 +1,5 @@
 import {assertNextCalls} from './helpers/continuations.ts';
+import {prepareCoreBinary} from './helpers/native-control.ts';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmod, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
@@ -257,6 +258,7 @@ for await (const line of createInterface({input:process.stdin})) {
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
     cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
   });
+  await prepareCoreBinary(target);
   fixtureCommand=path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : ''));
   fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;
   await connectFixture();
