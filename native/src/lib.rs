@@ -108,9 +108,17 @@ pub(crate) async fn device_name() -> &'static str {
 pub fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
+pub(crate) fn hex_encode(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(result, "{byte:02x}").expect("writing to a string cannot fail");
+    }
+    result
+}
 pub fn hash(value: impl AsRef<[u8]>) -> String {
     use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(value.as_ref()))
+    hex_encode(&Sha256::digest(value.as_ref()))
 }
 pub fn string<'a>(v: &'a Value, key: &str) -> &'a str {
     v[key].as_str().unwrap_or("")

@@ -1,4 +1,4 @@
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
+use aes::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
 use rusqlite::Connection;
 use security_framework::item::{ItemClass, ItemSearchOptions, SearchResult};
 use sha2::{Digest, Sha256};
@@ -181,7 +181,7 @@ fn decrypt<'a>(
         return Err("unsupported-cookie-encryption");
     }
     let plain = cbc::Decryptor::<aes::Aes128>::new(key.into(), (&[b' '; 16]).into())
-        .decrypt_padded_mut::<Pkcs7>(&mut encrypted[3..])
+        .decrypt_padded::<Pkcs7>(&mut encrypted[3..])
         .map_err(|_| "cookie-decrypt-failed")?;
     if version >= 24 {
         if plain.len() < 32 || plain[..32] != Sha256::digest(host.as_bytes())[..] {
@@ -293,7 +293,7 @@ pub fn profiles() -> Result<Vec<serde_json::Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aes::cipher::BlockEncryptMut;
+    use aes::cipher::BlockModeEncrypt;
     #[test]
     fn encrypted_database_versions_and_host_integrity() {
         // Regression: Chrome v24 prefixes decrypted values with a host digest before the cookie value.
@@ -311,7 +311,7 @@ mod tests {
             }
             plain.extend_from_slice(b"synthetic-value");
             let encrypted = cbc::Encryptor::<aes::Aes128>::new((&key).into(), (&[b' '; 16]).into())
-                .encrypt_padded_vec_mut::<Pkcs7>(&plain);
+                .encrypt_padded_vec::<Pkcs7>(&plain);
             let bytes = [b"v10".as_slice(), &encrypted].concat();
             for (host, name) in [
                 (".claude.ai", "sessionKey"),
@@ -332,7 +332,7 @@ mod tests {
             org_plain.extend_from_slice(org.as_bytes());
             let encrypted_org =
                 cbc::Encryptor::<aes::Aes128>::new((&key).into(), (&[b' '; 16]).into())
-                    .encrypt_padded_vec_mut::<Pkcs7>(&org_plain);
+                    .encrypt_padded_vec::<Pkcs7>(&org_plain);
             let org_bytes = [b"v10".as_slice(), &encrypted_org].concat();
             db.execute(
                 "INSERT INTO cookies VALUES ('.claude.ai','lastActiveOrg','/','',?1,0,0,1,0,1,'')",

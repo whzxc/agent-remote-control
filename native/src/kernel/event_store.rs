@@ -118,7 +118,7 @@ fn compress(path: &Path) -> Result<()> {
         std::fs::rename(&temp, path.with_extension("gz")).map_err(|e| e.to_string())?;
         save(
             &path.with_extension("json"),
-            &json!({"bytes":bytes,"characters":characters,"sha256":format!("{expected:x}")}),
+            &json!({"bytes":bytes,"characters":characters,"sha256":crate::hex_encode(&expected)}),
         )?;
         std::fs::remove_file(path).map_err(|e| e.to_string())
     })();

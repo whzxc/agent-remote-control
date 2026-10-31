@@ -105,7 +105,7 @@ pub async fn transfer(method: &str, args: &Value) -> Result<Value> {
             put(&data)?;
         }
         drop(put);
-        let sha256 = format!("{:x}", digest.finalize());
+        let sha256 = crate::hex_encode(&digest.finalize());
         if args["expectedSha256"].as_str().is_some_and(|expected| !sha256.eq_ignore_ascii_case(expected)) {
             return Err(format!("SHA256_MISMATCH: expected {}, computed {sha256}; destination unchanged", string(args, "expectedSha256")));
         }

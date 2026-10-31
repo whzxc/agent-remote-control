@@ -254,7 +254,7 @@ async fn ensure_node(status: &Mutex<Value>) -> Result<()> {
     }
     file.flush().await.map_err(|e| e.to_string())?;
     drop(file);
-    if format!("{:x}", digest.finalize()) != expected {
+    if crate::hex_encode(&digest.finalize()) != expected {
         return Err("Deployment runtime SHA256 mismatch".into());
     }
     let mut extract = command(if cfg!(windows) { "tar.exe" } else { "tar" });

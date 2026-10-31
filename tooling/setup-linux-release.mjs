@@ -1,6 +1,7 @@
 // Local release prerequisites only; no service, tag, or publication changes.
 import { existsSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { runCommand } from './windows-release.mjs';
 import { fileDigest } from './release-support.mjs';
@@ -8,15 +9,30 @@ if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('
 const root = process.cwd(), tools = path.resolve('release-artifacts/.linux-tools');
 await mkdir(tools, { recursive: true });
 if (!existsSync(path.join(tools, 'bin/python'))) await runCommand('uv', ['venv', tools]);
-await runCommand('uv', ['pip', 'install', '--python', path.join(tools, 'bin/python'), 'cargo-zigbuild==0.24.0', 'ziglang==0.17.0']);
+await runCommand('uv', ['pip', 'install', '--upgrade', '--python', path.join(tools, 'bin/python'), 'cargo-zigbuild>=0.24.0,<1', 'ziglang>=0.17.0,<1']);
 await runCommand('rustup', ['target', 'add', 'x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu']);
 const lima = path.join(tools, 'lima');
 await mkdir(lima, { recursive: true });
-const archive = path.join(lima, 'lima-2.2.1-Darwin-arm64.tar.gz');
-if (!existsSync(archive)) await runCommand('gh', ['release', 'download', 'v2.2.1', '--repo', 'lima-vm/lima',
-  '--pattern', path.basename(archive), '--dir', lima]);
-if (await fileDigest(archive) !== 'sha256:9e9eacce88f37e185c346bad73aa6136f738d8cdf8c3bb23cd42b071824bc66e') throw new Error('Lima archive checksum mismatch');
-if (!existsSync(path.join(lima, 'bin/limactl'))) await runCommand('tar', ['-xzf', archive, '-C', lima]);
+const releases = JSON.parse(execFileSync('gh', ['api', 'repos/lima-vm/lima/releases?per_page=100'], { encoding: 'utf8', maxBuffer: 16 * 1024 ** 2 }));
+const release = releases.filter(item => !item.draft && !item.prerelease && /^v2\.\d+\.\d+$/.test(item.tag_name))
+  .sort((a, b) => {
+    const left = a.tag_name.slice(1).split('.').map(Number), right = b.tag_name.slice(1).split('.').map(Number);
+    return right[1] - left[1] || right[2] - left[2];
+  })[0];
+if (!release) throw new Error('No stable Lima 2 release found');
+const name = `lima-${release.tag_name.slice(1)}-Darwin-arm64.tar.gz`;
+const asset = release.assets.find(item => item.name === name);
+if (!asset || !/^sha256:[a-f0-9]{64}$/.test(asset.digest ?? '')) throw new Error(`Missing SHA-256 for ${name}`);
+const archive = path.join(lima, name);
+if (!existsSync(archive)) await runCommand('gh', ['release', 'download', release.tag_name, '--repo', 'lima-vm/lima',
+  '--pattern', name, '--dir', lima]);
+if (await fileDigest(archive) !== asset.digest) throw new Error('Lima archive checksum mismatch');
+const marker = path.join(lima, '.arc-version');
+const installed = await readFile(marker, 'utf8').catch(error => error.code === 'ENOENT' ? '' : Promise.reject(error));
+if (installed.trim() !== release.tag_name || !existsSync(path.join(lima, 'bin/limactl'))) {
+  await runCommand('tar', ['-xzf', archive, '-C', lima]);
+  await writeFile(marker, `${release.tag_name}\n`);
+}
 const env = { ...process.env, LIMA_HOME: path.resolve('release-artifacts/.l') };
 const limactl = path.join(lima, 'bin/limactl');
 const mount = path.resolve('release-artifacts/.linux-validation');

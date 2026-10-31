@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["dmgbuild==1.6.7"]
+# dependencies = ["dmgbuild>=1.6.7,<2"]
 # ///
 """Package the Tauri app with a Finder-independent drag-to-install layout."""
 import json

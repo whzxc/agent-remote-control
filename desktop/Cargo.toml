@@ -35,34 +35,34 @@ tauri-plugin-notification = "2"
 # Reuse the plugin's notification backend for desktop activation callbacks.
 notify-rust = "4.18"
 tauri-plugin-window-state = "2"
-tauri-plugin-updater = "~2.11.0"
+tauri-plugin-updater = "2.11.0"
 serde_json = "1"
 arc-core = { path = "../native" }
 tokio = { version = "1", features = ["full"] }
 dirs = "6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winreg = "0.55"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_Controls", "Win32_UI_HiDpi", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+winreg = ">=0.55, <1"
+windows-sys = { version = ">=0.61, <1", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_Controls", "Win32_UI_HiDpi", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSApplication"] }
+objc2-app-kit = { version = ">=0.3.2, <1", default-features = false, features = ["NSApplication"] }
 
-objc2 = "0.6.3"
+objc2 = ">=0.6.3, <1"
 
-block2 = "0.6.2"
+block2 = ">=0.6.2, <1"
 
-wry = "=0.57.0"
+wry = ">=0.57.0, <1"
 uuid = { version = "1", features = ["v4"] }
-aes = "0.8.4"
-cbc = { version = "0.1.2", features = ["alloc", "zeroize"] }
-pbkdf2 = "0.12.2"
-sha1 = "0.10.6"
-sha2 = "0.10"
+aes = ">=0.9, <1"
+cbc = { version = ">=0.2, <1", features = ["alloc", "zeroize"] }
+pbkdf2 = ">=0.12.2, <1"
+sha1 = ">=0.10.6, <1"
+sha2 = ">=0.10, <1"
 zeroize = "1.9"
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = ">=0.37, <1", features = ["bundled"] }
 security-framework = "3.7"
 tempfile = "3"
-objc2-foundation = { version = "0.3.2", features = ["NSHTTPCookie", "NSDictionary", "NSString", "NSDate", "NSProcessInfo", "NSUUID"] }
+objc2-foundation = { version = ">=0.3.2, <1", features = ["NSHTTPCookie", "NSDictionary", "NSString", "NSDate", "NSProcessInfo", "NSUUID"] }
 
-objc2-web-kit = { version = "0.3.2", default-features = false, features = ["WKWebsiteDataStore", "block2"] }
+objc2-web-kit = { version = ">=0.3.2, <1", default-features = false, features = ["WKWebsiteDataStore", "block2"] }

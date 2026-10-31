@@ -658,7 +658,9 @@ mod tests {
         let (directory, path, now, at) = fixture();
         append(
             &path,
-            &[json!({"type":"session_meta","timestamp":at,"payload":{"source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}}})],
+            &[
+                json!({"type":"session_meta","timestamp":at,"payload":{"source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}}}),
+            ],
         );
         append(&path, &prompt("codex", "turn", "Review a module", &at));
         append(&path, &tool_call("codex", "read-first", &at));

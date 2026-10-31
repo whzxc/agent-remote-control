@@ -177,7 +177,7 @@ pub fn build_id(binary: &Path) -> Result<String> {
         }
         digest.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(crate::hex_encode(&digest.finalize()))
 }
 
 #[cfg(test)]

@@ -61,7 +61,7 @@ pub(super) fn installation() -> Option<Installation> {
     }
     let directory = root()
         .join("bin/codex-desktop")
-        .join(format!("{:x}", digest.finalize()));
+        .join(crate::hex_encode(&digest.finalize()));
     private_dir(&directory).ok()?;
     for name in names {
         let source = resources.join(name);

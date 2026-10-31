@@ -515,8 +515,8 @@ pub(crate) fn validation_error(
     error: &jsonschema::ValidationError<'_>,
 ) -> String {
     use jsonschema::error::ValidationErrorKind as Kind;
-    let mut field = error.instance_path.to_string();
-    let message = match &error.kind {
+    let mut field = error.instance_path().to_string();
+    let message = match error.kind() {
         Kind::Required { property } => {
             field.push('/');
             field.push_str(property.as_str().unwrap_or(""));
@@ -525,7 +525,7 @@ pub(crate) fn validation_error(
         Kind::AdditionalProperties { unexpected } => {
             let name = &unexpected[0];
             let parent = error
-                .schema_path
+                .schema_path()
                 .as_str()
                 .strip_suffix("/additionalProperties")
                 .unwrap_or("");
@@ -546,7 +546,7 @@ pub(crate) fn validation_error(
                 .unwrap_or_else(|| "Unknown field; see guide for supported parameters.".into())
         }
         Kind::Type { .. } => {
-            let received = match error.instance.as_ref() {
+            let received = match error.instance().as_ref() {
                 Value::Null => "null",
                 Value::Bool(_) => "boolean",
                 Value::Number(_) => "number",
@@ -592,7 +592,7 @@ pub(crate) fn validate_op(spec: &Value, args: &Value) -> Result<()> {
     crate::validator("op", string(spec, "name"), &spec["inputSchema"])?
         .validate(args)
         .map_err(|error| {
-            if spec["name"] == "command" && error.instance_path.as_str().is_empty() {
+            if spec["name"] == "command" && error.instance_path().as_str().is_empty() {
                 if args.get("cmd").is_some() {
                     for field in ["action", "params"] {
                         if args.get(field).is_some() {
