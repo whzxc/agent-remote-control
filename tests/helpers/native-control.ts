@@ -1,10 +1,46 @@
 import {assertNextCalls} from './continuations.ts';
 import {promisify} from 'node:util';
 import { execFile, execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export async function prepareCoreBinary(target: string) {
+  execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'arc-core', '--bin', 'arc', '--target-dir', target], {
+    cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: 'inherit',
+  });
+  const executable = `arc${process.platform === 'win32' ? '.exe' : ''}`;
+  const source = path.join(target, 'debug', executable);
+  const binDirectory = path.join(target, 'debug', 'bin');
+  const destination = path.join(binDirectory, executable);
+  const sourceStat = await stat(source);
+  const matchesSource = async () => {
+    try {
+      const destinationStat = await stat(destination);
+      return destinationStat.size === sourceStat.size && destinationStat.mtime.getTime() === sourceStat.mtime.getTime();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
+  };
+  if (await matchesSource()) return;
+  await mkdir(binDirectory, { recursive: true });
+  const temporary = path.join(binDirectory, `.${executable}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await copyFile(source, temporary);
+    await utimes(temporary, sourceStat.atime, sourceStat.mtime);
+    try {
+      await rename(temporary, destination);
+    } catch (error) {
+      if (!await matchesSource()) throw error;
+    }
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
 
 export async function nativeControl(script: string, extraEnv: Record<string, string> = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-control-'));
@@ -16,6 +52,7 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   await writeFile(fixture, script);
   const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
+  await prepareCoreBinary(target);
   const launch = async () => {
     const processHandle = spawn(path.join(target, 'debug', `contract-fixture${process.platform === 'win32' ? '.exe' : ''}`), ['http'], {
       env: { ...process.env, ARC_STATE_DIR: path.join(directory, 'state'), CODEX_HOME:path.join(directory,'codex'), ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath, ...extraEnv }, stdio: ['pipe', 'pipe', 'inherit'],
