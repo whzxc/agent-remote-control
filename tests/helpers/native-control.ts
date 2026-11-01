@@ -63,8 +63,11 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   };
   let runtime = await launch();
   const stop = async () => {
-    runtime.processHandle.stdin.end('\n');
-    await new Promise<void>(resolve => runtime.processHandle.once('exit', () => resolve()));
+    if (runtime.processHandle.exitCode === null && runtime.processHandle.signalCode === null) {
+      const exited = new Promise<void>(resolve => runtime.processHandle.once('exit', () => resolve()));
+      runtime.processHandle.stdin.end('\n');
+      await exited;
+    }
     runtime.lines.close();
   };
   const api = async (route: string, body?: unknown, method = body === undefined ? 'GET' : 'POST') => {
@@ -103,8 +106,10 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
     const quoted="'"+binary.replaceAll("'","'\\''")+"'";
     return promisify(execFile)('/bin/sh',['-c',command.replace('arc cli',`${quoted} cli`)],{env:{...process.env,ARC_STATE_DIR:path.join(directory,'state')}});
   };
-  return { api, call, sourceCall, completed, shell, async restart() {
-    await stop(); runtime = await launch();
+  return { api, call, sourceCall, completed, shell, async restart(prepare?: (directory: string) => Promise<void>) {
+    await stop();
+    if (prepare) await prepare(path.join(directory, 'state'));
+    runtime = await launch();
   }, async close() {
     await stop(); await rm(directory, { recursive: true, force: true });
   } };

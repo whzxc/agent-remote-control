@@ -35,7 +35,10 @@ pub(super) struct Row {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Negotiation {
     id: String,
-    participants: [String; 2],
+    #[serde(deserialize_with = "read_participants")]
+    participants: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    participant_recovery: Option<ParticipantRecovery>,
     initiator: String,
     resources: Vec<ResourceKey>,
     state: String,
@@ -46,6 +49,82 @@ struct Negotiation {
     last_message_id: String,
     escalation_id: Option<String>,
     decisions: Vec<Value>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ParticipantRecovery {
+    state: ParticipantRecoveryState,
+    original_participants: [String; 1],
+}
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum ParticipantRecoveryState {
+    Reconstructed,
+    Unresolved,
+}
+fn read_participants<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Vec<String>, D::Error> {
+    let participants = Vec::<String>::deserialize(deserializer)?;
+    if !matches!(participants.len(), 1 | 2) {
+        return Err(serde::de::Error::custom(
+            "expected one legacy or two participants",
+        ));
+    }
+    Ok(participants)
+}
+impl Negotiation {
+    fn unresolved(&self) -> bool {
+        self.participants.len() == 1
+            || self
+                .participant_recovery
+                .as_ref()
+                .is_some_and(|r| r.state == ParticipantRecoveryState::Unresolved)
+    }
+}
+impl Data {
+    fn recover_participants(&mut self) -> bool {
+        let mut changed = false;
+        for n in &mut self.negotiations {
+            if n.participants.len() != 1 || n.participant_recovery.is_some() {
+                continue;
+            }
+            // Every retained peer envelope must agree. ARC notices have no sender
+            // and cannot supply a missing identity. Never duplicate a singleton.
+            let mut pair: Option<Vec<String>> = None;
+            let mut consistent = true;
+            for row in self.messages.iter().filter(|r| {
+                r.envelope["negotiationId"] == n.id && r.envelope["localOrigin"] != "arc"
+            }) {
+                let from = string(&row.envelope, "fromSourceId");
+                let to = string(&row.envelope, "toSourceId");
+                let mut endpoints = vec![from.to_owned(), to.to_owned()];
+                endpoints.sort();
+                if from == to
+                    || types::identifier(from).is_err()
+                    || types::identifier(to).is_err()
+                    || !endpoints.contains(&n.participants[0])
+                    || !endpoints.contains(&n.initiator)
+                    || pair.as_ref().is_some_and(|p| p != &endpoints)
+                {
+                    consistent = false;
+                    break;
+                }
+                pair = Some(endpoints);
+            }
+            n.participant_recovery = Some(ParticipantRecovery {
+                state: ParticipantRecoveryState::Unresolved,
+                original_participants: [n.participants[0].clone()],
+            });
+            if let Some(pair) = pair.filter(|_| consistent) {
+                n.participants = pair;
+                n.participant_recovery.as_mut().unwrap().state =
+                    ParticipantRecoveryState::Reconstructed;
+            }
+            changed = true;
+        }
+        changed
+    }
 }
 pub(super) struct Store {
     path: PathBuf,
@@ -78,6 +157,22 @@ impl Store {
             let mut data: Data = serde_json::from_value(value).map_err(|_| {
                 "COORDINATION_CORRUPT: preserve messages snapshot for local recovery"
             })?;
+            if data.recover_participants() {
+                // Archive the exact input before any migration or retention write.
+                // A different existing archive is never overwritten.
+                let backup = path.with_extension("before-participant-recovery.json");
+                if backup.exists() {
+                    if std::fs::read(&backup).map_err(|_| {
+                        "COORDINATION_STORAGE: cannot read participant recovery backup"
+                    })? != bytes
+                    {
+                        return Err("COORDINATION_STORAGE: preserve both messages snapshot and participant recovery backup; archive the existing backup separately before retrying recovery".into());
+                    }
+                } else {
+                    super::super::journal::atomic_bytes(&backup, &bytes)?;
+                }
+                migrated = true;
+            }
             for row in &mut data.messages {
                 if row.envelope["localOrigin"] == "arc"
                     && row.envelope["deliveryState"] == "pending"
@@ -159,7 +254,7 @@ impl Store {
     }
     fn maintain(&mut self, time: i64) {
         for n in &mut self.data.negotiations {
-            if n.state == "open" && n.expires_at <= time {
+            if !n.unresolved() && n.state == "open" && n.expires_at <= time {
                 n.state = "expired".into();
                 self.data.pending.push(EventInput::new(
                     format!("{}-expired", n.id),
@@ -180,7 +275,12 @@ impl Store {
             }
         }
         self.data.messages.retain(|r| {
-            let keep = r.envelope["createdAt"].as_i64().unwrap_or(time) > time - 7 * DAY;
+            let keep = r.envelope["createdAt"].as_i64().unwrap_or(time) > time - 7 * DAY
+                || self
+                    .data
+                    .negotiations
+                    .iter()
+                    .any(|n| n.unresolved() && r.envelope["negotiationId"] == n.id);
             if !keep {
                 self.data.floor = self.data.floor.max(r.sequence);
             }
@@ -188,7 +288,7 @@ impl Store {
         });
         self.data
             .negotiations
-            .retain(|n| n.state == "escalated" || n.expires_at > time - 7 * DAY);
+            .retain(|n| n.unresolved() || n.state == "escalated" || n.expires_at > time - 7 * DAY);
         self.data.last_push.retain(|_, at| *at > time - DAY);
     }
     fn result(&self, row: &Row) -> Value {
@@ -242,7 +342,8 @@ impl Store {
         // Source pairs deliberately outlive session/account changes. Partial overlap also holds.
         if self.data.negotiations.iter().any(|n| {
             n.state == "escalated"
-                && n.participants == participants
+                && (n.participants == participants
+                    || (n.unresolved() && n.participants.iter().any(|p| participants.contains(p))))
                 && n.resources.iter().any(|r| resources.contains(r))
         }) {
             return Err(limit());
@@ -262,6 +363,9 @@ impl Store {
             } else {
                 let n = self.data.negotiations.iter().position(|n| Some(n.id.as_str()) == negotiation)
                 .ok_or("NEGOTIATION_NOT_FOUND: negotiation replies require negotiationId; use type:notice with inReplyTo for a notice reply, or relatedIds to link metadata")?;
+                if self.data.negotiations[n].unresolved() {
+                    return Err("INVALID_ARGUMENT: negotiation participants are unresolved; inspect local messages and the participant recovery backup before starting a separate exchange".into());
+                }
                 if old.envelope["negotiationId"] != self.data.negotiations[n].id
                     || self.data.negotiations[n].participants != participants
                     || self.data.negotiations[n].resources != resources
@@ -312,7 +416,11 @@ impl Store {
                     self.data
                         .negotiations
                         .iter()
-                        .filter(|n| n.participants.contains(participant) && n.state == "open")
+                        .filter(|n| {
+                            !n.unresolved()
+                                && n.participants.contains(participant)
+                                && n.state == "open"
+                        })
                         .count()
                         >= 4
                 })
@@ -321,7 +429,8 @@ impl Store {
             }
             self.data.negotiations.push(Negotiation {
                 id: negotiation.map(str::to_owned).unwrap_or_else(id),
-                participants,
+                participants: participants.to_vec(),
+                participant_recovery: None,
                 initiator: actor.into(),
                 resources: resources.clone(),
                 state: "open".into(),
@@ -466,14 +575,16 @@ impl Store {
                 .ok_or("MESSAGES_CURSOR_EXPIRED: invalid cursor")?;
             if v["epoch"] != self.data.epoch
                 || v["scope"] != scope
-                || sequence < self.data.floor
+                || (sequence < self.data.floor && v["floor"].as_u64() != Some(self.data.floor))
                 || sequence >= self.data.next
             {
                 return Err("MESSAGES_CURSOR_EXPIRED: restart pagination with current authority and filters".into());
             }
             sequence
         } else {
-            self.data.floor
+            // Recovery can retain old rows below the last expired sequence.
+            // New cursors bind the retention watermark to detect later gaps.
+            0
         };
         let limit = args["limit"].as_u64().unwrap_or(50) as usize;
         let matching: Vec<_> = self
@@ -510,8 +621,10 @@ impl Store {
             .take(limit)
             .last()
             .map_or(self.data.next - 1, |r| r.sequence);
-        let cursor = URL_SAFE_NO_PAD
-            .encode(json!({"epoch":self.data.epoch,"scope":scope,"after":last}).to_string());
+        let cursor = URL_SAFE_NO_PAD.encode(
+            json!({"epoch":self.data.epoch,"scope":scope,"after":last,"floor":self.data.floor})
+                .to_string(),
+        );
         let negotiations: Vec<_> = self
             .data
             .negotiations
@@ -600,6 +713,7 @@ impl Store {
     pub fn mediate(&mut self, args: &Value, time: i64) -> Result<Value> {
         self.transaction(|s| {
             let n=s.data.negotiations.iter_mut().find(|n|n.id==string(args,"negotiationId")).ok_or("NEGOTIATION_NOT_FOUND: inspect local messages")?;
+            if n.unresolved() && args["action"] == "reopen" {return Err("INVALID_ARGUMENT: cannot reopen a negotiation with unresolved participants; inspect the participant recovery backup".into());}
             if n.last_message_id!=string(args,"expectedLastMessageId") {return Err("NEGOTIATION_CONFLICT: reread the local negotiation".into());}
             if n.decisions.len()>=64 {return Err("COORDINATION_CAPACITY: local decision history is full".into());}
             n.decisions.push(json!({"at":time,"actor":"local-authority","action":args["action"],"reason":args["reason"]}));

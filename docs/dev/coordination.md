@@ -424,6 +424,70 @@ read before acquiring the message lock; journal projection and network delivery
 follow release. Recovery broadcasts use this outbox; message acknowledgements remain
 a separate capability.
 
+### Participant snapshot recovery
+
+The Messages writer creates two distinct source participants and rejects self-addressed
+mail. The snapshot reader also accepts one-participant records left by an external
+identity rewrite or damaged historical snapshot. This is a recovery input, not a
+supported way to create a negotiation.
+
+Before rewriting such a snapshot, the owner archives its exact bytes as
+`coordination/messages/state.before-participant-recovery.json`. An existing identical
+archive permits a retry after an interrupted migration. A different archive is never
+overwritten: preserve it separately before retrying. Failure to archive prevents the
+rewrite. The archive adds at most 4 MiB to the normal 8 MiB snapshot/temporary budget;
+it is not subject to retention. Other malformed schemas still fail closed.
+
+Recovery reconstructs the pair only when every retained non-ARC message in the
+negotiation agrees on two distinct valid source IDs, including the recorded participant
+and initiator. ARC-generated notices cannot supply the missing identity. The
+`participantRecovery` metadata records `originalParticipants` and a `state` of
+`reconstructed` or `unresolved`. Recovery preserves negotiation IDs, original state,
+decisions, counters, timestamps, escalation IDs and message contents. It does not
+reset reply budgets or emit a new negotiation transition.
+
+An unresolved negotiation retains its singleton, remains readable by its recorded
+participant and local authority, and rejects negotiation replies and local reopen.
+It and its linked messages remain retained for recovery. An unresolved escalation
+holds overlapping resources for exchanges involving its known participant until
+local resolution; ARC cannot safely infer which other peer was held. Local resolve
+records a decision without inventing an identity. Other negotiations keep their normal
+behavior. Unlinked messages and reconstructed exchanges keep normal retention; the
+archive preserves the complete original snapshot even after retention runs.
+
+#### Backed-up production rollout
+
+1. Arrange a maintenance window outside an ARC-owned task. Stop the Core and all
+   writers using the installation's normal lifecycle procedure. Do not reset state.
+2. Set `ARC_STATE_DIR` explicitly to that installation's state directory. On macOS
+   or Linux, make a private independent copy while the Core is stopped:
+
+   ```sh
+   : "${ARC_STATE_DIR:?Set the exact installation state directory}"
+   umask 077
+   recovery_archive="$(mktemp -d "$HOME/arc-coordination-recovery.XXXXXX")"
+   cp -pR "$ARC_STATE_DIR/coordination" "$recovery_archive/coordination"
+   cmp "$ARC_STATE_DIR/coordination/messages/state.json" \
+     "$recovery_archive/coordination/messages/state.json"
+   shasum -a 256 "$recovery_archive/coordination/messages/state.json"
+   ```
+
+3. Install the approved fixed build through the normal replacement procedure and
+   restart the Core. Its first Messages open (including Board route import) performs
+   recovery automatically. No manual JSON editing is needed. Keep the independent
+   archive and the owner-generated archive.
+4. Read local `coordination/messages`, control `messages`, and `board` with
+   `includeSessions:true`. Compare retained message IDs and all negotiation history
+   against the archive. Inspect `participantRecovery`; unresolved means the data is
+   readable, not that the missing identity has been recovered. Check normal routing
+   and messaging only with synthetic peers authorized for acceptance.
+5. If recovery fails, stop the Core and preserve both the failed candidate state and
+   the backups before further work. An older binary cannot read the recovery metadata;
+   rollback must restore the matching pre-migration coordination directory with all
+   writers stopped. Do not overwrite post-upgrade messages to roll back; archive and
+   reconcile them first. Restoring the original corrupt snapshot also restores the
+   original read failure.
+
 ### Recovery broadcast
 
 Clearing an owned blocker creates a durable advisory selection and one `recovery`

@@ -18,6 +18,19 @@ impl Fixture {
     fn restart(&mut self) {
         self.store = Store::open(self.path.clone()).unwrap();
     }
+    fn snapshot(&self) -> Value {
+        serde_json::from_slice(&std::fs::read(&self.path).unwrap()).unwrap()
+    }
+    fn seed(&mut self, value: &Value) {
+        std::fs::write(&self.path, serde_json::to_vec(value).unwrap()).unwrap();
+        self.restart();
+    }
+    fn recovery_backup(&self) -> Value {
+        serde_json::from_slice(
+            &std::fs::read(self.path.with_extension("before-participant-recovery.json")).unwrap(),
+        )
+        .unwrap()
+    }
     fn send(&mut self, actor: &str, args: Value) -> Value {
         self.send_route(actor, args, None)
     }
@@ -36,6 +49,249 @@ impl Fixture {
             .list(&args, actor, "authority", self.time)
             .unwrap()
     }
+}
+
+#[test]
+// Regression: singleton negotiations made the entire Messages snapshot fail with COORDINATION_CORRUPT.
+fn singleton_history_is_preserved_without_inventing_a_peer() {
+    let mut f = Fixture::new();
+    for _ in 0..3 {
+        let first = f.send("one", request());
+        let mut args = reply(&first, "one");
+        args["type"] = json!("grant");
+        f.send("two", args);
+    }
+    for _ in 0..5 {
+        let mut args = request();
+        args["type"] = json!("notice");
+        f.send("one", args);
+    }
+    let mut original = f.snapshot();
+    for n in original["negotiations"].as_array_mut().unwrap() {
+        n["participants"] = json!(["one"]);
+        n["decisions"] = json!([{"at":f.time,"actor":"local-authority","action":"resolve","reason":"Archived decision"}]);
+    }
+    for row in original["messages"].as_array_mut().unwrap() {
+        row["envelope"]["fromSourceId"] = json!("one");
+        row["envelope"]["toSourceId"] = json!("one");
+    }
+    f.seed(&original);
+    let listed = f.list("local-authority", json!({}));
+    let messages: Vec<_> = original["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["envelope"].clone())
+        .collect();
+    assert_eq!(listed["messages"], json!(messages));
+    assert_eq!(listed["messages"].as_array().unwrap().len(), 11);
+    assert_eq!(listed["negotiations"].as_array().unwrap().len(), 3);
+    for (i, n) in listed["negotiations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
+        let mut expected = original["negotiations"][i].clone();
+        expected["participantRecovery"] =
+            json!({"state":"unresolved","originalParticipants":["one"]});
+        assert_eq!(n, &expected);
+    }
+    assert!(f.list("two", json!({}))["negotiations"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert_eq!(f.recovery_backup(), original);
+    // Simulate a crash after the archive was synced but before the owner rewrite.
+    f.seed(&original);
+    f.restart();
+    assert_eq!(
+        f.list("local-authority", json!({}))["negotiations"],
+        listed["negotiations"]
+    );
+    let n = &listed["negotiations"][0];
+    assert!(f.store.mediate(&json!({"negotiationId":n["id"],"expectedLastMessageId":n["lastMessageId"],"action":"reopen"}), f.time).unwrap_err().starts_with("INVALID_ARGUMENT:"));
+    let before_retention = f.list("one", json!({"limit":2}));
+    f.time += 9 * 86400;
+    assert!(f
+        .store
+        .list(
+            &json!({"cursor":before_retention["nextCursor"]}),
+            "one",
+            "authority",
+            f.time
+        )
+        .unwrap_err()
+        .starts_with("MESSAGES_CURSOR_EXPIRED:"));
+    assert_eq!(
+        f.list("local-authority", json!({}))["negotiations"],
+        listed["negotiations"]
+    );
+    assert_eq!(
+        f.list("one", json!({}))["messages"]
+            .as_array()
+            .unwrap()
+            .len(),
+        6
+    );
+    let mut page = f.list("one", json!({"limit":2}));
+    let mut retained = page["messages"].as_array().unwrap().clone();
+    while page["hasMore"] == true {
+        page = f.list("one", json!({"limit":2,"cursor":page["nextCursor"]}));
+        retained.extend(page["messages"].as_array().unwrap().clone());
+    }
+    assert_eq!(retained, messages[..6]);
+    assert_eq!(f.recovery_backup(), original);
+    assert!(f.send("one", request())["message"].is_object());
+}
+
+#[test]
+// Regression: a missing participant must be recovered from consistent retained peer envelopes without resetting reply history.
+fn singleton_reconstruction_preserves_reply_budget_and_replay() {
+    let mut f = Fixture::new();
+    let first = f.send("one", request());
+    let mut args = reply(&first, "one");
+    args["requestId"] = json!(id());
+    let second = f.send("two", args.clone());
+    let mut original = f.snapshot();
+    original["negotiations"][0]["participants"] = json!(["one"]);
+    f.seed(&original);
+    let replay = f.send("two", args);
+    let mut expected = second["negotiation"].clone();
+    expected["participantRecovery"] =
+        json!({"state":"reconstructed","originalParticipants":["one"]});
+    assert_eq!(replay["negotiation"], expected);
+    assert_eq!(f.recovery_backup(), original);
+    f.restart();
+    assert_eq!(f.list("two", json!({}))["negotiations"][0], expected);
+    let third = f.send("one", reply(&second, "two"));
+    let fourth = f.send("two", reply(&third, "one"));
+    assert_eq!(fourth["negotiation"]["automaticReplyCount"], 3);
+    assert_eq!(fourth["negotiation"]["state"], "escalated");
+    assert_eq!(
+        f.send("one", request())["error"]["code"],
+        "NEGOTIATION_LIMIT"
+    );
+}
+
+#[test]
+// Regression: incomplete or contradictory retained evidence must not manufacture a negotiation peer.
+fn singleton_missing_or_conflicting_evidence_stays_unresolved() {
+    for mode in ["missing", "conflicting", "initiator", "arc-only"] {
+        let mut f = Fixture::new();
+        let first = f.send("one", request());
+        f.send("two", reply(&first, "one"));
+        let mut original = f.snapshot();
+        original["negotiations"][0]["participants"] = json!(["one"]);
+        match mode {
+            "missing" => original["messages"] = json!([]),
+            "conflicting" => original["messages"][1]["envelope"]["fromSourceId"] = json!("three"),
+            "initiator" => original["negotiations"][0]["initiator"] = json!("three"),
+            _ => {
+                for row in original["messages"].as_array_mut().unwrap() {
+                    row["envelope"]["localOrigin"] = json!("arc");
+                    row["envelope"]["fromSourceId"] = Value::Null;
+                }
+            }
+        }
+        f.seed(&original);
+        let listed = f.list("one", json!({}));
+        assert_eq!(
+            listed["negotiations"][0]["participantRecovery"]["state"],
+            "unresolved"
+        );
+        assert_eq!(listed["negotiations"][0]["participants"], json!(["one"]));
+        assert_eq!(f.recovery_backup(), original);
+        if mode == "conflicting" {
+            assert_eq!(
+                f.send("two", reply(&first, "one"))["error"]["code"],
+                "INVALID_ARGUMENT"
+            );
+        }
+    }
+}
+
+#[test]
+// Regression: singleton recovery must leave current two-participant negotiation behavior and history unchanged.
+fn current_pairs_round_trip_without_recovery() {
+    let mut f = Fixture::new();
+    let first = f.send("one", request());
+    f.restart();
+    assert_eq!(
+        f.list("two", json!({}))["negotiations"][0],
+        first["negotiation"]
+    );
+    let second = f.send("two", reply(&first, "one"));
+    assert_eq!(second["negotiation"]["participants"], json!(["one", "two"]));
+    assert_eq!(second["negotiation"]["automaticReplyCount"], 1);
+    assert!(second["negotiation"].get("participantRecovery").is_none());
+    assert_eq!(
+        f.send("two", request())["error"]["code"],
+        "INVALID_ARGUMENT"
+    );
+    let caught_up = f.list("local-authority", json!({}));
+    f.time += 9 * 86400;
+    assert!(
+        f.list("local-authority", json!({"cursor":caught_up["nextCursor"]}))["messages"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+// Regression: participant recovery must preserve malformed snapshots and never overwrite a different recovery archive.
+fn participant_recovery_fails_closed_without_discarding_evidence() {
+    let mut f = Fixture::new();
+    f.send("one", request());
+    let mut original = f.snapshot();
+    for participants in [json!([]), json!(["one", "two", "three"]), json!([1])] {
+        original["negotiations"][0]["participants"] = participants;
+        let bytes = serde_json::to_vec(&original).unwrap();
+        std::fs::write(&f.path, &bytes).unwrap();
+        assert!(Store::open(f.path.clone())
+            .err()
+            .unwrap()
+            .starts_with("COORDINATION_CORRUPT:"));
+        assert_eq!(std::fs::read(&f.path).unwrap(), bytes);
+    }
+    original["negotiations"][0]["participants"] = json!(["one"]);
+    f.seed(&original);
+    let mut different = original.clone();
+    different["negotiations"][0]["state"] = json!("resolved");
+    let bytes = serde_json::to_vec(&different).unwrap();
+    std::fs::write(&f.path, &bytes).unwrap();
+    assert!(Store::open(f.path.clone())
+        .err()
+        .unwrap()
+        .starts_with("COORDINATION_STORAGE:"));
+    assert_eq!(std::fs::read(&f.path).unwrap(), bytes);
+    assert_eq!(f.recovery_backup(), original);
+}
+
+#[test]
+// Regression: unresolved escalation history must retain its resource hold until explicit local resolution.
+fn unresolved_escalation_cannot_be_bypassed_with_a_new_peer_or_id() {
+    let mut f = Fixture::new();
+    let first = f.send("one", request());
+    let mut original = f.snapshot();
+    original["messages"] = json!([]);
+    original["negotiations"][0]["participants"] = json!(["one"]);
+    original["negotiations"][0]["state"] = json!("escalated");
+    f.seed(&original);
+    assert_eq!(
+        f.send("one", request())["error"]["code"],
+        "NEGOTIATION_LIMIT"
+    );
+    let mut unrelated = request();
+    unrelated["toSourceId"] = json!("four");
+    assert!(f.send("three", unrelated)["message"].is_object());
+    f.store.mediate(&json!({"negotiationId":first["negotiation"]["id"],"expectedLastMessageId":first["message"]["messageId"],"action":"resolve","reason":"Reviewed incomplete history"}), f.time).unwrap();
+    assert!(f.send("one", request())["message"].is_object());
+    assert_eq!(
+        f.list("one", json!({}))["negotiations"][0]["participantRecovery"]["state"],
+        "unresolved"
+    );
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
