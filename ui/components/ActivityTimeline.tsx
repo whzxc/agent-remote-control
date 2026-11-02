@@ -8,7 +8,7 @@ import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
 import "./TaskDetail.css";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUpRight, ArrowLeft, ArrowDown, Maximize2, Minimize2, MoreHorizontal } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowDown, ClipboardCheck, Maximize2, Minimize2, MoreHorizontal } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
@@ -45,7 +45,6 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   }, []);
   const submissions = activityApprovals.use();
   const [atLatest, setAtLatest] = useState(true);
-  const [showReview, setShowReview] = useState(false);
   const [timeline, setTimeline] = useState<AgentTimeline>();
   const [taskTitle, setTaskTitle] = useState<{ id: string; title: string }>();
   const [continuing, setContinuing] = useState(false);
@@ -155,7 +154,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
   const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
-  const { review, reviewError, reviewLoading, reloadReview } = useTaskReview(session.id, turnId, showReview && terminalState(state));
+  const { review, reviewError, reloadReview } = useTaskReview(session.id, turnId, terminalState(state));
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
   const latest = () => {
     const node = viewport.current;
@@ -284,14 +283,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             onResume={agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
           <TaskQueuedMessages queue={queue} />
-          {terminalState(state) && <section className="task-review-info">
-            <Button variant="ghost" aria-expanded={showReview} onClick={() => setShowReview(!showReview)}>{t("detail.reviewInfo")}</Button>
-            {showReview && (reviewLoading ? <LoadingIndicator label={t("detail.reviewInfo")} /> : reviewError ? <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice>
-              : review ? <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
-                {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
-                <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
-                {review.note && <p>{review.note}</p>}</div> : <p className="timeline-meta">{t("detail.reviewEmpty")}</p>)}
-          </section>}
+          {terminalState(state) && review && <article className="task-final task-review-info" data-verdict={review.verdict}>
+            <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>
+            <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
+              {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
+              <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
+            </div>
+            {review.note && <p>{review.note}</p>}
+          </article>}
+          {terminalState(state) && reviewError && <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice>}
 
           </>}
         </div>

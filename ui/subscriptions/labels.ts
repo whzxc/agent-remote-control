@@ -4,6 +4,12 @@ import type { ProviderSnapshot } from './types';
 import { duration as readableDuration } from './presentation';
 export const isWeekly = (value: string) => ['weekly', 'weekly_all', 'weekly_scoped', '10080 min', '604800 s'].includes(value) || value === 'seven_day' || value.startsWith('seven_day_');
 export const isFiveHour = (value:string) => ['rolling','five_hour','session','300 min','18000 s'].includes(value);
+export const isMonthly = (value: string) => {
+  if (value === 'monthly') return true;
+  const duration = /^(\d+) (min|s)$/.exec(value);
+  const minutes = duration ? Number(duration[1]) / (duration[2] === 's' ? 60 : 1) : 0;
+  return minutes >= 40320 && minutes <= 44640;
+};
 export function windowLabel(value: string) {
   const suffix = quotaDisplay.get() === 'used' ? 'Limit' : '';
   const period = (key:string) => t(key + suffix);
@@ -11,7 +17,7 @@ export function windowLabel(value: string) {
   const duration = /^(\d+) (min|s)$/.exec(value);
   if (!duration) return names[value] || value;
   const minutes = Number(duration[1]) / (duration[2] === 's' ? 60 : 1);
-  return minutes === 300 ? period('usageFiveHour') : minutes === 10080 ? period('usageWeekly') : minutes >= 40320 && minutes <= 44640 ? period('usageMonthly') : readableDuration(minutes);
+  return minutes === 300 ? period('usageFiveHour') : minutes === 10080 ? period('usageWeekly') : isMonthly(value) ? period('usageMonthly') : readableDuration(minutes);
 }
 
 export function subscriptionLabel(provider: ProviderSnapshot) {

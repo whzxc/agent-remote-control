@@ -16,8 +16,8 @@ export default function AgentQuota({ provider, onRefresh, refreshing }: { provid
   const now = useNow();
   locale.use();
   const display = quotaDisplay.use(), reset = resetDisplay.use();
-  const { short, weekly } = agentQuotaWindows(provider);
-  const selected = [short, weekly].filter(window => window !== undefined);
+  const { short, weekly, monthly } = agentQuotaWindows(provider);
+  const selected = [short, weekly, monthly].filter(window => window !== undefined);
   const windows = selected.length ? selected : provider.windows.filter(window => Number.isFinite(window.usedPercent)).slice(0, 2);
   const pace = windows.map(window => quotaPace(window, provider, now));
   const summaryWindow = weekly ?? windows[0];
@@ -32,7 +32,7 @@ export default function AgentQuota({ provider, onRefresh, refreshing }: { provid
         const tick = elapsed === undefined ? undefined : (display === "remaining" ? 1 - elapsed : elapsed) * 100;
         const label = windowLabel(window.label), value = quotaValue(window);
         const resetText = reset === "time" && Number.isFinite(resetAt) ? preciseTime(window.resetsAt) : compactReset(window.resetsAt, now);
-        return <div className="agent-quota-card" key={window.id}>
+        return <div className="agent-quota-card" key={window.id} data-monthly={window === monthly || undefined}>
           <div className="agent-quota-window"><span title={window.scope}>{label}</span>
             <time dateTime={Number.isFinite(resetAt) ? window.resetsAt : undefined}
               title={Number.isFinite(resetAt) ? t("quotaResetAt", { time: preciseTime(window.resetsAt) }) : t("quotaResetUnknown")}

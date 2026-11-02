@@ -33,11 +33,12 @@ type PositionedTask = TaskView & { parent: string; side: Side };
 export interface TopologyHandle { panelFrame: (rect: SurfaceRect | null) => void }
 export interface PanelLayout { key?: string; width: number; expanded: boolean; rect?: SurfaceRect }
 
-export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onPanelLayout, onReorderNodes, onReorderTasks, ref }: {
+export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onPanelLayout, onCollapseSide, onReorderNodes, onReorderTasks, ref }: {
   left: NodeView[]; right: NodeView[]; accountsEnabled?: boolean; brand: ReactNode;
   panelExpanded?: boolean;
   panelKey?: string;
   onPanelLayout?: (layout: PanelLayout) => void;
+  onCollapseSide?: (side: Side) => void;
   onReorderNodes: (side: Side, ids: string[]) => void;
   onReorderTasks: (side: Side, parent: string, ids: string[]) => void;
   boundary: RefObject<HTMLElement | null>; ref: Ref<TopologyHandle>;
@@ -46,6 +47,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const graph = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null);
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
+  const wingControls = useRef(new Map<Side, HTMLButtonElement>());
   const animator = useRef(new TopologyAnimator()), painter = useRef<TopologyPainter | null>(null);
   const frame = useRef(0), lastTime = useRef(0), panel = useRef<SurfaceRect | null>(null);
   const retarget = useRef(() => {}), placeAfterMorph = useRef(false);
@@ -66,6 +68,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const orientationPending = useRef(false);
   const evaluateOrientation = useRef(() => {});
   const collapsed = topologyCollapsed.use();
+  const closedWing = collapsed['wing:-1'] ? -1 : collapsed['wing:1'] ? 1 : undefined;
   const [expandedStacks, setExpandedStacks] = useState<Set<Side>>(() => new Set());
   const stackAreas = useRef(new Map<Side, HTMLDivElement>());
   const stackOrigins = useRef(new Map<Side, Rect>());
@@ -111,13 +114,19 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   }, [clearInteraction]);
   const flatten = (list: NodeView[], side: Side, parent?: string): (NodeView & { side: Side })[] => list.flatMap(n => [{ ...n, parent, side }, ...flatten(n.children ?? [], side, n.id)]);
   const fullNodes = [...flatten(inputLeft, -1), ...flatten(inputRight, 1)];
+  const selectedSide = fullNodes.find(node => node.selected)?.side;
+  useLayoutEffect(() => {
+    if (closedWing === undefined) return;
+    const visible = closedWing === -1 ? inputRight : inputLeft;
+    if (selectedSide === closedWing || !visible.length) topologyCollapsed.set(old => ({ ...old, [`wing:${closedWing}`]: false }));
+  }, [closedWing, selectedSide, inputLeft.length, inputRight.length]);
   const prune = (list: NodeView[], side: Side): NodeView[] => list.map(n => {
     const closed = accountsEnabled && collapsed[nodeKey(side, n.id)] === true;
     const children = closed ? [] : prune(n.children ?? [], side);
     const descendantSelected = (items: NodeView[]): boolean => items.some(n => n.selected || descendantSelected(n.children ?? []));
     return { ...n, collapsed: closed, selected: n.selected || closed && descendantSelected(n.children ?? []), children, tasks: closed ? [] : n.tasks };
   });
-  const prunedLeft = prune(inputLeft, -1), prunedRight = prune(inputRight, 1);
+  const prunedLeft = closedWing === -1 ? [] : prune(inputLeft, -1), prunedRight = closedWing === 1 ? [] : prune(inputRight, 1);
   const compacted = useMemo(() => viewport.vw > 0 ? compactRoots(prunedLeft, prunedRight, viewport, viewport.orientation, params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
   const compact = (list: NodeView[], members: Set<string>, side: Side, inherited = false): NodeView[] => list.map(n => {
     const stackMember = inherited || members.has(n.id);
@@ -265,6 +274,16 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     root.style.height = `${a.values("scene")!.height}px`;
     boundary.current?.style.setProperty("--topology-hub-x", `${h.x}px`);
+    const app = boundary.current?.closest<HTMLElement>('.app-scene');
+    if (app) app.style.setProperty('--topology-hub-x', `${h.x + origin.current.x - app.getBoundingClientRect().left}px`);
+    const portraitFrame = a.values('portrait');
+    for (const side of [-1, 1] as const) {
+      const control = wingControls.current.get(side);
+      if (!control) continue;
+      const reach = h.Re * (1 - blend) + (portraitFrame ? portraitFrame.earOffset + portraitFrame.earHalf / 2 : h.Re) * blend;
+      control.style.left = `${h.x + side * reach}px`;
+      control.style.top = `${h.y}px`;
+    }
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
       hub.current.querySelectorAll('[data-hub-arc="top"]').forEach(path => path.setAttribute('d', mark.top));
@@ -625,6 +644,20 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       onPointerLeave={() => setHubInteraction(undefined)}
       onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHubInteraction(undefined); }}>{brand}</div>
+    {([-1, 1] as const).map(side => {
+      const closed = closedWing === side;
+      if (!(side === -1 ? inputLeft : inputRight).length && !closed) return null;
+      return <button key={`wing:${side}`} type="button" className="topology-collapse topology-wing-collapse" data-side={side}
+        ref={element => { if (element) wingControls.current.set(side, element); else wingControls.current.delete(side); }}
+        style={{ width: COLLAPSE_HIT_SIZE, height: COLLAPSE_HIT_SIZE }}
+        aria-label={`${t(closed ? 'topology.expand' : 'topology.collapse')} ${t(side === -1 ? 'topology.sourceSide' : 'topology.agentSide')}`}
+        aria-expanded={!closed} disabled={!closed && !(side === -1 ? inputRight : inputLeft).length}
+        onClick={() => {
+          if (!closed) onCollapseSide?.(side);
+          topologyCollapsed.set(old => ({ ...old, [`wing:${side}`]: !closed, [`wing:${-side}`]: false }));
+          clearInteraction();
+        }}><CollapseSymbol collapsed={closed} /></button>;
+    })}
     {([-1, 1] as const).map(side => <div key={side} className="topology-stack-area" aria-hidden="true"
       ref={el => { if (el) stackAreas.current.set(side, el); else stackAreas.current.delete(side); }}
       onPointerEnter={() => openStack(side)} onPointerLeave={() => closeStack(side)} />)}

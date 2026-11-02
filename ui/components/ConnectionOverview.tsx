@@ -373,6 +373,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </button>
         </div>
         <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
+          onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
           onReorderNodes={reorderNodes}
           onReorderTasks={(_side, parent, ids) => {
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;

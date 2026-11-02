@@ -1149,6 +1149,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-quota-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .agent-quota-card { display: flex; flex-direction: column; min-width: 0; gap: 10px; padding: 12px; border-radius: var(--radius-row); background: var(--surface-subtle); }
 .agent-quota-card:only-child { grid-column: 1 / -1; }
+.agent-quota-card[data-monthly] { grid-column: 1 / -1; }
 .agent-quota-window { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--text-secondary); }
 .agent-quota-window > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .agent-quota-window > time { margin-left: auto; min-width: 0; font-size: 10px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -1405,6 +1406,9 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-collapse-symbol { display: block; border-radius: 50%; background: var(--canvas); box-shadow: 0 0 0 2px var(--canvas); opacity: 0; transform: scale(.65); transition: transform 180ms var(--task-spring), opacity 140ms ease; }
 .topology-collapse-symbol > svg { display: block; width: 100%; height: 100%; }
 .topology-node[data-collapse-visible] .topology-collapse-symbol, .topology-node:focus-within .topology-collapse-symbol { opacity: 1; transform: scale(1); }
+.topology-wing-collapse { z-index: 5; --account-color: var(--topology-agent); }
+.topology-wing-collapse[data-side="-1"] { --account-color: var(--topology-source); }
+.topology-wing-collapse:is(:hover, :focus-visible, [aria-expanded="false"]) .topology-collapse-symbol { opacity: 1; transform: scale(1); }
 .topology-collapse:focus-visible .topology-collapse-symbol { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 3px var(--account-color); }
 :root[data-reduced-motion="true"] { .topology-collapse-symbol { transition: none; } }
 .topology-path-hit { fill: none; stroke: transparent; stroke-width: 16px; pointer-events: stroke; }

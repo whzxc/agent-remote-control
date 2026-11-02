@@ -11,7 +11,7 @@ import {
   quotaPercent,
 } from "./displayPreferences";
 import { readingStatus, quotaColor } from "./presentation";
-import { isFiveHour, isWeekly, windowLabel } from "./labels";
+import { isFiveHour, isMonthly, isWeekly, windowLabel } from "./labels";
 import { quotaPace } from "./pace";
 import { quotaPeriod } from "./quotaTiming";
 import type { ProviderSnapshot, QuotaWindow } from "./types";
@@ -27,7 +27,9 @@ export function agentQuotaWindows(provider: ProviderSnapshot) {
     return isFiveHour(window.label) || (period !== undefined && period < 7 * 86400000);
   });
   const short = shortWindows.find(window => window.poolId === weekly?.poolId) ?? shortWindows[0];
-  return { short, weekly };
+  const monthly = windows.find(window => isMonthly(window.label) && window.poolId === (weekly ?? short)?.poolId)
+    ?? windows.find(window => isMonthly(window.label));
+  return { short, weekly, monthly };
 }
 export function ActivityArc({ attention = false }: { attention?: boolean }) {
   return (

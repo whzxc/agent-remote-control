@@ -175,4 +175,5 @@
 .request-routing button { white-space: normal; overflow-wrap: anywhere; }
 
 .task-review-info > .timeline-meta { display: flex; flex-wrap: wrap; gap: 6px; }
-.task-review-info > .timeline-meta > p { flex-basis: 100%; margin: 0; white-space: pre-wrap; }
+.task-review-info[data-verdict="rework"] > header { color: var(--warning); }
+.task-review-info > p { margin: 10px 0 0; white-space: pre-wrap; }

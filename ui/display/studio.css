@@ -25,7 +25,7 @@
 .app-scene[data-display="studio"] .home-workspace { position: relative; }
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
 .app-scene[data-display="studio"] .core-toggle { top: clamp(88px, 11dvh, 116px); }
-.studio-clock { position: absolute; top: clamp(40px, 5dvh, 60px); left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; font-size: clamp(25px, 2.5vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .06em; line-height: 1; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
+.studio-clock { position: absolute; top: clamp(40px, 5dvh, 60px); left: var(--topology-hub-x, 50%); transform: translateX(-50%); z-index: 2; pointer-events: none; font-size: clamp(25px, 2.5vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .06em; line-height: 1; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
@@ -34,11 +34,11 @@
   .studio-leaf-shadows { left: auto; right: 4%; top: 16%; width: 32%; height: 58%; transform-origin: right bottom; }
   .studio-lamp-light { right: auto; left: -18%; bottom: -6%; width: 62%; height: 42%; }
   .studio-window-glints { left: auto; right: 0; top: 15%; width: 24%; height: 49%; }
-  .studio-clock { left: auto; right: clamp(24px, 9vw, 140px); top: clamp(54px, 6dvh, 100px); transform: none; font-size: clamp(26px, 4vw, 44px); }
-  .app-scene[data-display="studio"] .core-toggle { top: clamp(48px, 6dvh, 96px); }
+  .studio-clock { top: clamp(54px, 6dvh, 100px); font-size: clamp(26px, 4vw, 44px); }
+  .app-scene[data-display="studio"] .core-toggle { top: calc(clamp(54px, 6dvh, 100px) + 56px); }
 }
 @media (max-width: 600px) {
-  .studio-clock { top: 34px; left: auto; right: 22px; transform: none; font-size: 24px; }
+  .studio-clock { top: 34px; font-size: 24px; }
   .app-scene[data-display="studio"] .core-toggle { top: 70px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-image { transition: none; } }
