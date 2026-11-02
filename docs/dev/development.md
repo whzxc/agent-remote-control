@@ -43,7 +43,7 @@ npm run build
 npm run desktop:check
 ```
 
-check validates React/TypeScript. check:format validates Rust formatting. test first enforces test policy, then runs Rust and Node tests with isolated temporary state. build compiles the frontend, Core, and applicable screen helper. desktop:check checks the desktop crate. Tests must be tagged Contract, Regression or Property and assert public behavior. Rewrite or delete change detectors instead of updating implementation snapshots. The control source owns contract tests and policy exceptions. See [Testing](testing.md) for enforcement and monthly mutation/churn audits. Visual and layout checks belong to accept:ui scenarios. See [Acceptance](acceptance.md) for scenarios, cross-device checks, and artifact inspection.
+check validates React/TypeScript. check:format validates Rust formatting. test enforces test policy and runs low-cost Node checks within a 30-second wall-clock budget. test:extended explicitly adds Rust and native integration tests with isolated temporary state. build compiles the frontend, Core, and applicable screen helper. desktop:check checks the desktop crate. Tests must be tagged Contract, Regression or Property and assert public behavior. Rewrite or delete change detectors instead of updating implementation snapshots. The control source owns contract tests and policy exceptions. See [Testing](testing.md) for suite selection and value rules. Visual and layout checks belong to accept:ui scenarios. See [Acceptance](acceptance.md) for scenarios, cross-device checks, and artifact inspection.
 
 After direct Cargo builds or tests:
 

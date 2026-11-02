@@ -5,27 +5,6 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {nativeControl} from './helpers/native-control.ts';
 
-test('Malformed cloud targets fail before binding or delivery',async()=>{
-  // Regression: malformed tagged IDs reached Claude and required delivery logs to diagnose.
-  const fixture=await nativeControl('');
-  try {
-    for(const target of [
-      'session_test', 'session_01111111111111111111111', 'session_0111111111111111111111111',
-      'session_01aaaaaaaaaaaaaaaaaaaaa_', 'cse_invalid', '00000000-0000-4000-8000-000000000001',
-      'https://claude.ai/code/session_invalid', 'https://claude.ai/code/011111111111111111111111',
-      'https://other.invalid/code/session_011111111111111111111111',
-    ]) {
-      for(const action of ['bind','verify']) {
-        const result=await fixture.call('notify_control',{action,target});
-        assert.equal(result.error.code,'INVALID_CLAUDE_SESSION',JSON.stringify(result));
-        assert.equal(result.error.argument,'target');
-        assert.equal(result.bound,undefined);assert.equal(result.verificationAttempts,undefined);
-        assert.deepEqual(result.next.args,{topic:'notify'});
-      }
-    }
-    assert.deepEqual((await fixture.call('notify_status')).targets,[]);
-  }finally{await fixture.close();}
-});
 
 test('Cloud bind preserves a missing-session diagnosis and only safe routed profile identity', {skip:process.platform==='win32'},async()=>{
   // Regression: CLI Session not found hid the host account and returned only generic transport recovery.

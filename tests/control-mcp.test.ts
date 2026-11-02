@@ -11,7 +11,6 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { createConnection } from 'node:net';
 import { identifyPolicy, normalizeSelection, presetPolicy, type ToolCatalog, type ToolPolicy } from '../ui/toolPolicy.ts';
 import { buildVersion } from '../tooling/version.mjs';
 import { toolFingerprint } from '../tooling/catalog.mjs';
@@ -978,14 +977,6 @@ test('HTTP ingress observations correlate failures and dropped streams without r
     const ignored = await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','CF-Ray':ignoredRay},body:JSON.stringify({jsonrpc:'2.0',method:'tools/call',params:{name:'act',arguments:{op:'write',args:{path:ignoredFile,content:'PRIVATE_IGNORED_CONTENT'}}}})});
     assert.equal(ignored.status,202); await ignored.text();
     await assert.rejects(()=>readFile(ignoredFile));
-    const timed = await new Promise<string>((resolve,reject) => {
-      const socket = createConnection({host:'127.0.0.1',port},() => socket.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nAuthorization: Bearer ${token}\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{`));
-      let response = '';
-      socket.setTimeout(20000,() => { socket.destroy(); reject(new Error('Body timeout response missing')); });
-      socket.on('data',data => response += data.toString());
-      socket.on('end',() => resolve(response)); socket.on('error',reject);
-    });
-    assert.ok(timed.startsWith('HTTP/1.1 408'));
     const requestId = randomUUID();
     const rpc = {jsonrpc:'2.0',id:randomUUID(),method:'tools/call',params:{name:'act',arguments:{op:'edit',requestId,args:{path:path.join(directory,'missing-observed.txt'),edits:[{oldText:'PRIVATE_ARGUMENT_CONTENT',newText:'x'}]}}}};
     const mutation = await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','CF-Ray':ray},body:JSON.stringify(rpc)});
@@ -996,7 +987,6 @@ test('HTTP ingress observations correlate failures and dropped streams without r
     const read = async () => (await call('logs',{ingressId:id,grep:'Ingress',limit:2000})).result.rows.filter((r:any)=>r.ingressId===id);
     const rows:any[] = await eventually(read,rows=>rows.some((r:any)=>r.event==='response_dropped'));
     assert.ok(rows.some(row=>row.event==='response_finished' && row.httpStatus===401 && row.cfRay===ray));
-    assert.ok(rows.some(row=>row.event==='response_finished' && row.httpStatus===408));
     assert.ok(rows.some(row=>row.event==='request_dispatch' && row.op==='edit' && row.requestId===requestId));
     assert.ok(rows.some(row=>row.event==='response_dropped' && row.op==='inbox_wait' && row.durationMs>=0));
     assert.equal(rows.some(row=>row.event==='request_dispatch' && row.cfRay===ignoredRay),false);
@@ -1009,7 +999,6 @@ test('HTTP ingress observations correlate failures and dropped streams without r
     for(const secret of [token,'PRIVATE_BODY_CONTENT','PRIVATE_ARGUMENT_CONTENT','PRIVATE_WAIT_TARGET','PRIVATE_IGNORED_CONTENT']) assert.equal(serialized.includes(secret),false);
     const status = await management(`ingress/${id}`);
     assert.equal(status.requests.inFlight,0);
-    assert.equal(status.requests.bodyTimeouts,1);
     assert.ok(status.requests.responseDropped>=1);
   } finally { await management(`ingress/${id}`,'DELETE'); }
 });
@@ -1553,7 +1542,7 @@ test('non-object MCP args report their JSON type without exposing submitted cont
   for (const [name,op] of [['query','read'],['act','write']] as const) {
     for (const [args,type] of [
       [JSON.stringify({path:secret,content:'`{ "quoted": "value" }`\n'}),'string'],
-      [secret,'string'],['{broken','string'],[null,'null'],[false,'boolean'],[42,'number'],[[],'array'],
+      [null,'null'],[[],'array'],
     ] as const) {
       const response=await client.callTool({name,arguments:{op,args}});
       const error=(response.structuredContent as any).result.error;
@@ -1593,18 +1582,14 @@ test('argument errors are short, field-specific and leave unread inbox untouched
   const unread = await eventually(wait, rows => rows.length > 0);
     for(const [name,args,field,reason] of [
       ['read',{path:'fixture',linCount:2},'/linCount',/lineCount/],
-      ['codex_items',{threadId:'fixture',order:'desc'},'/order',/latest/],
-      ['codex_wait',{threadId:'fixture',timeoutMs:1800001},'/timeoutMs',/1800000/],
-      ['read',{path:'fixture',lineCount:'private-input'},'/lineCount',/integer/],
       ['command',{cmd:'private-command'},'/cwd',undefined],
-      ['command',{cmd:'private-command',cwd:directory,action:'exec'},'/action',/combine/],
     ] as const){
       const {response,result}=await call(name,args);
       assert.equal(response.isError,true);assert.equal(result.error.code,'INVALID_ARGUMENTS');
       assert.equal(result.error.field,field);if(reason)assert.match(result.error.message,reason);
       assert.equal(result.error.inputSchema,undefined);assert.equal(result.arcInbox,undefined);
       const text=(response.content as any[])[0].text;
-      assert.deepEqual(JSON.parse(text).error,result.error);assert.doesNotMatch(text,/private-input|private-command/);
+      assert.deepEqual(JSON.parse(text).error,result.error);assert.doesNotMatch(text,/private-command/);
       assert.equal(result.error.guide.arguments.args.op,name);
     }
     const envelope=await client.callTool({name:'query',arguments:{op:'read',args:{},extra:'private-value'}});

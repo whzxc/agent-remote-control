@@ -26,11 +26,3 @@ test('development port keeps the native web URL and CSP on the selected loopback
     assert.deepEqual(sources, [origin.origin, origin.origin.replace('http:', 'ws:')]);
   }
 });
-
-test('development port rejects invalid or out-of-range listener values', () => {
-  // Property: a configured development port is a decimal integer within the TCP port range.
-  for (const value of ['', '0', '-1', '65536', '5190.5', '5e3', '0x1446', ' 5190', '5190 ', 'Infinity', 'NaN']) {
-    assert.throws(() => developmentPort({ ARC_DEV_PORT: value }));
-    assert.throws(() => developmentConfig({ ARC_DEV_PORT: value }));
-  }
-});

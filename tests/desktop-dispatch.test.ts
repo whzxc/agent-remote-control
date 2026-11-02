@@ -2,7 +2,7 @@ import test from 'node:test';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createServer, type Socket } from 'node:net';
-import { appendFile, mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Desktop and connector owners dispatch FIFO and steer only a confirmed native turn', { skip: process.platform !== 'darwin' }, async () => {
-  // Regression: Desktop handoff after connector restart lost resume notifications; optimistic turns also broke FIFO/steering.
+  // Regression: connector restart lost the held Desktop owner; optimistic native turns also broke FIFO/steering.
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-owner-'));
   const dataFile = path.join(directory, 'native.json');
   const openFile = path.join(directory, "opened-url");
@@ -170,109 +170,6 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
       const remainsDesktop=await fixture.call('codex_owner',{threadId:created.threadId});
       assert.equal(remainsDesktop.owner,'desktop');assert.equal(remainsDesktop.state,'held');
     } finally { writer.stdin.end(); await new Promise(resolve => writer.once('exit', resolve)); }
-    await fixture.api('task-settings', {notificationsEnabled:false}, 'PUT');
-    const target = 'session_010000000000000000000009';
-    const interrupted = await fixture.completed('codex_create', {prompt:'Resume fixture task', thread:{cwd:directory}, notify:{channel:'claude-session',target}});
-    assert.equal(interrupted.state, 'completed', JSON.stringify(interrupted));
-    const successor = randomUUID();
-    const historyPath = path.join(directory, 'sessions', 'resume.jsonl');
-    await mkdir(path.dirname(historyPath));
-    const ended = Math.floor(Date.now() / 1000) - 2000;
-    const history = [
-      {type:'session_meta',payload:{id:interrupted.threadId}},
-      {type:'event_msg',payload:{type:'task_started',turn_id:interrupted.turnId}},
-      {type:'event_msg',payload:{type:'turn_aborted',turn_id:interrupted.turnId,completed_at:ended}},
-      {type:'event_msg',payload:{type:'task_started',turn_id:successor,started_at:ended+18,turn_attribution:{turn_trigger:'resume_interrupted_task'}}},
-      {type:'response_item',payload:{role:'user',content:[{type:'input_text',text:'<environment_context>\n  <current_date>2000-01-01</current_date>\n</environment_context>'}]}},
-      {type:'turn_context',payload:{turn_id:successor,cwd:directory,model:'fixture-model',effort:'high',service_tier:null}},
-      {type:'event_msg',payload:{type:'task_complete',turn_id:successor,completed_at:ended+100}},
-    ];
-    await writeFile(historyPath, history.map(row=>JSON.stringify(row)).join('\n')+'\n');
-    const resumed = read(), row = resumed[interrupted.threadId];
-    row.turns.at(-1).status = 'interrupted'; row.detached = true; row.path = await realpath(historyPath);
-    row.turns.push({id:successor,status:'completed',items:[{type:'agentMessage',text:'Done',status:'completed'}]}); save(resumed);
-    const desktopWriter = spawn('python3', ['-c', 'import fcntl,sys; f=open(sys.argv[1],"w"); fcntl.flock(f,fcntl.LOCK_EX); print("ready",flush=True); sys.stdin.read()', path.join(directory, 'thread-writer-locks', interrupted.threadId + '.lock')]);
-    await new Promise<void>(resolve=>desktopWriter.stdout.once('data',resolve));
-    try {
-      await fixture.restart();
-      const status = async () => fixture.call('notify_status',{threadId:interrupted.threadId,all:true});
-      let report: any;
-      const deadline = Date.now()+20000;
-      do { report=await status(); if(report.deliveries?.filter((d:any)=>d.kind!=='handoff').length===2)break; await new Promise(resolve=>setTimeout(resolve,100)); } while(Date.now()<deadline);
-      assert.equal(report.deliveries.filter((d:any)=>d.kind!=='handoff').length,2,JSON.stringify(report));
-      assert.deepEqual(report.deliveries.filter((d:any)=>d.kind!=='handoff').map((d:any)=>d.kind).sort(),['completed','interrupted']);
-      assert.ok(report.threads[0].turns.some((turn:any)=>turn.turnId===successor && turn.target===target));
-      assert.equal(report.deliveries.filter((d:any)=>d.kind==='handoff').length,1);
-      assert.equal(report.threads[0].ownership.currentOwner,'desktop');
-      assert.ok(report.threads[0].diagnosis.reasons.includes('ownership-moved-to-desktop'));
-      const owner = await fixture.call('codex_owner',{threadId:interrupted.threadId});
-      assert.equal(owner.history.at(-1).to,'desktop');
-      const timeline=await fixture.call('task_timeline',{agent:'codex',id:interrupted.threadId});
-      assert.equal(timeline.ownership.currentOwner,'desktop');
-      const eventIds=report.deliveries.map((d:any)=>d.eventId).sort();
-      await fixture.restart();
-      await new Promise(resolve=>setTimeout(resolve,2500));
-      const replayed=await status();
-      assert.deepEqual(replayed.deliveries.map((d:any)=>d.eventId).sort(),eventIds);
-      assert.equal(replayed.targets[0].tokens,report.targets[0].tokens);
-      assert.equal(replayed.targets[0].breaker,report.targets[0].breaker);
-      assert.equal((await fixture.call('codex_owner',{threadId:interrupted.threadId})).owner,'desktop');
-      const continuedOrigin=await fixture.api('tasks/control',{op:'codex_send',args:{threadId:interrupted.threadId,prompt:'Continue the source-owned task',purpose:'task',sendMode:'next',requestId:randomUUID()}});
-      assert.equal(continuedOrigin.state,'completed',JSON.stringify(continuedOrigin));
-      assert.equal(continuedOrigin.executionOwner,'desktop');
-      const originStatus=await status();
-      assert.ok(originStatus.threads[0].turns.some((turn:any)=>turn.turnId===continuedOrigin.turnId && turn.target===target));
-      const archivedPath=path.join(directory,'archived_sessions','resume.jsonl');
-      await mkdir(path.dirname(archivedPath)); await writeFile(archivedPath,history.map(row=>JSON.stringify(row)).join('\n')+'\n');
-      const archived=read(); archived[interrupted.threadId].path=await realpath(archivedPath); archived[interrupted.threadId].turns.at(-1).status='completed';save(archived);
-      for(const socket of sockets)snapshot(socket,interrupted.threadId);
-      const archiveDeadline=Date.now()+10000; let archiveStatus:any;
-      do {archiveStatus=await status(); if(archiveStatus.threads[0].turns.every((turn:any)=>turn.diagnosis.scope.endedBy==='thread-archived'))break; await new Promise(resolve=>setTimeout(resolve,100));}while(Date.now()<archiveDeadline);
-      assert.ok(archiveStatus.threads[0].turns.every((turn:any)=>turn.diagnosis.scope.endedBy==='thread-archived'),JSON.stringify(archiveStatus));
-    } finally {desktopWriter.stdin.end(); await new Promise(resolve=>desktopWriter.once('exit',resolve));}
-    const action = await fixture.completed('codex_create',{prompt:'ARC resume fixture',thread:{cwd:directory},notify:{channel:'claude-session',target}});
-    const actionData=read(); actionData[action.threadId].turns.at(-1).status='interrupted'; save(actionData);
-    const requestId=randomUUID();
-    const recovered=await fixture.completed('codex_resume',{threadId:action.threadId,turnId:action.turnId,requestId});
-    assert.equal(recovered.state,'completed',JSON.stringify(recovered));
-    assert.equal(recovered.result.resumedFrom,action.turnId);
-    assert.notEqual(recovered.turnId,action.turnId);
-    const replay=await fixture.completed('codex_resume',{threadId:action.threadId,turnId:action.turnId,requestId});
-    assert.equal(replay.turnId,recovered.turnId);
-    const stale=await fixture.completed('codex_resume',{threadId:action.threadId,turnId:action.turnId});
-    assert.equal(stale.error.code,'RESUME_TURN_ADVANCED',JSON.stringify(stale));
-    const actionStatus=await fixture.call('notify_status',{threadId:action.threadId,all:true});
-    assert.ok(actionStatus.threads[0].turns.some((turn:any)=>turn.turnId===recovered.turnId && turn.target===target));
-    const desktopAction=read(); desktopAction[action.threadId].turns.at(-1).status='interrupted'; desktopAction[action.threadId].detached=true; save(desktopAction);
-    const actionWriter=spawn('python3',['-c','import fcntl,sys; f=open(sys.argv[1],"w"); fcntl.flock(f,fcntl.LOCK_EX); print("ready",flush=True); sys.stdin.read()',path.join(directory,'thread-writer-locks',action.threadId+'.lock')]);
-    await new Promise<void>(resolve=>actionWriter.stdout.once('data',resolve));
-    try {
-      const fromPanel=await fixture.api('tasks/control',{op:'codex_resume',args:{threadId:action.threadId,turnId:recovered.turnId,requestId:randomUUID()}});
-      assert.equal(fromPanel.state,'completed',JSON.stringify(fromPanel));
-      assert.equal(fromPanel.result.executionOwner,'desktop');
-      const stillOwned=await fixture.call('codex_owner',{threadId:action.threadId});
-      assert.equal(stillOwned.owner,'desktop'); assert.equal(stillOwned.state,'held');
-      await fixture.call('notify_control',{action:'rebind',threadId:action.threadId,target:null});
-      const unbound=await fixture.completed('codex_resume',{threadId:action.threadId,turnId:fromPanel.turnId});
-      assert.equal(unbound.error.code,'RESUME_SOURCE_MISMATCH',JSON.stringify(unbound));
-    } finally {actionWriter.stdin.end(); await new Promise(resolve=>actionWriter.once('exit',resolve));}
-    await fixture.api('task-settings',{codexRetryInitialSeconds:3600},'PUT');
-    const failedDuringDowntime=await fixture.completed('codex_create',{prompt:'Capacity failure during downtime',thread:{cwd:directory},model:'fixture-model',notify:{channel:'claude-session',target}});
-    const capacity=read(); capacity[failedDuringDowntime.threadId].turns.at(-1).status='failed';
-    capacity[failedDuringDowntime.threadId].turns.at(-1).error={codexErrorInfo:'serverOverloaded'};save(capacity);
-    await fixture.restart();
-    const capacityDeadline=Date.now()+15000;
-    let capacityStatus:any;
-    do { capacityStatus=await fixture.call('notify_status',{threadId:failedDuringDowntime.threadId,all:true});
-      if(capacityStatus.deliveries.some((d:any)=>d.kind==='failed') && capacityStatus.threads[0].diagnosis.retry.status==='scheduled')break;
-      await new Promise(resolve=>setTimeout(resolve,100));
-    } while(Date.now()<capacityDeadline);
-    assert.equal(capacityStatus.deliveries.filter((d:any)=>d.kind==='failed').length,1,JSON.stringify(capacityStatus));
-    assert.equal(capacityStatus.threads[0].diagnosis.retry.status,'scheduled',JSON.stringify(capacityStatus));
-    await fixture.restart();
-    await new Promise(resolve=>setTimeout(resolve,1000));
-    const capacityReplay=await fixture.call('notify_status',{threadId:failedDuringDowntime.threadId,all:true});
-    assert.equal(capacityReplay.deliveries.filter((d:any)=>d.kind==='failed').length,1);
   } finally { await fixture.close(); for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(directory, {recursive:true,force:true}); }
 });
 

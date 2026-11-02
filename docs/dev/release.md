@@ -32,17 +32,15 @@ Linux uses the same native manifest, locked dependencies, release profile, archi
 
 Cargo targets live beneath the real path of the existing target cache: target/linux-x86_64 and target/linux-aarch64. The target symlink/cache configuration remains authoritative, including external SSD placement. Architectures have separate host/build locks so they compile concurrently. Existing cache pruning covers these nested directories. Setup tools, ordinary source clones, and compiler caches persist across rehearsals.
 
-## Tests and passing-result cache
+## Routine tests
 
 ```sh
 npm test
 ```
 
-A successful npm test automatically records a pass outside release. It runs policy checks, the Rust library suite, the Node suites including release logic, and cache pruning before recording. Dirty-source tests still run but never create a reusable pass. A failing command never records a pass.
+Normal releases run the daily suite through `npm test`, including policy checks, frozen MCP catalog contracts, pure logic and bounded DOM fixtures. The complete test step has a 30-second wall-clock budget. It does not compile Rust or run process-recovery, notification, retry or browser-layout integration fixtures. See [Testing](testing.md) for the daily scope and explicit extended checks.
 
-The cache is keyed by HEAD's Git tree, a clean-worktree check before and after tests, actual Node/npm/Rust/Cargo versions, host/SDK, toolchain and lockfiles, installed dependency lock metadata, compiler environment, and hashed user/project build configuration. A different commit with an identical tree may reuse a pass; any changed input invalidates it. Secrets from configuration are only hashed, never stored in receipts. Tests use the fixed development version 0.0.0 inside and outside release; packaging overrides cannot change the test environment. Artifact validation separately checks the requested release version.
-
-Passes are local JSON receipts under release-artifacts/test-cache/. npm run release automatically skips tests only when the exact inputs already passed. Otherwise it runs and records them. --skip-tests remains an explicit override and never manufactures a pass. Tests and platform builds run concurrently, all settle before verification/publication, and any failure blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
+The daily suite runs fresh on every release before platform compilation, so a test failure stops the run early and tests do not compete with compilers for CPU. Worker readiness may overlap this step. There is no passing-result cache or compiler/toolchain fingerprint step. Tests use development version 0.0.0 inside and outside release; artifact validation separately checks the requested release version. `--skip-tests` remains an explicit override. Any failure or test-budget timeout blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
 
 ## Commands and publication boundaries
 
@@ -81,9 +79,9 @@ The checkpoint saves draft ID and publish intent before publishing. A lost publi
 npm run release -- --dry-run --version X.Y.Z
 ```
 
-Run twice at the same final clean HEAD and version. The first uncached test run records a pass; the second automatically reuses it. Both build every selected platform, collect receipts, verify Linux runtime behavior, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. No tag, push, draft, release, upload, app installation, or replacement occurs. No publication checkpoint is created. --skip-tests explicitly bypasses tests when requested.
+Rehearsals run the daily suite and build every selected platform, collect receipts, verify Linux runtime behavior, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. No tag, push, draft, release, upload, app installation, or replacement occurs. No publication checkpoint is created. --skip-tests explicitly bypasses tests when requested.
 
-Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent builds; build/test critical path includes concurrent tests. Worker readiness overlaps preflight/work, and cleanup is a separate background stage. Nested durations must not be added. Overall wall includes final cleanup; formal publication timings include tagging, upload, verification, publish, and readback. Windows sends its detailed dependency/Rust/NSIS timers back to the coordinator. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts/timings/test caches are not public assets.
+Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent builds; build/test critical path covers the daily test gate followed by concurrent platform builds. Worker readiness overlaps preflight/work, and cleanup is a separate background stage. Nested durations must not be added. Overall wall includes final cleanup; formal publication timings include tagging, upload, verification, publish, and readback. Windows sends its detailed dependency/Rust/NSIS timers back to the coordinator. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts and timings are not public assets.
 
 stage/finalize verify existing staged inputs and create metadata. Download URLs, manifest versions, signatures, checksums, and embedded versions must agree. Building is separate from installed-app acceptance.
 

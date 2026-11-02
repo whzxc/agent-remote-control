@@ -2,11 +2,12 @@ import ts from 'typescript';
 import { parse, registerDynamicLanguage } from '@ast-grep/napi';
 import rust from '@ast-grep/lang-rust';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 registerDynamicLanguage({ rust });
 
 export function testFiles() {
   return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' })
-    .split('\0').filter(file => /\.(?:test\.[cm]?[jt]sx?|rs)$/.test(file) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file));
+    .split('\0').filter(file => (/\.(?:test\.[cm]?[jt]sx?|rs)$/.test(file) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file)) && existsSync(file));
 }
 export function walk(node, visit) {
   visit(node);

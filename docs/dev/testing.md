@@ -1,5 +1,25 @@
 # Testing
 
+## Daily and extended checks
+
+```sh
+npm test
+npm run test:extended
+npm run accept:ui -- --task-dock
+```
+
+`npm test` is the daily and normal-release entry point. Its 30-second wall-clock budget includes policy checks, file discovery and test startup. The runner reserves one second for npm startup and teardown and terminates the test process tree if the remaining budget expires. A timeout fails the command. It never turns incomplete coverage into a pass.
+
+Daily coverage includes the frozen MCP catalog envelopes and operation schemas, pure task/timeline/state logic, release logic, and bounded DOM interaction fixtures. It requires installed npm dependencies but no Rust build cache, Core, installed application, credentials, network service or browser installation. New Node test files join this path by default and must fit the shared budget.
+
+`npm run test:extended` explicitly adds Rust library and Desktop tests plus native MCP, CLI, OAuth, dispatch, notification and lifecycle integration fixtures. It compiles current source and uses isolated temporary state. Native files are selected in `tooling/test-suites.mjs`. Use affected native cases when a change needs runtime evidence; use the extended entry point when broader coverage is requested. Normal releases do not invoke it.
+
+Browser layout checks remain in `npm run accept:ui`. `--task-dock` selects the request-dock layout fixture; the other acceptance scenarios use `--scenario=<name>`. Browser fixtures are excluded from both automatic test suites.
+
+Do not run the extended suite, mutation tests or acceptance by habit after a passing daily run. Choose a check only for a named failure relevant to the change. Builds, signing and artifact validation remain separate release steps.
+
+## Test value
+
 Every case carries exactly one English tag comment inside its body or immediately before its declaration:
 
 - `// Contract: <frozen surface or wire format>` protects guide/query/act, notification, CLI JSON envelopes, error codes or wire formats.
@@ -7,6 +27,8 @@ Every case carries exactly one English tag comment inside its body or immediatel
 - `// Property: <invariant>` states an invariant of pure computation.
 
 Assert public behavior through MCP, CLI, management operations, exported pure functions or accessible roles/names. Do not assert classes, DOM structure, styles, pixel constants, exact UI copy, internal state files or mock invocation counts. Rewrite or delete tests broken by intended changes; never align implementation snapshots. Delete tests that obstruct reasonable refactors and report the removal. Use `npm run accept:ui` for visual/layout acceptance.
+
+Keep negative coverage for frozen error contracts, authorization and data boundaries, or an observed failure. Cover each failure mechanism with a representative input. Primitive-type, range and malformed-input permutations already handled by the same schema validator do not need separate matrices. Avoid tests of test diagnostics, report formatting or duplicated helpers. Lifecycle and retry regressions belong in the extended suite even when their setup looks small.
 
 ## Enforcement
 

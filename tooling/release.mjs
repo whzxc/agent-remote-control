@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWindows, buildMac, runCommand, prepareWindowsWorker } from './windows-release.mjs';
 import { buildLinux } from './linux-release.mjs';
-import { cachedTestPass, testEnvironment } from './test-cache.mjs';
+import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
 import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
@@ -209,22 +209,21 @@ if (mode === 'release') {
     } else {
       output = path.resolve(await mkdtemp(path.join('release-artifacts', `v${version}-`)));
       console.log(`Release artifacts: ${output}`);
-      const cached = !flags.has('--skip-tests') && await cachedTestPass();
       const tests = async () => {
-        if (flags.has('--skip-tests') || cached) {
-          console.log(cached ? `Tests cached for tree ${cached.inputs.tree}` : 'Tests explicitly skipped.');
+        if (flags.has('--skip-tests')) {
+          console.log('Tests explicitly skipped.');
           timer.skip('tests');
         } else await timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(env) }));
       };
-      await timer.run('build/test critical path', () => parallelPlatforms([
-        tests,
-        () => timer.run('platform critical path', () => parallelPlatforms([
+      await timer.run('build/test critical path', async () => {
+        await tests();
+        await timer.run('platform critical path', () => parallelPlatforms([
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
           ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
             worker: workerPreparation, onCollected: releaseWorker }))] : []),
           ...(linux ? [() => timer.run('Linux wall', () => buildLinux({ sourceSha, version, output, timer }))] : []),
-        ])),
-      ]));
+        ]));
+      });
       assertSource();
     }
     await timer.run('verification', async () => {

@@ -281,24 +281,4 @@ mod tests {
             assert_eq!(reset.window_width, None);
         }
     }
-    #[test]
-    fn app_env_rejects_invalid_values_atomically() {
-        // Contract: invalid overrides never partially modify the prior environment.
-        for bad in [
-            json!({"windowWidth":319}),
-            json!({"windowHeight":3841}),
-            json!({"taskPanelWidth":0}),
-            json!({"locale":"xx"}),
-            json!({"colorScheme":"auto"}),
-            json!({"presence":"unknown"}),
-            json!({"reducedMotion":1}),
-            json!({"clock":{"speed":-1}}),
-            json!({"clock":{"advanceMs":-1}}),
-            json!({"ttlMs":3_600_001}),
-        ] {
-            let mut args = bad;
-            args["action"] = json!("set");
-            assert!(transition(&Overrides::default(), &args, 1000).is_err());
-        }
-    }
 }

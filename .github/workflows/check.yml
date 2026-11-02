@@ -40,7 +40,7 @@ jobs:
         run: npm ci
       - name: Validation | Types
         run: npm run check
-      - name: Tests | Contracts
+      - name: Daily tests | 30s budget
         run: npm test
       - name: Frontend | Build
         run: npm run build

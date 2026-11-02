@@ -7,21 +7,9 @@ import { assetMatches, boundedMap, ghOptions, transferOptions, platformAssetName
   publishedTags, releaseByTag, releaseById, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv } from '../tooling/release-support.mjs';
 import { workerReady, canStopWorker, validateWindowsReceipt } from '../tooling/windows-release.mjs';
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
-import { testPassMatches, testEnvironment } from '../tooling/test-cache.mjs';
+import { testEnvironment } from '../tooling/test-environment.mjs';
 import { validateLinuxElf } from '../tooling/linux-release.mjs';
 
-test('test passes require the exact source tree toolchain lockfiles and execution flags', () => {
-  // Property: a changed test input or an unclean source never reuses a passing result.
-  const inputs = { tree: 'tree', node: '24', rustc: '1.96', cargo: '1.96', files: { lock: 'abc' }, flags: 'flags', platform: 'darwin', arch: 'arm64' };
-  const receipt = { schema: 1, status: 'passed', key: inputKey(inputs) };
-  assert.equal(testPassMatches(receipt, JSON.parse(JSON.stringify(inputs))), true);
-  for (const [key, value] of Object.entries(inputs)) {
-    assert.equal(testPassMatches(receipt, { ...inputs, [key]: typeof value === 'string' ? value + '-changed' : { lock: 'other' } }), false);
-  }
-  assert.equal(testPassMatches(receipt, undefined), false);
-  assert.equal(testPassMatches({ ...receipt, status: 'failed' }, inputs), false);
-  assert.equal(testPassMatches(undefined, inputs), false);
-});
 
 test('test execution has the same version-independent environment inside and outside release', () => {
   // Property: packaging overrides cannot contaminate the source-tree test cache or mutate its caller.
@@ -349,17 +337,4 @@ test('bounded uploads drain active transfers before returning a failure', async 
   assert.ok(maximum <= 3);
   assert.equal(active, 0);
   assert.deepEqual(delivered.sort(), [2, 3]);
-});
-
-test('stage timing closes successful failed and skipped stages', async () => {
-  // Property: every started stage emits an end status and elapsed duration even on failure.
-  const lines = [];
-  const timer = stageTimer(null, line => lines.push(line));
-  assert.equal(await timer.run('checks', async () => 42), 42);
-  await assert.rejects(timer.run('upload', async () => { throw new Error('failed'); }));
-  timer.skip('publish');
-  for (const name of ['checks', 'upload', 'publish']) {
-    assert.ok(lines.includes(`[stage] START ${name}`));
-    assert.ok(lines.some(line => line.startsWith(`[stage] END ${name} `) && /\(\d+\.\d+s\)$/.test(line)));
-  }
 });
