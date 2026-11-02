@@ -4,6 +4,7 @@ export const navigation = createStore<{
   connectionsOpen?: boolean;
   platformId?: string;
   settingsExtras?: boolean;
+  settingsExtrasPane?: "experimental" | "hosting";
   remoteSourceId?: string;
   remoteConnectionId?: string;
   page?: Page;

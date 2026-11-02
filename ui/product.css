@@ -1388,6 +1388,10 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .setup-content .choice-cards .choice-option { min-height: 62px; box-shadow: none; }
 .navigation-capsule[hidden] { display: none; }
 
+.connector-name .connector-rename { opacity: 0; }
+.connector-name:hover .connector-rename, .connector-name:focus-within .connector-rename { opacity: 1; }
+@media (hover: none) { .connector-name .connector-rename { opacity: 1; } }
+
 .pairing-claim .task-tag { padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-md); white-space: normal; overflow-wrap: anywhere; }
 .pairing-card .pairing-fact { font-size: var(--text-xs); color: var(--text-secondary); }
 .pairing-card .pairing-summary { font-size: var(--text-sm); }

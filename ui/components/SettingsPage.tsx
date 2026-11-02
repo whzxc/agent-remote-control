@@ -289,7 +289,7 @@ export default function SettingsPage() {
       </Group>
       <Group title={t("extras.title")}>
         <Row id="settings-extras-entry" highlight={false} title={t("extras.entryTitle")} description={t("extras.entryDescription")}
-          onNavigate={() => navigation.set(old => ({ ...old, settingsExtras: true }))} />
+          onNavigate={() => navigation.set(old => ({ ...old, settingsExtras: true, settingsExtrasPane: "experimental" }))} />
       </Group>
       <AppUpdate />
     </div>

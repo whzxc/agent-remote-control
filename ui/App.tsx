@@ -35,7 +35,7 @@ import {
   showUpdate,
   updateVisible,
 } from "./state/updates";
-import { onboarding } from "./state/onboarding";
+import { onboarding, connectionSetup, connectionSwitch } from "./state/onboarding";
 import { navigation, openConnections, type Page } from "./state/navigation";
 import { panelLayers, panelAnchorAt } from "./state/panels";
 import {
@@ -46,6 +46,8 @@ import OAuthApproval from "./components/OAuthApproval";
 import ConnectionOverview from "./components/ConnectionOverview";
 import SettingsPage from "./components/SettingsPage";
 import PlatformsPage from "./components/PlatformsPage";
+import Onboarding from "./components/Onboarding";
+import AddConnection from "./components/AddConnection";
 import { usePrivacy } from "./state/privacy";
 import { UpdateDock, UpdateOutcome } from "./components/AppUpdate";
 import { Button, Icon, IconButton, Notice, HoverScope } from "./components/ui";
@@ -76,7 +78,8 @@ export default function App() {
     lastPage = useRef<Page>(page === "overview" ? "accounts" : page),
     sheetClosing = useRef(false),
     backdropDown = useRef(false);
-  const welcome = onboarding.use()?.step === "welcome" && page === "overview";
+  const flow = onboarding.use(), newConnection = connectionSetup.use();
+  const welcome = flow?.step === "welcome" && page === "overview";
   const layers = panelLayers.use();
   const modalOpen = layers.some(layer => !layer.dataset.panelDock);
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
@@ -372,6 +375,13 @@ export default function App() {
           </Notice>
         </div>
       )}
+      {flow && <Onboarding returnFocus={page === "accounts" ? "[data-platform-add]" : undefined} />}
+      {newConnection && <AddConnection options={newConnection} onClose={() => connectionSetup.set(undefined)} onAdded={id => {
+        if (newConnection.forSwitch) connectionSwitch.set(old => old && { ...old, ingressId: id });
+        if (newConnection.forSource) onboarding.set(old => old?.step === "connection" ? { ...old, step: "address", ingressId: id, baseline: (connector.get().status?.ingresses.find(i => i.id === id)?.oauth?.pending ?? []).map(p => p.id) } : old);
+        if (!newConnection.forSource && !newConnection.forSwitch) navigation.set(old => ({ ...old, page: "overview", connectionsOpen: true, remoteConnectionId: id }));
+        connectionSetup.set(undefined);
+      }} />}
       <UpdateOutcome />
       <OAuthApproval inlineEnabled={page === "overview"} requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
     </div>

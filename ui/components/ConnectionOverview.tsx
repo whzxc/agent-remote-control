@@ -48,8 +48,6 @@ import TuningPanel from "../topology/TuningPanel";
 import { topologyTuningEnabled } from "../state/topology";
 import type { SurfaceRect } from "../motion/surface";
 import type { WireState } from "../topology/render";
-import Onboarding from "./Onboarding";
-import AddConnection from "./AddConnection";
 import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
@@ -409,13 +407,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         <ConnectionsContent />
       </Dialog>}
       {switching && visible && <ChangeConnection />}
-      {flow && visible && <Onboarding />}
-      {newConnection && visible && <AddConnection options={newConnection} onClose={() => connectionSetup.set(undefined)} onAdded={id => {
-        if (newConnection.forSwitch) connectionSwitch.set(old => old && { ...old, ingressId: id });
-        if (newConnection.forSource) onboarding.set(old => old?.step === "connection" ? { ...old, step: "address", ingressId: id, baseline: (connector.get().status?.ingresses.find(i => i.id === id)?.oauth?.pending ?? []).map(p => p.id) } : old);
-        if (!newConnection.forSource && !newConnection.forSwitch) navigation.set(old => ({ ...old, connectionsOpen: true, remoteConnectionId: id }));
-        connectionSetup.set(undefined);
-      }} />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
       {displaySettingsOpen && <AgentDisplaySettings onClose={() => setDisplaySettingsOpen(false)} />}
     </>

@@ -44,7 +44,7 @@ export default function ConnectionsContent() {
           <Status tone={connection.state === "ready" ? "success" : "neutral"}>{t(connection.state === "ready" ? "connect.online" : "connect.offline")}</Status>
           <IconButton icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
           {!["local", "relay"].includes(connection.transport) && <IconButton icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
-          {relay?.owner && <IconButton icon={Settings} label={t("setup.hostingLink")} onClick={() => navigation.set(old => ({ ...old, page: "settings", settingsExtras: true, connectionsOpen: false }))} />}
+          {relay?.owner && <IconButton icon={Settings} label={t("setup.hostingLink")} onClick={() => navigation.set(old => ({ ...old, page: "settings", settingsExtras: true, settingsExtrasPane: "hosting", connectionsOpen: false }))} />}
         </div></CardHeader>
         <CardContent className="grid min-w-0 gap-4 px-4">
           {connection.url && <CopyField value={connection.url} label={t("source.copyAddress")} />}

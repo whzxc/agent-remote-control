@@ -117,7 +117,7 @@ export function IconButton({
 export function Input({
   className = "",
   ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
+}: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   return <input {...props} className={`input ${className}`} />;
 }
 export function Slider({ label, value, min, max, step, onChange, onCommit }: {
