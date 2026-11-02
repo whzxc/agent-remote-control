@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Users,
+  PawPrint,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -53,10 +54,13 @@ import { UpdateDock, UpdateOutcome } from "./components/AppUpdate";
 import { Button, Icon, IconButton, Notice, HoverScope } from "./components/ui";
 import { api } from "./api";
 import PermissionsPage from "./components/PermissionsPage";
+import PetsPage from "./pets/PetsPage";
+import { showPets } from "./pets/state";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 export default function App() {
   locale.use();
   const studio = studioEnabled.use();
+  const pets = showPets.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
@@ -71,7 +75,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -83,6 +87,12 @@ export default function App() {
   const layers = panelLayers.use();
   const modalOpen = layers.some(layer => !layer.dataset.panelDock);
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
+  useLayoutEffect(() => {
+    if (!pets && page === "pets") {
+      setPage("overview");
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page="settings"]')?.focus({ preventScroll: true }));
+    }
+  }, [pets, page]);
   useEffect(() => {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
@@ -113,7 +123,7 @@ export default function App() {
         replacement ??
         document.querySelector<HTMLElement>(
           `[data-page="${lastPage.current}"]`,
-        );
+        ) ?? document.querySelector<HTMLElement>('[data-page="settings"]');
       target?.focus({ preventScroll: true });
       if (replacement) replacement.click();
     });
@@ -126,6 +136,7 @@ export default function App() {
   }, [nav.page]);
 
   function navigate(next: Page) {
+    if (next === "pets" && !showPets.get()) return;
     if (next !== "overview") {
       lastPage.current = next;
       setSheetWide(false);
@@ -166,7 +177,7 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
-          if (["overview", "settings", "accounts", "permissions"].includes(e.payload))
+          if (["overview", "settings", "accounts", "permissions", "pets"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -209,9 +220,10 @@ export default function App() {
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);
   const pages = [
+    { id: "settings" as const, label: t("settings"), icon: Settings },
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
-    { id: "settings" as const, label: t("settings"), icon: Settings },
+    ...(pets ? [{ id: "pets" as const, label: t("pets.title"), icon: PawPrint }] : []),
   ];
   return (
     <div
@@ -320,7 +332,8 @@ export default function App() {
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />
-
+              ) : page === "pets" ? (
+                <PetsPage />
               ) : (
                 <SettingsPage />
               )}

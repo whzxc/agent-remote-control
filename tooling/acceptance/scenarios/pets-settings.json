@@ -7,7 +7,6 @@
     "codex",
     "dsh"
   ],
-  "page": "settings",
-  "settingsExtras": true,
+  "page": "pets",
   "tasks": []
 }
