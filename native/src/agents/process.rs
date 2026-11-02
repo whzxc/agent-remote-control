@@ -879,6 +879,7 @@ mod stream_stability_tests {
             &["-c".into(), script.into()],
             &std::env::temp_dir(),
             false,
+            false,
             state,
             live.wake.clone(),
         )
