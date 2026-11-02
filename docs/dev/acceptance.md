@@ -104,7 +104,7 @@ Scenarios in tooling/acceptance/scenarios/*.json include idle, single-task, para
 
 The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects the normal homepage count setting; `topologyAccounts` installs the shared multi-account fixture.
 
-The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact cutout actions, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.
+The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact opaque theme-colored action glyphs, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.
 
 The `agent-list-codex-*` and `agent-list-claude-*` fixtures supply 240 paged metadata rows with confirmed and unknown outcomes. History detail routes are intentionally unavailable so background timeline prefetch fails fixture readiness.
 

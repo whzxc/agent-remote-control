@@ -1411,7 +1411,8 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .arc-action-bridge { position: absolute; pointer-events: none; }
 .topology-arc-actions .arc-action-button { position: relative; z-index: 1; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 2px; border: 0; border-radius: 50%; background: transparent; opacity: 0; transform: scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
 .topology-arc-actions .arc-action-button:hover:not(:disabled) { background: transparent; }
-.arc-action-glyph { display: block; flex: none; width: 24px; height: 24px; transition: filter 140ms ease; }
+.arc-action-glyph { display: block; flex: none; width: 18px; height: 18px; transition: filter 140ms ease; }
+.arc-action-glyph .icon { stroke-width: 3; }
 .arc-action-button:hover .arc-action-glyph { filter: brightness(1.12); }
 .topology-arc-actions:is([data-open], :focus-within) .arc-action-button { opacity: 1; transform: translate(var(--action-dx), var(--action-dy)); pointer-events: auto; }
 .topology-arc-actions:is([data-open], :focus-within) .arc-action-bridge { pointer-events: auto; }

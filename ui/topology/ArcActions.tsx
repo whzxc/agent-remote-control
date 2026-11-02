@@ -1,4 +1,4 @@
-import { useId, useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react';
+import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react';
 import { CheckCheck, Minus, Plus } from 'lucide-react';
 import { Button, Icon } from '../components/ui';
 import { notify } from '../state/connector';
@@ -11,7 +11,6 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
   onCollapse?: () => void; onRead?: () => void; onOpen: (open: boolean) => void; onDismiss: () => void; ref: Ref<ArcActionsHandle>;
 }) {
   const root = useRef<HTMLDivElement>(null), hit = useRef<SVGPathElement>(null);
-  const maskId = useId();
   const frame = useRef<{ geometry: ArcActionGeometry; visible: boolean } | undefined>(undefined);
   const actions = [
     ...(onCollapse ? [{ id: 'collapse', icon: collapsed ? Plus : Minus, label: `${t(collapsed ? 'topology.expand' : 'topology.collapse')} ${label}`, disabled: !canCollapse, run: onCollapse }] : []),
@@ -48,11 +47,9 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
       <Button variant="ghost" className="arc-action-button" aria-label={action.label} disabled={action.disabled}
         aria-expanded={action.id === 'collapse' ? !collapsed : undefined} onPointerDown={event => event.stopPropagation()} onClick={() => {
           try { action.run(); onOpen(false); requestAnimationFrame(onDismiss); } catch (error) { notify(String(error), true); }
-        }}><svg className="arc-action-glyph" viewBox="0 0 24 24" aria-hidden="true">
-          <defs><mask id={`${maskId}-${action.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24" style={{ maskType: 'luminance' }}>
-            <rect width="24" height="24" fill="white" /><g transform="translate(4 4)" color="black"><Icon icon={action.icon} /></g>
-          </mask></defs>
-          <circle cx="12" cy="12" r="12" fill="var(--account-color)" mask={`url(#${maskId}-${action.id})`} />
+        }}><svg className="arc-action-glyph" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="10" fill="var(--account-color)" />
+          <g transform="translate(2 2)" color="var(--canvas)"><Icon icon={action.icon} /></g>
         </svg></Button>
     </div>)}
   </div>;
