@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Pencil, Settings, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { connector, refreshConnector } from "../state/connector";
-import { navigation } from "../state/navigation";
 import { openConnectionSetup } from "../state/onboarding";
 import { useRelays } from "../state/relay";
 import { connectionIcon, connectionKind, connectionProvider, isLocalSource, isPendingSource } from "../sourcePresentation";
@@ -44,7 +43,6 @@ export default function ConnectionsContent() {
           <Status tone={connection.state === "ready" ? "success" : "neutral"}>{t(connection.state === "ready" ? "connect.online" : "connect.offline")}</Status>
           <IconButton icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
           {!["local", "relay"].includes(connection.transport) && <IconButton icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
-          {relay?.owner && <IconButton icon={Settings} label={t("setup.hostingLink")} onClick={() => navigation.set(old => ({ ...old, page: "settings", settingsExtras: true, settingsExtrasPane: "hosting", connectionsOpen: false }))} />}
         </div></CardHeader>
         <CardContent className="grid min-w-0 gap-4 px-4">
           {connection.url && <CopyField value={connection.url} label={t("source.copyAddress")} />}

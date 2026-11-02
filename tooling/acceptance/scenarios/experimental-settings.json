@@ -6,6 +6,6 @@
     "codex"
   ],
   "page": "settings",
-  "settingsExtras": true,
+  "settingsExperimental": true,
   "tasks": []
 }

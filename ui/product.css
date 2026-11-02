@@ -1254,10 +1254,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 :root[data-reduced-motion="true"] { .source-detail { animation:none; } }
 
 .settings-breadcrumb-divider { color: var(--text-tertiary); margin-inline: var(--space-2); font-weight: 400; }
-.settings-extras { container-type: inline-size; }
-.extras-layout { display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); gap: var(--space-6); }
-.extras-nav { min-width: 0; }
-.extras-content { min-width: 0; }
 .relay-hosting, .hosted-relay { display: grid; gap: var(--space-6); }
 .relay-hosting h2, .relay-hosting h3 { margin: 0; font-size: var(--text-md); font-weight: 600; }
 .hosting-section-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
@@ -1286,10 +1282,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hosted-relay-danger > div { flex: 1 1 260px; }
 .hosted-relay-danger > .button { margin-left: auto; }
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); padding-top: var(--space-6); }
-@container (max-width: 640px) {
-  .extras-layout { grid-template-columns: minmax(0, 1fr); }
-  .extras-nav { border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
-}
 
 /* Centered creation flows share the Dialog's Radix focus and dismissal layers. */
 .dialog.elastic-panel.setup-dialog { border-radius: var(--radius-panel); }

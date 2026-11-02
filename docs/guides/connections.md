@@ -45,11 +45,11 @@ Route the public HTTPS hostname to ARC's loopback listener. Give each fixed Clou
 
 ## Host a relay for others
 
-Open **Settings → Extras → Relay hosting** and choose **Deploy new relay**. Sign in to Cloudflare and wait for deployment and connection. **Copy invite link** invites another computer. **Reset** invalidates the old invite without disconnecting joined devices.
+Enable **Relay hosting** under **Settings → About → Experimental**, open its entry in the navigation capsule, and choose **Deploy new relay**. Sign in to Cloudflare and wait for deployment and connection. **Copy invite link** invites another computer. **Reset** invalidates the old invite without disconnecting joined devices.
 
 **Connected devices** lists names, joined time and last seen. **This computer** has no Remove action. Removing another device disconnects it; it can rejoin with a valid invite. **Delete…** disconnects every device, including this computer, and deletes the hosted relay. Removal and deletion require confirmation.
 
-Joined relays remain in the upper-arc connection panel. The homepage topology switch is under **Settings → Extras → Experimental**.
+Joined relays remain in the upper-arc connection panel. The homepage topology switch is under **Settings → About → Experimental**.
 
 ## Limits
 

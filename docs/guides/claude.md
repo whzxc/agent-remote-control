@@ -37,7 +37,7 @@ For local use, choose **This computer** on Welcome, then **Claude Code** or **Cl
 
 To move an existing source, open its detail and choose **Change connection**. Select the target in ARC, then delete the old ARC connector in Claude and add it again with the new address. If the client supports editing the URL, editing also works. Return to ARC, compare the code, check **Claim as <account name>**, and approve. ARC retains the source's name, history and notification settings and revokes the old grant after the new authorization completes.
 
-Open **Remote link → Connections** for addresses, sources using each connection, and removal. Relay owners manage invites and devices in **Settings → Extras → Relay hosting**. See [Connections](connections.md) for methods and relay trust boundaries.
+Open **Remote link → Connections** for addresses, sources using each connection, and removal. Relay owners enable **Relay hosting** under **Settings → About → Experimental**, then use its capsule entry to manage invites and devices. See [Connections](connections.md) for methods and relay trust boundaries.
 
 ## Start with current facts
 

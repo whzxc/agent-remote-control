@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Users,
   PawPrint,
+  Cloud,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -56,12 +57,14 @@ import { api } from "./api";
 import PermissionsPage from "./components/PermissionsPage";
 import PetsPage from "./pets/PetsPage";
 import { showPets } from "./pets/state";
+import RelayHosting from "./components/RelayHosting";
+import { relayHostingEnabled } from "./state/relay";
 import TuningControls from "./topology/TuningControls";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 export default function App() {
   locale.use();
   const studio = studioEnabled.use();
-  const pets = showPets.use();
+  const pets = showPets.use(), hosting = relayHostingEnabled.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
@@ -76,7 +79,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : [])].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -89,11 +92,11 @@ export default function App() {
   const modalOpen = layers.some(layer => !layer.dataset.panelDock);
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
-    if (!pets && page === "pets") {
+    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting)) {
       setPage("overview");
       requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page="settings"]')?.focus({ preventScroll: true }));
     }
-  }, [pets, page]);
+  }, [pets, hosting, page]);
   useEffect(() => {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
@@ -137,7 +140,7 @@ export default function App() {
   }, [nav.page]);
 
   function navigate(next: Page) {
-    if (next === "pets" && !showPets.get()) return;
+    if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get())) return;
     if (next !== "overview") {
       lastPage.current = next;
       setSheetWide(false);
@@ -178,7 +181,7 @@ export default function App() {
         listen<string>("navigate", (e) => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
-          if (["overview", "settings", "accounts", "permissions", "pets"].includes(e.payload))
+          if (["overview", "settings", "accounts", "permissions", "pets", "relay-hosting"].includes(e.payload))
             navigate(e.payload as Page);
         }),
         listen<string>("subscriptions:open", (e) => {
@@ -225,6 +228,7 @@ export default function App() {
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     ...(pets ? [{ id: "pets" as const, label: t("pets.title"), icon: PawPrint }] : []),
+    ...(hosting ? [{ id: "relay-hosting" as const, label: t("hosting.feature"), icon: Cloud }] : []),
   ];
   return (
     <div
@@ -239,8 +243,8 @@ export default function App() {
           !layers.length
         ) {
           e.preventDefault();
-          if (page === "settings" && nav.settingsExtras) {
-            navigation.set(old => ({ ...old, settingsExtras: undefined }));
+          if (page === "settings" && nav.settingsExperimental) {
+            navigation.set(old => ({ ...old, settingsExperimental: undefined }));
           } else void closeSheet();
         }
         if (e.key === "Tab" && page !== "overview" && !layers.length) {
@@ -300,10 +304,10 @@ export default function App() {
         >
           <div className="page-sheet-content">
             <header className="sheet-header">
-              {page === "settings" && nav.settingsExtras && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExtras: undefined }))} />}
+              {page === "settings" && nav.settingsExperimental && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} />}
               <h1 className="capsule-title" tabIndex={-1}>
                 {pages.find((item) => item.id === page)?.label}
-                {page === "settings" && nav.settingsExtras && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("extras.title")}</span></>}
+                {page === "settings" && nav.settingsExperimental && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("topology.experimental")}</span></>}
 
               </h1>
               {page === "permissions" && <IconButton
@@ -335,6 +339,8 @@ export default function App() {
                 <PlatformsPage />
               ) : page === "pets" ? (
                 <PetsPage />
+              ) : page === "relay-hosting" ? (
+                <RelayHosting />
               ) : (
                 <SettingsPage />
               )}

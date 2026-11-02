@@ -143,9 +143,9 @@ Each source is one node, including multiple sources on one connection. Grouping 
 
 Welcome is a full-window page: ARC mark, "Where do you command Codex from?", the subtitle "Start with one. You can add the other anytime.", two choice cards (This computer: Claude Code · Claude Desktop, about 1 minute, no network setup; Phone and web: Claude · ChatGPT · Gemini · Grok, about 3 minutes, free Cloudflare account), and a quiet footer with clickable Codex login and permissions readiness dots plus "Have a relay invite link?". Both cards open Add control source with the matching platform group focused; the invite link opens Add connection at Join. Copy assumes a practiced user and is not measured. Automatic opening waits for a successful source-list read before deciding whether sources exist. An earlier status snapshot does not establish an empty source list. It does not replace an open setup or detail view.
 
-### Settings: Extras
+### Experimental settings and relay hosting
 
-Settings shows one entry row for Extras. Extras opens a nested view inside the Settings workspace, with a Settings / Extras header and back navigation. A 200px sub-navigation lists Experimental first and Relay hosting second, without descriptions, and stacks above the content below 640px. Ordinary entry defaults to Experimental; the hosted-connection shortcut opens Relay hosting directly. Individual experimental settings include descriptions of their effects.
+Settings → About contains an Experimental entry. It directly opens a switch list in the Settings workspace, with a Settings / Experimental header and back navigation. There is no intermediate Extras view or left sub-navigation. Enabling Relay hosting adds its entry to the navigation capsule. That entry opens relay management; disabling it only hides the UI and does not stop hosted relays. Individual experimental switches describe their effects, and feature configuration remains behind capsule entries.
 
 Relay hosting lists only relays this computer deployed. Cards show the hostname, state, Worker version with Update when outdated, and an invite footer with Copy and Reset. Full tokenized URLs are never rendered. Reset invalidates the old invitation without disconnecting existing devices. Member tables show device names, compact joined and last-seen times, and Remove with confirmation. This computer uses status.deviceName, is marked This computer, and has no Remove action. Create and join register the device name. Delete is a separate bottom danger zone with confirmation that every connected device loses its relay connection. Deploy new relay reuses the deployment progress flow.
 
@@ -153,7 +153,7 @@ Relay hosting lists only relays this computer deployed. Cards show the hostname,
 
 - P0: source store, principal-returning authentication, `origin.sourceId`, keying changes, reauthorization claim at consent, migration, management API, and CLI. Accept through CLI and a real remote OAuth call on two sources sharing one ingress.
 - P1: Remote link workspace, shared Add flow, source and connection details, and one homepage node per source.
-- P2: Settings Extras with Relay hosting and Experimental controls, trimmed Welcome, and synchronized user documentation.
+- P2: Experimental switches under About, capsule-based Relay hosting controls, trimmed Welcome, and synchronized user documentation.
 - P3: dialog redesign per the placement rule: shared dialog shell and stacking, Add control source and Add connection rebuilt to the new steps, new Welcome page, Connection detail, and homepage grow-in highlight. Accept through UI scenarios for every dialog step in light and dark.
 - P4: Change connection: cross-connection claim in Core, management API and CLI (`cli source switch`), the dialog, and connection removal keeping disconnected sources. Accept with a real remote OAuth switch between two connections.
 

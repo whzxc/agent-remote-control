@@ -12,21 +12,21 @@ import { connector, run, notify, refreshConnector } from "../state/connector";
 import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
-import SettingsExtras from "./SettingsExtras";
+import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
   const { status, busy } = connector.use();
-  const { settingsExtras } = navigation.use();
+  const { settingsExperimental } = navigation.use();
   const previousSettings = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
-    if (settingsExtras) {
+    if (settingsExperimental) {
       document.querySelector<HTMLElement>(".capsule-title")?.focus({ preventScroll: true });
       document.querySelector(".workspace")?.scrollTo({ top: 0 });
     } else if (previousSettings.current) {
       document.getElementById(previousSettings.current)?.focus();
     }
-    previousSettings.current = settingsExtras ? "settings-extras-entry" : undefined;
-  }, [settingsExtras]);
+    previousSettings.current = settingsExperimental ? "settings-experimental-entry" : undefined;
+  }, [settingsExperimental]);
   const currentTheme = theme.use(),
     color = themeColor.use(),
     currentLanguage = language.use();
@@ -101,7 +101,7 @@ export default function SettingsPage() {
       await refreshConnector();
     });
   }
-  if (settingsExtras) return <SettingsExtras />;
+  if (settingsExperimental) return <ExperimentalSettings />;
   return (
     <div className="settings-page">
       <Group title={t("behavior")}>
@@ -287,11 +287,10 @@ export default function SettingsPage() {
           </Field>
         )}
       </Group>
-      <Group title={t("extras.title")}>
-        <Row id="settings-extras-entry" highlight={false} title={t("extras.entryTitle")} description={t("extras.entryDescription")}
-          onNavigate={() => navigation.set(old => ({ ...old, settingsExtras: true, settingsExtrasPane: "experimental" }))} />
-      </Group>
-      <AppUpdate />
+      <AppUpdate>
+        <Row id="settings-experimental-entry" highlight={false} title={t("topology.experimental")}
+          onNavigate={() => navigation.set(old => ({ ...old, settingsExperimental: true }))} />
+      </AppUpdate>
     </div>
   );
 }

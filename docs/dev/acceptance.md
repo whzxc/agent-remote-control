@@ -108,6 +108,8 @@ The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc an
 
 The `topology-tuning-dark` and `topology-tuning-light` fixtures enable the capsule entry for homepage topology controls. Open it to inspect parameter editing, JSON import, internal scrolling, dismissal and focus restoration while the topology remains visible. Experimental settings retain only the enable switch.
 
+The `settings-about-light` and `settings-about-dark` fixtures show the Experimental row inside About. The `experimental-settings` pair opens its switch list directly. The `relay-hosting-light` and `relay-hosting-dark` fixtures enable the cloud capsule entry and open the hosting workspace. Feature switches control UI visibility; hosting fixtures never deploy or stop real relays.
+
 The `agent-list-codex-*` and `agent-list-claude-*` fixtures supply 240 paged metadata rows with confirmed and unknown outcomes. History detail routes are intentionally unavailable so background timeline prefetch fails fixture readiness.
 
 Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInteraction` in `ui/types.ts`. Ownership follows `control::observe_ownership` and `claude_notify::ownership`; request routing follows `claude_notify::routing`. No fixture contains real task content or provider identities.

@@ -228,12 +228,12 @@ export function Group({
   title,
   children,
 }: {
-  title: ReactNode;
+  title?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="settings-group">
-      <h2>{title}</h2>
+      {title && <h2>{title}</h2>}
       <div>{children}</div>
     </section>
   );

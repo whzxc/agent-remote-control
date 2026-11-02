@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { ArrowUp, Check, ExternalLink, LoaderCircle, X } from "lucide-react";
 import { t } from "../i18n";
@@ -123,7 +123,7 @@ export function UpdateOutcome() {
     </div>
   </aside>;
 }
-export function AppUpdate() {
+export function AppUpdate({ children }: { children?: ReactNode }) {
   const { status } = connector.use(), state = updates.use();
   const checking = state.snapshot.state === 'checking';
   const feedback = state.error || state.message;
@@ -146,5 +146,6 @@ export function AppUpdate() {
     <Row title="whzxc/agent-remote-control">
       <Button variant="ghost" onClick={() => action(openUrl('https://github.com/whzxc/agent-remote-control'))}>GitHub <Icon icon={ExternalLink} /></Button>
     </Row>
+    {children}
   </Group>;
 }

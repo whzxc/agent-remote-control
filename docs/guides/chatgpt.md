@@ -20,7 +20,7 @@ In Configure, copy the address and follow ARC's settings path to add the ARC app
 
 To move a source, open its detail and choose **Change connection**. Select the target first, then delete the old ARC app in ChatGPT and add it again with the new address; editing the URL also works if supported. Return to ARC, compare the code, check **Claim as <account name>**, and approve. Name, history and notification settings stay, and the old grant is revoked after the new authorization completes.
 
-**Remote link → Connections** opens connection details, including the address, sources using it, and removal. Relay hosting is under **Settings → Extras → Relay hosting**. See [Connections](connections.md) for methods and [Getting started](../getting-started.md) for Welcome's local-client choice.
+**Remote link → Connections** opens connection details, including the address, sources using it, and removal. Enable **Relay hosting** under **Settings → About → Experimental**, then open its capsule entry. See [Connections](connections.md) for methods and [Getting started](../getting-started.md) for Welcome's local-client choice.
 
 ## Advanced: OpenAI Secure Tunnel
 

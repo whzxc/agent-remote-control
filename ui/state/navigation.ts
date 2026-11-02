@@ -1,10 +1,9 @@
 import { createStore } from "./store";
-export type Page = "overview" | "accounts" | "permissions" | "settings" | "pets";
+export type Page = "overview" | "accounts" | "permissions" | "settings" | "pets" | "relay-hosting";
 export const navigation = createStore<{
   connectionsOpen?: boolean;
   platformId?: string;
-  settingsExtras?: boolean;
-  settingsExtrasPane?: "experimental" | "hosting";
+  settingsExperimental?: boolean;
   remoteSourceId?: string;
   remoteConnectionId?: string;
   page?: Page;

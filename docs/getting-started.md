@@ -30,7 +30,7 @@ Choose **Claude Code** or **Claude Desktop** when adding a source, then select i
 
 To change a source's connection, select the target in ARC first. In the client, delete the old ARC connector and add it again with the new address; editing the URL also works where supported. Return to ARC, compare the code, check **Claim as <account name>**, and approve the switch. Name, history and notification settings stay; the old grant is revoked after the new authorization completes.
 
-Relay owners manage invite links, devices and deletion under **Settings → Extras → Relay hosting**. Joined relays have **Leave relay** in Connection detail. Only join a host you trust: the deployer can technically inspect relayed traffic in Cloudflare.
+Enable **Relay hosting** under **Settings → About → Experimental**, then open its capsule entry to manage invite links, devices and deletion. Joined relays have **Leave relay** in Connection detail. Only join a host you trust: the deployer can technically inspect relayed traffic in Cloudflare.
 
 ### Dispatch and receive a notification
 
