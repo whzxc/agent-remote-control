@@ -574,9 +574,64 @@ pub(super) fn insert(agents: &mut serde_json::Map<String, Value>, agent: &str, s
         .unwrap()
         .push(session);
 }
+
+pub(super) fn codex_sessions(events: &Events) -> Vec<Value> {
+    // Late answers remain available, but only current interactions imply activity.
+    let pending = events.pending_interactions();
+    events
+        .timelines
+        .iter()
+        .filter(|(id, timeline)| {
+            matches!(timeline.status.as_str(), "running" | "inProgress")
+                || pending
+                    .iter()
+                    .any(|p| p["params"]["threadId"] == **id && p["stale"] != true)
+        })
+        .map(|(id, timeline)| timeline.session(id, &timeline.info, "codex-thread", None))
+        .collect()
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn codex_activity_ignores_terminal_questions_without_dropping_late_answers() {
+        // Regression: an unanswered async question kept a completed Codex task Responding forever.
+        for status in ["completed", "failed", "cancelled", "interrupted"] {
+            let mut events = Events::default();
+            let mut timeline = Timeline::default();
+            let at = "2026-01-01T00:00:00Z";
+            timeline.codex("turn/started", &json!({"turn":{"id":"old"}}), at);
+            timeline.codex(
+                "turn/completed",
+                &json!({"turn":{"id":"old","status":status}}),
+                at,
+            );
+            events.timelines.insert("thread".into(), timeline);
+            events.pending.insert("question".into(), json!({"id":"question","method":"request_user_input_async","params":{"threadId":"thread","turnId":"old"}}));
+
+            assert!(codex_sessions(&events).is_empty());
+            assert_eq!(events.pending_interactions().len(), 1);
+            assert_eq!(events.pending_interactions()[0]["stale"], true);
+
+            let timeline = events.timelines.get_mut("thread").unwrap();
+            timeline.lose_observation();
+            assert!(codex_sessions(&events).is_empty());
+
+            let timeline = events.timelines.get_mut("thread").unwrap();
+            timeline.codex("turn/started", &json!({"turn":{"id":"new"}}), at);
+            assert_eq!(codex_sessions(&events)[0]["turnId"], "new");
+
+            let timeline = events.timelines.get_mut("thread").unwrap();
+            timeline.lose_observation();
+            events.pending.insert(
+                "current".into(),
+                json!({"id":"current","params":{"threadId":"thread","turnId":"new"}}),
+            );
+            assert_eq!(codex_sessions(&events).len(), 1);
+            assert_eq!(events.pending_interactions().len(), 2);
+        }
+    }
     struct Sandbox(PathBuf);
     impl Drop for Sandbox {
         fn drop(&mut self) {

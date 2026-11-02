@@ -538,20 +538,9 @@ impl AgentHost {
         }
         if !disabled.contains("codex") {
             let events = control.events.lock().await;
-            for (id, timeline) in &events.timelines {
-                let pending = events
-                    .pending
-                    .values()
-                    .any(|p| p["params"]["threadId"] == *id);
-                if !matches!(timeline.status.as_str(), "running" | "inProgress") && !pending {
-                    continue;
-                }
-                native_sessions.insert(("codex".into(), id.clone()));
-                activity::insert(
-                    &mut agents,
-                    "codex",
-                    timeline.session(id, &timeline.info, "codex-thread", None),
-                );
+            for session in activity::codex_sessions(&events) {
+                native_sessions.insert(("codex".into(), string(&session, "id").into()));
+                activity::insert(&mut agents, "codex", session);
             }
         }
         let selected = ["codex", "claude"]
