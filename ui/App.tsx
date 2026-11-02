@@ -56,6 +56,7 @@ import { api } from "./api";
 import PermissionsPage from "./components/PermissionsPage";
 import PetsPage from "./pets/PetsPage";
 import { showPets } from "./pets/state";
+import TuningControls from "./topology/TuningControls";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 export default function App() {
   locale.use();
@@ -368,6 +369,7 @@ export default function App() {
 
             </button>
           ))}
+          <TuningControls available={page === "overview" && !welcome && !modalOpen} />
           <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
           <UpdateDock />
         </HoverScope>

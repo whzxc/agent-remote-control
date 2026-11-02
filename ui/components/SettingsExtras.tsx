@@ -5,7 +5,6 @@ import { api } from "../api";
 import { connector, run } from "../state/connector";
 import { acceptPreferences, maintainerMode } from "../state/store";
 import { showPets } from "../pets/state";
-import { StudioLighting } from "../display/Studio";
 import { studioEnabled } from "../display/state";
 import RelayHosting from "./RelayHosting";
 import { navigation } from "../state/navigation";
@@ -43,7 +42,6 @@ export default function SettingsExtras() {
           <Row title={t("studio.enabled")} description={t("studio.enabledDescription")}>
             <Switch label={t("studio.enabled")} checked={studio} onChange={studioEnabled.set} />
           </Row>
-          {studio && <Row title={t("studio.light")} description={t("studio.lightDescription")}><StudioLighting /></Row>}
         </Group>}
       </div>
     </div>

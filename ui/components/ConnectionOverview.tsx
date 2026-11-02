@@ -45,8 +45,6 @@ import GraphNode from "./GraphNode";
 import { ActivityBubble } from "./ActivityBubbles";
 import Topology, { type TopologyHandle, type NodeView, type PanelLayout } from "../topology/Topology";
 import { PANEL_MIN_WIDTH } from "../topology/solve";
-import TuningPanel from "../topology/TuningPanel";
-import { topologyTuningEnabled } from "../state/topology";
 import type { SurfaceRect } from "../motion/surface";
 import type { WireState } from "../topology/render";
 import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
@@ -65,7 +63,6 @@ function wireState(state: string): WireState {
   return "inactive";
 }
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
-  const tuning = topologyTuningEnabled.use();
   const activityClock = useRef(new Map<string, number>());
   taskExecutions.use();
   const submissions = activityApprovals.use();
@@ -409,7 +406,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
-      {visible && tuning && <TuningPanel />}
       {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
         returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
         <ConnectionsContent />

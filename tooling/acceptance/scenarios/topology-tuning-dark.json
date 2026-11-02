@@ -1,0 +1,16 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "topologyTuning": true,
+  "agents": [
+    "codex"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "thinking",
+      "title": "Preview topology adjustments",
+      "headline": "Inspecting the layout"
+    }
+  ]
+}

@@ -45,9 +45,3 @@ export function resetTopologyParameter(key?: ParameterKey) {
   saveTopologyParameters();
 }
 export const topologyDebug = createStore({ guides: false, slow: false });
-export const topologyPanel = preference("arc.topology-panel", { x: 16, y: 48, collapsed: true }, raw => {
-  const value = JSON.parse(raw);
-  if (!value || typeof value !== "object") throw new Error("Invalid panel position");
-  return { x: Number.isFinite(value.x) ? Math.max(0, value.x) : 16,
-    y: Number.isFinite(value.y) ? Math.max(48, value.y) : 48, collapsed: value.collapsed !== false };
-});

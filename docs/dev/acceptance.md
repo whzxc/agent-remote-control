@@ -106,6 +106,8 @@ The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover 
 
 The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact opaque theme-colored action glyphs, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.
 
+The `topology-tuning-dark` and `topology-tuning-light` fixtures enable the capsule entry for homepage topology controls. Open it to inspect parameter editing, JSON import, internal scrolling, dismissal and focus restoration while the topology remains visible. Experimental settings retain only the enable switch.
+
 The `agent-list-codex-*` and `agent-list-claude-*` fixtures supply 240 paged metadata rows with confirmed and unknown outcomes. History detail routes are intentionally unavailable so background timeline prefetch fails fixture readiness.
 
 Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInteraction` in `ui/types.ts`. Ownership follows `control::observe_ownership` and `claude_notify::ownership`; request routing follows `claude_notify::routing`. No fixture contains real task content or provider identities.

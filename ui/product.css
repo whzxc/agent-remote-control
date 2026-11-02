@@ -1067,14 +1067,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .file-path-directory { color: var(--text-tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .file-path-name { flex: none; }
 
-/* Experimental topology controls stay outside the scrolling scene. */
-.topology-tuner { position: fixed; left: 0; top: 0; z-index: 60; width: min(296px, calc(100vw - 16px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow); font-size: var(--text-xs); }
-.topology-tuner[data-collapsed] { width: auto; max-width: calc(100vw - 16px); }
-.topology-tuner > header { display: flex; align-items: center; gap: 4px; padding: 4px; }
-.topology-tuner > header strong { flex: 1; font-size: var(--text-xs); padding-right: 8px; }
-.topology-tuner > header > :first-child { touch-action: none; cursor: grab; }
-.topology-tuner > header > :first-child:active { cursor: grabbing; }
-.topology-tuner-body { max-height: calc(100dvh - 112px); overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }
+/* Optional topology controls open from the shared navigation capsule. */
+.topology-tuner { z-index: 120; display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow); font-size: var(--text-xs); }
+.topology-tuner > header { display: flex; flex: none; align-items: center; gap: 8px; padding: 10px 12px; }
+.topology-tuner > header strong { flex: 1; font-size: var(--text-xs); }
+.topology-tuner-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }
 .topology-tuner-hint { margin: 4px 0 12px; color: var(--text-secondary); line-height: 1.5; }
 .topology-tuner-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
 .topology-tuner-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
