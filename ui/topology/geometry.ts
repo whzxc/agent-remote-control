@@ -1,6 +1,28 @@
 import { deg, type Point, type Side } from "./solve.ts";
 
 export const finitePoints = (...points: Point[]) => points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+export type ArcActionGeometry = { kind: 'arc'; x: number; y: number; radius: number; lo: number; hi: number; side: Side }
+  | { kind: 'line'; start: Point; end: Point; outward: Point };
+
+// Origins stay on the arc; expanded centers leave enough room for each shared control.
+export function arcActionPositions(geometry: ArcActionGeometry, count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const fraction = (index + 1) / (count + 1), offset = index - (count - 1) / 2;
+    if (geometry.kind === 'line') {
+      const { start, end, outward } = geometry, length = Math.hypot(end.x - start.x, end.y - start.y);
+      const tangent = length ? { x: (end.x - start.x) / length, y: (end.y - start.y) / length } : { x: -outward.y, y: outward.x };
+      const x = start.x + (end.x - start.x) * fraction, y = start.y + (end.y - start.y) * fraction;
+      const spacing = Math.max(38, length / (count + 1));
+      return { x, y, dx: (start.x + end.x) / 2 + tangent.x * offset * spacing + outward.x * 24 - x,
+        dy: (start.y + end.y) / 2 + tangent.y * offset * spacing + outward.y * 24 - y };
+    }
+    const { x, y, radius, lo, hi, side } = geometry, expanded = radius + 24;
+    const step = Math.max(deg(hi - lo) / (count + 1), 2 * Math.asin(Math.min(1, 38 / (2 * expanded))));
+    const angle = deg(lo + (hi - lo) * fraction), target = deg((lo + hi) / 2) + offset * step;
+    const origin = { x: x + side * radius * Math.cos(angle), y: y + radius * Math.sin(angle) };
+    return { ...origin, dx: x + side * expanded * Math.cos(target) - origin.x, dy: y + expanded * Math.sin(target) - origin.y };
+  });
+}
 const emptyWire = () => ({ outline: "", centerline: "", gap: "" });
 
 function cubicPoint(a: Point, b: Point, c: Point, d: Point, t: number) {

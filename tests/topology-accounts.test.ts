@@ -29,7 +29,9 @@ async function harness() {
   const server = await createServer({ configFile: false, server: { middlewareMode: true, watch: null, ws: false } });
   const { createRoot } = await import('react-dom/client');
   const mount = document.createElement('main'); document.body.append(mount);
-  const root = createRoot(mount), page = within(mount);
+  const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+  const nativeRoot = createRoot(mount), page = within(mount);
+  const root = { render: (content: Parameters<typeof nativeRoot.render>[0]) => nativeRoot.render(h(TooltipProvider, null, content)), unmount: () => nativeRoot.unmount() };
   const advance = async () => act(() => {
     time += 1000 / 60;
     const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(time));
@@ -184,61 +186,60 @@ test('topology account labels survive reordering and animation frames settle aft
 });
 
 
-test('collapse controls remain reachable between node, arc and toggle and reveal for keyboard focus', async () => {
-  // Regression: the collapse control vanished when the pointer crossed the gap from the node to its outer arc.
+test('arc controls operate descendants and restore keyboard focus without opening task details', async () => {
+  // Regression: outer arc controls disappeared during navigation and completed tasks required individual read actions.
   const fixture = await harness();
   try {
     const { server, root, mount, page, settle } = fixture;
     const { default: Topology } = await server.ssrLoadModule('/ui/topology/Topology.tsx');
-    const { viewModel } = await server.ssrLoadModule('/ui/acceptance.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    const { nodeKey } = await server.ssrLoadModule('/ui/topology/animate.ts');
-    const node = { id: 'platform', label: 'Platform', state: 'normal', attention: false, selected: false,
-      content: h('button', null, 'Platform'), tasks: [{ id: 'bubble', width: 200, height: 60, state: 'running', content: h('button', null, 'Bubble') }] };
-    await act(() => root.render(h(Topology, { boundary: { current: mount }, left: [], right: [node], accountsEnabled: true, onReorderNodes() {}, onReorderTasks() {} })));
-    await settle();
-    const state = () => viewModel().topology.interaction;
-    const button = page.getByRole('button', { name: node.label, exact: true });
-    const toggle = page.getByRole('button', { name: `${t('topology.collapse')} ${node.label}`, exact: true });
-    const arc = page.getByLabelText(`${node.label} arc`);
-    const wait = async (ms: number) => act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
-    await act(() => fireEvent.pointerOver(button));
-    assert.equal(state().revealed, nodeKey(1, node.id));
-    await act(() => fireEvent.pointerOut(button, { relatedTarget: arc }));
-    await wait(100);
-    assert.equal(state().revealed, nodeKey(1, node.id));
-    await act(() => fireEvent.pointerEnter(arc));
-    await wait(150);
-    assert.equal(state().revealed, nodeKey(1, node.id));
-    await act(() => fireEvent.pointerLeave(arc));
-    await act(() => fireEvent.pointerOver(toggle));
-    await wait(220);
-    assert.equal(state().revealed, nodeKey(1, node.id));
-    await act(() => fireEvent.pointerOut(toggle, { relatedTarget: button }));
-    await wait(220);
-    assert.equal(state().revealed, nodeKey(1, node.id));
-    await act(() => fireEvent.pointerOut(button, { relatedTarget: arc }));
-    await wait(250);
-    assert.equal(state().revealed, null);
+    const target = { agent: 'codex', id: 'finished' };
+    let marked: unknown;
+    const child = { id: 'profile', label: 'Profile', state: 'normal', attention: false, selected: false,
+      unread: [target], content: h('button', null, 'Profile'),
+      tasks: [{ id: 'bubble', width: 200, height: 60, state: 'running', content: h('button', null, 'Bubble') }] };
+    const node = { ...child, id: 'platform', label: 'Platform', unread: [], content: h('button', null, 'Platform'), tasks: [], children: [child] };
+    const render = async () => act(() => root.render(h(Topology, { boundary: { current: mount }, left: [], right: [node], accountsEnabled: true,
+      onMarkRead(targets: unknown) { marked = targets; }, onReorderNodes() {}, onReorderTasks() {} })));
+    await render(); await settle();
+    const controls = () => within(page.getByRole('group', { name: node.label, exact: true }));
+    await act(() => fireEvent.click(controls().getByRole('button', { name: t('activity.markAllRead'), exact: true })));
+    assert.deepEqual(marked, [target]);
+    assert.ok(page.getByRole('button', { name: 'Bubble', exact: true }));
+    child.unread = [];
+    await render(); await settle();
+    assert.equal(controls().queryByRole('button', { name: t('activity.markAllRead'), exact: true }), null);
+    const toggle = controls().getByRole('button', { name: `${t('topology.collapse')} ${node.label}`, exact: true });
     await act(() => toggle.focus());
-    assert.equal(state().focus.id, node.id);
-    await act(() => fireEvent.keyDown(toggle, { key: 'Enter' }));
-    await act(() => fireEvent.click(toggle));
-    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
-    await act(() => toggle.blur()); await settle();
-    assert.equal(state().focus, null);
-    assert.equal(state().hover, null);
+    await act(() => fireEvent.keyDown(toggle, { key: 'Escape' }));
+    assert.equal(document.activeElement, page.getByRole('button', { name: node.label, exact: true }));
+    await act(() => fireEvent.click(toggle)); await settle();
+    assert.equal(page.queryByRole('button', { name: 'Bubble', exact: true }), null);
+    const expand = controls().getByRole('button', { name: `${t('topology.expand')} ${node.label}`, exact: true });
+    assert.equal(expand.getAttribute('aria-expanded'), 'false');
+    await act(() => fireEvent.click(expand)); await settle();
+    assert.ok(page.getByRole('button', { name: 'Bubble', exact: true }));
   } finally { await fixture.close(); }
 });
 
-test('collapse hit target surrounds its symbol at the mirrored arc midpoint', async () => {
-  // Property: the toggle center bisects the outer arc and its hit target extends beyond the visible symbol in every direction.
-  const { collapseTarget, deg } = await import('../ui/topology/solve.ts');
-  for (const side of [-1, 1] as const) for (const radius of [22, 35, 48]) for (const [lo, hi] of [[-14, 14], [-58, 27], [-21, 58]]) {
-    const target = collapseTarget(radius, lo, hi, side);
-    assert.ok(Math.abs(Math.hypot(target.x, target.y) - radius) < 1e-8);
-    assert.ok(Math.abs(Math.atan2(target.y, side * target.x) - deg((lo + hi) / 2)) < 1e-8);
-    assert.ok(target.hitSize > target.symbolSize * 1.5);
+test('arc actions start on the arc and fan outward symmetrically with evenly spaced centers', async () => {
+  // Property: action origins stay on their owner arc while expanded centers preserve mirroring, ordering and equal separation.
+  const { arcActionPositions } = await import('../ui/topology/geometry.ts');
+  for (const radius of [22, 35, 48]) for (const [lo, hi] of [[-14, 14], [-58, 27], [-21, 58]]) for (const count of [1, 2, 3]) {
+    const left = arcActionPositions({ kind: 'arc', x: 0, y: 0, radius, lo, hi, side: -1 }, count);
+    const right = arcActionPositions({ kind: 'arc', x: 0, y: 0, radius, lo, hi, side: 1 }, count);
+    const distances: number[] = [];
+    for (const [index, point] of right.entries()) {
+      assert.ok(Math.abs(Math.hypot(point.x, point.y) - radius) < 1e-8);
+      assert.ok(Math.hypot(point.x + point.dx, point.y + point.dy) > radius);
+      assert.equal(left[index].x, -point.x); assert.equal(left[index].dx, -point.dx);
+      assert.equal(left[index].y, point.y); assert.equal(left[index].dy, point.dy);
+      if (index) {
+        const previous = right[index - 1];
+        distances.push(Math.hypot(point.x + point.dx - previous.x - previous.dx, point.y + point.dy - previous.y - previous.dy));
+      }
+    }
+    assert.ok(distances.every(distance => distance > 0 && Math.abs(distance - distances[0]) < 1e-8));
   }
 });
 

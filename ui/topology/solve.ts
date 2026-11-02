@@ -68,14 +68,6 @@ export function hubDots(interaction: Scene["hubInteraction"]) {
 }
 export const PANEL_MIN_WIDTH = 400, PANEL_MARGIN = 16, PANEL_ARC_GAP = 40;
 
-export const COLLAPSE_HIT_SIZE = 32, COLLAPSE_SYMBOL_SIZE = 20;
-
-// Toggle coordinates follow the animated arc, including asymmetric fan-outs.
-export function collapseTarget(radius: number, lo: number, hi: number, side: Side) {
-  const angle = deg((lo + hi) / 2);
-  return { x: side * radius * Math.cos(angle), y: radius * Math.sin(angle), hitSize: COLLAPSE_HIT_SIZE, symbolSize: COLLAPSE_SYMBOL_SIZE };
-}
-
 // The selected node's animated outer arc defines the dock's inner edge.
 export function panelWidth(vw: number, side: Side, x: number, radius: number) {
   const remaining = side === 1 ? vw - x - radius - PANEL_ARC_GAP - PANEL_MARGIN

@@ -22,7 +22,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const selected = actions.selectedPlatform === platform;
       const state = (['normal', 'connecting', 'error', 'inactive'] as const).find(state => members.some(view => view.state === state)) ?? first.state;
       const icon = <SourceIcon platform={platform} panelVisual />;
-      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), children,
+      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), unread: members.flatMap(view => view.unread ?? []), children,
         content: <GraphNode label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>{icon}<span className="graph-node-name">{label}</span></GraphNode> }];
     });
   }
@@ -48,6 +48,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, selected, account: true, label: nodeLabel, icon,
         attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
         tasks: tasks.filter(t => t.agentAccountId === account.id),
+        unread: members.flatMap(view => view.unread ?? []).filter(task => task.agentAccountId === account.id),
         content: <GraphNode label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
           {icon}<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>
             {suffix ? <><span>{mode === 'flat' ? `${label} · ${account.alias}` : account.alias}</span><span> · {suffix}</span></> : nodeLabel}

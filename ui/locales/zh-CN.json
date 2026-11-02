@@ -594,6 +594,7 @@
   "activity.completed": "已完成",
   "activity.unread": "未读",
   "activity.markRead": "标记已读",
+  "activity.markAllRead": "全部已读",
   "activity.viewAll": "查看全部",
   "activity.agentTasks": "{agent} 的任务",
   "timeline.fileRequest": "{agent} 请求访问文件",

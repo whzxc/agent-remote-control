@@ -1402,15 +1402,17 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-unidentified-label { display: flex; width: max-content; }
 .topology-unidentified-label > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .topology-unidentified-label > span:last-child { flex: none; }
-.topology-scene .topology-collapse { position: absolute; top: calc(50% + var(--collapse-y, 0px)); left: calc(50% + var(--collapse-x, 0px)); transform: translate(-50%, -50%) scale(var(--node-inverse, 1)); min-height: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; pointer-events: auto; cursor: pointer; }
-.topology-collapse-symbol { display: block; border-radius: 50%; background: var(--canvas); box-shadow: 0 0 0 2px var(--canvas); opacity: 0; transform: scale(.65); transition: transform 180ms var(--task-spring), opacity 140ms ease; }
-.topology-collapse-symbol > svg { display: block; width: 100%; height: 100%; }
-.topology-node[data-collapse-visible] .topology-collapse-symbol, .topology-node:focus-within .topology-collapse-symbol { opacity: 1; transform: scale(1); }
-.topology-wing-collapse { z-index: 5; --account-color: var(--topology-agent); }
-.topology-wing-collapse[data-side="-1"] { --account-color: var(--topology-source); }
-.topology-wing-collapse:is(:hover, :focus-visible, [aria-expanded="false"]) .topology-collapse-symbol { opacity: 1; transform: scale(1); }
-.topology-collapse:focus-visible .topology-collapse-symbol { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 3px var(--account-color); }
-:root[data-reduced-motion="true"] { .topology-collapse-symbol { transition: none; } }
+.topology-arc-actions { position: absolute; inset: 0; z-index: 5; pointer-events: none; --account-color: var(--topology-agent); }
+.topology-arc-actions[data-side="-1"] { --account-color: var(--topology-source); }
+.topology-arc-actions[hidden] { display: none; }
+.arc-action-hit { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.arc-action-hit path { fill: none; stroke: transparent; stroke-width: 28px; pointer-events: stroke; }
+.arc-action-slot { position: absolute; width: 32px; height: 32px; pointer-events: none; }
+.arc-action-bridge { position: absolute; pointer-events: none; }
+.topology-arc-actions .arc-action-button { position: relative; z-index: 1; --icon-button-size: 32px; border-radius: 50%; border-color: var(--border); background: var(--canvas); color: var(--account-color); box-shadow: var(--shadow); opacity: 0; transform: scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
+.topology-arc-actions:is([data-open], :focus-within) .arc-action-button { opacity: 1; transform: translate(var(--action-dx), var(--action-dy)); pointer-events: auto; }
+.topology-arc-actions:is([data-open], :focus-within) .arc-action-bridge { pointer-events: auto; }
+:root[data-reduced-motion="true"] { .arc-action-button { transition: none; } }
 .topology-path-hit { fill: none; stroke: transparent; stroke-width: 16px; pointer-events: stroke; }
 .topology-node .graph-node:not(:focus-visible), .activity-slot .activity-bubble:not(:focus-visible) { outline: 1px solid color-mix(in srgb, var(--text) calc(var(--path-emphasis, 0) * 18%), transparent); outline-offset: 1px; }
 

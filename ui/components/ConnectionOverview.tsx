@@ -13,6 +13,7 @@ import { useAccounts } from '../state/accounts';
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
 import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
+import { markActivitiesRead } from "../state/activityBubbles";
 import { orderActivity, visibleActivity, activityHierarchy, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
 import { taskOrder, reorderTasks } from "../state/taskOrder";
 import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
@@ -250,6 +251,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         ...Object.values(tracked).flat().filter(session => session.origin?.sourceId === source.id && session.endedAt === undefined).map(session => session.interaction ? 3 : 2)),
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
       icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
+      unread: Object.entries(tracked).flatMap(([agent, sessions]) => sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined
+        && (session.origin?.sourceId ? session.origin.sourceId === source.id : accounts.some(account => account.sources.includes(source.id) && accountOwns(account, session.origin?.accountId))))
+        .map(session => ({ agent, id: session.id }))),
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
         onMove={panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
@@ -287,6 +291,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       activityAt: recentActivity,
       activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon: <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />,
       selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: agent.enabled && !panelOpen,
+      unread: sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined)
+        .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) ?? session.agentAccountId })),
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
@@ -374,6 +380,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         </div>
         <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
           onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
+          onMarkRead={markActivitiesRead}
           onReorderNodes={reorderNodes}
           onReorderTasks={(_side, parent, ids) => {
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;

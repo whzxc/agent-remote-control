@@ -594,6 +594,7 @@
   "activity.completed": "Completed",
   "activity.unread": "Unread",
   "activity.markRead": "Mark as read",
+  "activity.markAllRead": "Mark all as read",
   "activity.viewAll": "View all",
   "activity.agentTasks": "{agent} tasks",
   "timeline.fileRequest": "{agent} requests file access",

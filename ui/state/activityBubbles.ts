@@ -5,6 +5,7 @@ import type { AgentActivitySession } from "../types";
 // Geometry remains renderer-scoped. Read acknowledgements use durable WebView
 // storage shared by UI and agent operations, including after window recreation.
 export const trackedActivity = createStore<Record<string, TrackedActivity[]>>({});
+export interface ActivityReadTarget { agent: string; id: string; agentAccountId?: string | null }
 const storageKey = "arc.activity-reads";
 const key = (agent: string, id: string) => JSON.stringify([agent, id]);
 function saveReads(rows: ActivityRead[], now = Date.now()) {
@@ -34,6 +35,20 @@ export function rememberActivityRead(agent: string, session: AgentActivitySessio
   saveReads([{ agent, id: session.id, readAt,
     ...(session.turnId ? { turnId: session.turnId } : {}), ...(session.turnStartedAt ? { turnStartedAt: session.turnStartedAt } : {}) },
     ...rows.filter(row => row.agent !== agent || row.id !== session.id)]);
+}
+export function markActivitiesRead(targets: readonly ActivityReadTarget[]) {
+  const selected = new Set(targets.map(target => key(target.agent, target.id))), now = Date.now();
+  const completed = Object.entries(trackedActivity.get()).flatMap(([agent, sessions]) => sessions
+    .filter(session => session.endedAt !== undefined && selected.has(key(agent, session.id)))
+    .map(session => ({ agent, session })));
+  if (!completed.length) return;
+  const marked = new Set(completed.map(({ agent, session }) => key(agent, session.id)));
+  // Save the whole selection before dismissing any bubble. Storage failure leaves it unread.
+  saveReads([...completed.map(({ agent, session }) => ({ agent, id: session.id, readAt: now,
+    ...(session.turnId ? { turnId: session.turnId } : {}), ...(session.turnStartedAt ? { turnStartedAt: session.turnStartedAt } : {}) })),
+    ...loadReads(now).filter(row => !marked.has(key(row.agent, row.id)))], now);
+  trackedActivity.set(old => Object.fromEntries(Object.entries(old).map(([agent, sessions]) =>
+    [agent, sessions.filter(session => session.endedAt === undefined || !marked.has(key(agent, session.id)))])));
 }
 export function restoreActivityReads(agent: string, sessions: TrackedActivity[], now: number, pinnedId?: string) {
   const reads = new Map(loadReads(now).map(row => [key(row.agent, row.id), row]));
@@ -71,10 +86,7 @@ export function controlActivityBubble(request: ActivityBubbleRequest) {
   if (request.action === "mark-read") {
     if (!bubble.completed) throw new Error("TASK_BUBBLE_ACTIVE: only completed bubbles can be marked read; read task_bubble again after completion");
     if (bubble.unread) {
-      const session = trackedActivity.get()[request.agent]?.find(row => row.id === request.id)!;
-      // Persist before dismissing or returning success to an agent.
-      rememberActivityRead(request.agent, session, Date.now());
-      trackedActivity.set(old => ({ ...old, [request.agent]: (old[request.agent] ?? []).filter(session => session.id !== request.id) }));
+      markActivitiesRead([request]);
     }
   }
   return current()!;

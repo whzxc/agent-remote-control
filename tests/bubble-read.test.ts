@@ -32,6 +32,7 @@ for (const width of [232, 264, 304]) for (const mode of ["default", "tree", "fla
   const mount = document.createElement("main"); document.body.append(mount); const root = createRoot(mount);
   try {
     const { default: Topology } = await server.ssrLoadModule("/ui/topology/Topology.tsx");
+    const { TooltipProvider } = await server.ssrLoadModule("/ui/components/ui/index.tsx");
     const { ActivityBubble } = await server.ssrLoadModule("/ui/components/ActivityBubbles.tsx");
     const { agentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     const { t } = await server.ssrLoadModule("/ui/i18n.ts");
@@ -50,8 +51,8 @@ for (const width of [232, 264, 304]) for (const mode of ["default", "tree", "fla
       content: h("button", null, "Codex"), tasks: [{ id: session.id, agentAccountId: accounts[0]?.id, width, height: 76, state: "completed", selected: false, reorderable: true,
         content: h(ActivityBubble, { agent: "codex", session, now: 1, onRead: () => { read = true; } }) }] }], 1, accounts, mode === "flat" ? "flat" : "tree", {}, actions);
     const expectedParent = mode === "default" ? "codex" : accountNodeId("codex", accounts[0].id);
-    await act(() => root.render(h(Topology, { boundary: { current: mount }, left: [], right, accountsEnabled: accounts.length > 0,
-      onReorderNodes() {}, onReorderTasks: (_side: number, parent: string, ids: string[]) => { order = ids; reorderedParent = parent; } })));
+    await act(() => root.render(h(TooltipProvider, null, h(Topology, { boundary: { current: mount }, left: [], right, accountsEnabled: accounts.length > 0,
+      onReorderNodes() {}, onReorderTasks: (_side: number, parent: string, ids: string[]) => { order = ids; reorderedParent = parent; } }))));
     assert.equal(viewModel().topology.tasks.find((task: any) => task.id === session.id).parent, expectedParent);
     assert.equal(viewModel().topology.nodes.find((node: any) => node.id === expectedParent).parent, mode === "tree" ? "codex" : undefined);
     const page = within(mount), button = page.getByRole("button", { name: t("activity.markRead"), exact: true });
