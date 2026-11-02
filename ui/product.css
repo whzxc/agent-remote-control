@@ -275,14 +275,13 @@
   left: var(--dock-left);
   bottom: var(--dock-bottom);
   z-index: 50;
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 26px;
-  background: transparent;
-  border-color: transparent;
+  background: var(--canvas);
+  box-shadow: var(--shadow);
 }
 .navigation-capsule button {
   width: 36px;
@@ -353,8 +352,7 @@
   white-space: nowrap;
 }
 .page-sheet[data-recessed],
-.navigation-capsule.expanded,
-.navigation-surface.expanded {
+.navigation-capsule.expanded {
   visibility: hidden;
   pointer-events: none;
 }
@@ -406,39 +404,11 @@
   }
 }
 
-.navigation-surface {
-  position: absolute;
-  z-index: 49;
-  pointer-events: none;
-  left: var(--dock-left);
-  bottom: var(--dock-bottom);
-  height: 50px;
-  max-width: calc(100vw - 32px);
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-  border-radius: 26px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-:root[data-reduced-motion="true"] {
-  .navigation-surface {
-    transition: none;
-  }
-}
-
-.navigation-capsule {
-  height: 50px;
-  max-width: calc(100vw - 32px);
-  display: block;
-}
 .capsule-icons {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
   border-radius: inherit;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px;
 }
 .capsule-icons button {
   position: relative;
@@ -459,11 +429,6 @@
   .sheet-header .panel-width-toggle {
     display: inline-flex;
   }
-}
-
-.navigation-surface.has-update,
-.navigation-capsule.has-update {
-  height: 50px;
 }
 
 .sheet-backdrop {
@@ -743,7 +708,6 @@
   box-shadow: var(--shadow);
 }
 .page-sheet,
-.navigation-surface,
 .elastic-panel:not(.unframed) {
   background: var(--canvas);
 }
@@ -1202,7 +1166,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-conversations { flex: 1 0 auto; gap: 14px; }
 .agent-conversations[data-empty] { justify-content: center; }
 .agent-task-section { min-width: 0; }
-.agent-task-section-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 0; background: var(--surface); color: var(--text-secondary); font-size: 11px; line-height: 18px; font-weight: 600; }
+.agent-task-section-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 0; color: var(--text-secondary); font-size: 11px; line-height: 18px; font-weight: 600; }
 .agent-task-section-heading[data-attention] { color: var(--warning); }
 .agent-section-count { min-width: 18px; height: 18px; box-sizing: border-box; padding-inline: 5px; border-radius: var(--radius-pill); background: var(--surface-subtle); font-size: 10px; text-align: center; font-variant-numeric: tabular-nums; }
 .agent-task-section-heading[data-attention] .agent-section-count { background: var(--warning-soft); }
@@ -1423,7 +1387,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 .setup-content .choice-cards .choice-option { min-height: 62px; box-shadow: none; }
 .navigation-capsule[hidden] { display: none; }
-.navigation-surface[hidden] { display: none; }
 
 .pairing-claim .task-tag { padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-md); white-space: normal; overflow-wrap: anywhere; }
 .pairing-card .pairing-fact { font-size: var(--text-xs); color: var(--text-secondary); }

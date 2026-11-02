@@ -26,8 +26,6 @@
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
 .app-scene[data-display="studio"] .core-toggle { top: clamp(88px, 11dvh, 116px); }
 .studio-clock { position: absolute; top: clamp(40px, 5dvh, 60px); left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; font-size: clamp(25px, 2.5vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .06em; line-height: 1; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
-.studio-controls { position: absolute; right: var(--dock-left); bottom: var(--dock-bottom); z-index: 50; border-radius: 50%; padding: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); opacity: .7; transition: opacity 160ms ease; }
-.studio-controls:hover, .studio-controls:focus-within, .studio-controls:has([data-state="open"]) { opacity: 1; }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
@@ -42,10 +40,9 @@
 @media (max-width: 600px) {
   .studio-clock { top: 34px; left: auto; right: 22px; transform: none; font-size: 24px; }
   .app-scene[data-display="studio"] .core-toggle { top: 70px; }
-  .studio-controls { padding: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-image, :root:not([data-reduced-motion]) .studio-controls { transition: none; } }
-:root[data-reduced-motion="true"] .studio-image, :root[data-reduced-motion="true"] .studio-controls { transition: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-image { transition: none; } }
+:root[data-reduced-motion="true"] .studio-image { transition: none; }
 @media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-motion { display: none; } :root:not([data-reduced-motion]) .studio-motion > div { animation: none; } }
 :root[data-reduced-motion="true"] .studio-motion { display: none; }
 :root[data-reduced-motion="true"] .studio-motion > div { animation: none; }

@@ -118,16 +118,15 @@ export function StudioControls({ available }: { available: boolean }) {
     window.addEventListener('keydown', escape);
     return () => { clearTimeout(escapeTimer); window.removeEventListener('keydown', escape); };
   }, [fullscreen, available, open]);
-  return <div className="studio-controls" hidden={!available} data-active={enabled || open || undefined}>
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} label={t('studio.settings')} /></Popover.Trigger>
-      <Popover.Portal><Popover.Content className="studio-settings" side="top" align="end" sideOffset={12} collisionPadding={16}
-        aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
-        {enabled && <StudioLighting />}
-        <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>
-          <Icon icon={fullscreen ? Minimize : Expand} />{t(fullscreen ? 'studio.exitFullscreen' : 'studio.fullscreen')}
-        </Button>
-      </Popover.Content></Popover.Portal>
-    </Popover.Root>
-  </div>;
+  if (!enabled) return null;
+  return <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} size={20} label={t('studio.settings')} data-hover-target="studio" /></Popover.Trigger>
+    <Popover.Portal><Popover.Content className="studio-settings" side="top" align="start" sideOffset={12} collisionPadding={16}
+      aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
+      <StudioLighting />
+      <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>
+        <Icon icon={fullscreen ? Minimize : Expand} />{t(fullscreen ? 'studio.exitFullscreen' : 'studio.fullscreen')}
+      </Button>
+    </Popover.Content></Popover.Portal>
+  </Popover.Root>;
 }

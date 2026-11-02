@@ -245,7 +245,6 @@ export default function App() {
       }}
     >
       <StudioBackground clockVisible={page === "overview" && !welcome && !modalOpen} />
-      <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}
@@ -274,11 +273,6 @@ export default function App() {
           }}
         />
       )}
-      <div
-        hidden={welcome}
-        className={`navigation-surface ${updateVisible() ? "w-60" : "w-48"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
-        aria-hidden="true"
-      />
       {page !== "overview" && (
         <section
           ref={sheet}
@@ -333,7 +327,7 @@ export default function App() {
         </section>
       )}
       <nav
-        className={`navigation-capsule ${updateVisible() ? "w-60" : "w-48"} ${page !== "overview" ? "expanded" : ""} ${updateVisible() ? "has-update" : ""}`}
+        className={`navigation-capsule ${page !== "overview" ? "expanded" : ""}`}
         inert={welcome || page !== "overview" || modalOpen}
         aria-hidden={welcome || page !== "overview"}
         hidden={welcome}
@@ -341,7 +335,7 @@ export default function App() {
       >
         <HoverScope
           activeKey={page !== "overview" || modalOpen ? "" : undefined}
-          className="capsule-icons justify-center"
+          className="capsule-icons"
           inert={page !== "overview"}
           aria-hidden={page !== "overview"}
         >
@@ -358,6 +352,7 @@ export default function App() {
 
             </button>
           ))}
+          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
           <UpdateDock />
         </HoverScope>
       </nav>
