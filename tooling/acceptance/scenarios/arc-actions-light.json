@@ -1,0 +1,80 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "studio": "day",
+  "agents": [
+    "claude",
+    "codex"
+  ],
+  "topologyAccounts": true,
+  "tasks": [
+    {
+      "agent": "claude",
+      "phase": "command",
+      "title": "Active personal task",
+      "headline": "Checking workspace"
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Studio completed task",
+      "headline": "Studio changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 1",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 2",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 3",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 4",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 5",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "claude",
+      "phase": "text",
+      "title": "Personal completed task 6",
+      "headline": "Personal changes ready",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Active Codex task",
+      "headline": "Checking configuration"
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Codex completed task",
+      "headline": "Configuration ready",
+      "completed": true
+    }
+  ]
+}

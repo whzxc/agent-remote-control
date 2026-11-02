@@ -143,6 +143,8 @@ The topology and agent operations share the same persisted completion read state
 
 Outer-arc actions can mark all unread completed tasks under a node as read without opening details. This includes hidden descendants and overflow items. The selection is deduplicated by Agent and task ID. Active tasks remain untouched. Save the selected turn acknowledgements together before dismissing any bubbles; a storage failure keeps the selection unread. Bulk reads use the same retention and replay rules as individual reads.
 
+Apply persisted read acknowledgements when terminal execution evidence arrives after an activity snapshot as well as during snapshot ingestion. A rediscovered completion for an acknowledged turn stays dismissed even if its initial activity record had no end time.
+
 External transcript tentacles use text-tertiary `3 5` dashes. Ongoing ARC and external sessions show contrasting 3px flow dots on their tentacles. reduced-motion stops the flow. All bubbles open details. Native navigation is in the header. Narrow windows clip bubbles/tentacles with a 32px right fade without shrinking, hiding the whole group, or horizontal scrolling. Visible parts remain clickable. New tasks grow/fade from their outer-arc port.
 
 ### Agent view and task details

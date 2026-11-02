@@ -1,6 +1,6 @@
 import { participantPost, petSize, bubbleEnd, wanderPost, petPath, overlaps, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
-import { hubMarkGeometry } from "./geometry";
+import { arcActionRegion, hubMarkGeometry } from "./geometry";
 import ArcActions, { type ArcActionsHandle } from './ArcActions';
 import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -51,6 +51,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
   const arcControls = useRef(new Map<string, ArcActionsHandle>());
+  const actionRegions = useRef(new Map<string, Rect>());
+  const actionPointer = useRef<{ x: number; y: number } | null>(null);
+  const pointerActionOwner = useRef<string | null>(null);
   const animator = useRef(new TopologyAnimator()), painter = useRef<TopologyPainter | null>(null);
   const frame = useRef(0), lastTime = useRef(0), panel = useRef<SurfaceRect | null>(null);
   const retarget = useRef(() => {}), placeAfterMorph = useRef(false);
@@ -96,16 +99,27 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const revealActions = useCallback((key: string | null) => {
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
-    if (key) setRevealed(key);
+    const owner = pointerActionOwner.current ?? key;
+    if (owner) setRevealed(owner);
     else hideToggle.current = setTimeout(() => { hideToggle.current = null; setRevealed(null); }, 200);
   }, []);
   const changeHover = useCallback((next: typeof hover) => {
     setHover(next);
     // Pointer departure must also clear focus left behind by a pointer click.
     setFocus(null);
-    if (!next) revealActions(null);
+  }, []);
+  const updateActionPointer = useCallback(() => {
+    const pointer = actionPointer.current;
+    if (!pointer) return;
+    const x = pointer.x - origin.current.x, y = pointer.y - origin.current.y;
+    const owner = [...actionRegions.current].filter(([, r]) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height)
+      .sort(([, a], [, b]) => a.width * a.height - b.width * b.height)[0]?.[0] ?? null;
+    if (pointerActionOwner.current === owner) return;
+    pointerActionOwner.current = owner;
+    revealActions(owner);
   }, [revealActions]);
   const clearInteraction = useCallback(() => {
+    actionPointer.current = null; pointerActionOwner.current = null;
     setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
     stackTimers.current.forEach(clearTimeout); setExpandedStacks(old => old.size ? new Set() : old);
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
@@ -285,6 +299,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const app = boundary.current?.closest<HTMLElement>('.app-scene');
     if (app) app.style.setProperty('--topology-hub-x', `${h.x + origin.current.x - app.getBoundingClientRect().left}px`);
     const portraitFrame = a.values('portrait');
+    actionRegions.current.clear();
     for (const side of [-1, 1] as const) {
       const control = arcControls.current.get(`wing:${side}`);
       if (!control) continue;
@@ -293,6 +308,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         start: { x: h.x + side * portraitFrame.earOffset, y: h.y },
         end: { x: h.x + side * (portraitFrame.earOffset + portraitFrame.earHalf), y: h.y }, outward: { x: 0, y: side } }
         : { kind: 'arc', x: h.x, y: h.y, radius: h.Re, lo: ear.lo, hi: ear.hi, side }, true);
+      const reach = portrait && portraitFrame ? portraitFrame.earOffset + portraitFrame.earHalf + 34 : h.Re + 34;
+      actionRegions.current.set(`wing:${side}`, { x: side === -1 ? h.x - reach : h.x, y: h.y - h.Re - 12, width: reach, height: 2 * (h.Re + 12) });
     }
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
@@ -328,10 +345,26 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       } else if (el) {
         el.style.opacity = '0'; el.inert = true;
       }
-      if (v) arcControls.current.get(key)?.place(portrait ? { kind: 'line',
-        start: { x: v.x - n.side * v.radius, y: v.y - 14 }, end: { x: v.x - n.side * v.radius, y: v.y + 14 }, outward: { x: -n.side, y: 0 } }
-        : { kind: 'arc', x: v.x, y: v.y, radius: v.radius, lo: v.alo, hi: v.ahi, side: n.side },
-        !!a.live.get(key)?.alive && !n.stacked && v.presence > .02);
+      const control = arcControls.current.get(key), interactive = !!a.live.get(key)?.alive && !n.stacked && (v?.presence ?? 0) > .02;
+      if (v && control) {
+        control.place(portrait ? { kind: 'line',
+          start: { x: v.x - n.side * v.radius, y: v.y - 14 }, end: { x: v.x - n.side * v.radius, y: v.y + 14 }, outward: { x: -n.side, y: 0 } }
+          : { kind: 'arc', x: v.x, y: v.y, radius: v.radius, lo: v.alo, hi: v.ahi, side: n.side }, interactive);
+        if (interactive) {
+          const branches = [
+            ...latest.current.nodes.filter(child => child.side === n.side && child.parent === n.id && !child.stacked).flatMap(child => {
+              const c = a.values(nodeKey(child.side, child.id));
+              return c && c.presence > .02 ? [{ x: c.x - (portrait ? -n.side : n.side) * c.size * c.scale / 2, y: c.y, halfHeight: c.size * c.scale / 2 }] : [];
+            }),
+            ...latest.current.tasks.filter(task => task.side === n.side && task.parent === n.id && !n.selected).flatMap(task => {
+              const c = a.values(taskKey(task.side, task.id));
+              return c && c.op > .02 ? [{ x: c.x + (((portrait || n.side === -1) ? 1 : 0) - c.anchor) * c.width, y: c.y, halfHeight: c.height / 2 }] : [];
+            }),
+          ];
+          const outward: Side = portrait ? (n.side === 1 ? -1 : 1) : n.side;
+          actionRegions.current.set(key, arcActionRegion({ x: v.x, y: v.y, radius: v.size * v.scale / 2, arcRadius: v.radius }, branches, outward));
+        }
+      }
     }
     for (const side of [-1, 1] as const) {
       const area = stackAreas.current.get(side);
@@ -369,8 +402,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (blend > 0.001) portraitPainter.current?.paint(a, latest.current.allNodes, latest.current.allTasks, rect);
     if (blend < 0.999) painter.current?.paint(a, latest.current.allNodes, latest.current.allTasks, rect,
       latest.current.guides ? layout.current : null);
+    updateActionPointer();
     pets.current?.layout();
-  }, [boundary]);
+  }, [boundary, updateActionPointer]);
   const tick = useCallback((time: number) => {
     frame.current = 0;
     const dt = Math.min(0.064, lastTime.current ? (time - lastTime.current) / 1000 : 1 / 60);
@@ -643,13 +677,16 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     onPointerLeave={event => { if (event.pointerType !== 'touch') clearInteraction(); }}
     onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) clearInteraction(); }}
     onPointerDownCapture={event => { suppressedClick.current = null; if (!(event.target as Element).closest('.topology-arc-actions')) revealActions(null); }}
-    onPointerMoveCapture={event => { if (drag.current?.control) moveDrag(event); }}
+    onPointerMoveCapture={event => {
+      if (event.pointerType !== 'touch') { actionPointer.current = { x: event.clientX, y: event.clientY }; updateActionPointer(); }
+      if (drag.current?.control) moveDrag(event);
+    }}
     onPointerUpCapture={event => { if (drag.current?.control) finishDrag(event); }}
     onPointerCancelCapture={event => { if (drag.current?.control) finishDrag(event, true); }}
     onLostPointerCaptureCapture={event => { if (drag.current?.control) finishDrag(event, true); }}
     onPointerMove={moveDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => { finishDrag(event, true); clearInteraction(); }}
     onLostPointerCapture={event => finishDrag(event, true)}
-    onKeyDownCapture={event => { if (event.key === "Escape" && drag.current) {
+    onKeyDownCapture={event => { actionPointer.current = null; pointerActionOwner.current = null; if (event.key === "Escape" && drag.current) {
       const d = drag.current; drag.current = null; delete d.slot.dataset.dragging;
       if (d.target.hasPointerCapture(d.pointer)) d.target.releasePointerCapture(d.pointer);
       if (orientationPending.current && orientationTimer.current === null) evaluateOrientation.current();

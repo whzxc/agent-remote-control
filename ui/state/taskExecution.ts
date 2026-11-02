@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { api } from "../api";
 import type { AgentTimeline } from "../types";
 import { createStore } from "./store";
-import { trackedActivity, rememberActivityRead } from "./activityBubbles";
+import { trackedActivity, rememberActivityRead, restoreActivityReads } from "./activityBubbles";
 import { agentPanel } from "./overviewPanels";
 import { taskState } from "./taskProjection";
 import { executionSnapshot, executionStatus, terminalState, type TaskExecution } from "./taskExecutionModel";
@@ -33,7 +33,8 @@ export function acceptTaskExecution(agent: string, id: string, timeline: AgentTi
       if (readAt !== undefined) rememberActivityRead(agent, next, readAt);
       return next;
     });
-    return changed ? { ...old, [agent]: sessions } : old;
+    const selected = agentPanel.get();
+    return changed ? { ...old, [agent]: restoreActivityReads(agent, sessions, Date.now(), selected?.agent === agent ? selected.session?.id : undefined) } : old;
   });
 }
 export function refreshTaskExecution(agent: string, id: string): Promise<void> {

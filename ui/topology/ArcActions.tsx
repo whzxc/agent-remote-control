@@ -1,6 +1,6 @@
-import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react';
+import { useId, useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react';
 import { CheckCheck, Minus, Plus } from 'lucide-react';
-import { IconButton, Tooltip } from '../components/ui';
+import { Button, Icon } from '../components/ui';
 import { notify } from '../state/connector';
 import { t } from '../i18n';
 import { arcActionPositions, arcPath, type ArcActionGeometry } from './geometry';
@@ -11,6 +11,7 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
   onCollapse?: () => void; onRead?: () => void; onOpen: (open: boolean) => void; onDismiss: () => void; ref: Ref<ArcActionsHandle>;
 }) {
   const root = useRef<HTMLDivElement>(null), hit = useRef<SVGPathElement>(null);
+  const maskId = useId();
   const frame = useRef<{ geometry: ArcActionGeometry; visible: boolean } | undefined>(undefined);
   const actions = [
     ...(onCollapse ? [{ id: 'collapse', icon: collapsed ? Plus : Minus, label: `${t(collapsed ? 'topology.expand' : 'topology.collapse')} ${label}`, disabled: !canCollapse, run: onCollapse }] : []),
@@ -26,11 +27,11 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
     root.current.querySelectorAll<HTMLElement>('[data-arc-action]').forEach((slot, index) => {
       const point = positions[index];
       if (!point) return;
-      Object.assign(slot.style, { left: `${point.x - 16}px`, top: `${point.y - 16}px` });
+      Object.assign(slot.style, { left: `${point.x - 14}px`, top: `${point.y - 14}px` });
       slot.style.setProperty('--action-dx', `${point.dx}px`); slot.style.setProperty('--action-dy', `${point.dy}px`);
       const bridge = slot.querySelector<HTMLElement>('.arc-action-bridge');
       if (bridge) Object.assign(bridge.style, { left: `${Math.min(0, point.dx)}px`, top: `${Math.min(0, point.dy)}px`,
-        width: `${32 + Math.abs(point.dx)}px`, height: `${32 + Math.abs(point.dy)}px` });
+        width: `${28 + Math.abs(point.dx)}px`, height: `${28 + Math.abs(point.dy)}px` });
     });
   };
   useImperativeHandle(ref, () => ({ place }));
@@ -44,10 +45,15 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
     }} /></svg>
     {actions.map(action => <div key={action.id} data-arc-action={action.id} className="arc-action-slot">
       <span className="arc-action-bridge" aria-hidden="true" />
-      <Tooltip text={action.label}><IconButton className="arc-action-button" icon={action.icon} label={action.label} disabled={action.disabled}
+      <Button variant="ghost" className="arc-action-button" aria-label={action.label} disabled={action.disabled}
         aria-expanded={action.id === 'collapse' ? !collapsed : undefined} onPointerDown={event => event.stopPropagation()} onClick={() => {
           try { action.run(); onOpen(false); requestAnimationFrame(onDismiss); } catch (error) { notify(String(error), true); }
-        }} /></Tooltip>
+        }}><svg className="arc-action-glyph" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><mask id={`${maskId}-${action.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24" style={{ maskType: 'luminance' }}>
+            <rect width="24" height="24" fill="white" /><g transform="translate(4 4)" color="black"><Icon icon={action.icon} /></g>
+          </mask></defs>
+          <circle cx="12" cy="12" r="12" fill="var(--account-color)" mask={`url(#${maskId}-${action.id})`} />
+        </svg></Button>
     </div>)}
   </div>;
 }
