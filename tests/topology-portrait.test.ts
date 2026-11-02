@@ -142,7 +142,7 @@ test('portrait source panels open inward without moving the topology', () => {
       assert.ok(rect.x > node.x + node.size * node.scale / 2);
       assert.ok(rect.x + rect.width <= vw && rect.width > 0);
       assert.ok(rect.y >= 0 && rect.y + rect.height <= scene.vh);
-      assert.deepEqual(portraitPanelRect(open, node, node.y), rect);
+      assert.deepEqual(portraitPanelRect({ ...open, hub: { ...open.hub, y: open.hub.y + open.vh } }, node), rect);
     }
   }
 });
@@ -174,17 +174,20 @@ test('source panel routes reach the inward panel edge without intersecting nodes
     }
   }
 });
-test('portrait Agent panels fit inside the selected rail and fade tasks without changing queues', () => {
-  // Property: panel reservation keeps node order and task identity while placing its edge inside the selected node.
+test('portrait Agent panels fill the available viewport height and preserve queues', () => {
+  // Property: portrait panel height follows the viewport independently of hub position while node order and queue identity remain stable.
   const scene = { vw: 900, vh: 1200, left, right };
   const closed = solvePortrait(scene);
   for (const id of ['agent', 'account/a', 'single']) {
     const open = solvePortrait({ ...scene, panel: { side: 1, selected: id, edge: 0 } });
     const n = open.wings[1].nodes.find(n => n.id === id)!;
-    const scroll = open.hub.y;
-    const rect = portraitPanelRect(open, n, scroll);
+    const rect = portraitPanelRect(open, n);
+    const sourceRect = portraitPanelRect(open, open.wings[0].nodes[0]);
     assert.ok(rect.x >= 0 && rect.x + rect.width < n.x - n.size * n.scale / 2);
-    assert.ok(rect.y > open.hub.y + open.portrait!.earOffset - scroll);
+    assert.equal(rect.y, sourceRect.y);
+    assert.equal(rect.height, sourceRect.height);
+    assert.ok(rect.height > scene.vh / 2);
+    assert.deepEqual(portraitPanelRect({ ...open, hub: { ...open.hub, y: open.hub.y + open.vh } }, n), rect);
     assert.ok(rect.y + rect.height < scene.vh);
     assert.deepEqual(open.wings[1].nodes.map(n => [n.id, n.x, n.y]), closed.wings[1].nodes.map(n => [n.id, n.x, n.y]));
     assert.deepEqual(open.wings[1].tasks.map(t => t.id), closed.wings[1].tasks.map(t => t.id));

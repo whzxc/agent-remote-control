@@ -75,6 +75,16 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const evaluateOrientation = useRef(() => {});
   const collapsed = topologyCollapsed.use();
   const closedWing = collapsed['wing:-1'] ? -1 : collapsed['wing:1'] ? 1 : undefined;
+  const previousClosedWing = useRef(closedWing);
+  useLayoutEffect(() => {
+    const folded = closedWing !== undefined && previousClosedWing.current !== closedWing;
+    previousClosedWing.current = closedWing;
+    if (folded && orientation.current === 'portrait' && boundary.current) {
+      boundary.current.scrollTop = 0;
+      const rect = graph.current?.getBoundingClientRect();
+      if (rect) origin.current = { x: rect.x, y: rect.y };
+    }
+  }, [closedWing, boundary]);
   const [expandedStacks, setExpandedStacks] = useState<Set<Side>>(() => new Set());
   const stackAreas = useRef(new Map<Side, HTMLDivElement>());
   const stackOrigins = useRef(new Map<Side, Rect>());
@@ -520,7 +530,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         origin.current = { x: actual.x, y: actual.y };
       }
       placedPanel.current = latest.current.panelKey;
-      const local = portraitPanelRect(layout.current, selectedNode, container?.scrollTop ?? 0);
+      const local = portraitPanelRect(layout.current, selectedNode);
       if (selectedNode.side === 1 && envOverrides().taskPanelWidth != null) local.width = Math.min(local.width, envOverrides().taskPanelWidth!);
       rect = { ...local, x: local.x + origin.current.x, y: local.y + viewportTop };
     } else placedPanel.current = undefined;

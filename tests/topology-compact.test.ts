@@ -70,3 +70,25 @@ test('portrait shares height pressure between wings and keeps every topology lev
   assert.ok(Math.abs((p.sourceTop + p.sourceBottom) / 2 + (p.agentTop + p.agentBottom) / 2 - 2 * folded.hub.y) < .001);
   assert.equal(JSON.stringify(full), before);
 });
+
+test('an empty portrait wing releases its reserved height and compaction budget', () => {
+  // Regression: folding a portrait wing left a vacant half-screen above the hub and kept the remaining wing unnecessarily stacked.
+  const viewport = { vw: 700, vh: 1000 }, plan = { left: new Set<string>(), right: new Set<string>() };
+  let agentOnlyHub: number | undefined, sourceOnlyTop: number | undefined;
+  for (const count of [1, 4, 8]) {
+    const roots = Array.from({ length: count }, (_, i) => node(`root-${i}`));
+    const agentOnly = compactLayout(solvePortrait({ ...viewport, left: [], right: roots }), plan, new Set(), DEFAULTS.rowGap);
+    const sourceOnly = compactLayout(solvePortrait({ ...viewport, left: roots, right: [] }), plan, new Set(), DEFAULTS.rowGap);
+    agentOnlyHub ??= agentOnly.hub.y; sourceOnlyTop ??= sourceOnly.portrait!.sourceTop;
+    assert.equal(agentOnly.hub.y, agentOnlyHub);
+    assert.equal(sourceOnly.portrait!.sourceTop, sourceOnlyTop);
+    assert.equal(agentOnly.portrait!.sourceTop, agentOnly.portrait!.sourceBottom);
+    assert.equal(sourceOnly.portrait!.agentTop, sourceOnly.portrait!.agentBottom);
+    assert.ok(agentOnly.wings[1].nodes.every(n => n.y > agentOnly.hub.y));
+    assert.ok(sourceOnly.wings[0].nodes.every(n => n.y < sourceOnly.hub.y));
+  }
+  const roots = Array.from({ length: 6 }, (_, i) => node(`root-${i}`));
+  const shared = compactRoots(roots, roots, viewport, 'portrait', DEFAULTS);
+  const solo = compactRoots([], roots, viewport, 'portrait', DEFAULTS);
+  assert.ok(solo.right.size < shared.right.size);
+});

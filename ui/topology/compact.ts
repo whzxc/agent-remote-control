@@ -73,12 +73,14 @@ export function compactLayout(layout: Layout, plan: CompactPlan, expanded: Reado
   const shift = (wing: Wing, dy: number) => { wing.nodes.forEach(n => n.y += dy); wing.tasks.forEach(t => t.y += dy); };
   if (p) {
     const hubGap = Math.min(56, result.hub.Re / 2), middle = 2 * (hubGap + p.earOffset);
+    const singleWing = (left.nodes.length === 0) !== (right.nodes.length === 0);
     const half = Math.max(0, (result.vh - 74 - 112 - middle) / 2, left.H, right.H);
-    p.sourceTop = 74 + (half - left.H) / 2; p.sourceBottom = p.sourceTop + left.H;
-    result.hub.y = 74 + half + middle / 2;
-    p.agentTop = result.hub.y + middle / 2 + (half - right.H) / 2; p.agentBottom = p.agentTop + right.H;
+    p.sourceTop = singleWing ? 74 : 74 + (half - left.H) / 2; p.sourceBottom = p.sourceTop + left.H;
+    result.hub.y = singleWing ? p.sourceBottom + middle / 2 : 74 + half + middle / 2;
+    p.agentTop = result.hub.y + middle / 2 + (singleWing ? 0 : (half - right.H) / 2); p.agentBottom = p.agentTop + right.H;
     shift(left, p.sourceTop); shift(right, p.agentTop);
-    result.sceneH = Math.max(result.vh, 74 + half * 2 + middle + 112);
+    const bottom = singleWing ? (right.nodes.length ? p.agentBottom : result.hub.y + result.hub.Re) : 74 + half * 2 + middle;
+    result.sceneH = Math.max(result.vh, bottom + 112);
   } else {
     result.sceneH = Math.max(result.vh, left.H + 140, right.H + 140);
     result.hub.y = result.sceneH / 2;
@@ -91,7 +93,8 @@ export function compactRoots(left: ActivityEntity[], right: ActivityEntity[], vi
   const layout = orientation === 'portrait' ? solvePortrait(scene, params) : solve(scene, params);
   const plan: CompactPlan = { left: new Set(), right: new Set() };
   const middle = layout.portrait ? 2 * (layout.portrait.earOffset + Math.min(56, layout.hub.Re / 2)) : 0;
-  const budget = orientation === 'portrait' ? (viewport.vh - 74 - 112 - middle) / 2 : viewport.vh - 140;
+  const visibleWings = Math.max(1, Number(left.length > 0) + Number(right.length > 0));
+  const budget = orientation === 'portrait' ? (viewport.vh - 74 - 112 - middle) / visibleWings : viewport.vh - 140;
   for (const [index, list] of [left, right].entries()) {
     const ranked = [...list].sort((a, b) => priority(b).level - priority(a).level || priority(b).at - priority(a).at || a.id.localeCompare(b.id));
     const hidden = index === 0 ? plan.left : plan.right;
