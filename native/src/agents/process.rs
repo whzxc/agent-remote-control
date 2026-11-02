@@ -572,7 +572,8 @@ impl Process {
                     output.push_str(delta);
                     state["output"] = json!(bounded_output(output, state));
                 }
-            } else if update["step_type"] == "tool" && update["state"] == "ERROR" {
+            }
+            if update["state"] == "ERROR" {
                 let errors = state["toolErrors"].as_array_mut();
                 if let Some(errors) = errors {
                     errors.push(update.clone());
@@ -589,8 +590,8 @@ impl Process {
         if state["sessionId"].is_null() {
             state["sessionId"] = result["conversation_id"].clone();
         }
-        if result["response"].is_string() {
-            state["output"] = result["response"].clone();
+        if let Some(response) = result["response"].as_str() {
+            state["output"] = json!(bounded_output(response.to_owned(), state));
         }
         state["deniedActions"] = result["denied_actions"].clone();
         state["stopReason"] = result["finished_reason"].clone();

@@ -30,7 +30,9 @@ for await (const line of createInterface({input:process.stdin})) {
  turns+=1; active=true;
  emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'DONE',step_type:'user_input'}});
  if(prompt==='hold') { emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'ACTIVE',step_type:'agent_response',text_delta:'Waiting'}}); continue; }
- const response=prompt.toUpperCase();
+ if(prompt==='exit-without-result') { process.exit(0); }
+ if(prompt==='denied')emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'ERROR',step_type:'permission',error:'command denied'}});
+ const response=prompt==='large'?'x'.repeat(300*1024):prompt.toUpperCase();
  emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step,state:'ACTIVE',step_type:'agent_response',text_delta:response}});
  emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'DONE',step_type:'agent_response',text_delta:'\\n'}});
  emit({event:'result',result:{conversation_id:conversation,status:'SUCCESS',response:response+'\\n',num_turns:turns,...(prompt==='denied'?{denied_actions:[{action:'command',display_name:'RunCommand'}]}:{})}});
@@ -72,6 +74,18 @@ async function until(read: () => Promise<any>, ready: (value: any) => boolean) {
   }
 }
 
+async function completeResult(fixture: Awaited<ReturnType<typeof setup>>, result: any) {
+  if (!result.outputId) return result;
+  let text = result.text;
+  let offset = result.nextOffset;
+  while (offset !== null) {
+    const page = await fixture.call('control_output', { outputId: result.outputId, offset, length: 30000 });
+    text += page.text;
+    offset = page.nextOffset;
+  }
+  return JSON.parse(text);
+}
+
 test('Antigravity discovery and stream transport preserve terminal evidence and interrupt active work', { skip: process.platform === 'win32' }, async () => {
   // Contract: Antigravity runs only after identity probes and uses result events as persistent turn boundaries.
   const fixture = await setup();
@@ -100,6 +114,22 @@ test('Antigravity discovery and stream transport preserve terminal evidence and 
     assert.equal(second.sessionId, first.sessionId);
     assert.equal(second.output, 'DENIED\n');
     assert.equal(second.deniedActions[0].action, 'command');
+    assert.equal(second.toolErrors.length, 1);
+    assert.equal(second.toolErrors[0].step_type, 'permission');
+
+    const oversized = await fixture.completed('agent_send', { ...task, prompt: 'large' });
+    assert.equal(oversized.state, 'completed', JSON.stringify(oversized));
+    const bounded = await completeResult(fixture, await fixture.call('agent_read', task));
+    assert.equal(bounded.output.length, 256 * 1024);
+    assert.equal(bounded.outputTruncated, true);
+
+    const missingResult = await fixture.completed('agent_create', {
+      agent: 'antigravity', cwd: fixture.directory, prompt: 'exit-without-result', approval: 'approved',
+    });
+    assert.equal(missingResult.state, 'unconfirmed', JSON.stringify(missingResult));
+    const unknown = await fixture.call('agent_read', { agent: 'antigravity', taskId: missingResult.taskId });
+    assert.equal(unknown.status, 'unknown');
+    assert.notEqual(unknown.status, 'completed');
 
     const bypass = await fixture.completed('agent_create', {
       agent: 'antigravity', cwd: fixture.directory, prompt: 'bypass', approval: 'bypass',
@@ -115,8 +145,16 @@ test('Antigravity discovery and stream transport preserve terminal evidence and 
     assert.equal(interrupted.state, 'completed', JSON.stringify(interrupted));
     await until(() => fixture.call('receipt', { requestId: pending.requestId }), value => value.state === 'completed');
     const stopped = await fixture.call('agent_read', task);
-    assert.ok(['cancelled', 'unknown'].includes(stopped.status));
-    assert.notEqual(stopped.status, 'completed');
+    assert.equal(stopped.status, 'cancelled');
+
+    const resumed = await fixture.completed('agent_send', { ...task, prompt: 'recovered' });
+    assert.equal(resumed.state, 'completed', JSON.stringify(resumed));
+    const recovered = await completeResult(fixture, await fixture.call('agent_read', task));
+    assert.equal(recovered.status, 'completed');
+    assert.equal(recovered.output, 'RECOVERED\n');
+    const resumedLaunch = (await readFile(fixture.args, 'utf8')).trim().split('\n').map(JSON.parse).at(-1);
+    const conversationIndex = resumedLaunch.indexOf('--conversation');
+    assert.equal(resumedLaunch[conversationIndex + 1], 'fixture-conversation');
   } finally {
     await fixture.close();
   }

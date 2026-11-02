@@ -51,7 +51,7 @@ impl AgentDriver {
         match self {
             Self::CodexNative => super::codex_binary(),
             Self::Pi => discover("pi"),
-            Self::Antigravity => discover("agy"),
+            Self::Antigravity => discover("agy").or_else(|| discover("antigravity")),
             Self::Acp(m) if m.id == "claude" => discover("claude"),
             Self::Acp(m) => m.candidates().into_iter().next(),
         }

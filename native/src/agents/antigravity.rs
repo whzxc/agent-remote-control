@@ -46,17 +46,17 @@ pub fn configuration(
     let inherited = inherited.unwrap_or(&Value::Null);
     let model = args["model"]
         .as_str()
-        .or(policy.model.as_deref())
-        .or(inherited["model"].as_str());
+        .or(inherited["model"].as_str())
+        .or(policy.model.as_deref());
     if let Some(model) = model {
         validate_text("model", model)?;
     }
-    let mut options = inherited["options"]
-        .as_object()
-        .cloned()
-        .unwrap_or_default();
+    let mut options = serde_json::Map::new();
     for (key, value) in &policy.options {
         options.insert(key.clone(), json!(value));
+    }
+    for (key, value) in inherited["options"].as_object().into_iter().flatten() {
+        options.insert(key.clone(), value.clone());
     }
     for (key, value) in args["options"].as_object().into_iter().flatten() {
         options.insert(key.clone(), value.clone());
@@ -141,6 +141,31 @@ fn validate_text(field: &str, value: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inherited_configuration_survives_policy_changes() {
+        // Regression: A policy edit after task creation replaced inherited Antigravity values and rejected follow-ups.
+        let mut policy = crate::dispatch_policy::AgentPolicy::default();
+        policy.model = Some("policy-model".into());
+        policy.options.insert("effort".into(), "low".into());
+        policy.options.insert("mode".into(), "auto".into());
+        let inherited = json!({
+            "model":"created-model",
+            "options":{"effort":"high","mode":"plan"}
+        });
+        let configured = configuration(&json!({}), &policy, Some(&inherited)).unwrap();
+        assert_eq!(configured, inherited);
+
+        let explicit = configuration(
+            &json!({"model":"requested-model","options":{"effort":"max"}}),
+            &policy,
+            Some(&inherited),
+        )
+        .unwrap();
+        assert_eq!(explicit["model"], "requested-model");
+        assert_eq!(explicit["options"]["effort"], "max");
+        assert_eq!(explicit["options"]["mode"], "plan");
+    }
 
     #[test]
     fn launch_arguments_keep_bypass_explicit() {
