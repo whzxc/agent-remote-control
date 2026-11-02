@@ -26,7 +26,7 @@ Claude / ChatGPT / 其他客户端
 
 ## Agent
 
-在电脑上实际执行工作的程序。Codex 使用原生任务接口，Pi 和 ACP Agent 使用各自安装的程序、配置和登录。在首页 Agent 管理面板启用更多 Agent。
+在电脑上实际执行工作的程序。Codex 使用原生任务接口，Antigravity、Pi 和 ACP Agent 使用各自安装的程序、配置和登录。在首页 Agent 管理面板启用更多 Agent。
 
 ## 任务归属
 

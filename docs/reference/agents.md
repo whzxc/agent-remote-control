@@ -2,7 +2,7 @@
 
 [Home](../../README.md) · [Tools](tools.md)
 
-ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*` ops; Pi and ACP Agents use `agent_*` ops with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed entries, prioritizes enabled Agents, and respects the saved Agent order, with a configurable limit of 4/6/8/10. Subscription readings do not reorder Agents. The management panel supports search and shows entry availability separately from installation and live session status. Details include the execution entry, discovery errors and integration limits.
+ARC discovers installed executables and reuses their native configuration and login. Codex uses `codex_*` ops; Antigravity, Pi, and ACP Agents use `agent_*` ops with an explicit non-Codex ID. Agent management on the home screen refreshes discovery, enables Agents, and changes display order. Home shows installed entries, prioritizes enabled Agents, and respects the saved Agent order, with a configurable limit of 4/6/8/10. Subscription readings do not reorder Agents. The management panel supports search and shows entry availability separately from installation and live session status. Details include the execution entry, discovery errors and integration limits.
 
 Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a current schema and example. Execute reads through query and mutations through act; these entrypoints remain fixed when capabilities change.
 
@@ -11,6 +11,7 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | Agent ID | Entry point | Execution |
 | --- | --- | --- |
 | codex | Codex App Server / Desktop IPC | Native owner; [task ownership](../concepts.md#task-ownership) |
+| antigravity | `agy --input-format stream-json --output-format stream-json --print=""` | ARC-owned process, Antigravity stream JSON |
 | pi | `pi --mode rpc` | ARC-owned process, Pi RPC |
 | opencode | `opencode acp` | ACP v1 |
 | gemini | `gemini --acp` | ACP v1 |
@@ -33,7 +34,7 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | kilo | `kilo acp` | ACP v1 |
 | vibe | `vibe-acp` | ACP v1 |
 
-The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact discovery paths, version/help probes, compatibility notes, and upstream sources. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; the Gemini entry does not execute Antigravity.
+The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact ACP discovery paths, version/help probes, compatibility notes, and upstream sources. Antigravity is a dedicated native driver, not an ACP descriptor. Its discovery requires both `stream-json` and `--conversation` in help so an unrelated `agy` executable cannot launch. The `antigravity` alias is accepted only after the same identity probe. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; each has its own execution entry.
 
 Kilo Code uses its native `kilo acp` entry. Mistral Vibe uses the separate `vibe-acp` executable from the official installation. Both reuse native provider configuration; neither provisions credentials or adds client filesystem/terminal capabilities. Vibe uses the Mistral brand artwork from the shared asset library.
 
@@ -58,9 +59,9 @@ query {"op":"agent_read","args":{"agent":"opencode","taskId":"<returned taskId>"
 act {"op":"agent_send","args":{"agent":"opencode","taskId":"<returned taskId>","prompt":"Continue with the agreed next step."},"requestId":"<fresh UUID>"}
 ```
 
-taskId is ARC's persistent UUID; sessionId is the upstream session. Pi/ACP turnId identifies one submitted prompt. agent_tasks lists ARC-created tasks with pagination. Receipts and wait continuation follow [Tools](tools.md#waiting). Pi prompt acceptance and ACP prompt completion occur at different points, so use agent_wait for the task outcome.
+taskId is ARC's persistent UUID; sessionId is the upstream session. Antigravity, Pi, and ACP turnId identifies one submitted prompt. agent_tasks lists ARC-created tasks with pagination. Receipts and wait continuation follow [Tools](tools.md#waiting). Antigravity completes only on its terminal `result` event. Pi prompt acceptance and ACP prompt completion occur at different points, so use agent_wait for the task outcome.
 
-agent_pending returns ACP permission requests or Pi extension interactions. agent_respond selects the upstream optionId, or supplies the Pi value/confirmed field; cancelled declines the interaction. agent_interrupt requests cancellation; wait/read confirms the result.
+agent_pending returns ACP permission requests or Pi extension interactions. Antigravity headless permission requests are auto-denied upstream and cannot be answered through agent_respond. agent_respond selects the upstream optionId, or supplies the Pi value/confirmed field; cancelled declines the interaction. agent_interrupt requests cancellation; wait/read confirms the result.
 
 agent_context produces a read-only review/handoff of an existing task and current project facts. It does not execute or resume work. Keep reported Agent claims distinct from command evidence.
 
@@ -74,7 +75,11 @@ Catalog model rows keep the opaque `model` ID and existing fields. Optional `dis
 
 agent_create and agent_send accept model, options (native option IDs to string values), reason and purpose (task or self-test). Explicit choices override Agent policy defaults, then native current values. Deny rules win. The model is set first; ARC reads the updated option catalog, sets other choices and confirms the session before sending text. Unsupported or forbidden choices fail before prompt submission. Partial configuration failure returns a failed receipt with promptSubmitted:false and sessionConfirmation; already applied native settings are not rolled back. A timed-out setter closes the process and marks configuration unconfirmed so it cannot race a later prompt. Empty-prompt creation only bootstraps the catalog and ignores selection parameters.
 
+Antigravity is the exception to session setters. `model`, `options.effort`, and `options.mode` become launch flags when the task process starts. Its model remains an opaque validated value because the CLI exposes no no-inference catalog. Effort accepts `low`, `medium`, `high`, `xhigh`, or `max`; mode accepts `accept-edits`, `auto`, or `plan`, with `accept-edits` as the default. These values are reported as requested configuration, not executed-turn evidence, and cannot change on later turns in the same task. ARC approval `bypass` adds Antigravity's dangerous permission flag; other approvals never add it.
+
 agent_read includes dispatches. Each record separates submittedConfiguration, sessionConfirmation and turnEvidence. Pi assistant model/provider fields supply turn evidence; The managed Claude adapter can supply a per-prompt model set including internal calls; this does not prove a single main model or effort/fast settings. ACP configuration success alone does not prove a turn's actual model. Unknown evidence remains null. submission distinguishes accepted, pending, rejected and unconfirmed requests; only accepted work enters history. Never retry unconfirmed work with a new request ID.
+
+Antigravity `SUCCESS` may include `denied_actions`. The turn remains terminal, while agent_read retains deniedActions, toolErrors, and result evidence so denied work is not mistaken for completed work. A process exit without a terminal result leaves the task unknown. ARC sends SIGINT for interruption on Unix; Windows terminates the process and reports unknown unless a terminal result was already observed. Windows and Linux packaging and binary names remain upstream-dependent and use the same identity probes.
 
 Use agent_review with agent, taskId, optional turnId, verdict (pass/rework) and optional note. Any existing confirmed terminal turn in a readable task is reviewable, regardless of who started it. Omit turnId to review the most recent confirmed terminal turn. Unknown and running turns are rejected. Reviews record reviewer provenance and dispatchOrigin (arc with dispatchRequestId, or external with available model/effort/serviceTier, otherwise null). The latest verdict replaces the previous verdict for either origin. Reviews are supplementary feedback and never determine execution state. New dispatches do not infer rework links and do not depend on review availability. Reviews and dispatches use durable idempotent receipts. History groups by Agent, model and native options. External reviews require known model and effort and appear as separate external review counts without changing ARC counts or durations. Self-test dispatches and inherited self-test continuations are excluded.
 

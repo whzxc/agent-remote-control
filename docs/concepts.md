@@ -26,7 +26,7 @@ The local service that reads project facts and dispatches work. All ingresses fo
 
 ## Agent
 
-The program doing the work on your computer. Codex uses its native task interfaces. Pi and ACP Agents use their own installed programs, configuration, and login. Enable additional Agents in the home screen's Agent management panel.
+The program doing the work on your computer. Codex uses its native task interfaces. Antigravity, Pi, and ACP Agents use their own installed programs, configuration, and login. Enable additional Agents in the home screen's Agent management panel.
 
 ## Task ownership
 

@@ -13,6 +13,7 @@ Session catalogs come from initialize/session/new and do not prove model switchi
 | Agent | Model source and dimensions | Selection and evidence | Quota source and limits |
 | --- | --- | --- | --- |
 | Codex | app-server model/list, native efforts/serviceTiers | Thread defaults and turn overrides. Persisted turn_context. Tier limits are in dispatch-policy. Run existing regressions for extensions. | ARC codex-account/account/rateLimits/read. |
+| Antigravity | No no-inference model catalog. Opaque model plus documented effort/mode launch flags. | Requested values become process launch flags and remain fixed for the task. They are configuration evidence, not executed model evidence. Terminal `result` owns turn completion; denied actions remain visible. | Antigravity native quota provider. No account-scoped Agent read. |
 | Claude Code | ACP configOptions model, effort, fast, mode. Effort varies by model. | Session settings before new turns. set_config_option returns full configuration. Actual model needs turn evidence. Fast confirmation does not prove turn speed. | claude-code native OAuth usage. |
 | Cursor | Parameterized ACP model after native login. mode and independent context/reasoning_effort options. | Initialize parameterizedModelPicker and authenticate(cursor_login), preserving native defaults. Model/parameter values are assertions only because setters persist user defaults. mode may change. | Cursor DashboardService/usage-summary. Catalog uses native parameterized IDs. |
 | Grok | ACP models/configOptions and native settings catalog. reasoning_effort. Fast is a separate model. contextWindows is not writable. | Session set_config_option/native updates confirm selection. magpie agent/grok.go reads native catalogs. | grok credits and CLI settings. |
@@ -44,6 +45,7 @@ Native extraction boundaries:
 - DSH model selector groups declare provider IDs and names. ARC retains their JSON-array model values byte for byte.
 - ACP model options and availableModels supply names and explicit provider metadata. Generic groups such as Recommended do not denote providers. Grok, Cursor and Claude groups become providers only when native metadata declares provider semantics. `category:model` denotes a selector, not a provider.
 - ACP `_meta` may supply provider and context metadata. Grok supplies totalContextTokens/contextWindows there and context_window/context_windows in cache model info. A configOptions selector may use metadata from an availableModels entry only when their complete IDs match.
+- Antigravity has no catalog extraction. Its model stays opaque, and launch flags are never promoted to executed-turn evidence.
 
 Sessionless queries do not launch Agents:
 
