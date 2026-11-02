@@ -2,7 +2,7 @@ import test from 'node:test';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createServer, type Socket } from 'node:net';
-import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -313,5 +313,82 @@ test('AX unheld thread reads recover from silent Desktop discovery', {skip:proce
   } finally {
     await fixture.close();for(const socket of sockets)socket.destroy();
     await new Promise<void>(resolve=>server.close(()=>resolve()));await rm(directory,{recursive:true,force:true});
+  }
+});
+
+test('Codex activity and timelines retain the active native turn', { skip: process.platform !== 'darwin' }, async () => {
+  // Regression: large tool output hid an active task, whose timeline could then report a utility terminal snapshot.
+  const directory = await mkdtemp(path.join(tmpdir(), 'arc-timeline-owner-'));
+  await mkdir(path.join(directory, 'ipc'));
+  const threadId = randomUUID(), turnId = randomUUID();
+  let status = 'inProgress', revision = 0;
+  const sockets = new Set<Socket>();
+  const send = (socket: Socket, value: unknown) => {
+    const bytes = Buffer.from(JSON.stringify(value)), header = Buffer.alloc(4);
+    header.writeUInt32LE(bytes.length); socket.write(Buffer.concat([header, bytes]));
+  };
+  const snapshot = (socket: Socket) => send(socket, {
+    type: 'broadcast', method: 'thread-stream-state-changed', version: 11, sourceClientId: 'timeline-owner',
+    params: { hostId: 'local', conversationId: threadId, change: { type: 'snapshot', revision: ++revision, conversationState: {
+      id: threadId, cwd: directory, threadRuntimeStatus: { type: status === 'inProgress' ? 'active' : 'idle' },
+      turnHistory: { kind: 'canonical', history: { isComplete: true, entitiesByKey: {
+        [turnId]: { turnId, status, items: [{ id: 'prompt', type: 'userMessage', content: [{ type: 'text', text: 'Review a module' }] }] },
+      }, islands: [{ newerBoundary: { status: 'exhausted' }, entries: [{ value: turnId }] }] } },
+    } } },
+  });
+  const server = createServer(socket => {
+    sockets.add(socket); socket.on('close', () => sockets.delete(socket)); let buffer = Buffer.alloc(0);
+    socket.on('data', bytes => {
+      buffer = Buffer.concat([buffer, bytes]);
+      while (buffer.length >= 4 && buffer.length >= buffer.readUInt32LE() + 4) {
+        const size = buffer.readUInt32LE(), request = JSON.parse(buffer.subarray(4, size + 4).toString());
+        buffer = buffer.subarray(size + 4);
+        if (request.method === 'thread-stream-following-changed') { snapshot(socket); continue; }
+        send(socket, { type: 'response', requestId: request.requestId, handledByClientId: 'timeline-owner', resultType: 'success',
+          result: request.method === 'initialize' ? { clientId: 'timeline-follower' } : {} });
+      }
+    });
+  });
+  await new Promise<void>(resolve => server.listen(path.join(directory, 'ipc/ipc.sock'), resolve));
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
+      const turn={id:process.env.ARC_TIMELINE_TURN,status:'completed',items:[{id:'prompt',type:'userMessage',content:[{type:'text',text:'Review a module'}]}]};
+      const result=method==='thread/read'?{thread:{id:params.threadId,cwd:process.env.CODEX_HOME,status:{type:'notLoaded'},turns:[turn]}}:
+        method==='thread/turns/list'?{data:[turn],nextCursor:null}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `, { CODEX_HOME: directory, ARC_FIXTURE_DESKTOP: '1', ARC_TIMELINE_TURN: turnId });
+  try {
+    const activityThread = randomUUID(), activityTurn = randomUUID();
+    const rollout = path.join(directory, 'sessions', `${activityThread}.jsonl`);
+    await mkdir(path.dirname(rollout));
+    const record = (type: string, payload: unknown) => JSON.stringify({ type, timestamp: new Date().toISOString(), payload }) + '\n';
+    await writeFile(rollout, record('session_meta', { id: activityThread })
+      + record('event_msg', { type: 'task_started', turn_id: activityTurn })
+      + record('response_item', { type: 'message', role: 'user', content: [{ text: 'Review a module' }] })
+      + record('response_item', { type: 'function_call', call_id: 'read', name: 'exec_command', arguments: '{}' }));
+    const activity = async () => (await fixture.api('agents/activity')).agents.codex?.sessions ?? [];
+    assert.equal((await activity()).find((row: any) => row.id === activityThread)?.turnId, activityTurn);
+    await appendFile(rollout, record('response_item', { type: 'function_call_output', call_id: 'read', output: 'x'.repeat(192 * 1024) }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.equal((await activity()).find((row: any) => row.id === activityThread)?.turnId, activityTurn);
+    await appendFile(rollout, record('event_msg', { type: 'task_complete', turn_id: activityTurn }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.equal((await activity()).some((row: any) => row.id === activityThread), false);
+    const external = await fixture.api('agents/conversations/timeline', { agent: 'codex', id: threadId }, 'POST');
+    assert.equal(external.turnStatuses[turnId], 'running');
+    assert.equal(external.readOnly, true);
+    const observed = await fixture.api(`agents/timeline/${threadId}`);
+    assert.equal(observed.turnStatuses[turnId], 'running');
+    assert.equal((await fixture.call('codex_read', { threadId, statusOnly: true })).state, 'running');
+    status = 'completed'; for (const socket of sockets) snapshot(socket);
+    const terminal = await fixture.api(`agents/timeline/${threadId}`);
+    assert.equal(terminal.turnStatuses[turnId], 'completed');
+  } finally {
+    await fixture.close(); for (const socket of sockets) socket.destroy();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    await rm(directory, { recursive: true, force: true });
   }
 });

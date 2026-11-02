@@ -142,6 +142,20 @@ impl ScanCache {
             );
         }
         let tail = self.tails.get_mut(path).unwrap();
+        // Codex lifecycle records can fall outside the bounded content tail.
+        // Read the incremental clock even when a large output leaves no entries.
+        if agent == "codex" && tail.clock_stamp.as_ref() != Some(&tail.stamp) {
+            self.file_opens += 1;
+            turn_started_at(path, agent, &mut tail.clock)?;
+            if Stamp::read(path)?.as_ref() != Some(&tail.stamp) {
+                return Err("Transcript changed during activity sampling".into());
+            }
+            tail.clock_stamp = Some(tail.stamp.clone());
+        }
+        if agent == "codex" && !tail.clock.turn_id.is_empty() {
+            tail.timeline.turn = tail.clock.turn_id.clone();
+            tail.timeline.status = tail.clock.status.clone().unwrap_or_default();
+        }
         let session = tail
             .timeline
             .transcript_active(modified, now)
@@ -456,7 +470,9 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     }
     if !projection.status.is_empty() {
         clock.status = Some(projection.status.clone());
-    } else if !projection.prompt_headline().is_empty() {
+    } else if !projection.prompt_headline().is_empty()
+        && (agent != "codex" || !matches!(clock.status.as_deref(), Some("running" | "inProgress")))
+    {
         clock.status = None;
     }
     if let Some(summary) = projection.turn_dispatch_summaries.get(&clock.turn_id) {

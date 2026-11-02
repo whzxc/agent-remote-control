@@ -615,17 +615,25 @@ impl Control {
                 .await,
         )
     }
-    pub(crate) async fn external_timeline(&self, thread: &str) -> Result<Value> {
-        let ownership = self.observe_ownership(thread).await?;
-        let history = self
-            .utility()
-            .await?
-            .call(
+    async fn timeline_history(&self, thread: &str) -> Result<Value> {
+        // Read through the current owner. A utility app-server can mark a
+        // Desktop-owned in-flight turn terminal in its persisted snapshot.
+        let mut history = self
+            .request(
                 "thread/read",
-                json!({"threadId":thread,"includeTurns":true}),
+                json!({"threadId":thread,"includeTurns":false}),
                 15000,
             )
             .await?;
+        let turns = submission_history(false, |cursor| {
+            self.request("thread/turns/list", json!({"threadId":thread,"cursor":cursor,"limit":100,"sortDirection":"desc","itemsView":"full"}), 15000)
+        }).await?;
+        history["thread"]["turns"] = json!(turns);
+        Ok(history)
+    }
+    pub(crate) async fn external_timeline(&self, thread: &str) -> Result<Value> {
+        let ownership = self.observe_ownership(thread).await?;
+        let history = self.timeline_history(thread).await?;
         let mut timeline = crate::task_tracking::Timeline::default();
         timeline.backfill_codex(&history["thread"], 0, 0, &now());
         crate::interaction_responses::project(&mut timeline, thread)?;
@@ -685,14 +693,7 @@ impl Control {
         if !self.effective_background(thread).await? && !cfg!(target_os = "linux") {
             let _ = self.follow(thread).await;
         }
-        let history = async {
-            let rpc = self.utility().await?;
-            let mut result = rpc.call("thread/read", json!({"threadId":thread,"includeTurns":false}), 15000).await?;
-            let turns = submission_history(false, |cursor| rpc.call("thread/turns/list", json!({"threadId":thread,"cursor":cursor,"limit":100,"sortDirection":"desc","itemsView":"full"}), 15000)).await?;
-            result["thread"]["turns"] = json!(turns);
-            Ok::<_, String>(result)
-        }
-        .await;
+        let history = self.timeline_history(thread).await;
         let mut events = self.events.lock().await;
         let timeline = events.timelines.entry(thread.into()).or_default();
         match history {
