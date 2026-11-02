@@ -174,7 +174,7 @@ test('topology account labels survive reordering and animation frames settle aft
       await settle();
       assert.equal(page.queryByRole('button', { name: 'Task a', exact: true }), null);
       assert.equal(snapshot().tasks.length, 0);
-      clear();
+      assert.equal(page.getByRole('button', { name: platform.label, exact: true }).matches(':focus'), true);
       await act(() => fireEvent.click(page.getByRole('button', { name: `${t('topology.expand')} ${platform.label}`, exact: true })));
       await settle();
       assert.ok(page.getByRole('button', { name: 'Task a', exact: true }));
@@ -212,7 +212,7 @@ test('arc controls operate descendants and restore keyboard focus without openin
     const toggle = controls().getByRole('button', { name: `${t('topology.collapse')} ${node.label}`, exact: true });
     await act(() => toggle.focus());
     await act(() => fireEvent.keyDown(toggle, { key: 'Escape' }));
-    assert.equal(document.activeElement, page.getByRole('button', { name: node.label, exact: true }));
+    assert.equal(page.getByRole('button', { name: node.label, exact: true }).matches(':focus'), true);
     await act(() => fireEvent.click(toggle)); await settle();
     assert.equal(page.queryByRole('button', { name: 'Bubble', exact: true }), null);
     const expand = controls().getByRole('button', { name: `${t('topology.expand')} ${node.label}`, exact: true });

@@ -26,7 +26,7 @@ import {
   useState,
   useRef,
 } from "react";
-import { Power, LoaderCircle } from "lucide-react";
+import { connectionReadiness } from "../connectionReadiness";
 import { t } from "../i18n";
 import { api } from "../api";
 import { ingressState, connector, run, refreshConnector, orderedSources, reorderSources } from "../state/connector";
@@ -51,7 +51,7 @@ import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, conne
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Button, Dialog, Icon, Notice } from "./ui";
+import { Button, Dialog, Notice } from "./ui";
 import AgentPanel from "./AgentPanel";
 import ChangeConnection from "./ChangeConnection";
 import ConnectionsContent from "./ConnectionsContent";
@@ -132,6 +132,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const running = sources.some((i) => i.running),
     progressing =
       !!busy || sources.some((i) => ["starting", "stopping"].includes(i.state));
+  const [accessAction, setAccessAction] = useState<'starting' | 'stopping'>();
+  const accessState = error || loading ? 'unknown' : accessAction ?? connectionReadiness(status?.ingresses);
+  const remoteState = error || loading ? 'unknown' : accessAction ?? connectionReadiness(status ? connections : undefined);
   function edit(ingress?: Ingress, field?: string) {
     if (ingress) { selectIngressPanel(ingress, { editing: true, field }); return; }
     openOnboarding("product");
@@ -144,7 +147,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     navigation.set((old) => ({ ...old, ingressEdit: undefined }));
   }, [nav.ingressEdit, status?.ingresses]);
   async function toggle() {
-    if (busy) return;
+    if (progressing || accessAction || loading || !status || error) return;
     if (
       !running &&
       (!sources.length || sources.every((i) => !i.config.configured))
@@ -152,26 +155,29 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       edit(sources[0]);
       return;
     }
-    await run("ingress-all", async () => {
-      const result = await api<{
-        results: {
-          id: string;
-          ok: boolean;
-          error?: string;
-        }[];
-      }>(`ingress/${running ? "stop-all" : "start-all"}`, "POST");
-      await refreshConnector();
-      const errors = result.results.filter((r) => !r.ok);
-      if (errors.length)
-        throw new Error(
-          errors
-            .map(
-              (r) =>
-                `${sources.find((i) => i.id === r.id)?.name || r.id}: ${r.error}`,
-            )
-            .join("\n"),
-        );
-    });
+    setAccessAction(running ? 'stopping' : 'starting');
+    try {
+      await run("ingress-all", async () => {
+        const result = await api<{
+          results: {
+            id: string;
+            ok: boolean;
+            error?: string;
+          }[];
+        }>(`ingress/${running ? "stop-all" : "start-all"}`, "POST");
+        await refreshConnector();
+        const errors = result.results.filter((r) => !r.ok);
+        if (errors.length)
+          throw new Error(
+            errors
+              .map(
+                (r) =>
+                  `${sources.find((i) => i.id === r.id)?.name || r.id}: ${r.error}`,
+              )
+              .join("\n"),
+          );
+      });
+    } finally { setAccessAction(undefined); }
   }
   useEffect(() => {
     if (nav.providerId === undefined) return;
@@ -220,8 +226,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   useEffect(() => { if (status?.core.backendSession) resetActivityCore(status.core.backendSession); }, [status?.core.backendSession]);
   const selectedAgent = selection && (orderedAgents().find(a => a.agent === selection.agent) ?? { agent: selection.agent });
   const panelFrame = useCallback((rect: SurfaceRect | null) => topology.current?.panelFrame(rect), []);
-  const [switchOn, setSwitchOn] = useState<boolean>();
-  useEffect(() => { if (!progressing && status) setSwitchOn(running); }, [running, progressing, status]);
   function moveSource(id: string, by: number) {
     const ids = controlSources.map(source => source.id);
     const index = ids.indexOf(id), target = index + by;
@@ -358,23 +362,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   return (
     <>
       <section ref={core} inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
-        <div className="core-toggle">
-          <button
-            className={`connection-action ${switchOn ? "is-on" : ""} ${progressing ? "is-busy" : ""}`}
-            disabled={progressing || loading || !status || !!error}
-            aria-busy={progressing}
-            aria-label={t(
-              progressing ? "pleaseWait" : running ? "disconnect" : "connect",
-            )}
-            onClick={() => void toggle()}
-          >
-            <span className="connection-switch-track" aria-hidden="true">
-              <span className="connection-knob">
-                <Icon icon={progressing ? LoaderCircle : Power} />
-              </span>
-            </span>
-          </button>
-        </div>
         <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
           onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
           onMarkRead={markActivitiesRead}
@@ -383,7 +370,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
             reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? []);
           }}
-          brand={<Hub connectionEmpty={!connections.length} onConnections={manageConnections} sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
+          brand={<Hub connectionEmpty={!connections.length} connectionState={remoteState} onConnections={manageConnections}
+            accessState={accessState} accessRunning={running} accessDisabled={progressing || !!accessAction || loading || !status || !!error} onAccess={() => void toggle()}
+            sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
         {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}

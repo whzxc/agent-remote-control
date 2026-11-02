@@ -7,12 +7,6 @@
   padding: 34px 32px 28px;
   overflow: hidden;
 }
-.core-toggle {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 12px;
-}
 .graph-node {
   width: 44px;
   height: 44px;
@@ -131,87 +125,6 @@
 }
 
 
-.connection-action {
-  position: relative;
-  height: 52px;
-  padding: 6px;
-  overflow: visible;
-  border: 1px solid var(--border);
-  border-radius: 36px;
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 25%, var(--surface));
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-.connection-action:not(:disabled):hover {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  transform: translateY(-2px);
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 25%, var(--surface));
-}
-.connection-action:not(:disabled):active {
-  transform: translateY(4px);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 30%, var(--surface));
-}
-.connection-switch-track {
-  --switch-fill: 14%;
-  display: block;
-  position: relative;
-  width: 88px;
-  height: 38px;
-  border-radius: 25px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--topology-source) var(--switch-fill), var(--surface)),
-    color-mix(in srgb, var(--topology-agent) var(--switch-fill), var(--surface))
-  );
-  box-shadow: inset 0 2px 4px
-    color-mix(in srgb, var(--color-black) 14.9%, transparent);
-  flex-shrink: 0;
-}
-.connection-knob {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--knob);
-  color: var(--accent);
-  box-shadow: 0 2px 5px
-    color-mix(in srgb, var(--color-black) 18.82%, transparent);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.connection-switch-track .connection-knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-}
-.connection-action svg {
-  width: 21px;
-  height: 21px;
-  stroke-width: 2;
-}
-.connection-action.is-on .connection-switch-track {
-  --switch-fill: 42%;
-}
-.connection-action.is-on .connection-knob {
-  transform: translateX(50px);
-}
-.connection-action:disabled {
-  opacity: 1;
-}
-.connection-action:disabled .connection-knob {
-  opacity: 0.45;
-}
-.connection-action.is-busy .connection-knob {
-  opacity: 0.75;
-  cursor: wait;
-}
-.connection-action.is-busy .connection-knob svg {
-  animation: spin 1.2s linear infinite;
-}
 
 /* Window-sized canvas and the lower-left navigation surface. */
 .app-scene {
@@ -253,12 +166,6 @@
   padding: 0 clamp(24px, 5vw, 80px);
   display: grid;
   place-items: center;
-}
-.home-workspace .core-toggle {
-  position: absolute;
-  top: clamp(48px, 8dvh, 68px);
-  left: var(--topology-hub-x, 50%);
-  transform: translateX(-50%);
 }
 .home-workspace .connection-graph {
   margin-top: 0;
@@ -789,7 +696,6 @@
 
 /* The solver owns layout; one imperative frame writes HTML and SVG geometry. */
 .home-workspace .connection-core { display: block; padding: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
-.home-workspace .core-toggle { z-index: 5; }
 .connection-graph.topology-scene { position: relative; display: block; width: 100%; max-width: none; margin: 0; }
 .topology-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
 .topology-hub { position: absolute; left: 0; top: 0; z-index: 2; }
@@ -1465,13 +1371,31 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .activity-panel[data-panel-geometry="portrait"] > .elastic-panel-content { height: calc(var(--panel-layout-height) - 2px); max-height: calc(var(--panel-layout-height) - 2px); }
 
 /* Connection motion stays screen-relative while the mark follows the topology orientation. */
-.hub-connection-motion { position: absolute; inset: 0; pointer-events: none; }
-.hub-connection-orbit { position: absolute; inset: 0; transform: rotate(var(--hub-rotation, 0deg)); pointer-events: none; }
-.hub-connections { position: absolute; inset: 0 0 auto; width: 100%; height: 40%; padding: 0; border: 0; background: transparent; color: var(--text); cursor: pointer; pointer-events: auto; }
-.hub-connections > svg { display: block; width: 100%; height: 250%; overflow: visible; }
-.hub-connections path { pointer-events: stroke; }
-.hub-connections:focus-visible { outline: none; }
-.hub-connections:focus-visible path[data-panel-visual] { stroke: var(--accent); }
+.hub-arc-motion { position: absolute; inset: 0; pointer-events: none; }
+.hub-arc-orbit { position: absolute; inset: 0; transform: rotate(var(--hub-rotation, 0deg)); pointer-events: none; }
+.hub-arc { position: absolute; width: 100%; height: 40%; min-height: 28px; padding: 0; border: 0; background: transparent; color: var(--text); cursor: pointer; pointer-events: auto; }
+.hub-connections { inset: 0 0 auto; }
+.hub-power { inset: auto 0 0; }
+.hub-arc > svg { display: block; position: absolute; left: 0; width: 100%; height: 250%; overflow: visible; pointer-events: none; }
+.hub-connections > svg { top: 0; }
+.hub-power > svg { bottom: 0; }
+.hub-arc path { pointer-events: stroke; }
+.hub-arc:focus-visible { outline: none; }
+.hub-arc:focus-visible .hub-arc-stroke { filter: brightness(1.18); }
+.hub-arc[aria-disabled="true"] { cursor: default; }
+.hub-arc[aria-busy="true"] { cursor: progress; }
+.hub-arc-stroke { transition: opacity 160ms ease, stroke 160ms ease; }
+.hub-arc[data-state="empty"] .hub-arc-stroke { stroke-dasharray: 35 30 35; }
+.hub-arc[data-state="stopped"] .hub-arc-stroke { opacity: .38; stroke-dasharray: 22 16 24 16 22; }
+.hub-arc[data-state="unknown"] .hub-arc-stroke { opacity: .45; stroke-dasharray: 4 8; }
+.hub-arc[data-state="partial"] .hub-arc-stroke { stroke: var(--warning); stroke-dasharray: 64 16 20; }
+.hub-arc[data-state="error"] .hub-arc-stroke { stroke: var(--danger); stroke-dasharray: 22 16 24 16 22; }
+.hub-arc:is([data-state="starting"], [data-state="stopping"]) .hub-arc-stroke { stroke-dasharray: 18 9; animation: hub-connection-progress 1.8s linear infinite; }
+.hub-power-symbol { opacity: 0; transition: opacity 150ms ease; }
+.hub-power:not([aria-disabled="true"]):is(:hover, :focus-visible) .hub-power-symbol { opacity: 1; }
+@keyframes hub-connection-progress { to { stroke-dashoffset: -54; } }
+:root[data-reduced-motion="true"] { .hub-arc-stroke, .hub-power-symbol { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) :is(.hub-arc-stroke, .hub-power-symbol) { transition: none; animation: none; } }
 .hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }
 
 /* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */

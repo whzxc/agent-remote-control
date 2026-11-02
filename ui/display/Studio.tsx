@@ -7,7 +7,10 @@ import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
 import { panelLayers } from '../state/panels';
 import { appEnvironment, appNow } from '../state/appEnvironment';
-import { nextClockTick, parseStudioPhase, studioToneAt } from './model';
+import { nextClockTick, parseStudioPhase, studioToneAt, studioActivitySummary } from './model';
+import { trackedActivity } from '../state/activityBubbles';
+import { taskExecutions } from '../state/taskExecution';
+import { activityApprovals, agentActivity } from '../state/activity';
 import { studioEnabled, studioPhase, studioTone } from './state';
 import { useStudioMotion } from './useStudioMotion';
 import './studio.css';
@@ -34,9 +37,21 @@ function useStudioClock(enabled: boolean) {
   return now;
 }
 
-export function StudioBackground({ clockVisible }: { clockVisible: boolean }) {
+function StudioActivity() {
+  const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
+  const { snapshot, error } = agentActivity.use();
+  const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
+  return <div className="studio-activity" role="status" aria-label={t('studio.activity')} aria-live="polite" aria-atomic="true">
+    {error ? <span>{t('studio.activityUnavailable')}</span> : snapshot && <>
+      {running > 0 && <span className="studio-running">{t('studio.running', { count: running })}</span>}
+      {needsYou > 0 && <span className="studio-pending">{t('studio.pending', { count: needsYou })}</span>}
+    </>}
+  </div>;
+}
+
+export function StudioBackground({ headerVisible }: { headerVisible: boolean }) {
   const enabled = studioEnabled.use(), phase = studioPhase.use(), language = locale.use();
-  const motion = useStudioMotion(enabled && clockVisible);
+  const motion = useStudioMotion(enabled && headerVisible);
   const now = useStudioClock(enabled && motion.visible), tone = studioToneAt(now, phase);
   useLayoutEffect(() => { studioTone.set(enabled ? tone : null); }, [enabled, tone]);
   useLayoutEffect(() => () => studioTone.set(null), []);
@@ -48,9 +63,13 @@ export function StudioBackground({ clockVisible }: { clockVisible: boolean }) {
       <div className="studio-atmosphere" />
       <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
     </div>
-    {clockVisible && <time className="studio-clock" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
-      {new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}
-    </time>}
+    {headerVisible && <header className="studio-header">
+      <time className="studio-time" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
+        <span className="studio-date">{new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date)} · {new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date)}</span>
+        <span className="studio-clock">{new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}</span>
+      </time>
+      <StudioActivity />
+    </header>}
   </>;
 }
 

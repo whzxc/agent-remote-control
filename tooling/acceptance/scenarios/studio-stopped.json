@@ -1,0 +1,8 @@
+{
+  "studio": "day",
+  "theme": "light",
+  "language": "en",
+  "ingressStates": ["stopped"],
+  "agents": ["codex", "claude", "dsh"],
+  "tasks": []
+}

@@ -264,7 +264,7 @@ export default function App() {
         }
       }}
     >
-      <StudioBackground clockVisible={page === "overview" && !welcome && !modalOpen} />
+      <StudioBackground headerVisible={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}

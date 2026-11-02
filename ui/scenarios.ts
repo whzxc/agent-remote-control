@@ -26,7 +26,7 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
@@ -41,6 +41,23 @@ export function scenarioResponse(path: string, method: string, body?: unknown): 
   }
 }
 function respondToScenario(path: string, method: string, body?: unknown): unknown {
+  if (path === 'status' && responses.statusUnavailable) throw new Error('Connection status is unavailable in this fixture.');
+  if (['ingress/start-all', 'ingress/stop-all'].includes(path) && method === 'POST') {
+    const start = path === 'ingress/start-all', status = structuredClone(responses.status as Status);
+    const selected = status.ingresses.filter(entry => !start || entry.enabled);
+    const update = (pending: boolean) => {
+      const next = structuredClone(status);
+      next.ingresses = next.ingresses.map(entry => !selected.some(item => item.id === entry.id) ? entry : { ...entry,
+        state: pending ? start ? 'starting' : 'stopping' : start ? 'ready' : 'stopped', running: pending ? entry.running : start, error: '',
+        sources: entry.sources?.map(source => ({ ...source, state: !pending && start ? 'connected' : 'disconnected', connectedAt: !pending && start ? 1 : null })) });
+      next.ingressSummary = { total: next.ingresses.length, running: next.ingresses.filter(entry => entry.running).length, ready: next.ingresses.filter(entry => entry.state === 'ready').length };
+      responses.status = next;
+      responses.source = { sources: next.ingresses.flatMap(entry => entry.sources ?? []) };
+      connector.set(old => ({ ...old, status: next, sources: (responses.source as { sources: import('./state/types').ControlSource[] }).sources }));
+    };
+    update(true);
+    return new Promise(resolve => setTimeout(() => { update(false); resolve({ results: selected.map(entry => ({ id: entry.id, ok: true })) }); }, 450));
+  }
   if (path === 'app/env' && method === 'GET') {
     const now = Date.now();
     return { active: false, expiresAt: null, realNowMs: now, overrides: {}, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } } satisfies import('./state/appEnvModel').EnvSample;
@@ -138,6 +155,13 @@ export async function installScenario(name: string) {
     ];
     if (remote.local) status.ingresses = [{ ...base, id: 'local-claude-code', name: 'Claude Code', sources: [{ ...base.sources![0], id: 'local-source', ingressId: 'local-claude-code', connectedAt: null, lastSeenAt: null }] }];
   }
+  if (fixture.ingressStates) {
+    const base = status.ingresses[0];
+    status.ingresses = fixture.ingressStates.map((state, index) => ({ ...structuredClone(base), id: index ? `fixture-connection-${index}` : base.id,
+      state, running: ['ready', 'starting', 'stopping', 'degraded'].includes(state), error: ['error', 'degraded'].includes(state) ? 'Fixture connection failed.' : '',
+      sources: index ? [] : base.sources?.map(source => ({ ...source, state: state === 'ready' ? 'connected' as const : 'disconnected' as const, connectedAt: state === 'ready' ? 1 : null })) }));
+  }
+  status.ingressSummary = { total: status.ingresses.length, running: status.ingresses.filter(entry => entry.running).length, ready: status.ingresses.filter(entry => entry.state === 'ready').length };
   const sources = status.ingresses.flatMap(i => i.sources ?? []);
   const inventory: Agent[] = fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
@@ -269,12 +293,13 @@ export async function installScenario(name: string) {
       'agent:dsh': 'fixture:maid-deepseek-whale',
     }) });
   }
+  responses.statusUnavailable = fixture.statusUnavailable;
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
   responses['updates/status'] = { state: 'idle', when: 'settled', work: { blocking: [], willResume: [], unaffected: [] } };
   responses['service'] = { supported: true, enabled: false };
-  connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: '', feedback: { text: '', error: false } });
+  connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
   resetTaskExecutions();

@@ -1,0 +1,13 @@
+{
+  "studio": "night",
+  "theme": "dark",
+  "language": "zh-CN",
+  "ingressStates": ["ready", "error"],
+  "agents": ["codex", "claude", "dsh"],
+  "tasks": [
+    { "agent": "codex", "phase": "command", "title": "Check project build", "headline": "Running build checks" },
+    { "agent": "claude", "phase": "interaction", "title": "Confirm change scope", "headline": "Waiting for confirmation", "question": true },
+    { "agent": "codex", "phase": "idle", "title": "Review completed", "headline": "Review is complete", "completed": true },
+    { "agent": "dsh", "phase": "idle", "title": "Recover observation", "headline": "No current execution evidence", "unconfirmed": true }
+  ]
+}

@@ -75,15 +75,43 @@ try {
           await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, phase === 'day' ? 'light' : 'dark');
           await page.keyboard.press('Escape');
           await page.getByRole('button', { name: messages.settings, exact: true }).click();
-          await page.getByRole('button', { name: messages['extras.entryTitle'] }).click();
-          await page.getByRole('radio', { name: messages['topology.experimental'] }).click();
+          await page.getByRole('button', { name: messages['topology.experimental'], exact: true }).click();
           const enabled = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
           await enabled.click();
           await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, fixture.theme);
           await enabled.click();
-          await page.getByRole('radio', { name: messages[`studio.${fixture.studio}`], exact: true }).click();
           await page.getByRole('button', { name: messages.backToHome, exact: true }).click();
+          await settings.click();
+          await page.getByRole('radio', { name: messages[`studio.${fixture.studio}`], exact: true }).click();
+          await page.keyboard.press('Escape');
           await settings.waitFor({ state: 'visible' });
+        }
+        if (name === 'studio-connections' || name === 'studio-stopped') {
+          // Regression: moving ingress control into the mark must preserve both pointer and keyboard activation.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const initiallyRunning = fixture.ingressStates.some(state => state === 'ready');
+          const action = page.getByRole('button', { name: messages[initiallyRunning ? 'hub.stop' : 'hub.start'], exact: true });
+          if (await action.getAttribute('aria-pressed') !== String(initiallyRunning)) throw new Error('Ingress control did not expose the current running state');
+          await action.click();
+          await action.and(page.locator('[aria-busy="true"]')).waitFor({ state: 'visible' });
+          const next = page.getByRole('button', { name: messages[initiallyRunning ? 'hub.start' : 'hub.stop'], exact: true });
+          await next.and(page.locator('[aria-busy="false"][aria-disabled="false"]')).waitFor({ state: 'visible' });
+          if (await next.getAttribute('aria-pressed') !== String(!initiallyRunning)) throw new Error('Ingress control did not settle after pointer activation');
+          await next.press('Enter');
+          await action.waitFor({ state: 'visible' });
+          await action.and(page.locator('[aria-busy="false"][aria-disabled="false"]')).waitFor({ state: 'visible' });
+          if (await action.getAttribute('aria-pressed') !== String(initiallyRunning)) throw new Error('Ingress control did not settle after keyboard activation');
+          if (await page.getByRole('dialog').count()) throw new Error('Ingress activation unexpectedly opened a connection or Agent dialog');
+          await page.reload();
+          await page.waitForFunction(name => document.documentElement.dataset.scenarioReady === name, name);
+        }
+        if (name === 'studio-unavailable') {
+          // Regression: an unavailable status must not permit an optimistic ingress toggle.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const action = page.getByRole('button', { name: messages['hub.stop'], exact: true });
+          if (await action.getAttribute('aria-disabled') !== 'true') throw new Error('Unavailable ingress control remained actionable');
+          await action.press('Enter');
+          if (await action.getAttribute('aria-disabled') !== 'true' || await action.getAttribute('aria-busy') !== 'false') throw new Error('Unavailable ingress control started an operation');
         }
         if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {
           // Regression: activity disappearance and unrelated review failures changed execution results.

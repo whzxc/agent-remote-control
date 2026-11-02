@@ -78,6 +78,8 @@ For offline CLI regressions against a freshly built Core, run `npm run check:tes
 
 ## UI scenarios
 
+The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cover mixed ingress readiness, lower-arc pointer and keyboard start/stop, disabled unknown status, and the date/time/activity header. Fixture start/stop changes only fixture responses and retains its tasks. Studio lighting and fullscreen controls remain behind the shared navigation capsule entry. Review landscape and portrait layouts, lower-arc focus, and reduced motion alongside the existing `studio-night`, `studio-day` and `studio-idle` scenarios.
+
 ```sh
 npm ci
 npx playwright install chromium

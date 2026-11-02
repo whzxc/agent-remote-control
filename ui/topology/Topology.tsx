@@ -188,7 +188,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const bounds = { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) };
     const hub = animator.current.values('hub');
     const nodeRects = new Map<string, Rect>(), nodeLabels = new Map<string, Rect[]>();
-    const chrome = [...document.querySelectorAll<HTMLElement>('.core-toggle, .studio-clock, .navigation-capsule:not([hidden])')].flatMap(element => {
+    const chrome = [...document.querySelectorAll<HTMLElement>('.studio-header, .navigation-capsule:not([hidden])')].flatMap(element => {
       const r = element.getBoundingClientRect();
       return r.width && r.height ? [{ x: r.x - origin.current.x - 8, y: r.y - origin.current.y - 8, width: r.width + 16, height: r.height + 16 }] : [];
     });
@@ -324,7 +324,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
       hub.current.querySelectorAll('[data-hub-arc="top"]').forEach(path => path.setAttribute('d', mark.top));
-      hub.current.querySelector('[data-hub-arc="bottom"]')?.setAttribute('d', mark.bottom);
+      hub.current.querySelectorAll('[data-hub-arc="bottom"]').forEach(path => path.setAttribute('d', mark.bottom));
       hub.current.style.setProperty('--source-dot-scale', String(h.dotSource));
       hub.current.style.setProperty('--agent-dot-scale', String(h.dotAgent));
       const size = h.Re * 240 / 130; // Preserve the ARC mark's existing earmuff clearance.

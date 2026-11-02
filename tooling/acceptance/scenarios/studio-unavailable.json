@@ -1,0 +1,7 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "statusUnavailable": true,
+  "agents": ["codex", "claude"],
+  "tasks": []
+}
