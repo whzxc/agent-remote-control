@@ -881,7 +881,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
     }
     let result = match method {
         "server/discover" => Ok(
-            json!({"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{},"events":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
+            json!({"cacheScope":"private","ttlMs":0,"supportedVersions":["2026-07-28"],"capabilities":{"tools":{},"events":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":catalog()["instructions"]}),
         ),
         "events/list" | "events/subscribe" | "events/unsubscribe" if id.is_some() => {
             let result =
@@ -909,7 +909,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
             )
         }
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({"tools":catalog()["tools"]})),
+        "tools/list" => Ok(json!({"cacheScope":"private","ttlMs":0,"tools":catalog()["tools"]})),
         "tools/call" if is_wait(&request) => {
             let key = id.as_ref().ok_or("wait requires a request id")?.to_string();
             let (guard, mut cancel) = s.wait_calls.register(key)?;
@@ -960,7 +960,10 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
         return Ok(Value::Null);
     }
     Ok(match result {
-        Ok(v) => json!({"jsonrpc":"2.0","id":id,"result":v}),
+        Ok(mut v) => {
+            v["resultType"] = json!("complete");
+            json!({"jsonrpc":"2.0","id":id,"result":v})
+        }
         Err(e) => {
             let error = serde_json::from_str::<Value>(&e).ok().filter(|e|e["code"].is_i64() && e["message"].is_string()).unwrap_or_else(||json!({"code":if e=="method not found"{-32601}else{-32603},"message":e,"data":{"arcVersion":crate::egress::arc_version()}}));
             json!({"jsonrpc":"2.0","id":id,"error":error})

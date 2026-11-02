@@ -296,6 +296,28 @@ async function completed(name: string, args: Record<string, unknown>) {
   return result;
 }
 
+test('current protocol discovery and tool results expose mandatory wire metadata', async () => {
+  // Contract: MCP 2026-07-28 discovery/list results carry cache metadata and all successful results identify their result type.
+  const request = async (method: string, params = {}) => {
+    const response = await fetch(`http://127.0.0.1:${endpoint.port}/mcp/default`, {
+      method: 'POST', headers: { Authorization: `Bearer ${endpoint.token}`, 'Content-Type': 'application/json', 'MCP-Protocol-Version': '2026-07-28' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    assert.equal(response.status, 200);
+    const value = await response.json();
+    assert.equal(value.error, undefined);
+    return value.result;
+  };
+  for (const method of ['server/discover', 'tools/list']) {
+    const result = await request(method);
+    assert.equal(result.resultType, 'complete');
+    assert.equal(result.cacheScope, 'private');
+    assert.equal(result.ttlMs, 0);
+  }
+  assert.equal((await request('ping')).resultType, 'complete');
+  assert.equal((await request('tools/call', { name: 'guide', arguments: {} })).resultType, 'complete');
+});
+
 test('MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas', async () => {
   // Contract: MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas.
   assert.deepEqual(inventory.tools.map(tool => tool.name), ['guide', 'query', 'act']);

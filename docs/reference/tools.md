@@ -2,6 +2,10 @@
 
 [Home](../../README.md) · [Concepts](../concepts.md) · [CLI](cli.md)
 
+## Discovery responses
+
+Successful MCP responses include `resultType: "complete"`. `server/discover` and `tools/list` include `cacheScope: "private"` and `ttlMs: 0`, so clients fetch current discovery data when refreshing tools. These fields follow the [MCP 2026-07-28 response contract](https://modelcontextprotocol.io/specification/2026-07-28/schema).
+
 ## Provider accounts
 
 `query({op:"whoami",args:{}})` returns `{id,alias,provider,email,orgName,plan,sourceId,platform,agentProfiles,notifications,identityResolution}` for the authenticated calling source. ARC uses provider authorization facts, confirmed Claude cloud-session handshakes or explicitly user-confirmed account merges, never client names. External control sources without a resolution path receive separate `Unidentified` accounts. Built-in Local CLI and panel authority has no provider account: local `whoami` returns `authority:local`, `id:null` and `identityResolution.state:not-applicable`. Source IDs and historical origins remain stable; successful resolution can merge the provisional account into the provider account.
