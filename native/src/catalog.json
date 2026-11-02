@@ -3472,7 +3472,7 @@
             "not": {
               "const": "codex"
             },
-            "description": "Non-Codex Agent ID: pi, opencode, or an ACP manifest ID."
+            "description": "Non-Codex Agent ID: antigravity, pi, opencode, or an ACP manifest ID."
           },
           "taskId": {
             "type": "string",
@@ -3641,7 +3641,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Native config ID to value. Pi uses thinkingLevel."
+            "description": "Native config ID to value. Antigravity uses effort and mode; Pi uses thinkingLevel."
           },
           "reason": {
             "type": "string",
@@ -4021,7 +4021,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Native config ID to value. Pi uses thinkingLevel."
+            "description": "Native config ID to value. Antigravity uses effort and mode; Pi uses thinkingLevel."
           },
           "reason": {
             "type": "string",

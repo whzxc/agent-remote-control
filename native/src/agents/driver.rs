@@ -5,6 +5,7 @@ pub use super::manifest::Manifest;
 pub enum AgentDriver {
     CodexNative,
     Pi,
+    Antigravity,
     Acp(Manifest),
 }
 impl AgentDriver {
@@ -42,6 +43,7 @@ impl AgentDriver {
         match self {
             Self::CodexNative => "codex-native",
             Self::Pi => "pi-rpc",
+            Self::Antigravity => "antigravity-stream-json",
             Self::Acp(_) => "acp-v1",
         }
     }
@@ -49,6 +51,7 @@ impl AgentDriver {
         match self {
             Self::CodexNative => super::codex_binary(),
             Self::Pi => discover("pi"),
+            Self::Antigravity => discover("agy"),
             Self::Acp(m) if m.id == "claude" => discover("claude"),
             Self::Acp(m) => m.candidates().into_iter().next(),
         }
@@ -58,10 +61,14 @@ impl AgentDriver {
             Self::Acp(m) => serde_json::to_value(m).unwrap(),
             Self::CodexNative => json!({"displayName":"Codex","integration":"native"}),
             Self::Pi => json!({"displayName":"Pi","integration":"native"}),
+            Self::Antigravity => json!({"displayName":"Antigravity","integration":"native"}),
         }
     }
     /// Verify launch conditions without starting ACP, logging in, or fetching packages.
     pub async fn discover(&self) -> (Option<PathBuf>, Option<String>, Option<String>) {
+        if matches!(self, Self::Antigravity) {
+            return super::antigravity::discover().await;
+        }
         if matches!(self, Self::Acp(m) if m.id == "claude") {
             return super::adapter::discover().await;
         }
@@ -149,6 +156,7 @@ impl AgentDriver {
                 }
                 args
             }
+            Self::Antigravity => super::antigravity::launch_args(&task, resume)?,
             Self::Acp(m) => m.args.clone(),
             Self::CodexNative => return Err("USE_NATIVE_CONTROL".into()),
         };
@@ -157,9 +165,21 @@ impl AgentDriver {
         } else {
             (binary, args)
         };
-        let p = Process::start(&binary, &args, &cwd, matches!(self, Self::Pi), task, wake).await?;
+        let p = Process::start(
+            &binary,
+            &args,
+            &cwd,
+            matches!(self, Self::Pi),
+            matches!(self, Self::Antigravity),
+            task,
+            wake,
+        )
+        .await?;
         let init=async {
-            if p.pi {
+            if p.antigravity {
+                *p.capabilities.lock().await=json!({"protocol":"antigravity-stream-json","resume":true,"cancel":true,"streaming":true,"permissions":"headless-auto-deny","completionEvent":"result"});
+                let mut t=p.state.lock().await;t["metadata"]=super::antigravity::facts(&t,"launch-flags");
+            } else if p.pi {
                 let state=p.call("get_state",json!({}),15000).await?;
                 *p.capabilities.lock().await=json!({"protocol":"pi-rpc","resume":true,"cancel":true,"streaming":true,"permissions":"extension-ui-only","completionEvent":"agent_settled"});
                 let mut t=p.state.lock().await;t["sessionId"]=state["sessionId"].clone();t["metadata"]=state;
@@ -234,6 +254,8 @@ impl AgentDriver {
             t.as_object_mut().unwrap().remove("notificationError");
             t["lastMessage"] = Value::Null;
             t["turnEvidence"] = Value::Null;
+            t["deniedActions"] = Value::Null;
+            t["toolErrors"] = json!([]);
             t["error"] = Value::Null;
             t["stopReason"] = Value::Null;
             t["outputTruncated"] = json!(false);
@@ -268,7 +290,9 @@ impl AgentDriver {
         )
         .await;
         let sid = task["sessionId"].clone();
-        let result = if p.pi {
+        let result = if p.antigravity {
+            p.antigravity_turn(text).await
+        } else if p.pi {
             p.call("prompt", json!({"message":text}), 30000).await
         } else {
             p.call(
@@ -280,7 +304,7 @@ impl AgentDriver {
         };
         let mut t = p.state.lock().await;
         match &result {
-            Ok(v) if !p.pi => {
+            Ok(v) if !p.pi && !p.antigravity => {
                 t["status"] = json!(if v["stopReason"] == "cancelled" {
                     "cancelled"
                 } else {
@@ -317,7 +341,7 @@ impl AgentDriver {
             }
             _ => {}
         }
-        if !p.pi || result.is_err() {
+        if (!p.pi && !p.antigravity) || result.is_err() {
             crate::event(
                 &p.events,
                 string(&t, "taskId"),
@@ -364,7 +388,9 @@ impl AgentDriver {
             self.respond(p, &json!({"interactionId":request["id"],"cancelled":true}))
                 .await?;
         }
-        if p.pi {
+        if p.antigravity {
+            p.interrupt().await?;
+        } else if p.pi {
             p.call("abort", json!({}), 30000).await?;
         } else {
             let sid = p.state.lock().await["sessionId"].clone();
@@ -393,6 +419,9 @@ impl AgentDriver {
         Ok(t.clone())
     }
     pub async fn respond(&self, p: &Arc<Process>, a: &Value) -> Result<Value> {
+        if p.antigravity {
+            return Err("INTERACTION_RESPONSE_UNSUPPORTED: Antigravity stream-json has no permission-response input".into());
+        }
         let key = a["interactionId"].to_string();
         let mut pending = p.events.lock().await;
         let req = pending
