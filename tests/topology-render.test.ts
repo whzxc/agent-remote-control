@@ -153,6 +153,9 @@ test("control source dock preserves editing, field navigation and cross-side dis
   const originalFetch = globalThis.fetch;
   try {
     const { default: Overview } = await server.ssrLoadModule("/ui/components/ConnectionOverview.tsx");
+    const { default: AddConnection } = await server.ssrLoadModule("/ui/components/AddConnection.tsx");
+    const { default: Onboarding } = await server.ssrLoadModule("/ui/components/Onboarding.tsx");
+    const { connectionSetup, onboarding } = await server.ssrLoadModule("/ui/state/onboarding.ts");
     const { default: UiProvider } = await server.ssrLoadModule("/ui/components/UiProvider.tsx");
     const { capturePanelOrigin } = await server.ssrLoadModule("/ui/components/panelMorph.ts");
     const { connector } = await server.ssrLoadModule("/ui/state/connector.ts");
@@ -205,7 +208,14 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const page = within(document.body);
     const button = (name: string) => page.getByRole("button", { name, exact: true });
     const escape = async () => { await act(() => document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); await flush(); };
-    await act(() => root.render(h(UiProvider, null, h("div", { onClickCapture: (e: { target: EventTarget }) => capturePanelOrigin(e.target) }, h(Overview)))));
+    function OverviewFixture() {
+      const connection = connectionSetup.use(), flow = onboarding.use();
+      return h("div", { onClickCapture: (e: { target: EventTarget }) => capturePanelOrigin(e.target) },
+        h(Overview),
+        connection && h(AddConnection, { options: connection, onClose: () => connectionSetup.set(undefined), onAdded: () => connectionSetup.set(undefined) }),
+        flow && h(Onboarding));
+    }
+    await act(() => root.render(h(UiProvider, null, h(OverviewFixture))));
     await flush();
     await click(button(t("connections.title")));
     assert.ok(page.getByRole("dialog", { name: t("connections.title"), exact: true }));
@@ -249,7 +259,6 @@ test("control source dock preserves editing, field navigation and cross-side dis
     assert.equal(ingressPanel.get(), undefined); assert.equal(agentPanel.get().session.id, "thread");
     await click(first()); assert.equal(agentPanel.get(), undefined); assert.ok(ingressPanel.get());
     await escape();
-    const { onboarding } = await server.ssrLoadModule("/ui/state/onboarding.ts");
     for (const id of ["claude", "chatgpt", "custom"]) {
       await click(button(t("addControlSource")));
       await click(page.getByRole("radio", { name: id === "custom" ? t("setup.otherClient") : controlSource(id).displayName, exact: true }));
