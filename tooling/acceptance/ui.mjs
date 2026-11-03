@@ -425,7 +425,17 @@ try {
         if (width >= 1280 && !fixture.page && !fixture.panel && fixture.tasks.some(task => task.completed)) {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          for (const task of fixture.tasks.filter((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`))) {
+          const completed = fixture.tasks.flatMap((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`)
+            ? [{ task, id: `fixture-task-${index}` }] : []);
+          const unread = [];
+          for (const target of completed) {
+            const group = page.getByRole('group', { name: target.task.title, exact: true });
+            if (await group.getByRole('img', { name: messages['activity.unread'], exact: true }).isVisible()) unread.push(target);
+          }
+          if (!unread.length && completed.some(({ task, id }) => model.taskBubbles.some(bubble => bubble.agent === task.agent && bubble.id === id && bubble.unread))) {
+            throw new Error('Expected unread completed tasks expose no unread bubbles');
+          }
+          for (const { task, id } of unread) {
             const title = task.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const taskGroup = page.getByRole('group', { name: task.title, exact: true });
             const bubble = taskGroup.getByRole('button', { name: new RegExp(`^${title} ·`) });
@@ -435,8 +445,19 @@ try {
               sourcePosition: { x: bounds.width / 2, y: bounds.height / 2 },
               targetPosition: { x: bounds.width * 0.6, y: bounds.height * 0.6 },
             });
+            // Committing the visible order can move this completion into overflow.
+            // Reveal the same task again rather than acknowledging a different bubble.
+            if (!await taskGroup.isVisible()) {
+              const summaries = page.getByRole('button', { name: new RegExp(`${escapeRegex(messages['activity.viewAll'])}$`) });
+              for (const summary of (await summaries.all()).reverse()) {
+                await summary.click();
+                if (await taskGroup.isVisible()) break;
+              }
+              await taskGroup.waitFor({ state: 'visible' });
+            }
             const markRead = taskGroup.getByRole('button', { name: messages['activity.markRead'], exact: true });
             await markRead.click();
+            await page.waitForFunction(({ agent, id }) => window.__ARC_VIEW_MODEL__().taskBubbles.some(bubble => bubble.agent === agent && bubble.id === id && bubble.completed && !bubble.unread), { agent: task.agent, id });
             await bubble.getByRole('img', { name: messages['activity.unread'], exact: true }).waitFor({ state: 'hidden' });
             if (await page.getByRole('dialog').count()) throw new Error('Mark-read opened a task detail panel');
           }
