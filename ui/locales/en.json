@@ -1358,6 +1358,7 @@
   "platforms.removeConfirm": "Revoke access for this connector and retain its history. Other connectors and the device connection are kept.",
   "connections.title": "Connections",
   "detail.reviewInfo": "Review information",
+  "detail.reviewEmpty": "No review is recorded.",
   "detail.reviewUnavailable": "Review information is unavailable.",
   "sourcePanel.awaitingApproval": "Awaiting dispatch approval",
   "sourcePanel.submitting": "Submitting",

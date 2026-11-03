@@ -157,7 +157,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
   const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
-  const showReview = reviewSelection?.id === session.id && reviewSelection.turnId === turnId;
+  const showReview = !!reviewSelection && reviewSelection.id === session.id && reviewSelection.turnId === turnId;
   const { review, reviewError, reviewLoading, reloadReview } = useTaskReview(session.id, turnId, showReview && terminalState(state));
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
   const latest = () => {
