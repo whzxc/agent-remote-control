@@ -287,7 +287,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const groups = accountIds.length > 1 ? [...new Set(sessions.map(sessionAccount))].map(id => sessions.filter(s => sessionAccount(s) === id)) : [sessions];
     const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? sessionAccount(group[0]) : null]);
     for (const group of groups) for (const session of group) taskQueues.set(JSON.stringify([agent.agent, session.id]), group);
-    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group), manualOrder[agent.agent] ?? []), group }));
+    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group)), group }));
     const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
     const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
     return {

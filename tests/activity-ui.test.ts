@@ -80,23 +80,42 @@ test("unchanged overflow presentation produces no task order write", () => {
   assert.equal(reorderActivity(rows, visible, []), undefined);
   assert.equal(reorderActivity(rows, visible, visibleActivity(rows, undefined, true).sessions.map(row => row.id)), undefined);
 });
-test("moving one visible task preserves its drop position and the order of all other tasks", () => {
-  // Property: moving a visible task preserves every other task's relative order, membership and unread state through overflow projection.
+test("moving a visible overflow task settles inside its completion group without hiding unfinished work", () => {
+  // Property: every visible move preserves unfinished-first priority, other tasks' relative order, membership and visibility, and retains the drop position within its group.
   const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
   const baseline = visibleActivity(rows, undefined, true).sessions.map(row => row.id);
   const visible = baseline.slice(0, 4);
   for (const moved of visible) for (let position = 0; position < visible.length; position++) {
     const ids = visible.filter(id => id !== moved); ids.splice(position, 0, moved);
     const stored = reorderActivity(rows, ids, []);
-    if (visible.indexOf(moved) === position) { assert.equal(stored, undefined); continue; }
-    assert.ok(stored);
-    const ordered = orderActivity(rows, stored);
-    const projected = visibleActivity(ordered, undefined, true, stored).sessions;
-    assert.deepEqual(visibleActivity(ordered, undefined, false, stored).sessions.map(row => row.id), ids);
+    const settledPosition = moved.startsWith('R') ? Math.min(position, 2) : Math.max(position, 3);
+    if (visible.indexOf(moved) === settledPosition) assert.equal(stored, undefined);
+    else assert.ok(stored);
+    const ordered = orderActivity(rows, stored ?? []);
+    const projected = visibleActivity(ordered, undefined, true).sessions;
+    const collapsed = visibleActivity(ordered).sessions;
+    assert.equal(projected.findIndex(row => row.id === moved), settledPosition);
+    assert.ok(collapsed.some(row => row.id === moved));
+    assert.ok(projected.slice(0, 3).every(row => row.endedAt === undefined));
+    assert.ok(projected.slice(3).every(row => row.endedAt !== undefined));
     assert.deepEqual(projected.filter(row => row.id !== moved).map(row => row.id), baseline.filter(id => id !== moved));
     assert.deepEqual([...projected].map(row => row.id).sort(), rows.map(row => row.id).sort());
     assert.equal(projected.find(row => row.id === 'C1')?.readAt, undefined);
-    assert.equal(reorderActivity(rows, ids, stored), undefined);
+    assert.equal(reorderActivity(rows, ids, stored ?? []), undefined);
+  }
+});
+test("later completions and new running tasks retain overflow priority after stored manual moves", () => {
+  // Regression: 45370de7 let a full stored list hide running R3 behind completed C1 and R2 after R2 completed and R4 started.
+  const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
+  const move = reorderActivity(rows, ['R2','R1','R3','C1'], []);
+  assert.ok(move);
+  const changed = [...rows.map(row => row.id === 'R2' ? { ...row, endedAt: 2 } : row), { ...session('R4'), orderAt: 8 }];
+  for (const stored of [move, ['R1','C1','R2','R3','C2','C3','C4','C5'], rows.map(row => row.id)]) {
+    const presented = visibleActivity(orderActivity(changed, stored), undefined, true).sessions;
+    assert.deepEqual(presented.slice(0, 3).map(row => row.id).sort(), ['R1','R3','R4']);
+    assert.ok(presented.slice(3).every(row => row.endedAt !== undefined));
+    const collapsed = visibleActivity(orderActivity(changed, stored)).sessions;
+    assert.ok(['R1','R3','R4'].every(id => collapsed.some(row => row.id === id)));
   }
 });
 test("start order is stable across phases, payload order and corrected timestamps; only attention reorders", () => {

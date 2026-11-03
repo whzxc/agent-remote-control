@@ -68,11 +68,10 @@ export function orderActivity(sessions: readonly TrackedActivity[], ids: readonl
     || (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
 }
-export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false, manualOrder: readonly string[] = []) {
-  // Overflow prioritizes unfinished work by default; explicit moves retain their displayed positions.
-  const baseline = sessions.length > 5
+export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false) {
+  // Overflow keeps unfinished work ahead of completions, regardless of stored order.
+  const ordered = sessions.length > 5
     ? [...sessions.filter(s => s.endedAt === undefined), ...sessions.filter(s => s.endedAt !== undefined)] : sessions;
-  const ordered = orderedSubset(baseline, manualOrder).sort((a, b) => Number(!!b.interaction) - Number(!!a.interaction));
   const visible = ordered.slice(0, expanded ? ordered.length : ordered.length > 5 ? 4 : 5);
   const pinned = sessions.find(s => s.id === pinnedId);
   if (pinned && !visible.includes(pinned)) visible[visible.length - 1] = pinned;
@@ -91,8 +90,9 @@ export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?:
 export function reorderActivity(sessions: readonly TrackedActivity[], ids: readonly string[], stored: readonly string[], queue: readonly TrackedActivity[] = sessions): string[] | undefined {
   // Use the whole displayed queue, including hidden tasks, before merging its order into the Agent preference.
   const current = orderActivity(sessions, stored);
-  const presented = visibleActivity(orderActivity(queue, stored), undefined, true, stored).sessions;
-  const after = orderedSubset(presented, ids);
+  const presented = visibleActivity(orderActivity(queue, stored), undefined, true).sessions;
+  // Settle cross-completion moves inside their group before detecting a no-op.
+  const after = visibleActivity(orderedSubset(presented, ids), undefined, true).sessions;
   if (after.every((session, index) => session === presented[index])) return;
   return orderedSubset(current, after.map(session => session.id)).map(session => session.id);
 }
