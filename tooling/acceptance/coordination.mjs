@@ -65,8 +65,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
       await board().waitFor({ state: 'hidden' });
       const owner = page.getByRole('dialog', { name: ownerName, exact: true });
       await owner.waitFor();
-      // A visible dock can precede its focus frame and Escape layer registration.
-      if (kind === 'update') await owner.getByRole('button', { name: messages.close, exact: true }).focus();
+      // Wait for the owner's own focus handoff before sending Escape.
       await page.waitForFunction(node => node.contains(document.activeElement), await owner.elementHandle());
       await owner.press('Escape');
       await owner.waitFor({ state: 'hidden' });
