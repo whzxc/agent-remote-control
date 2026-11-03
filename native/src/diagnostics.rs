@@ -204,15 +204,33 @@ pub fn status(s: &Value) -> Value {
 }
 
 /// Reuse the Control receipt reader; never interpret operation completion as delivery.
-pub fn receipts(diagnostics: &mut Value, records: Result<Vec<Value>>) {
+pub fn receipts(diagnostics: &mut Value, records: Result<Arc<Vec<Value>>>) {
     match records {
         Ok(records) => {
-            let uncertain: Vec<_> = records
-                .iter()
-                .filter(|r| r["state"] == "unconfirmed")
-                .collect();
-            diagnostics["checks"]["receipts"] = json!({"state":if uncertain.is_empty(){"no-unconfirmed-observed"}else{"unconfirmed"},"scope":"codex-task-receipts","count":uncertain.len(),"truncated":uncertain.len()>100});
-            for r in uncertain.into_iter().take(100) {
+            struct Summary {
+                records: Arc<Vec<Value>>,
+                count: usize,
+                uncertain: Vec<Value>,
+            }
+            static SUMMARY: std::sync::LazyLock<std::sync::Mutex<Option<Summary>>> =
+                std::sync::LazyLock::new(Default::default);
+            let mut cache = SUMMARY.lock().unwrap();
+            if cache
+                .as_ref()
+                .is_none_or(|s| !Arc::ptr_eq(&s.records, &records))
+            {
+                let mut uncertain = records.iter().filter(|r| r["state"] == "unconfirmed");
+                let rows: Vec<_> = uncertain.by_ref().take(100).map(|r| json!({"requestId":r["requestId"],"origin":{"ingressId":r["origin"]["ingressId"]}})).collect();
+                *cache = Some(Summary {
+                    count: rows.len() + uncertain.count(),
+                    uncertain: rows,
+                    records,
+                });
+            }
+            let summary = cache.as_ref().unwrap();
+            let uncertain = &summary.uncertain;
+            diagnostics["checks"]["receipts"] = json!({"state":if summary.count == 0{"no-unconfirmed-observed"}else{"unconfirmed"},"scope":"codex-task-receipts","count":summary.count,"truncated":summary.count>100});
+            for r in uncertain {
                 let mut f = finding(
                     "WRITE_UNCONFIRMED",
                     "warning",

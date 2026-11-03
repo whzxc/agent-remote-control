@@ -25,6 +25,9 @@ fn read() -> Result<Vec<Value>> {
 fn change<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
     let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Accounts);
     let _lock = STORE.lock().map_err(|e| e.to_string())?;
+    change_locked(f)
+}
+fn change_locked<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
     let mut rows = read()?;
     let before = rows.clone();
     let result = f(&mut rows)?;
@@ -302,10 +305,17 @@ pub(crate) fn source_account(source: &Value) -> Result<Option<String>> {
     if crate::sources::is_local(source) {
         return Ok(None);
     }
-    change(|rows| Ok(Some(identity::observe_source(rows, source))))
+    let mut source = source.clone();
+    project_sources(std::slice::from_mut(&mut source))?;
+    Ok(source["accountId"].as_str().map(str::to_owned))
 }
 /// Project an entire source response in one account transaction, including
 /// identity reconciliation. Do not decode and clone the index per source.
+#[derive(Default)]
+struct SourceProjection {
+    stamp: Option<crate::kernel::file_cache::Stamp>,
+    rows: std::collections::HashMap<String, (Value, Value, Value)>,
+}
 pub(crate) fn project_sources(sources: &mut [Value]) -> Result<()> {
     for source in sources.iter_mut().filter(|s| crate::sources::is_local(s)) {
         source["accountId"] = Value::Null;
@@ -314,7 +324,39 @@ pub(crate) fn project_sources(sources: &mut [Value]) -> Result<()> {
     if sources.iter().all(crate::sources::is_local) {
         return Ok(());
     }
-    change(|rows| {
+    static PROJECTION: std::sync::LazyLock<std::sync::Mutex<SourceProjection>> =
+        std::sync::LazyLock::new(Default::default);
+    let inputs: Vec<_> = sources
+        .iter()
+        .map(|s| json!([s["platform"], s["authorizationFacts"]]))
+        .collect();
+    let mut projection = PROJECTION.lock().map_err(|e| e.to_string())?;
+    let _owner = STORE.lock().map_err(|e| e.to_string())?;
+    let stamp = crate::kernel::file_cache::Stamp::read(&path())?;
+    if projection.stamp != stamp {
+        projection.rows.clear();
+        projection.stamp = stamp;
+    }
+    if sources
+        .iter()
+        .zip(&inputs)
+        .filter(|(s, _)| !crate::sources::is_local(s))
+        .all(|(s, input)| {
+            projection
+                .rows
+                .get(string(s, "id"))
+                .is_some_and(|(old, _, _)| old == input)
+        })
+    {
+        for source in sources.iter_mut().filter(|s| !crate::sources::is_local(s)) {
+            let (_, account, resolution) = &projection.rows[string(source, "id")];
+            source["accountId"] = account.clone();
+            source["identityResolution"] = resolution.clone();
+        }
+        return Ok(());
+    }
+    let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Accounts);
+    change_locked(|rows| {
         for source in sources.iter_mut().filter(|s| !crate::sources::is_local(s)) {
             let account = identity::observe_source(rows, source);
             source["accountId"] = json!(account);
@@ -326,8 +368,29 @@ pub(crate) fn project_sources(sources: &mut [Value]) -> Result<()> {
                 .unwrap_or(json!({"state":"unresolved"}));
         }
         Ok(())
-    })
+    })?;
+    let after = crate::kernel::file_cache::Stamp::read(&path())?;
+    if projection.stamp != after {
+        projection.rows.clear();
+        projection.stamp = after;
+    }
+    for (source, input) in sources
+        .iter()
+        .zip(inputs)
+        .filter(|(s, _)| !crate::sources::is_local(s))
+    {
+        projection.rows.insert(
+            string(source, "id").into(),
+            (
+                input,
+                source["accountId"].clone(),
+                source["identityResolution"].clone(),
+            ),
+        );
+    }
+    Ok(())
 }
+
 /// Detach legacy local memberships; retain empty account tombstones for history.
 pub fn retire_local_accounts(rows: &mut [Value], sources: &[Value], at: &str) {
     let local: Vec<_> = sources
@@ -1051,10 +1114,13 @@ pub(crate) fn notification_accounts() -> Result<Vec<Value>> {
 
 /// Read-time labels preserve the recorded ID, including after account removal or merge.
 pub(crate) fn decorate(value: &mut Value) {
-    let Ok(rows) = read() else {
+    let Ok(snapshot) = crate::kernel::file_cache::shared_load(&path()) else {
         return;
     };
-    decorate_labels(value, &rows);
+    let Some(rows) = snapshot.as_array() else {
+        return;
+    };
+    decorate_labels(value, rows);
 }
 
 /// Project a response from one account snapshot without changing recorded identities.

@@ -1456,8 +1456,8 @@ impl Service {
                         .await
                 }
                 ("GET", "tasks") => {
-                    let mut records = self.control.task_records().await?;
-                    records.extend(self.agents.task_records()?);
+                    let mut records = self.control.task_display_records().await?.as_ref().clone();
+                    records.extend(self.agents.task_records()?.iter().cloned());
                     for record in &mut records {
                         let agent = record["agent"].as_str().unwrap_or("codex");
                         let task = record["taskId"]
@@ -1470,9 +1470,7 @@ impl Service {
                         }
                     }
                     records.sort_by(|a, b| string(b, "createdAt").cmp(string(a, "createdAt")));
-                    Ok(
-                        json!({"records":records.into_iter().map(crate::task_overview::display_record).collect::<Vec<_>>()}),
-                    )
+                    Ok(json!({"records":records}))
                 }
                 ("POST", "tasks/open") => {
                     self.agents

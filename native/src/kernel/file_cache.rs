@@ -8,6 +8,85 @@ use std::{
     time::SystemTime,
 };
 
+/// Watch only discovery inputs. Readers still stamp selected live files before reading.
+/// A failed watcher returns no revision so callers can fall back to polling.
+pub struct Changes {
+    _watcher: notify::RecommendedWatcher,
+    revision: Arc<std::sync::atomic::AtomicU64>,
+    failed: Arc<std::sync::atomic::AtomicBool>,
+}
+impl Changes {
+    pub fn new(paths: Vec<PathBuf>) -> Result<Self> {
+        Self::filtered(paths, |_| true)
+    }
+    pub fn filtered(
+        paths: Vec<PathBuf>,
+        relevant: impl Fn(&Path) -> bool + Send + 'static,
+    ) -> Result<Self> {
+        use notify::Watcher;
+        use std::sync::atomic::Ordering::SeqCst;
+        // Native events use physical paths (for example /private/var on macOS).
+        // Resolve existing ancestors too, so a missing discovery root keeps its suffix.
+        fn physical(path: &Path) -> PathBuf {
+            if let Ok(path) = path.canonicalize() {
+                return path;
+            }
+            match (path.parent(), path.file_name()) {
+                (Some(parent), Some(name)) => physical(parent).join(name),
+                _ => path.into(),
+            }
+        }
+        let paths: Vec<_> = paths.iter().map(|path| physical(path)).collect();
+        let revision = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let counter = revision.clone();
+        let failure = failed.clone();
+        let inputs = paths.clone();
+        let mut watcher =
+            notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
+                Ok(event) if !matches!(event.kind, notify::EventKind::Access(_)) => {
+                    if event.need_rescan()
+                        || event.paths.iter().any(|changed| {
+                            inputs.iter().any(|path| {
+                                (changed.starts_with(path) || path.starts_with(changed))
+                                    && relevant(changed)
+                            })
+                        })
+                    {
+                        counter.fetch_add(1, SeqCst);
+                    }
+                }
+                Err(_) => {
+                    failure.store(true, SeqCst);
+                }
+                _ => {}
+            })
+            .map_err(|e| e.to_string())?;
+        let mut watched = std::collections::HashSet::new();
+        for path in paths {
+            // Watching the parent also discovers creation/replacement of a missing root.
+            let mut parent = path.parent().unwrap_or(&path);
+            while !parent.is_dir() {
+                parent = parent.parent().ok_or("No watchable parent directory")?;
+            }
+            if watched.insert(parent.to_path_buf()) {
+                watcher
+                    .watch(parent, notify::RecursiveMode::Recursive)
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(Self {
+            _watcher: watcher,
+            revision,
+            failed,
+        })
+    }
+    pub fn revision(&self) -> Option<u64> {
+        use std::sync::atomic::Ordering::SeqCst;
+        (!self.failed.load(SeqCst)).then(|| self.revision.load(SeqCst))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stamp {
     modified: Option<SystemTime>,
@@ -324,6 +403,9 @@ pub struct Projection<T> {
     snapshot: Option<(Vec<Option<Stamp>>, T)>,
 }
 impl<T: Clone> Projection<T> {
+    pub fn clear(&mut self) {
+        self.snapshot = None;
+    }
     pub fn stamps(paths: &[PathBuf]) -> Result<Vec<Option<Stamp>>> {
         paths.iter().map(|path| Stamp::read(path)).collect()
     }
@@ -355,7 +437,20 @@ pub(crate) fn load(path: &Path) -> Result<Value> {
 pub(crate) fn entries(path: &Path) -> Result<Arc<Vec<Entry>>> {
     JSON.lock().map_err(|e| e.to_string())?.entries(path)
 }
+static RECEIPT_REVISION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub(crate) fn receipt_revision() -> u64 {
+    RECEIPT_REVISION.load(std::sync::atomic::Ordering::SeqCst)
+}
 pub(crate) fn changed(path: &Path, before: Option<Stamp>) {
+    if path.parent().is_some_and(|parent| parent == root())
+        && path.extension().is_some_and(|ext| ext == "json")
+        && path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
+    {
+        RECEIPT_REVISION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
     if let Ok(mut cache) = JSON.lock() {
         cache.changed(path, before);
     }

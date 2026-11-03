@@ -4,7 +4,7 @@ use tokio::time::{timeout_at, Duration, Instant};
 
 /// List rows carry display metadata. Prompts, attachments and receipt evidence
 /// remain with their owners and are read through the selected task's timeline.
-pub(crate) fn display_record(record: Value) -> Value {
+pub(crate) fn display_record(record: &Value) -> Value {
     fn fields(value: &Value, names: &[&str]) -> Value {
         Value::Object(
             names
@@ -14,7 +14,7 @@ pub(crate) fn display_record(record: Value) -> Value {
         )
     }
     let mut row = fields(
-        &record,
+        record,
         &[
             "requestId",
             "agent",

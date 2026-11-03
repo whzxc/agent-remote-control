@@ -16,7 +16,14 @@ pub struct Control {
     schemas: Mutex<Option<Value>>,
     requests: crate::kernel::receipts::RequestLocks,
     pub(crate) projects: Mutex<Option<(std::time::Instant, Vec<Value>)>>,
-    task_records: Mutex<crate::kernel::file_cache::Projection<Vec<Value>>>,
+    task_records: Mutex<TaskRecords>,
+}
+#[derive(Default)]
+struct TaskRecords {
+    projection: crate::kernel::file_cache::Projection<Arc<Vec<Value>>>,
+    revision: (u64, Option<u64>),
+    changes: Option<crate::kernel::file_cache::Changes>,
+    display: Arc<Vec<Value>>,
 }
 const RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
@@ -1285,12 +1292,38 @@ impl Control {
         }
         Ok(r)
     }
-    pub async fn task_records(&self) -> Result<Vec<Value>> {
+    pub async fn task_records(&self) -> Result<Arc<Vec<Value>>> {
         use crate::kernel::file_cache::{self, Projection};
-        let dependencies = [root(), root().join("tasks"), root().join("execution")];
         let mut cache = self.task_records.lock().await;
-        let stamps = Projection::<Vec<Value>>::stamps(&dependencies)?;
-        if let Some(records) = cache.get(&stamps) {
+        if cache.changes.is_none() {
+            let base = root();
+            let watched = base.canonicalize().unwrap_or_else(|_| base.clone());
+            cache.changes = file_cache::Changes::filtered(vec![base.clone()], move |path| {
+                path.starts_with(watched.join("tasks"))
+                    || path.starts_with(watched.join("execution"))
+                    || path.parent() == Some(watched.as_path())
+                        && path.extension().is_some_and(|e| e == "json")
+                        && path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
+            })
+            .ok();
+        }
+        let revision = (
+            file_cache::receipt_revision(),
+            cache.changes.as_ref().and_then(|c| c.revision()),
+        );
+        let mut dependencies = vec![root().join("tasks"), root().join("execution")];
+        if revision.1.is_none() {
+            dependencies.push(root());
+        }
+        if cache.revision != revision {
+            cache.projection.clear();
+            cache.revision = revision;
+        }
+        let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
+        if let Some(records) = cache.projection.get(&stamps) {
             return Ok(records);
         }
         let mut complete = true;
@@ -1386,10 +1419,23 @@ impl Control {
             records.push(r);
         }
         records.sort_by(|a, b| string(b, "createdAt").cmp(string(a, "createdAt")));
-        if complete {
-            cache.set(&dependencies, stamps, records.clone())?;
+        cache.display = Arc::new(
+            records
+                .iter()
+                .map(crate::task_overview::display_record)
+                .collect(),
+        );
+        let records = Arc::new(records);
+        if complete && file_cache::receipt_revision() == revision.0 {
+            cache
+                .projection
+                .set(&dependencies, stamps, records.clone())?;
         }
         Ok(records)
+    }
+    pub async fn task_display_records(&self) -> Result<Arc<Vec<Value>>> {
+        self.task_records().await?;
+        Ok(self.task_records.lock().await.display.clone())
     }
     pub async fn task_runtime(&self, id: &str) -> Result<Value> {
         let ownership = self.observe_ownership(id).await?;

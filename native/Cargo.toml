@@ -34,6 +34,7 @@ rusqlite = { version = ">=0.37, <1", features = ["bundled"] }
 rustls = { version = ">=0.23, <1", default-features = false, features = ["ring"] }
 ring = ">=0.17, <1"
 futures-util = { version = ">=0.3, <1", features = ["sink"] }
+notify = "8.2.1"
 tokio-tungstenite = { version = ">=0.28, <1", default-features = false, features = ["handshake"] }
 
 hyper = { version = "1", features = ["server", "http1"] }

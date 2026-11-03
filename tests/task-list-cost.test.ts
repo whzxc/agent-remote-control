@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile, rename, rm } from 'node:fs/promises';
+import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 test('archived task filters are discoverable and listing never needs live enrichment by default', async () => {
   // Regression: archived task listing spent the live enrichment budget and omitted its filters from the shorthand.
@@ -10,4 +13,46 @@ test('archived task filters are discoverable and listing never needs live enrich
     const guide=await f.call('guide',{view:'full'});const signature=guide.ops.find((o:any)=>o.op==='codex_tasks').signature;
     assert.match(signature,/archived/);assert.match(signature,/searchTerm/);assert.match(signature,/enrich/);
   }finally{await f.close();}
+});
+
+async function eventually(read: () => Promise<boolean>) {
+  const end = Date.now() + 10000;
+  while (Date.now() < end) {
+    if (await read()) return;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.ok(await read(), 'Changed state must remain discoverable.');
+}
+
+test('cached task and status projections follow receipt replacement, runtime updates and deletion', async () => {
+  // Regression: AX-23 idle projection reuse must preserve task freshness after real state changes.
+  const f = await nativeControl('');
+  const requestId = randomUUID(), threadId = randomUUID();
+  let directory = '';
+  const receipt = { requestId, threadId, operation: 'create', state: 'completed', backendSession: 'previous',
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+    task: { kind: 'create', title: 'Initial', prompt: 'Preview\nRetained prompt', input: [] }, result: {} };
+  try {
+    await f.restart(async state => {
+      directory = state;
+      await mkdir(path.join(state, 'tasks'), { recursive: true });
+      await writeFile(path.join(state, `${requestId}.json`), JSON.stringify(receipt));
+      await writeFile(path.join(state, 'tasks', `${threadId}.json`), JSON.stringify({ runtimeStatus: 'idle' }));
+    });
+    const rows = async () => (await f.api('tasks')).records;
+    assert.equal((await rows())[0].task.title, 'Initial');
+    await f.api('task-settings', { enabled: true }, 'PUT');
+    assert.equal((await rows())[0].task.prompt, 'Preview');
+    const changed = { ...receipt, state: 'unconfirmed', task: { ...receipt.task, title: 'Changed' } };
+    const replacement = path.join(directory, 'replacement.json');
+    await writeFile(replacement, JSON.stringify(changed));
+    await rename(replacement, path.join(directory, `${requestId}.json`));
+    await eventually(async () => (await rows())[0]?.task.title === 'Changed');
+    assert.equal((await f.api('status')).diagnostics.checks.receipts.count, 1);
+    await writeFile(path.join(directory, 'tasks', `${threadId}.json`), JSON.stringify({ runtimeStatus: 'active', title: 'Running' }));
+    await eventually(async () => (await rows())[0]?.runtime.runtimeStatus === 'active');
+    await rm(path.join(directory, `${requestId}.json`));
+    await eventually(async () => (await rows()).length === 0);
+    assert.equal((await f.api('status')).diagnostics.checks.receipts.count, 0);
+  } finally { await f.close(); }
 });

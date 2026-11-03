@@ -44,7 +44,7 @@ pub struct AgentHost {
     operations: Mutex<HashMap<String, Operation>>,
     requests: crate::kernel::receipts::RequestLocks,
     session: String,
-    task_records: std::sync::Mutex<crate::kernel::file_cache::Projection<Vec<Value>>>,
+    task_records: std::sync::Mutex<crate::kernel::file_cache::Projection<Arc<Vec<Value>>>>,
     lifecycle: Mutex<()>,
     wake: Arc<tokio::sync::Notify>,
 }
@@ -388,15 +388,15 @@ impl AgentHost {
         }
     }
     /// Project adapter receipts into the same local task feed as Codex dispatches.
-    pub(crate) fn task_records(&self) -> Result<Vec<Value>> {
+    pub(crate) fn task_records(&self) -> Result<Arc<Vec<Value>>> {
         let directory = root().join("agents/requests");
         if !directory.exists() {
-            return Ok(Vec::new());
+            return Ok(Arc::default());
         }
         use crate::kernel::file_cache::{self, Projection};
         let dependencies = [directory.clone(), root().join("agents/tasks")];
         let mut cache = self.task_records.lock().map_err(|e| e.to_string())?;
-        let stamps = Projection::<Vec<Value>>::stamps(&dependencies)?;
+        let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
         if let Some(records) = cache.get(&stamps) {
             return Ok(records);
         }
@@ -447,6 +447,12 @@ impl AgentHost {
                 "runtime":{"runtimeStatus":runtime,"title":task["title"],"observedAt":task["updatedAt"],"stale":receipt["backendSession"] != self.session && matches!(runtime, "active" | "waiting")},
                 "error":receipt.get("error").or_else(||receipt["result"].get("error"))}));
         }
+        let records: Arc<Vec<Value>> = Arc::new(
+            records
+                .iter()
+                .map(crate::task_overview::display_record)
+                .collect(),
+        );
         if complete {
             cache.set(&dependencies, stamps, records.clone())?;
         }
@@ -567,7 +573,7 @@ impl AgentHost {
         {
             control.task_records().await.unwrap_or_default()
         } else {
-            Vec::new()
+            Arc::new(Vec::new())
         };
         let archived_sessions = archive::hidden_sessions().unwrap_or_default();
         for (agent, mut session) in transcripts {

@@ -856,11 +856,11 @@ pub fn decorate(value: &mut Value) {
     let Ok(cache) = cache().and_then(|cache| cache.read().map_err(|e| e.to_string())) else {
         return;
     };
-    let Some(rows) = cache.current["sources"].as_array().cloned() else {
+    let Some(rows) = cache.current["sources"].as_array() else {
         return;
     };
+    decorate_labels(value, rows);
     drop(cache);
-    decorate_labels(value, &rows);
     crate::accounts::decorate(value);
 }
 
