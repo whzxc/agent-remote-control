@@ -24,6 +24,17 @@ const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.
+async function chooseSpec(page, messages, model, effort) {
+  await page.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['dispatchDefaults.model'])}: `) }).click();
+  await page.getByRole('menuitemradio', { name: model, exact: true }).click();
+  await page.getByRole('button', { name: `${messages['dispatchDefaults.model']}: ${model}`, exact: true }).waitFor();
+  if (!effort) return;
+  const slider = page.getByRole('slider', { name: messages['dispatchDefaults.effort'] });
+  await slider.focus();
+  await slider.press('End');
+  await page.locator(`[role=slider][aria-valuetext="${effort}"]`).waitFor();
+}
 await mkdir(base, { recursive: true });
 const previous = (await readdir(base)).filter(n => n.endsWith(`-${engine}`)).sort().at(-1);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
@@ -59,14 +70,12 @@ try {
           await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
           if (fixture.agentDetail) {
             await page.getByRole('button', { name: 'Codex', exact: true }).first().click();
-            const model = page.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] });
-            const effort = page.getByRole('radiogroup', { name: messages['dispatchDefaults.effort'] });
-            await model.getByRole('radio', { name: 'GPT-6.1 Sol' }).click();
-            await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'] }).click();
-            await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'], checked: true }).waitFor();
+            await page.getByRole('button', { name: messages['dispatchDefaults.spec'], exact: true }).click();
+            await chooseSpec(page, messages, 'GPT-6.1 Sol', messages['dispatchSpec.effort.max']);
             // An effort the newly selected model does not support falls back to the Agent default.
-            await model.getByRole('radio', { name: 'GPT-5.6 Sol' }).click();
-            await effort.getByRole('radio', { name: messages['dispatchDefaults.inherit'], checked: true }).waitFor();
+            await chooseSpec(page, messages, 'GPT-5.6 Sol');
+            await page.locator(`[role=slider][aria-valuetext="${messages['dispatchDefaults.inherit']}"]`).waitFor();
+            await page.keyboard.press('Escape');
           }
         }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
@@ -254,16 +263,18 @@ try {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           await page.getByRole('button', { name: messages['taskDispatch.title'], exact: true }).click();
           const dialog = page.getByRole('dialog', { name: messages['taskDispatch.title'], exact: true });
-          const model = dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] });
-          const effort = dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.effort'] });
-          await model.getByRole('radio', { name: 'GPT-6.1 Sol' }).click();
-          await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'] }).click();
-          await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'], checked: true }).waitFor();
+          await dialog.getByRole('button', { name: messages['dispatchDefaults.spec'], exact: true }).click();
+          await chooseSpec(page, messages, 'GPT-6.1 Sol', messages['dispatchSpec.effort.max']);
+          // Escape closes the picker first, then the dialog, restoring the task detail it was opened from.
           await page.keyboard.press('Escape');
-          // Closing the choice restores the task detail it was opened from.
+          await page.getByRole('dialog', { name: messages['dispatchDefaults.spec'], exact: true }).waitFor({ state: 'hidden' });
+          // The next Escape belongs to the task dialog once focus returns to the picker trigger.
+          await page.waitForFunction(label => document.activeElement?.getAttribute('aria-label') === label, messages['dispatchDefaults.spec']);
+          await page.keyboard.press('Escape');
           await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).waitFor();
           await page.getByRole('button', { name: messages['taskDispatch.title'], exact: true }).click();
-          await dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] }).getByRole('radio', { name: 'GPT-6.1 Sol', checked: true }).waitFor();
+          await dialog.getByRole('button', { name: messages['dispatchDefaults.spec'], exact: true })
+            .filter({ hasText: `GPT-6.1 Sol · ${messages['dispatchSpec.effort.max']}` }).waitFor();
           await page.keyboard.press('Escape');
         }
         if (setup) {
