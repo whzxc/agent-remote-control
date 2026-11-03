@@ -33,7 +33,23 @@ pub(super) struct Target {
     pub account_id: Option<String>,
 }
 impl Target {
+    fn failure_at(&self) -> i64 {
+        self.reachability
+            .failed_at
+            .max(self.reachability.verified_at)
+            .max(
+                self.batches
+                    .iter()
+                    .map(|b| b.at.saturating_mul(1000))
+                    .max()
+                    .unwrap_or(0),
+            )
+    }
     pub fn refill(&mut self, now: i64, settings: &Value) {
+        if self.reachability.state == "failed" && self.reachability.failed_at == 0 {
+            // Preserve legacy failure ordering before old batches expire.
+            self.reachability.failed_at = self.failure_at();
+        }
         let capacity = capacity(settings);
         let interval = refill_seconds(settings);
         self.tokens = self.tokens.min(capacity);
@@ -286,8 +302,14 @@ pub(super) fn status_in(
     now: i64,
     settings: &Value,
 ) -> Result<Value> {
+    // Explicit false requests compact diagnostics even with a target/thread filter.
+    let compact = args["all"] == false
+        || (args["all"] != true && args["target"].is_null() && args["threadId"].is_null());
     let all = records(dir)?;
     let mut state = State::load(dir)?;
+    for target in &mut state.targets {
+        target.reachability.expire(now);
+    }
     subscriptions::sync(&mut state, &all);
     let bindings = all
         .iter()
@@ -301,6 +323,13 @@ pub(super) fn status_in(
                 })
         })
         .collect::<Vec<_>>();
+    let mut latest = std::collections::HashMap::<&str, &Binding>::new();
+    for b in &bindings {
+        let current = latest.entry(&b.thread_id).or_insert(b);
+        if b.created_at > current.created_at {
+            *current = b;
+        }
+    }
     let mut targets = Vec::new();
     let mut threads = Vec::new();
     let mut ranks = std::collections::BTreeMap::<String, usize>::new();
@@ -348,7 +377,7 @@ pub(super) fn status_in(
                     *ranks.entry(id.clone()).or_default() += 1;
                 }
             }
-            let pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.channel==channel && d.target==target && matches!(d.status.as_str(),"pending"|"sending")).map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"status":d.status,"createdAt":d.created_at,"nextAttemptAt":d.next_attempt_at,"timing":d.timing}))).collect::<Vec<_>>();
+            let pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.channel==channel && d.target==target && matches!(d.status.as_str(),"pending"|"sending") && (!compact || d.task_state!="recovered")).map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"status":d.status,"createdAt":d.created_at,"nextAttemptAt":d.next_attempt_at,"timing":d.timing}))).collect::<Vec<_>>();
             targets.push(json!({"channel":channel,"target":target,"reachability":t.reachability.state,"reason":t.reachability.reason,"verificationAttempts":t.reachability.attempts,"verifiedAt":t.reachability.verified_at,"lastVerificationDelivery":t.reachability.delivery_status,"lastVerificationError":t.reachability.last_error,"registered":t.registered,"tokens":t.tokens,"capacity":capacity(settings),"refillSeconds":refill_seconds(settings),"nextTokenAt":if t.tokens<capacity(settings){Some(t.refilled_at+refill_seconds(settings))}else{None},"breaker":t.breaker,"emptySince":t.empty_since,"escalated":t.escalated,"escalationError":t.escalation_error,"pending":pending,"recentBatches":batches}));
         }
         if !threads.iter().any(|v: &Value| v["threadId"] == b.thread_id) {
@@ -357,10 +386,7 @@ pub(super) fn status_in(
                 .iter()
                 .filter(|other| other.thread_id == b.thread_id)
                 .collect::<Vec<_>>();
-            let latest = bs
-                .iter()
-                .max_by_key(|b| (b.scope_end.is_none(), !b.continuation_bound, b.created_at))
-                .unwrap();
+            let latest = latest[b.thread_id.as_str()];
             let historical = bs
                 .iter()
                 .flat_map(|b| &b.deliveries)
@@ -373,10 +399,10 @@ pub(super) fn status_in(
                 .filter_map(|d| d.timing.finished_at.map(|ms| ms / 1000))
                 .max();
             let ownership = ownership::read(&b.thread_id).unwrap_or(Value::Null);
-            threads.push(json!({"threadId":b.thread_id,"title":latest.title,"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
+            threads.push(json!({"threadId":b.thread_id,"title":latest.title,"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
         }
     }
-    let subscriptions = state
+    let mut subscriptions = state
         .subscriptions
         .iter()
         .filter(|s| {
@@ -415,62 +441,122 @@ pub(super) fn status_in(
             targets.push(json!({"channel":t.channel,"target":t.target,"registered":true,"reachability":t.reachability.state,"reason":t.reachability.reason,"verificationAttempts":t.reachability.attempts,"verifiedAt":t.reachability.verified_at,"lastVerificationDelivery":t.reachability.delivery_status,"lastVerificationError":t.reachability.last_error,"tokens":t.tokens,"breaker":t.breaker,"pending":[],"recentBatches":[]}));
         }
     }
-    let deliveries=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|args["target"].as_str().is_none_or(|t|d.target==t || d.subscription==t)).map(|d|json!({"subscriptionId":d.subscription,"channel":d.channel,"target":d.target,"op":"task_status","eventId":d.event_id,"kind":event(b,d)["kind"],"threadId":event(b,d)["threadId"],"taskId":event(b,d)["taskId"],"turnId":b.turn_id,"state":d.status,"attempts":d.failures+u32::from(matches!(d.status.as_str(),"sending"|"delivered"|"digested"|"callback-accepted")),"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing}))).collect::<Vec<_>>();
+    let in_scope = |d: &&Delivery| {
+        args["target"]
+            .as_str()
+            .is_none_or(|t| d.target == t || d.subscription == t)
+    };
+    let total_deliveries = bindings
+        .iter()
+        .flat_map(|b| b.deliveries.iter().filter(in_scope))
+        .count();
+    let recovered_deliveries = bindings
+        .iter()
+        .flat_map(|b| b.deliveries.iter().filter(in_scope))
+        .filter(|d| d.task_state == "recovered")
+        .count();
+    let deliveries=bindings.iter().flat_map(|b|b.deliveries.iter().filter(in_scope).filter(|d| !compact || (d.task_state!="recovered" && (pending(d) || (recent(d,now) && latest[&b.thread_id.as_str()].turn_id==b.turn_id)))).map(|d|json!({"subscriptionId":d.subscription,"channel":d.channel,"target":d.target,"op":"task_status","eventId":d.event_id,"kind":event(b,d)["kind"],"threadId":event(b,d)["threadId"],"taskId":event(b,d)["taskId"],"turnId":b.turn_id,"state":d.status,"attempts":d.failures+u32::from(matches!(d.status.as_str(),"sending"|"delivered"|"digested"|"callback-accepted")),"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing}))).collect::<Vec<_>>();
     let total_targets = targets.len();
     let total_threads = threads.len();
-    let compact = args["all"] != true && args["target"].is_null() && args["threadId"].is_null();
+    for target in &mut targets {
+        target["supersededBy"] = state
+            .targets
+            .iter()
+            .find(|t| {
+                t.source_id == source_id
+                    && target["target"] == t.target
+                    && target["channel"] == serde_json::to_value(t.channel).unwrap()
+            })
+            .and_then(|t| superseding_target(t, &state.targets))
+            .map(|next| json!(next.target))
+            .unwrap_or(Value::Null);
+    }
     if compact {
         targets.retain(|t| {
-            t["reachability"] != "verified"
+            args["target"].is_string()
+                || (t["reachability"] != "verified" && t["supersededBy"].is_null())
                 || !t["recentBatches"].as_array().unwrap().is_empty()
                 || !t["pending"].as_array().unwrap().is_empty()
+                || deliveries
+                    .iter()
+                    .any(|d| d["target"] == t["target"] && d["channel"] == t["channel"])
+                || threads
+                    .iter()
+                    .any(|thread| thread["target"] == t["target"] && thread["mode"] != "normal")
                 || t["breaker"] == true
                 || !t["emptySince"].is_null()
                 || t["escalated"] == true
         });
         threads.retain(|t| {
-            t["mode"] != "normal"
+            args["target"].is_string()
+                || args["threadId"].is_string()
+                || t["mode"] != "normal"
                 || ranks.contains_key(string(t, "threadId"))
                 || bindings
                     .iter()
                     .filter(|b| b.thread_id == t["threadId"])
                     .any(|b| {
-                        b.deliveries.iter().any(|d| {
-                            matches!(d.status.as_str(), "pending" | "sending")
-                                || d.attempted_at > now.saturating_sub(3600)
-                                || d.timing
-                                    .finished_at
-                                    .is_some_and(|at| at / 1000 > now.saturating_sub(3600))
-                        })
+                        b.deliveries
+                            .iter()
+                            .any(|d| d.task_state != "recovered" && (pending(d) || recent(d, now)))
                     })
         });
-        for t in &mut threads {
-            let latest = bindings
-                .iter()
-                .filter(|b| b.thread_id == t["threadId"])
-                .max_by_key(|b| (b.scope_end.is_none(), !b.continuation_bound, b.created_at))
-                .unwrap();
-            t["turns"]
-                .as_array_mut()
-                .unwrap()
-                .retain(|turn| turn["turnId"] == latest.turn_id);
-        }
     }
     let shown_bindings: usize = threads
         .iter()
         .map(|t| t["turns"].as_array().unwrap().len())
         .sum();
-    let summary = json!({"totalTargets":total_targets,"totalThreads":total_threads,"totalBindings":bindings.len(),"hidden":{"targets":total_targets-targets.len(),"threads":total_threads-threads.len(),"bindings":bindings.len()-shown_bindings}});
+    let total_subscriptions = subscriptions.len();
+    if compact {
+        subscriptions.retain(|s| {
+            (s.channel == Channel::McpEvents && s.active(now.saturating_mul(1000)))
+                || s.muted(now)
+                || deliveries.iter().any(|d| d["subscriptionId"] == s.id)
+                || threads
+                    .iter()
+                    .any(|t| s.matches(latest[string(t, "threadId")]))
+        });
+    }
+    let summary = json!({"totalTargets":total_targets,"totalThreads":total_threads,"totalBindings":bindings.len(),"totalDeliveries":total_deliveries,"totalSubscriptions":total_subscriptions,"hidden":{"targets":total_targets-targets.len(),"threads":total_threads-threads.len(),"bindings":bindings.len()-shown_bindings,"deliveries":total_deliveries-deliveries.len(),"subscriptions":total_subscriptions-subscriptions.len(),"recoveredDeliveries":if compact {recovered_deliveries}else{0}}});
     let mut ranking = ranks
         .into_iter()
         .map(|(thread_id, wakes)| json!({"threadId":thread_id,"wakes":wakes}))
         .collect::<Vec<_>>();
     ranking.sort_by_key(|v| std::cmp::Reverse(v["wakes"].as_u64().unwrap_or(0)));
-    let unbound_pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.target.is_empty() && d.status=="pending").map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"timing":d.timing}))).collect::<Vec<_>>();
+    let unbound_pending=bindings.iter().flat_map(|b|b.deliveries.iter().filter(|d|d.target.is_empty() && d.status=="pending" && (!compact || d.task_state!="recovered")).map(|d|json!({"threadId":b.thread_id,"turnId":b.turn_id,"eventId":d.event_id,"kind":event(b,d)["kind"],"timing":d.timing}))).collect::<Vec<_>>();
     state.save(dir)?;
     Ok(
         json!({"subscriptions":subscriptions.iter().map(|s|s.public(now)).collect::<Vec<_>>(),"deliveries":deliveries,"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
     )
+}
+fn pending(d: &Delivery) -> bool {
+    matches!(d.status.as_str(), "pending" | "sending")
+}
+fn recent(d: &Delivery, now: i64) -> bool {
+    [
+        d.created_at,
+        d.attempted_at,
+        d.timing.queued_at.unwrap_or(0) / 1000,
+        d.timing.started_at.unwrap_or(0) / 1000,
+        d.timing.finished_at.unwrap_or(0) / 1000,
+    ]
+    .into_iter()
+    .any(|at| at > now.saturating_sub(3600))
+}
+pub(super) fn superseding_target<'a>(target: &Target, all: &'a [Target]) -> Option<&'a Target> {
+    if target.reachability.state != "failed" {
+        return None;
+    }
+    let failed_at = target.failure_at();
+    all.iter()
+        .filter(|t| {
+            t.source_id == target.source_id
+                && t.channel == target.channel
+                && t.target != target.target
+                && t.reachability.state == "verified"
+                && t.reachability.verified_at > failed_at
+        })
+        .max_by_key(|t| t.reachability.verified_at)
 }
 pub(crate) async fn notify_control(args: &Value) -> Result<Value> {
     let source_id = scope()?;

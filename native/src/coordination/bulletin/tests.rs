@@ -1,4 +1,37 @@
 use super::*;
+
+#[test]
+fn board_notification_attention_keeps_source_owned_route_details_and_compact_next() {
+    // Regression: board notification items discarded the target/thread and linked to an unfiltered notification history read.
+    let target = "session_010000000000000000000001";
+    let notifications = json!({"problems":[
+        {"id":"mine","sourceId":"source-a","reason":"delivery-failed","channel":"claude-session","target":target,"threadId":"thread-a","threadCount":1,"next":{"via":"query","op":"notify_status","args":{"target":target,"threadId":"thread-a","all":false}}},
+        {"id":"private","sourceId":"source-b","target":"private-target","next":{}}
+    ]});
+    let reader = Principal::Source {
+        source_id: "source-a".into(),
+        account_id: None,
+    };
+    let items = notification_attention_items(&notifications, &reader);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["kind"], "notification");
+    assert_eq!(items[0]["target"], target);
+    assert_eq!(items[0]["threadId"], "thread-a");
+    assert_eq!(
+        items[0]["next"]["args"],
+        json!({"target":target,"threadId":"thread-a","all":false})
+    );
+    assert!(!json!(items).to_string().contains("private-target"));
+    let spec = catalog()["ops"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|op| op["name"] == "notify_status")
+        .unwrap()
+        .clone();
+    crate::egress::validate_op(&spec, &items[0]["next"]["args"]).unwrap();
+}
+
 struct Fixture {
     store: Store,
     path: PathBuf,

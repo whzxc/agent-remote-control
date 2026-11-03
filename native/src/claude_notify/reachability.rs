@@ -14,6 +14,7 @@ pub(super) struct Reachability {
     expires_at: i64,
     identity_evidence: Value,
     pub verified_at: i64,
+    pub failed_at: i64,
 }
 impl Default for Reachability {
     fn default() -> Self {
@@ -28,18 +29,22 @@ impl Default for Reachability {
             expires_at: 0,
             identity_evidence: Value::Null,
             verified_at: 0,
+            failed_at: 0,
         }
     }
 }
 impl Reachability {
     pub fn expire(&mut self, now: i64) {
         if !self.challenge_hash.is_empty() && now >= self.expires_at {
+            let expired_at = self.expires_at.saturating_mul(1000);
             self.fail("handshake-timeout");
+            self.failed_at = expired_at;
         }
     }
     pub fn fail(&mut self, reason: &str) {
         self.state = "failed".into();
         self.reason = reason.into();
+        self.failed_at = chrono::Utc::now().timestamp_millis();
         self.challenge_hash.clear();
         self.expires_at = 0;
     }

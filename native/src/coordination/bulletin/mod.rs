@@ -353,23 +353,10 @@ async fn attention(reader: &Principal) -> Value {
         Ok(rows) => items.extend(rows),
         Err(_) => coverage["ax"] = json!("unavailable"),
     }
-    let mine = |id: &Value| match reader {
-        Principal::Source { source_id, .. } => id == source_id.as_str(),
-        _ => true,
-    };
     match crate::claude_notify::coordination_attention().await {
         Ok(notifications) => {
             coverage["notifications"] = notifications["coverage"].clone();
-            for problem in notifications["problems"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|p| mine(&p["sourceId"]))
-                .take(20)
-            {
-                items.push(json!({"kind":"notification","id":problem["id"],"ownerSourceId":problem["sourceId"],"reason":problem["reason"],
-                    "next":{"via":"query","op":"notify_status","args":{}}}));
-            }
+            items.extend(notification_attention_items(&notifications, reader));
         }
         Err(_) => coverage["notifications"] = json!("unavailable"),
     }
@@ -381,6 +368,15 @@ async fn attention(reader: &Principal) -> Value {
         });
     }
     json!({"count":items.len(),"items":items,"coverage":coverage})
+}
+pub(crate) fn notification_attention_items(
+    notifications: &Value,
+    reader: &Principal,
+) -> Vec<Value> {
+    notifications["problems"].as_array().into_iter().flatten().filter(|p| match reader {
+        Principal::Source { source_id, .. } => p["sourceId"] == source_id.as_str(),
+        _ => true,
+    }).take(20).map(|problem| json!({"kind":"notification","id":problem["id"],"ownerSourceId":problem["sourceId"],"reason":problem["reason"],"summary":format!("{}: {}{}", string(problem,"target"), string(problem,"reason"), problem["threadId"].as_str().map(|thread| format!(" (thread {thread})")).unwrap_or_default()),"channel":problem["channel"],"target":problem["target"],"threadId":problem["threadId"],"threadCount":problem["threadCount"],"next":problem["next"]})).collect()
 }
 fn session_result(op: &str, args: &Value, value: &mut Value) -> Result<()> {
     if op != "coordination_session" || !value["session"].is_object() {

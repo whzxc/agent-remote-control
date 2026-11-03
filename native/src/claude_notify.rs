@@ -3611,6 +3611,7 @@ mod tests {
             }
             .into();
             d.attempted_at = 100;
+            d.timing.queued_at = Some(100_000);
             let target = state.target(
                 &b.source_id,
                 b.channel,
@@ -3645,10 +3646,9 @@ mod tests {
         }
         state.save(&dir.0).unwrap();
         let compact = governance::status_in(&dir.0, "claude", &json!({}), now, &settings).unwrap();
-        assert_eq!(
-            compact["summary"],
-            json!({"totalTargets":8,"totalThreads":8,"totalBindings":9,"hidden":{"targets":0,"threads":4,"bindings":5}})
-        );
+        assert_eq!(compact["summary"]["totalBindings"], 9);
+        assert_eq!(compact["summary"]["hidden"]["threads"], 4);
+        assert_eq!(compact["summary"]["hidden"]["bindings"], 5);
         let recent = compact["threads"]
             .as_array()
             .unwrap()
@@ -3664,10 +3664,8 @@ mod tests {
             json!({"threadId":"recent"}),
         ] {
             let full = governance::status_in(&dir.0, "claude", &args, now, &settings).unwrap();
-            assert_eq!(
-                full["summary"]["hidden"],
-                json!({"targets":0,"threads":0,"bindings":0})
-            );
+            assert_eq!(full["summary"]["hidden"]["bindings"], 0);
+            assert_eq!(full["summary"]["hidden"]["deliveries"], 0);
             let recent = full["threads"]
                 .as_array()
                 .unwrap()
@@ -3689,6 +3687,226 @@ mod tests {
         let other =
             governance::status_in(&dir.0, "other", &json!({"all":true}), now, &settings).unwrap();
         assert_eq!(other["summary"]["totalBindings"], 0);
+    }
+
+    #[tokio::test]
+    async fn compact_notification_status_omits_history_and_retired_recovery_rows() {
+        // Regression: default notify_status returned nine-day-old deliveries and retired recovery rows in a megabyte-scale response.
+        let dir = Sandbox::new();
+        let at = 2_000_000;
+        let old = at - 9 * 86400;
+        let mut b = enqueue(&dir.0, "history", json!({"state":"completed"}), old).await;
+        b.deliveries[0].status = "delivered".into();
+        b.deliveries[0].timing = DeliveryTiming {
+            queued_at: Some(old * 1000),
+            ..Default::default()
+        };
+        persist(&dir.0, &b).unwrap();
+        for index in 0..40 {
+            b.turn_id = format!("old-{index}");
+            b.created_at = old + index;
+            let d = &mut b.deliveries[0];
+            d.event_id = b.turn_id.clone();
+            d.status = "delivered".into();
+            d.created_at = b.created_at;
+            d.attempted_at = b.created_at;
+            d.timing = DeliveryTiming {
+                queued_at: Some(b.created_at * 1000),
+                ..Default::default()
+            };
+            persist(&dir.0, &b).unwrap();
+        }
+        for (turn, time) in [("recent-predecessor", at - 2), ("latest", at - 1)] {
+            b.turn_id = turn.into();
+            b.created_at = time;
+            b.deliveries[0].event_id = turn.into();
+            b.deliveries[0].created_at = time;
+            b.deliveries[0].attempted_at = time;
+            b.deliveries[0].timing.queued_at = Some(time * 1000);
+            if turn == "latest" {
+                b.scope_end = Some("thread-archived".into());
+            }
+            persist(&dir.0, &b).unwrap();
+        }
+        b.thread_id = "pending".into();
+        b.turn_id = "waiting".into();
+        b.created_at = old;
+        b.deliveries[0].event_id = "pending-event".into();
+        b.deliveries[0].status = "pending".into();
+        b.deliveries[0].created_at = old;
+        b.deliveries[0].attempted_at = old;
+        b.deliveries[0].timing.queued_at = Some(old * 1000);
+        persist(&dir.0, &b).unwrap();
+        for time in [old, at - 1] {
+            b.thread_id = format!("recovered-{time}");
+            b.created_at = time;
+            b.deliveries[0].created_at = time;
+            b.deliveries[0].attempted_at = time;
+            b.deliveries[0].timing.queued_at = Some(time * 1000);
+            b.deliveries[0].event_id = b.thread_id.clone();
+            b.deliveries[0].task_state = "recovered".into();
+            b.deliveries[0].status = "inbox-only".into();
+            persist(&dir.0, &b).unwrap();
+        }
+        b.source_id = "other".into();
+        b.thread_id = "private-other-source".into();
+        b.deliveries[0].task_state = "completed".into();
+        b.deliveries[0].status = "pending".into();
+        persist(&dir.0, &b).unwrap();
+        for args in [json!({}), json!({"target":b.target,"all":false})] {
+            let result = governance::status_in(&dir.0, "claude", &args, at, &json!({})).unwrap();
+            let events: std::collections::BTreeSet<_> = result["deliveries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|d| string(d, "eventId"))
+                .collect();
+            assert_eq!(events, ["latest", "pending-event"].into());
+            assert_eq!(result["summary"]["hidden"]["recoveredDeliveries"], 2);
+            assert!(result["summary"]["hidden"]["deliveries"].as_u64().unwrap() > 40);
+            assert!(
+                result["summary"]["hidden"]["subscriptions"]
+                    .as_u64()
+                    .unwrap()
+                    > 40
+            );
+            let history = result["threads"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["threadId"] == "history")
+                .unwrap();
+            assert_eq!(history["turns"].as_array().unwrap().len(), 1);
+            assert_eq!(history["turns"][0]["turnId"], "latest");
+            assert!(!result.to_string().contains("private-other-source"));
+        }
+        let full =
+            governance::status_in(&dir.0, "claude", &json!({"all":true}), at, &json!({})).unwrap();
+        assert!(full["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["kind"] == "recovered"));
+        assert!(full["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["eventId"] == "old-0"));
+        assert_eq!(full["summary"]["hidden"]["deliveries"], 0);
+        assert_eq!(full["summary"]["hidden"]["subscriptions"], 0);
+    }
+
+    #[test]
+    fn notification_attention_identifies_routes_and_retires_only_superseded_failures() {
+        // Regression: board permanently listed anonymous failures for historical targets after the source verified its replacement target.
+        let dir = Sandbox::new();
+        let b = fixture(&dir.0);
+        let old = b.target.clone().unwrap();
+        let current = "session_010000000000000000000002";
+        let mut state = State::load(&dir.0).unwrap();
+        state.targets[0].reachability.state = "failed".into();
+        state.targets[0].reachability.reason = "delivery-failed".into();
+        state.targets[0].reachability.failed_at = 2000;
+        state.save(&dir.0).unwrap();
+        let attention = coordination_attention_in(&dir.0, 10).unwrap();
+        let problem = &attention["problems"][0];
+        assert_eq!(problem["target"], old);
+        assert_eq!(problem["threadId"], b.thread_id);
+        assert_eq!(
+            problem["next"]["args"],
+            json!({"target":old,"threadId":b.thread_id,"all":false})
+        );
+        let spec = catalog()["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|op| op["name"] == "notify_status")
+            .unwrap()
+            .clone();
+        crate::egress::validate_op(&spec, &problem["next"]["args"]).unwrap();
+        let detail =
+            governance::status_in(&dir.0, "claude", &problem["next"]["args"], 10, &json!({}))
+                .unwrap();
+        assert_eq!(detail["targets"][0]["target"], old);
+        assert_eq!(detail["threads"][0]["threadId"], b.thread_id);
+        let next = state.target("other", Channel::ClaudeSession, current, 10, &json!({}));
+        next.reachability.state = "verified".into();
+        next.reachability.verified_at = 5000;
+        state.save(&dir.0).unwrap();
+        assert_eq!(
+            coordination_attention_in(&dir.0, 10).unwrap()["problems"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        state.targets[1].source_id = "claude".into();
+        state.targets[1].channel = Channel::McpEvents;
+        state.save(&dir.0).unwrap();
+        assert_eq!(
+            coordination_attention_in(&dir.0, 10).unwrap()["problems"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        state.targets[1].channel = Channel::ClaudeSession;
+        state.save(&dir.0).unwrap();
+        assert!(coordination_attention_in(&dir.0, 10).unwrap()["problems"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let historical = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"target":old,"all":false}),
+            10,
+            &json!({}),
+        )
+        .unwrap();
+        assert_eq!(historical["targets"][0]["reachability"], "failed");
+        assert_eq!(historical["targets"][0]["supersededBy"], current);
+        state.targets[0].reachability.failed_at = 6000;
+        state.save(&dir.0).unwrap();
+        assert_eq!(
+            coordination_attention_in(&dir.0, 10).unwrap()["problems"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        state.targets[0].reachability.failed_at = 0;
+        state.targets[0].batches.push(governance::Batch {
+            id: "legacy-failure".into(),
+            at: 6,
+            kinds: Default::default(),
+            threads: vec![b.thread_id.clone()],
+            status: "failed".into(),
+            charged: true,
+        });
+        state.save(&dir.0).unwrap();
+        let legacy = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"target":old,"all":false}),
+            10_000,
+            &json!({}),
+        )
+        .unwrap();
+        assert!(legacy["targets"][0]["supersededBy"].is_null());
+        assert_eq!(
+            coordination_attention_in(&dir.0, 10_000).unwrap()["problems"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        state.targets[1].reachability.verified_at = 7000;
+        state.save(&dir.0).unwrap();
+        assert!(coordination_attention_in(&dir.0, 10).unwrap()["problems"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]
@@ -5272,17 +5490,40 @@ pub(crate) fn conversation_target_for_send(source: &str, task: &str) -> Result<O
         .and_then(|b| b.target))
 }
 
-/// Content-free local observation for the desktop event center. Target routes and
-/// raw delivery errors remain in the notification owner and its source controls.
+/// Source-owned route diagnostics. Shared board reads filter these by source.
 pub(crate) async fn coordination_attention() -> Result<Value> {
     let _guard = LOCK.lock().await;
-    let state = State::load(&directory())?;
-    let now = chrono::Utc::now().timestamp();
-    let mut problems = Vec::new();
-    for mut target in state.targets {
+    coordination_attention_in(&directory(), chrono::Utc::now().timestamp())
+}
+pub(super) fn coordination_attention_in(dir: &Path, now: i64) -> Result<Value> {
+    let mut state = State::load(dir)?;
+    for target in &mut state.targets {
         target.reachability.expire(now);
-        if target.reachability.state == "failed" {
-            problems.push(json!({"id":hash(json!([target.source_id,target.channel,target.target]).to_string()),"sourceId":target.source_id,"reason":target.reachability.reason}));
+    }
+    let bindings = shared_records(dir)?;
+    let mut problems = Vec::new();
+    for target in &state.targets {
+        if target.reachability.state == "failed"
+            && governance::superseding_target(target, &state.targets).is_none()
+        {
+            let threads: std::collections::BTreeSet<_> = bindings
+                .iter()
+                .filter(|b| {
+                    b.source_id == target.source_id
+                        && ((b.channel == target.channel
+                            && b.target.as_deref() == Some(&target.target))
+                            || b.deliveries
+                                .iter()
+                                .any(|d| d.channel == target.channel && d.target == target.target))
+                })
+                .map(|b| b.thread_id.as_str())
+                .collect();
+            let thread = (threads.len() == 1).then(|| *threads.first().unwrap());
+            let mut args = json!({"target":target.target,"all":false});
+            if let Some(thread) = thread {
+                args["threadId"] = json!(thread);
+            }
+            problems.push(json!({"id":hash(json!([target.source_id,target.channel,target.target]).to_string()),"sourceId":target.source_id,"channel":target.channel,"target":target.target,"threadId":thread,"threadCount":threads.len(),"reason":target.reachability.reason,"next":{"via":"query","op":"notify_status","args":args}}));
         }
     }
     let partial = problems.len() > 100;
