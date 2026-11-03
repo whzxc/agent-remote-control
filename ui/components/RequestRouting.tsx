@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useAppNow } from "../state/appEnvironment";
 import { t } from "../i18n";
 import type { RequestRouting as Routing } from "../state/requestRouting";
@@ -18,8 +19,8 @@ export default function RequestRouting({ routing, source, busy, change }: {
   return <div className="request-routing">
     {deferred && <span aria-hidden="true">{label}</span>}<span className={deferred ? "sr-only" : undefined} role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
     {(deferred || paused) && <div className="actions" data-routing-controls>
-      <Button variant="ghost" disabled={busy} onClick={() => void change(paused ? "resume" : "pause")}>{t(paused ? "routing.resume" : "routing.pause")}</Button>
-      <Button variant="secondary" disabled={busy} onClick={() => void change("handoff")}>{t("routing.handoff", { source })}</Button>
+      <Button variant="ghost" disabled={readOnlyBrowser || busy} onClick={() => void change(paused ? "resume" : "pause")}>{t(paused ? "routing.resume" : "routing.pause")}</Button>
+      <Button variant="secondary" disabled={readOnlyBrowser || busy} onClick={() => void change("handoff")}>{t("routing.handoff", { source })}</Button>
     </div>}
   </div>;
 }

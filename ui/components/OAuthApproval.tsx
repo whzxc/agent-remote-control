@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { nextSourceName } from "../controlSources";
@@ -37,13 +38,13 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
     {request.status === "pending" ? <>
       <div className="pairing-code-panel"><span>{t("connect.compareCode")}</span><strong className="pairing-code">{request.pairingCode ?? "—"}</strong></div>
       {request.switchSourceId && <><div className="pairing-claim"><Tag>{t("switch.claim", { name: fixed?.label ?? request.switchSourceId })}</Tag></div><p className="pairing-summary">{t(fixed?.connectionRemoved ? "switch.detached" : "switch.remaining", { connection: oldConnection?.name ?? fixed?.connectionName ?? t("source.connectionRemoved"), names: remaining.map(s => s.label).join(", ") || t("switch.none") })}</p></>}
-      {!request.switchSourceId && candidates.length > 0 && <SingleChoice label={t("source.authorization")} value={sourceId} onChange={setSourceId} disabled={busy} options={[{ value: "new", label: t("source.new") }, ...candidates.map(s => ({ value: s.id, label: t("source.reauthorize", { name: s.label }) }))]} />}
+      {!request.switchSourceId && candidates.length > 0 && <SingleChoice label={t("source.authorization")} value={sourceId} onChange={setSourceId} disabled={readOnlyBrowser || busy} options={[{ value: "new", label: t("source.new") }, ...candidates.map(s => ({ value: s.id, label: t("source.reauthorize", { name: s.label }) }))]} />}
       {!request.switchSourceId && sourceId === "new" && <Field id={`approval-label-${request.id}`} label={t("setup.accountName")} error={labelError}>
-        <Input id={`approval-label-${request.id}`} value={label} disabled={busy} aria-invalid={!!labelError} aria-describedby={labelError ? `approval-label-${request.id}-error` : undefined} onChange={e => { setLabel(e.target.value); setLabelError(""); }} />
+        <Input id={`approval-label-${request.id}`} value={label} disabled={readOnlyBrowser || busy} aria-invalid={!!labelError} aria-describedby={labelError ? `approval-label-${request.id}-error` : undefined} onChange={e => { setLabel(e.target.value); setLabelError(""); }} />
       </Field>}
       <p className="pairing-fact">{t("connect.client", { name: request.clientName })}</p>
       <p className="pairing-fact">{t("connect.scope", { scope: ingress.toolPolicy === "all" ? t("connect.allPermissions") : t("connect.selectedPermissions") })}</p>
-      {!inline && <div className="actions"><Button disabled={busy} onClick={() => void decide(false)}>{t("oauthDeny")}</Button><Button variant="primary" busy={busy} disabled={!request.switchSourceId && sourceId !== "new" && !candidates.some(s => s.id === sourceId)} onClick={() => void decide(true)}>{t("oauthAllow")}</Button></div>}
+      {!inline && <div className="actions"><Button disabled={readOnlyBrowser || busy} onClick={() => void decide(false)}>{t("oauthDeny")}</Button><Button variant="primary" busy={busy} disabled={readOnlyBrowser || !request.switchSourceId && sourceId !== "new" && !candidates.some(s => s.id === sourceId)} onClick={() => void decide(true)}>{t("oauthAllow")}</Button></div>}
     </> : <p>{t(request.status === "approved" ? "connect.returning" : request.status === "denied" ? "oauthDenied" : "oauthFinished")}</p>}
     {error && <Notice tone="danger">{error}</Notice>}
   </form>;

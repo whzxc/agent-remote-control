@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { RefreshCw } from "lucide-react";
 import { locale, t } from "../i18n";
 import { useNow } from "../state/hooks";
@@ -12,7 +13,7 @@ import { Button, IconButton } from "./ui";
 import UsageHistory from "../subscriptions/UsageHistory";
 import ResetCreditDetails from "../subscriptions/ResetCreditDetails";
 
-export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = false }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean }) {
+export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = readOnlyBrowser }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean }) {
   const now = useNow();
   locale.use();
   const display = quotaDisplay.use(), reset = resetDisplay.use();

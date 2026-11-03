@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
@@ -34,9 +35,9 @@ export function RelaySettings({ relay, version, refresh }: { relay: Relay; versi
     finally { setBusy(""); }
   }
   return <section className="relay-settings">
-    {ingress?.state !== "ready" && !operation && <Button disabled={!!busy} onClick={() => void action(relay.url ? "connect" : "redeploy")}>{t("retry")}</Button>}
-    {relay.owner && relay.workerVersion !== version && !operation && <Notice action={<Button disabled={!!busy} onClick={() => void action("redeploy")}>{t("connect.updateRelay")}</Button>}>{t("connect.updateAvailable")}</Notice>}
-    {operation && <>
+    {ingress?.state !== "ready" && !operation && <Button disabled={readOnlyBrowser || !!busy} onClick={() => void action(relay.url ? "connect" : "redeploy")}>{t("retry")}</Button>}
+    {relay.owner && relay.workerVersion !== version && !operation && <Notice action={<Button disabled={readOnlyBrowser || !!busy} onClick={() => void action("redeploy")}>{t("connect.updateRelay")}</Button>}>{t("connect.updateAvailable")}</Notice>}
+    {operation && !readOnlyBrowser && <>
       {progressError && <Notice>{t("connect.readFailed")}</Notice>}
       <RelayProgress progress={progress} busy={!!busy} account={account} setAccount={setAccount} onCancel={() => void action("cancel").then(ok => { if (ok) setOperation(""); })} onRetry={() => {
         if (operation === "join") { navigation.set(old => ({ ...old, page: "overview" })); openConnectionSetup({ method: "join" }); }

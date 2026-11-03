@@ -1,4 +1,4 @@
-import { apiUrl } from "../browserMode";
+import { apiUrl, readOnlyBrowser } from "../browserMode";
 import { createStore, acceptPreferences, preparePreferences, preference } from "./store";
 import { api } from "../api";
 import { isLocalSource } from "../sourcePresentation";
@@ -65,6 +65,8 @@ export function refreshConnector(): Promise<void> {
   return reading;
 }
 function accept(status: Status) {
+  const sources = (status as Status & { sources?: ControlSource[] }).sources;
+  if (sources) patch({ sources, sourcesLoaded: true });
   acceptPreferences((status as Status & {preferences?:Record<string,string>}).preferences || {});
   const previous = connector.get().status?.core.appServer.state;
   if (
@@ -91,7 +93,6 @@ export async function run(label: string, action: () => Promise<unknown>) {
 }
 export function startConnector() {
   let stopped = false;
-  let lastSnapshot = 0;
   let stream: EventSource | undefined;
   const read = () => {
     if (!stopped) void refreshConnector().catch(() => {});
@@ -104,16 +105,15 @@ export function startConnector() {
     stream.addEventListener("snapshot", (event) => {
       try {
         accept(JSON.parse((event as MessageEvent).data));
-        lastSnapshot = Date.now();
-        read();
+        if (!readOnlyBrowser) read();
       } catch {
         read();
       }
     });
-    stream.onerror = () => { lastSnapshot = 0; read(); };
+    stream.onerror = read;
   }
   const timer = setInterval(() => {
-    if (isDesktop || stream?.readyState !== EventSource.OPEN || connector.get().error || Date.now() - lastSnapshot > 5000) read();
+    if (isDesktop || stream?.readyState !== EventSource.OPEN || connector.get().error) read();
   }, 2000);
   return () => {
     stopped = true;

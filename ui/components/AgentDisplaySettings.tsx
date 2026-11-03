@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useState } from "react";
 import { t } from "../i18n";
 import { subscriptions, saveSubscriptions } from "../state/subscriptions";
@@ -82,7 +83,7 @@ export default function AgentDisplaySettings({
       <Group title={t("agentQuotaGroup")}>
         <Row title={t("usageEnabled")}>
           <Switch label={t("usageEnabled")} checked={!!snapshot?.settings.enabled}
-            disabled={saving || !snapshot}
+            disabled={readOnlyBrowser || saving || !snapshot}
             onChange={(enabled) => void save(() => saveSubscriptions({ enabled }))} />
         </Row>
         <Row title={t("agentQuotaDisplay")}>
@@ -120,7 +121,7 @@ export default function AgentDisplaySettings({
               )
             }
             label={t("usageAutoRefresh")}
-            disabled={saving || !snapshot}
+            disabled={readOnlyBrowser || saving || !snapshot}
             options={["1", "3", "5", "10"].map((value) => ({
               value,
               label: `${value} min`,

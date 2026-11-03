@@ -1,6 +1,5 @@
 import '../style.css';
 import '../product.css';
-import './browser.css';
 import { createRoot } from 'react-dom/client';
 import UiProvider from '../components/UiProvider';
 import BrowserApp from './BrowserApp';

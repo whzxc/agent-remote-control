@@ -59,7 +59,7 @@
         "properties": {},
         "additionalProperties": false
       },
-      "description": "tasks.list",
+      "description": "Read task list metadata with a first-line prompt preview capped at 256 characters and promptTruncated. List rows exclude attachments, full prompts, execution parameters and receipt evidence. Read the selected conversation timeline for task content.",
       "localOnly": true
     },
     {
@@ -3961,6 +3961,18 @@
       "route": "browser/access/rotate",
       "localOnly": true,
       "description": "Replace the read-only browser access key. Previous links and browser sessions stop working; active browser streams close within two seconds. Returns the replacement key and URLs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "browser.snapshot",
+      "method": "GET",
+      "route": "browser/snapshot",
+      "localOnly": true,
+      "description": "Read the browser display snapshot with source identities. Omits diagnostic logs, ingress request counters and duplicated platform catalogs. CLI status retains full diagnostics.",
       "inputSchema": {
         "type": "object",
         "properties": {},

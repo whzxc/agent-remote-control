@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
@@ -88,7 +89,7 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
   const modelChoices = [...new Set([...models.map(row => row.model), ...(model ? [model] : [])])]
     .map(id => ({ value: id, label: modelLabel(id, models) }));
   const label = withEffort ? t("dispatchDefaults.spec") : t("dispatchDefaults.model");
-  const picker = <ModelEffortPicker label={label} models={modelChoices} efforts={efforts} model={model} effort={effort}
+  const picker = <ModelEffortPicker disabled={readOnlyBrowser} label={label} models={modelChoices} efforts={efforts} model={model} effort={effort}
     inheritLabel={inheritLabel} withEffort={withEffort}
     onChange={next => onSave({ model: next.model,
       // Keep effort only while the newly selected model still supports it.
@@ -118,7 +119,7 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
 }) {
   const [open, setOpen] = useState(false);
   const pill = <SpecPill agent={agent} taskId={taskId} summary={summary} />;
-  if (!editable) return pill;
+  if (!editable || readOnlyBrowser) return pill;
   return <>
     <button type="button" className="task-spec-choice" aria-haspopup="dialog" aria-label={t("taskDispatch.title")} onClick={() => setOpen(true)}>
       {summary?.model ? pill : <span className="activity-spec">{t("taskDispatch.inherit")}</span>}

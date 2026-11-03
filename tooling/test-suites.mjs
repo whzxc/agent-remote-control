@@ -3,6 +3,7 @@ import { readdir } from 'node:fs/promises';
 // Native process fixtures and lifecycle waits run only on explicit request.
 const integration = new Set([
   'browser-native.test.ts',
+  'browser-traffic-native.test.ts',
   'acceptance-fault.test.ts', 'accounts.test.ts', 'agent-antigravity.test.ts', 'agent-archive.test.ts',
   'cli-failures.test.ts', 'cli-readiness.test.ts',
   'coordination-center-native.test.ts', 'control-mcp.test.ts', 'coordination-recovery.test.ts', 'desktop-dispatch.test.ts',

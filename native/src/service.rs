@@ -762,6 +762,9 @@ impl Service {
         }
         match (method, route) {
             ("GET", "browser/access") => return crate::browser::access(self, false).await,
+            ("GET", "browser/snapshot") => {
+                return self.status().await.map(crate::browser::compact_status)
+            }
             ("POST", "browser/access/rotate") => return crate::browser::access(self, true).await,
             ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
@@ -1467,7 +1470,9 @@ impl Service {
                         }
                     }
                     records.sort_by(|a, b| string(b, "createdAt").cmp(string(a, "createdAt")));
-                    Ok(json!({"records":records}))
+                    Ok(
+                        json!({"records":records.into_iter().map(crate::task_overview::display_record).collect::<Vec<_>>()}),
+                    )
                 }
                 ("POST", "tasks/open") => {
                     self.agents

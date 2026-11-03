@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useReducedMotion } from "../state/appEnvironment";
 import { useState, type ReactNode } from "react";
 import { motion, Reorder, useDragControls } from "motion/react";
@@ -26,7 +27,7 @@ import { springTransition } from "../motion/geometry";
 import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
 
 const canReorder = (agent: Agent) =>
-  agent.installed === true && agent.enabled === true;
+  !readOnlyBrowser && agent.installed === true && agent.enabled === true;
 
 const discoveryMessage = (agent: Agent) => {
   if (!agent.discoveryError) return "";
@@ -212,7 +213,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                   label={t("allowConnectorToUseValue", { agent: name(agent) })}
                   checked={agent.enabled === true}
                   disabled={
-                    !!state.saving ||
+                    readOnlyBrowser || !!state.saving ||
                     state.loading ||
                     agent.adapter?.state === "preparing" ||
                     typeof agent.enabled !== "boolean"

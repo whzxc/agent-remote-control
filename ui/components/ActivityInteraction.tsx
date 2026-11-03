@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import type { AgentActivitySession } from "../types";
 import { t } from "../i18n";
 import { activityApprovals, submitActivityApproval } from "../state/activity";
@@ -13,9 +14,9 @@ export default function ActivityInteraction({ agent, session }: { agent: string;
   if (submission?.status === "submitted" || submission?.status === "unconfirmed") return <span role="status">{t(submission.status === "submitted" ? "activity.submitted" : "activity.unconfirmed")}</span>;
   return <div className="activity-actions">
     <span className="activity-once">{t("timeline.allowOnce")}</span>
-    <Button variant="secondary" disabled={!permissionResponse(interaction, "deny") || !!submission && submission.decision !== "deny"} busy={submission?.status === "submitting" && submission.decision === "deny"} onClick={() => void submitActivityApproval(agent, session, "deny")}>{t("detail.reject")}</Button>
+    <Button variant="secondary" disabled={readOnlyBrowser || !permissionResponse(interaction, "deny") || !!submission && submission.decision !== "deny"} busy={submission?.status === "submitting" && submission.decision === "deny"} onClick={() => void submitActivityApproval(agent, session, "deny")}>{t("detail.reject")}</Button>
     <Tooltip text={t("detail.nativeBypassUnavailable")}><span tabIndex={0}><Button variant="secondary" disabled>{t("detail.bypass")}</Button></span></Tooltip>
-    <Button disabled={!permissionResponse(interaction, "allow") || !!submission && submission.decision !== "allow"} busy={submission?.status === "submitting" && submission.decision === "allow"} onClick={() => void submitActivityApproval(agent, session, "allow")}>{t("detail.approve")}</Button>
+    <Button disabled={readOnlyBrowser || !permissionResponse(interaction, "allow") || !!submission && submission.decision !== "allow"} busy={submission?.status === "submitting" && submission.decision === "allow"} onClick={() => void submitActivityApproval(agent, session, "allow")}>{t("detail.approve")}</Button>
     {!permissionResponse(interaction, "allow") && <span className="timeline-meta">{t("timeline.responseUnavailable")}</span>}
     {submission?.status === "pending" && <span role="status">{t("activity.checkResult")}</span>}
     {submission?.status === "failed" && <span role="alert">{taskErrorText(submission.error)}</span>}

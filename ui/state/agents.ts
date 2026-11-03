@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { decorativeSvg } from "../assets/brand-reserve/decorative";
 import { api } from "../api";
 import { createStore, preference } from "./store";
@@ -139,7 +140,7 @@ export function refreshAgents(manual = false): Promise<void> {
   if (pending) return pending;
   if (manual || !agents.get().loaded) patch({ loading: true });
   const version = revision;
-  pending = api<{ agents: Agent[] }>("agents", manual ? "POST" : "GET")
+  pending = api<{ agents: Agent[] }>("agents", manual && !readOnlyBrowser ? "POST" : "GET")
     .then((result) => {
       if (version !== revision) return;
       patch({ items: result.agents, loaded: true, error: "" });

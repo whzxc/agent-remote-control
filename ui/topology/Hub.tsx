@@ -56,7 +56,7 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
           <path className="hub-arc-stroke" data-hub-arc="bottom" d={mark.bottom} fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" pathLength="100" mask={`url(#${id}-power)`} />
         </svg>
       </button></Tooltip></div></div>
-    {!readOnly && (["source", "agent"] as const).map(side => {
+    {(["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;
       const label = t(source ? "addControlSource" : empty ? "addAgent" : "manageAgents");
       return <button key={side} type="button" className={`hub-entry hub-${side}`} data-empty={empty || undefined}

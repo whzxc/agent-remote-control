@@ -1,5 +1,4 @@
 import { readOnlyBrowser } from "../browserMode";
-import BrowserDetails from "../browser/BrowserDetails";
 import { activityState } from "../state/taskExecutionModel";
 import { taskExecution, taskExecutions } from "../state/taskExecution";
 import { pendingSessions } from "../state/taskInteractions";
@@ -78,7 +77,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, [newSourceId, flow]);
   const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection || !!nav.connectionsOpen || !!switching;
   const [panelExpanded, setPanelExpanded] = useState(false);
-  const panelKey = readOnlyBrowser ? undefined : selection && !selection.closing ? `agent:${agentPanelId(selection)}`
+  const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
     : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
   appEnvironment.use();
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ width: PANEL_MIN_WIDTH, expanded: false });
@@ -379,10 +378,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
-        {!readOnlyBrowser && selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
+        {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
           width={envOverrides().taskPanelWidth ?? panelLayout.width} expanded={envOverrides().taskPanelWidth == null && panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)}
           onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
-        {!readOnlyBrowser && sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
+        {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && (
@@ -399,14 +398,13 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
-      {readOnlyBrowser && <BrowserDetails />}
-      {!readOnlyBrowser && nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
+      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
         returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
         <ConnectionsContent />
       </Dialog>}
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
-      {!readOnlyBrowser && agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
-      {!readOnlyBrowser && displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
+      {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
+      {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
     </>
   );
 }

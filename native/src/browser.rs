@@ -65,7 +65,7 @@ fn same(a: &str, b: &str) -> bool {
         .fold(0u8, |difference, (a, b)| difference | (a ^ b))
         == 0
 }
-fn authenticated(headers: &hyper::HeaderMap, query: Option<&str>, page: bool, key: &str) -> bool {
+fn authenticated(headers: &hyper::HeaderMap, query: Option<&str>, key: &str) -> bool {
     let supplied: Vec<_> = url::form_urlencoded::parse(query.unwrap_or("").as_bytes())
         .filter(|(name, _)| name == "key")
         .map(|(_, value)| value.into_owned())
@@ -73,9 +73,12 @@ fn authenticated(headers: &hyper::HeaderMap, query: Option<&str>, page: bool, ke
     if !supplied.is_empty() {
         return supplied.len() == 1 && same(&supplied[0], key);
     }
-    // A fresh document navigation always requires the key URL, even in an authenticated browser.
-    if page {
-        return false;
+    if let Some(header) = headers.get("authorization") {
+        return header
+            .to_str()
+            .ok()
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .is_some_and(|value| same(value, key));
     }
     let expected = session(key);
     headers
@@ -105,6 +108,48 @@ fn empty(code: u16) -> Response<crate::wait_transport::Body> {
     response(code, Bytes::new(), None)
 }
 
+pub(crate) fn compact_status(mut value: Value) -> Value {
+    value.as_object_mut().unwrap().remove("logs");
+    if let Some(core) = value["core"].as_object_mut() {
+        core.remove("logs");
+    }
+    if let Some(ingresses) = value["ingresses"].as_array_mut() {
+        for ingress in ingresses {
+            if let Some(fields) = ingress.as_object_mut() {
+                for field in ["logs", "requests", "platformInfo"] {
+                    fields.remove(field);
+                }
+            }
+        }
+    }
+    value["sources"] = json!(crate::sources::control_sources().unwrap_or_default());
+    value
+}
+
+pub(crate) fn status_comparison(value: &Value) -> Value {
+    match value {
+        Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .filter(|(name, _)| {
+                    ![
+                        "observedAt",
+                        "sampledAt",
+                        "attemptedAt",
+                        "lastReadyAt",
+                        "requests",
+                        "logs",
+                    ]
+                    .contains(&name.as_str())
+                })
+                .map(|(name, value)| (name.clone(), status_comparison(value)))
+                .collect(),
+        ),
+        Value::Array(values) => Value::Array(values.iter().map(status_comparison).collect()),
+        _ => value.clone(),
+    }
+}
+
 fn allowed(route: &str, method: &str) -> bool {
     match method {
         "GET" => {
@@ -121,9 +166,16 @@ fn allowed(route: &str, method: &str) -> bool {
                     | "events"
                     | "subscriptions/events"
                     | "agents/activity/events"
+                    | "relay/list"
+                    | "relay/progress"
             ) || route
                 .strip_prefix("accounts/")
                 .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+                || ["agents/timeline/", "tasks/runtime/"].iter().any(|prefix| {
+                    route
+                        .strip_prefix(prefix)
+                        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+                })
         }
         "POST" => matches!(
             route,
@@ -131,6 +183,12 @@ fn allowed(route: &str, method: &str) -> bool {
                 | "agents/conversations/timeline"
                 | "coordination/board"
                 | "coordination/events"
+                | "agents/dispatch-catalog"
+                | "agents/dispatch-defaults/read"
+                | "agents/resources"
+                | "tasks/reviews"
+                | "tasks/control"
+                | "tasks/request-routing"
         ),
         _ => false,
     }
@@ -156,11 +214,17 @@ pub(crate) async fn handle(
     local_host: &str,
 ) -> Response<crate::wait_transport::Body> {
     let path = request.uri().path().to_owned();
+    let query = request.uri().query().map(str::to_owned);
+    let validator = request
+        .headers()
+        .get("if-none-match")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
     let page = path == "/" || path == "/browser.html";
     let Some(key) = stored_key() else {
         return empty(401);
     };
-    if !authenticated(request.headers(), request.uri().query(), page, &key) {
+    if !authenticated(request.headers(), query.as_deref(), &key) {
         return empty(401);
     }
     let address = ingress.mcp_url.lock().await.clone();
@@ -203,8 +267,23 @@ pub(crate) async fn handle(
             let Ok(body) = serde_json::from_slice::<Value>(&bytes) else {
                 return empty(400);
             };
-            let operation = route.replace('/', ".");
-            if crate::management::resolve(&operation, &json!({"body":body})).is_err() {
+            if (route == "tasks/control" && body["op"] != "codex_queue")
+                || (route == "tasks/request-routing" && body["action"] != "read")
+                || (route == "agents/resources" && body["action"] != "image")
+            {
+                return empty(403);
+            }
+            let catalog = crate::management::catalog();
+            let Some(operation) = catalog["operations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["route"] == route && op["method"] == "POST")
+            else {
+                return empty(403);
+            };
+            if crate::management::resolve(string(operation, "name"), &json!({"body":body})).is_err()
+            {
                 return empty(400);
             }
             Some(body)
@@ -219,12 +298,33 @@ pub(crate) async fn handle(
         else {
             return empty(503);
         };
+        let target_route = match route {
+            "status" => "browser/snapshot",
+            "events" => "browser/events",
+            _ => route,
+        };
+        let mut target = format!("http://127.0.0.1:{port}/api/{target_route}");
+        if route.starts_with("agents/timeline/") {
+            if let Some(after) =
+                url::form_urlencoded::parse(query.as_deref().unwrap_or("").as_bytes())
+                    .find(|(name, _)| name == "after")
+                    .map(|(_, value)| value.into_owned())
+            {
+                let Ok(after) = after.parse::<u64>() else {
+                    return empty(400);
+                };
+                target.push_str(&format!("?after={after}"));
+            }
+        }
         let mut upstream = client
             .request(
                 reqwest::Method::from_bytes(method.as_bytes()).unwrap(),
-                format!("http://127.0.0.1:{port}/api/{route}"),
+                target,
             )
             .bearer_auth(&ingress.token);
+        if let Some(validator) = &validator {
+            upstream = upstream.header("If-None-Match", validator);
+        }
         if let Some(body) = body {
             upstream = upstream.json(&body);
         }
@@ -275,7 +375,16 @@ pub(crate) async fn handle(
             return result;
         }
         return match upstream.bytes().await {
-            Ok(bytes) => response(200, bytes, Some("application/json")),
+            Ok(bytes) => {
+                let etag = format!("\"{}\"", hash(&bytes));
+                let mut result = if validator.as_deref() == Some(&etag) {
+                    empty(304)
+                } else {
+                    response(200, bytes, Some("application/json"))
+                };
+                result.headers_mut().insert("ETag", etag.parse().unwrap());
+                result
+            }
             Err(_) => empty(502),
         };
     }
@@ -307,7 +416,7 @@ pub(crate) async fn handle(
         result.headers_mut().insert(
             "Set-Cookie",
             format!(
-                "arc_browser={}; Path={base}/; Secure; HttpOnly; SameSite=Strict",
+                "arc_browser={}; Path={base}/; Max-Age=31536000; Secure; HttpOnly; SameSite=Strict",
                 session(&key)
             )
             .parse()

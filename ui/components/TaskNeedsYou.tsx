@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import RequestRouting from "./RequestRouting";
 import { useRequestRouting } from "../state/requestRouting";
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +30,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   const identity = pending && interactionKey(agent, pending);
   const routing = useRequestRouting(agent, session.id, pending?.interaction);
   const pauseOnInteraction = (event: React.SyntheticEvent<HTMLElement>) => {
+    if (readOnlyBrowser) return;
     const target = event.target as HTMLElement;
     if (event.type === "focus" && !target.matches("input, textarea, [contenteditable=true]")) return;
     if (target !== event.currentTarget && !target.closest("[data-routing-controls]")) void routing.change("pause");
@@ -52,7 +54,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
     <RequestRouting routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />
   </section>;
   if (!narrow) return <footer className="dialog-footer task-detail-footer">{dock}</footer>;
-  return <><footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}><Button variant="secondary" className="task-needs-banner" onClick={() => { void routing.change("pause"); setSheetOpen(true); }} aria-haspopup="dialog"><span><strong>{t("detail.needsYou")} · {count}</strong><span>{interaction?.summary}</span></span><span>{t("detail.openRequest")}</span></Button>{!sheetOpen && <><RequestRouting routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} /></>}</footer>
+  return <><footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}><Button variant="secondary" className="task-needs-banner" onClick={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} aria-haspopup="dialog"><span><strong>{t("detail.needsYou")} · {count}</strong><span>{interaction?.summary}</span></span><span>{t("detail.openRequest")}</span></Button>{!sheetOpen && <><RequestRouting routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} /></>}</footer>
     {sheetOpen && <Dialog sheet width={360} title={t("detail.needsYou")} onClose={() => setSheetOpen(false)} returnFocus=".task-needs-banner" footer={<Button variant="ghost" onClick={() => setSheetOpen(false)}>{t("detail.later")}</Button>}><div className="task-input-sheet">{dock}</div></Dialog>}
   </>;
 }

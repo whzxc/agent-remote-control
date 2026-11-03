@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { isTaskId } from "./taskProjection";
@@ -12,7 +13,7 @@ export interface RequestRouting {
 let presenceWrites = Promise.resolve();
 export function useTaskPresence(agent: string, taskId: string, enabled: boolean) {
   useEffect(() => {
-    if (!enabled || !isTaskId(taskId)) return;
+    if (readOnlyBrowser || !enabled || !isTaskId(taskId)) return;
     // Serial requests keep blur/close from being overtaken by an earlier heartbeat.
     const send = (present: boolean) => {
       presenceWrites = presenceWrites.then(() => api("tasks/presence", "POST", { agent, taskId, present })).then(() => {}, () => {});

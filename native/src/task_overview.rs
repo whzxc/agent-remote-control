@@ -1,6 +1,66 @@
 //! Bounded live enrichment of a native task page; never resumes tasks on reads.
 use crate::*;
 use tokio::time::{timeout_at, Duration, Instant};
+
+/// List rows carry display metadata. Prompts, attachments and receipt evidence
+/// remain with their owners and are read through the selected task's timeline.
+pub(crate) fn display_record(record: Value) -> Value {
+    fn fields(value: &Value, names: &[&str]) -> Value {
+        Value::Object(
+            names
+                .iter()
+                .filter_map(|name| value.get(*name).map(|v| ((*name).to_owned(), v.clone())))
+                .collect(),
+        )
+    }
+    let mut row = fields(
+        &record,
+        &[
+            "requestId",
+            "agent",
+            "agentAccountId",
+            "taskId",
+            "threadId",
+            "turnId",
+            "origin",
+            "state",
+            "createdAt",
+            "updatedAt",
+            "approval",
+            "executionOwner",
+            "open",
+            "runtime",
+            "error",
+        ],
+    );
+    let task = &record["task"];
+    row["task"] = fields(
+        task,
+        &[
+            "origin",
+            "agentAccountId",
+            "detailsRecorded",
+            "kind",
+            "title",
+            "project",
+            "directory",
+            "threadId",
+            "model",
+            "effort",
+        ],
+    );
+    let prompt = string(task, "prompt");
+    let preview: String = prompt
+        .lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(256)
+        .collect();
+    row["task"]["promptTruncated"] = json!(preview != prompt);
+    row["task"]["prompt"] = json!(preview);
+    row
+}
 pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Value> {
     let full = args["view"] == "full";
     let enrich = args["enrich"].as_bool().unwrap_or(args["archived"] != true);

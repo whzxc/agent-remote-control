@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../../browserMode";
 import PetPicker from '../../pets/PetPicker';
 import { useId, useRef, useState } from 'react';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
@@ -61,11 +62,11 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
           <IconButton icon={X} label={t('cancel')} disabled={busy} onClick={finishEditing} />
         </div>{error && <p id={`${labelId}-error`} className="field-error" role="alert">{error}</p>}
       </form> : <div className="connector-name flex min-w-0 flex-1 items-center gap-2"><h3 className="min-w-0 break-words">{source.label}</h3>
-        <IconButton ref={editTrigger} className="connector-rename shrink-0" icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />
+        <IconButton ref={editTrigger} disabled={readOnlyBrowser} className="connector-rename shrink-0" icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />
       </div>}
       <Status tone={source.state === 'connected' ? 'success' : 'neutral'}>{t(`source.state.${source.state}`)}</Status>
       <PetPicker scope={`source:${source.id}`} name={source.label} platform={controlSourcePlatform(source.product).id} />
-      <IconButton icon={Trash2} disabled={editing} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
+      <IconButton icon={Trash2} disabled={readOnlyBrowser || editing} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
     </div></CardHeader>
     <CardContent><dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2">{details.map(([name, value]) => <div key={name} className="min-w-0"><dt className="text-sm text-muted-foreground">{name}</dt><dd className="m-0 break-words"><Sensitive>{value}</Sensitive></dd></div>)}</dl></CardContent>
     {removing && <Dialog centered title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><Button disabled={busy} onClick={() => setRemoving(false)}>{t('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>

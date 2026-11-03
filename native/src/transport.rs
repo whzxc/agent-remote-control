@@ -280,6 +280,11 @@ async fn local_request(
         return local_reply(403, json!({"error":"unauthorized"}));
     }
     let sse = crate::wait_transport::accepts_sse(request.headers());
+    let validator = request
+        .headers()
+        .get("if-none-match")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
     let method = request.method().to_string();
     let path = request.uri().path().to_owned();
     let _desktop_permit = if path.strip_prefix("/api/").is_some_and(|route| {
@@ -335,14 +340,19 @@ async fn local_request(
     if method == "GET"
         && matches!(
             path.as_str(),
-            "/api/events" | "/api/subscriptions/events" | "/api/agents/activity/events"
+            "/api/events"
+                | "/api/browser/events"
+                | "/api/subscriptions/events"
+                | "/api/agents/activity/events"
         )
     {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         tokio::spawn(async move {
             let subscriptions = path == "/api/subscriptions/events";
             let activity = path == "/api/agents/activity/events";
+            let browser = path == "/api/browser/events";
             let mut previous = Value::Null;
+            let mut last_sent = tokio::time::Instant::now();
             let mut changes = s.subscriptions.subscribe();
             loop {
                 let snapshot = if activity {
@@ -351,7 +361,13 @@ async fn local_request(
                     json!(&*changes.borrow_and_update())
                 } else {
                     match tokio::select! { _ = tx.closed() => return, v = s.status() => v } {
-                        Ok(v) => v,
+                        Ok(v) => {
+                            if browser {
+                                crate::browser::compact_status(v)
+                            } else {
+                                v
+                            }
+                        }
                         Err(_) => return,
                     }
                 };
@@ -359,15 +375,20 @@ async fn local_request(
                 if activity {
                     comparison.as_object_mut().unwrap().remove("observedAt");
                 }
-                if !activity || comparison != previous {
+                if browser {
+                    comparison = crate::browser::status_comparison(&snapshot);
+                }
+                let frame = if (!activity && !browser) || comparison != previous {
                     previous = comparison;
-                    if tx
-                        .send(hyper::body::Bytes::from(format!(
-                            "event: snapshot\ndata: {snapshot}\n\n"
-                        )))
-                        .await
-                        .is_err()
-                    {
+                    Some(format!("event: snapshot\ndata: {snapshot}\n\n"))
+                } else if last_sent.elapsed() >= Duration::from_secs(15) {
+                    Some(": keepalive\n\n".to_owned())
+                } else {
+                    None
+                };
+                if let Some(frame) = frame {
+                    last_sent = tokio::time::Instant::now();
+                    if tx.send(hyper::body::Bytes::from(frame)).await.is_err() {
                         return;
                     }
                 }
@@ -462,6 +483,35 @@ async fn local_request(
     };
     let result = operation.await;
     match result {
+        Ok(v)
+            if path.starts_with("/api/")
+                && (method == "GET"
+                    || matches!(
+                        path.as_str(),
+                        "/api/agents/conversations"
+                            | "/api/agents/conversations/timeline"
+                            | "/api/tasks/reviews"
+                    )) =>
+        {
+            use http_body_util::Full;
+            let bytes = serde_json::to_vec(&v).unwrap();
+            let etag = format!("\"{}\"", hash(&bytes));
+            let unchanged = validator.as_deref() == Some(&etag);
+            hyper::Response::builder()
+                .status(if unchanged { 304 } else { 200 })
+                .header("Content-Type", "application/json")
+                .header("Cache-Control", "no-store")
+                .header("ETag", etag)
+                .body(
+                    Full::new(hyper::body::Bytes::from(if unchanged {
+                        Vec::new()
+                    } else {
+                        bytes
+                    }))
+                    .boxed(),
+                )
+                .unwrap()
+        }
         Ok(v) => local_reply(200, v),
         Err(e) => local_reply(400, json!({"error":e})),
     }

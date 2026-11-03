@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useState } from 'react';
 import { Popover } from 'radix-ui';
 import { PawPrint } from 'lucide-react';
@@ -11,7 +12,7 @@ export default function PetPicker({ scope, name, platform }: { scope: string; na
   const enabled = showPets.use();
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [open, setOpen] = useState(false);
-  if (!enabled) return null;
+  if (!enabled || readOnlyBrowser) return null;
   const inherited = selectPet({ id: scope, platform, brand: petBrand(scope.startsWith('agent:') ? scope.slice(6) : platform ?? '') }, library.packages, { ...assignments, [scope]: '' });
   const selected = library.packages.some(p => p.key === assignments[scope]) ? assignments[scope] : '';
   return <Popover.Root open={open} onOpenChange={value => { setOpen(value); if (value) void refreshPets(); }}>

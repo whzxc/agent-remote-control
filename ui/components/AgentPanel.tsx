@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { useReducedMotion } from "../state/appEnvironment";
@@ -54,7 +55,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
-          {agent.installed && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
+          {!readOnlyBrowser && agent.installed && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
             setError(""); void api("agents/open", "POST", { agent: agent.agent }).catch(error => setError(String(error)));
           }} />}
         </div>
@@ -69,8 +70,8 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
     <div className="agent-view-scroll">
       {error && <p className="timeline-error" role="alert">{error}</p>}
       {providerError && <Notice action={<IconButton icon={RefreshCw} size={16} label={t("usageRefresh")}
-        busy={refreshing || provider?.refreshing} onClick={() => void refresh()} />}>{providerError}</Notice>}
-      {provider ? <AgentQuota provider={provider} onRefresh={() => void refresh()} refreshing={refreshing} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
+        disabled={readOnlyBrowser} busy={refreshing || provider?.refreshing} onClick={() => void refresh()} />}>{providerError}</Notice>}
+      {provider ? <AgentQuota provider={provider} onRefresh={() => void refresh()} refreshing={refreshing} readOnly={readOnlyBrowser} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
       <AgentConversations key={`${agent.agent}:${accountId ?? ""}`} agent={agent.agent} account={account} accountId={accountId} active={active} />
     </div>
   </section>;

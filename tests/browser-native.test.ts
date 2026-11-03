@@ -28,9 +28,12 @@ test('browser ingress requires an independent key, exposes reads only, and revok
     const html = await page.text();
     assert.ok(!html.includes(access.key));
     const cookie = page.headers.get('set-cookie')!.split(';')[0];
-    assert.match(page.headers.get('set-cookie')!, /Secure; HttpOnly; SameSite=Strict/);
+    assert.match(page.headers.get('set-cookie')!, /Max-Age=31536000; Secure; HttpOnly; SameSite=Strict/);
     const headers = { Cookie: cookie };
-    assert.equal((await fetch(base + '/', { headers })).status, 401, 'Document navigation still requires the key URL.');
+    const reopened = await fetch(base + '/', { headers });
+    assert.equal(reopened.status, 200); await reopened.text();
+    const stored = await fetch(base + '/view-api/status', { headers: { Authorization: `Bearer ${access.key}` } });
+    assert.equal(stored.status, 200); await stored.text();
     const asset = html.match(/src="\.\/([^\"]+\.js)"/)![1];
     assert.equal((await fetch(`${base}/${asset}`, { headers })).status, 200);
     const status = await fetch(`${base}/view-api/status`, { headers });
@@ -41,6 +44,10 @@ test('browser ingress requires an independent key, exposes reads only, and revok
     assert.equal(deniedWrite.status, 403);
     assert.equal((await fixture.api('ingress')).find((row: any) => row.id === 'browser').running, true);
     assert.equal((await fetch(`${base}/view-api/config/credentials`, { headers })).status, 403);
+    const controlWrite = await fetch(`${base}/view-api/tasks/control`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'codex_queue_control', args: { action: 'cancel' } }) });
+    assert.equal(controlWrite.status, 403);
+    const routingWrite = await fetch(`${base}/view-api/tasks/request-routing`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'handoff' }) });
+    assert.equal(routingWrite.status, 403);
     assert.equal((await fetch(`${base}/api/status`, { headers })).status, 404);
     assert.equal((await fetch(`${base}/mcp`, { headers: { Authorization: `Bearer ${access.key}` } })).status, 401);
     const stream = await fetch(`${base}/view-api/events`, { headers, signal: AbortSignal.timeout(10000) });

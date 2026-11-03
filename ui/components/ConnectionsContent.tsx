@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
@@ -32,7 +33,7 @@ export default function ConnectionsContent() {
   }
   return <div className="grid min-w-0 gap-4">
     {readError && <Notice>{readError}</Notice>}
-    <Button className="justify-self-start" data-new-connection variant="primary" onClick={() => openConnectionSetup()}>{t("source.newConnection")}</Button>
+    <Button disabled={readOnlyBrowser} className="justify-self-start" data-new-connection variant="primary" onClick={() => openConnectionSetup()}>{t("source.newConnection")}</Button>
     {entries.map(connection => {
       const relay = relays.relays.find(r => r.ingressId === connection.id);
       const attached = visible.filter(s => s.ingressId === connection.id);
@@ -41,8 +42,8 @@ export default function ConnectionsContent() {
           <Icon icon={connectionIcon(connection)} size={20} />
           <h3 className="min-w-0 flex-1 break-words">{connection.name}</h3>
           <Status tone={connection.state === "ready" ? "success" : "neutral"}>{t(connection.state === "ready" ? "connect.online" : "connect.offline")}</Status>
-          <IconButton icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
-          {!["local", "relay"].includes(connection.transport) && <IconButton icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
+          <IconButton disabled={readOnlyBrowser} icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
+          {!["local", "relay"].includes(connection.transport) && <IconButton disabled={readOnlyBrowser} icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
         </div></CardHeader>
         <CardContent className="grid min-w-0 gap-4 px-4">
           {connection.url && <CopyField value={connection.url} label={t("source.copyAddress")} />}

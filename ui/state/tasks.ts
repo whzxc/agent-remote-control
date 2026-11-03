@@ -24,13 +24,12 @@ export interface TaskRecord {
     kind: string;
     title?: string;
     prompt: string;
-    input: unknown;
+    promptTruncated?: boolean;
     project?: string;
     directory?: string;
     threadId?: string;
     model?: string;
     effort?: string;
-    settings: unknown;
   };
 }
 export interface TaskRuntime {

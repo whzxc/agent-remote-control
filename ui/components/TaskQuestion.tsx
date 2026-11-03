@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { useId } from "react";
 import type { AgentActivitySession } from "../types";
 import { t } from "../i18n";
@@ -37,11 +38,11 @@ export default function TaskQuestion({ agent, session, answers, onAnswersChange 
     if (payload) void submitActivityResponse(agent, session, skip ? "cancel" : "answer", payload);
   };
   return <form className="task-question" onSubmit={event => { event.preventDefault(); send(false); }}>
-    <div className="task-question-options">{questions.map(question => <QuestionField key={question.id} question={question} value={answers[question.id] ?? []} onChange={value => onAnswersChange({ ...answers, [question.id]: value })} disabled={locked || !supported} />)}</div>
+    <div className="task-question-options">{questions.map(question => <QuestionField key={question.id} question={question} value={answers[question.id] ?? []} onChange={value => onAnswersChange({ ...answers, [question.id]: value })} disabled={readOnlyBrowser || locked || !supported} />)}</div>
     {!supported && <p className="timeline-meta">{t("timeline.responseUnavailable")}</p>}
     {submission?.status === "unconfirmed" && <p role="status">{t("activity.unconfirmed")}</p>}
     {submission?.status === "failed" && <p role="alert">{taskErrorText(submission.error)}</p>}
-    <div className="actions"><Button variant="ghost" disabled={!supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed"} onClick={() => send(true)}>{t("detail.skip")}</Button>
-      <Button type="submit" disabled={!inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed"} busy={submission?.status === "submitting"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></div>
+    <div className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed"} onClick={() => send(true)}>{t("detail.skip")}</Button>
+      <Button type="submit" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed"} busy={submission?.status === "submitting"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></div>
   </form>;
 }
