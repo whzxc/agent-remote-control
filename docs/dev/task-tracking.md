@@ -187,7 +187,7 @@ Work steps use one-line kind/title/status/timing summaries. Commands and paths a
 
 Earlier turns initially collapse to a card showing turn number, known source/model/duration, a one-line prompt, and a two-line answer preview. Expanded earlier turns have an explicit collapse control. The latest turn remains expanded. Expanded turn headers stick to the top of the timeline scroll viewport.
 
-Terminal task details read the selected turn's review only when Review information is expanded. The disclosure belongs to its selected task and turn. A recorded review uses the final-answer card surface, with a review heading, verdict, reviewer, timestamp, and optional note. Loading, empty results, and read failures remain inside the expanded region. Read failures retain an actionable retry notice.
+Terminal task details read the selected turn's review automatically. A recorded review uses the final-answer card surface, with a review heading, verdict, reviewer, timestamp, and optional note. No review section or placeholder is shown while loading or when no review exists. Read failures retain an actionable retry notice.
 
 Radix Collapsible owns keyboard/semantics. motion animates height around 180ms. Live reduced-motion changes immediately stop mounted transitions and icon rotation. Expansion affects only timeline content, never polling/cursors/follow behavior/panel shell. All colors use semantic light/dark tokens.
 

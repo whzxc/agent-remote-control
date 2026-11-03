@@ -5,8 +5,8 @@ import { createServer } from "vite";
 import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
-test("task reviews stay on demand and read failures preserve the completed result", async () => {
-  // Regression: 23321b6f loaded unavailable review data before the supplementary disclosure was opened.
+test("terminal task reviews load automatically and retry without changing execution results", async () => {
+  // Regression: f368ed92 replaced automatic terminal review reads with a disclosure and an empty placeholder.
   const window = new Window({ url: "http://localhost" });
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, { window, document: window.document, location: window.location,
@@ -41,31 +41,21 @@ test("task reviews stay on demand and read failures preserve the completed resul
       expanded: false, onToggleWidth() {}, onBack() {},
     }))));
     const page = within(mount);
-    const disclosure = () => page.getByRole("button", { name: t("detail.reviewInfo"), exact: true });
     const completed = () => assert.equal(taskPanelSnapshot().state, "done");
     await render("sample-task", "first");
     completed();
-    assert.equal(disclosure().getAttribute("aria-expanded"), "false");
-    assert.equal(page.queryByRole("alert"), null);
-    await act(() => fireEvent.click(disclosure()));
-    const supplementary = within(page.getByRole("region", { name: t("detail.reviewInfo"), exact: true }));
-    assert.ok(supplementary.getByRole("alert"));
-    completed();
+    const failure = within(page.getByRole("alert"));
+    assert.ok(failure.getByRole("button", { name: t("retry"), exact: true }));
     unavailable = false;
-    await act(() => fireEvent.click(supplementary.getByRole("button", { name: t("retry"), exact: true })));
-    assert.ok(supplementary.getByText(note, { exact: true }));
-    assert.equal(supplementary.queryByRole("alert"), null);
+    await act(() => fireEvent.click(failure.getByRole("button", { name: t("retry"), exact: true })));
+    assert.ok(page.getByText(note, { exact: true }));
+    assert.equal(page.queryByRole("alert"), null);
     completed();
-    unavailable = true;
     await render("sample-task", "second");
-    assert.equal(disclosure().getAttribute("aria-expanded"), "false");
     assert.equal(page.queryByRole("alert"), null);
     assert.equal(page.queryByText(note, { exact: true }), null);
-    await act(() => fireEvent.click(disclosure()));
-    assert.ok(page.getByRole("alert"));
-    await render("another-task", "second");
-    assert.equal(disclosure().getAttribute("aria-expanded"), "false");
-    assert.equal(page.queryByRole("alert"), null);
+    assert.equal(page.queryByText(t("detail.reviewInfo"), { exact: true }), null);
+    assert.equal(taskPanelSnapshot().review, undefined);
     completed();
   } finally { await act(() => root.unmount()); globalThis.fetch = beforeFetch; await server.close(); await window.happyDOM.close(); }
 });

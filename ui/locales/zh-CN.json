@@ -1328,7 +1328,6 @@
   "platforms.removeConfirm": "撤销此连接器的访问权限并保留历史记录。其他连接器和设备连接不受影响。",
   "connections.title": "连接",
   "detail.reviewInfo": "审阅信息",
-  "detail.reviewEmpty": "暂无审阅记录。",
   "detail.reviewUnavailable": "暂时无法读取审阅信息。",
   "sourcePanel.awaitingApproval": "等待派发批准",
   "sourcePanel.submitting": "提交中",
