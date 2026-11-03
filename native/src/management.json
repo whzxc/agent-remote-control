@@ -135,18 +135,6 @@
       "localOnly": true
     },
     {
-      "name": "updates.status",
-      "method": "GET",
-      "route": "updates",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "description": "updates.status",
-      "localOnly": true
-    },
-    {
       "name": "app.status",
       "method": "GET",
       "route": "app",
@@ -231,30 +219,6 @@
       "localOnly": true
     },
     {
-      "name": "updates.check",
-      "method": "POST",
-      "route": "updates/check",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "description": "updates.check",
-      "localOnly": true
-    },
-    {
-      "name": "updates.cancel",
-      "method": "POST",
-      "route": "updates/cancel",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "description": "updates.cancel",
-      "localOnly": true
-    },
-    {
       "name": "agents.refresh",
       "method": "POST",
       "route": "agents",
@@ -300,62 +264,6 @@
         "additionalProperties": false
       },
       "description": "codex.login.open",
-      "localOnly": true
-    },
-    {
-      "name": "updates.download",
-      "method": "POST",
-      "route": "updates/download",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "body": {
-            "type": "object",
-            "properties": {
-              "version": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "version"
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "body"
-        ]
-      },
-      "description": "updates.download",
-      "localOnly": true
-    },
-    {
-      "name": "updates.install",
-      "method": "POST",
-      "route": "updates/install",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "body": {
-            "type": "object",
-            "properties": {
-              "version": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "version"
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "body"
-        ]
-      },
-      "description": "updates.install",
       "localOnly": true
     },
     {

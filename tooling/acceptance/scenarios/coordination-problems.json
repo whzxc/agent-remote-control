@@ -78,11 +78,8 @@
   ],
   "update": {
     "phase": "idle",
-    "update": {
-      "available": false,
-      "version": "0.0.1"
-    },
-    "error": "Synthetic update failure"
+    "error": "Synthetic update failure",
+    "ready": false
   },
   "studio": "day"
 }

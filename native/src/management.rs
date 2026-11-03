@@ -254,11 +254,6 @@ pub fn desktop_route(route: &str) -> bool {
             | "app/snapshot"
             | "app/quit"
             | "app/restart"
-            | "updates"
-            | "updates/check"
-            | "updates/download"
-            | "updates/install"
-            | "updates/cancel"
     )
 }
 

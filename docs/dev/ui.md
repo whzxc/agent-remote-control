@@ -151,7 +151,7 @@ Settings retain homepage count, remaining/used, countdown/date, enablement, and 
 
 ## Update notification
 
-The update popover keeps its header and action footer outside a single scrolling body. Release notes scroll within the viewport. Downloading shows byte progress and a cancel action. A ready download exposes **Update and restart**, which immediately installs and restarts without a timing picker, task-impact groups, countdown or confirmation. Running ARC tasks are interrupted. `?scenario=updates-long-notes` supplies long Release notes for this layout.
+The update popover keeps its header and action footer outside a single scrolling body. Release notes scroll within the viewport. Downloading shows byte progress from the official updater events. A ready download exposes **Update and restart**, which immediately installs and restarts without a timing picker, task-impact groups, countdown or confirmation. Running ARC tasks are interrupted. `?scenario=updates-long-notes` supplies long Release notes for this layout.
 
 ## Verification
 

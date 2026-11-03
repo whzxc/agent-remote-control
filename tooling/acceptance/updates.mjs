@@ -5,9 +5,10 @@ import { createHash } from 'node:crypto';
 import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdir, mkdtemp, readFile, writeFile, rm, open, realpath} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, writeFile, open, realpath} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+import { build as buildClient } from 'vite';
 
 // Real signed updater bytes, a private HTTP endpoint, and a disposable app/state.
 // No request in this runner targets the user's installed ARC state directory.
@@ -27,9 +28,27 @@ const name = 'acceptance.app.tar.gz';
 let payload;
 let expected;
 let checkError = false, assetError = false, child;
+let observed, instance, nextId = 0, waiting;
+const commands = [], results = new Map();
+const clientDirectory = path.join(out, 'client');
 const transfers = [], report = {cases:[], temporary, stateDir, version:manifest.version};
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
-const server = createServer((req,res)=>{
+const server = createServer(async (req,res)=>{
+  res.setHeader('Access-Control-Allow-Origin','*');
+  if (req.url === '/next') {
+    if (commands.length) res.end(JSON.stringify(commands.shift()));
+    else { waiting = res; res.on('close',()=>{ if(waiting===res) waiting=undefined; }); }
+    return;
+  }
+  if (req.method === 'POST') {
+    let body='';for await (const chunk of req) body+=chunk;
+    const value = JSON.parse(body);
+    if (req.url === '/hello') { instance=value.instance; observed=undefined; }
+    if (req.url === '/state' && value.instance===instance) observed=value.view;
+    if (req.url === '/result') results.set(value.id,value);
+    if (req.url === '/error') (report.runtimeErrors ??= []).push(value.error);
+    res.end('{}');return;
+  }
   if(req.url === '/latest.json') {
     res.setHeader('Content-Type','application/json');
     res.writeHead(checkError ? 503 : 200);
@@ -45,10 +64,31 @@ const server = createServer((req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const endpoint = `http://127.0.0.1:${server.address().port}`;
+await buildClient({ configFile: false, logLevel: 'error', define: {'process.env.NODE_ENV':JSON.stringify('production'),'__UPDATE_ACCEPTANCE_ENDPOINT__':JSON.stringify(endpoint)}, build: { outDir: clientDirectory,
+  lib: { entry: path.join(root, 'tooling/acceptance/update-client.ts'), formats: ['es'], fileName: 'client' },
+  rolldownOptions: { output: { codeSplitting: false } } } });
+await writeFile(path.join(clientDirectory,'index.html'), '<script type="module" src="./client.js"></script>');
+
 
 const config = path.join(out, 'updater-config.json');
 const mainWindow = JSON.parse(await readFile('desktop/tauri.conf.json','utf8')).app.windows[0];
-await writeFile(config, JSON.stringify({identifier:'com.whzxc.agent-remote-control',app:{windows:[{...mainWindow,incognito:true,visible:false,title:'ARC Update Acceptance'}]},plugins:{updater:{endpoints:[endpoint+'/latest.json'],dangerousInsecureTransportProtocol:true}}}));
+await writeFile(config, JSON.stringify({identifier:'com.whzxc.agent-remote-control',
+  build:{frontendDist:clientDirectory},
+  app:{windows:[{...mainWindow,url:'index.html',incognito:true,visible:false,focus:false,title:'ARC Update Acceptance'}],
+    security:{csp:`default-src 'self'; connect-src ipc: http://ipc.localhost ${endpoint}; style-src 'self' 'unsafe-inline'`}},
+  plugins:{updater:{endpoints:[endpoint+'/latest.json'],dangerousInsecureTransportProtocol:true}}}));
+function submit(action) {
+  const command={id:++nextId,action};
+  if(waiting){waiting.end(JSON.stringify(command));waiting=undefined;}else commands.push(command);
+  return command.id;
+}
+async function run(action) {
+  const id=submit(action);
+  const result=await until(async()=>results.get(id),Boolean);
+  if(result.error)throw new Error(result.error);
+  return result.view;
+}
+
 async function command(args, options={}) {
   return execute(args[0], args.slice(1), {env:environment, timeout:180_000, maxBuffer:16*1024*1024,...options});
 }
@@ -58,32 +98,27 @@ async function cli(...args) {
   if(!value.ok) throw new Error(JSON.stringify(value.error));
   return value.result;
 }
-async function call(op, body) {
-  if(body===undefined) return cli('call',op);
-  const child=spawn(path.join(candidate,'Contents/Resources/bin/arc'),['cli','call',op,'--stdin'],{env:environment,stdio:['pipe','pipe','pipe'],timeout:180_000});
-  let stdout='',stderr='';child.stdout.on('data',chunk=>stdout+=chunk);child.stderr.on('data',chunk=>stderr+=chunk);
-  child.stdin.end(JSON.stringify(body));
-  const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});
-  const value=JSON.parse(stdout);
-  if(code || !value.ok) throw new Error(JSON.stringify(value.error ?? stderr));
-  return value.result;
-}
 async function until(read, accept, timeout=90_000) {
   const deadline=Date.now()+timeout;let last;
-  while(Date.now()<deadline) {try {last=await read();} catch(error){last=String(error);await sleep(150);continue;}if(accept(last))return last;await sleep(150);}
+  while(Date.now()<deadline) {if(report.runtimeErrors?.length)throw new Error(report.runtimeErrors.join('\n'));try {last=await read();} catch(error){last=String(error);await sleep(150);continue;}if(accept(last))return last;await sleep(150);}
   throw new Error('Acceptance timed out: '+JSON.stringify(last));
 }
 async function launch() {
+  observed=undefined; instance=undefined;
   const log=await open(path.join(out,'desktop.log'),'a');
   child=spawn(path.join(target,'Contents/MacOS/agent-remote-control-desktop'),['--state-dir',stateDir],{env:environment,stdio:['ignore',log.fd,log.fd]});
   child.on('error',error=>{report.launchError=String(error);});
   child.on('exit',()=>void log.close());
   await until(()=>cli('app','status'),status=>status.executable.startsWith(target));
+  await until(async()=>observed,Boolean);
 }
 async function quit() {
   const app=await cli('app','status'), health=await cli('call','health');
   await cli('app','quit');
-  await until(async()=>[app.pid,health.pid].every(pid=>{try{process.kill(pid,0);return false;}catch{return true;}}),Boolean);
+  const stopped=()=>[app.pid,health.pid].every(pid=>{try{process.kill(pid,0);return false;}catch{return true;}});
+  const deadline=Date.now()+30_000;
+  while(!stopped() && Date.now()<deadline) await sleep(100);
+  if(!stopped()) throw new Error('Disposable Desktop or Core did not exit');
 }
 async function regression(name, run) {
   const started=Date.now();console.log('START '+name);
@@ -105,36 +140,29 @@ try {
   const app=await build('0.0.0');
   await command(['/usr/bin/ditto',app,target]);await command(['/usr/bin/ditto',app,candidate]);
   await launch();
-  await regression('automatic downloading joins manual checks and downloads without busy errors',async()=>{
-    // Regression: UI and hourly checks launched overlapping downloads and displayed a transient busy failure.
-    await until(()=>call('updates.status'),status=>{assert.equal(status.error??null,null);return status.phase==='downloading';});
-    const requests=[call('updates.check'),call('updates.check'),call('updates.download',{body:{version:manifest.version}})];
-    const snapshots=[];let finished=false;
-    const results=Promise.all(requests).finally(()=>finished=true);
-    while(!finished){snapshots.push(await call('updates.status'));await sleep(100);}
-    for(const result of await results){assert.equal(result.version,manifest.version);assert.equal(result.ready,true);}
-    assert.ok(snapshots.some(status=>status.phase==='downloading'));
-    assert.ok(snapshots.every(status=>!status.error));
-    for(let index=1;index<snapshots.length;index++)assert.ok(snapshots[index].revision>=snapshots[index-1].revision);
-    report.snapshots=snapshots;
+  await regression('automatic and manual checks share the official download',async()=>{
+    // Regression: manual checks duplicated an automatic download and surfaced busy errors.
+    await until(async()=>observed,status=>{if(status?.error)throw new Error(status.error);return status?.phase==='downloading';});
+    const states=await Promise.all([run('check'),run('check'),run('download')]);
+    for(const status of states){assert.equal(status.error,'');assert.equal(status.version,manifest.version);assert.equal(status.ready,true);}
   });
-  await regression('failed checks discard the previous version and offer',async()=>{
-    // Regression: a check failure kept an old version and its download action visible.
-    checkError=true;await assert.rejects(()=>call('updates.check'));
-    const status=await call('updates.status');assert.equal(status.phase,'idle');assert.equal(status.update,null);assert.equal(status.errorStage,'check');assert.ok(status.error);
+  await regression('failed checks discard the previous offer',async()=>{
+    // Regression: a failed check retained an old version and its install button.
+    checkError=true;
+    const status=await run('check');assert.ok(status.error);assert.equal(status.version,undefined);assert.equal(status.ready,false);
     checkError=false;
   });
   await quit();await launch();
-  await regression('restarting discards historical offers and download readiness',async()=>{
-    // Regression: restarted Desktop offered an old persisted version after a failed check.
-    const status=await call('updates.status');assert.equal(status.update,null);assert.equal(status.error,null);assert.equal(status.downloaded,0);
+  await regression('recreated renderer has no stale offer or download handle',async()=>{
+    // Regression: recreated update UI must not claim readiness for a released WebView resource.
+    assert.equal(observed.version,undefined);assert.equal(observed.ready,false);assert.equal(observed.error,'');
   });
-  await regression('download failures identify their stage and manual retry verifies signed bytes',async()=>{
-    // Regression: automatic download errors were reported as check failures and competed with manual retry.
-    assetError=true;await assert.rejects(()=>call('updates.check'));
-    const failed=await call('updates.status');assert.equal(failed.errorStage,'download');assert.equal(failed.update.version,manifest.version);assert.equal(failed.update.ready,false);
-    assetError=false;const result=await call('updates.download',{body:{version:manifest.version}});assert.equal(result.ready,true);
-    const ready=await call('updates.status');assert.equal(ready.error,null);assert.equal(ready.downloaded,payload.length);
+  await regression('official download errors remain retryable on the same Update resource',async()=>{
+    // Regression: download failure cleared the pending version and prevented a direct retry.
+    assetError=true;
+    const failed=await run('check');assert.ok(failed.error);assert.equal(failed.version,manifest.version);assert.equal(failed.ready,false);
+    assetError=false;
+    const ready=await run('download');assert.equal(ready.error,'');assert.equal(ready.ready,true);assert.equal(ready.downloaded,payload.length);
   });
   await regression('downloaded update installs and restarts directly with the feed offline', async()=>{
     // Regression: a ready update was routed through settling, countdown and task recovery instead of installing immediately.
@@ -147,8 +175,7 @@ try {
     assert.equal(lease.ok,true);
     assetError = true; checkError = true;
     const started = Date.now();
-    const installed = await call('updates.install', {body:{version:manifest.version}});
-    assert.equal(installed.restarting, true);
+    submit('install');
     const running = await until(()=>cli('app','status'), app=>app.version===manifest.version && app.build===expected.desktop, 30_000);
     const core = await until(()=>cli('call','health'), health=>health.build===expected.core && health.state==='ready', 15_000);
     assert.notEqual(running.pid,before.pid);

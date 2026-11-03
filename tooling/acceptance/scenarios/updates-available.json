@@ -10,12 +10,9 @@
   },
   "update": {
     "phase": "idle",
-    "update": {
-      "available": true,
-      "version": "1.2.3",
-      "notes": "Improve connection stability.\nFix task history loading.",
-      "ready": true
-    }
+    "version": "1.2.3",
+    "notes": "Improve connection stability.\nFix task history loading.",
+    "ready": true
   },
   "updatePanel": false
 }

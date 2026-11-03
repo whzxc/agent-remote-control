@@ -5,7 +5,7 @@ import { trackedActivity } from '../state/activityBubbles';
 import { taskExecutions } from '../state/taskExecution';
 import { activityApprovals, agentActivity } from '../state/activity';
 import { connector } from '../state/connector';
-import { updates, updateObservation } from '../state/updates';
+import { updates } from '../state/updates';
 import { liveRecord, taskAttention, type Attention, type BoardPage } from './model';
 
 export const centerView = createStore<{ view: 'current' | 'activity'; filter: 'all' | 'attention' | 'input'; resource: string; history: boolean }>({ view: 'current', filter: 'all', resource: '', history: false });
@@ -55,7 +55,7 @@ export function useBoardObservation(enabled: boolean) {
 }
 export function attentionProjection() {
   const tasks = taskAttention(trackedActivity.get(), taskExecutions.get(), activityApprovals.get()), board = boardObservation.get();
-  const connection = connector.get(), update = updates.get(), updateCoverage = updateObservation.get(), observed = agentActivity.get();
+  const connection = connector.get(), update = updates.get(), observed = agentActivity.get();
   const items: Attention[] = [...tasks, ...(board.page?.blockers ?? []).filter(liveRecord).map(record => ({ id: record.id, kind: 'blocker' as const, record }))];
   for (const ingress of connection.status?.ingresses ?? []) if (ingress.error || ingress.state === 'error' || ingress.state === 'failed') items.push({ id: `connection:${ingress.id}`, kind: 'connection', connectionId: ingress.id, title: ingress.name });
   for (const problem of board.page?.notificationProblems ?? []) {
@@ -63,13 +63,13 @@ export function attentionProjection() {
     const ingress = connection.status?.ingresses.find(row => row.id === source?.ingressId);
     if (source && ingress) items.push({ id: `notification:${problem.id}`, kind: 'connection', connectionId: ingress.id, title: source.label, notification: true });
   }
-  if (update.snapshot.error || update.error) items.push({ id: 'update', kind: 'update', title: update.snapshot.update?.version ?? 'ARC' });
+  if (update.error) items.push({ id: 'update', kind: 'update', title: update.version ?? 'ARC' });
   for (const item of board.page?.attention?.items ?? []) if (item.kind === 'ax-candidate' || item.kind === 'ax-triage') items.push({ id: `ax:${item.id}`, kind: 'ax', item });
-  const complete = !!board.page && !board.error && board.page.attention?.coverage.ax === 'observed' && board.page.activityCoverage === 'observed' && board.page.notificationCoverage === 'observed' && !!observed.snapshot && !observed.error && !!connection.status && !connection.error && updateCoverage.observed && !updateCoverage.error;
+  const complete = !!board.page && !board.error && board.page.attention?.coverage.ax === 'observed' && board.page.activityCoverage === 'observed' && board.page.notificationCoverage === 'observed' && !!observed.snapshot && !observed.error && !!connection.status && !connection.error && update.checked;
   return { items, complete };
 }
 export function useAttention() {
-  trackedActivity.use(); taskExecutions.use(); activityApprovals.use(); boardObservation.use(); connector.use(); updates.use(); updateObservation.use(); agentActivity.use();
+  trackedActivity.use(); taskExecutions.use(); activityApprovals.use(); boardObservation.use(); connector.use(); updates.use(); agentActivity.use();
   return attentionProjection();
 }
 export function coordinationSnapshot() {

@@ -10,13 +10,10 @@
   },
   "update": {
     "phase": "downloading",
-    "update": {
-      "available": true,
-      "version": "1.2.3",
-      "notes": "- Improve connection recovery\n- Fix update coordination",
-      "ready": false
-    },
     "downloaded": 12582912,
-    "total": 26214400
+    "total": 26214400,
+    "version": "1.2.3",
+    "notes": "- Improve connection recovery\n- Fix update coordination",
+    "ready": false
   }
 }

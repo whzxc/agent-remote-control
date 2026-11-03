@@ -10,17 +10,30 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "codex://*" },
-        { "url": "vscode://*" },
-        { "url": "vscode-insiders://*" },
-        { "url": "cursor://*" },
-        { "url": "zed://*" }
+        {
+          "url": "codex://*"
+        },
+        {
+          "url": "vscode://*"
+        },
+        {
+          "url": "vscode-insiders://*"
+        },
+        {
+          "url": "cursor://*"
+        },
+        {
+          "url": "zed://*"
+        }
       ]
     },
     "notification:default",
     "window-state:default",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "updater:allow-download",
+    "updater:allow-install",
+    "process:allow-restart"
   ]
 }

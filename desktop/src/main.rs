@@ -122,7 +122,7 @@ fn main() {
         builder
     };
     builder
-        .manage(updates::UpdateState::default())
+        .manage(updates::State::default())
         .manage(windows::MainState::default())
         .manage(snapshot::State::default())
         .manage(app_env::State::default())
@@ -144,10 +144,14 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             windows::main_window_ready,
             windows::release_main_window,
             service_request,
+            updates::check_update,
+            updates::prepare_update,
+            updates::resume_after_update_failure,
             snapshot::snapshot_ready,
             app_env::apply_env_window,
             i18n::set_ui_locale,
@@ -210,7 +214,6 @@ fn main() {
                 }
             };
             app.manage(service.clone());
-            updates::start(app.handle().clone());
             let handle = app.handle().clone();
             let subscription_client = service.clone();
             tauri::async_runtime::spawn(async move {
@@ -313,8 +316,8 @@ fn main() {
                 // Updates and explicit quit/restart already drained the client
                 // while the event loop was available.
                 if !app
-                    .state::<updates::UpdateState>()
-                    .restarting
+                    .state::<updates::State>()
+                    .closing
                     .load(std::sync::atomic::Ordering::SeqCst)
                 {
                     if let Some(service) = app.try_state::<Arc<Service>>() {

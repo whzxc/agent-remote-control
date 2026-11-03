@@ -12,7 +12,7 @@ import { agents } from '../state/agents';
 import { taskExecutions } from '../state/taskExecution';
 import { selectAgentPanel, selectIngressPanel } from '../state/overviewPanels';
 import { activityState } from '../state/taskExecutionModel';
-import { showUpdate, refreshUpdate } from '../state/updates';
+import { showUpdate } from '../state/updates';
 import { createStore } from '../state/store';
 import { groupEvents, liveRecord, mergeEvents, type Attention, type BoardPage, type BoardRecord, type EventPage, type JournalEvent } from './model';
 import { boardObservation, boardOpen, boardFocus, centerView, ownerResult, refreshBoard, useAttention } from './state';
@@ -160,7 +160,7 @@ export default function CoordinationCenter() {
   }
   return <Dialog initialFocus={initialFocus} title={t('center.title')} width={820} onClose={() => { setSelected(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center">
     <div className="center-toolbar"><SingleChoice label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} />
-      <IconButton icon={RefreshCw} label={t('refresh')} busy={reading || observed.loading} onClick={() => { void refreshBoard(); if (selected) void readRecord(selected); void refreshConnector().catch(() => {}); void refreshUpdate().catch(() => {}); void api<AgentActivitySnapshot>('agents/activity').then(acceptActivity).catch(() => {}); if (view.view === 'activity') void readEvents(); else if (view.history) void readHistory(); }} />
+      <IconButton icon={RefreshCw} label={t('refresh')} busy={reading || observed.loading} onClick={() => { void refreshBoard(); if (selected) void readRecord(selected); void refreshConnector().catch(() => {}); void api<AgentActivitySnapshot>('agents/activity').then(acceptActivity).catch(() => {}); if (view.view === 'activity') void readEvents(); else if (view.history) void readHistory(); }} />
       {view.view === 'current' && <SingleChoice compact label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input'].map(value => ({ value, label: t(`center.${value}`) }))} />}
       {options.length > 1 && <SingleChoice compact label={t('center.resourceFilter')} value={view.resource || 'all-resources'} onChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} options={[{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))]} />}
     </div>

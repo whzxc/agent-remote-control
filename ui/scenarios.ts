@@ -6,8 +6,8 @@ import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts } from './topology/scenarioAccounts';
 import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
-import { updates, acceptUpdateSnapshot } from './state/updates';
-import type { UpdateSnapshot } from './state/updateModel';
+import { updates, checkUpdate, type UpdateView } from './state/updates';
+import { mockIPC } from '@tauri-apps/api/mocks';
 import { onboarding, connectionSetup, type SourceSetup, type ConnectionSetup } from './state/onboarding';
 import { navigation, type Page } from './state/navigation';
 import type { RelayProgress } from './state/relay';
@@ -31,7 +31,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -87,20 +87,6 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   }
   if (path === 'preferences' && method === 'PUT') return responses.preferences = { ...(responses.preferences as Record<string,string>), ...(body as { values: Record<string,string> }).values };
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
-  if (path === 'updates/install' && method === 'POST') {
-    const snapshot = { ...updates.get().snapshot, phase: 'installing' as const };
-    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return { restarting: true };
-  }
-  if (path === 'updates/download' && method === 'POST') {
-    const snapshot = { ...updates.get().snapshot, phase: 'idle' as const, update: { ...updates.get().snapshot.update!, ready: true } };
-    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return snapshot.update;
-  }
-  if (path === 'updates/cancel' && method === 'POST') {
-    const snapshot = { ...updates.get().snapshot, phase: 'idle' as const };
-    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return {};
-  }
-  if (path === 'updates/check' && method === 'POST') return {};
-
   if (path === 'agents/dispatch-catalog' && method === 'POST') return {
     authoritative: true, source: 'fixture', models: [{ model: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol', efforts: ['low', 'medium', 'high', 'max'] }, { model: 'gpt-5.6-sol', displayName: 'GPT-5.6 Sol', efforts: ['low', 'medium', 'high'] }],
   };
@@ -318,8 +304,7 @@ export async function installScenario(name: string) {
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
-  responses.updates = { phase: 'idle', update: null };
-  acceptUpdateSnapshot(responses.updates as UpdateSnapshot);
+  updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
@@ -356,10 +341,13 @@ export async function installScenario(name: string) {
     if (fixture.connectionSetup) connectionSetup.set(fixture.connectionSetup);
     if (fixture.page) navigation.set({ page: fixture.page, settingsExperimental: fixture.settingsExperimental, connectionsOpen: fixture.connectionsOpen, remoteConnectionId: fixture.remoteConnectionId, remoteSourceId: fixture.remoteSourceId });
     if (fixture.update) {
-      const snapshot = structuredClone(fixture.update);
-      responses.updates = snapshot;
-      acceptUpdateSnapshot(snapshot);
-      updates.set(old => ({ ...old, panelOpen: fixture.updatePanel !== false }));
+      const update = fixture.update;
+      mockIPC(command => {
+        if (command === 'check_update') return update.version ? { rid: 1, currentVersion: '0.0.0', version: update.version, body: update.notes, rawJson: {} } : null;
+        if (command === 'plugin:updater|download') return 2;
+      });
+      if (update.version) await checkUpdate();
+      updates.set(old => ({ ...old, ...update, checked: true, panelOpen: fixture.updatePanel !== false }));
     }
     await settledViewModel();
     finishScenario();

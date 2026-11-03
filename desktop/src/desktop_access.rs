@@ -6,8 +6,8 @@ use tauri::Manager;
 pub struct Owner(pub tauri::AppHandle);
 pub fn check_write(app: &tauri::AppHandle) -> Result<(), String> {
     if app
-        .state::<crate::updates::UpdateState>()
-        .installing
+        .state::<crate::updates::State>()
+        .closing
         .load(std::sync::atomic::Ordering::SeqCst)
     {
         return Err("Installing an update. Wait for the app to restart.".into());
@@ -48,26 +48,6 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
                     json!({"pid":std::process::id(),"bundleId":app.config().identifier,"appName":app.config().product_name,"version":env!("ARC_BUILD_VERSION"),"executable":std::env::current_exe().map_err(|e|e.to_string())?,"build":arc_core::runtime::process_build_id()?}),
                 )
             }
-            ("GET", "updates") => return Ok(crate::updates::snapshot(app)),
-            ("POST", "updates/check") => return crate::updates::check_update(app.clone()).await,
-            ("POST", "updates/download") => {
-                return crate::updates::download_update(
-                    app.clone(),
-                    body["version"].as_str().ok_or("version required")?.into(),
-                )
-                .await
-            }
-            ("POST", "updates/install") => {
-                return crate::updates::install_update(
-                    app.clone(),
-                    body["version"].as_str().ok_or("version required")?.into(),
-                )
-                .await
-            }
-            ("POST", "updates/cancel") => {
-                crate::updates::cancel_update(app.clone());
-                return Ok(crate::updates::snapshot(app));
-            }
             ("POST", "app/quit" | "app/restart") => {
                 let restart = route == "app/restart";
                 let service = app
@@ -80,8 +60,8 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
                     // Drain while the event loop can still serve in-flight desktop
                     // requests. Waiting for them from RunEvent::Exit can deadlock.
                     service.close().await;
-                    app.state::<crate::updates::UpdateState>()
-                        .restarting
+                    app.state::<crate::updates::State>()
+                        .closing
                         .store(true, std::sync::atomic::Ordering::SeqCst);
                     if restart {
                         app.request_restart();

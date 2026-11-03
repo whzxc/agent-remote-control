@@ -1,64 +1,98 @@
-import { api } from "../api";
-import { createStore, preference } from "./store";
+import { invoke } from "@tauri-apps/api/core";
+import { Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { createStore, preference, preparePreferences } from "./store";
 import { t } from "../i18n";
 import { isDesktop } from "../platform";
-import { idleUpdate, updateActive, type UpdateSnapshot } from "./updateModel";
-export const updateObservation = createStore({ observed: false, error: '' });
+
+export type UpdateView = {
+  phase: 'idle' | 'checking' | 'downloading' | 'installing';
+  version?: string;
+  notes?: string | null;
+  ready: boolean;
+  downloaded: number;
+  total?: number;
+  checked: boolean;
+  panelOpen: boolean;
+  error: string;
+  message: string;
+};
+export const updates = createStore<UpdateView>({ phase: 'idle', ready: false, downloaded: 0, checked: false, panelOpen: false, error: '', message: '' });
 export const skipped = preference("update-skipped-version", "", value => value, value => value);
-export const updates = createStore<{ snapshot: UpdateSnapshot; panelOpen: boolean; requesting: boolean; error: string; message: string }>(
-  { snapshot: idleUpdate(), panelOpen: false, requesting: false, error: "", message: "" });
-const patch = (next: Partial<ReturnType<typeof updates.get>>) => updates.set(old => ({ ...old, ...next }));
-export const available = () => !!updates.get().snapshot.update?.available && updates.get().snapshot.update?.version !== skipped.get();
-export const updateVisible = () => available() || updateActive(updates.get().snapshot);
-export function acceptUpdateSnapshot(snapshot: UpdateSnapshot) {
-  updateObservation.set({ observed: true, error: '' });
-  patch({ snapshot });
-}
-let reading: Promise<void> | undefined;
-let mutationGeneration = 0;
-export function refreshUpdate() {
-  if (reading) return reading;
-  const generation = mutationGeneration;
-  return reading = api<UpdateSnapshot>("updates").then(snapshot => { if (generation === mutationGeneration) acceptUpdateSnapshot(snapshot); }).catch(error => { updateObservation.set(old => ({ ...old, error: String(error) })); throw error; }).finally(() => { reading = undefined; });
+const lastCheck = preference("update-last-check", 0, Number, String);
+const patch = (next: Partial<UpdateView>) => updates.set(old => ({ ...old, ...next }));
+export const available = () => !!updates.get().version && updates.get().version !== skipped.get();
+export const updateActive = () => updates.get().phase !== 'idle';
+export const updateVisible = () => available() || updateActive();
+let pending: Update | undefined;
+let operation: Promise<void> | undefined;
+function perform(work: () => Promise<void>) {
+  if (operation) return operation;
+  patch({ error: '', message: '' });
+  return operation = work().catch(error => { patch({ phase: 'idle', error: String(error) }); }).finally(() => {
+    if (updates.get().phase !== 'installing') patch({ phase: 'idle' });
+    operation = undefined;
+  });
 }
 export function showUpdate() { patch({ panelOpen: true }); }
 export function dismissUpdate() { patch({ panelOpen: false }); }
-async function request(action: () => Promise<unknown>) {
-  if (updates.get().requesting) return;
-  mutationGeneration++;
-  patch({ requesting: true, error: "", message: "" });
-  try { await action(); await reading; await refreshUpdate(); }
-  catch (error) { patch({ error: String(error) }); }
-  finally { patch({ requesting: false }); }
+async function download() {
+  if (!pending || updates.get().ready) return;
+  patch({ phase: 'downloading', downloaded: 0, total: undefined });
+  await pending.download(event => {
+    if (event.event === 'Started') patch({ total: event.data.contentLength });
+    if (event.event === 'Progress') patch({ downloaded: updates.get().downloaded + event.data.chunkLength });
+  });
+  patch({ ready: true });
 }
-export async function checkUpdate(manual = true) {
-  if (!isDesktop) return;
-  if (manual) skipped.set("");
-  await request(() => api("updates/check", "POST"));
-  if (manual && !updates.get().error && !updates.get().snapshot.update?.available) patch({ message: t("youAreUpToDate") });
+export function checkUpdate(manual = true) {
+  return perform(async () => {
+    if (manual) skipped.set('');
+    patch({ phase: 'checking' });
+    lastCheck.set(Date.now());
+    const old = pending, ready = updates.get().ready;
+    pending = undefined;
+    patch({ version: undefined, notes: undefined, ready: false, downloaded: 0, total: undefined });
+    try {
+      const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>('check_update');
+      const found = metadata ? new Update(metadata) : undefined;
+      if (found && old?.version === found.version && ready) {
+        await found.close(); pending = old;
+        patch({ ready: true });
+      } else { await old?.close(); pending = found; }
+      patch({ version: pending?.version, notes: pending?.body });
+      if (pending?.version === skipped.get()) { await pending.close(); pending = undefined; }
+      else if (pending) await download();
+      else if (manual) patch({ message: t('youAreUpToDate') });
+    } catch (error) { if (!pending) await old?.close(); throw error; }
+    finally { patch({ checked: true }); }
+  });
 }
-export async function installUpdate() {
-  const offer = updates.get().snapshot.update;
-  if (!offer?.version || !offer.ready) return;
-  if (updates.get().requesting) return;
-  mutationGeneration++;
-  patch({ requesting: true, error: "", message: "" });
-  try {
-    await api("updates/install", "POST", { version: offer.version });
-    patch({ snapshot: { ...updates.get().snapshot, phase: 'installing' } });
-  } catch (error) { patch({ error: String(error) }); }
-  finally { patch({ requesting: false }); }
+export const downloadUpdate = () => perform(download);
+export function installUpdate() {
+  if (!pending || !updates.get().ready) return Promise.resolve();
+  return perform(async () => {
+    patch({ phase: 'installing' });
+    await invoke('prepare_update');
+    try { await pending!.install(); await relaunch(); }
+    catch (error) { await invoke('resume_after_update_failure'); throw error; }
+  });
 }
-export async function downloadUpdate() {
-  const version = updates.get().snapshot.update?.version;
-  if (version) await request(() => api("updates/download", "POST", { version }));
+export function skipUpdate() {
+  skipped.set(updates.get().version ?? '');
+  void pending?.close(); pending = undefined;
+  patch({ panelOpen: false, ready: false });
 }
-export const cancelDownload = () => api("updates/cancel", "POST").then(() => refreshUpdate());
-export function skipUpdate() { skipped.set(updates.get().snapshot.update?.version ?? ""); dismissUpdate(); }
 export function startUpdateChecks() {
   if (!isDesktop) return () => {};
-  const refresh = () => { void refreshUpdate().catch(() => {}); };
-  refresh();
-  const timer = setInterval(refresh, 2000);
-  return () => { clearInterval(timer); };
+  const hour = 3600000;
+  let stopped = false;
+  const check = () => void preparePreferences().then(async () => {
+    if (Date.now() - lastCheck.get() >= hour) await checkUpdate(false);
+    patch({ checked: true });
+    return Math.max(1000, hour - (Date.now() - lastCheck.get()));
+  }).catch(error => { patch({ checked: true, error: String(error) }); return hour; })
+    .then(delay => { if (!stopped) timer = setTimeout(check, delay); });
+  let timer = setTimeout(check, 5000);
+  return () => { stopped = true; clearTimeout(timer); };
 }

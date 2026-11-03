@@ -78,7 +78,7 @@ export default function App() {
   const returning = centerReturn.use(), taskSelection = agentPanel.use(), connectionSelection = ingressPanel.use();
   const updatePanelOpen = updates.use().panelOpen;
   const returnOpened = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!returning) { returnOpened.current = false; return; }
     const opened = returning.kind === 'task' ? !!taskSelection : returning.kind === 'connection' ? !!connectionSelection : updatePanelOpen;
     if (opened) { returnOpened.current = true; return; }
@@ -120,7 +120,7 @@ export default function App() {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
     const timer = setInterval(() => {
-      if (document.querySelector('[role="dialog"], form') || updates.get().snapshot.phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
+      if (document.querySelector('[role="dialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
       void import("@tauri-apps/api/core").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
     }, 30000);
     return () => clearInterval(timer);

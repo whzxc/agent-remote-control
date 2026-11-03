@@ -75,7 +75,6 @@
   "skipThisVersion": "跳过此版本",
   "downloadManually": "手动下载",
   "later": "稍后",
-  "cancelDownload": "取消下载",
   "installing": "正在安装…",
   "downloading": "正在下载…",
   "downloadUpdate": "下载更新",
@@ -850,10 +849,8 @@
   "native.theLoginStartupCommandExceedsTheWindows": "登录启动命令超过 Windows 的 260 字符限制",
   "native.loginStartupIsUnsupported": "不支持开机启动",
   "native.installingAnUpdateWaitForTheApp": "正在安装更新，请等待应用重启。",
-  "native.thisAppDoesNotSupportAutomaticUpdates": "当前应用不支持自动更新，请从下载页获取安装包。",
   "native.coreIsNotReady": "Core 尚未就绪",
   "native.anUpdateIsAlreadyInProgress": "已有更新正在进行",
-  "native.theAvailableVersionChangedCheckForUpdates": "可用版本已变化，请重新检查更新。",
   "native.updateFailedErrorRetryOrDownloadManually": "更新失败：{error}。可重试或手动下载。",
   "native.updateFailedErrorConnectionRecoveryFailedRestore": "更新失败：{error}；恢复连接失败：{restore}",
   "native.theMenuBarIconIsNotReady": "菜单栏图标尚未就绪",
@@ -1513,6 +1510,5 @@
   "center.coverage.clock-uncertain": "活动时间不确定",
   "center.coverage.unavailable": "观察暂不可用",
   "updates.installing": "正在安装并重启…",
-  "updates.restartHint": "运行中的 ARC 任务将中断。",
-  "native.downloadTheUpdateBeforeInstallingIt": "请先下载更新。"
+  "updates.restartHint": "运行中的 ARC 任务将中断。"
 }

@@ -199,7 +199,7 @@ Multiple --until conditions are ANDed. JSON Pointer supports ==, !=, and exists.
 
 ## Native updater acceptance
 
-Run `npm run accept:updates` on an Apple Silicon Mac with the package-signing prerequisites. The runner builds two signed hidden disposable versions, serves the candidate through a loopback feed, and runs the older app with a private state directory and a loopback updater endpoint. It checks signed downloads, failure recovery, installation from cached bytes with the feed offline, application restart and matching Desktop/Core build fingerprints. It never replaces the installed production app. Reports and logs stay under `output/acceptance/updates-*`.
+Run `npm run accept:updates` on an Apple Silicon Mac with the package-signing prerequisites. The runner builds two signed hidden disposable versions, serves the candidate through a loopback feed, and runs the older app with a private state directory and a hidden local fixture WebView with a loopback updater endpoint. The fixture imports the production update controller and uses the official updater and process plugin IPC commands. It checks signed downloads, failure recovery, installation from cached bytes with the feed offline, application restart and matching Desktop/Core build fingerprints. It never replaces the installed production app. Reports and logs stay under `output/acceptance/updates-*`.
 
 ## MCP hub fixtures
 

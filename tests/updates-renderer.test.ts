@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
+import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
@@ -25,19 +26,22 @@ test('a downloaded update restarts directly from its button', { timeout: 10000 }
   const { createRoot } = await import('react-dom/client');
   const mount = document.createElement('div'); document.body.append(mount);
   const root = createRoot(mount);
-  let response: Record<string, any> | undefined;
-  globalThis.fetch = async (url, init) => {
-    if (String(url) === '/api/updates/install') response = JSON.parse(String(init?.body));
-    return new Response(JSON.stringify({ restarting: true }), { status: 200 });
-  };
+  let prepared = false, installed = false, restarted = false;
+  mockIPC((command, args) => {
+    if (command === 'check_update') return { rid: 1, currentVersion: '0.0.0', version: '1.2.3', rawJson: {} };
+    if (command === 'plugin:updater|download') return 2;
+    if (command === 'prepare_update') prepared = true;
+    if (command === 'plugin:updater|install') { assert.equal(prepared, true); installed = true; }
+    if (command === 'plugin:process|restart') { assert.equal(installed, true); restarted = true; }
+  });
+  globalThis.fetch = async () => new Response('{}');
   try {
     const { UpdateDock, AppUpdate } = await server.ssrLoadModule('/ui/components/AppUpdate.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const { updates, acceptUpdateSnapshot } = await server.ssrLoadModule('/ui/state/updates.ts');
+    const { updates, checkUpdate } = await server.ssrLoadModule('/ui/state/updates.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    const { idleUpdate } = await server.ssrLoadModule('/ui/state/updateModel.ts');
     await act(async () => {
-      acceptUpdateSnapshot({ ...idleUpdate(), update: { available: true, version: '1.2.3', ready: true } });
+      await checkUpdate();
       root.render(h(TooltipProvider, null, h(UpdateDock)));
     });
     const page = within(document.body);
@@ -48,21 +52,20 @@ test('a downloaded update restarts directly from its button', { timeout: 10000 }
     assert.ok(page.getByRole('dialog', { name: t('appUpdates') }));
     const panel = within(page.getByRole('dialog', { name: t('appUpdates') }));
     await act(async () => { fireEvent.click(panel.getByRole('button', { name: t('updates.restartNow') })); });
-    assert.deepEqual(response, { version: '1.2.3' });
-    assert.equal(updates.get().snapshot.phase, 'installing');
+    assert.equal(restarted, true);
     assert.equal(panel.queryByRole('button', { name: t('updates.restartNow') }), null);
     assert.ok(panel.getByRole('status'));
     await act(async () => { updates.set((old: any) => ({ ...old, panelOpen: false })); });
     assert.equal(page.queryByRole('dialog'), null);
     await act(async () => {
-      updates.set((old: any) => ({ ...old, snapshot: idleUpdate(), error: '', message: '' }));
+      updates.set((old: any) => ({ ...old, phase: 'idle', version: undefined, ready: false, error: '', message: '' }));
       root.render(h(TooltipProvider, null, h(AppUpdate)));
     });
     assert.ok(page.getByRole('heading', { name: t('aboutApp'), exact: true }));
     assert.ok(page.getByRole('button', { name: t('checkForUpdates'), exact: true }));
     assert.ok(page.getByRole('button', { name: 'GitHub', exact: true }));
     assert.equal(page.queryByRole('switch'), null);
-    await act(async () => acceptUpdateSnapshot({ ...idleUpdate(), update: { available: true, version: '1.2.4', ready: true } }));
+    await act(async () => checkUpdate());
     await act(async () => fireEvent.click(page.getByRole('button', { name: t('viewUpdate'), exact: true })));
     assert.equal(updates.get().panelOpen, true);
   } finally {
@@ -70,5 +73,6 @@ test('a downloaded update restarts directly from its button', { timeout: 10000 }
     await server.close();
     await window.happyDOM.close();
     globalThis.fetch = previousFetch;
+    clearMocks();
   }
 });

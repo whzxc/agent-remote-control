@@ -75,7 +75,6 @@
   "skipThisVersion": "Skip this version",
   "downloadManually": "Download manually",
   "later": "Later",
-  "cancelDownload": "Cancel download",
   "installing": "Installing…",
   "downloading": "Downloading…",
   "downloadUpdate": "Download update",
@@ -850,10 +849,8 @@
   "native.theLoginStartupCommandExceedsTheWindows": "The login startup command exceeds the Windows limit of 260 characters",
   "native.loginStartupIsUnsupported": "Login startup is unsupported",
   "native.installingAnUpdateWaitForTheApp": "Installing an update. Wait for the app to restart.",
-  "native.thisAppDoesNotSupportAutomaticUpdates": "This app does not support automatic updates. Get the installer from the download page.",
   "native.coreIsNotReady": "Core is not ready",
   "native.anUpdateIsAlreadyInProgress": "An update is already in progress",
-  "native.theAvailableVersionChangedCheckForUpdates": "The available version changed. Check for updates again.",
   "native.updateFailedErrorRetryOrDownloadManually": "Update failed: {error}. Retry or download manually.",
   "native.updateFailedErrorConnectionRecoveryFailedRestore": "Update failed: {error}. Connection recovery failed: {restore}",
   "native.theMenuBarIconIsNotReady": "The menu bar icon is not ready",
@@ -1543,6 +1540,5 @@
   "center.coverage.clock-uncertain": "Activity time uncertain",
   "center.coverage.unavailable": "Observation unavailable",
   "updates.installing": "Installing and restarting…",
-  "updates.restartHint": "Running ARC tasks will be interrupted.",
-  "native.downloadTheUpdateBeforeInstallingIt": "Download the update before installing it."
+  "updates.restartHint": "Running ARC tasks will be interrupted."
 }

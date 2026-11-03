@@ -10,12 +10,8 @@
   },
   "update": {
     "phase": "idle",
-    "update": {
-      "available": false,
-      "version": "1.2.3",
-      "notes": "- Improve connection recovery\n- Fix update coordination",
-      "ready": false
-    },
-    "error": "Service unavailable"
+    "error": "Service unavailable",
+    "notes": "- Improve connection recovery\n- Fix update coordination",
+    "ready": false
   }
 }

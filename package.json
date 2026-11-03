@@ -48,6 +48,8 @@
     "@tauri-apps/cli": ">=2.11.4 <3",
     "@tauri-apps/plugin-clipboard-manager": ">=2.3.3 <3",
     "@tauri-apps/plugin-opener": ">=2.5.5 <3",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "@testing-library/dom": ">=10.4.2 <11",
     "@types/node": ">=26.1.1 <27",
     "@types/react": ">=19.3.0 <20",

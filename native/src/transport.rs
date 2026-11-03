@@ -1243,7 +1243,7 @@ mod desktop_tests {
         signal(&mut finishes).await;
 
         // Mutation dispatch still returns the completed operation's response.
-        let mut write = connect(&endpoint, "POST", "updates/check").await;
+        let mut write = connect(&endpoint, "POST", "permissions/notify").await;
         signal(&mut starts).await;
         release.notify_waiters();
         let mut response = String::new();
