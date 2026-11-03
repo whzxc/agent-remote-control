@@ -1,3 +1,105 @@
+#[tokio::test]
+async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
+    // Regression: AX-01 T1 interruption was delivered after resumed T2 and the whole thread completed.
+    for pending in [false, true] {
+        let dir = Sandbox::new();
+        let mut old = fixture(&dir.0);
+        old.thread_id = id();
+        old.turn_id = id();
+        let next_id = id();
+        persist(&dir.0, &old).unwrap();
+        crate::dispatch_policy::record(&json!({"requestId":old.turn_id,"threadId":old.thread_id,
+            "turnId":old.turn_id,"dispatchMode":"new-turn","origin":{"sourceId":old.source_id},
+            "task":{"dispatch":{"model":"model","effort":"high"}}}))
+        .unwrap();
+        if pending {
+            super::process(
+                &dir.0,
+                &Mutex::new(()),
+                &mut old,
+                &json!({"state":"cancelled"}),
+            )
+            .await
+            .unwrap();
+            old.deliveries[0].status = "sending".into();
+            persist(&dir.0, &old).unwrap();
+        }
+        let mut next = old.clone();
+        next.turn_id = next_id.clone();
+        next.explicit = false;
+        next.terminal = false;
+        next.deliveries.clear();
+        next.observation = Value::Null;
+        persist(&dir.0, &next).unwrap();
+        super::process(
+            &dir.0,
+            &Mutex::new(()),
+            &mut next,
+            &json!({"state":"completed","finalResponse":"Done"}),
+        )
+        .await
+        .unwrap();
+        let history = [
+            json!({"type":"session_meta","payload":{"id":old.thread_id}}),
+            json!({"type":"event_msg","payload":{"type":"task_started","turn_id":old.turn_id}}),
+            json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":old.turn_id,"completed_at":1000}}),
+            json!({"type":"event_msg","payload":{"type":"task_started","turn_id":next_id,"started_at":1010,"turn_attribution":{"turn_trigger":"resume_interrupted_task"}}}),
+            json!({"type":"turn_context","payload":{"turn_id":next_id,"cwd":"/project","model":"model","effort":"high","service_tier":null}}),
+            json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":next_id,"completed_at":1020}}),
+        ].iter().map(Value::to_string).collect::<Vec<_>>().join("\n");
+        let proof = continuation::evidence_from_history(
+            &json!({"id":old.thread_id,"cwd":"/project"}),
+            &old.turn_id,
+            &json!({"id":next_id,"status":"completed","items":[]}),
+            &history,
+        )
+        .unwrap();
+        super::recover(&dir.0, &mut old).unwrap();
+        super::process(
+            &dir.0,
+            &Mutex::new(()),
+            &mut old,
+            &json!({"state":"cancelled","nextTurnId":next_id,"nativeContinuation":proof}),
+        )
+        .await
+        .unwrap();
+        let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
+        let event = inbox["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["turnId"] == old.turn_id && e["kind"] == "interrupted")
+            .unwrap();
+        assert_eq!(
+            event["continuation"],
+            json!({"turnId":next_id,"state":"completed"})
+        );
+        assert!(string(event, "summary").contains("superseded"));
+        assert_eq!(event["next"]["op"], "codex_read");
+        for obsolete in ["resume", "retry"] {
+            assert!(!string(event, "summary").contains(obsolete));
+            assert!(!event["next"].to_string().contains(obsolete));
+        }
+        flush(
+            &Fake::success(),
+            &dir.0,
+            &Mutex::new(()),
+            i64::MAX,
+            0,
+            &json!({}),
+        )
+        .await
+        .unwrap();
+        let restored = binding(&dir.0, &old.thread_id, &old.turn_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            notification(Some(restored))["deliveries"][0]["state"],
+            "resolved"
+        );
+    }
+}
+
 #[test]
 fn ax_same_origin_push_uses_effective_binding_and_source_scoped_breaker() {
     // Regression: AX-02 omitted notify hid an inherited verified route and another source's breaker disabled it.
