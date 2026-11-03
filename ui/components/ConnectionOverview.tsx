@@ -263,6 +263,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       </GraphNode>,
     }];
   });
+  const taskQueues = new Map<string, (typeof tracked)[string]>();
   const agentViews: NodeView[] = agents.map(agent => {
     const sessions = orderActivity((tracked[agent.agent] ?? []).map(session => {
       const execution = taskExecution(agent.agent, session.id);
@@ -285,7 +286,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       accountId: accounts.find(account => accountOwns(account, session.origin?.accountId))?.id ?? session.origin.accountId };
     const groups = accountIds.length > 1 ? [...new Set(sessions.map(sessionAccount))].map(id => sessions.filter(s => sessionAccount(s) === id)) : [sessions];
     const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? sessionAccount(group[0]) : null]);
-    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group)), group }));
+    for (const group of groups) for (const session of group) taskQueues.set(JSON.stringify([agent.agent, session.id]), group);
+    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group), manualOrder[agent.agent] ?? []), group }));
     const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
     const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
     return {
@@ -315,7 +317,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             const from = group.findIndex(s => s.id === session.id), to = from + by;
             if (to < 0 || to >= group.length) return;
             const ids = group.map(s => s.id); ids.splice(from, 1); ids.splice(to, 0, session.id);
-            reorderTasks(agent.agent, ids, sessions);
+            reorderTasks(agent.agent, ids, sessions, taskQueues.get(JSON.stringify([agent.agent, session.id])));
           }} />,
         })),
         ...shownGroups.flatMap(group => group.hidden ? [{ id: JSON.stringify(accountIds.length > 1 ? [agent.agent, null, sessionAccount(group.group[0])] : [agent.agent, null]), activityQueue: queueKey(group.group),
@@ -371,7 +373,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           onReorderTasks={(_side, parent, ids) => {
             if (readOnlyBrowser) return;
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
-            reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? []);
+            reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? [], taskQueues.get(ids[0]));
           }}
           brand={<Hub readOnly={readOnlyBrowser} connectionEmpty={!connections.length} connectionState={remoteState} onConnections={manageConnections}
             accessState={accessState} accessRunning={running} accessDisabled={progressing || !!accessAction || loading || !status || !!error} onAccess={() => void toggle()}

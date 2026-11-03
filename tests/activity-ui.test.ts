@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
+import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, reorderActivity, orderActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../ui/types.ts";
 import { taskHierarchy } from '../ui/state/taskHierarchy.ts';
 const permission: AgentInteraction = { kind: "permission", summary: "Run example command", respond: { via: "act", op: "agent_respond", args: { agent: "claude", taskId: "task-example", interactionId: 1 } }, options: [{ kind: "allow_once", optionId: "yes" }, { kind: "reject_once", optionId: "no" }] };
@@ -71,6 +71,33 @@ test("overflow keeps unfinished work ahead of completions and can reveal every t
   assert.deepEqual(visibleActivity(sessions), shown);
   const fewerRunning = sessions.map(s => s.id === "7" ? { ...s, endedAt: 200 } : s);
   assert.deepEqual(visibleActivity(fewerRunning).sessions.map(s => s.id), ["8", "5", "6", "0"]);
+});
+test("unchanged overflow presentation produces no task order write", () => {
+  // Regression: a no-op drag of C1 in [R1,R2,R3,C1] wrote into stored completion-first slots and hid C1.
+  const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
+  const visible = visibleActivity(rows).sessions.map(row => row.id);
+  assert.deepEqual(visible, ['R1','R2','R3','C1']);
+  assert.equal(reorderActivity(rows, visible, []), undefined);
+  assert.equal(reorderActivity(rows, visible, visibleActivity(rows, undefined, true).sessions.map(row => row.id)), undefined);
+});
+test("moving one visible task preserves its drop position and the order of all other tasks", () => {
+  // Property: moving a visible task preserves every other task's relative order, membership and unread state through overflow projection.
+  const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
+  const baseline = visibleActivity(rows, undefined, true).sessions.map(row => row.id);
+  const visible = baseline.slice(0, 4);
+  for (const moved of visible) for (let position = 0; position < visible.length; position++) {
+    const ids = visible.filter(id => id !== moved); ids.splice(position, 0, moved);
+    const stored = reorderActivity(rows, ids, []);
+    if (visible.indexOf(moved) === position) { assert.equal(stored, undefined); continue; }
+    assert.ok(stored);
+    const ordered = orderActivity(rows, stored);
+    const projected = visibleActivity(ordered, undefined, true, stored).sessions;
+    assert.deepEqual(visibleActivity(ordered, undefined, false, stored).sessions.map(row => row.id), ids);
+    assert.deepEqual(projected.filter(row => row.id !== moved).map(row => row.id), baseline.filter(id => id !== moved));
+    assert.deepEqual([...projected].map(row => row.id).sort(), rows.map(row => row.id).sort());
+    assert.equal(projected.find(row => row.id === 'C1')?.readAt, undefined);
+    assert.equal(reorderActivity(rows, ids, stored), undefined);
+  }
 });
 test("start order is stable across phases, payload order and corrected timestamps; only attention reorders", () => {
   // Property: start order is stable across phases, payload order and corrected timestamps; only attention reorders.

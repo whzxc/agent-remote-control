@@ -62,7 +62,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const reportedPanel = useRef<PanelLayout>(undefined);
   const origin = useRef({ x: 0, y: 0 }), size = useRef<{ vw: number; vh: number } | null>(null);
   const drag = useRef<(Drag & { pointer: number; startClientX: number; startClientY: number; grabX: number; grabY: number; parent?: string;
-    order: string[]; active: boolean; control: boolean; target: HTMLElement; slot: HTMLElement; key: string }) | null>(null);
+    order: string[]; initialOrder: string[]; active: boolean; control: boolean; target: HTMLElement; slot: HTMLElement; key: string }) | null>(null);
   const suppressedClick = useRef<string | null>(null);
   const reduced = useMedia("(prefers-reduced-motion: reduce)"), prefix = useId();
   const params = topologyValues.use(), { guides, slow } = topologyDebug.use();
@@ -583,7 +583,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         && (t.state === "needsYou") === (latest.current.tasks.find(t => t.side === side && t.id === id)?.state === "needsYou"));
     drag.current = { kind, side, id, parent, x: v.x, y: v.y, pointer: event.pointerId, startClientX: event.clientX, startClientY: event.clientY,
       grabX: event.clientX - origin.current.x - v.x, grabY: event.clientY - origin.current.y - v.y, order: candidates.map(n => n.id), active: false, control,
-      target: button, slot: event.currentTarget, key };
+      initialOrder: candidates.map(n => n.id), target: button, slot: event.currentTarget, key };
     // The check owns capture until its click threshold is exceeded. Retain the
     // original grab point so handing over never jumps or loses the first move.
     if (!control) button.setPointerCapture(event.pointerId);
@@ -607,7 +607,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (!d || d.pointer !== event.pointerId) return;
     drag.current = null; delete d.slot.dataset.dragging;
     if ((!d.control || d.active) && d.target.hasPointerCapture(d.pointer)) d.target.releasePointerCapture(d.pointer);
-    if (d.active && !cancelled) {
+    if (d.active && !cancelled && (d.order.length !== d.initialOrder.length || d.order.some((id, index) => id !== d.initialOrder[index]))) {
       if (d.kind === "node") latest.current.onReorderNodes(d.side, d.order);
       else latest.current.onReorderTasks(d.side, d.parent!, d.order);
     }

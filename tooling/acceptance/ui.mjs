@@ -445,16 +445,7 @@ try {
               sourcePosition: { x: bounds.width / 2, y: bounds.height / 2 },
               targetPosition: { x: bounds.width * 0.6, y: bounds.height * 0.6 },
             });
-            // Committing the visible order can move this completion into overflow.
-            // Reveal the same task again rather than acknowledging a different bubble.
-            if (!await taskGroup.isVisible()) {
-              const summaries = page.getByRole('button', { name: new RegExp(`${escapeRegex(messages['activity.viewAll'])}$`) });
-              for (const summary of (await summaries.all()).reverse()) {
-                await summary.click();
-                if (await taskGroup.isVisible()) break;
-              }
-              await taskGroup.waitFor({ state: 'visible' });
-            }
+            if (!await taskGroup.isVisible()) throw new Error(`Dragged task left the visible queue: ${task.title}`);
             const markRead = taskGroup.getByRole('button', { name: messages['activity.markRead'], exact: true });
             await markRead.click();
             await page.waitForFunction(({ agent, id }) => window.__ARC_VIEW_MODEL__().taskBubbles.some(bubble => bubble.agent === agent && bubble.id === id && bubble.completed && !bubble.unread), { agent: task.agent, id });

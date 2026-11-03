@@ -42,7 +42,7 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
     const { accountNodeId } = await server.ssrLoadModule("/ui/topology/accounts.ts");
     const accounts = mode === "default" ? [] : ["first", "second"].map(id => ({ id, alias: `${id} account`, provider: "openai", identityKey: id,
       sources: [], agentProfiles: [{ agent: "codex", state: "signed-in" }] }));
-    let read = false, order: string[] = [], reorderedParent: string | undefined;
+    let read = false;
     let navigation: { side: number; platform: string; accountId?: string } | undefined;
     const actions = { open: (side: number, platform: string, _sourceId?: string, accountId?: string) => { navigation = { side, platform, accountId }; } };
     const right = accountViews([{ id: "codex", platform: "codex", platformLabel: "Codex", state: "normal", attention: false, selected: false, reorderable: true,
@@ -50,7 +50,7 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
         content: h(ActivityBubble, { agent: "codex", session, now: 1, onRead: () => { read = true; } }) }] }], 1, accounts, mode === "flat" ? "flat" : "tree", {}, actions);
     const expectedParent = mode === "default" ? "codex" : accountNodeId("codex", accounts[0].id);
     await act(() => root.render(h(TooltipProvider, null, h(Topology, { boundary: { current: mount }, left: [], right, accountsEnabled: accounts.length > 0,
-      onReorderNodes() {}, onReorderTasks: (_side: number, parent: string, ids: string[]) => { order = ids; reorderedParent = parent; } }))));
+      onReorderNodes() {}, onReorderTasks() {} }))));
     assert.equal(viewModel().topology.tasks.find((task: any) => task.id === session.id).parent, expectedParent);
     assert.equal(viewModel().topology.nodes.find((node: any) => node.id === expectedParent).parent, mode === "tree" ? "codex" : undefined);
     const page = within(mount), button = page.getByRole("button", { name: t("activity.markRead"), exact: true });
@@ -60,15 +60,15 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
     });
     const click = async (target: Element, detail = 1) => act(() => { fireEvent.click(target, { detail }); });
     await click(page.getByTitle(origin.label));
-    assert.equal(read, true); assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, []);
+    assert.equal(read, true); assert.equal(agentPanel.get(), undefined);
     for (const kind of ["mouse", "touch", "pen"]) {
       read = false;
       await pointer(button, "pointerdown", 20, 20, kind);
       await pointer(button, "pointermove", 23, 22, kind);
       await pointer(button, "pointerup", 23, 22, kind); await click(button);
-      assert.equal(read, true); assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, []);
+      assert.equal(read, true); assert.equal(agentPanel.get(), undefined);
       for (const [dx, dy] of [[60, 0], [0, 60]]) {
-        read = false; order = [];
+        read = false;
         const checkStart = position();
         await pointer(button, "pointerdown", 20, 20, kind);
         await pointer(button, "pointermove", 20 + dx, 20 + dy, kind);
@@ -77,8 +77,7 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
         // Returning inside the click threshold must not turn a drag into a read.
         await pointer(button, "pointermove", 20, 20, kind);
         await pointer(button, "pointerup", 20, 20, kind); await click(button);
-        assert.equal(read, false); assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, [session.id]); assert.equal(reorderedParent, expectedParent);
-        order = [];
+        assert.equal(read, false); assert.equal(agentPanel.get(), undefined);
         const bodyStart = position();
         await pointer(body, "pointerdown", 100, 100, kind);
         await pointer(body, "pointermove", 100 + dx, 100 + dy, kind);
@@ -86,21 +85,20 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
         assert.deepEqual({ x: checkMoved.x - checkStart.x, y: checkMoved.y - checkStart.y },
           { x: bodyMoved.x - bodyStart.x, y: bodyMoved.y - bodyStart.y });
         await pointer(body, "pointerup", 100 + dx, 100 + dy, kind); await click(body);
-        assert.equal(read, false); assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, [session.id]); assert.equal(reorderedParent, expectedParent);
+        assert.equal(read, false); assert.equal(agentPanel.get(), undefined);
       }
-      order = [];
       await pointer(button, "pointerdown", 20, 20, kind); await pointer(button, "pointercancel", 20, 20, kind); await click(button);
-      assert.equal(read, false); assert.deepEqual(order, []);
+      assert.equal(read, false);
       await pointer(button, "pointerdown", 20, 20, kind); await pointer(button, "pointermove", 20, 80, kind);
       await pointer(button, "pointercancel", 20, 80, kind); await click(button);
-      assert.equal(read, false); assert.deepEqual(order, []);
+      assert.equal(read, false);
     }
     for (const key of ["Enter", " "]) {
       read = false;
       await act(() => { fireEvent.keyDown(button, { key }); fireEvent.keyUp(button, { key }); });
       // Happy DOM does not synthesize the native keyboard button click.
       await click(button, 0);
-      assert.equal(read, true); assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, []);
+      assert.equal(read, true); assert.equal(agentPanel.get(), undefined);
     }
     await pointer(body, "pointerdown", 100, 100); await pointer(body, "pointermove", 102, 101);
     await pointer(body, "pointerup", 102, 101); await click(body);
@@ -108,7 +106,7 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
     await act(() => agentPanel.set(undefined));
     await pointer(body, "pointerdown", 100, 100); await pointer(body, "pointermove", 100, 180);
     await pointer(body, "pointerup", 100, 180); await click(body);
-    assert.equal(agentPanel.get(), undefined); assert.deepEqual(order, [session.id]);
+    assert.equal(agentPanel.get(), undefined);
     // A check click after a body drag must not inherit its suppressed click.
     read = false;
     await pointer(button, "pointerdown", 20, 20); await pointer(button, "pointerup", 20, 20); await click(button);

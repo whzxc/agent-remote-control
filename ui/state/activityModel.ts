@@ -1,5 +1,6 @@
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 import { taskHierarchy } from './taskHierarchy.ts';
+import { orderedSubset } from '../topology/order.ts';
 
 // Activity events describe current observations; absence is not a terminal result.
 export function mergeActivity(current: AgentActivitySnapshot | undefined, next: AgentActivitySnapshot) {
@@ -67,10 +68,11 @@ export function orderActivity(sessions: readonly TrackedActivity[], ids: readonl
     || (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
 }
-export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false) {
-  // Overflow hides finished work first, preserving order within each group.
-  const ordered = sessions.length > 5
+export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false, manualOrder: readonly string[] = []) {
+  // Overflow prioritizes unfinished work by default; explicit moves retain their displayed positions.
+  const baseline = sessions.length > 5
     ? [...sessions.filter(s => s.endedAt === undefined), ...sessions.filter(s => s.endedAt !== undefined)] : sessions;
+  const ordered = orderedSubset(baseline, manualOrder).sort((a, b) => Number(!!b.interaction) - Number(!!a.interaction));
   const visible = ordered.slice(0, expanded ? ordered.length : ordered.length > 5 ? 4 : 5);
   const pinned = sessions.find(s => s.id === pinnedId);
   if (pinned && !visible.includes(pinned)) visible[visible.length - 1] = pinned;
@@ -85,6 +87,14 @@ export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?:
   const shown = family.filter(row => included.has(row.task.id)).map(row => originals.get(row.task.id)!);
   const hidden = sessions.length - shown.length;
   return { sessions: shown, hidden, count: shown.length + Number(hidden > 0) };
+}
+export function reorderActivity(sessions: readonly TrackedActivity[], ids: readonly string[], stored: readonly string[], queue: readonly TrackedActivity[] = sessions): string[] | undefined {
+  // Use the whole displayed queue, including hidden tasks, before merging its order into the Agent preference.
+  const current = orderActivity(sessions, stored);
+  const presented = visibleActivity(orderActivity(queue, stored), undefined, true, stored).sessions;
+  const after = orderedSubset(presented, ids);
+  if (after.every((session, index) => session === presented[index])) return;
+  return orderedSubset(current, after.map(session => session.id)).map(session => session.id);
 }
 export function activityHierarchy(sessions: readonly TrackedActivity[]) {
   const ids = new Map(sessions.flatMap(session => [[session.id, session.id], ...(session.nativeSessionId ? [[session.nativeSessionId, session.id]] : [])] as [string, string][]));
