@@ -1,0 +1,109 @@
+.spec-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  max-width: 100%;
+  min-height: var(--control-md);
+  padding: 6px 12px 6px 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-subtle);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.spec-picker-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spec-picker-trigger > .icon { flex-shrink: 0; color: var(--text-secondary); }
+.spec-picker-trigger:hover:not(:disabled) { background: var(--hover); }
+.spec-picker-trigger:disabled { opacity: 0.6; cursor: default; }
+
+.spec-picker {
+  --spec-thumb: 36px;
+  width: 300px;
+  padding: 12px 16px 16px;
+  border-radius: 20px;
+}
+.spec-picker > header {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+}
+.spec-picker > header > strong {
+  text-align: center;
+  color: var(--accent);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.spec-picker-model {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 2px auto 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.spec-picker-model:hover:not(:disabled),
+.spec-picker-model[data-state="open"] { background: var(--hover); color: var(--text); }
+.spec-picker-models { min-width: 220px; max-height: min(360px, var(--radix-dropdown-menu-content-available-height)); overflow-y: auto; }
+.spec-picker-models-title { padding: 6px 10px; color: var(--text-secondary); font-size: var(--text-xs); }
+.spec-picker-models .menu-item[data-state="checked"] { font-weight: 500; }
+
+.spec-picker-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--spec-thumb);
+  margin-top: 14px;
+  touch-action: none;
+  user-select: none;
+}
+.spec-picker-track {
+  position: relative;
+  flex: 1;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-subtle);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+/* Extend the fill under the thumb so the lowest step still shows a rounded cap. */
+.spec-picker-range {
+  position: absolute;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  padding-right: calc(var(--spec-thumb) / 2);
+  box-sizing: content-box;
+}
+.spec-picker-mark {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--spec-thumb) / 2 + var(--mark) * (100% - var(--spec-thumb)));
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.spec-picker-mark[data-filled] { background: color-mix(in srgb, var(--surface) 55%, var(--accent)); }
+.spec-picker-thumb {
+  display: block;
+  width: var(--spec-thumb);
+  height: var(--spec-thumb);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow), 0 0 0 1px var(--border);
+  cursor: grab;
+}
+.spec-picker-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.spec-picker-slider[data-disabled] { opacity: 0.6; }

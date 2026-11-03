@@ -1659,5 +1659,15 @@
   "mcp.nativeLoginPending": "Native login is pending. Check the native Agent, then refresh its catalog.",
   "mcp.support": "Agent and transport support",
   "mcp.remove": "Remove service",
-  "mcp.removeEffect": "New processes will stop receiving {name}. Running processes retain their configuration; an adopted source returns to its original configuration."
+  "mcp.removeEffect": "New processes will stop receiving {name}. Running processes retain their configuration; an adopted source returns to its original configuration.",
+  "dispatchDefaults.title": "{agent} dispatch defaults",
+  "dispatchDefaults.model": "Default model",
+  "dispatchDefaults.effort": "Default effort",
+  "dispatchDefaults.inherit": "Agent default",
+  "dispatchDefaults.spec": "Model and effort",
+  "dispatchDefaults.chooseModel": "Choose model",
+  "dispatchDefaults.reset": "Reset to default",
+  "taskDispatch.title": "Model for this task",
+  "taskDispatch.inherit": "Follow thread",
+  "taskDispatch.hint": "Applies to later turns when the dispatcher does not choose a model. The current turn is unchanged."
 }

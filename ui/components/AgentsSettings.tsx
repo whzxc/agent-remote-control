@@ -21,6 +21,7 @@ import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
+import AgentDispatchDefaults from "./AgentDispatchDefaults";
 import { springTransition } from "../motion/geometry";
 import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
 
@@ -117,6 +118,7 @@ export function AgentDetails({
       {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
         <Notice>{<>{discoveryMessage(agent)}<br /><small>{agent.discoveryError}</small></>}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
+      {agent.installed && <AgentDispatchDefaults agent={agent.agent} />}
     </Dialog>
   );
 }
