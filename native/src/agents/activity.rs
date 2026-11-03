@@ -89,6 +89,13 @@ struct ScanCache {
     tails: HashMap<PathBuf, Tail>,
     titles: Option<(PathBuf, Stamp, HashMap<String, String>)>,
     file_opens: u64,
+    discovery: Option<Discovery>,
+}
+struct Discovery {
+    roots: Vec<(String, PathBuf)>,
+    changes: Option<crate::kernel::file_cache::Changes>,
+    revision: Option<u64>,
+    scanned: Option<Instant>,
 }
 struct Tail {
     stamp: Stamp,
@@ -235,12 +242,44 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
     if selected.iter().any(|agent| agent == "codex") {
         roots.push(("codex".to_owned(), codex_home.join("sessions")));
     }
-    let mut sessions = scan_roots(
-        &roots,
-        &codex_home.join("session_index.jsonl"),
-        SystemTime::now(),
-        cache,
-    );
+    let index = codex_home.join("session_index.jsonl");
+    if cache.discovery.as_ref().is_none_or(|d| d.roots != roots) {
+        let mut paths: Vec<_> = roots.iter().map(|(_, path)| path.clone()).collect();
+        paths.push(index.clone());
+        cache.discovery = Some(Discovery {
+            roots: roots.clone(),
+            changes: crate::kernel::file_cache::Changes::new(paths).ok(),
+            revision: None,
+            scanned: None,
+        });
+    }
+    let discovery = cache.discovery.as_mut().unwrap();
+    let revision = discovery.changes.as_ref().and_then(|c| c.revision());
+    let discover = discovery.scanned.is_none()
+        || discovery.revision != revision
+        || revision.is_none()
+            && discovery
+                .scanned
+                .is_some_and(|at| at.elapsed() >= Duration::from_secs(30));
+    // A healthy watcher keeps historical directory discovery out of unchanged passes.
+    // Selected recent/unfinished transcripts retain the ordinary two-second clock.
+    let paths = if discover {
+        discovery.revision = revision;
+        discovery.scanned = Some(Instant::now());
+        discover_paths(&roots, cache)
+    } else {
+        cache
+            .tails
+            .keys()
+            .filter_map(|path| {
+                roots
+                    .iter()
+                    .find(|(_, root)| path.starts_with(root))
+                    .map(|(agent, _)| (agent.clone(), path.clone()))
+            })
+            .collect()
+    };
+    let mut sessions = scan_paths(paths, &index, SystemTime::now(), cache);
     for external in &mut sessions {
         if external.agent == "claude" {
             if let Some(account) = claude_roots
@@ -254,14 +293,18 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
     }
     sessions
 }
+#[cfg(test)]
 fn scan_roots(
     roots: &[(String, PathBuf)],
     index: &Path,
     now: SystemTime,
     cache: &mut ScanCache,
 ) -> Vec<External> {
-    let mut active = Vec::new();
-    let mut recent = HashSet::new();
+    let paths = discover_paths(roots, cache);
+    scan_paths(paths, index, now, cache)
+}
+fn discover_paths(roots: &[(String, PathBuf)], cache: &mut ScanCache) -> Vec<(String, PathBuf)> {
+    let mut paths = Vec::new();
     for (agent, root) in roots {
         let mut directories = vec![root.clone()];
         while let Some(dir) = directories.pop() {
@@ -287,57 +330,71 @@ fn scan_roots(
                 if agent == "claude" && claude_sidechain(path, &[]) {
                     continue;
                 }
-                let Ok(metadata) = std::fs::metadata(path) else {
-                    continue;
-                };
-                let Ok(modified) = metadata.modified() else {
-                    continue;
-                };
-                // Keep already observed unfinished turns in the sample even when
-                // compaction or a long tool stops writing to their transcript.
-                let unfinished = cache
-                    .tails
-                    .get(path)
-                    .is_some_and(|tail| tail.timeline.transcript_active(modified, now));
-                if !unfinished
-                    && now.duration_since(modified).unwrap_or_default() > Duration::from_secs(300)
-                {
-                    continue;
-                }
-                recent.insert(path.clone());
-                let Ok((tail, session)) =
-                    cache.tail(path, agent, Stamp::from_metadata(&metadata), modified, now)
-                else {
-                    continue;
-                };
-                if let Some(mut session) = session {
-                    let clock = &tail.clock;
-                    session["turnStartedAt"] = clock.started_at.clone();
-                    if !clock.title.is_empty() {
-                        session["title"] = json!(clock.title)
-                    }
-                    if session["project"].is_null() {
-                        session["project"] = json!(clock.project)
-                    }
-                    session["startedAt"] = clock.created_at.clone();
-                    if let Some(parent) = &clock.parent_session_id {
-                        session["parentSessionId"] = json!(parent);
-                    }
-                    session["turnCount"] = json!(clock.turns.len());
-                    if !clock.turn_id.is_empty() {
-                        session["turnId"] = json!(clock.turn_id)
-                    }
-                    if let Some(summary) = &clock.dispatch_summary {
-                        session["dispatchSummary"] = summary.clone()
-                    }
-                    active.push(External {
-                        agent: agent.clone(),
-                        session,
-                        path: path.clone(),
-                        turn_dispatch_summaries: clock.turn_dispatch_summaries.clone(),
-                    });
-                }
+                paths.push((agent.clone(), path.clone()));
             }
+        }
+    }
+    paths
+}
+fn scan_paths(
+    paths: Vec<(String, PathBuf)>,
+    index: &Path,
+    now: SystemTime,
+    cache: &mut ScanCache,
+) -> Vec<External> {
+    let mut active = Vec::new();
+    let mut recent = HashSet::new();
+    for (agent, path) in paths {
+        let path = &path;
+        let Ok(metadata) = std::fs::metadata(path) else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+        // Keep already observed unfinished turns in the sample even when
+        // compaction or a long tool stops writing to their transcript.
+        let unfinished = cache
+            .tails
+            .get(path)
+            .is_some_and(|tail| tail.timeline.transcript_active(modified, now));
+        if !unfinished
+            && now.duration_since(modified).unwrap_or_default() > Duration::from_secs(300)
+        {
+            continue;
+        }
+        recent.insert(path.clone());
+        let Ok((tail, session)) =
+            cache.tail(path, &agent, Stamp::from_metadata(&metadata), modified, now)
+        else {
+            continue;
+        };
+        if let Some(mut session) = session {
+            let clock = &tail.clock;
+            session["turnStartedAt"] = clock.started_at.clone();
+            if !clock.title.is_empty() {
+                session["title"] = json!(clock.title)
+            }
+            if session["project"].is_null() {
+                session["project"] = json!(clock.project)
+            }
+            session["startedAt"] = clock.created_at.clone();
+            if let Some(parent) = &clock.parent_session_id {
+                session["parentSessionId"] = json!(parent);
+            }
+            session["turnCount"] = json!(clock.turns.len());
+            if !clock.turn_id.is_empty() {
+                session["turnId"] = json!(clock.turn_id)
+            }
+            if let Some(summary) = &clock.dispatch_summary {
+                session["dispatchSummary"] = summary.clone()
+            }
+            active.push(External {
+                agent: agent.clone(),
+                session,
+                path: path.clone(),
+                turn_dispatch_summaries: clock.turn_dispatch_summaries.clone(),
+            });
         }
     }
     if active.iter().any(|session| session.agent == "codex") {

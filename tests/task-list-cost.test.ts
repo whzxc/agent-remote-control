@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, rename, rm } from 'node:fs/promises';
+import { mkdir, writeFile, appendFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 test('archived task filters are discoverable and listing never needs live enrichment by default', async () => {
@@ -54,5 +54,32 @@ test('cached task and status projections follow receipt replacement, runtime upd
     await rm(path.join(directory, `${requestId}.json`));
     await eventually(async () => (await rows()).length === 0);
     assert.equal((await f.api('status')).diagnostics.checks.receipts.count, 0);
+  } finally { await f.close(); }
+});
+
+test('activity discovery finds a new transcript root and follows append and removal', async () => {
+  // Regression: AX-23 skipping unchanged historical directory walks must still discover newly created sessions and terminal changes.
+  const f = await nativeControl('');
+  const thread = randomUUID();
+  let sessions = '';
+  try {
+    await f.restart(async state => {
+      const home = path.join(path.dirname(state), 'codex');
+      await mkdir(home, { recursive: true });
+      sessions = path.join(home, 'sessions');
+    });
+    const active = async () => (await f.api('agents/activity')).agents.codex?.sessions.some((s: any) => s.id === thread) ?? false;
+    assert.equal(await active(), false);
+    await mkdir(path.join(sessions, 'day'), { recursive: true });
+    const transcript = path.join(sessions, 'day', 'rollout.jsonl');
+    const event = (type: string) => JSON.stringify({ timestamp: new Date().toISOString(), type: 'event_msg', payload: { type, turn_id: 'turn' } }) + '\n';
+    await writeFile(transcript, JSON.stringify({ type: 'session_meta', payload: { id: thread } }) + '\n' + event('task_started'));
+    await eventually(active);
+    await appendFile(transcript, event('task_complete'));
+    await eventually(async () => !await active());
+    await writeFile(transcript, JSON.stringify({ type: 'session_meta', payload: { id: thread } }) + '\n' + event('task_started'));
+    await eventually(active);
+    await rm(transcript);
+    await eventually(async () => !await active());
   } finally { await f.close(); }
 });
