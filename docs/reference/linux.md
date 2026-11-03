@@ -17,6 +17,8 @@ The installer needs curl, tar, sha256sum, awk, install, and mktemp. Automatic ve
 To build on the matching architecture:
 
 ```sh
+npm ci
+npx vite build --config vite.config.ts
 cargo build --locked --manifest-path native/Cargo.toml --release --bin arc --target x86_64-unknown-linux-gnu
 npm run cache:prune
 install -Dm755 target/x86_64-unknown-linux-gnu/release/arc "$HOME/.local/bin/arc"

@@ -41,6 +41,8 @@
 
 ## 使用自定义反向代理
 
+通过同一 HTTPS 地址查看 ARC 实时状态时，执行 `arc cli call browser.access` 获取带 key 的访问链接。参见[远程查看 ARC](remote-browser.md)。
+
 把公开 HTTPS 域名转发到 ARC 的本机监听端口。每条固定 Cloudflare 或自定义连接使用不同端口。OAuth 连接同时转发 `/mcp` 和 [OAuth 参考](../../reference/oauth.md#public-routes)列出的全部路由。ARC 管理 API 保持私有。
 
 ## 为其他人托管中继

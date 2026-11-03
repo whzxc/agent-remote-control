@@ -21,6 +21,7 @@ assertSource();
 const output = path.resolve(directory), target = `${arch}-unknown-linux-gnu`;
 const env = { ...buildEnv(true), ARC_BUILD_VERSION: version };
 try {
+  await runCommand(process.execPath, ['node_modules/vite/bin/vite.js', 'build', '--config', 'vite.config.ts'], { env });
   await runCommand('cargo-zigbuild', ['clippy', '--locked', '--manifest-path', 'native/Cargo.toml', '--target', `${target}.2.28`], { env });
   await runCommand('cargo', ['zigbuild', '--locked', '--release', '--manifest-path', 'native/Cargo.toml', '--bin', 'arc', '--target', `${target}.2.28`], { env });
   const binary = path.join(env.CARGO_TARGET_DIR, target, 'release/arc');

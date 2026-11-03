@@ -1,3 +1,5 @@
+import { readOnlyBrowser } from "../browserMode";
+import BrowserDetails from "../browser/BrowserDetails";
 import { activityState } from "../state/taskExecutionModel";
 import { taskExecution, taskExecutions } from "../state/taskExecution";
 import { pendingSessions } from "../state/taskInteractions";
@@ -76,7 +78,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, [newSourceId, flow]);
   const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection || !!nav.connectionsOpen || !!switching;
   const [panelExpanded, setPanelExpanded] = useState(false);
-  const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
+  const panelKey = readOnlyBrowser ? undefined : selection && !selection.closing ? `agent:${agentPanelId(selection)}`
     : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
   appEnvironment.use();
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ width: PANEL_MIN_WIDTH, expanded: false });
@@ -123,7 +125,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, [nav.connectionsOpen]);
   function manageConnections() {
     openConnections();
-    if (!connections.length) openConnectionSetup();
+    if (!readOnlyBrowser && !connections.length) openConnectionSetup();
   }
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
   const agents = orderedAgents()
@@ -251,12 +253,12 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       id: source.id, platform: platform.id, platformLabel, label: nodeLabel, activityAt: (source.lastSeenAt ?? 0) * 1000, activityLevel: Math.max(source.state === "connected" ? 1 : 0,
         ...Object.values(tracked).flat().filter(session => session.origin?.sourceId === source.id && session.endedAt === undefined).map(session => session.interaction ? 3 : 2)),
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
-      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !panelOpen,
+      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !readOnlyBrowser && !panelOpen,
       unread: Object.entries(tracked).flatMap(([agent, sessions]) => sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined
         && (session.origin?.sourceId ? session.origin.sourceId === source.id : accounts.some(account => account.sources.includes(source.id) && accountOwns(account, session.origin?.accountId))))
         .map(session => ({ agent, id: session.id }))),
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
-        onMove={panelOpen ? undefined : by => moveSource(source.id, by)}
+        onMove={readOnlyBrowser || panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
         <SourceIcon platform={platform.id} panelVisual /><span className="graph-node-name">{nodeLabel}</span>
       </GraphNode>,
@@ -291,11 +293,11 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       id: agent.agent, platform: agent.agent, platformLabel: name(agent),
       activityAt: recentActivity,
       activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon: <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />,
-      selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: agent.enabled && !panelOpen,
+      selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: !readOnlyBrowser && agent.enabled && !panelOpen,
       unread: sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined)
         .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) ?? session.agentAccountId })),
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
-        onMove={agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
+        onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
         <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />
         {selection && !selected && sessions.some(s => s.endedAt === undefined) && <span className="agent-task-count" data-attention={sessions.some(s => !!s.interaction) || undefined}>{sessions.filter(s => s.endedAt === undefined).length}</span>}
@@ -308,8 +310,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             const execution = taskExecution(agent.agent, session.id);
             return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);
           })(),
-          selected: selected && selection.session?.id === session.id, reorderable: !panelOpen,
-          content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={panelOpen ? undefined : by => {
+          selected: selected && selection.session?.id === session.id, reorderable: !readOnlyBrowser && !panelOpen,
+          content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={readOnlyBrowser || panelOpen ? undefined : by => {
             const group = shown.sessions.filter(s => (accountIds.length <= 1 || sessionAccount(s) === sessionAccount(session)) && parents.get(s.id) === parents.get(session.id) && !!s.interaction === !!session.interaction);
             const from = group.findIndex(s => s.id === session.id), to = from + by;
             if (to < 0 || to >= group.length) return;
@@ -353,6 +355,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   });
   const flatten = (nodes: NodeView[]): NodeView[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
   const reorderNodes = (side: -1 | 1, ids: string[]) => {
+    if (readOnlyBrowser) return;
     const nodes = flatten(side === -1 ? topologyLeft : topologyRight), first = nodes.find(n => n.id === ids[0]);
     if (first?.account && !first.sourceProduct) {
       topologyAccountOrder.set(old => ({ ...old, [`${side}:${first.platform}`]: ids.flatMap(id => nodes.find(n => n.id === id)?.accountId ?? []) }));
@@ -367,18 +370,19 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           onMarkRead={markActivitiesRead}
           onReorderNodes={reorderNodes}
           onReorderTasks={(_side, parent, ids) => {
+            if (readOnlyBrowser) return;
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
             reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? []);
           }}
-          brand={<Hub connectionEmpty={!connections.length} connectionState={remoteState} onConnections={manageConnections}
+          brand={<Hub readOnly={readOnlyBrowser} connectionEmpty={!connections.length} connectionState={remoteState} onConnections={manageConnections}
             accessState={accessState} accessRunning={running} accessDisabled={progressing || !!accessAction || loading || !status || !!error} onAccess={() => void toggle()}
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
-        {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
+        {!readOnlyBrowser && selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
           width={envOverrides().taskPanelWidth ?? panelLayout.width} expanded={envOverrides().taskPanelWidth == null && panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)}
           onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
-        {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
+        {!readOnlyBrowser && sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && (
@@ -395,13 +399,14 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
-      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
+      {readOnlyBrowser && <BrowserDetails />}
+      {!readOnlyBrowser && nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
         returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
         <ConnectionsContent />
       </Dialog>}
-      {switching && visible && <ChangeConnection />}
-      {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
-      {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
+      {!readOnlyBrowser && switching && visible && <ChangeConnection />}
+      {!readOnlyBrowser && agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
+      {!readOnlyBrowser && displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
     </>
   );
 }

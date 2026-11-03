@@ -2,6 +2,7 @@ mod acceptance_fault;
 pub mod accounts;
 pub mod app_env;
 pub mod archive_index;
+mod browser;
 mod changes;
 mod claude_notify;
 mod cloudflare;

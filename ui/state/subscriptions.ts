@@ -1,3 +1,4 @@
+import { apiUrl } from "../browserMode";
 import { createStore } from "./store";
 import { api } from "../api";
 import { isDesktop } from "../platform";
@@ -71,7 +72,7 @@ export function startSubscriptions() {
       })
       .catch((e) => subscriptions.set((old) => ({ ...old, error: String(e) })));
   else if (!import.meta.env.DEV) {
-    stream = new EventSource("/api/subscriptions/events");
+    stream = new EventSource(apiUrl("subscriptions/events"));
     stream.addEventListener("snapshot", (event) => {
       try {
         acceptSubscriptions(JSON.parse((event as MessageEvent).data));

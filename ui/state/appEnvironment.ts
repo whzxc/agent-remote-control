@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createStore } from "./store";
 import { activeOverrides, clockNow, type EnvSample } from "./appEnvModel";
 import { isDesktop } from "../platform";
+import { readOnlyBrowser } from '../browserMode';
 
 export const appEnvironment = createStore<EnvSample | undefined>(undefined);
 export const envOverrides = () => activeOverrides(appEnvironment.get(), Date.now());
@@ -48,6 +49,7 @@ export function useAppNow(interval: number | null = 1000) {
 let pending: Promise<void> | undefined;
 let appliedSize: string | undefined;
 export function refreshAppEnvironment() {
+  if (readOnlyBrowser) return Promise.resolve();
   return pending ??= (async () => {
     const { api } = await import("../api");
     const sample = await api<EnvSample>("app/env");

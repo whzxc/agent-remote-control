@@ -17,6 +17,7 @@ const devOrigin = new URL(`http://127.0.0.1:${devPort}`).origin;
 const devHost = new URL(devOrigin).host;
 type Endpoint = { port: number; token: string };
 export default defineConfig({
+  base: './',
   root: fileURLToPath(new URL('./ui', import.meta.url)),
   define: { __CONNECTOR_VERSION__: JSON.stringify(packageVersion) },
   plugins: [react(), tailwindcss(), {
@@ -109,6 +110,7 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('./ui/index.html', import.meta.url)),
+        browser: fileURLToPath(new URL('./ui/browser.html', import.meta.url)),
       },
       output: {
         codeSplitting: {

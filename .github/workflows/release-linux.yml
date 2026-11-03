@@ -79,7 +79,9 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           ARC_BUILD_VERSION: ${{ inputs.version }}
           ARCH: ${{ matrix.arch }}
-        run: node tooling/linux-build.mjs "$SOURCE_SHA" "$ARC_BUILD_VERSION" "$ARCH" release-artifacts/linux
+        run: |
+          npm ci
+          node tooling/linux-build.mjs "$SOURCE_SHA" "$ARC_BUILD_VERSION" "$ARCH" release-artifacts/linux
       - uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.arch }}

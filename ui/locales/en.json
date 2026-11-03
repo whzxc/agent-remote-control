@@ -1540,5 +1540,12 @@
   "center.coverage.clock-uncertain": "Activity time uncertain",
   "center.coverage.unavailable": "Observation unavailable",
   "updates.installing": "Installing and restarting…",
-  "updates.restartHint": "Running ARC tasks will be interrupted."
+  "updates.restartHint": "Running ARC tasks will be interrupted.",
+  "browser.readOnly": "Read only",
+  "browser.live": "Live",
+  "browser.disconnected": "Disconnected",
+  "browser.tasks": "Active tasks",
+  "browser.noTasks": "No active tasks",
+  "browser.partial": "The available conversation history is partial.",
+  "browser.accessDenied": "The browser key is no longer valid. Reopen the current access link from ARC."
 }

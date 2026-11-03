@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from "../browserMode";
 import { Children, createContext, isValidElement, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Image } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -30,7 +31,7 @@ function TimelineImage({ src = "", alt }: { src?: string; alt?: string }) {
   const [local, setLocal] = useState<{ source: string; url: string }>();
   const [failed, setFailed] = useState<string>();
   useEffect(() => {
-    if (link?.kind !== "file") return;
+    if (readOnlyBrowser || link?.kind !== "file") return;
     let stopped = false;
     void api<{ src: string }>("agents/resources", "POST", { agent, id, path: link.target, action: "image" })
       .then(result => { if (!stopped) setLocal({ source: src, url: result.src }); })
@@ -50,7 +51,7 @@ export default memo(function TimelineMarkdown({ text }: { text: string }) {
     ...headings,
     a: ({ href = "", children }) => {
       const link = timelineLink(href);
-      if (!link || link.kind === "image") return <span>{children}</span>;
+      if (!link || link.kind === "image" || readOnlyBrowser && link.kind === "file") return <span>{children}</span>;
       return <a href={href} title={link.kind === "file" ? t("timeline.revealFile", { path: link.target }) : undefined} onClick={event => {
         event.preventDefault();
         setError("");

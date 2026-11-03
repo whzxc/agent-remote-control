@@ -41,6 +41,9 @@ For daily use, choose a fixed address. If a temporary address changes, remove an
 
 ## Use a custom reverse proxy
 
+To view live ARC state through the same HTTPS address, generate a key URL with
+`arc cli call browser.access`. See [View ARC remotely](remote-browser.md).
+
 Route the public HTTPS hostname to ARC's loopback listener. Give each fixed Cloudflare or custom connection a distinct local port. Forward `/mcp` and every route in the [OAuth reference](../reference/oauth.md#public-routes) for OAuth. Keep ARC's management API private.
 
 ## Host a relay for others

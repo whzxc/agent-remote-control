@@ -3942,6 +3942,30 @@
       },
       "description": "Remove one ARC-owned installed pet by its opaque key and return the remaining packages and errors. Codex packages are read-only. The UI clears bindings to the removed package.",
       "localOnly": true
+    },
+    {
+      "name": "browser.access",
+      "method": "GET",
+      "route": "browser/access",
+      "localOnly": true,
+      "description": "Generate or read the independent read-only browser access key and key URLs for HTTPS/Relay ingresses. Open a returned URL in a browser. Missing or invalid keys return an empty HTTP 401. The key never grants MCP or local management access.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "browser.access.rotate",
+      "method": "POST",
+      "route": "browser/access/rotate",
+      "localOnly": true,
+      "description": "Replace the read-only browser access key. Previous links and browser sessions stop working; active browser streams close within two seconds. Returns the replacement key and URLs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
     }
   ]
 }

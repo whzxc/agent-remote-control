@@ -4,6 +4,8 @@
 
 ## Processes and responsibilities
 
+Existing HTTPS ingress listeners also serve the read-only browser dashboard. Core embeds its static assets after the frontend build. The public browser surface uses a separate 256-bit key generated through local `browser.access`; `browser.access.rotate` replaces it. Document navigations require the key query parameter. Resource and data requests accept a Secure, HttpOnly, SameSite=Strict session cookie derived from the current key. Authentication precedes browser route lookup, so unauthenticated pages, assets, and data return empty HTTP 401 responses. Browser routes allow only explicit reads; POST-based timeline and coordination reads validate their management schemas. The local management API remains private. Existing MCP/OAuth routes retain their own authentication and authority. Browser presence and preference writes are disabled. The browser forwards the existing status, activity, and quota streams and closes them when the key changes. OpenAI Secure Tunnel remains MCP-only. See [Remote browser](../guides/remote-browser.md).
+
 ```text
 React / Tauri Desktop ── authenticated local management API ── Core
                                                                ├─ Ingress A ─ HTTPS / OAuth

@@ -128,6 +128,10 @@ async fn handle_inner(
     observation: &crate::ingress_observation::Request,
 ) -> std::result::Result<Response<crate::wait_transport::Body>, Infallible> {
     let error = |code, message| Ok(reply(code, Some(json!({"error":message}))));
+    let path = request.uri().path();
+    if path != "/mcp" && !path.starts_with("/.well-known/") && !path.starts_with("/oauth/") {
+        return Ok(crate::browser::handle(request, service, &local_host).await);
+    }
     let url = service.mcp_url.lock().await.clone();
     let Ok(url) = reqwest::Url::parse(&url) else {
         return error(503, "tunnel starting");

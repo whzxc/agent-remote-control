@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { readOnlyBrowser } from '../browserMode';
 
 // Small immutable stores share native snapshots and preferences across React roots.
 export function createStore<T>(initial: T) {
@@ -33,6 +34,7 @@ export function preparePreferences(): Promise<void> {
     localStorage.removeItem("arc.approved-source-labels");
     localStorage.removeItem("update-announcement");
     const defaults = await api<Record<string,string>>("preferences");
+    if (readOnlyBrowser) { acceptPreferences(defaults); return; }
     const values: Record<string,string> = {};
     for (const key of [...Object.keys(defaults),...preferenceListeners.keys()]) {
       const value = localStorage.getItem(key);
@@ -46,12 +48,12 @@ export const preferenceStorage = {
   setItem(key: string, value: string) {
     if (localStorage.getItem(key) === value) return;
     localStorage.setItem(key,value);
-    if (!applyingPreferences) void import("../api").then(({api}) => api("preferences","PUT",{values:{[key]:value}})).catch(console.error);
+    if (!applyingPreferences && !readOnlyBrowser) void import("../api").then(({api}) => api("preferences","PUT",{values:{[key]:value}})).catch(console.error);
   },
   removeItem(key: string) {
     if (localStorage.getItem(key) === null) return;
     localStorage.removeItem(key);
-    if (!applyingPreferences) void import("../api").then(({api}) => api("preferences","PUT",{values:{[key]:null}})).catch(console.error);
+    if (!applyingPreferences && !readOnlyBrowser) void import("../api").then(({api}) => api("preferences","PUT",{values:{[key]:null}})).catch(console.error);
   },
 };
 export function acceptPreferences(values: Record<string,string>) {

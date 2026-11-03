@@ -1,0 +1,12 @@
+{
+  "browser": true,
+  "theme": "light",
+  "language": "en",
+  "agents": ["codex", "claude"],
+  "quota": true,
+  "tasks": [
+    { "agent": "codex", "phase": "command", "title": "Verify remote status", "headline": "Running the current checks" },
+    { "agent": "claude", "phase": "interaction", "title": "Review the proposed change", "headline": "Waiting for approval", "approval": true }
+  ],
+  "viewports": [{ "width": 390, "height": 844 }, { "width": 1280, "height": 800 }]
+}

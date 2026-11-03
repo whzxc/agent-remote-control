@@ -334,7 +334,7 @@ impl Service {
         }
         while jobs.join_next().await.is_some() {}
     }
-    async fn entries(&self) -> Vec<Arc<Ingress>> {
+    pub(crate) async fn entries(&self) -> Vec<Arc<Ingress>> {
         self.ingresses.lock().await.values().cloned().collect()
     }
     pub async fn network_proxy(&self) -> Result<crate::proxy::NetworkProxy> {
@@ -761,6 +761,8 @@ impl Service {
             return Ok(readiness);
         }
         match (method, route) {
+            ("GET", "browser/access") => return crate::browser::access(self, false).await,
+            ("POST", "browser/access/rotate") => return crate::browser::access(self, true).await,
             ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {

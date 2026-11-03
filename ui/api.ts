@@ -1,6 +1,7 @@
 import { scenarioName } from "./scenarioMode";
 import { t } from './i18n';
 import { desktopRequest, isDesktop } from './platform';
+import { apiUrl, readOnlyBrowser } from './browserMode';
 export async function api<T = unknown>(
   path: string,
   method = "GET",
@@ -8,11 +9,12 @@ export async function api<T = unknown>(
 ): Promise<T> {
   if (import.meta.env.DEV && scenarioName) return (await import('./scenarios')).scenarioResponse(path, method, body) as T;
   if (isDesktop) return desktopRequest<T>(path, method, body);
-  const response = await fetch(`/api/${path}`, {
+  const response = await fetch(apiUrl(path), {
     method,
     headers: { "Content-Type": "application/json", "X-ARC-Request": "1" },
     ...(method !== "GET" ? { body: JSON.stringify(body ?? {}) } : {}),
   });
+  if (readOnlyBrowser && response.status === 401) throw new Error(t('browser.accessDenied'));
   let data;
   try {
     data = await response.json();

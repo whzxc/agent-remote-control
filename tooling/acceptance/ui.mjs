@@ -63,7 +63,7 @@ try {
       await page.addInitScript(() => { const original = Date; const fixed = original.parse('2026-01-01T00:00:00Z'); Date = class extends original { constructor(...args) { super(...(args.length ? args : [fixed])); } static now() { return fixed; } }; });
       const row = { name, width, height, key, errors, baseline: screenshots ? 'missing' : 'disabled', changedPixels: null, changedRatio: null };
       try {
-        await page.goto(`http://127.0.0.1:${port}/?scenario=${encodeURIComponent(name)}`);
+        await page.goto(`http://127.0.0.1:${port}/${fixture.browser ? 'browser.html' : ''}?scenario=${encodeURIComponent(name)}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
         if (name.startsWith('agent-settings-')) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -80,6 +80,21 @@ try {
         }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
+        if (fixture.browser) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByText(messages['browser.readOnly'], { exact: true }).waitFor();
+          if (await page.getByRole('button', { name: messages.settings, exact: true }).count()) throw new Error('Browser exposed desktop settings');
+          const power = page.getByRole('button', { name: messages['hub.stop'], exact: true });
+          if (await power.count()) throw new Error('Browser exposed ingress controls');
+          const task = page.getByRole('button', { name: new RegExp(escapeRegex(fixture.tasks[0].title)) }).first();
+          await task.click();
+          await page.getByRole('dialog').waitFor();
+          await page.getByRole('dialog').getByText('npm run check', { exact: true }).waitFor();
+          if (await page.getByRole('dialog').getByRole('textbox').count()) throw new Error('Browser exposed a task composer');
+          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-conversation.png`) });
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'hidden' });
+        }
         if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');
         const actualAgents = (model.topology?.nodes ?? []).filter(n => n.side === 1).map(n => n.id);
         if (!fixture.page && fixture.agents.some(a => !actualAgents.includes(a))) throw new Error('Fixture agents were not rendered');

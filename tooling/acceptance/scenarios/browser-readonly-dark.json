@@ -1,0 +1,12 @@
+{
+  "browser": true,
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": ["codex", "claude"],
+  "quota": true,
+  "tasks": [
+    { "agent": "codex", "phase": "command", "title": "检查远程状态", "headline": "正在运行检查" },
+    { "agent": "claude", "phase": "interaction", "title": "审阅变更", "headline": "等待批准", "approval": true }
+  ],
+  "viewports": [{ "width": 390, "height": 844 }, { "width": 1280, "height": 800 }]
+}

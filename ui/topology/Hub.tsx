@@ -7,8 +7,8 @@ import { Power } from 'lucide-react';
 import { Icon, Tooltip } from '../components/ui';
 import type { ConnectionReadiness } from '../connectionReadiness';
 
-export default function Hub({ sourceEmpty, agentEmpty, connectionEmpty, connectionState, onConnections, accessState, accessRunning, accessDisabled, onAccess, onAddSource, onManageAgents }: {
-  connectionEmpty: boolean; connectionState: ConnectionReadiness; onConnections: () => void;
+export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connectionEmpty, connectionState, onConnections, accessState, accessRunning, accessDisabled, onAccess, onAddSource, onManageAgents }: {
+  readOnly?: boolean; connectionEmpty: boolean; connectionState: ConnectionReadiness; onConnections: () => void;
   accessState: ConnectionReadiness; accessRunning: boolean; accessDisabled: boolean; onAccess: () => void;
   sourceEmpty: boolean; agentEmpty: boolean; onAddSource: () => void; onManageAgents: () => void;
 }) {
@@ -35,18 +35,18 @@ export default function Hub({ sourceEmpty, agentEmpty, connectionEmpty, connecti
         <stop stopColor="var(--mark-agent-start)" /><stop offset="1" stopColor="var(--mark-agent-end)" />
       </linearGradient></defs>
     </svg>
-    <div ref={top} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip text={connectionEmpty ? t('source.newConnection') : `${t('connections.title')} · ${t(`connectionState.${connectionState}`)}`}>
-      <button type="button" className="hub-connections hub-arc" data-state={connectionEmpty ? 'empty' : connectionState} aria-label={t(connectionEmpty ? "source.newConnection" : "connections.title")} aria-description={t(`connectionState.${connectionState}`)} aria-haspopup="dialog"
+    <div ref={top} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip text={connectionEmpty && !readOnly ? t('source.newConnection') : `${t('connections.title')} · ${t(`connectionState.${connectionState}`)}`}>
+      <button type="button" className="hub-connections hub-arc" data-state={connectionEmpty ? 'empty' : connectionState} aria-label={t(connectionEmpty && !readOnly ? "source.newConnection" : "connections.title")} aria-description={t(`connectionState.${connectionState}`)} aria-haspopup="dialog"
       data-panel-anchor onClick={onConnections} {...interaction('top')}>
       <svg viewBox="4 4 92 92" aria-hidden="true">
         <path data-hub-arc="top" d={mark.top} fill="none" stroke="transparent" strokeWidth="18" />
         <path className="hub-arc-stroke" data-hub-arc="top" data-panel-visual d={mark.top} fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" pathLength="100" />
       </svg>
-      {connectionEmpty && <span className="hub-connection-add rounded-full border border-solid border-border bg-background px-3 py-2 text-sm shadow-sm">+ {t("source.newConnection")}</span>}
+      {!readOnly && connectionEmpty && <span className="hub-connection-add rounded-full border border-solid border-border bg-background px-3 py-2 text-sm shadow-sm">+ {t("source.newConnection")}</span>}
     </button></Tooltip></div></div>
-    <div ref={bottom} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip side="bottom" text={accessDisabled ? accessDescription : `${accessDescription} · ${action}`}>
-      <button type="button" className="hub-power hub-arc" data-state={accessState} aria-label={action} aria-description={accessDescription}
-        aria-pressed={accessRunning} aria-busy={pending} aria-disabled={accessDisabled} {...interaction('bottom')} onClick={() => { if (!accessDisabled) onAccess(); }}>
+    <div ref={bottom} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip side="bottom" text={readOnly || accessDisabled ? accessDescription : `${accessDescription} · ${action}`}>
+      <button type="button" className="hub-power hub-arc" data-state={accessState} aria-label={readOnly ? accessDescription : action} aria-description={accessDescription}
+        disabled={readOnly} aria-pressed={accessRunning} aria-busy={pending} aria-disabled={readOnly || accessDisabled} {...interaction('bottom')} onClick={() => { if (!readOnly && !accessDisabled) onAccess(); }}>
         <svg viewBox="4 4 92 92" aria-hidden="true">
           <defs><mask id={`${id}-power`} maskUnits="userSpaceOnUse" x="4" y="4" width="92" height="92" style={{ maskType: 'luminance' }}>
             <rect x="4" y="4" width="92" height="92" fill="white" />
@@ -56,7 +56,7 @@ export default function Hub({ sourceEmpty, agentEmpty, connectionEmpty, connecti
           <path className="hub-arc-stroke" data-hub-arc="bottom" d={mark.bottom} fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" pathLength="100" mask={`url(#${id}-power)`} />
         </svg>
       </button></Tooltip></div></div>
-    {(["source", "agent"] as const).map(side => {
+    {!readOnly && (["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;
       const label = t(source ? "addControlSource" : empty ? "addAgent" : "manageAgents");
       return <button key={side} type="button" className={`hub-entry hub-${side}`} data-empty={empty || undefined}

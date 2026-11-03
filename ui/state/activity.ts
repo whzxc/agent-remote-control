@@ -1,3 +1,4 @@
+import { apiUrl } from "../browserMode";
 import { trackedActivity, resetActivityBubbles, observeActivityTurn, restoreActivityReads, rememberActivityRead, controlActivityBubble } from "./activityBubbles";
 import { resetTaskExecutions, refreshTaskExecution } from "./taskExecution";
 import { taskState } from "./taskProjection";
@@ -74,7 +75,7 @@ export function startAgentActivity() {
       else { off = dispose; connected = true; void read(); }
     }).catch(() => { connected = false; void read(); });
   } else if (!import.meta.env.DEV && typeof EventSource !== "undefined") {
-    stream = new EventSource("/api/agents/activity/events");
+    stream = new EventSource(apiUrl("agents/activity/events"));
     stream.onopen = () => { connected = true; };
     stream.addEventListener("snapshot", event => {
       try { accept(JSON.parse((event as MessageEvent).data)); }

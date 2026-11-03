@@ -12,7 +12,7 @@ import { Button, IconButton } from "./ui";
 import UsageHistory from "../subscriptions/UsageHistory";
 import ResetCreditDetails from "../subscriptions/ResetCreditDetails";
 
-export default function AgentQuota({ provider, onRefresh, refreshing }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean }) {
+export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = false }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean }) {
   const now = useNow();
   locale.use();
   const display = quotaDisplay.use(), reset = resetDisplay.use();
@@ -37,7 +37,7 @@ export default function AgentQuota({ provider, onRefresh, refreshing }: { provid
             <time dateTime={Number.isFinite(resetAt) ? window.resetsAt : undefined}
               title={Number.isFinite(resetAt) ? t("quotaResetAt", { time: preciseTime(window.resetsAt) }) : t("quotaResetUnknown")}
               aria-label={t(reset === "time" ? "quotaResetAt" : "quotaResetIn", { time: resetText })}>{resetText}</time>
-            {window === summaryWindow && <span className="agent-quota-refresh">
+            {!readOnly && window === summaryWindow && <span className="agent-quota-refresh">
               <IconButton icon={RefreshCw} size={16} label={t("usageRefresh")} busy={refreshing || provider.refreshing}
                 disabled={!provider.eligible} onClick={onRefresh} />
             </span>}
