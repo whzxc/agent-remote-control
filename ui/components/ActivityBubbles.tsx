@@ -95,7 +95,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
     if (start?.id === event.pointerId && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) start.moved = true;
   };
   const hint = t("timeline.open");
-  return <div className="activity-bubble-shell"><button type="button" className={`activity-bubble ${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
+  return <div className="activity-bubble-shell" role="group" aria-label={session.title || t("timeline.title")}><button type="button" className={`activity-bubble ${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
       data-density={density}
       data-timeline-anchor
       data-unread={unread || undefined}

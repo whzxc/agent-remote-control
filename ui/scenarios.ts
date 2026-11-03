@@ -73,6 +73,14 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     const now = Date.now();
     return { active: false, expiresAt: null, realNowMs: now, overrides: {}, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } } satisfies import('./state/appEnvModel').EnvSample;
   }
+  if (path === 'tool-catalog' && method === 'GET') return {
+    groups: [{ id: 'codex', label: { en: 'Tasks', 'zh-CN': 'Tasks' } }], required: ['guide'],
+    tools: [
+      { name: 'guide', description: 'Read the fixture operation guide', via: 'query', group: 'codex', presets: ['common', 'readOnly'], requires: [] },
+      { name: 'task_timeline', description: 'Read a sample task timeline', via: 'query', group: 'codex', presets: ['common', 'readOnly'], requires: [] },
+      { name: 'task_mark_read', description: 'Mark a sample task as read', via: 'act', group: 'codex', presets: ['common'], requires: [] },
+    ],
+  } satisfies import('./toolPolicy').ToolCatalog;
   const srcResult = srcConversationResponse(path, method, body);
   if (srcResult !== undefined) return structuredClone(srcResult);
   const accountResult = accountResponse?.(path, method, body);

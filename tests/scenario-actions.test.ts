@@ -14,6 +14,7 @@ test('task scenarios execute panel actions with mock receipts and readable state
     Node:window.Node,NodeFilter:window.NodeFilter,DocumentFragment:window.DocumentFragment,MutationObserver:window.MutationObserver,
     HTMLInputElement:window.HTMLInputElement,HTMLFormElement:window.HTMLFormElement,Event:window.Event,CustomEvent:window.CustomEvent,CSS:window.CSS,
     localStorage:window.localStorage,ResizeObserver:Observer,matchMedia:window.matchMedia,getComputedStyle:window.getComputedStyle.bind(window),
+    innerWidth:1280,innerHeight:800,
     requestAnimationFrame:(callback:FrameRequestCallback)=>setTimeout(()=>callback(performance.now()),0),cancelAnimationFrame:clearTimeout,IS_REACT_ACT_ENVIRONMENT:true});
   const originalFetch = globalThis.fetch; globalThis.fetch = async () => { throw new Error('Scenario contacted real Core'); };
   const server = await createServer({configFile:false,server:{middlewareMode:true,watch:null,ws:false}});
@@ -29,6 +30,14 @@ test('task scenarios execute panel actions with mock receipts and readable state
     const env = scenarioResponse('app/env', 'GET');
     assert.equal(env.active, false); assert.equal(env.clock.source, 'system');
     assert.ok(Number.isFinite(env.clock.value.nowMs));
+    const catalog = scenarioResponse('tool-catalog', 'GET');
+    assert.ok(catalog.tools.some((tool: any) => tool.name === catalog.required[0]));
+    const {default:ToolPolicyField} = await server.ssrLoadModule('/ui/components/ToolPolicyField.tsx');
+    const {TooltipProvider} = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const {t} = await server.ssrLoadModule('/ui/i18n.ts');
+    await act(async()=>root.render(h(TooltipProvider,null,h(ToolPolicyField,{onChange(){}}))));
+    assert.equal(within(mount).getByRole('radio', {name:t('toolsCommon'),exact:true}).getAttribute('aria-checked'), 'true');
+    assert.equal(within(mount).queryByRole('alert'), null);
     assert.deepEqual(scenarioResponse('tasks/presence', 'POST', {agent:'codex',taskId:id,present:true}), {present:true});
     const routingArgs = {agent:'codex',taskId:'fixture-task-1',id:'fixture-interaction-1'};
     for (const action of ['read','pause','resume','handoff']) {
@@ -38,8 +47,6 @@ test('task scenarios execute panel actions with mock receipts and readable state
     assert.deepEqual(call('codex_queue',{threadId:id}).items,[]);
     const {agentActivity} = await server.ssrLoadModule('/ui/state/activity.ts');
     const {default:ActivityTimeline} = await server.ssrLoadModule('/ui/components/ActivityTimeline.tsx');
-    const {TooltipProvider} = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const {t} = await server.ssrLoadModule('/ui/i18n.ts');
     await act(async()=>root.render(h(TooltipProvider,null,h(ActivityTimeline,{agent:'codex',session:agentActivity.get().snapshot.agents.codex.sessions[0],expanded:false,onToggleWidth(){},onBack(){}}))));
     const page = within(mount);
     assert.ok(page.getByRole('heading', {name: agentActivity.get().snapshot.agents.codex.sessions[0].title}));

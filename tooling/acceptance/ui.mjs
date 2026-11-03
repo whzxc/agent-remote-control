@@ -423,14 +423,15 @@ try {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           for (const task of fixture.tasks.filter((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`))) {
             const title = task.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const bubble = page.getByRole('button', { name: new RegExp(`^${title} ·`) });
+            const taskGroup = page.getByRole('group', { name: task.title, exact: true });
+            const bubble = taskGroup.getByRole('button', { name: new RegExp(`^${title} ·`) });
             const bounds = await bubble.boundingBox();
             if (!bounds) throw new Error('Completed task is unavailable for mark-read acceptance');
             await bubble.dragTo(bubble, {
               sourcePosition: { x: bounds.width / 2, y: bounds.height / 2 },
               targetPosition: { x: bounds.width * 0.6, y: bounds.height * 0.6 },
             });
-            const markRead = page.getByRole('button', { name: messages['activity.markRead'], exact: true });
+            const markRead = taskGroup.getByRole('button', { name: messages['activity.markRead'], exact: true });
             await markRead.click();
             await bubble.getByRole('img', { name: messages['activity.unread'], exact: true }).waitFor({ state: 'hidden' });
             if (await page.getByRole('dialog').count()) throw new Error('Mark-read opened a task detail panel');

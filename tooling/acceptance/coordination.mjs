@@ -58,10 +58,19 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   }
   if (fixture.coordination === 'problems') {
     for (const kind of ['connection', 'notification', 'update']) {
-      await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button').filter({ hasText: m(kind) }).click();
+      const attention = board().getByRole('region', { name: m('attention'), exact: true });
+      const link = attention.getByRole('button', { name: new RegExp(`${m(kind)}$`) });
+      const ownerName = kind === 'update' ? messages.appUpdates : (await link.innerText()).slice(0, -m(kind).length).trim();
+      await link.click();
       await board().waitFor({ state: 'hidden' });
-      await page.getByRole('dialog').waitFor();
-      await page.keyboard.press('Escape'); await board().waitFor(); await count(8);
+      const owner = page.getByRole('dialog', { name: ownerName, exact: true });
+      await owner.waitFor();
+      // A visible dock can precede its focus frame and Escape layer registration.
+      if (kind === 'update') await owner.getByRole('button', { name: messages.close, exact: true }).focus();
+      await page.waitForFunction(node => node.contains(document.activeElement), await owner.elementHandle());
+      await owner.press('Escape');
+      await owner.waitFor({ state: 'hidden' });
+      await board().waitFor(); await count(8);
     }
     await snapshot('problems'); await close();
     return [...checks, 'connection, notification and update links use their owners and preserve outstanding state'];

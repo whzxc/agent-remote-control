@@ -47,6 +47,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   }, []);
   const submissions = activityApprovals.use();
   const [atLatest, setAtLatest] = useState(true);
+  const [reviewSelection, setReviewSelection] = useState<{ id: string; turnId?: string }>();
   const [timeline, setTimeline] = useState<AgentTimeline>();
   const [taskTitle, setTaskTitle] = useState<{ id: string; title: string }>();
   const [continuing, setContinuing] = useState(false);
@@ -156,7 +157,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
   const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
-  const { review, reviewError, reloadReview } = useTaskReview(session.id, turnId, terminalState(state));
+  const showReview = reviewSelection?.id === session.id && reviewSelection.turnId === turnId;
+  const { review, reviewError, reviewLoading, reloadReview } = useTaskReview(session.id, turnId, showReview && terminalState(state));
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
   const latest = () => {
     const node = viewport.current;
@@ -286,15 +288,17 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             onResume={!readOnlyBrowser && agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
           <TaskQueuedMessages queue={queue} />
-          {terminalState(state) && review && <article className="task-final task-review-info" data-verdict={review.verdict}>
+          {terminalState(state) && <section aria-label={t("detail.reviewInfo")}>
+          <Button variant="ghost" aria-expanded={showReview} onClick={() => setReviewSelection(showReview ? undefined : { id: session.id, turnId })}>{t("detail.reviewInfo")}</Button>
+          {showReview && (reviewLoading ? <LoadingIndicator label={t("detail.reviewInfo")} /> : reviewError ? <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice> : review ? <article className="task-final task-review-info" data-verdict={review.verdict}>
             <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>
             <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
               {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
               <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
             </div>
             {review.note && <p>{review.note}</p>}
-          </article>}
-          {terminalState(state) && reviewError && <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice>}
+          </article> : <p className="timeline-meta">{t("detail.reviewEmpty")}</p>)}
+          </section>}
 
           </>}
         </div>
