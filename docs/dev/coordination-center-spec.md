@@ -2,8 +2,8 @@
 
 This specification defines the first desktop coordination workspace. It builds on
 the existing [coordination owners](coordination.md) and follows the shared
-[UI conventions](ui.md). It describes the implementation target; the coordination
-reference remains authoritative for existing native behavior.
+[UI conventions](ui.md). It describes the desktop workspace; the coordination reference remains
+authoritative for native behavior.
 
 ## Product outcome
 

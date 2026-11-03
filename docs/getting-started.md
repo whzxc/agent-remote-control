@@ -44,6 +44,8 @@ When Codex completes, ARC sends a status notification that wakes the same Claude
 
 ## Next
 
+- Find changes and coordinate resources: [Event center](guides/event-center.md).
+
 - Let a local Agent configure ARC: [Automatic setup](auto-setup.md).
 - Understand task ownership and tool access: [Concepts](concepts.md).
 - Prefer ChatGPT Chat: [ChatGPT guide](guides/chatgpt.md).

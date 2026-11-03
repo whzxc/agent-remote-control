@@ -1,3 +1,5 @@
+import { coordinationScenario, type CoordinationFixture } from './scenarioCoordination';
+import { resetBoardObservation, centerView } from './coordination/state';
 import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts } from './topology/scenarioAccounts';
@@ -26,11 +28,12 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let conversations: Record<string, AgentConversation[]> = {};
 let accountResponse: ReturnType<typeof accountScenario> | undefined;
+let coordinationResponse = coordinationScenario();
 let taskResponse: ReturnType<typeof taskScenario> | undefined;
 let srcConversationResponse = srcConversationsScenario();
 export function scenarioResponse(path: string, method: string, body?: unknown): unknown {
@@ -41,6 +44,8 @@ export function scenarioResponse(path: string, method: string, body?: unknown): 
   }
 }
 function respondToScenario(path: string, method: string, body?: unknown): unknown {
+  const coordinationResult = coordinationResponse(path, method, body);
+  if (coordinationResult !== undefined) return structuredClone(coordinationResult);
   if (path === 'status' && responses.statusUnavailable) throw new Error('Connection status is unavailable in this fixture.');
   if (['ingress/start-all', 'ingress/stop-all'].includes(path) && method === 'POST') {
     const start = path === 'ingress/start-all', status = structuredClone(responses.status as Status);
@@ -131,6 +136,9 @@ export async function installScenario(name: string) {
   const load = fixtures[`../tooling/acceptance/scenarios/${name}.json`];
   if (!load) throw new Error(`Unknown acceptance scenario: ${name}`);
   const fixture = await load() as Fixture;
+  coordinationResponse = coordinationScenario(fixture.coordination);
+  resetBoardObservation();
+  centerView.set({ view: 'events', filter: 'all', resource: '', history: false });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
   const preferences = { 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
@@ -167,7 +175,7 @@ export async function installScenario(name: string) {
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
   fixture.tasks.forEach((task, index) => {
     activity.agents[task.agent].sessions.push({ id: `fixture-task-${index}`, ...(task.parent === undefined ? {} : { parentSessionId: `fixture-task-${task.parent}` }), source: task.direct ? 'transcript' : task.agent === 'codex' ? 'codex-thread' : 'arc-task', title: task.title, headline: task.headline, phase: task.phase,
-      turnId: `fixture-turn-${index}-${fixture.timeline ? 2 : 1}`, project: '/workspace/acceptance', phaseSince: now, turnStartedAt: new Date(Date.parse(now) - (task.elapsedSeconds ?? 83) * 1000).toISOString(), startedAt: now, timeline: true, recentSteps: ['thinking', 'command', 'file'],
+      turnId: `fixture-turn-${index}-${(fixture.timeline || fixture.coordination && index === 1) ? 2 : 1}`, project: '/workspace/acceptance', phaseSince: now, turnStartedAt: new Date(Date.parse(now) - (task.elapsedSeconds ?? 83) * 1000).toISOString(), startedAt: now, timeline: true, recentSteps: ['thinking', 'command', 'file'],
       recentContent: ['Reviewed project files', task.headline],
       dispatchSummary: { ...(!task.direct ? { controlSource: { id: 'fixture-source', label: 'Claude', kind: 'claude' } } : {}), model: 'gpt-6.1-sol', effort: 'high', serviceTier: 'priority' },
       ...(task.approval ? { interaction: { kind: 'permission' as const, summary: 'Read README.md', command: 'cat README.md', canRespond: true, respond: { via: 'act' as const, op: 'codex_respond' as const, args: { id: `fixture-interaction-${index}`, backendSession: 'fixture' } } } } : {}),
@@ -183,10 +191,10 @@ export async function installScenario(name: string) {
     const entries: AgentTimelineEntry[] = [];
     const summaries: NonNullable<AgentTimeline['turnDispatchSummaries']> = {};
     const turnStatuses: Record<string, string> = {};
-    const count = fixture.timeline ? 2 : 1;
+    const count = fixture.timeline || fixture.coordination && taskIndex === 1 ? 2 : 1;
     for (let turnIndex = 1; turnIndex <= count; turnIndex++) {
       const turnId = `fixture-turn-${taskIndex}-${turnIndex}`;
-      const outcome = turnIndex === count ? task.outcome : undefined;
+      const outcome = turnIndex === count ? task.outcome : fixture.coordination && taskIndex === 1 ? 'failed' : undefined;
       const live = !task.completed && !outcome && turnIndex === count;
       turnStatuses[turnId] = task.unconfirmed ? 'unknown' : outcome ?? (live ? 'running' : 'completed');
       const start = Date.parse(session.turnStartedAt!) - (count - turnIndex) * 180000;
@@ -298,6 +306,7 @@ export async function installScenario(name: string) {
   srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
   responses['updates/status'] = { state: 'idle', when: 'settled', work: { blocking: [], willResume: [], unaffected: [] } };
+  acceptUpdateSnapshot(responses['updates/status'] as UpdateSnapshot);
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: '' });

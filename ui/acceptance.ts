@@ -1,3 +1,4 @@
+import { coordinationSnapshot } from './coordination/state';
 import { petSnapshot } from "./pets/snapshot";
 import { updates } from "./state/updates";
 import { appEnvironment, refreshAppEnvironment } from "./state/appEnvironment";
@@ -34,6 +35,7 @@ export function viewModel(layoutSettled = false) {
     }),
     scenario: scenarioReadiness(detail),
     updates: updates.get(),
+    coordination: coordinationSnapshot(),
     schemaVersion: 1, layoutSettled, capturedAt: new Date().toISOString(),
     window: { width: innerWidth, height: innerHeight, devicePixelRatio },
     theme: document.documentElement.dataset.theme, language: locale.get(),

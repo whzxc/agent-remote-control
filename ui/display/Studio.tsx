@@ -8,6 +8,7 @@ import { notify } from '../state/connector';
 import { panelLayers } from '../state/panels';
 import { appEnvironment, appNow } from '../state/appEnvironment';
 import { nextClockTick, parseStudioPhase, studioToneAt, studioActivitySummary } from './model';
+import { openCenter } from '../coordination/state';
 import { trackedActivity } from '../state/activityBubbles';
 import { taskExecutions } from '../state/taskExecution';
 import { activityApprovals, agentActivity } from '../state/activity';
@@ -44,7 +45,7 @@ function StudioActivity() {
   return <div className="studio-activity" role="status" aria-label={t('studio.activity')} aria-live="polite" aria-atomic="true">
     {error ? <span>{t('studio.activityUnavailable')}</span> : snapshot && <>
       {running > 0 && <span className="studio-running">{t('studio.running', { count: running })}</span>}
-      {needsYou > 0 && <span className="studio-pending">{t('studio.pending', { count: needsYou })}</span>}
+      {needsYou > 0 && <Button variant="ghost" className="studio-pending" onClick={() => openCenter(true)}>{t('studio.pending', { count: needsYou })}</Button>}
     </>}
   </div>;
 }

@@ -1,3 +1,6 @@
+import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
+import { useAttention, useBoardObservation } from './coordination/state';
+import { agentPanel, ingressPanel } from './state/overviewPanels';
 import { StudioBackground, StudioControls } from './display/Studio';
 import { studioEnabled } from './display/state';
 import { ArrowLeft } from "lucide-react";
@@ -20,6 +23,7 @@ import {
   Users,
   PawPrint,
   Cloud,
+  ListChecks,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -68,6 +72,19 @@ export default function App() {
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
+  const actionable = useAttention();
+  const returning = centerReturn.use(), taskSelection = agentPanel.use(), connectionSelection = ingressPanel.use();
+  const updatePanelOpen = updates.use().panelOpen;
+  const returnOpened = useRef(false);
+  useEffect(() => {
+    if (!returning) { returnOpened.current = false; return; }
+    const opened = returning.kind === 'task' ? !!taskSelection : returning.kind === 'connection' ? !!connectionSelection : updatePanelOpen;
+    if (opened) { returnOpened.current = true; return; }
+    if (!returnOpened.current) return;
+    const focusId = returning.focusId;
+    centerReturn.set(undefined); setPage('coordination');
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(focusId)?.focus({ preventScroll: true })));
+  }, [returning, taskSelection, connectionSelection, updatePanelOpen]);
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
   const { feedback, status } = connector.use();
   updates.use();
@@ -79,7 +96,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : [])].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), "coordination"].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -90,6 +107,7 @@ export default function App() {
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = panelLayers.use();
   const modalOpen = layers.some(layer => !layer.dataset.panelDock);
+  useBoardObservation((page === 'overview' || page === 'coordination') && !modalOpen);
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
     if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting)) {
@@ -224,6 +242,7 @@ export default function App() {
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);
   const pages = [
+    { id: "coordination" as const, label: t("center.title"), icon: ListChecks },
     { id: "settings" as const, label: t("settings"), icon: Settings },
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
@@ -333,7 +352,9 @@ export default function App() {
             <main
               className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
             >
-              {page === "permissions" ? (
+              {page === "coordination" ? (
+                <CoordinationCenter />
+              ) : page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />
@@ -372,6 +393,7 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
+              {item.id === 'coordination' && (!actionable.complete || actionable.items.length > 0) && <span className="center-badge" aria-label={actionable.complete ? t('center.attentionCount', { count: actionable.items.length }) : t('center.partial')}>{actionable.complete ? actionable.items.length : '—'}</span>}
 
             </button>
           ))}

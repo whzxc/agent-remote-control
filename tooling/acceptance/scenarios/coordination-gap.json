@@ -1,0 +1,76 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Choose the verification scope",
+      "headline": "Waiting for a decision",
+      "interaction": {
+        "kind": "question",
+        "summary": "Choose the shared verification scope",
+        "canRespond": true,
+        "method": "item/tool/requestUserInput",
+        "respond": {
+          "via": "act",
+          "op": "codex_respond",
+          "args": {
+            "id": "fixture-center-question",
+            "backendSession": "fixture"
+          }
+        },
+        "questions": [
+          {
+            "id": "scope",
+            "question": "Choose a verification scope",
+            "isOther": false,
+            "options": [
+              {
+                "label": "Current change"
+              },
+              {
+                "label": "All registered resources"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Successful successor after an earlier failure",
+      "headline": "Recovered work completed",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Interrupted registered task",
+      "headline": "Inspect before continuing",
+      "outcome": "cancelled"
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Parallel registered work",
+      "headline": "Updating the sample renderer"
+    }
+  ],
+  "page": "coordination",
+  "coordination": "gap",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ]
+}

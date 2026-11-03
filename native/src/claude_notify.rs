@@ -6558,3 +6558,21 @@ pub(crate) fn conversation_target_for_send(source: &str, task: &str) -> Result<O
         .max_by_key(|b| b.created_at)
         .and_then(|b| b.target))
 }
+
+/// Content-free local observation for the desktop event center. Target routes and
+/// raw delivery errors remain in the notification owner and its source controls.
+pub(crate) async fn coordination_attention() -> Result<Value> {
+    let _guard = LOCK.lock().await;
+    let state = State::load(&directory())?;
+    let now = chrono::Utc::now().timestamp();
+    let mut problems = Vec::new();
+    for mut target in state.targets {
+        target.reachability.expire(now);
+        if target.reachability.state == "failed" {
+            problems.push(json!({"id":hash(json!([target.source_id,target.channel,target.target]).to_string()),"sourceId":target.source_id,"reason":target.reachability.reason}));
+        }
+    }
+    let partial = problems.len() > 100;
+    problems.truncate(100);
+    Ok(json!({"problems":problems,"coverage":if partial {"partial"}else{"observed"}}))
+}

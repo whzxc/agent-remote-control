@@ -1,3 +1,4 @@
+import { verifyCoordination } from './coordination.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
 import { chromium, webkit } from 'playwright';
@@ -16,7 +17,7 @@ if (process.argv.includes('--task-dock')) {
 }
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const base = path.join(root, 'output/acceptance/ui');
+const base = path.resolve(process.argv.find(arg => arg.startsWith('--out='))?.slice('--out='.length) ?? path.join(root, 'output/acceptance/ui'));
 const screenshots = !process.argv.includes('--no-screenshots');
 const scenarioFilter = process.argv.find(arg => arg.startsWith('--scenario='))?.slice('--scenario='.length);
 const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('--port='.length) ?? 5187);
@@ -40,7 +41,7 @@ try {
     const fixture = JSON.parse(await readFile(path.join(root, 'tooling/acceptance/scenarios', file), 'utf8'));
     const setup = !!(fixture.sourceSetup && fixture.sourceSetup.step !== 'welcome' || fixture.connectionSetup);
     if (setupOnly && !setup) continue;
-    for (const { width, height } of report.viewports) {
+    for (const { width, height } of fixture.viewports ?? report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'en-US' });
       const errors = [];
@@ -52,7 +53,7 @@ try {
       try {
         await page.goto(`http://127.0.0.1:${port}/?scenario=${encodeURIComponent(name)}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
-        const model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
+        let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
         if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');
         const actualAgents = (model.topology?.nodes ?? []).filter(n => n.side === 1).map(n => n.id);
@@ -61,6 +62,10 @@ try {
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
+        if (fixture.coordination) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          row.coordination = await verifyCoordination(page, fixture, messages, out, key, screenshots);
+        }
         if (fixture.settingsExtras) {
           // Regression: experimental pets were exposed as a primary navigation page.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -71,7 +76,7 @@ try {
           await pets.click();
           await pets.click();
         }
-        if (fixture.studio) {
+        if (fixture.studio && !fixture.coordination) {
           // Regression: changing studio lighting must not replace the saved application theme.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           const settings = page.getByRole('button', { name: messages['studio.settings'], exact: true });
@@ -242,7 +247,7 @@ try {
             if (dialog.stacked && !layout.some(parent => parent.recessed && parent.width > dialog.width)) throw new Error('Stacked dialog is not narrower than its parent');
           }
         }
-        if (fixture.update) {
+        if (fixture.update && !fixture.coordination) {
           // Regression: update work groups and restart progress were hidden behind modal dialogs.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           if (fixture.page === 'settings') {
@@ -277,6 +282,7 @@ try {
           await dialog.waitFor({ state: 'hidden' });
         }
 
+        model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         await writeFile(path.join(out, `${key}.json`), JSON.stringify(model, null, 2));
         if (screenshots) {
           const buffer = await page.screenshot({ path: path.join(out, `${key}.png`), animations: 'disabled' });
@@ -296,7 +302,7 @@ try {
             }
           }
         }
-        if (width >= 1280 && !fixture.panel && fixture.tasks.some(task => task.completed)) {
+        if (width >= 1280 && !fixture.page && !fixture.panel && fixture.tasks.some(task => task.completed)) {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           for (const task of fixture.tasks.filter((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`))) {
@@ -314,7 +320,7 @@ try {
             if (await page.getByRole('dialog').count()) throw new Error('Mark-read opened a task detail panel');
           }
         }
-      } catch (error) { errors.push(String(error)); }
+      } catch (error) { errors.push(String(error)); if (screenshots) await page.screenshot({ path: path.join(out, `${key}-error.png`), animations: 'disabled' }).catch(() => {}); }
       if (errors.length) report.failures.push(key);
       report.scenarios.push(row);
       await page.close();

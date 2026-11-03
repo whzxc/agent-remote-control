@@ -4,6 +4,34 @@ use crate::*;
 pub fn catalog() -> Value {
     let mut value: Value =
         serde_json::from_str(include_str!("management.json")).expect("management catalog");
+    // Desktop adapters inherit the current domain schemas, including revision and replay rules.
+    let domain = crate::catalog();
+    for op in [
+        "events",
+        "board",
+        "notice_post",
+        "notice_update",
+        "notice_close",
+        "blocker_open",
+        "blocker_clear",
+    ] {
+        let spec = domain["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["name"] == op)
+            .unwrap();
+        value["operations"].as_array_mut().unwrap().push(json!({
+            "name":format!("coordination.{op}"),"method":"POST","route":format!("coordination/{op}"),
+            "localOnly":true,"description":spec["description"],
+            "inputSchema":{"type":"object","required":["body"],"properties":{"body":spec["inputSchema"]},"additionalProperties":false}
+        }));
+    }
+    value["operations"].as_array_mut().unwrap().push(json!({
+        "name":"coordination.resources","method":"GET","route":"coordination/resources","localOnly":true,
+        "description":"Read cached registered project identities without discovery or upstream requests.",
+        "inputSchema":{"type":"object","properties":{},"additionalProperties":false}
+    }));
     value["ingressConfiguration"] = crate::ingress::config::descriptor().clone();
     value["preferenceDefaults"] = crate::preferences::defaults();
     let mut fields = serde_json::Map::new();

@@ -44,6 +44,8 @@ Codex 轮次完成后，ARC 的状态通知唤醒同一 Claude 会话，让它�
 
 ## 下一步
 
+- 查找变化并协调资源：[事件中心](guides/event-center.md)。
+
 - 让本机 Agent 配置：[自动配置](auto-setup.md)。
 - 理解任务归属与工具权限：[概念](concepts.md)。
 - 使用 ChatGPT Chat：[ChatGPT 指南](guides/chatgpt.md)。

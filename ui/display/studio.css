@@ -32,9 +32,9 @@
 .studio-clock { font-size: var(--studio-clock-size); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .04em; line-height: 1; }
 .studio-activity { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; line-height: 1.4; color: var(--studio-secondary); }
 .studio-activity:empty { display: none; }
-.studio-activity > span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.studio-activity > span, .studio-activity > button { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .studio-running::before, .studio-pending::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mark-agent-start); flex-shrink: 0; }
-.studio-pending { color: var(--warning); }
+.studio-pending { color: var(--warning); pointer-events: auto; height: auto; min-height: 24px; padding: 0; font: inherit; }
 .studio-pending::before { background: currentColor; }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 @media (orientation: portrait) {

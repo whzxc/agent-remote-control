@@ -558,6 +558,31 @@ impl Service {
         if self.closing.load(Ordering::SeqCst) {
             return Err("core shutting down".into());
         }
+        if route == "coordination/resources" && method == "GET" {
+            return crate::coordination::desktop_resources();
+        }
+        if let Some(op) = route.strip_prefix("coordination/") {
+            if method == "POST"
+                && matches!(
+                    op,
+                    "events"
+                        | "board"
+                        | "notice_post"
+                        | "notice_update"
+                        | "notice_close"
+                        | "blocker_open"
+                        | "blocker_clear"
+                )
+            {
+                crate::management::resolve(&format!("coordination.{op}"), &json!({"body":body}))?;
+                return crate::kernel::origin::ORIGIN
+                    .scope(
+                        crate::sources::local_origin().await?,
+                        crate::coordination::desktop_call(op, body, &self.control),
+                    )
+                    .await;
+            }
+        }
         if route == "coordination/conflicts" && method == "POST" {
             return Ok(crate::coordination::bulletin::tooling_warnings(&body));
         }

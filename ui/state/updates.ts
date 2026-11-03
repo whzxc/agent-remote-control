@@ -3,6 +3,7 @@ import { createStore, preference } from "./store";
 import { t } from "../i18n";
 import { isDesktop } from "../platform";
 import { idleUpdate, mergeUpdateSnapshot, updateActive, updateTerminal, type UpdateSnapshot, type UpdateTiming } from "./updateModel";
+export const updateObservation = createStore({ observed: false, error: '' });
 export const skipped = preference("update-skipped-version", "", value => value, value => value);
 const outcomeSeen = preference("update-outcome-seen", "", value => value, value => value);
 export const updates = createStore<{ snapshot: UpdateSnapshot; panelOpen: boolean; requesting: boolean; error: string; message: string; outcome?: UpdateSnapshot }>(
@@ -11,6 +12,7 @@ const patch = (next: Partial<ReturnType<typeof updates.get>>) => updates.set(old
 export const available = () => updates.get().snapshot.state === "available" && updates.get().snapshot.source?.version !== skipped.get();
 export const updateVisible = () => available() || updateActive(updates.get().snapshot);
 export function acceptUpdateSnapshot(next: UpdateSnapshot) {
+  updateObservation.set({ observed: true, error: '' });
   const snapshot = mergeUpdateSnapshot(updates.get().snapshot, next);
   patch({ snapshot });
   const outcome = snapshot.recent?.[0] ?? (updateTerminal(snapshot) ? snapshot : undefined);
@@ -24,7 +26,7 @@ let mutationGeneration = 0;
 export function refreshUpdate() {
   if (reading) return reading;
   const generation = mutationGeneration;
-  return reading = api<UpdateSnapshot>("updates/status").then(snapshot => { if (generation === mutationGeneration) acceptUpdateSnapshot(snapshot); }).finally(() => { reading = undefined; });
+  return reading = api<UpdateSnapshot>("updates/status").then(snapshot => { if (generation === mutationGeneration) acceptUpdateSnapshot(snapshot); }).catch(error => { updateObservation.set(old => ({ ...old, error: String(error) })); throw error; }).finally(() => { reading = undefined; });
 }
 export function showUpdate() { patch({ panelOpen: true }); }
 export function dismissUpdate() { patch({ panelOpen: false }); }

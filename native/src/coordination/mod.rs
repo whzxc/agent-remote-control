@@ -110,3 +110,62 @@ fn project_coverage(mut result: Value) -> Value {
     result["coverage"]["observers"] = observers::coverage();
     result
 }
+
+/// Authenticated local management adapters reuse domain owners and their failures.
+pub(crate) async fn desktop_call(
+    op: &str,
+    args: Value,
+    control: &crate::control::Control,
+) -> Result<Value> {
+    if op == "events" {
+        return query(&args);
+    }
+    let mut value = bulletin::call(op, args, control).await?;
+    if op == "board" && value["error"].is_null() {
+        let notifications = crate::claude_notify::coordination_attention()
+            .await
+            .unwrap_or_else(|_| json!({"problems":[],"coverage":"unavailable"}));
+        value["notificationProblems"] = notifications["problems"].clone();
+        value["notificationCoverage"] = notifications["coverage"].clone();
+        let resources = ["notices", "blockers"]
+            .into_iter()
+            .flat_map(|key| value[key].as_array().into_iter().flatten())
+            .flat_map(|row| row["resources"].as_array().into_iter().flatten())
+            .filter_map(|r| r.as_str().and_then(|r| ResourceKey::parse(r).ok()))
+            .collect::<Vec<_>>();
+        let warnings = bulletin::warnings(&resources);
+        value["conflicts"] = warnings["conflicts"].clone();
+        value["conflictCoverage"] = warnings["conflictCoverage"].clone();
+        while value.to_string().len() > 128 * 1024 {
+            let conflicts = value["conflicts"].as_array_mut().unwrap();
+            if conflicts.pop().is_some() {
+                value["conflictCoverage"] = json!("partial");
+            } else if value["notificationProblems"]
+                .as_array_mut()
+                .unwrap()
+                .pop()
+                .is_some()
+            {
+                value["notificationCoverage"] = json!("partial");
+            } else {
+                break;
+            }
+        }
+    }
+    Ok(value)
+}
+pub(crate) fn desktop_resources() -> Result<Value> {
+    let cached = crate::kernel::file_cache::load(&root().join("coordination/projects.json"));
+    let mut resources = vec![json!({"key":"app:installed","label":"ARC"})];
+    match cached {
+        Ok(cached) => {
+            for project in cached["projects"].as_array().into_iter().flatten().take(32) {
+                if let Ok(key) = ResourceKey::project(string(project, "id")) {
+                    resources.push(json!({"key":key,"label":project["id"]}));
+                }
+            }
+            Ok(json!({"resources":resources,"observedAt":cached["observedAt"],"coverage":"cached"}))
+        }
+        Err(_) => Ok(json!({"resources":resources,"observedAt":null,"coverage":"unavailable"})),
+    }
+}
