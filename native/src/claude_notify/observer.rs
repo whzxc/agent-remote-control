@@ -9,6 +9,107 @@ pub(super) struct TerminalWatch {
     pub writer: String,
 }
 
+#[derive(Default)]
+pub(super) struct Idle {
+    bindings: Option<Arc<Vec<Arc<Binding>>>>,
+    cursor: u64,
+    changes: Option<file_cache::Changes>,
+    revision: Option<u64>,
+    next_at: Option<i64>,
+    writers: Vec<(String, String)>,
+}
+impl Idle {
+    pub fn unchanged(&self, all: &Arc<Vec<Arc<Binding>>>, cursor: u64, now: i64) -> bool {
+        self.bindings
+            .as_ref()
+            .is_some_and(|old| Arc::ptr_eq(old, all))
+            && self.cursor == cursor
+            && self.next_at.is_none_or(|at| now < at)
+            && self
+                .writers
+                .iter()
+                .all(|(thread, state)| string(&crate::writer::probe(thread), "state") == state)
+            && self.revision.is_some()
+            && self.changes.as_ref().and_then(|c| c.revision()) == self.revision
+    }
+    pub fn capture(
+        &mut self,
+        all: &Arc<Vec<Arc<Binding>>>,
+        watches: &std::collections::HashMap<PathBuf, TerminalWatch>,
+        events: &ThreadEvents,
+        latest: &std::collections::HashMap<(String, String), i64>,
+        now: i64,
+    ) {
+        self.bindings = None;
+        let mut paths = vec![root().join("execution"), root().join("agents/tasks")];
+        let mut next = None;
+        let mut writers = Vec::new();
+        for b in all.iter().filter(|b| !b.source_id.is_empty()) {
+            let closed = b.terminal
+                && b.observation["reconciliation"] != "pending-after-restart"
+                && (b.scope_end.is_some() || b.continuation_bound);
+            if !closed {
+                let Some(watch) = watches.get(&path_in(&directory(), &b.thread_id, &b.turn_id))
+                else {
+                    return;
+                };
+                if !reusable(b) || watch.changed(b, events).unwrap_or(true) {
+                    return;
+                }
+                if (b.agent.is_empty() || b.agent == "codex") && watch.writer != "unheld" {
+                    let writer = (b.thread_id.clone(), watch.writer.clone());
+                    if !writers.contains(&writer) {
+                        writers.push(writer);
+                    }
+                }
+                if let Some(path) = &watch.path {
+                    paths.push(path.clone());
+                }
+                if let Ok(path) = crate::writer::lock_path(&b.thread_id) {
+                    paths.push(path);
+                }
+            }
+            if b.terminal
+                && (closed || superseded(b, latest))
+                && !b
+                    .deliveries
+                    .iter()
+                    .any(|d| matches!(d.status.as_str(), "pending" | "sending"))
+            {
+                let at = b
+                    .created_at
+                    .saturating_add(RETENTION_SECONDS)
+                    .saturating_add(1);
+                if at <= now {
+                    return;
+                }
+                next = Some(next.map_or(at, |old: i64| old.min(at)));
+            }
+        }
+        // Install watches before validating the observed stamps to cover changes during setup.
+        let Ok(changes) = file_cache::Changes::new(paths) else {
+            return;
+        };
+        let revision = changes.revision();
+        for b in all.iter().filter(|b| {
+            !b.source_id.is_empty()
+                && !(b.terminal && (b.scope_end.is_some() || b.continuation_bound))
+        }) {
+            if let Some(watch) = watches.get(&path_in(&directory(), &b.thread_id, &b.turn_id)) {
+                if watch.changed(b, events).unwrap_or(true) {
+                    return;
+                }
+            }
+        }
+        self.revision = revision;
+        self.changes = Some(changes);
+        self.next_at = next;
+        self.writers = writers;
+        self.cursor = events.cursor;
+        self.bindings = Some(all.clone());
+    }
+}
+
 pub(super) const RECONCILIATION_ATTEMPTS: u64 = 3;
 pub(super) fn exhausted(b: &Binding) -> bool {
     b.observation["reconciliation"] == "unavailable-after-restart"

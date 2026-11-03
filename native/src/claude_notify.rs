@@ -1750,15 +1750,15 @@ fn records(dir: &Path) -> Result<Vec<Binding>> {
 }
 fn matching_records(dir: &Path, matches: impl Fn(&Binding) -> bool) -> Result<Vec<Binding>> {
     Ok(shared_records(dir)?
-        .into_iter()
+        .iter()
         .filter(|binding| matches(binding))
-        .map(|binding| (*binding).clone())
+        .map(|binding| (**binding).clone())
         .collect())
 }
-fn shared_records(dir: &Path) -> Result<Vec<Arc<Binding>>> {
+fn shared_records(dir: &Path) -> Result<Arc<Vec<Arc<Binding>>>> {
     // Bindings are owned by Core and atomically replaced. A directory stamp can
     // reuse the parsed collection across nested routing/ownership queries.
-    type Snapshot = (PathBuf, file_cache::Projection<Vec<Arc<Binding>>>);
+    type Snapshot = (PathBuf, file_cache::Projection<Arc<Vec<Arc<Binding>>>>);
     static SNAPSHOT: std::sync::LazyLock<std::sync::Mutex<Option<Snapshot>>> =
         std::sync::LazyLock::new(Default::default);
     let dependencies = [dir.join("tasks")];
@@ -1767,7 +1767,7 @@ fn shared_records(dir: &Path) -> Result<Vec<Arc<Binding>>> {
         *snapshot = Some((dir.into(), Default::default()));
     }
     let snapshot = &mut snapshot.as_mut().unwrap().1;
-    let stamps = file_cache::Projection::<Vec<Arc<Binding>>>::stamps(&dependencies)?;
+    let stamps = file_cache::Projection::<Arc<Vec<Arc<Binding>>>>::stamps(&dependencies)?;
     let bindings = if let Some(bindings) = snapshot.get(&stamps) {
         bindings
     } else {
@@ -1780,6 +1780,7 @@ fn shared_records(dir: &Path) -> Result<Vec<Arc<Binding>>> {
                 bindings.push(binding);
             }
         }
+        let bindings = Arc::new(bindings);
         snapshot.set(&dependencies, stamps, bindings.clone())?;
         bindings
     };
@@ -2133,7 +2134,7 @@ async fn flush(
     // Charge before reserving event records: a crash may lose one token, but
     // never duplicates an event or permits an uncharged burst after restart.
     state.save(dir)?;
-    for (b, old) in all.iter().zip(original) {
+    for (b, old) in all.iter().zip(original.iter()) {
         if b != old.as_ref() {
             persist(dir, b)?;
         }
@@ -2497,7 +2498,7 @@ pub(crate) async fn migrate() -> Result<()> {
     // Older targets have no handshake. Preserve known failures without treating a
     // historical successful send as controller acknowledgement.
     let settings = settings()?;
-    for b in &all {
+    for b in all.iter() {
         if b.source_id.is_empty() {
             continue;
         }
@@ -2519,7 +2520,7 @@ pub(crate) async fn migrate() -> Result<()> {
     subscriptions::sync(&mut state, &all);
     // Populate stable IDs without creating any subscription to the retired event name.
     subscriptions::route(&state, &mut all, chrono::Utc::now().timestamp());
-    for b in &all {
+    for b in all.iter() {
         if b.channel == Channel::ClaudeSession {
             if let Some(target) = &b.target {
                 state.target(
@@ -2543,7 +2544,7 @@ pub(crate) async fn migrate() -> Result<()> {
         }
     }
     state.save(&dir)?;
-    for b in &all {
+    for b in all.iter() {
         persist(&dir, b)?;
     }
     for path in old_tasks.into_iter().chain([old_control, old_events]) {
@@ -2560,22 +2561,35 @@ pub(crate) async fn migrate() -> Result<()> {
     Ok(())
 }
 
-/// A dormant delivery pass may sleep only when no clock can change governance.
-pub(crate) fn delivery_has_deadline(state: &Value, capacity: u64) -> bool {
-    state["subscriptions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .any(|s| !s["expiresAt"].is_null() || !s["webhook"]["previousSecret"].is_null())
-        || state["targets"].as_array().into_iter().flatten().any(|t| {
-            t["tokens"].as_u64().unwrap_or(0) != capacity
-                || t["batches"].as_array().is_some_and(|b| !b.is_empty())
-                || t["breaker"] == true
-                || !t["emptySince"].is_null()
-                || t["escalated"] == true
-                || !t["escalationError"].is_null()
-                || t["reachability"]["reason"] == "handshake-pending"
-        })
+/// Earliest clock-only governance transition. Historical batches do not require one-second passes.
+pub(crate) fn delivery_next_at(state: &Value, settings: &Value) -> Option<i64> {
+    let mut next = None;
+    let mut due = |at: i64| {
+        next = Some(next.map_or(at, |old: i64| old.min(at)));
+    };
+    for sub in state["subscriptions"].as_array().into_iter().flatten() {
+        if let Some(at) = sub["expiresAt"].as_i64() {
+            due(at.saturating_add(999) / 1000);
+        }
+        if !sub["webhook"]["previousSecret"].is_null() {
+            due(sub["webhook"]["rotateUntil"].as_i64().unwrap_or(0));
+        }
+    }
+    for target in state["targets"].as_array().into_iter().flatten() {
+        if target["tokens"].as_u64().unwrap_or(0) < governance::capacity(settings) {
+            due(target["refilledAt"]
+                .as_i64()
+                .unwrap_or(0)
+                .saturating_add(governance::refill_seconds(settings)));
+        }
+        for batch in target["batches"].as_array().into_iter().flatten() {
+            due(batch["at"].as_i64().unwrap_or(0).saturating_add(3600));
+        }
+        if target["reachability"]["reason"] == "handshake-pending" {
+            due(target["reachability"]["expiresAt"].as_i64().unwrap_or(0));
+        }
+    }
+    next
 }
 
 #[derive(PartialEq)]
@@ -2586,10 +2600,17 @@ struct DeliveryInputs {
 impl DeliveryInputs {
     fn read(dir: &Path, settings: Value) -> Result<Self> {
         Ok(Self {
-            stamps: ["tasks", "subscriptions/state.json", "request-routing"]
-                .into_iter()
-                .map(|name| file_cache::Stamp::read(&dir.join(name)))
-                .collect::<Result<_>>()?,
+            stamps: [
+                "tasks",
+                "subscriptions/state.json",
+                "request-routing",
+                "../sources.json",
+                "../accounts/index.json",
+                "../app-env.json",
+            ]
+            .into_iter()
+            .map(|name| file_cache::Stamp::read(&dir.join(name)))
+            .collect::<Result<_>>()?,
             settings,
         })
     }
@@ -2598,7 +2619,7 @@ impl DeliveryInputs {
 #[derive(Default)]
 struct DeliveryIdle {
     inputs: Option<DeliveryInputs>,
-    checked_at: Option<std::time::Instant>,
+    next_at: Option<i64>,
 }
 impl DeliveryIdle {
     async fn flush(
@@ -2610,31 +2631,63 @@ impl DeliveryIdle {
         settings: Value,
     ) -> Result<()> {
         let inputs = DeliveryInputs::read(dir, settings)?;
-        if self.inputs.as_ref() == Some(&inputs)
-            && self
-                .checked_at
-                .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
-        {
+        if self.inputs.as_ref() == Some(&inputs) && self.next_at.is_none_or(|at| now < at) {
             return Ok(());
         }
         self.inputs = None;
         flush(executor, dir, lock, now, 30, &inputs.settings).await?;
         let _guard = lock.lock().await;
         let state = file_cache::shared_load(&dir.join("subscriptions/state.json"))?;
-        let dormant = !delivery_has_deadline(&state, governance::capacity(&inputs.settings))
-            && shared_records(dir)?.iter().all(|b| {
-                b.deliveries.iter().all(|d| {
-                    !matches!(d.status.as_str(), "pending" | "sending")
-                        || (d.status == "pending"
-                            && d.target.is_empty()
-                            && d.timing.queue_reason.as_deref() == Some("unbound"))
-                })
-            });
+        let mut next_at = delivery_next_at(&state, &inputs.settings);
+        for b in shared_records(dir)?.iter() {
+            for d in b
+                .deliveries
+                .iter()
+                .filter(|d| matches!(d.status.as_str(), "pending" | "sending"))
+            {
+                let reason = d.timing.queue_reason.as_deref().unwrap_or("");
+                let next = match reason {
+                    "disabled" | "breaker" => None,
+                    "unbound" if d.target.is_empty() => None,
+                    "muted" | "digest-wait" => {
+                        let rule =
+                            state["threads"].as_array().into_iter().flatten().find(|r| {
+                                r["sourceId"] == b.source_id && r["threadId"] == b.thread_id
+                            });
+                        rule.and_then(|r| {
+                            if reason == "muted" {
+                                r["until"].as_i64()
+                            } else {
+                                Some(
+                                    r["digestAt"]
+                                        .as_i64()
+                                        .unwrap_or(0)
+                                        .saturating_add(3600)
+                                        .min(r["until"].as_i64().unwrap_or(i64::MAX)),
+                                )
+                            }
+                        })
+                    }
+                    "subscription-muted" => state["subscriptions"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .find(|s| s["id"] == d.subscription)
+                        .and_then(|s| s["until"].as_i64()),
+                    "retry-backoff" => Some(d.next_attempt_at.saturating_add(1)),
+                    "token-wait" => next_at,
+                    _ => Some(now.saturating_add(1)),
+                };
+                if let Some(at) = next {
+                    next_at = Some(next_at.map_or(at, |old| old.min(at)));
+                }
+            }
+        }
         // Compare against the inputs from BEFORE flush. A concurrent mutation or
         // this pass's own writes must trigger another pass, never be marked handled.
-        if dormant && DeliveryInputs::read(dir, inputs.settings.clone())? == inputs {
+        if DeliveryInputs::read(dir, inputs.settings.clone())? == inputs {
+            self.next_at = next_at;
             self.inputs = Some(inputs);
-            self.checked_at = Some(std::time::Instant::now());
         }
         Ok(())
     }
@@ -2685,6 +2738,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
     tokio::spawn(async move {
         crate::logs::record("INFO", "Control-source notification observer started", None);
         let mut recovering = true;
+        let mut idle = observer::Idle::default();
         let mut terminal_watches =
             std::collections::HashMap::<PathBuf, observer::TerminalWatch>::new();
         loop {
@@ -2704,22 +2758,27 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 let pass = ObservationPass::new();
                 OBSERVATION.scope(pass.sample.clone(), async {
                     let scan = ObservationTimer::new(ObservationPhase::Scan);
+                    let all = shared_records(&directory())?;
+                    let cursor = control.events.lock().await.sequence;
+                    if !recovering && idle.unchanged(&all, cursor, chrono::Utc::now().timestamp()) {
+                        pass.sample.lock().unwrap().completed_passes = 1;
+                        return Ok::<_, String>(());
+                    }
                     let events = {
                         let events = control.events.lock().await;
                         observer::ThreadEvents::new(&events)
                     };
-                    let all = shared_records(&directory())?;
                     let paths: std::collections::HashSet<_> = all.iter().map(|b| path_in(&directory(), &b.thread_id, &b.turn_id)).collect();
                     terminal_watches.retain(|path, _| paths.contains(path));
                     let mut latest = std::collections::HashMap::<(String,String),i64>::new();
-                    for b in &all {
+                    for b in all.iter() {
                         let created = latest.entry((b.source_id.clone(), b.thread_id.clone())).or_default();
                         *created = (*created).max(b.created_at);
                     }
                     let mut reads = tokio::task::JoinSet::new();
                     let permits = Arc::new(tokio::sync::Semaphore::new(8));
                     let mut owner_threads = std::collections::HashSet::new();
-                    for original in &all {
+                    for original in all.iter() {
                         pass.sample.lock().unwrap().bindings_scanned += 1;
                         if original.source_id.is_empty() {
                             pass.sample.lock().unwrap().unattributed_bindings += 1;
@@ -2845,6 +2904,9 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         if b.observation["reconciliation"] == "pending-after-restart" { pass.sample.lock().unwrap().pending_reconciliations += 1; }
                         if observer::exhausted(b) { pass.sample.lock().unwrap().reconciliation_exhausted += 1; }
                     }
+                    if Arc::ptr_eq(&all, &shared_records(&directory())?) {
+                        idle.capture(&all, &terminal_watches, &events, &latest, chrono::Utc::now().timestamp());
+                    }
                     pass.sample.lock().unwrap().completed_passes = 1;
                     Ok::<_,String>(())
                 }).await
@@ -2945,31 +3007,23 @@ mod tests {
         );
     }
     #[test]
-    fn delivery_clocks_keep_the_scheduler_awake() {
-        // Property: dormant delivery scheduling never skips expiring subscriptions, token refill, batch cleanup or reachability deadlines.
-        let settled = json!({"targets":[{"tokens":4,"batches":[],"breaker":false,"escalated":false}],"subscriptions":[]});
-        assert!(!delivery_has_deadline(&settled, 4));
-        for (field, value) in [
-            ("tokens", json!(3)),
-            ("batches", json!([{"at":1}])),
-            ("breaker", json!(true)),
-            ("emptySince", json!(1)),
-            ("escalated", json!(true)),
-            ("escalationError", json!("failed")),
-            ("reachability", json!({"reason":"handshake-pending"})),
-        ] {
-            let mut state = settled.clone();
-            state["targets"][0][field] = value;
-            assert!(delivery_has_deadline(&state, 4), "{field}");
-        }
-        for subscription in [
-            json!({"expiresAt":123}),
-            json!({"webhook":{"previousSecret":"rotating"}}),
-        ] {
-            let mut state = settled.clone();
-            state["subscriptions"] = json!([subscription]);
-            assert!(delivery_has_deadline(&state, 4));
-        }
+    fn delivery_clocks_schedule_only_the_next_transition() {
+        // Regression: historical notification batches and expiring subscriptions forced full delivery scans every second at idle.
+        let settings = json!({"notificationBucketCapacity":4,"notificationRefillSeconds":60});
+        let mut state = json!({"targets":[{"tokens":4,"batches":[],"breaker":true,"escalated":true}],"subscriptions":[]});
+        assert_eq!(delivery_next_at(&state, &settings), None);
+        state["targets"][0]["batches"] = json!([{"at":100}]);
+        assert_eq!(delivery_next_at(&state, &settings), Some(3700));
+        state["subscriptions"] = json!([{"expiresAt":200001}]);
+        assert_eq!(delivery_next_at(&state, &settings), Some(201));
+        state["targets"][0]["tokens"] = json!(3);
+        state["targets"][0]["refilledAt"] = json!(100);
+        assert_eq!(delivery_next_at(&state, &settings), Some(160));
+        state["targets"][0]["reachability"] = json!({"reason":"handshake-pending","expiresAt":120});
+        assert_eq!(delivery_next_at(&state, &settings), Some(120));
+        state["subscriptions"][0]["webhook"] =
+            json!({"previousSecret":"rotating","rotateUntil":110});
+        assert_eq!(delivery_next_at(&state, &settings), Some(110));
     }
     struct Sandbox(PathBuf);
     impl Sandbox {
