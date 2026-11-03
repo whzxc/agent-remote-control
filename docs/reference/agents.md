@@ -40,6 +40,27 @@ Kilo Code uses its native `kilo acp` entry. Mistral Vibe uses the separate `vibe
 
 installed means an executable was found. available includes version and launch-condition checks. ready means an initialized ARC session exists. Read discoveryError for failures, and agent_capabilities with taskId for the actual negotiated initialize/session responses.
 
+## Prepare and discover an Agent
+
+ARC discovers native Agent installations and reuses their native credentials.
+It does not install an Agent or sign in for you.
+
+1. Install Antigravity (`agy`) or Pi from its official source and sign in using
+   the native program.
+2. Open Agent management, refresh discovery, and inspect installed, available,
+   enabled, and discovery error states.
+3. Enable the Agent and reread `guide` for the current `agent_*` contract.
+
+If discovery fails, verify the executable is on ARC's PATH and native identity
+and capability discovery succeeds. ARC does not read credential files.
+
+| Difference | Antigravity | Pi |
+| --- | --- | --- |
+| Transport | Stream JSON through `agy` | Pi RPC |
+| Completion | Terminal `result` is required | `agent_settled` after `message_end` |
+| Configuration | Launch flags fixed for the task | Session setters can apply after launch |
+| Interaction | Headless permission requests are denied; no `agent_respond` | Pending requests support `agent_respond` |
+
 ## DeepSeek Harness
 
 ARC discovers `dsh` on the normal executable search paths and the bundled CLI inside standard macOS DeepSeek Harness Desktop installations. The installed release must expose the official ACP profile. Each task runs its own ACP process with native login and profile configuration. Desktop-specific model/provider overrides are not copied to the `acp` profile; configure that profile through DeepSeek Harness when needed. ARC does not control the Desktop window or import its active conversations. Continuing after process shutdown requires `loadSession`; releases advertising only `session/resume` cannot resume through ARC. The transport ignores DSH model-catalog diagnostic lines prefixed with `[llm-deepseek-account] ` because affected releases write them to ACP stdout.

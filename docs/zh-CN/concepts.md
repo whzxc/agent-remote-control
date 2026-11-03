@@ -30,6 +30,8 @@ Claude / ChatGPT / 其他客户端
 
 ## 任务归属
 
+Antigravity 和 Pi 在 ARC 拥有的原生进程中运行，与 Codex 任务归属分开。ARC 返回自己的 `taskId` 和 `turnId`；调用 `agent_wait` 时保留两者，再通过 `agent_read` 读取持久任务记录。原生登录、配置和上游会话 ID 仍由 Agent 管理。
+
 开启**自动打开 Codex 任务**时，新 Codex 任务由 Codex Desktop 执行；关闭后，新任务由 ARC 的后台 App Server 执行。已有任务保持原归属。Linux 上 Codex 始终在后台执行。任务回执确认派发，最终结果通过读取或等待任务获得。
 
 ## 待处理请求

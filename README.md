@@ -43,6 +43,9 @@ GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connect
 
 Copy the suggested prompt to have Codex reply “Connected.” [Step-by-step guide](docs/getting-started.md). Own addresses and OpenAI Secure Tunnel are under **Remote link → Advanced**.
 
+**Local Agents:** install Antigravity or Pi and sign in natively. In ARC,
+refresh Agent discovery, enable the Agent, then use the `agent_*` ops.
+
 For help from a local Agent with installation or setup:
 
 > Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md

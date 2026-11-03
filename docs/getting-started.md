@@ -24,6 +24,18 @@ Click the upper arc of the center ring, then **Add connection**. Choose **Create
 
 Choose **Claude Code** or **Claude Desktop** when adding a source, then select its local connection. If none exists, use **Add connection** to install it. ARC preserves other configuration entries. Restart Claude after installation. Local connections do not need network configuration or pairing-code approval; source setup waits for the client to connect.
 
+### Enable a local Agent
+
+1. Install Antigravity or Pi from its official source and sign in natively.
+2. Open Agent management, refresh discovery, and inspect installed, available,
+   enabled, and discovery error states.
+3. Enable the Agent and reread `guide` for the current `agent_*` contract.
+4. Use `agent_create`, retain ARC's `taskId` and `turnId`, then call
+   `agent_wait` and `agent_read`.
+
+ARC discovers native installations and reuses native login. It does not install
+or sign in to executable Agents. See [Agents](reference/agents.md).
+
 ### Manage sources and connections
 
 **Platforms** lists supported platform families and their authorized connector instances. Each card shows the information received during authorization and its timestamps, with rename and remove actions. Removal revokes that connector while retaining its history. The center ring’s upper arc opens device connections for address copying, editing, and removal. Local Agents remain separate.

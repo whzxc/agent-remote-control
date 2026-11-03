@@ -53,6 +53,10 @@ try {
       try {
         await page.goto(`http://127.0.0.1:${port}/?scenario=${encodeURIComponent(name)}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
+        if (name.startsWith('agent-settings-')) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('button', { name: new RegExp(`${messages.manageAgents}|${messages.addAgent}`) }).click();
+        }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
         if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');

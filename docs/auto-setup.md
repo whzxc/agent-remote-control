@@ -2,7 +2,9 @@
 
 **English** | [简体中文](zh-CN/auto-setup.md)
 
-On a fresh Mac with a signed-in local Agent, start with this instruction:
+On a fresh Mac with a signed-in Codex or Claude control-source client, start
+with this instruction. This skill does not install or sign in to executable
+Antigravity or Pi Agents; manage those separately in Agent management.
 
 > Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
 

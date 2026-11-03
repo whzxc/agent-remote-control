@@ -18,6 +18,8 @@ Deep link 打开的是浏览器所在设备的应用。请在承载连接的电�
 
 MCP 工具始终是 `guide`、`query`、`act`。在连接编辑器保存 op 列表，重新调用 `guide` 查看当前目录；重新选择预设可采用新增 op，已保存的自定义列表保持精确。其他 Agent 的 op 仅在本机已安装、可用且启用时出现。从旧工具面升级后，需要在客户端刷新一次工具并重新授权；此后能力更新通过 guide 披露。
 
+要让本机 Agent 就绪，请打开 Agent 管理并刷新发现结果。检查 `discoveryError`，确认原生程序已安装并登录，启用后重新读取 `guide`。详见英文 [Local Agents](../reference/agents.md)。
+
 ## Codex 任务在哪里执行？
 
 查看回执或结果中的 `executionOwner`。新任务默认由 Desktop 执行。关闭**自动打开 Codex 任务**只改变之后创建的任务，让它们使用 ARC 后台执行器。继续任务时沿用原 ID。详见[概念](concepts.md)。

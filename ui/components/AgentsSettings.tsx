@@ -27,6 +27,18 @@ import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
 const canReorder = (agent: Agent) =>
   agent.installed === true && agent.enabled === true;
 
+const discoveryMessage = (agent: Agent) => {
+  if (!agent.discoveryError) return "";
+  if (agent.discoveryError === "AGENT_NOT_INSTALLED") return t("agentNotInstalled");
+  return t(agent.agent === "antigravity" ? "agentDiscoveryAntigravity" : "agentDiscoveryFailed");
+};
+
+const readiness = (agent: Agent) => {
+  if (!agent.installed) return t("agentNotInstalled");
+  if (!agent.available) return t("agentUnavailable");
+  return t(agent.enabled ? "agentReady" : "agentDisabled");
+};
+
 function AgentCard({ agent, onMove, children }: {
   agent: Agent;
   onMove: (by: number) => void;
@@ -102,8 +114,8 @@ export function AgentDetails({
         </div>
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
-      {agent.installed !== undefined && agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
-        <Notice>{agent.discoveryError}</Notice>}
+      {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
+        <Notice>{discoveryMessage(agent)}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
@@ -145,6 +157,9 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         }
       >
         {!state.loaded && state.loading && <Loading />}
+        {!state.loaded && !state.loading && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsNotLoaded")}</Notice>}
+        {state.loaded && !!state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsDiscoveryFailed")}</Notice>}
+        {state.loaded && !state.error && items.length === 0 && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsEmpty")}</Notice>}
         {items.some((agent) => agent.installed) && <>
         <h3 className="agent-section-title">{t("installedAgents")}</h3>
         <Reorder.Group
@@ -187,7 +202,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                   <strong>{name(agent)}</strong>
                 )}
                 <span title={agent.version || undefined}>
-                  {agent.installed ? compactAgentVersion(agent.version) : t("agentNotInstalled")}
+                  {[compactAgentVersion(agent.version), readiness(agent)].filter(Boolean).join(" · ")}
                 </span>
               </div>
               {agent.installed && (
@@ -244,7 +259,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
           ))}
         </div>
         </>}
-        {(error || state.error) && <Notice>{error || state.error}</Notice>}
+        {error && <Notice>{error}</Notice>}
       </Dialog>
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />

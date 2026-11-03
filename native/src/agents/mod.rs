@@ -743,7 +743,7 @@ impl AgentHost {
             };
             let available = discovery_error.is_none();
             let descriptor = driver.descriptor();
-            rows.push(json!({"agent":agent,"protocol":driver.protocol(),"installed":binary.is_some(),"available":available,"discoveryError":discovery_error,"descriptor":descriptor,"displayName":descriptor["displayName"],"integration":descriptor["integration"],"version":version.as_deref().map(str::trim),"path":binary,"configuration":"inherited","readiness":"ready means a live initialized session, not provider authentication"}));
+            rows.push(json!({"agent":agent,"protocol":driver.protocol(),"installed":binary.is_some(),"available":available,"canOpenTask":agent == "codex","discoveryError":discovery_error,"descriptor":descriptor,"displayName":descriptor["displayName"],"integration":descriptor["integration"],"version":version.as_deref().map(str::trim),"path":binary,"configuration":"inherited","readiness":"ready means a live initialized session, not provider authentication"}));
         }
         rows.sort_by(|a, b| string(a, "agent").cmp(string(b, "agent")));
         let mut inventory = json!({"agents":rows,"defaultAgent":"codex","observedAt":now()});

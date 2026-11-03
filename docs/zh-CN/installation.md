@@ -10,6 +10,15 @@
 | Windows x64 | NSIS `…-setup.exe` |
 | Linux x86_64 / aarch64 | 无界面 Core 压缩包；见 [Linux 参考](../reference/linux.md) |
 
+### 本机 Agent 前置条件
+
+| Agent | 原生前置条件 |
+| --- | --- |
+| Antigravity | 从官方来源安装 `agy`，并在原生程序中登录。 |
+| Pi | 从官方来源安装 `pi`，并在原生程序中登录。 |
+
+ARC 只发现并复用这些原生安装和凭据，不负责安装或登录。详见英文 [Local Agents](../reference/agents.md)。
+
 ## macOS
 
 打开 DMG，把 ARC 拖入 Applications，推出 DMG，再从 Applications 启动。使用默认 Codex 工作方式时，先安装 Codex Desktop 并登录。

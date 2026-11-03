@@ -2,6 +2,9 @@
 
 [Dispatch policy](dispatch-policy.md) · [Agent contracts](../reference/agents.md) · [Subscriptions](../reference/subscriptions.md)
 
+Keep driver additions synchronized with [Agent preparation and discovery](../reference/agents.md#prepare-and-discover-an-agent)
+and [Local Agent setup](../getting-started.md#enable-a-local-agent).
+
 This document defines multi-Agent boundaries. Queries, policy sections, configuration confirmation, and review are integrated. guide is the current contract. Codex behavior is documented in dispatch-policy.
 
 ## Capability sources and evidence

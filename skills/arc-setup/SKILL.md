@@ -22,9 +22,10 @@ all following commands. Do not download or mount a DMG. Linux installs `arc` in
 `~/.local/bin` (or `ARC_INSTALL_DIR`); Windows uses the official installer.
 
 With ARC available, run `cli skill install --target codex` when acting as Codex,
-or `cli skill install --target claude-code` when acting as Claude Code. Other
-local Agents can read `cli setup playbook protocol` directly. Continue with the
-current local management contract and ask where the user wants to use ARC.
+or `cli skill install --target claude-code` when acting as Claude Code. These are
+control-source skill targets. Antigravity and Pi are executable Agent IDs:
+install and sign in to them natively, enable them in Agent management, and use
+the `agent_*` operations. Continue with the current local management contract.
 
 ## Configure
 

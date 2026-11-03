@@ -30,6 +30,11 @@ The program doing the work on your computer. Codex uses its native task interfac
 
 ## Task ownership
 
+Antigravity and Pi run in ARC-owned native processes, separate from Codex task
+ownership. ARC returns its own `taskId` and `turnId`; keep both for
+`agent_wait`, then use `agent_read` for the durable task record. Native login,
+configuration, and upstream session IDs remain owned by the Agent.
+
 With **Automatically open Codex tasks** enabled, new Codex tasks execute in Codex Desktop. With it disabled, new tasks execute in ARC's background App Server. Existing tasks retain their owner. On Linux, Codex runs in the background. A task receipt confirms dispatch; read or wait for the task to see the outcome.
 
 ## Pending requests
