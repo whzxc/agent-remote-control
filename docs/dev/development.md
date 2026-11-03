@@ -64,19 +64,17 @@ Build recompiles the frontend and creates native packages without installing or 
 
 Packages contain Desktop, standalone Core, static frontend, icons, and licenses. Tunnel Client is prepared on demand from official sources. External Agents use native installations. The Claude ACP adapter is prepared separately after explicit enablement. Build scripts remap Rust source paths to avoid embedding maintainer paths.
 
-Packaged production-identity builds support automatic updates even when built with the debug profile. The separate development bundle identity does not install production updates.
+Packaged production-identity builds support Release updates even when built with the debug profile. The separate development bundle identity does not install production updates.
 
 For a fast signed local macOS package, use `npm run desktop:build -- --debug`. This builds without installing. Desktop, Core, and the screen helper use the required packaging certificate regardless of the Rust profile. Missing or conflicting signing identities fail before compilation. Check the bundle under `target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app`.
 
-Install only when local replacement is authorized. From an ARC-dispatched task, use the candidate CLI so the first upgrade also works with an older installed Core:
+Install an authorized local build from an independent terminal:
 
 ```sh
-NEW_APP="$PWD/target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app"
-"$NEW_APP/Contents/Resources/bin/arc" cli app replace "$NEW_APP" --check
-"$NEW_APP/Contents/Resources/bin/arc" cli app replace "$NEW_APP" --now
+npm run desktop:install -- "target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app"
 ```
 
-Save the receipt and end the turn after the second command. Do not quit ARC first or launch an installer script with `nohup` through `command`. The native launchd helper stages and validates the package, keeps the latest backup outside Applications in ARC state and cleans recovered copies, skips idle waiting with --now, replaces it, and rolls back on startup failure. Query `arc cli app replace --status` from a new turn after reconnecting. See [Local app replacement](../reference/app-replacement.md) for the exact protocol and recovery limits.
+The macOS script checks the signed candidate, archives the installed app, stops the installed Desktop and Core, replaces the bundle, and launches it. It does not schedule work or resume tasks. Run it outside ARC-owned commands because replacing ARC stops those commands too. User state is preserved. Keep the printed backup path for manual recovery.
 
 Version precedence is ARC_BUILD_VERSION, nearest reachable v-tag, then 0.0.0. package.json, Cargo, and Tauri use 0.0.0 as an internal placeholder. Formal artifacts inject versions into existing feature commits without version-bump commits.
 

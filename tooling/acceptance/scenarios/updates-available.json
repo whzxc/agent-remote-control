@@ -9,23 +9,13 @@
     "kind": "none"
   },
   "update": {
-    "id": "fixture-available",
-    "state": "available",
-    "source": {
-      "kind": "release",
-      "version": "1.2.3"
-    },
-    "when": "settled",
-    "work": {
-      "blocking": [],
-      "willResume": [],
-      "unaffected": []
-    },
-    "instance": "isolated:fixture123",
-    "canSchedule": false,
-    "backupReady": true,
-    "notes": "Improve update coordination.\nResume interrupted tasks after recovery.",
-    "supported": true
+    "phase": "idle",
+    "update": {
+      "available": true,
+      "version": "1.2.3",
+      "notes": "Improve connection stability.\nFix task history loading.",
+      "ready": true
+    }
   },
   "updatePanel": false
 }

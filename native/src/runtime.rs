@@ -95,10 +95,9 @@ impl State {
                 Ok(json!({"released":true}))
             }
             "runtime/shutdown" => {
-                if !leases.contains_key(key) || leases.keys().any(|id| id != key) {
+                if !leases.get(key).is_some_and(|lease| lease.kind == "desktop") {
                     return Err(
-                        "Other local entry points still use Core. Close those CLI or Desktop clients before installing the update."
-                            .into(),
+                        "Only the registered Desktop can stop Core for update installation.".into(),
                     );
                 }
                 self.closing
@@ -505,7 +504,6 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     crate::claude_notify::start(&service);
     crate::coordination::messages::start(&service);
     crate::dispatch_queue::start(&service.control);
-    crate::update_queue::start(&service.execution);
     let coordination = crate::coordination::observers::start(&service);
     let startup_service = service.clone();
     let startup = tokio::spawn(async move {
@@ -591,6 +589,32 @@ mod tests {
         }
         std::fs::remove_file(&path).unwrap();
         assert!(build_id(&path).is_err());
+    }
+
+    #[test]
+    fn explicit_update_stops_core_with_other_local_clients_attached() {
+        // Regression: a downloaded update was blocked by an unrelated local CLI lease.
+        let state = State::default();
+        let desktop = id();
+        let cli = id();
+        state
+            .request(
+                "runtime/lease",
+                json!({"id":desktop,"kind":"desktop","pid":1}),
+            )
+            .unwrap();
+        state
+            .request("runtime/lease", json!({"id":cli,"kind":"cli","pid":2}))
+            .unwrap();
+        assert!(state
+            .request("runtime/shutdown", json!({"id":cli}))
+            .is_err());
+        assert_eq!(
+            state
+                .request("runtime/shutdown", json!({"id":desktop}))
+                .unwrap()["closing"],
+            true
+        );
     }
 
     #[test]

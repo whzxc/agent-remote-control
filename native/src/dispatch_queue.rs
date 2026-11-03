@@ -188,9 +188,6 @@ pub(crate) async fn control(control: &Arc<control::Control>, args: &Value) -> Re
     )
 }
 async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
-    if crate::app_replace::check_dispatch().is_err() {
-        return Ok(());
-    }
     if string(&row["origin"], "sourceId").is_empty() {
         return Ok(()); // Orphans remain visible for explicit local cancellation.
     }

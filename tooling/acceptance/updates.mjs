@@ -1,6 +1,7 @@
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -11,8 +12,6 @@ import path from 'node:path';
 // Real signed updater bytes, a private HTTP endpoint, and a disposable app/state.
 // No request in this runner targets the user's installed ARC state directory.
 if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('Update acceptance requires an Apple Silicon Mac');
-const artifacts = process.argv[2];
-if (!artifacts) throw new Error('Usage: node tooling/acceptance/updates.mjs <verified-release-artifact-directory>');
 const execute = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '../..');
 process.chdir(root);
@@ -23,9 +22,10 @@ const stateDir = path.join(temporary, 'state');
 const target = path.join(temporary, 'ARC Update Acceptance.app');
 const candidate = path.join(temporary, 'Candidate.app');
 const environment = {...process.env, ARC_STATE_DIR:stateDir};
-const manifest = JSON.parse(await readFile(path.join(artifacts, 'latest.json'), 'utf8'));
-const name = new URL(manifest.platforms['darwin-aarch64'].url).pathname.split('/').at(-1);
-const payload = await readFile(path.join(artifacts, name));
+const manifest = { version: '0.0.1', notes: 'Direct update acceptance', platforms: {} };
+const name = 'acceptance.app.tar.gz';
+let payload;
+let expected;
 let checkError = false, assetError = false, child;
 const transfers = [], report = {cases:[], temporary, stateDir, version:manifest.version};
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
@@ -45,10 +45,10 @@ const server = createServer((req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const endpoint = `http://127.0.0.1:${server.address().port}`;
-manifest.platforms['darwin-aarch64'].url=endpoint+'/'+name;
+
 const config = path.join(out, 'updater-config.json');
 const mainWindow = JSON.parse(await readFile('desktop/tauri.conf.json','utf8')).app.windows[0];
-await writeFile(config, JSON.stringify({identifier:'com.whzxc.agent-remote-control.dev',app:{windows:[{...mainWindow,incognito:true,visible:false,title:'ARC Update Acceptance'}]},plugins:{updater:{endpoints:[endpoint+'/latest.json'],dangerousInsecureTransportProtocol:true}}}));
+await writeFile(config, JSON.stringify({identifier:'com.whzxc.agent-remote-control',app:{windows:[{...mainWindow,incognito:true,visible:false,title:'ARC Update Acceptance'}]},plugins:{updater:{endpoints:[endpoint+'/latest.json'],dangerousInsecureTransportProtocol:true}}}));
 async function command(args, options={}) {
   return execute(args[0], args.slice(1), {env:environment, timeout:180_000, maxBuffer:16*1024*1024,...options});
 }
@@ -96,6 +96,12 @@ async function build(version) {
   return path.join(root,'target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app');
 }
 try {
+  const nextApp = await build('0.0.1');
+  payload = await readFile(nextApp + '.tar.gz');
+  const signature = (await readFile(nextApp + '.tar.gz.sig', 'utf8')).trim();
+  manifest.platforms['darwin-aarch64'] = { url: endpoint + '/' + name, signature };
+  const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
+  expected = { desktop: await hash(path.join(nextApp, 'Contents/MacOS/agent-remote-control-desktop')), core: await hash(path.join(nextApp, 'Contents/Resources/bin/arc')) };
   const app=await build('0.0.0');
   await command(['/usr/bin/ditto',app,target]);await command(['/usr/bin/ditto',app,candidate]);
   await launch();
@@ -130,29 +136,31 @@ try {
     assetError=false;const result=await call('updates.download',{body:{version:manifest.version}});assert.equal(result.ready,true);
     const ready=await call('updates.status');assert.equal(ready.error,null);assert.equal(ready.downloaded,payload.length);
   });
-  await regression('replacement recovers a Desktop exit and reaches verified success',async()=>{
-    // Regression: Desktop exiting during the replacement wait cancelled the handoff before installation.
-    // The submitting CLI exits after its receipt; this independent fixture observer
-    // injects the exit and reads the terminal result in disposable state only.
-    const newer=await build('0.0.1');
-    await command(['/usr/bin/ditto',newer,candidate]);
-    const receipt=await cli('app','replace',candidate);assert.equal(receipt.replacementReceipt,true);
-    assert.notEqual(receipt.oldPackage.desktopBuild,receipt.package.desktopBuild);
-    assert.notEqual(receipt.oldPackage.coreBuild,receipt.package.coreBuild);
-    await until(()=>cli('app','replace','--status'),status=>status.state==='waiting-for-turns');
-    await cli('app','quit');
-    const completed=await until(()=>cli('app','replace','--status'),status=>['succeeded','cancelled','failed','rolled-back'].includes(status.state),180_000);
-    assert.equal(completed.state,'succeeded');assert.ok(completed.ownerReconnectedAt);assert.equal(completed.backupMoved,true);
-    const running=await cli('app','status');assert.equal(running.build,completed.package.desktopBuild);assert.equal(running.version,'0.0.1');
-    const health=await cli('call','health');assert.equal(health.build,completed.package.coreBuild);
-    report.replacement=completed;
+  await regression('downloaded update installs and restarts directly with the feed offline', async()=>{
+    // Regression: a ready update was routed through settling, countdown and task recovery instead of installing immediately.
+    const before = await cli('app','status'), oldCore = await cli('call','health');
+    const endpoint = JSON.parse(await readFile(path.join(stateDir, 'app/native.json'), 'utf8'));
+    const lease = await fetch(`http://127.0.0.1:${endpoint.port}/api/runtime/lease`, {
+      method: 'POST', headers: {authorization:`Bearer ${endpoint.token}`, 'content-type':'application/json'},
+      body: JSON.stringify({id:crypto.randomUUID(),kind:'cli',pid:process.pid}),
+    });
+    assert.equal(lease.ok,true);
+    assetError = true; checkError = true;
+    const started = Date.now();
+    const installed = await call('updates.install', {body:{version:manifest.version}});
+    assert.equal(installed.restarting, true);
+    const running = await until(()=>cli('app','status'), app=>app.version===manifest.version && app.build===expected.desktop, 30_000);
+    const core = await until(()=>cli('call','health'), health=>health.build===expected.core && health.state==='ready', 15_000);
+    assert.notEqual(running.pid,before.pid);
+    assert.notEqual(core.pid,oldCore.pid);
+    assert.equal(running.executable,path.join(target,'Contents/MacOS/agent-remote-control-desktop'));
+    report.install = {desktop:running, core, elapsedMs:Date.now()-started};
   });
   report.ok=true;
 } catch(error) {report.ok=false;report.error=String(error);throw error;}
 finally {
   report.transfers=transfers;
   if(child){try{await quit();}catch{}}
-  if(report.ok) await rm(temporary,{recursive:true,force:true});
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify({ok:report.ok,directory:out,cases:report.cases,error:report.error}));

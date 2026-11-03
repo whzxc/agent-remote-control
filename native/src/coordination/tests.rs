@@ -545,42 +545,7 @@ fn observed_dispatch_and_all_terminal_states_are_metadata_only() {
     }
     assert!(!result.to_string().contains("secret-"));
 }
-#[test]
-fn replacement_observations_preserve_shutdown_and_recovery_truth() {
-    // Contract: events distinguishes replacement phases and confirmed interruption from resume receipt delivery.
-    let mut f = Fixture::new();
-    let mut row = json!({"id":"replacement-one","interruptedTurns":[{"state":"receipt-returned"},{"state":"finished-before-shutdown"},{"state":"needs-attention"}]});
-    for phase in [
-        "preparing",
-        "waiting-for-turns",
-        "installing",
-        "succeeded",
-        "failed",
-        "rolled-back",
-    ] {
-        row["state"] = json!(phase);
-        row["snapshotFinalized"] = json!(phase != "preparing" && phase != "waiting-for-turns");
-        for input in observer_events(observers::Owner::Replacement, row.clone()) {
-            emit_observation(&mut f, input);
-        }
-    }
-    row["resumedCount"] = json!(1);
-    for input in observer_events(observers::Owner::Replacement, row)
-        .into_iter()
-        .filter(|v| matches!(v.status, Some(EventStatus::RecoverySummary)))
-    {
-        emit_observation(&mut f, input);
-    }
-    let result = f.query(json!({"kinds":["app.replace"]}));
-    let events = result["events"].as_array().unwrap();
-    assert_eq!(events.len(), 7);
-    assert!(events[0]["observation"]["interruptedTurns"].is_null());
-    assert_eq!(events[2]["status"], "interrupted");
-    assert_eq!(events[2]["observation"]["interruptedTurns"], 2);
-    assert!(events[3]["observation"]["resumeSubmissions"].is_null());
-    assert_eq!(events[6]["status"], "recovery-summary");
-    assert_eq!(events[6]["observation"]["resumeSubmissions"], 1);
-}
+
 #[test]
 fn lifecycle_receipt_and_restart_kinds_are_queryable() {
     // Contract: events exposes each observer kind through the same frozen query envelope and kind filters.
@@ -1069,41 +1034,6 @@ fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individ
         page["coverage"]["observers"]["receipts"]["invalidCountCapped"],
         true
     );
-}
-
-#[test]
-fn replacement_events_use_recorded_command_submitter_through_recovery() {
-    // Regression: 0d01893 stored submitter.origin but app.replace events only read the absent top-level origin.
-    let mut f = Fixture::new();
-    let submitter = json!({"origin":{"sourceId":"source-one","accountId":"account-one","authType":"oauth","ingressId":"fixture"},"notify":{"channel":"claude-session","target":"private-target"}});
-    let mut row: Value =
-        serde_json::from_str(include_str!("fixtures/replacement-metadata.json")).unwrap();
-    row["submitter"] = submitter;
-    row["resumedCount"] = json!(0);
-    for state in ["preparing", "waiting-for-turns", "installing", "succeeded"] {
-        row["state"] = json!(state);
-        for input in observer_events(observers::Owner::Replacement, row.clone()) {
-            emit_observation(&mut f, input);
-        }
-    }
-    row["id"] = json!("terminal-replacement");
-    row["submitter"] = Value::Null;
-    for input in observer_events(observers::Owner::Replacement, row) {
-        emit_observation(&mut f, input);
-    }
-    let page = f.query(json!({"kinds":["app.replace"]}));
-    let events = page["events"].as_array().unwrap();
-    assert_eq!(events.len(), 7);
-    for event in &events[..5] {
-        assert_eq!(
-            event["origin"],
-            json!({"type":"source","sourceId":"source-one","accountId":"account-one"})
-        );
-    }
-    for event in &events[5..] {
-        assert!(event["origin"].is_null());
-    }
-    assert!(!page.to_string().contains("private-target"));
 }
 
 #[test]

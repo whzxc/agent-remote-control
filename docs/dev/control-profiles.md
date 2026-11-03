@@ -90,7 +90,6 @@ Every cell is intersected with policy and runtime availability.
 | `board`, `coordination_session`, `notice_post`, `notice_update`, `notice_close`, `blocker_open`, `blocker_clear`, `messages`, `message_send`, `message_route` | C | C | C | Current |
 | `task_timeline`, `task_reviews`, `task_review_undo`, `task_bubble`, `task_mark_read`, `task_panel`, `task_panel_control`, `task_open`, `task_resource` | D | D | D | Current |
 | `src_conversations`, `src_chrome_profiles`, `src_conversation_open`, `src_login_import`, `src_conversation_bind`, `src_login_clear` | C | C | C | Current |
-| `update_status`, `update_request`, `app_env`, `acceptance_fault` | D | D | D | Current |
 | `ax_issue_draft`, `ax_report`, `ax_list`, `ax_candidate`, `ax_triage` | C | C | C | Current |
 
 

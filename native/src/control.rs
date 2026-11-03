@@ -64,7 +64,6 @@ fn cleanup_result(result: Result<Value>) -> Result<Value> {
         Err(error) => Err(error),
     }
 }
-tokio::task_local! { static REPLACEMENT_RESUME: bool; }
 
 impl Control {
     pub fn new(binary: PathBuf) -> Arc<Self> {
@@ -175,13 +174,6 @@ impl Control {
         self.shutdown.send_modify(|v| *v = v.wrapping_add(1));
     }
     pub async fn close(&self) {
-        if let Err(error) = crate::app_replace::capture_shutdown(self).await {
-            crate::logs::record(
-                "ERROR",
-                &format!("Replacement shutdown snapshot failed: {error}"),
-                None,
-            );
-        }
         self.stop_waits();
         let jobs: Vec<_> = self.jobs.lock().await.drain().collect();
         for (request, job) in jobs {
@@ -766,12 +758,6 @@ impl Control {
         fresh_thread: bool,
     ) -> Result<Value> {
         if matches!(method, "turn/start" | "turn/steer") {
-            if !REPLACEMENT_RESUME
-                .try_with(|allowed| *allowed)
-                .unwrap_or(false)
-            {
-                crate::app_replace::check_dispatch()?;
-            }
             let thread = string(&args, "threadId");
             let turns = submission_history(fresh_thread, |cursor| {
                 self.request_native("thread/turns/list", json!({"threadId":thread,"limit":100,"cursor":cursor,"sortDirection":"desc","itemsView":"full"}), timeout)
@@ -882,11 +868,6 @@ impl Control {
         result
     }
     async fn request_native_raw(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
-        let args = if method == "command/exec" {
-            crate::shell_command::command_environment(args)
-        } else {
-            args
-        };
         crate::acceptance_fault::check_read(method, &args)?;
         #[cfg(feature = "test-fixture")]
         {
@@ -1025,16 +1006,6 @@ impl Control {
     }
 
     pub async fn mutate(self: &Arc<Self>, operation: &str, mut args: Value) -> Result<Value> {
-        if matches!(operation, "create" | "send" | "resume" | "native") {
-            let op = match operation {
-                "send" => "codex_send",
-                "resume" => "codex_resume",
-                _ => "",
-            };
-            if crate::app_replace::continuation_context(op, &args)?.is_none() {
-                crate::app_replace::check_dispatch()?;
-            }
-        }
         if matches!(operation, "create" | "send") {
             crate::claude_notify::normalize(&mut args)?;
         }
@@ -1084,14 +1055,7 @@ impl Control {
             crate::dispatch_caller::attach_current(&mut receipt);
             receipt["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
-        if operation == "resume" {
-            if let Some(entry) =
-                crate::app_replace::continuation_entry(string(&args, "threadId"), &request)?
-            {
-                receipt["replacementContinuation"] = json!({"threadId":entry["threadId"],"interruptedTurnId":entry["turnId"],
-                    "originalRequestId":entry["dispatch"]["requestId"],"requestId":entry["continuation"]["requestId"]});
-            }
-        }
+
         if operation == "create" || (operation == "native" && args["method"] == "thread/start") {
             receipt["executionOwner"] = json!(if self.auto_open_codex()? {
                 "desktop"
@@ -1164,12 +1128,7 @@ impl Control {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let origin = receipt["origin"].clone();
         let job = tokio::spawn(crate::kernel::origin::ORIGIN.scope(origin, async move {
-            // Only a validated durable replacement continuation may cross admission.
-            // The private scope cannot be supplied through native tool parameters.
-            let recovery = receipt["replacementContinuation"].is_object();
-            let outcome = REPLACEMENT_RESUME
-                .scope(recovery, c.perform(&op, &args, &mut receipt))
-                .await;
+            let outcome = c.perform(&op, &args, &mut receipt).await;
             match outcome {
                 Ok(result) => {
                     receipt["result"] = result;
@@ -1541,16 +1500,6 @@ impl Control {
                 return Err(json!({"code":"RESUME_TURN_ADVANCED","message":"Only the latest interrupted turn can resume. No input was submitted.","next":{"via":"query","op":"codex_read","args":{"threadId":thread,"statusOnly":true}}}).to_string());
             }
             if !desktop {
-                crate::claude_notify::prepare_replacement_resume(
-                    thread,
-                    previous,
-                    if ownership["state"] == "unheld" {
-                        &r["replacementContinuation"]
-                    } else {
-                        &Value::Null
-                    },
-                )
-                .await?;
                 if state["status"]["type"] == "notLoaded" {
                     self.utility()
                         .await?

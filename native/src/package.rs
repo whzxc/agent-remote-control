@@ -1,4 +1,4 @@
-//! Native macOS package checks, also used by the detached replacement worker.
+//! Native macOS package checks.
 use crate::*;
 use std::fs;
 
@@ -7,7 +7,7 @@ const DEV_IDENTIFIER: &str = "com.whzxc.agent-remote-control.dev";
 const CERTIFICATE: &str = "dce238666578502cf7de81a7b4d5e835a186bc60";
 include!(concat!(env!("OUT_DIR"), "/package_skills.rs"));
 
-pub fn replacement_identifier_allowed(identifier: &str, isolated_instance: Option<&str>) -> bool {
+pub fn package_identifier_allowed(identifier: &str, isolated_instance: Option<&str>) -> bool {
     match isolated_instance {
         None => [IDENTIFIER, DEV_IDENTIFIER].contains(&identifier),
         Some(instance) => {
@@ -42,8 +42,8 @@ pub(crate) async fn signature(app: &Path, identifier: &str) -> Result<()> {
         None
     };
     let instance = identity.as_ref().map(|value| string(value, "instanceId"));
-    if !replacement_identifier_allowed(identifier, instance) {
-        return Err("REPLACE_INVALID_PACKAGE: unsupported bundle identifier".into());
+    if !package_identifier_allowed(identifier, instance) {
+        return Err("INVALID_PACKAGE: unsupported bundle identifier".into());
     }
     for (path, suffix) in [
         (app.to_path_buf(), ""),
@@ -70,27 +70,24 @@ mod tests {
 
     #[test]
     fn isolated_copy_checks_accept_only_the_selected_instance_identity() {
-        // Regression: app replace --check rejected the official isolated bundle ID before validating the copied candidate.
+        // Regression: package-check rejected the official isolated bundle ID before validating the copied candidate.
         let instance = "abc123def456";
         let identifier = format!("{DEV_IDENTIFIER}.acceptance-{instance}");
-        assert!(replacement_identifier_allowed(&identifier, Some(instance)));
-        assert!(!replacement_identifier_allowed(&identifier, None));
-        assert!(!replacement_identifier_allowed(
+        assert!(package_identifier_allowed(&identifier, Some(instance)));
+        assert!(!package_identifier_allowed(&identifier, None));
+        assert!(!package_identifier_allowed(
             &identifier,
             Some("other1234567")
         ));
-        assert!(!replacement_identifier_allowed(IDENTIFIER, Some(instance)));
-        assert!(!replacement_identifier_allowed(
-            DEV_IDENTIFIER,
-            Some(instance)
-        ));
+        assert!(!package_identifier_allowed(IDENTIFIER, Some(instance)));
+        assert!(!package_identifier_allowed(DEV_IDENTIFIER, Some(instance)));
     }
 
     #[test]
     fn package_identity_profiles_never_broaden_to_arbitrary_bundle_ids() {
         // Property: ordinary profiles admit only fixed ARC identities; isolated profiles admit only their exact valid generated identity.
-        assert!(replacement_identifier_allowed(IDENTIFIER, None));
-        assert!(replacement_identifier_allowed(DEV_IDENTIFIER, None));
+        assert!(package_identifier_allowed(IDENTIFIER, None));
+        assert!(package_identifier_allowed(DEV_IDENTIFIER, None));
         for instance in [
             "",
             "short",
@@ -100,12 +97,9 @@ mod tests {
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         ] {
             let identifier = format!("{DEV_IDENTIFIER}.acceptance-{instance}");
-            assert!(!replacement_identifier_allowed(&identifier, Some(instance)));
+            assert!(!package_identifier_allowed(&identifier, Some(instance)));
         }
-        assert!(!replacement_identifier_allowed(
-            "com.example.unrelated",
-            None
-        ));
+        assert!(!package_identifier_allowed("com.example.unrelated", None));
     }
 }
 
@@ -125,14 +119,12 @@ fn inspect(path: &Path) -> Result<()> {
         .iter()
         .any(|n| name == *n)
         {
-            return Err("REPLACE_INVALID_PACKAGE: legacy runtime resource".into());
+            return Err("INVALID_PACKAGE: legacy runtime resource".into());
         }
         let kind = entry.file_type().map_err(|e| e.to_string())?;
         // ARC has no framework symlinks. Reject them instead of following paths outside the bundle.
         if kind.is_symlink() || (!kind.is_file() && !kind.is_dir()) {
-            return Err(
-                "REPLACE_INVALID_PACKAGE: links and special files are not supported".into(),
-            );
+            return Err("INVALID_PACKAGE: links and special files are not supported".into());
         }
         if kind.is_dir() {
             inspect(&entry.path())?;
@@ -144,7 +136,7 @@ fn inspect(path: &Path) -> Result<()> {
 /// Run with the candidate Core so embedded resources and version describe that package.
 pub async fn check(app: &Path) -> Result<Value> {
     if app.extension().is_none_or(|e| e != "app") {
-        return Err("REPLACE_INVALID_PACKAGE: expected .app".into());
+        return Err("INVALID_PACKAGE: expected .app".into());
     }
     inspect(app)?;
     let identifier = plist(app, "CFBundleIdentifier").await?;
@@ -155,22 +147,20 @@ pub async fn check(app: &Path) -> Result<Value> {
     if version != env!("ARC_BUILD_VERSION")
         || output(&core, &["--version"]).await?.trim() != version
     {
-        return Err("REPLACE_INVALID_PACKAGE: Desktop and Core versions differ".into());
+        return Err("INVALID_PACKAGE: Desktop and Core versions differ".into());
     }
     if plist(app, "CFBundleExecutable").await? != "agent-remote-control-desktop"
         || !app
             .join("Contents/MacOS/agent-remote-control-desktop")
             .is_file()
     {
-        return Err("REPLACE_INVALID_PACKAGE: missing Desktop executable".into());
+        return Err("INVALID_PACKAGE: missing Desktop executable".into());
     }
     for (name, bytes) in SKILLS {
         if fs::read(resources.join("skills/arc-setup").join(name)).map_err(|e| e.to_string())?
             != *bytes
         {
-            return Err(format!(
-                "REPLACE_INVALID_PACKAGE: skill resource differs: {name}"
-            ));
+            return Err(format!("INVALID_PACKAGE: skill resource differs: {name}"));
         }
     }
     let name = plist(app, "CFBundleIconName").await?;
@@ -178,7 +168,7 @@ pub async fn check(app: &Path) -> Result<Value> {
         || name != plist(app, "CFBundleIconFile").await?
         || !resources.join(format!("{name}.icns")).is_file()
     {
-        return Err("REPLACE_INVALID_PACKAGE: invalid icon name".into());
+        return Err("INVALID_PACKAGE: invalid icon name".into());
     }
     let assets: Value = serde_json::from_str(
         &output(
@@ -194,7 +184,7 @@ pub async fn check(app: &Path) -> Result<Value> {
     .map_err(|e| e.to_string())?;
     let assets = assets
         .as_array()
-        .ok_or("REPLACE_INVALID_PACKAGE: invalid icon assets")?;
+        .ok_or("INVALID_PACKAGE: invalid icon assets")?;
     if !assets
         .iter()
         .any(|a| a["AssetType"] == "Icon Image" && a["Name"] == name)
@@ -208,7 +198,7 @@ pub async fn check(app: &Path) -> Result<Value> {
                 })
             })
     {
-        return Err("REPLACE_INVALID_PACKAGE: missing native icon appearance".into());
+        return Err("INVALID_PACKAGE: missing native icon appearance".into());
     }
     Ok(
         json!({"identifier":identifier,"version":version,"coreBuild":crate::runtime::build_id(&core)?,"desktopBuild":crate::runtime::build_id(&app.join("Contents/MacOS/agent-remote-control-desktop"))?}),

@@ -87,21 +87,17 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   }
   if (path === 'preferences' && method === 'PUT') return responses.preferences = { ...(responses.preferences as Record<string,string>), ...(body as { values: Record<string,string> }).values };
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
-  if (path === 'updates/request' && method === 'POST') {
-    const request = body as { action: string; seconds?: number }, snapshot = structuredClone(updates.get().snapshot);
-    if (request.action === 'cancel') { snapshot.state = 'cancelled'; snapshot.canSchedule = false; }
-    else if (request.action === 'now') { snapshot.when = 'now'; snapshot.state = 'swapping'; snapshot.canSchedule = false; }
-    else if (request.action === 'defer') { snapshot.when = 'defer'; snapshot.state = 'settling'; snapshot.deferUntil = new Date(Date.now() + (request.seconds ?? 3600) * 1000).toISOString(); }
-    else throw new Error('SCENARIO_ACTION_UNAVAILABLE: update submit');
-    responses['updates/status'] = snapshot; acceptUpdateSnapshot(snapshot); return { accepted: true };
-  }
   if (path === 'updates/install' && method === 'POST') {
-    const snapshot = { ...updates.get().snapshot, id: 'fixture-submitted', state: 'settling' as const, when: (body as { when: UpdateSnapshot['when'] }).when, canSchedule: true, backupReady: true };
-    responses['updates/status'] = snapshot; acceptUpdateSnapshot(snapshot); return { accepted: true };
+    const snapshot = { ...updates.get().snapshot, phase: 'installing' as const };
+    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return { restarting: true };
+  }
+  if (path === 'updates/download' && method === 'POST') {
+    const snapshot = { ...updates.get().snapshot, phase: 'idle' as const, update: { ...updates.get().snapshot.update!, ready: true } };
+    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return snapshot.update;
   }
   if (path === 'updates/cancel' && method === 'POST') {
-    const snapshot = { ...updates.get().snapshot, state: 'idle' as const };
-    responses['updates/status'] = snapshot; acceptUpdateSnapshot(snapshot); return {};
+    const snapshot = { ...updates.get().snapshot, phase: 'idle' as const };
+    responses.updates = snapshot; acceptUpdateSnapshot(snapshot); return {};
   }
   if (path === 'updates/check' && method === 'POST') return {};
 
@@ -166,7 +162,7 @@ export async function installScenario(name: string) {
   centerView.set({ view: 'current', filter: 'all', resource: '', history: false });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
-  const preferences = { 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
+  const preferences = { 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
   acceptPreferences(preferences);
   const now = new Date().toISOString();
   const defaults = Object.fromEntries(Object.entries(config.fields).map(([key, field]) => [key, field.default]));
@@ -290,14 +286,6 @@ export async function installScenario(name: string) {
   }]] : []));
   taskResponse = taskScenario(timelines, activity, records, () => {
     activity.observedAt = new Date().toISOString();
-    const update = responses['updates/status'] as UpdateSnapshot | undefined;
-    if (update) {
-      const nextUpdate = structuredClone(update);
-      const answered = nextUpdate.work.blocking.filter(item => item.taskId && item.question && !activity.agents[item.agent ?? 'codex']?.sessions.find(session => session.id === item.taskId)?.interaction);
-      nextUpdate.work.blocking = nextUpdate.work.blocking.filter(item => !answered.includes(item));
-      nextUpdate.work.willResume.push(...answered.map(item => ({ ...item, question: undefined })));
-      responses['updates/status'] = nextUpdate; acceptUpdateSnapshot(nextUpdate);
-    }
     const visible = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
       sessions: group.sessions.filter(session => ['running', 'inProgress'].includes(timelines[`agents/timeline/${session.id}`]?.status ?? '')),
     }])) };
@@ -330,8 +318,8 @@ export async function installScenario(name: string) {
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
   accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
-  responses['updates/status'] = { state: 'idle', when: 'settled', work: { blocking: [], willResume: [], unaffected: [] } };
-  acceptUpdateSnapshot(responses['updates/status'] as UpdateSnapshot);
+  responses.updates = { phase: 'idle', update: null };
+  acceptUpdateSnapshot(responses.updates as UpdateSnapshot);
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
@@ -369,8 +357,7 @@ export async function installScenario(name: string) {
     if (fixture.page) navigation.set({ page: fixture.page, settingsExperimental: fixture.settingsExperimental, connectionsOpen: fixture.connectionsOpen, remoteConnectionId: fixture.remoteConnectionId, remoteSourceId: fixture.remoteSourceId });
     if (fixture.update) {
       const snapshot = structuredClone(fixture.update);
-      if (snapshot.state === 'countdown') snapshot.restartAt = new Date(Date.now() + 10000).toISOString();
-      responses['updates/status'] = snapshot;
+      responses.updates = snapshot;
       acceptUpdateSnapshot(snapshot);
       updates.set(old => ({ ...old, panelOpen: fixture.updatePanel !== false }));
     }

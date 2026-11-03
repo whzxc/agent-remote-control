@@ -151,9 +151,7 @@ Settings retain homepage count, remaining/used, countdown/date, enablement, and 
 
 ## Update notification
 
-The update popover keeps its header and action footer outside the scrolling body. Release notes and impact details scroll independently within a bounded content area, capped at 460px and reduced for short windows. Narrow windows stack the two scrolling sections. `?scenario=updates-long-notes` supplies long release notes for this layout.
-
-Only the primary button shows download size/progress. Do not add a body progress area. Completion changes the button to the localized install-update action. Installation requires another click.
+The update popover keeps its header and action footer outside a single scrolling body. Release notes scroll within the viewport. Downloading shows byte progress and a cancel action. A ready download exposes **Update and restart**, which immediately installs and restarts without a timing picker, task-impact groups, countdown or confirmation. Running ARC tasks are interrupted. `?scenario=updates-long-notes` supplies long Release notes for this layout.
 
 ## Verification
 

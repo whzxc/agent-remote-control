@@ -57,7 +57,7 @@ import PlatformsPage from "./components/PlatformsPage";
 import Onboarding from "./components/Onboarding";
 import AddConnection from "./components/AddConnection";
 import { usePrivacy } from "./state/privacy";
-import { UpdateDock, UpdateOutcome } from "./components/AppUpdate";
+import { UpdateDock } from "./components/AppUpdate";
 import { Button, Icon, IconButton, Notice, HoverScope } from "./components/ui";
 import { api } from "./api";
 import PermissionsPage from "./components/PermissionsPage";
@@ -120,7 +120,7 @@ export default function App() {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
     const timer = setInterval(() => {
-      if (document.querySelector('[role="dialog"], form') || updates.get().snapshot.state !== "idle" || updates.get().panelOpen || updateVisible()) return;
+      if (document.querySelector('[role="dialog"], form') || updates.get().snapshot.phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
       void import("@tauri-apps/api/core").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
     }, 30000);
     return () => clearInterval(timer);
@@ -426,7 +426,6 @@ export default function App() {
         connectionSetup.set(undefined);
       }} />}
       {bulletinOpen && <CoordinationCenter />}
-      <UpdateOutcome />
       <OAuthApproval inlineEnabled={page === "overview"} requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
     </div>
   );

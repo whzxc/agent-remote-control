@@ -19,11 +19,6 @@ const COMMANDS: &[&str] = &[
     "app status",
     "app quit",
     "app restart",
-    "app replace <path> [--now] [--check] [--stdin]",
-    "app replace <path> --check",
-    "app replace <path> --stdin",
-    "app replace <path> --check --stdin",
-    "app replace --status",
     "storage compact",
     "ax import --from <path>",
     "ax export --to <path>",
@@ -450,12 +445,7 @@ pub(crate) fn validate_ingress_input(body: &Value, update: bool) -> crate::Resul
 
 pub fn error_response(message: &str, usage: &str, args: &[&str]) -> Value {
     let code = crate::management::error_code(message);
-    if code == "REPLACE_PENDING" {
-        let mut value =
-            json!({"schemaVersion":1,"ok":false,"error":{"code":code,"message":message}});
-        crate::egress::next(&mut value, "", &json!({}), false);
-        return value;
-    }
+
     if matches!(
         code,
         "SOURCE_REVOKED" | "SOURCE_REMOVED" | "LOCAL_SOURCE_PROTECTED"
@@ -632,7 +622,7 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
                 {"commands":"source list; source update <id> --stdin; source disconnect <id>; source claim <pending-source-id> --stdin; source switch <sourceId> <ingressId>; source switch <sourceId> --cancel","description":"Manage source identity; claim accepts sourceId=new or an existing source ID; a switch request can only claim its bound source."},
                 {"commands":"ingress list|presets|add|update|remove|start|stop|restart|probe|doctor|verify","description":"Manage and diagnose a selected connection; add/update accept JSON on stdin."},
                 {"commands":"ingress oauth list|request|decision|register|revoke; ingress token rotate","description":"Manage this connection's OAuth access and bearer token."},
-                {"commands":"app start|status|quit|restart; app replace <path> [--now] [--check] [--stdin]; app replace --status; uninstall [--purge]","description":"Control the installed application. On macOS, replace validates and hands off to launchd; end the turn after its receipt. --now skips task-idle checks and the countdown; ARC-owned work can be interrupted. --check validates without installation. --stdin accepts continuation:{threadId,prompt,model?,turn?,notify?}, queued into the same thread after verified recovery."},
+                {"commands":"app start|status|quit|restart; uninstall [--purge]","description":"Control the installed application. Install local builds from an independent terminal with npm run desktop:install in the source checkout."},
                 {"commands":"ax import --from <path>; ax export --to <path>","description":"Import the interim AX queue or export retained AX history through local Core management. Paths must be absolute; export requires a new file in an existing directory outside ARC state."},
                 {"commands":"subscriptions get|set|refresh|open","description":"Read or refresh subscription usage; set accepts JSON on stdin."},
                 {"commands":"stats control [--since <duration>]; logs [--stdin|--follow|--offline]; watch; storage compact","description":"Inspect logs, watch changes or compact local storage."},
@@ -766,12 +756,6 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
         ["app", action @ ("start" | "quit" | "restart" | "status")] => {
             crate::management::call(&format!("app.{action}"), json!({})).await
         }
-        ["app", "replace", "--status"] => crate::management::call("app.replace.status", json!({})).await,
-        ["app", "replace", path, flags @ ..] => {
-            let body = if flags.contains(&"--stdin") { stdin_json()? } else { json!({}) };
-            let body = crate::app_replace::replacement_arguments(path, flags, body)?;
-            crate::management::call("app.replace", json!({"body":body})).await
-        },
         ["config", "get"] => {
             let preferences = forward_request("preferences", "GET", json!({})).await?;
             Ok(json!({"maintainerMode":preferences["maintainer-mode"] == "on"}))
@@ -937,24 +921,7 @@ pub async fn run(args: Vec<String>) -> i32 {
                 );
                 return 1;
             }
-            let replacing = matches!(words.as_slice(), ["app", "replace", path, ..] if *path != "--status")
-                || matches!(words.as_slice(), ["call", "app.replace", ..])
-                || matches!(words.as_slice(), ["control", "update_request", ..]);
-            let id = crate::app_replace::acknowledgment_id(
-                if replacing { "app.replace" } else { "" },
-                &result,
-            )
-            .map(str::to_owned);
-            let code = print_output(json!({"schemaVersion":1,"ok":true,"result":result}));
-            if code == 0 {
-                if let Some(id) = id {
-                    if let Err(error) = crate::app_replace::acknowledge(&id) {
-                        eprintln!("{error}; replacement will cancel without acknowledgment");
-                        return 1;
-                    }
-                }
-            }
-            code
+            print_output(json!({"schemaVersion":1,"ok":true,"result":result}))
         }
         Err(message) => {
             if matches!(words.first(), Some(&"control" | &"wait")) {
@@ -982,46 +949,13 @@ pub async fn run(args: Vec<String>) -> i32 {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn replacement_guide_and_schema_use_state_backups() {
-        // Regression: CLI overview and management schema still advertised OS-temporary replacement backups.
-        let guide = execute(&["guide".into()]).await.unwrap();
-        let schema = execute(&["schema".into(), "app.replace".into()])
-            .await
-            .unwrap();
-        let location = "<state>/app-replacements/backups/";
-        assert!(string(&guide, "markdown").contains(location));
-        assert!(string(&schema, "description").contains(location));
-    }
-
-    #[test]
-    fn pending_replacement_status_is_the_cli_recovery_read() {
-        // Regression: REPLACE_PENDING from a control command suggested guide and syntax correction.
-        let value = error_response(
-            "REPLACE_PENDING: finish the current turn",
-            "cli control codex_create --stdin",
-            &["control", "codex_create"],
-        );
-        assert_eq!(value["schemaVersion"], 1);
-        assert_eq!(value["ok"], false);
-        assert_eq!(value["error"]["code"], "REPLACE_PENDING");
-        assert!(value["error"]["usage"].is_null());
-        assert_eq!(value["next"]["op"], "app.replace.status");
-        assert_eq!(value["next"]["via"], "cli");
-        assert_eq!(value["next"]["args"], json!({}));
-    }
-
     #[test]
     fn revoked_source_error_preserves_authorization_recovery() {
         // Contract: CLI authorization failures retain their error code and human recovery without syntax guidance.
         for removed in [false, true] {
             let source = json!({"id":"example-source","ingressId":"example-ingress","credential":{"type":"ingress"},"state":"revoked","connectionRemoved":removed});
             let message = crate::sources::authorization_error(&source);
-            let failure = error_response(
-                &message,
-                "cli app replace <path> --check --stdin",
-                &["app", "replace"],
-            );
+            let failure = error_response(&message, "cli app status", &["app", "status"]);
             assert_eq!(failure["schemaVersion"], 1);
             assert_eq!(failure["ok"], false);
             assert_eq!(failure["error"]["code"], "SOURCE_REVOKED");
@@ -1038,7 +972,7 @@ mod tests {
             assert!(failure["next"]["op"].is_null());
             assert!(!string(&failure["next"], "hint").is_empty());
         }
-        let legacy = error_response("SOURCE_REVOKED", "cli app replace", &["app", "replace"]);
+        let legacy = error_response("SOURCE_REVOKED", "cli app status", &["app", "status"]);
         assert_eq!(legacy["error"]["code"], "SOURCE_REVOKED");
         assert!(!string(&legacy["next"], "hint").is_empty());
     }

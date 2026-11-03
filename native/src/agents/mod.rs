@@ -916,7 +916,6 @@ impl AgentHost {
             .ok_or("UNKNOWN_TOOL")?;
         crate::egress::validate_op(spec, &args)?;
         if matches!(name, "agent_create" | "agent_send") {
-            crate::app_replace::check_dispatch()?;
             crate::claude_notify::normalize(&mut args)?;
         }
         if name == "agents" {
@@ -1234,7 +1233,6 @@ impl AgentHost {
         };
         match name {
             "agent_create" | "agent_send" => {
-                crate::app_replace::check_dispatch()?;
                 let _dispatch = p
                     .dispatch
                     .try_lock()

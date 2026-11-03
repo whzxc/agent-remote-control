@@ -206,7 +206,6 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-failed-command') return emit({id,result:{stdout:'',stderr:'failed check',exitCode:7}});
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-budget') return emit({id,result:{stdout:'é'.repeat(40),stderr:'err'.repeat(20),exitCode:0}});
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-cwd') return emit({id,result:{stdout:params.cwd,stderr:'',exitCode:0}});
-    if (method === 'command/exec' && params.command?.at(-1)==='fixture-origin') return emit({id,result:{stdout:JSON.stringify(params.env),stderr:'',exitCode:0}});
     if (method === 'process/spawn') {
       emit({ method: 'process/outputDelta', params: { processHandle: params.processHandle, stream: 'stdout', deltaBase64: 'b2s=' } });
       emit({ method: 'process/exited', params: { processHandle: params.processHandle, exitCode: 0 } });
@@ -320,6 +319,7 @@ test('current protocol discovery and tool results expose mandatory wire metadata
 test('MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas', async () => {
   // Contract: MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas.
   assert.deepEqual(inventory.tools.map(tool => tool.name), ['guide', 'query', 'act']);
+  assert.ok(!operations.some(tool => ['update_status', 'update_request'].includes(tool.name)));
   const status = await call('notify_status');
   assert.equal(status.response.isError, false);
   assert.equal(status.result.arcInbox, undefined);
@@ -634,18 +634,6 @@ test('tool presets use the full registry, preserve exact allowlists and close on
   future.tools.push({ name: 'future_read', description: '', via: 'query', group: 'project', presets: ['readOnly'], requires: ['control_output'] });
   assert.equal(identifyPolicy(readOnly, future), 'custom');
   assert.ok(!readOnly.allowlist.includes('future_read'));
-});
-
-test('update presets expose status to readers and scheduling only to common policies', async () => {
-  // Regression: 03ec3af omitted update operations from exposure metadata, hiding them from default ingress policies.
-  const config: ToolCatalog = await management('tool-catalog');
-  const readOnly = presetPolicy('readOnly', config) as { allowlist: string[] };
-  const common = presetPolicy('common', config) as { allowlist: string[] };
-  assert.ok(readOnly.allowlist.includes('update_status'));
-  assert.ok(!readOnly.allowlist.includes('update_request'));
-  for (const name of ['update_status', 'update_request']) assert.ok(common.allowlist.includes(name));
-  const selection = normalizeSelection(['update_request'], config);
-  for (const name of ['update_request', 'update_status', 'control_output']) assert.ok(selection.includes(name));
 });
 
 test('real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability', async () => {
@@ -1121,29 +1109,17 @@ server.listen(Number(endpoint.split(':')[1]),'127.0.0.1',()=>fs.writeFileSync(${
   } finally { await management(`ingress/${id}`,'DELETE'); }
 });
 
-test('replacement snapshots and codex_pending agree on terminal interaction ownership and staleness', async () => {
-  // Regression: a question from a terminal turn blocked replacement and its native owner differed from the settle owner.
+test('codex_pending retains terminal interaction ownership and staleness', async () => {
+  // Regression: a terminal turn question lost its native owner and stale status.
   const created = await dispatchFixture('fixture-dispatch-question-terminal');
   const readPending = async () => (await call('codex_pending', { threadId: created.threadId })).result;
   const initial = await eventually(readPending, value => value.requests?.length > 0);
   const request = initial.requests[0];
-  const before = await management('app/replace/snapshot');
-  const blocker = before.interactionWork.blocking.find((item: any) => item.taskId === created.threadId);
-  assert.equal(blocker.owner, request.owner);
-  assert.equal(blocker.question.responseId, request.responseId);
-  assert.ok(before.turns.some((turn: any) => turn.threadId === created.threadId && turn.state === 'needs-attention'));
   try {
     await completed('codex_call', { method: 'fixture/finish-with-pending', params: { threadId: created.threadId }, requestId: randomUUID() });
     const terminal = await eventually(readPending, value => value.requests?.[0]?.stale === true);
     assert.equal(terminal.requests[0].turnStatus, 'completed');
     assert.equal(terminal.requests[0].owner, request.owner);
-    const after = await management('app/replace/snapshot');
-    assert.equal(after.turns.some((turn: any) => turn.threadId === created.threadId), false);
-    assert.equal(after.interactionWork.blocking.some((item: any) => item.taskId === created.threadId), false);
-    const stale = after.interactionWork.stale.find((item: any) => item.taskId === created.threadId);
-    assert.equal(stale.owner, terminal.requests[0].owner);
-    assert.equal(stale.turnId, request.params.turnId);
-    assert.equal(stale.question.responseId, request.responseId);
   } finally {
     await completed('codex_respond', { backendSession: initial.backendSession, id: request.responseId, result: { answers: { q: { answers: ['4'] } } }, requestId: randomUUID() });
   }
@@ -2149,26 +2125,6 @@ test('command output budgets preserve complete stdout and stderr through control
   assert.equal(legacy.result.stdout,'é'.repeat(40));assert.equal(legacy.result.truncated,false);
   const zero=await completed('command',{cmd:'fixture-budget',cwd:directory,outputBudget:0,requestId:randomUUID()});
   assert.equal(zero.result.stdout,'');assert.equal(zero.result.stderr,'');assert.ok(zero.result.output.outputId);
-});
-
-test('command subprocesses retain source attribution and local commands clear inherited submitters',async()=>{
-  // Regression: CLI replacement launched through command lost the originating control source before creating its journal.
-  for(const args of [{cmd:'fixture-origin',cwd:directory},{action:'exec',params:{command:['fixture-origin'],cwd:directory,env:{CUSTOM_VARIABLE:'kept',ARC_COMMAND_SUBMITTER:'stale'}}}]) {
-    const receipt=await completed('command',{...args,requestId:randomUUID()});
-    assert.equal(receipt.state,'completed');
-    const env=JSON.parse(receipt.result.stdout);
-    const context=JSON.parse(env.ARC_COMMAND_SUBMITTER);
-    const original=(await call('receipt',{requestId:receipt.requestId,includeOrigin:true})).result;
-    assert.equal(context.origin.sourceId,original.origin.sourceId);
-    assert.equal(context.origin.controlSource,original.origin.controlSource);
-    if('params' in args)assert.equal(env.CUSTOM_VARIABLE,'kept');
-  }
-  const local=JSON.parse(execFileSync(fixtureCommand,['cli','control','command','--stdin'],{env:fixtureEnv,input:JSON.stringify({action:'exec',params:{command:['fixture-origin'],cwd:directory,env:{CUSTOM_VARIABLE:'kept',ARC_COMMAND_SUBMITTER:'stale'}}}),encoding:'utf8'}));
-  assert.equal(local.ok,true);
-  assert.equal(local.result.state,'completed');
-  const env=JSON.parse(local.result.result.stdout);
-  assert.equal(env.ARC_COMMAND_SUBMITTER,null);
-  assert.equal(env.CUSTOM_VARIABLE,'kept');
 });
 
 test('receipt next hashes omit repeated guidance only when explicitly supplied',async()=>{

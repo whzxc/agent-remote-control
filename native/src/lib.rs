@@ -1,7 +1,6 @@
 mod acceptance_fault;
 pub mod accounts;
 pub mod app_env;
-pub mod app_replace;
 pub mod archive_index;
 mod changes;
 mod claude_notify;
@@ -18,7 +17,6 @@ mod task_summary;
 mod task_tracking;
 mod text_files;
 mod uninstall;
-mod update_queue;
 use serde_json::{json, Value};
 use std::{
     path::{Path, PathBuf},

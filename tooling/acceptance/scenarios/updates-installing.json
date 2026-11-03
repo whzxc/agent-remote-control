@@ -1,0 +1,20 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "panel": {
+    "kind": "none"
+  },
+  "update": {
+    "phase": "installing",
+    "update": {
+      "available": true,
+      "version": "1.2.3",
+      "notes": "Improve connection stability.\nFix task history loading.",
+      "ready": true
+    }
+  }
+}

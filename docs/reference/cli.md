@@ -29,10 +29,6 @@ Choose the operation name from capabilities; command names and catalog operation
 
 Read retained ingress events with `cli logs --stdin` and `{"grep":"Ingress","ingressId":"<id>"}`. Filter by `traceId`, `requestId`, `cfRay`, or `event` to correlate one request. The control-source `logs` op accepts the same correlation filters. Events correlate `request_received`, `request_dispatch`, `response_headers`, and `response_finished`/`response_dropped`/`handler_cancelled` using `traceId` and `connectionId`. `cfRay` is recorded when valid and available. Header/parser errors and capacity rejection use connection IDs; `provider_health`, `provider_restart`, and `provider_stop` record provider transitions. Durations and response bytes describe server processing and output production, not confirmed client delivery. Logs contain metadata only and use the existing seven-day/16 MiB retention budget. Correlate Cloudflare-side evidence before attributing requests with no ARC record to an upstream failure.
 
-## Local build replacement
-
-On macOS, use `cli app replace <absolute-path-to-.app>` for self-replacement, including from an ARC-owned task. `--check` validates without installing; `cli app replace --status` reads the durable outcome even while Core is offline. Use `--now` for an explicit user-directed local replacement; it skips idle checks and countdown and may interrupt ARC-owned work. Normal mode waits for idle work and shows a ten-second restart countdown. Backups live under `<state>/app-replacements/backups/`; native notifications and `app replace --status` report phases and completion. The CLI returns a receipt before the detached launchd helper stops ARC. End the calling turn after that receipt. Query status from a new turn after reconnecting. Do not run `app quit` or background a replacement shell script from the task. For a first upgrade, invoke the candidate bundle's Core CLI. See [Local app replacement](app-replacement.md) for validation, acknowledgment, task draining, rollback, and limitations.
-
 ## Control-source management
 
 These commands use authenticated local management only. They do not change the remote `guide`, `query`, `act`, or `notification` schemas.
@@ -565,7 +561,6 @@ Only one development supervisor may use the development bundle identity and Vite
 
 ## Scoped help and control guides
 
-Append `--help` to a command or command group, such as `cli app replace --help`, `cli wait --help`, or `cli control --help`. Help is local and does not execute the command. For the complete control index, use `printf '%s' '{"view":"full"}' | arc cli control guide --stdin`. This routes through the query `guide` op and also accepts `topic`, `op`, and `knownGuideHash`; `cli control guide codex_send` remains the single-op shortcut. The frozen MCP `guide` tool retains its original `topic`/`op` parameters.
 
 Each `npm run dev:isolated` launch generates an `ARC Acceptance <instance>` app name and `com.whzxc.agent-remote-control.dev.acceptance-<instance>` bundle ID. `isolated-ready` includes those values, observed `desktopPid`/`corePid`, and a stable bundle-only `screen` selector. The launcher continues monitoring and emits `isolated-restarted` with new PIDs/build identity after a supervisor rebuild. `cli app snapshot --stdin` with `{ "modelOnly": true }` exposes the current `instance.desktopPid`, `bundleId`, and `appName`. The macOS bundle lives at its own named path and does not claim the installed app's URL schemes. Use the reported bundleId and omit pid so rebuilds resolve the current process: `query({op:"screen",args:{action:"tree",bundleId:"<reported-id>"}})`. Read a fresh tree after structural changes. `press`/`show` accept `expectedLabel` and `expectedRole` with a ref and reject mismatches before acting. Window results include `bundlePath`.
 
@@ -619,14 +614,6 @@ and OS resolution are both `system`. Width fields expose actual `value` and over
 renderer polling cadence; snapshot refreshes inputs before reading. See
 [Acceptance](../dev/acceptance.md#instance-environment) for restoration and scope.
 Acceptance MUST never modify host system settings; use overrides or report a gap.
-
-## Unified updates
-
-Use `query update_status` for the current or latest job with state, source build, blocking/resumable/unaffected group counts and task titles, outcome, error and `next`, plus at most three single-line summaries of earlier jobs. Each compact work group has `{count,titles}`. Use `view: full` for the detailed snapshot and last 20 outcomes. Use `act update_request` with `action: now | defer | cancel` to schedule the current job; pass its `id` to reject stale changes. Defer defaults to one hour and accepts `seconds`. Swap cannot be cancelled.
-
-Authenticated local administration can submit `source: {kind: local, path}` with `when: settled | now | defer` and optional `continuation: {threadId, prompt}`. Release jobs originate only in Desktop. `arc cli app replace` and the local management routes remain local-submit aliases; `--now` maps to `when: now`. End the replacing turn after the receipt. New ARC dispatches while settling or later receive durable held receipts and start after a terminal outcome. Query their original request IDs with `receipt`. Desktop-owned and external turns remain unaffected.
-
-See [app replacement](app-replacement.md) for acknowledgment, validation, rollback and recovery details.
 
 ## Maintainer mode
 
@@ -709,8 +696,6 @@ turn's configuration.
 Desktop owner discovery is bounded. An unanswered discovery for an unheld thread
 allows reads through native persisted state. A held writer is never reclaimed.
 Follow `codex_owner` recovery for the exact thread when discovery fails. During
-replacement, `REPLACE_PENDING` directs the local CLI to `arc cli app replace --status`;
-remote control clients can query `update_status` after reconnecting.
 
 `logs` accepts `since` as RFC3339 or a nonnegative integer duration ending in `ms`,
 `s`, `m`, `h`, or `d`, such as `2m`. Invalid input returns the accepted formats.

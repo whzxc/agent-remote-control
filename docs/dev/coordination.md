@@ -6,7 +6,7 @@ reason justifies an exception. MAY means an option.
 The `coordination` module owns the instance-local metadata journal and `events`
 query. `guide`, `query`, `act`, and `notification` retain their frozen envelopes.
 AX source writes use the owner store below. Resource push remains a later phase.
-ARC observers project dispatch, terminal, receipt, replacement, restart, local
+ARC observers project dispatch, terminal, receipt, restart, local
 tooling lifecycle and registered Git facts. Source event-report writes and resource
 push are not implemented. AX and the bulletin own their separate records and producers.
 
@@ -159,14 +159,7 @@ sampled invalid paths, removes repaired records, and caps at 4,096 per Core life
 `invalidCountCapped` indicates that more invalid paths were encountered. These
 records do not invalidate other receipt observations or change receipt execution.
 Unconfirmed backend-session reads persist a separate
-observation without rewriting a live receipt. Replacement interruption counts require
-the finalized shutdown snapshot and exclude `finished-before-shutdown` entries.
-Unknown counts stay absent. `resumeSubmissions` counts completed resume-operation
-receipts with a turn ID, never completed successor turns. Recovery summary is separate
-from replacement success. Replacement events project the recorded `submitter.origin`
-when present, including recovery summaries. A plain terminal without recorded
-submission context remains unattributed. Existing journal events and producer
-checkpoints are not rewritten. Restart evidence identifies the new Core instance.
+observation without rewriting a live receipt. Existing journal events and producer checkpoints are not rewritten. Restart evidence identifies the new Core instance.
 
 Startup discovery and the pending path set cap at 4,096 records. Owner records retain
 at most 128 descriptors. Native snapshot ingestion caps at 128 terminal turns per
@@ -570,7 +563,7 @@ remain unresolved; the implementation does not reconstruct historical sessions.
 
 The selector scans retained candidates in pages of 100, caps at 1,000 turns, and
 reports truncation and retention gaps. It excludes completed successor chains,
-unrelated later dispatches and recorded replacement continuations. Current source
+unrelated later dispatches and explicit task successors. Current source
 revocation and session closure prevent mail creation or push. Unknown task state
 produces `inspect` advice: recipients inspect current state and decide whether to
 resume or ask the user. Native occurrence time is preserved when available;
@@ -588,6 +581,4 @@ cursor for the remainder. Other sources cannot retrieve those pages. The shared
 board reports selection counts and coverage only. Local-authority `board({id})`
 also returns `localRecoverySelection`, including unresolved evidence for mediation.
 
-Recovery mail remains pull-only in the existing message store, including when the original session has a verified route. Successor completion is checked again on message reads; obsolete advice is suppressed. Message creation and suppression emit existing coordination message events. Pending owner projections keep clearance selection retryable after a crash. Replacement outcomes remain inbox-only and do not reserve a shared wake with recovery mail. Existing replacement continuation requests remain the sole replacement-specific actions. This does not introduce another resume or change the model, prompt or request ID.
-
-Proactive conversation wakeups are limited to four classes: task completion; task failure, including an interruption that ARC did not automatically resume; pending execution questions and approval requests; and SRC peer messages delivered by message_send. The push-binding verification code remains a separate channel handshake. Automatically resumed interruptions MUST NOT wake the conversation. Update and restart lifecycle notices, merged post-recovery resume notices, ordinary restart recovery, ownership handoffs, progress, stalls and all other lifecycle kinds MUST remain inbox/event-center only. A question or approval blocking update settling wakes once through the ordinary interaction path, with no separate update notice. Query update_status, board, messages or the owning task for recorded lifecycle state. Existing verification, source scope, subscription filters, buckets, breakers and mute rules apply. Delivery does not prove client reconnection.
+Recovery mail remains pull-only in the existing message store, including when the original session has a verified route. Successor completion is checked again on message reads; obsolete advice is suppressed. Message creation and suppression emit existing coordination message events. Pending owner projections keep clearance selection retryable after a crash. Recovery advice never starts a task.

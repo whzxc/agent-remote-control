@@ -44,10 +44,7 @@ impl Execution {
         }
         true
     }
-    pub async fn call(&self, name: &str, mut args: Value, policy: Value) -> Result<Value> {
-        if let Some(receipt) = crate::update_queue::hold(name, &mut args, &policy).await? {
-            return Ok(receipt);
-        }
+    pub async fn call(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
         let read_task = match name {
             "codex_read" => Some(("codex".to_owned(), string(&args, "threadId").to_owned())),
             "agent_read" => Some((
@@ -100,21 +97,6 @@ impl Execution {
         }
         if name.starts_with("src_") {
             return crate::src_conversations::op(name, args).await;
-        }
-        if matches!(name, "update_status" | "update_request") {
-            let spec = catalog()["ops"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|v| v["name"] == name)
-                .unwrap();
-            crate::egress::validate_op(spec, &args)?;
-        }
-        if name == "update_status" {
-            return crate::app_replace::update_status(args["view"] == "full").await;
-        }
-        if name == "update_request" {
-            return crate::app_replace::update_request(args).await;
         }
 
         if matches!(name, "notify_control" | "notify_status") {
@@ -310,9 +292,7 @@ impl Execution {
                 .find(|t| t["name"] == name)
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
-            if let Some(receipt) = crate::update_queue::receipt(&args).await? {
-                return Ok(receipt);
-            }
+
             if let Some(receipt) = self.agents.receipt(args.clone()).await? {
                 return Ok(receipt);
             }

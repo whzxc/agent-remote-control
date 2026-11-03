@@ -103,12 +103,6 @@ pub async fn call(name: &str, args: Value) -> Result<Value> {
     if name == "app.start" {
         return start_app().await;
     }
-    match name {
-        "app.replace" => return crate::app_replace::prepare(body).await,
-        "app.replace.status" => return crate::app_replace::status(),
-        "app.replace.ack" => return crate::app_replace::acknowledge(string(&body, "id")),
-        _ => {}
-    }
     crate::transport::forward_request(&route, &method, body).await
 }
 #[cfg(target_os = "linux")]
@@ -195,9 +189,6 @@ pub async fn stdio() -> Result<()> {
     }
 }
 async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdout>>) -> Result<()> {
-    let replacing = request["method"] == "tools/call"
-        && request["params"]["name"] == "connector_call"
-        && request["params"]["arguments"]["operation"] == "app.replace";
     let result: Result<Value> = match string(&request, "method") {
         "initialize" => Ok(
             json!({"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"arc","version":env!("ARC_BUILD_VERSION")},"instructions":"Local authenticated administration. Discover operation schemas before calls; writes may stop this MCP host. Lifecycle acceptance must be read back after reconnect."}),
@@ -244,14 +235,7 @@ async fn respond(request: Value, output: Arc<tokio::sync::Mutex<tokio::io::Stdou
     };
     let mut output = output.lock().await;
     crate::output::async_line(&mut output, &response).await?;
-    if replacing {
-        if let Some(id) = crate::app_replace::acknowledgment_id(
-            "app.replace",
-            &response["result"]["structuredContent"]["result"],
-        ) {
-            crate::app_replace::acknowledge(id)?;
-        }
-    }
+
     Ok(())
 }
 
@@ -299,13 +283,6 @@ pub fn error_code(message: &str) -> &str {
         "APP_START_TIMEOUT",
         "NOT_SUPPORTED",
         "SHIM_EXISTS",
-        "REPLACE_BUSY",
-        "REPLACE_PENDING",
-        "REPLACE_INVALID_PACKAGE",
-        "REPLACE_OWNER_CHANGED",
-        "REPLACE_HELPER_TIMEOUT",
-        "REPLACE_NOT_PENDING",
-        "REPLACE_RECOVERY_REQUIRED",
     ] {
         if message.starts_with(code) {
             return code;

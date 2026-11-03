@@ -72,7 +72,7 @@ pub(super) fn claude_id(b: &Binding) -> String {
 }
 
 pub(crate) fn guide() -> Value {
-    json!({"event":"notification","inputSchema":{"type":"object","properties":{"op":{"type":"string"},"args":{"type":"object"}},"required":["op","args"],"additionalProperties":false},"ops":[{"op":"task_status","description":"Task completed, failed (including interruption not automatically resumed), or needs execution input/approval; only tasks dispatched through this source. Lifecycle and ownership events remain inbox-only. Empty args watches all such tasks; both filters must match when supplied.","inputSchema":task_schema(),"example":{"name":"notification","arguments":{"op":"task_status","args":{}}}}]})
+    json!({"event":"notification","inputSchema":{"type":"object","properties":{"op":{"type":"string"},"args":{"type":"object"}},"required":["op","args"],"additionalProperties":false},"ops":[{"op":"task_status","description":"Task completed, failed (including interrupted tasks), or needs execution input/approval; only tasks dispatched through this source. Lifecycle and ownership events remain inbox-only. Empty args watches all such tasks; both filters must match when supplied.","inputSchema":task_schema(),"example":{"name":"notification","arguments":{"op":"task_status","args":{}}}}]})
 }
 fn task_schema() -> Value {
     json!({"type":"object","properties":{"threadId":{"type":"string","minLength":1},"taskId":{"type":"string","minLength":1}},"additionalProperties":false})

@@ -77,19 +77,12 @@
     "error"
   ],
   "update": {
-    "id": "fixture-failed-update",
-    "state": "failed",
-    "source": {
-      "kind": "release",
+    "phase": "idle",
+    "update": {
+      "available": false,
       "version": "0.0.1"
     },
-    "when": "settled",
-    "error": "Synthetic update failure",
-    "work": {
-      "blocking": [],
-      "willResume": [],
-      "unaffected": []
-    }
+    "error": "Synthetic update failure"
   },
   "studio": "day"
 }

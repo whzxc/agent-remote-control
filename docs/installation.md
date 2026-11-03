@@ -56,7 +56,7 @@ Run the x64 NSIS installer. For Desktop-owned Codex tasks, install and sign in t
 
 ## Update
 
-Open **Settings → About** to check for updates. While running, ARC automatically checks every hour and downloads new versions, then prompts you to install. Read the release notes and confirm installation, or skip the version. ARC verifies the updater signature and restores running connections after restarting. Automatic checks and downloads are always enabled. If the latest release does not include your platform, ARC stays on its previous version and treats the check as no update, without an error.
+Open **Settings → About** to check for updates. While running, ARC automatically checks every hour and downloads new versions, then prompts you to install. Read the Release notes, then click **Update and restart**, or skip the version. Installation begins immediately and interrupts running ARC-owned tasks. Resume interrupted tasks manually from their task controls. ARC verifies the updater signature and restores running connections after restarting. Automatic checks and downloads are always enabled. If the latest release does not include your platform, ARC stays on its previous version and treats the check as no update, without an error.
 
 For a manual update, quit ARC and replace the app or run the newer installer. Read the release's migration instructions before upgrading across an identity change. Installation normally retains local configuration and Agent history.
 

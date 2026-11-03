@@ -9,17 +9,12 @@
     "kind": "none"
   },
   "update": {
-    "state": "idle",
-    "source": {
-      "kind": "release",
-      "version": "1.2.3"
-    },
-    "notes": "- Improve connection recovery\n- Fix update coordination",
-    "when": "settled",
-    "work": {
-      "blocking": [],
-      "willResume": [],
-      "unaffected": []
+    "phase": "idle",
+    "update": {
+      "available": false,
+      "version": "1.2.3",
+      "notes": "- Improve connection recovery\n- Fix update coordination",
+      "ready": false
     },
     "error": "Service unavailable"
   }

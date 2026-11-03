@@ -1,42 +1,6 @@
 //! Shell convenience form over the existing native command executor.
 use crate::*;
 
-/// Attribution only: this context never grants the child control-source authority.
-pub(crate) fn originating_submitter() -> Value {
-    let origin = crate::kernel::origin::current_origin();
-    if origin["sourceId"].is_string() {
-        crate::claude_notify::command_submitter(&origin)
-            .unwrap_or_else(|_| json!({"origin":origin,"notify":null}))
-    } else {
-        submitter_from_environment(std::env::var("ARC_COMMAND_SUBMITTER").ok().as_deref())
-    }
-}
-
-pub fn submitter_from_environment(raw: Option<&str>) -> Value {
-    raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
-        .filter(|value| {
-            value["origin"]["sourceId"]
-                .as_str()
-                .is_some_and(|id| !id.is_empty())
-        })
-        .unwrap_or(Value::Null)
-}
-
-pub(crate) fn command_environment(mut args: Value) -> Value {
-    // Clear inherited attribution for local commands; preserve other env overrides.
-    if !args["env"].is_object() {
-        args["env"] = json!({});
-    }
-    let origin = crate::kernel::origin::current_origin();
-    args["env"]["ARC_COMMAND_SUBMITTER"] =
-        if origin["authType"] != "local" && origin["sourceId"].is_string() {
-            json!(originating_submitter().to_string())
-        } else {
-            Value::Null
-        };
-    args
-}
-
 pub async fn run(c: &control::Control, args: &Value, receipt: &mut Value) -> Result<Value> {
     let directory = crate::projects::working_directory(c, args).await?;
     let cwd = Path::new(directory.as_str().unwrap_or(""));

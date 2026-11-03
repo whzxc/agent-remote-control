@@ -65,24 +65,7 @@ fn show_main_window(app: &tauri::AppHandle) {
 }
 async fn connect_service(app: &tauri::AppHandle) -> Result<Arc<Service>, String> {
     let binary = arc_core::runtime::binary()?;
-    let service = if updates::pending_resume() {
-        // Older updaters may leave a Core behind. Let its lease expire without
-        // consuming the recovery marker or crashing the new Desktop.
-        let mut last_error = String::new();
-        tokio::time::timeout(std::time::Duration::from_secs(25), async {
-            loop {
-                match Service::connect(binary.clone(), "desktop").await {
-                    Ok(service) => break service,
-                    Err(error) => last_error = error,
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            }
-        })
-        .await
-        .map_err(|_| format!("Timed out waiting for Core after the update: {last_error}"))?
-    } else {
-        Service::connect(binary, "desktop").await?
-    };
+    let service = Service::connect(binary, "desktop").await?;
     let attached = async {
         let (endpoint, listener) =
             arc_core::transport::listen_desktop(Arc::new(desktop_access::Owner(app.clone())))
@@ -266,16 +249,7 @@ fn main() {
                 }
             });
             let autostart = std::env::args().any(|arg| arg == "--autostart");
-            let resume =
-                updates::take_resume().or_else(
-                    || {
-                        if autostart {
-                            None
-                        } else {
-                            session::restore()
-                        }
-                    },
-                );
+            let resume = if autostart { None } else { session::restore() };
             if resume.is_some() || autostart {
                 tauri::async_runtime::spawn(async move {
                     if let Some(ids) = resume {

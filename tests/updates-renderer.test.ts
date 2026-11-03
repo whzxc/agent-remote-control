@@ -5,8 +5,8 @@ import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 
-test('update reminder opens on request and answers blocking questions through the existing responder', { timeout: 10000 }, async () => {
-  // Regression: update dialogs interrupted background work and offered no way to answer their blockers inline.
+test('a downloaded update restarts directly from its button', { timeout: 10000 }, async () => {
+  // Regression: a downloaded update entered task settling and a countdown instead of installing when clicked.
   const previousFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
@@ -27,18 +27,17 @@ test('update reminder opens on request and answers blocking questions through th
   const root = createRoot(mount);
   let response: Record<string, any> | undefined;
   globalThis.fetch = async (url, init) => {
-    if (String(url) === '/api/agents/respond') response = JSON.parse(String(init?.body));
-    return new Response(JSON.stringify({ requestId: response?.args.requestId, state: 'completed' }), { status: 200 });
+    if (String(url) === '/api/updates/install') response = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ restarting: true }), { status: 200 });
   };
   try {
     const { UpdateDock, AppUpdate } = await server.ssrLoadModule('/ui/components/AppUpdate.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { updates, acceptUpdateSnapshot } = await server.ssrLoadModule('/ui/state/updates.ts');
-    const { agentActivity } = await server.ssrLoadModule('/ui/state/activity.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     const { idleUpdate } = await server.ssrLoadModule('/ui/state/updateModel.ts');
     await act(async () => {
-      acceptUpdateSnapshot({ ...idleUpdate(), state: 'available', source: { kind: 'release', version: '1.2.3' } });
+      acceptUpdateSnapshot({ ...idleUpdate(), update: { available: true, version: '1.2.3', ready: true } });
       root.render(h(TooltipProvider, null, h(UpdateDock)));
     });
     const page = within(document.body);
@@ -47,23 +46,12 @@ test('update reminder opens on request and answers blocking questions through th
     trigger.focus();
     await act(async () => { fireEvent.click(trigger); });
     assert.ok(page.getByRole('dialog', { name: t('appUpdates') }));
-    await act(async () => {
-      agentActivity.set({ error: '', snapshot: { activeAgents: ['codex'], observedAt: new Date().toISOString(), agents: { codex: { sessions: [{ id: 'task', source: 'codex-thread', phase: 'interaction', headline: 'Question', phaseSince: null, timeline: true,
-        interaction: { kind: 'question', method: 'item/tool/requestUserInput', summary: 'Target', questions: [{ id: 'target', question: 'Target', options: [] }], canRespond: true, respond: { op: 'codex_respond', args: { id: 'question', backendSession: 'fixture' } } } }] } } } });
-      acceptUpdateSnapshot({ ...idleUpdate(), id: 'job', state: 'settling', canSchedule: true, source: { kind: 'local', version: '1.2.3' }, work: { blocking: [{ kind: 'turn', agent: 'codex', taskId: 'task', question: {} }], willResume: [], unaffected: [] } });
-    });
     const panel = within(page.getByRole('dialog', { name: t('appUpdates') }));
-    assert.ok(panel.getByRole('region', { name: t('updates.blocking') }));
-    await act(async () => { fireEvent.change(panel.getByRole('textbox', { name: t('timeline.answer') }), { target: { value: 'staging' } }); });
-    await act(async () => { fireEvent.click(panel.getByRole('button', { name: t('detail.sendAnswer') })); });
-    assert.equal(response?.op, 'codex_respond');
-    assert.deepEqual(response?.args.result.answers.target.answers, ['staging']);
-    await act(async () => {
-      acceptUpdateSnapshot({ ...idleUpdate(), id: 'job', state: 'settling', work: { blocking: [], willResume: [], unaffected: [], stale: [{ kind: 'interaction', taskId: 'task', owner: 'desktop', title: 'Earlier question' }] } });
-    });
-    const stale = within(panel.getByRole('region', { name: t('updates.stale') }));
-    assert.ok(stale.getByText('Earlier question'));
-    assert.equal(panel.queryByRole('button', { name: t('detail.sendAnswer') }), null);
+    await act(async () => { fireEvent.click(panel.getByRole('button', { name: t('updates.restartNow') })); });
+    assert.deepEqual(response, { version: '1.2.3' });
+    assert.equal(updates.get().snapshot.phase, 'installing');
+    assert.equal(panel.queryByRole('button', { name: t('updates.restartNow') }), null);
+    assert.ok(panel.getByRole('status'));
     await act(async () => { updates.set((old: any) => ({ ...old, panelOpen: false })); });
     assert.equal(page.queryByRole('dialog'), null);
     await act(async () => {
@@ -74,7 +62,7 @@ test('update reminder opens on request and answers blocking questions through th
     assert.ok(page.getByRole('button', { name: t('checkForUpdates'), exact: true }));
     assert.ok(page.getByRole('button', { name: 'GitHub', exact: true }));
     assert.equal(page.queryByRole('switch'), null);
-    await act(async () => acceptUpdateSnapshot({ ...idleUpdate(), state: 'available', source: { kind: 'release', version: '1.2.4' } }));
+    await act(async () => acceptUpdateSnapshot({ ...idleUpdate(), update: { available: true, version: '1.2.4', ready: true } }));
     await act(async () => fireEvent.click(page.getByRole('button', { name: t('viewUpdate'), exact: true })));
     assert.equal(updates.get().panelOpen, true);
   } finally {

@@ -541,23 +541,7 @@ async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value> {
             .unwrap_or("query")
     };
     let mut args = body.get("args").cloned().unwrap_or(json!({}));
-    let replacement = if matches!(name, "codex_send" | "codex_resume") {
-        crate::app_replace::continuation_context(name, &args)?
-    } else {
-        None
-    };
-    let mut origin = if let Some(context) = &replacement {
-        if name == "codex_send" {
-            if args.get("notify").is_none() {
-                args["notify"] = context["notify"].clone();
-            }
-            args["purpose"] = context["purpose"].clone();
-        }
-        // codex_resume owns notification inheritance and accepts no new input/settings.
-        context["origin"].clone()
-    } else {
-        crate::sources::local_origin().await?
-    };
+    let mut origin = crate::sources::local_origin().await?;
     origin["controlTransport"] = json!("cli");
     if matches!(
         name,
@@ -1035,26 +1019,7 @@ pub(crate) async fn stdio_connection(port: u16, token: String, ingress: String) 
             };
             if request.get("id").is_some() && !response.is_null() {
                 let mut out = out.lock().await;
-                let replacement = &response["result"]["structuredContent"]["result"];
-                let update_submit = request["params"]["name"] == "act"
-                    && request["params"]["arguments"]["op"] == "update_request"
-                    && request["params"]["arguments"]["args"]["action"] == "submit";
-                let acknowledgment = if update_submit {
-                    crate::app_replace::acknowledgment_id("app.replace", replacement)
-                        .map(str::to_owned)
-                } else {
-                    None
-                };
-                if crate::output::async_line(&mut out, response).await.is_ok() {
-                    if let Some(id) = acknowledgment {
-                        let _ = client
-                            .post(format!("http://127.0.0.1:{port}/api/app/replace/ack"))
-                            .bearer_auth(&token)
-                            .json(&json!({"id":id}))
-                            .send()
-                            .await;
-                    }
-                }
+                let _ = crate::output::async_line(&mut out, response).await;
             }
         });
         while jobs.try_join_next().is_some() {}

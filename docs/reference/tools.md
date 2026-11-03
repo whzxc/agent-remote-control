@@ -286,7 +286,6 @@ Claude and ChatGPT client-side total request limits have not been measured by AR
 
 Control sources select a Claude profile per source and cloud-session target with `notify_control({action:"route",target,accountId})`. Omit `accountId` to list that owned target's route and safe available profiles (email, organization and plan). Only already bound targets are readable or writable. `bind` and `verify` also accept `accountId`. Changing a route invalidates the previous handshake. An unrouted bind probes session visibility without sending messages. Exactly one confirmed visible profile is saved automatically. If none is confirmed visible, ARC SHOULD select a candidate matching the calling source origin `accountId` and proceed with the challenge; reachability remains unverified until `notification_ack`. Without that match, or when visibility remains ambiguous, ARC returns `ACCOUNT_SELECTION_REQUIRED`, safe `candidates` and a schema-valid `next`. Selection never logs in or changes the system account. Existing explicit host routes are preserved on migration. The local `accounts.route` operation and AX `account_notify({id,action:"bind",target})` manage host assignments. Public account IDs refer to provider identities; each account owns its CLI profiles. `account_add({kind:"detect"})` imports the current system Claude login into an isolated profile, reusing a matching signed-in profile. Credentials are never returned. Manual `accounts.send` or `account_notify({id,action:"send",target,message})` uses the same delivery transport and refuses a conflicting route. Background notifications and reachability checks resolve the saved route before starting an isolated CLI child. Unassigned targets require a uniquely visible profile, a source-account match when none is confirmed visible, or an explicitly selected profile. Assigned missing profiles fail without trying another account. Source route edits affect only the calling source and target. For a normal Claude Chat, use its upstream `workspace_session_id`; the `/chat/<uuid>` URL alone does not identify a CLI target.
 
-ARC records completion, failure, cancellation, requests for input/approval, and writer handoffs. Proactive conversation wakeups are limited to four classes: task completion; task failure, including an interruption that ARC did not automatically resume; pending execution questions and approval requests; and SRC peer messages delivered by message_send. The push-binding verification code remains a separate channel handshake. Automatically resumed interruptions MUST NOT wake the conversation. Update and restart lifecycle notices, merged post-recovery resume notices, ordinary restart recovery, ownership handoffs, progress, stalls and all other lifecycle kinds MUST remain inbox/event-center only. A question or approval blocking update settling wakes once through the ordinary interaction path, with no separate update notice. Query update_status, board, messages or the owning task for recorded lifecycle state. Existing verification, source scope, subscription filters, buckets, breakers and mute rules apply. Delivery does not prove client reconnection. It calls the installed Claude CLI with `-p <fixed message> --cloud <session> --output-format json`. Delivery succeeds only for `ok: true` and the matching session_id. Pending and interrupted deliveries survive restart. Failed or uncertain sends retry with the same eventId, with exponential backoff starting at ten seconds and capped at five minutes; consumers deduplicate eventId. Read `notification` (channel, target, deliveries with eventId, kind, level, state and error) on the task; a binding failure marks the receipt bind-failed without failing an already-dispatched task. ARC escalates breaker and sustained token-starvation episodes through a local system notification. See the [workflow guide](../guides/claude.md).
 
 Each target has persisted `reachability: "verified" | "unverified" | "failed"` and a short `reason`, exposed in `notify_status` and bound dispatch receipts. New targets are unverified. Known delivery failures and unconfirmed handshake expiry mark failed; ordinary successful sends never mark verified. A subscription being active, a full bucket, or callback acceptance does not prove that the controller received a message.
 
@@ -348,7 +347,6 @@ Delivery details appear only on dispatch receipts and in notify_status; review a
 
 Simple `act {"op":"command","args":{"cmd":"git status --short","project":"my-project","timeoutMs":10000}}` uses the user's shell and returns stdout, stderr, exitCode, and durationMs. It defaults to a 60-second execution timeout. Optional `waitMs` (0–120000) bounds only the wait for the receipt and can return `pending`; continue with `receipt` and the returned requestId. Without waitMs, the simple form waits for the execution timeout plus ten seconds. Simple fields and action/params are mutually exclusive. `command` and `agent_create` accept `project` instead of absolute `cwd`. Multi-root projects require `root` for this new form. Absolute `cwd` takes precedence when both are supplied. Native `command` exec, `process` spawn, and `codex_thread` fork also accept top-level `project`/`root` instead of `params.cwd`; existing `params.cwd` takes precedence. Project lookup happens inside ARC, so callers need no preliminary `projects` query. Native command/exec uses the upstream sandbox/permission policy; process/spawn runs directly on the host outside the Codex sandbox. Neither creates a thread.
 
-The command executor terminates its process tree/group when execution returns. `nohup`, background subshells, and double-forking are not supported ways to keep work alive beyond that lifecycle. A pending receipt changes how long the caller waits, not process ownership. For ARC self-replacement, invoke the supported local `cli app replace` entry point as the turn's final command. Its native launchd worker owns the handoff independently of the command runner. See [Local app replacement](app-replacement.md).
 
 Native handles for processes, watches, and MCP subscriptions belong to the current App Server connection. MCP tool/call and event/stream/start require an existing threadId. Consult codex_schema before using native parameters; top-level RPC timeoutMs is separate from params.timeoutMs.
 
@@ -464,7 +462,6 @@ Notification bindings, subscriptions, inboxes, token buckets, notification contr
 The `guide`, `query`, and `act` parameter schemas and the single `notification` event's `{op,args}` input remain frozen. Source management is available only through the [local API and CLI](cli.md#control-source-management).
 
 
-New dispatches are held during update settling. Low-level operations racing the admission gate return `REPLACE_PENDING` with `next:{via:"cli",op:"app.replace.status",args:{},command:"arc cli app replace --status",...}`. Read that durable local status after reconnecting and resume dispatch only after replacement is terminal. The status read belongs to the local CLI/management surface; it is unavailable through control-source `query`.
 
 ## Reducing repeated output
 
@@ -707,14 +704,6 @@ preferences and do not alter native Codex timing. See
 [instance environment](../dev/acceptance.md#instance-environment) for CLI examples,
 clock boundaries and width restoration.
 
-## Unified updates
-
-Use `query update_status` for the current or latest job with state, source build, blocking/resumable/unaffected group counts and task titles, outcome, error and `next`, plus at most three single-line summaries of earlier jobs. Each compact work group has `{count,titles}`. Use `view: full` for the detailed snapshot and last 20 outcomes. Use `act update_request` with `action: now | defer | cancel` to schedule the current job; pass its `id` to reject stale changes. Defer defaults to one hour and accepts `seconds`. Swap cannot be cancelled.
-
-Authenticated local administration can submit `source: {kind: local, path}` with `when: settled | now | defer` and optional `continuation: {threadId, prompt}`. Release jobs originate only in Desktop. `arc cli app replace` and the local management routes remain local-submit aliases; `--now` maps to `when: now`. End the replacing turn after the receipt. New ARC dispatches while settling or later receive durable held receipts and start after a terminal outcome. Query their original request IDs with `receipt`. Desktop-owned and external turns remain unaffected.
-
-See [app replacement](app-replacement.md) for acknowledgment, validation, rollback and recovery details.
-
 ## Shared coordination events
 
 Use `query({op:"events",args:{since?,resource?,kinds?,limit?}})` for the instance's
@@ -722,7 +711,7 @@ bounded metadata feed. All of the user's authorized sources/accounts see the sam
 metadata by default. Existing ingress op allowlists and revocation still apply.
 The event surface remains read-only. AX reports and lifecycle changes below emit
 compact events; resource push remains a later phase.
-ARC observes dispatch, terminal, receipt, replacement, restart, registered Git refs
+ARC observes dispatch, terminal, receipt, restart, registered Git refs
 and local tooling lifecycle. No source event-report operation or resource push is attached.
 
 The result contains `events`, `nextCursor`, `hasMore`, `oldestCursor`, `coverage`,

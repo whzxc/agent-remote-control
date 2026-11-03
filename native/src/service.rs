@@ -293,7 +293,6 @@ impl Service {
         }
         crate::claude_notify::start(&service);
         crate::dispatch_queue::start(&service.control);
-        crate::update_queue::start(&service.execution);
         Ok(service)
     }
     pub async fn ingress(&self, id: &str) -> Result<Arc<Ingress>> {
@@ -762,30 +761,6 @@ impl Service {
             return Ok(readiness);
         }
         match (method, route) {
-            ("POST", "updates/task-notice") => {
-                return crate::claude_notify::update_notice(&body).await
-            }
-            ("GET", "updates/status") => return crate::app_replace::update_status(true).await,
-            ("POST", "updates/request") => {
-                return crate::kernel::origin::ORIGIN
-                    .scope(
-                        crate::sources::local_origin().await?,
-                        crate::app_replace::update_request(body),
-                    )
-                    .await
-            }
-            ("POST", "app/replace") => {
-                crate::management::resolve("app.replace", &json!({"body":body}))?;
-                return crate::app_replace::prepare(body).await;
-            }
-            ("GET", "app/replace/snapshot") => {
-                return crate::app_replace::snapshot(&self.control).await
-            }
-            ("GET", "app/replace/status") => return crate::app_replace::status(),
-            ("POST", "app/replace/ack") => {
-                crate::management::resolve("app.replace.ack", &json!({"body":body}))?;
-                return crate::app_replace::acknowledge(string(&body, "id"));
-            }
             ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {

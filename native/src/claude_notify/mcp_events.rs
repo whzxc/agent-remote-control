@@ -189,7 +189,7 @@ async fn authorized(s: &crate::ingress::Ingress, principal: &str) -> bool {
     }
 }
 pub(crate) fn list() -> Value {
-    json!({"events":[{"name":NAME,"description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status wakes only for completed, failed, interrupted without automatic resume, or needs-input tasks from this source. Lifecycle and handoff records remain inbox-only. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
+    json!({"events":[{"name":NAME,"description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status wakes only for completed, failed, interrupted, or needs-input tasks from this source. Lifecycle and handoff records remain inbox-only. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
         "inputSchema":subscriptions::guide()["inputSchema"],
         "payloadSchema":{"type":"object","properties":{"op":{"type":"string"},"kind":{"type":"string"},"summary":{"type":"string"},"threadId":{"type":["string","null"]},"taskId":{"type":["string","null"]},"turnId":{"type":"string"},"agent":{"type":"string"},"project":{"type":"string"},"title":{"type":"string"},"query":{"type":"object"},
         "recovery":{"type":["object","null"],"properties":{"recoveredAt":{"type":"string","format":"date-time"},"affectedTasks":{"type":"integer","minimum":0}},"required":["recoveredAt","affectedTasks"],"additionalProperties":false},
@@ -201,9 +201,7 @@ pub(crate) fn list() -> Value {
 pub(crate) fn payload(op: &str, event: &Value) -> Value {
     let agent = event["agent"] != "codex";
     let pending = event["kind"] == "needs-input";
-    let query = if event["next"]["op"] == "update_status" {
-        json!({"op":"update_status","args":{}})
-    } else if event["kind"] == "recovered" {
+    let query = if event["kind"] == "recovered" {
         json!({"op":"notify_status","args":{"target":event["target"]}})
     } else if agent {
         json!({"op":if pending {"agent_pending"} else {"agent_read"},"args":{"agent":event["agent"],"taskId":event["taskId"]}})

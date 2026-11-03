@@ -158,7 +158,6 @@ pub(super) fn durable(path: &Path, value: &Value) -> Result<()> {
 pub(crate) enum Owner {
     Dispatch,
     Receipt,
-    Replacement,
     Agent,
 }
 fn status(value: &str) -> Option<EventStatus> {
@@ -177,11 +176,7 @@ fn terminal(value: &str) -> bool {
     matches!(value, "completed" | "failed" | "interrupted" | "cancelled")
 }
 fn base(row: &Value, key: &str, kind: EventKind) -> Result<EventInput> {
-    let resources = if kind == EventKind::AppReplace {
-        vec![ResourceKey::parse("app:installed")?]
-    } else {
-        vec![host()?, ResourceKey::parse("app:installed")?]
-    };
+    let resources = vec![host()?, ResourceKey::parse("app:installed")?];
     base_on(row, key, kind, resources)
 }
 fn base_on(
@@ -196,8 +191,6 @@ fn base_on(
         EventKind::ReceiptStalled | EventKind::ReceiptUnconfirmed
     ) {
         receipt_origin(&row["origin"])?
-    } else if input.kind == EventKind::AppReplace && !row["submitter"]["origin"].is_null() {
-        Principal::from_origin(&row["submitter"]["origin"])?
     } else {
         Principal::from_origin(&row["origin"])?
     };
@@ -235,21 +228,14 @@ fn evidence(input: &mut EventInput, kind: EvidenceKind, id: &str) {
     }
 }
 pub(super) fn inputs(owner: Owner, row: &Value) -> Result<Vec<EventInput>> {
-    let resource = if matches!(owner, Owner::Replacement) {
-        ResourceKey::parse("app:installed")?
-    } else {
-        host()?
-    };
-    let mut events = inputs_on(owner, row, resource)?;
-    if !matches!(owner, Owner::Replacement) {
-        for event in &mut events {
-            event.resources.push(ResourceKey::parse("app:installed")?);
-            if let Some(project) = row["projectId"]
-                .as_str()
-                .filter(|s| types::identifier(s).is_ok())
-            {
-                event.resources.push(ResourceKey::project(project)?);
-            }
+    let mut events = inputs_on(owner, row, host()?)?;
+    for event in &mut events {
+        event.resources.push(ResourceKey::parse("app:installed")?);
+        if let Some(project) = row["projectId"]
+            .as_str()
+            .filter(|s| types::identifier(s).is_ok())
+        {
+            event.resources.push(ResourceKey::project(project)?);
         }
     }
     Ok(events)
@@ -367,92 +353,6 @@ pub(super) fn inputs_on(
                     EventKind::TurnTerminal,
                 )?;
                 input.status = status(state);
-                events.push(input);
-            }
-        }
-        Owner::Replacement => {
-            let state = string(row, "state");
-            let phase = match state {
-                "preparing" => "submitted",
-                "awaiting-receipt" | "waiting-for-turns" | "countdown" => "settling",
-                "installing" => "interrupted",
-                "succeeded" | "failed" | "rolled-back" | "cancelled" => state,
-                _ => return Ok(events),
-            };
-            let mut input = base(
-                row,
-                &format!("replace:{}:{phase}", string(row, "id")),
-                EventKind::AppReplace,
-            )?;
-            input.resources = vec![ResourceKey::parse("app:installed")?];
-            input.status = match phase {
-                "submitted" => Some(EventStatus::Submitted),
-                "settling" => Some(EventStatus::Settling),
-                _ => status(phase),
-            };
-            let turns: Vec<_> = row["interruptedTurns"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|v| v["state"] != "finished-before-shutdown")
-                .collect();
-            input.observation = Some(Observation {
-                interrupted_turns: (row["snapshotFinalized"] == true).then_some(turns.len() as u64),
-                resume_submissions: row["resumedCount"].as_u64(),
-                attention_turns: Some(
-                    turns
-                        .iter()
-                        .filter(|v| matches!(string(v, "state"), "needs-attention" | "unconfirmed"))
-                        .count() as u64,
-                ),
-                ..Default::default()
-            });
-            evidence(&mut input, EvidenceKind::Replacement, string(row, "id"));
-            events.push(input.clone());
-            // Journal existing continuation intent as evidence. Recovery selection
-            // must not suggest another resume while this request is pending/accepted.
-            for entry in &turns {
-                if row["shutdownRequested"] == true
-                    && entry["continuation"]["requestId"].is_string()
-                    && entry["state"] != "needs-attention"
-                {
-                    let mut continuation = EventInput::new(
-                        hash(
-                            json!([
-                                "replacement-continuation",
-                                row["id"],
-                                entry["threadId"],
-                                entry["turnId"]
-                            ])
-                            .to_string(),
-                        ),
-                        EventKind::AppReplace,
-                        input.resources.clone(),
-                    );
-                    continuation.origin = Some(Principal::Arc);
-                    continuation.status = Some(EventStatus::Running);
-                    continuation.thread_refs.push(ThreadRef {
-                        thread_id: string(entry, "threadId").into(),
-                        turn_id: Some(string(entry, "turnId").into()),
-                    });
-                    evidence(
-                        &mut continuation,
-                        EvidenceKind::Replacement,
-                        string(row, "id"),
-                    );
-                    evidence(
-                        &mut continuation,
-                        EvidenceKind::Request,
-                        string(&entry["continuation"], "requestId"),
-                    );
-                    events.push(continuation);
-                }
-            }
-            if row["resumedCount"].is_number()
-                && matches!(phase, "succeeded" | "failed" | "rolled-back" | "cancelled")
-            {
-                input.transition_id = hash(format!("replace:{}:recovery", string(row, "id")));
-                input.status = Some(EventStatus::RecoverySummary);
                 events.push(input);
             }
         }
@@ -601,7 +501,6 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
             ("dispatches", 1),
             ("agents/requests", 0),
             ("agents/tasks", 0),
-            ("app-replacements", 1),
             ("coordination/observations", 0),
             ("coordination/tooling", 0),
         ] {
@@ -611,7 +510,6 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
         let mut receipts = ReceiptObserver::default();
         let receipt_directory = root();
         let agent_receipt_directory = receipt_directory.join("agents/requests");
-        let mut replacement = None;
         let mut watcher = super::git_watch::Watcher::default();
         let mut git_at = Instant::now() - Duration::from_secs(30);
         let mut slow_at = Instant::now() - Duration::from_secs(30);
@@ -635,21 +533,6 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
             };
             pending.extend(std::mem::take(&mut *DIRTY.lock().unwrap()));
             if slow_at.elapsed() >= Duration::from_secs(5) {
-                if let Ok(latest) =
-                    crate::kernel::file_cache::load(&root().join("app-replacements/latest.json"))
-                {
-                    if types::identifier(string(&latest, "id")).is_ok() {
-                        replacement = Some(
-                            root()
-                                .join("app-replacements")
-                                .join(string(&latest, "id"))
-                                .join("status.json"),
-                        );
-                    }
-                }
-                if let Some(path) = &replacement {
-                    pending.insert(path.clone());
-                }
                 for path in &receipts.waiting {
                     pending.insert(path.clone());
                 }

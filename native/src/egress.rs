@@ -132,15 +132,12 @@ pub fn failure(e: &str) -> Value {
     if let Some(code) = crate::src_conversations::error_code(e) {
         return json!({"code":code,"message":e,"retryable":false});
     }
-    if e == "REPLACE_PENDING" || e.starts_with("REPLACE_PENDING:") {
-        return json!({"code":"REPLACE_PENDING","message":e});
-    }
+
     if let Ok(value) = serde_json::from_str::<Value>(e) {
         if matches!(
             value["code"].as_str(),
             Some(
                 "PERMISSION_REQUIRED"
-                    | "REPLACE_PENDING"
                     | "INVALID_ARGUMENTS"
                     | "INVALID_OUTPUT_OFFSET"
                     | "DISPATCH_POLICY_CONFLICT"
@@ -192,10 +189,8 @@ pub fn receipt(value: Value) -> Value {
         "createdAt",
         "updatedAt",
         "dispatchMode",
-        "heldForUpdate",
         "message",
         "queueId",
-        "replacementContinuation",
         "state",
         "operation",
         "threadId",
@@ -894,7 +889,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
             if !full && (name.starts_with("ax_") || name == "runtime_metrics") {
                 return topic == "loop" && maintainer;
             }
-            full || matches!(name, "guide" | "update_status" | "update_request") || match topic {
+            full || name == "guide" || match topic {
                 "notify" => matches!(name, "request_route" | "notify_status" | "notify_control" | "notification_ack" | "inbox_wait" | "codex_create" | "codex_send" | "codex_read" | "agent_create" | "agent_send" | "agent_read"),
                 "review" => matches!(name, "codex_review" | "agent_review" | "codex_read" | "agent_read" | "codex_wait" | "agent_wait" | "agent_events" | "codex_changes" | "codex_items" | "codex_send" | "agent_send" | "receipt" | "task_reviews"),
                 "approvals" => matches!(name, "request_route" | "receipt" | "codex_pending" | "codex_interactions" | "codex_respond" | "agent_pending" | "agent_respond" | "codex_read" | "agent_read"),
@@ -1025,8 +1020,6 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         || (value["next"].get("op") == Some(&Value::Null) && value["next"]["hint"].is_string())
     {
         value["next"].clone()
-    } else if value["error"]["code"] == "REPLACE_PENDING" {
-        json!({"via":"cli","op":"app.replace.status","args":{},"command":"arc cli app replace --status","hint":"Read the durable replacement status after reconnecting. Finish the current turn and resume dispatch only after replacement is terminal."})
     } else if (value["error"]["code"] == "DESKTOP_REQUEST_TIMEOUT"
         || value["error"]["message"] == "DESKTOP_REQUEST_TIMEOUT: thread-owner-discovery")
         && thread.is_some()
@@ -1345,31 +1338,6 @@ mod tests {
         next(&mut running, "command", &json!({}), false);
         assert_eq!(running["next"]["op"], "receipt");
         assert_eq!(running["next"]["args"]["requestId"], "original-request");
-    }
-
-    #[test]
-    fn pending_replacement_status_replaces_generic_control_guidance() {
-        // Regression: REPLACE_PENDING pointed control clients to guide instead of the replacement status read.
-        for name in ["codex_create", "codex_send", "agent_create", "agent_send"] {
-            for message in [
-                "REPLACE_PENDING",
-                "REPLACE_PENDING: finish the current turn",
-            ] {
-                let mut value = json!({"error":failure(message)});
-                next(&mut value, name, &json!({}), false);
-                assert_eq!(value["error"]["code"], "REPLACE_PENDING");
-                assert_eq!(value["next"]["via"], "cli");
-                assert_eq!(value["next"]["op"], "app.replace.status");
-                assert_eq!(value["next"]["command"], "arc cli app replace --status");
-                let (route, method, _) = crate::management::resolve(
-                    string(&value["next"], "op"),
-                    &value["next"]["args"],
-                )
-                .unwrap();
-                assert_eq!(method, "GET");
-                assert_eq!(route, "app/replace/status");
-            }
-        }
     }
 
     #[test]

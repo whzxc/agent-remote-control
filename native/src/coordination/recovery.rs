@@ -29,7 +29,6 @@ fn overlaps(a: &Value, b: &Value) -> bool {
         .any(|r| b["resources"].as_array().is_some_and(|rs| rs.contains(r)))
 }
 /// A completed descendant or a newer unrelated dispatch makes old advice obsolete.
-/// Pending replacement continuations retain their existing request and configuration.
 pub(super) fn obsolete(reference: &Value, events: &[Value]) -> bool {
     let mut edges: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for e in events.iter().filter(|e| e["kind"] == "turn.successor") {
@@ -63,9 +62,6 @@ pub(super) fn obsolete(reference: &Value, events: &[Value]) -> bool {
                 && refs(e)
                     .filter(thread)
                     .any(|r| !turns.contains(string(r, "turnId"))))
-            || (e["kind"] == "app.replace"
-                && matches!(string(e, "status"), "running" | "completed")
-                && refs(e).any(|r| same(r, reference)))
     })
 }
 /// Exported pure selection boundary: only retained journal metadata can nominate a recipient.
@@ -171,19 +167,7 @@ pub(crate) fn select(blocker: &Value, events: &[Value], retained_gap: bool) -> V
         }
     }
     let recipients: Vec<_> = groups.into_iter().map(|((source,session),threads)|json!({"sourceId":source,"sessionId":session,"threadRefs":threads})).collect();
-    let replacements: BTreeSet<_> = events
-        .iter()
-        .filter(|e| {
-            e["kind"] == "app.replace"
-                && overlaps(e, blocker)
-                && at(e) >= opened
-                && at(e) <= cleared
-        })
-        .flat_map(|e| e["evidenceRefs"].as_array().into_iter().flatten())
-        .filter(|r| r["kind"] == "replacement")
-        .filter_map(|r| r["id"].as_str())
-        .collect();
-    json!({"state":"selected","recipients":recipients,"unresolved":unresolved,"scanned":scanned,"truncated":truncated,"coverage":if retained_gap || truncated {"partial"}else{"retained-events-only"},"replacementIds":replacements,"automaticResume":false})
+    json!({"state":"selected","recipients":recipients,"unresolved":unresolved,"scanned":scanned,"truncated":truncated,"coverage":if retained_gap || truncated {"partial"}else{"retained-events-only"},"automaticResume":false})
 }
 pub(super) fn public_selection(plan: &Value) -> Value {
     if plan.is_null() {
@@ -305,24 +289,12 @@ mod tests {
         assert_eq!(selected["coverage"], "partial");
     }
     #[test]
-    // Contract: pending replacement continuation and unrelated newer content suppress recovery without dispatching another turn.
-    fn recovery_selection_respects_existing_continuation() {
-        for kind in ["app.replace", "dispatch.accepted"] {
-            let mut events = affected("peer", "affected");
-            let mut next = event(
-                kind,
-                "peer",
-                "affected",
-                if kind == "app.replace" {
-                    "old"
-                } else {
-                    "unrelated"
-                },
-                3000,
-            );
-            next["status"] = json!("running");
-            events.push(next);
-            assert_eq!(select(&blocker(), &events, false)["recipients"], json!([]));
-        }
+    // Contract: newer unrelated dispatches suppress recovery advice without starting another turn.
+    fn recovery_selection_respects_newer_dispatch() {
+        let mut events = affected("peer", "affected");
+        let mut next = event("dispatch.accepted", "peer", "affected", "unrelated", 3000);
+        next["status"] = json!("running");
+        events.push(next);
+        assert_eq!(select(&blocker(), &events, false)["recipients"], json!([]));
     }
 }

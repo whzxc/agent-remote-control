@@ -28,29 +28,6 @@ impl Default for UpdateState {
         }
     }
 }
-fn resume_path() -> std::path::PathBuf {
-    arc_core::root().join("update-resume.json")
-}
-pub fn pending_resume() -> bool {
-    arc_core::load(&resume_path()).is_ok_and(|value| value["version"] == env!("ARC_BUILD_VERSION"))
-}
-pub fn take_resume() -> Option<Vec<String>> {
-    let path = resume_path();
-    let Ok(value) = arc_core::load(&path) else {
-        return None;
-    };
-    // A marker from a failed/interrupted install must not alter ordinary startup.
-    let resume = (value["version"] == env!("ARC_BUILD_VERSION")).then(|| {
-        value["ingresses"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|v| v.as_str().map(str::to_owned))
-            .collect()
-    });
-    let _ = std::fs::remove_file(path);
-    resume
-}
 async fn updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
     if app.config().identifier != "com.whzxc.agent-remote-control" {
         return Err("This app does not support automatic updates. Get the installer from the download page.".into());
@@ -97,21 +74,11 @@ fn failed(app: &tauri::AppHandle, stage: &str, error: String) -> String {
     progress(app, status);
     error
 }
-fn allow_update() -> Result<(), String> {
-    if arc_core::app_replace::active(&arc_core::app_replace::status()?) {
-        return Err(
-            "An app replacement is in progress. Wait for its outcome before updating.".into(),
-        );
-    }
-    Ok(())
-}
 
 pub async fn check_update(app: tauri::AppHandle) -> Result<Value, String> {
-    allow_update()?;
     let state = app.state::<UpdateState>();
     let observed = snapshot(&app)["revision"].clone();
     let _guard = state.install.lock().await;
-    allow_update()?;
     // Join the operation that owned the lock instead of reporting a busy error
     // or checking again between an automatic check and its download.
     if snapshot(&app)["revision"] != observed {
@@ -221,10 +188,8 @@ async fn complete_download(
     Ok(response)
 }
 pub async fn download_update(app: tauri::AppHandle, version: String) -> Result<Value, String> {
-    allow_update()?;
     let state = app.state::<UpdateState>();
     let _guard = state.install.lock().await;
-    allow_update()?;
     if state.installing.load(Ordering::SeqCst) {
         return Ok(json!({"available":true,"version":version,"restarting":true}));
     }
@@ -233,117 +198,69 @@ pub async fn download_update(app: tauri::AppHandle, version: String) -> Result<V
         .map_err(|error| failed(&app, "download", error))?;
     complete_download(&app, downloaded).await
 }
-pub async fn install_update(
-    app: tauri::AppHandle,
-    version: String,
-    when: &str,
-) -> Result<Value, String> {
-    allow_update()?;
+pub async fn install_update(app: tauri::AppHandle, version: String) -> Result<Value, String> {
     let state = app.state::<UpdateState>();
     let _guard = state.install.lock().await;
-    allow_update()?;
     if state.installing.load(Ordering::SeqCst) {
-        return Ok(json!({"available":true,"version":version,"restarting":true}));
+        return Ok(json!({"version":version,"restarting":true}));
     }
-    let Some((update, bytes)) = download(&app, &version, None)
-        .await
-        .map_err(|error| failed(&app, "download", error))?
-    else {
-        return complete_download(&app, None).await;
+    let candidate = state.downloaded.lock().await.take();
+    let Some((update, bytes)) = candidate else {
+        return Err("Download the update before installing it.".into());
     };
-    state.installing.store(true, Ordering::SeqCst);
-    struct Reset<'a>(&'a UpdateState);
-    impl Drop for Reset<'_> {
-        fn drop(&mut self) {
-            if !self.0.restarting.load(Ordering::SeqCst) {
-                self.0.installing.store(false, Ordering::SeqCst);
-            }
-        }
+    if update.version != version {
+        *state.downloaded.lock().await = Some((update, bytes));
+        return Err("The available version changed. Check for updates again.".into());
     }
-    let _reset = Reset(&state);
+    state.installing.store(true, Ordering::SeqCst);
     progress(
         &app,
-        json!({"phase":"installing","update":update_result(&update, true),"error":null,"errorStage":null}),
+        json!({"phase":"installing","error":null,"errorStage":null}),
     );
-    let retry_update = update_result(&update, false);
-    #[cfg(not(target_os = "macos"))]
-    let installation = async {
-        let service = app
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let service = handle
             .state::<std::sync::Arc<arc_core::runtime::Client>>()
             .inner()
             .clone();
-        // Download and signature verification finish before any connection is stopped.
-        let current = service.request("status", "GET", json!({})).await?;
-        let running: Vec<String> = current["ingresses"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|i| i["running"] == true)
-            .filter_map(|i| i["id"].as_str().map(str::to_owned))
-            .collect();
-        let connections = crate::session::restore().unwrap_or(running);
-        arc_core::save(
-            &resume_path(),
-            &json!({"version":version,"ingresses":connections}),
-        )?;
-        // Drain auxiliary work even when the tunnel is already disconnected.
-        let installed = async {
-            service.shutdown().await?;
-            update.install(bytes).map_err(|error| error.to_string())
+        let install = async {
+            if let Err(error) = service.shutdown().await {
+                *handle.state::<UpdateState>().downloaded.lock().await = Some((update, bytes));
+                return Err(error);
+            }
+            let result = tokio::task::spawn_blocking(move || {
+                let result = update.install(&bytes).map_err(|error| error.to_string());
+                (update, bytes, result)
+            })
+            .await
+            .map_err(|error| error.to_string())?;
+            let (update, bytes, result) = result;
+            if let Err(error) = result {
+                *handle.state::<UpdateState>().downloaded.lock().await = Some((update, bytes));
+                return Err(error);
+            }
+            Ok::<_, String>(())
         }
         .await;
-        if let Err(error) = installed {
-            let _ = std::fs::remove_file(resume_path());
-            service.resume().await;
-            let restored = async {
-                for id in &connections {
-                    service
-                        .request(&format!("ingress/{id}/start"), "POST", json!({}))
-                        .await?;
-                }
-                Ok::<_, String>(json!({}))
+        match install {
+            Ok(()) => {
+                handle
+                    .state::<UpdateState>()
+                    .restarting
+                    .store(true, Ordering::SeqCst);
+                handle.request_restart();
             }
-            .await;
-            return Err(match restored {
-                Ok(_) => format!("Update failed: {error}. Retry or download manually."),
-                Err(restore) => {
-                    format!("Update failed: {error}. Connection recovery failed: {restore}")
-                }
-            });
+            Err(error) => {
+                service.resume().await;
+                handle
+                    .state::<UpdateState>()
+                    .installing
+                    .store(false, Ordering::SeqCst);
+                failed(&handle, "install", error);
+            }
         }
-        // restart() never returns on a runtime worker. Let this command finish and
-        // release its guards before the event loop completes the restart instead.
-        state.restarting.store(true, Ordering::SeqCst);
-        app.request_restart();
-        Ok(json!({"available":true,"version":version,"restarting":true}))
-    }
-    .await;
-    #[cfg(target_os = "macos")]
-    let installation = async {
-        // Updater::download verifies the release signature. Keep the acquisition
-        // candidate for retry; the replacement worker owns staging and all swaps.
-        let directory = arc_core::root().join("release-candidates").join(arc_core::id());
-        arc_core::private_dir(&directory)?;
-        let archive = directory.join("release.tar.gz");
-        std::fs::write(&archive, bytes).map_err(|e| e.to_string())?;
-        arc_core::output("/usr/bin/tar", &["-xzf", &archive.to_string_lossy(), "-C", &directory.to_string_lossy()]).await?;
-        let candidates: Vec<_> = std::fs::read_dir(&directory).map_err(|e| e.to_string())?.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|v| v == "app") && p.is_dir()).collect();
-        if candidates.len() != 1 { return Err("UPDATE_INVALID_PACKAGE: expected one application bundle".into()); }
-        let service = app.state::<std::sync::Arc<arc_core::runtime::Client>>().inner().clone();
-        let current = service.request("status", "GET", json!({})).await?;
-        let running: Vec<_> = current["ingresses"].as_array().into_iter().flatten().filter(|v| v["running"] == true).filter_map(|v| v["id"].as_str().map(str::to_owned)).collect();
-        arc_core::save(&resume_path(), &json!({"version":version,"ingresses":crate::session::restore().unwrap_or(running)}))?;
-        let receipt = arc_core::app_replace::prepare(json!({"path":candidates[0],"releaseVerified":true,"releaseVersion":version,"notes":update.body,"when":when})).await?;
-        // Receipt has reached its initiating Desktop before arming the helper.
-        arc_core::app_replace::acknowledge(receipt["id"].as_str().ok_or("UPDATE_RECEIPT_MISSING")?)?;
-        progress(&app, json!({"phase":"idle","update":null}));
-        Ok(json!({"available":false,"replacementReceipt":receipt}))
-    }.await;
-    if let Err(error) = installation {
-        progress(&app, json!({"update":retry_update}));
-        return Err(failed(&app, "install", error));
-    }
-    installation
+    });
+    Ok(json!({"version":version,"restarting":true}))
 }
 
 pub fn snapshot(app: &tauri::AppHandle) -> Value {
@@ -381,17 +298,8 @@ pub fn start(app: tauri::AppHandle) {
                 .parse::<u128>()
                 .unwrap_or(0);
             let current = chrono_now_millis().parse::<u128>().unwrap_or(0);
-            if current.saturating_sub(previous) >= 3600000 && allow_update().is_ok() {
-                if let Ok(offer) = check_update(app.clone()).await {
-                    if prefs["update-timing"] == "automatic"
-                        && offer["ready"] == true
-                        && offer["version"] != prefs["update-skipped-version"]
-                    {
-                        if let Some(version) = offer["version"].as_str() {
-                            let _ = install_update(app.clone(), version.into(), "settled").await;
-                        }
-                    }
-                }
+            if current.saturating_sub(previous) >= 3600000 {
+                let _ = check_update(app.clone()).await;
             }
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }

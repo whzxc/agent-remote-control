@@ -122,7 +122,6 @@ Stopping an ingress leaves Agent processes running. Core shutdown closes ARC-own
 
 Explicit native `thread/unsubscribe` and connector transport loss invalidate timeline observation. `task_timeline` refreshes paginated native history on subsequent reads and reports `coverage.state:partial` with `coverage.reason` until an explicit native resume restores the subscription. A history refresh never silently resumes a thread or claims that missed live events were observed.
 
-For local ARC upgrades, use [app replace](app-replacement.md) and end the calling turn after its receipt. The detached helper waits for active turns and pending interactions to finish before shutdown; it cancels if they do not settle. RPC pipes and callbacks are not reattached across Core restart. Continue the conversation with a new turn after replacement health succeeds.
 
 ## Custom ACP manifests
 

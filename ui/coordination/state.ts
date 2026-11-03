@@ -63,7 +63,7 @@ export function attentionProjection() {
     const ingress = connection.status?.ingresses.find(row => row.id === source?.ingressId);
     if (source && ingress) items.push({ id: `notification:${problem.id}`, kind: 'connection', connectionId: ingress.id, title: source.label, notification: true });
   }
-  if (['failed', 'rolled-back'].includes(update.snapshot.state) || update.error) items.push({ id: 'update', kind: 'update', title: update.snapshot.source?.version ?? 'ARC' });
+  if (update.snapshot.error || update.error) items.push({ id: 'update', kind: 'update', title: update.snapshot.update?.version ?? 'ARC' });
   for (const item of board.page?.attention?.items ?? []) if (item.kind === 'ax-candidate' || item.kind === 'ax-triage') items.push({ id: `ax:${item.id}`, kind: 'ax', item });
   const complete = !!board.page && !board.error && board.page.attention?.coverage.ax === 'observed' && board.page.activityCoverage === 'observed' && board.page.notificationCoverage === 'observed' && !!observed.snapshot && !observed.error && !!connection.status && !connection.error && updateCoverage.observed && !updateCoverage.error;
   return { items, complete };

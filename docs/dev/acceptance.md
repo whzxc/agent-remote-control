@@ -70,12 +70,6 @@ Timezone/DST boundaries, notification delivery, OS permission prompts, real offl
 behavior and native lifecycle timing still require separately authorized conditions or a reported
 gap; acceptance never changes host settings to manufacture them.
 
-## Local replacement
-
-Use the [local app replacement protocol](../reference/app-replacement.md) for an authorized installed-build upgrade. Run the candidate Core's `cli app replace <bundle> --check` first, then `cli app replace <bundle> --now` as the dispatching turn's final command for an explicit user-directed installation. Omit `--now` when idle waiting and a restart countdown are desired. Do not call `app quit` before it. Reconnect from the control source and read `app replace --status`, `app status`, and `status`; compare Desktop/Core build hashes and then perform the requested connection or provider acceptance. A staged receipt or successful package check alone is not installed-app acceptance. Build-only or no-restart tasks must stop before the mutating replacement command.
-
-For offline CLI regressions against a freshly built Core, run `npm run check:tests`, then `ARC_TEST_BINARY="/absolute/path/to/arc" node --test tests/app-replace.test.ts`. These tests use temporary state and do not launch or stop Desktop. The Rust `app_replace` regression covers the active-turn, active-command, pending-interaction, and unknown-observation drain decisions.
-
 ## UI scenarios
 
 The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cover mixed ingress readiness, lower-arc pointer and keyboard start/stop, disabled unknown status, and the date/time/activity header. Fixture start/stop changes only fixture responses and retains its tasks. Studio lighting and fullscreen controls remain behind the shared navigation capsule entry. Review landscape and portrait layouts, lower-arc focus, and reduced motion alongside the existing `studio-night`, `studio-day` and `studio-idle` scenarios.
@@ -203,13 +197,9 @@ arc cli wait --op status --until '/core/desktop/state=="ready"' --timeout 20
 
 Multiple --until conditions are ANDed. JSON Pointer supports ==, !=, and exists. String comparison values need JSON double quotes. On timeout, read error.lastResult. Waiting never cancels or redispatches tasks. Read full parameters through cli schema and cli control guide <op>.
 
-## Native update and replacement regression acceptance
+## Native updater acceptance
 
-Run `npm run accept:updates -- /path/to/verified-release-artifacts` on an Apple Silicon Mac with the normal package-signing prerequisites. The directory must contain a published `latest.json` and its signed macOS updater archive. The runner builds a debug package with a loopback-only updater fixture, verifies real signed download bytes, exercises concurrent checks/downloads and failure recovery, and replaces a disposable app with different Desktop/Core build fingerprints after interrupting its Desktop. It uses a private state directory and never installs the published payload or replaces the user's installed app.
-
-The fixture build enables the upstream single-instance plugin's semver namespace at versions `0.0.0` and `0.0.1` so it can run alongside the installed app. This feature is limited to the acceptance build; product build configuration is unchanged. Successful runs remove the disposable app and state. Failed runs retain their temporary directory for diagnosis. Reports and build logs live under `output/acceptance/updates-*`.
-
-For replacement-only lifecycle acceptance, build a signed disposable fixture with `ARC_BUILD_VERSION=0.0.0 npm run desktop:build -- --debug --features tauri-plugin-single-instance/semver --config <fixture-config.json>`. Set the fixture `identifier` to `com.whzxc.agent-remote-control.dev`. Set the fixture updater endpoint to `http://127.0.0.1:9/latest.json` and `dangerousInsecureTransportProtocol:true` to avoid public update checks. Then run `node tooling/acceptance/replacement.mjs <fixture.app>`. The runner requires version `0.0.0`, copies both candidate and target into temporary storage, and verifies normal countdown, immediate replacement, native notification submission, and rollback after deliberately invalidating only the disposable staged executable. Successful runs remove fixture data and backups; failures preserve evidence under the reported paths. Rebuild without the fixture version, feature or configuration before local installation.
+Run `npm run accept:updates` on an Apple Silicon Mac with the package-signing prerequisites. The runner builds two signed hidden disposable versions, serves the candidate through a loopback feed, and runs the older app with a private state directory and a loopback updater endpoint. It checks signed downloads, failure recovery, installation from cached bytes with the feed offline, application restart and matching Desktop/Core build fingerprints. It never replaces the installed production app. Reports and logs stay under `output/acceptance/updates-*`.
 
 ## MCP hub fixtures
 

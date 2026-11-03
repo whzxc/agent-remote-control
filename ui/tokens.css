@@ -69,7 +69,6 @@
   --success: #058750;
   --on-success: #fff;
   --update-accent: var(--success);
-  --update-blocker: var(--warning);
   --warning: #8a5108;
   --danger: #bc2936;
   --success-soft: #e8faf0;
