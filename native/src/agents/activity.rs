@@ -20,6 +20,7 @@ pub(super) struct Monitor {
 }
 #[derive(Default)]
 pub(super) struct TurnClock {
+    codex_transcript: crate::task_tracking::CodexTranscript,
     offset: u64,
     status: Option<String>,
     started_at: Value,
@@ -424,6 +425,9 @@ fn read_clock(mut file: File, agent: &str, clock: &mut TurnClock) -> Result<Valu
 }
 
 fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
+    if agent == "codex" && !clock.codex_transcript.include(record) {
+        return;
+    }
     if agent == "codex" && record["type"] == "session_meta" {
         clock.parent_session_id = record["payload"]["source"]["subagent"]["thread_spawn"]
             ["parent_thread_id"]
@@ -730,8 +734,13 @@ mod tests {
         append(
             &path,
             &[
-                json!({"type":"session_meta","timestamp":at,"payload":{"source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}}}),
+                json!({"type":"session_meta","timestamp":at,"payload":{"id":"00000000-0000-4000-8000-000000000001","subagent_history_start_ordinal":4,"source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}}}),
+                json!({"type":"session_meta","timestamp":at,"payload":{"id":"parent-thread","source":"vscode"}}),
             ],
+        );
+        append(
+            &path,
+            &prompt("codex", "parent-turn", "Inherited request", &at),
         );
         append(&path, &prompt("codex", "turn", "Review a module", &at));
         append(&path, &tool_call("codex", "read-first", &at));
@@ -742,6 +751,10 @@ mod tests {
             snapshot(&directory, "codex", now, &mut cache)["parentSessionId"],
             "parent-thread"
         );
+        let row = snapshot(&directory, "codex", now, &mut cache);
+        assert_eq!(row["id"], "00000000-0000-4000-8000-000000000001");
+        assert_eq!(row["turnCount"], 1);
+        assert_eq!(row["title"], "Review a module");
         append(&path, &tool_call("codex", "read-next", &at));
         assert_eq!(
             snapshot(&directory, "codex", now, &mut cache)["parentSessionId"],

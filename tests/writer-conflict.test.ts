@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {appendFile,mkdtemp,mkdir,realpath,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -38,14 +38,35 @@ test('native writer conflicts retain recovery guidance through send, load and re
 });
 
 
-test('Held external writers are diagnosed before Desktop read discovery', {skip:process.platform==='win32'}, async()=>{
-  // Regression: real external writer reads failed with a generic Desktop discovery timeout.
-  const directory=await mkdtemp(path.join(tmpdir(),'arc-external-writer-'));
+test('Held external writers allow read-only timelines while mutations retain owner recovery', {skip:process.platform==='win32'}, async()=>{
+  // Regression: completed parent-owned subagents stayed unconfirmed and their detail failed with THREAD_WRITER_BUSY.
+  const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-external-writer-')));
   const threadId='00000000-0000-4000-8000-000000000002';
+  const turnId='00000000-0000-4000-8000-000000000004';
+  const nextTurn='00000000-0000-4000-8000-000000000005';
+  const rollout=path.join(directory,'sessions',`${threadId}.jsonl`);
+  const record=(type:string,payload:unknown)=>JSON.stringify({type,timestamp:'2026-01-01T00:00:00Z',payload})+'\n';
+  await mkdir(path.dirname(rollout));
+  await writeFile(rollout,record('session_meta',{id:threadId,subagent_history_start_ordinal:5,source:{subagent:{thread_spawn:{parent_thread_id:'parent'}}}})
+    +record('session_meta',{id:'parent'})
+    +record('event_msg',{type:'task_started',turn_id:'parent-turn'})
+    +record('response_item',{type:'message',role:'user',content:[{text:'Inherited parent request'}]})
+    +record('event_msg',{type:'task_complete',turn_id:'parent-turn'})
+    +record('event_msg',{type:'task_started',turn_id:turnId})
+    +record('response_item',{type:'message',role:'user',content:[{text:'<external_codex_apps_open_page>{"page_id":null}</external_codex_apps_open_page>'}]})
+    +record('response_item',{type:'message',role:'user',content:[{text:'Review changes'}]}));
   await mkdir(path.join(directory,'thread-writer-locks'));
   const writer=spawn('python3',['-c','import fcntl,sys; f=open(sys.argv[1],"w"); fcntl.flock(f,fcntl.LOCK_EX); print("ready",flush=True); sys.stdin.read()',path.join(directory,'thread-writer-locks',threadId+'.lock')]);
   await new Promise<void>(resolve=>writer.stdout.once('data',()=>resolve()));
-  const fixture=await nativeControl('',{CODEX_HOME:directory,ARC_FIXTURE_DESKTOP:'1'});
+  const fixture=await nativeControl(`
+    import {createInterface} from 'node:readline';
+    for await(const line of createInterface({input:process.stdin})){
+      const {id,method,params}=JSON.parse(line);if(id===undefined)continue;
+      const result=method==='thread/read'?{thread:{id:params.threadId,path:${JSON.stringify(rollout)},cwd:${JSON.stringify(directory)},status:{type:'notLoaded'}}}:
+        method==='thread/turns/list'?{data:[{id:${JSON.stringify(turnId)},status:'completed',items:[]}],nextCursor:null}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `,{CODEX_HOME:directory,ARC_FIXTURE_DESKTOP:'1'});
   try {
     for(const statusOnly of [false,true]) {
       const result=await fixture.call('codex_read',{threadId,statusOnly});
@@ -53,6 +74,31 @@ test('Held external writers are diagnosed before Desktop read discovery', {skip:
       assert.equal(result.error.ownership.owner,'external');assert.equal(result.error.ownership.state,'held');
       if(process.platform==='darwin')assert.ok(result.error.ownership.processes.some((p:any)=>p.pid===writer.pid));
     }
+    const timeline=()=>fixture.api('agents/conversations/timeline',{agent:'codex',id:threadId});
+    const running=await timeline();
+    assert.equal(running.readOnly,true,JSON.stringify(running));
+    assert.equal(running.turnStatuses[turnId],'running');
+    assert.equal(running.turnStatuses['parent-turn'],undefined);
+    assert.deepEqual(running.entries.filter((entry:any)=>entry.type==='user').map((entry:any)=>entry.text),['Review changes']);
+    await appendFile(rollout,record('response_item',{type:'message',role:'assistant',phase:'final_answer',content:[{text:'Review complete'}]})
+      +record('event_msg',{type:'task_complete',turn_id:turnId}));
+    const completed=await timeline();
+    assert.equal(completed.status,'completed');
+    assert.equal(completed.turnStatuses[turnId],'completed');
+    assert.ok(completed.entries.some((entry:any)=>entry.text==='Review complete'));
+    assert.equal((await fixture.api(`agents/timeline/${threadId}`)).status,'completed');
+    assert.equal((await fixture.call('task_timeline',{agent:'codex',id:threadId})).status,'completed');
+    await appendFile(rollout,record('event_msg',{type:'task_started',turn_id:nextTurn})
+      +record('response_item',{type:'message',role:'user',content:[{text:'Continue review'}]}));
+    const resumed=await timeline();
+    assert.equal(resumed.turnStatuses[turnId],'completed');
+    assert.equal(resumed.turnStatuses[nextTurn],'running');
+    await appendFile(rollout,record('event_msg',{type:'turn_aborted',turn_id:nextTurn}));
+    assert.equal((await timeline()).turnStatuses[nextTurn],'cancelled');
+    const denied=await fixture.completed('codex_interrupt',{threadId});
+    assert.equal(denied.error?.code??denied.result?.error?.code,'THREAD_WRITER_BUSY',JSON.stringify(denied));
+    assert.equal((await fixture.call('codex_owner',{threadId})).state,'held');
+    assert.equal(writer.exitCode,null);
   } finally {await fixture.close();writer.stdin.end();await new Promise(resolve=>writer.once('exit',resolve));await rm(directory,{recursive:true,force:true});}
 });
 

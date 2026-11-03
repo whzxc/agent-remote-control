@@ -90,7 +90,8 @@ fn harness_wrapper(text: &str) -> bool {
         "task-notification" | "command-name" | "command-message" | "command-args" |
         "bash-input" | "bash-stdout" | "bash-stderr" | "subagent_notification" |
         "subagent-notification" | "teammate-message" | "hook-output" |
-        "user-prompt-submit-hook" | "ide_opened_file" | "ide_selection" | "turn_aborted")
+        "user-prompt-submit-hook" | "ide_opened_file" | "ide_selection" | "turn_aborted" |
+        "external_codex_apps_open_page")
         // Older projections can have discarded the enclosing task-notification tag.
         || tag == "task-id" && (text.contains("<tool-use-id>") || text.contains("<output-file>"))
 }

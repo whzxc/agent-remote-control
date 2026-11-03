@@ -625,16 +625,44 @@ impl Control {
     }
     pub(crate) async fn external_timeline(&self, thread: &str) -> Result<Value> {
         let ownership = self.observe_ownership(thread).await?;
-        let history = self.timeline_history(thread).await?;
-        let mut timeline = crate::task_tracking::Timeline::default();
-        timeline.backfill_codex(&history["thread"], 0, 0, &now());
+        self.external_timeline_snapshot(thread, ownership).await
+    }
+    async fn external_timeline_snapshot(&self, thread: &str, ownership: Value) -> Result<Value> {
+        let (native, mut timeline) = if ownership["owner"] == "external" {
+            // Parent-owned subagents have no Desktop follower. Metadata reads
+            // do not acquire their writer; lifecycle comes from the rollout,
+            // since utility turn history can synthesize a terminal snapshot.
+            let history = self
+                .utility()
+                .await?
+                .call(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    15000,
+                )
+                .await?;
+            let native = history["thread"].clone();
+            if native["id"] != thread {
+                return Err("NATIVE_THREAD_ID_MISMATCH".into());
+            }
+            let metadata = native.clone();
+            let timeline = tokio::task::spawn_blocking(move || persisted_timeline(&metadata))
+                .await
+                .map_err(|e| e.to_string())??;
+            (native, timeline)
+        } else {
+            let history = self.timeline_history(thread).await?;
+            let mut timeline = crate::task_tracking::Timeline::default();
+            timeline.backfill_codex(&history["thread"], 0, 0, &now());
+            (history["thread"].clone(), timeline)
+        };
         crate::interaction_responses::project(&mut timeline, thread)?;
         let mut result = timeline.response(thread, 0);
         let projects = crate::projects::catalog(self).await.unwrap_or_default();
         result["projectName"] = json!(crate::projects::display_name(
             &projects,
-            string(&history["thread"], "cwd"),
-            history["thread"]["projectId"].as_str(),
+            string(&native, "cwd"),
+            native["projectId"].as_str(),
         ));
         result["readOnly"] = json!(true);
         if result["snapshotHash"].is_string() {
@@ -653,6 +681,9 @@ impl Control {
     }
     pub(crate) async fn timeline(&self, thread: &str, after: u64) -> Result<Value> {
         let ownership = self.observe_ownership(thread).await?;
+        if ownership["owner"] == "external" {
+            return self.external_timeline_snapshot(thread, ownership).await;
+        }
         let _read = self.requests.lock(&format!("timeline-read:{thread}")).await;
         let (baseline, observed) = {
             let mut events = self.events.lock().await;
@@ -2923,6 +2954,45 @@ pub(crate) fn persisted_history(thread: &Value) -> Result<String> {
     Ok(text)
 }
 
+fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> {
+    use std::io::{BufRead, BufReader};
+    let mut reader = BufReader::new(open_persisted_history(thread)?);
+    let mut timeline = crate::task_tracking::Timeline::default();
+    let mut line = Vec::new();
+    let mut matched = false;
+    loop {
+        line.clear();
+        if reader
+            .read_until(b'\n', &mut line)
+            .map_err(|e| e.to_string())?
+            == 0
+            || line.last() != Some(&b'\n')
+        {
+            break;
+        }
+        let record: Value =
+            serde_json::from_slice(&line).map_err(|e| format!("INVALID_NATIVE_HISTORY: {e}"))?;
+        if !matched {
+            if record["type"] != "session_meta" || record["payload"]["id"] != thread["id"] {
+                return Err("NATIVE_THREAD_ID_MISMATCH".into());
+            }
+            matched = true;
+        }
+        timeline.backfill_codex_records(std::slice::from_ref(&record));
+    }
+    if !matched {
+        return Err("NATIVE_THREAD_ID_MISMATCH".into());
+    }
+    let persisted = persisted_turns(thread);
+    timeline.turn_timings.extend(persisted.timings);
+    for (turn, configuration) in persisted.configurations {
+        if let Some(summary) = crate::egress::dispatch_summary(&configuration) {
+            timeline.turn_dispatch_summaries.insert(turn, summary);
+        }
+    }
+    Ok(timeline)
+}
+
 #[derive(Default)]
 pub(crate) struct PersistedTurns {
     pub configurations: HashMap<String, Value>,
@@ -2933,6 +3003,7 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
     let mut result = PersistedTurns::default();
     use std::io::{BufRead, BufReader};
     if let Ok(file) = open_persisted_history(thread) {
+        let mut transcript = crate::task_tracking::CodexTranscript::default();
         let mut matched = false;
         let mut thread_tier = json!("unknown");
         let mut turn_tiers = HashMap::new();
@@ -2945,6 +3016,9 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
             let Ok(event) = serde_json::from_str::<Value>(&line) else {
                 continue;
             };
+            if !transcript.include(&event) {
+                continue;
+            }
             let p = &event["payload"];
             if event["type"] == "session_meta" {
                 matched = p["id"] == thread["id"];

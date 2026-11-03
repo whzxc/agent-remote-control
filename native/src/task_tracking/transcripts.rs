@@ -1,6 +1,26 @@
 //! Native transcript framing feeds the same entry converters as live streams.
 use super::*;
 
+/// Native subagent rollouts may contain an inherited parent prefix.
+#[derive(Default, Clone)]
+pub(crate) struct CodexTranscript {
+    ordinal: u64,
+    history_start: u64,
+}
+impl CodexTranscript {
+    pub(crate) fn include(&mut self, record: &Value) -> bool {
+        let ordinal = self.ordinal;
+        self.ordinal += 1;
+        if ordinal == 0 && record["type"] == "session_meta" {
+            self.history_start = record["payload"]["subagent_history_start_ordinal"]
+                .as_u64()
+                .unwrap_or(0);
+            return true;
+        }
+        ordinal >= self.history_start
+    }
+}
+
 impl Timeline {
     pub fn transcript_turn_start(&self) -> Option<(&str, &str)> {
         self.turn_started_at
@@ -47,6 +67,9 @@ impl Timeline {
     /// just like app-server history and live item notifications.
     pub fn backfill_codex_records(&mut self, records: &[Value]) {
         for record in records {
+            if !self.codex_transcript.include(record) {
+                continue;
+            }
             self.transcript_metadata(record);
             let at = string(record, "timestamp");
             let p = &record["payload"];

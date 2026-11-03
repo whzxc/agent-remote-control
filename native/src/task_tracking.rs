@@ -9,7 +9,7 @@ mod projection_tests;
 mod transcript_input;
 mod transcripts;
 pub(crate) use transcript_input::transcript_user_text;
-pub(crate) use transcripts::TranscriptTitle;
+pub(crate) use transcripts::{CodexTranscript, TranscriptTitle};
 
 const MAX_ENTRIES: usize = 2000;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
@@ -350,6 +350,8 @@ pub(crate) struct Timeline {
     pub omitted_sidechain_records: u64,
     #[serde(skip)]
     transcript_activity: Option<(String, u64)>,
+    #[serde(skip)]
+    codex_transcript: transcripts::CodexTranscript,
     pub info: Value,
     pub status: String,
     pub turn: String,

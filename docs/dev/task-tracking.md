@@ -44,6 +44,8 @@ Activity retains the two-second scan cadence, mtime/size/identity reuse, and at 
 
 `process.rs` delivery output remains separate from the redacted display projection. ACP retains the existing per-turn concatenation with a UTF-8-safe 256 KiB tail and sticky outputTruncated; Pi replaces output with the last complete assistant message's text blocks. finalResponse and event-archive continuation consume this native buffer, never Timeline excerpts.
 
+Externally held Codex writers, including parent-owned subagents without a Desktop follower, expose read-only timelines from their native rollout. A utility metadata read locates the rollout without acquiring the writer. The reader validates the first session ID and projects complete records through the shared transcript converter. The native `subagent_history_start_ordinal` excludes inherited parent records from activity, turn metadata, and timeline projection while retaining the child's own session metadata. Explicit `task_complete` and `turn_aborted` records settle the matching turn; utility turn snapshots do not establish completion. Writer checks still protect mutations. Injected `external_codex_apps_open_page` records do not become user prompts or activity titles.
+
 ### Activity snapshots
 
 ```json
