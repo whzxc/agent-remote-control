@@ -47,7 +47,7 @@ export default function AgentDisplaySettings({
   return (
     <Dialog title={t("agentDisplaySettings")} onClose={onClose} busy={saving}>
       {error && <Notice>{error}</Notice>}
-      {agent && <AgentDispatchDefaults agent={agent} />}
+      {agent && <AgentDispatchDefaults agent={agent} rows />}
       <Group title={t("activity.bubbleSettings")}>
         <div className="activity-preview" aria-label={t("activity.preview")}>
           <div className="activity-bubble" data-density={density} style={{ "--bubble-width": `${bubbleWidths[width]}px`, "--bubble-height": `${bubbleHeights[density]}px` } as CSSProperties}>

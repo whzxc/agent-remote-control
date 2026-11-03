@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { orderedAgents, name } from "../state/agents";
@@ -6,7 +6,7 @@ import { useDispatchCatalog } from "../state/dispatchCatalog";
 import type { DispatchSummary } from "../types";
 import { SpecPill } from "./activity";
 import { modelLabel } from "./composites/dispatchSpecLabel";
-import { Dialog, Field, Group, Notice, SingleChoice } from "./ui";
+import { Dialog, Field, Group, Notice, Row, SingleChoice } from "./ui";
 
 type Defaults = { model?: string | null; effort?: string | null };
 // SingleChoice needs a nonempty value; it maps to null (inheritance) on save.
@@ -36,9 +36,13 @@ function useDefaults(read: string, write: string, key: Record<string, string>) {
   return { defaults, saving, error, save };
 }
 
+function Line({ rows, label, children }: { rows?: boolean; label: string; children: ReactNode }) {
+  return rows ? <Row title={label}>{children}</Row> : <Field label={label}>{children}</Field>;
+}
+
 /** Model and effort choices backed by the Agent's native catalog. */
-function DefaultsFields({ agent, defaults, saving, effort: withEffort, inheritLabel, onSave }: {
-  agent: string; defaults: Defaults; saving: boolean; effort: boolean; inheritLabel: string; onSave: (next: Defaults) => void;
+function DefaultsFields({ agent, defaults, saving, effort: withEffort, inheritLabel, rows, onSave }: {
+  agent: string; defaults: Defaults; saving: boolean; effort: boolean; inheritLabel: string; rows?: boolean; onSave: (next: Defaults) => void;
 }) {
   const catalog = useDispatchCatalog(agent)?.catalog;
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
@@ -53,28 +57,33 @@ function DefaultsFields({ agent, defaults, saving, effort: withEffort, inheritLa
   const effortChoices = [inherit, ...[...new Set([...efforts, ...(effort ? [effort] : [])])]
     .map(value => ({ value, label: t(`dispatchSpec.effort.${value}`) === `dispatchSpec.effort.${value}` ? value : t(`dispatchSpec.effort.${value}`) }))];
   return <>
-    <Field label={t("dispatchDefaults.model")}>
+    <Line rows={rows} label={t("dispatchDefaults.model")}>
       <SingleChoice label={t("dispatchDefaults.model")} value={model || INHERIT} disabled={saving}
         options={modelChoices} onChange={selected => { const value = choice(selected); onSave({ model: value,
           // Keep effort only while the newly selected model still supports it.
           effort: effort && (!value || !modelEfforts(value).length || modelEfforts(value).includes(effort)) ? effort : "" }); }} />
-    </Field>
-    {withEffort && <Field label={t("dispatchDefaults.effort")}>
+    </Line>
+    {withEffort && <Line rows={rows} label={t("dispatchDefaults.effort")}>
       <SingleChoice label={t("dispatchDefaults.effort")} value={effort || INHERIT} disabled={saving}
         options={effortChoices} onChange={value => onSave({ model, effort: choice(value) })} />
-    </Field>}
+    </Line>}
   </>;
 }
 
 /** Edit the policy defaults used when a control source omits model or effort. */
-export default function AgentDispatchDefaults({ agent }: { agent: string }) {
+export default function AgentDispatchDefaults({ agent, rows }: {
+  agent: string;
+  /** Label-left rows for wide settings dialogs; narrow panels stack labels above controls. */
+  rows?: boolean;
+}) {
   const codex = agent === "codex";
   const { defaults, saving, error, save } = useDefaults("agents/dispatch-defaults/read", "agents/dispatch-defaults", { agent });
   if (!defaults) return error ? <Notice>{error}</Notice> : null;
+  const fields = <DefaultsFields agent={agent} defaults={defaults} saving={saving} effort={codex} inheritLabel={t("dispatchDefaults.inherit")} rows={rows}
+    onSave={next => void save(next, codex)} />;
   return <Group title={t("dispatchDefaults.title", { agent: name(orderedAgents().find(row => row.agent === agent) ?? { agent }) })}>
     {error && <Notice>{error}</Notice>}
-    <DefaultsFields agent={agent} defaults={defaults} saving={saving} effort={codex} inheritLabel={t("dispatchDefaults.inherit")}
-      onSave={next => void save(next, codex)} />
+    {rows ? fields : <div className="form">{fields}</div>}
   </Group>;
 }
 
@@ -97,10 +106,10 @@ function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threa
   const { defaults, saving, error, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
   return <Dialog title={t("taskDispatch.title")} onClose={onClose} busy={saving} width={400}>
     {error && <Notice>{error}</Notice>}
-    {defaults && <>
+    {defaults && <div className="form">
       <p className="row-description">{t("taskDispatch.hint")}</p>
       <DefaultsFields agent={agent} defaults={defaults} saving={saving} effort inheritLabel={t("taskDispatch.inherit")}
         onSave={next => void save(next, true)} />
-    </>}
+    </div>}
   </Dialog>;
 }
