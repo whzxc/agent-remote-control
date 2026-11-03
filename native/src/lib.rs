@@ -284,6 +284,8 @@ pub struct Events {
     pub rows: Vec<Value>,
     pub bytes: usize,
     pub sequence: u64,
+    pub(crate) thread_sequences: std::collections::HashMap<String, u64>,
+    pub(crate) forgotten_thread_sequence: u64,
     pub pending: std::collections::HashMap<String, Value>,
     pub storage_error: Option<String>,
     pub durable: bool,
@@ -350,6 +352,23 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
         }
     }
     e.sequence += 1;
+    for key in ["threadId", "conversationId"] {
+        if let Some(thread) = params[key].as_str() {
+            let sequence = e.sequence;
+            e.thread_sequences.insert(thread.into(), sequence);
+        }
+    }
+    if e.thread_sequences.len() > 4096 {
+        if let Some((thread, sequence)) = e
+            .thread_sequences
+            .iter()
+            .min_by_key(|(_, v)| **v)
+            .map(|(k, v)| (k.clone(), *v))
+        {
+            e.thread_sequences.remove(&thread);
+            e.forgotten_thread_sequence = e.forgotten_thread_sequence.max(sequence);
+        }
+    }
     let row = json!({"cursor":e.sequence,"backendSession":session,"method":method,"params":params,"time":at});
     e.bytes += row.to_string().len();
     e.rows.push(row.clone());

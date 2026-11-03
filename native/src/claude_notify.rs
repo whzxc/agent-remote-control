@@ -490,8 +490,8 @@ pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
     }
 }
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
-fn expired(b: &Binding, now: i64) -> bool {
-    (b.continuation_bound || b.scope_end.is_some())
+fn expired(b: &Binding, now: i64, superseded: bool) -> bool {
+    (b.continuation_bound || b.scope_end.is_some() || superseded)
         && b.terminal
         && !b
             .deliveries
@@ -499,8 +499,8 @@ fn expired(b: &Binding, now: i64) -> bool {
             .any(|d| matches!(d.status.as_str(), "pending" | "sending"))
         && now - b.created_at > RETENTION_SECONDS
 }
-fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
-    if !expired(b, now) {
+fn remove_expired(dir: &Path, b: &Binding, now: i64, superseded: bool) -> Result<bool> {
+    if !expired(b, now, superseded) {
         return Ok(false);
     }
     let path = path_in(dir, &b.thread_id, &b.turn_id);
@@ -1113,7 +1113,8 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         return Ok(());
     };
     *b = current;
-    let reconciliation = if b.observation["reconciliation"] == "pending-after-restart"
+    let reconciliation = if (b.observation["reconciliation"] == "pending-after-restart"
+        || observer::exhausted(b))
         && matches!(
             string(observation, "state"),
             "completed" | "failed" | "cancelled"
@@ -1132,10 +1133,16 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     };
     continuation::adopt(dir, b, observation)?;
     let diagnostic_changed = if observation.get("handoffs").is_none() {
-        let diagnostic = json!({"state":observation["state"],"reason":observation["reason"],
+        let mut diagnostic = json!({"state":observation["state"],"reason":observation["reason"],
             "runtimeSource":observation["runtimeSource"],"runtimeStatus":observation["runtimeStatus"],
             "recordedStatus":observation["recordedStatus"],"observedAt":if observation["state"]=="unconfirmed" {b.observation["observedAt"].clone()}else{observation["observedAt"].clone()},
             "reconciliation":if observation["state"]=="unconfirmed" {"pending-after-restart"}else{"reconciled"}});
+        if observation["state"] == "unconfirmed" {
+            let failed = observer::unavailable(&b.observation, string(observation, "reason"));
+            for key in ["reconciliation", "reconciliationAttempts", "lastError"] {
+                diagnostic[key] = failed[key].clone();
+            }
+        }
         let changed = observation_changed(&b.observation, &diagnostic);
         if changed {
             b.observation = diagnostic;
@@ -2688,184 +2695,159 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 break;
             };
             let cycle = async {
+                use crate::runtime_metrics::{
+                    ObservationPass, ObservationPhase, ObservationTimer, OBSERVATION,
+                };
                 let _scope = crate::runtime_metrics::Scope::new(
                     crate::runtime_metrics::Work::NotificationObserve,
                 );
-
-                let mut reads = tokio::task::JoinSet::new();
-                let permits = Arc::new(tokio::sync::Semaphore::new(8));
-                let mut owner_threads = std::collections::HashSet::new();
-                let events = {
-                    let events = control.events.lock().await;
-                    observer::ThreadEvents::new(&events.rows, events.sequence)
-                };
-                let all = shared_records(&directory())?;
-                let paths: std::collections::HashSet<_> = all
-                    .iter()
-                    .map(|b| path_in(&directory(), &b.thread_id, &b.turn_id))
-                    .collect();
-                terminal_watches.retain(|path, _| paths.contains(path));
-                for original in &all {
-                    if original.source_id.is_empty() {
-                        continue;
-                    }
-                    if !recovering
-                        && original.terminal
-                        && (original.scope_end.is_some() || original.continuation_bound)
-                        && !expired(original, chrono::Utc::now().timestamp())
-                    {
-                        continue;
-                    }
-                    let path = path_in(&directory(), &original.thread_id, &original.turn_id);
-                    let watch = terminal_watches.get_mut(&path);
-                    if !recovering
-                        && watch.as_ref().is_some_and(|watch| {
-                            watch.unchanged(original, &events).unwrap_or(false)
-                        })
-                    {
-                        // Advance over unrelated events so a busy other thread
-                        // cannot eventually manufacture a buffer gap here.
-                        watch.unwrap().cursor = events.cursor;
-                        continue;
-                    }
-                    let stamp = watch
-                        .as_ref()
-                        .and_then(|watch| file_cache::Stamp::read(&watch.path).ok().flatten());
-                    let execution =
-                        file_cache::Stamp::read(&observer::execution_path(&original.thread_id))?;
-                    let _guard = LOCK.lock().await;
-                    let Some(mut b) = read_binding(&path)? else {
-                        continue;
+                let pass = ObservationPass::new();
+                OBSERVATION.scope(pass.sample.clone(), async {
+                    let scan = ObservationTimer::new(ObservationPhase::Scan);
+                    let events = {
+                        let events = control.events.lock().await;
+                        observer::ThreadEvents::new(&events)
                     };
-                    if remove_expired(&directory(), &b, chrono::Utc::now().timestamp())? {
-                        continue;
+                    let all = shared_records(&directory())?;
+                    let paths: std::collections::HashSet<_> = all.iter().map(|b| path_in(&directory(), &b.thread_id, &b.turn_id)).collect();
+                    terminal_watches.retain(|path, _| paths.contains(path));
+                    let mut latest = std::collections::HashMap::<(String,String),i64>::new();
+                    for b in &all {
+                        let created = latest.entry((b.source_id.clone(), b.thread_id.clone())).or_default();
+                        *created = (*created).max(b.created_at);
                     }
-                    if recovering {
-                        recover(&directory(), &mut b)?;
-                        if !b.terminal
-                            || (!b.continuation_bound
-                                && b.scope_end.is_none()
-                                && b.continuation_until > 0)
-                        {
-                            if !b.observation.is_object() {
-                                b.observation = json!({});
+                    let mut reads = tokio::task::JoinSet::new();
+                    let permits = Arc::new(tokio::sync::Semaphore::new(8));
+                    let mut owner_threads = std::collections::HashSet::new();
+                    for original in &all {
+                        pass.sample.lock().unwrap().bindings_scanned += 1;
+                        if original.source_id.is_empty() {
+                            pass.sample.lock().unwrap().unattributed_bindings += 1;
+                            continue;
+                        }
+                        let path = path_in(&directory(), &original.thread_id, &original.turn_id);
+                        let superseded = observer::superseded(original, &latest);
+                        let watch = terminal_watches.get(&path);
+                        let changed = watch.map(|w|w.changed(original,&events).unwrap_or(true)).unwrap_or_else(||events.has_thread(&original.thread_id));
+                        let old_expired = expired(original, chrono::Utc::now().timestamp(), superseded);
+                        if !recovering && !old_expired && ((original.terminal && original.observation["reconciliation"] != "pending-after-restart" && (original.scope_end.is_some() || original.continuation_bound))
+                            || watch.is_some_and(|w| w.unchanged(original,&events).unwrap_or(false))) {
+                            if let Some(watch) = terminal_watches.get_mut(&path) { watch.cursor = events.cursor; }
+                            pass.sample.lock().unwrap().bindings_reused += 1;
+                            continue;
+                        }
+                        let _guard = LOCK.lock().await;
+                        let Some(mut b) = read_binding(&path)? else { continue; };
+                        if remove_expired(&directory(), &b, chrono::Utc::now().timestamp(), superseded)? {
+                            pass.sample.lock().unwrap().retired_bindings += 1;
+                            continue;
+                        }
+                        if recovering {
+                            recover(&directory(), &mut b)?;
+                            if !observer::exhausted(&b) && (!b.terminal || (!b.continuation_bound && b.scope_end.is_none() && b.continuation_until > 0)) {
+                                if !b.observation.is_object() { b.observation = json!({}); }
+                                b.observation["reconciliation"] = json!("pending-after-restart");
+                                persist(&directory(), &b)?;
                             }
+                        }
+                        if changed && (observer::exhausted(&b) || b.observation["reconciliation"] == "pending-after-restart") {
+                            b.observation["reconciliationAttempts"] = json!(0);
                             b.observation["reconciliation"] = json!("pending-after-restart");
                             persist(&directory(), &b)?;
                         }
-                    }
-                    drop(_guard);
-                    if b.terminal && (b.scope_end.is_some() || b.continuation_bound) {
-                        continue;
-                    }
-                    if b.scope_end.is_none() && (b.agent.is_empty() || b.agent == "codex") {
-                        owner_threads.insert(b.thread_id.clone());
-                    }
-                    let c = control.clone();
-                    let agents = agents.clone();
-                    let permits = permits.clone();
-                    reads.spawn(async move {
-                        let _permit = permits
-                            .acquire_owned()
-                            .await
-                            .expect("observer semaphore remains open");
-                        let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
-                        let result = tokio::time::timeout(Duration::from_secs(10), async {
-                            if b.agent.is_empty() || b.agent == "codex" {
-                                crate::kernel::origin::ORIGIN
-                                    .scope(
-                                        json!({"sourceId":b.source_id}),
-                                        crate::waiter::codex_observe_with_path(&c, &args),
-                                    )
-                                    .await
-                            } else {
-                                agents
-                                    .observe_notification(&b.agent, &b.thread_id, &b.turn_id)
-                                    .await
-                                    .map(|observed| (observed, None))
-                            }
-                        })
-                        .await;
-                        let result = match result {
-                            Ok(Ok((mut observed, history))) => {
-                                enrich_completion(&c, &b, &mut observed).await;
-                                Ok(Ok((observed, history)))
-                            }
-                            other => other,
-                        };
-                        (b, result, stamp, execution)
-                    });
-                }
-                while let Some(result) = reads.join_next().await {
-                    let Ok((old, result, stamp, execution)) = result else {
-                        continue;
-                    };
-                    let (observed, history) = match result {
-                        Ok(Ok(observed)) => observed,
-                        failure => {
-                            let error = match failure {
-                                Ok(Err(error)) => error,
-                                _ => "native-observation-timeout".into(),
-                            };
-                            let _guard = LOCK.lock().await;
-                            if let Some(mut b) =
-                                binding(&directory(), &old.thread_id, &old.turn_id)?
-                            {
-                                if !b.observation.is_object() {
-                                    b.observation = json!({});
-                                }
-                                b.observation["lastError"] = json!(error);
-                                b.observation["reconciliation"] = json!("pending-after-restart");
+                        if b.terminal && (b.scope_end.is_some() || b.continuation_bound) {
+                            if b.observation["reconciliation"] == "pending-after-restart" {
+                                b.observation["reconciliation"] = json!("scope-ended");
                                 persist(&directory(), &b)?;
                             }
                             continue;
                         }
-                    };
-                    let mut b = old;
-                    let mut observed = observed;
-                    for request in observed["interaction"].as_array_mut().into_iter().flatten() {
-                        crate::respond_tokens::issue(&b.source_id, request)?;
+                        drop(_guard);
+                        let discover = observer::ownership_needed(&b, changed);
+                        if discover { owner_threads.insert(b.thread_id.clone()); }
+                        let previous = terminal_watches.remove(&path);
+                        let c = control.clone();
+                        let agents = agents.clone();
+                        let permits = permits.clone();
+                        let counters = pass.sample.clone();
+                        let cursor = events.cursor;
+                        reads.spawn(async move { OBSERVATION.scope(counters.clone(), async move {
+                            let _permit = permits.acquire_owned().await.expect("observer semaphore remains open");
+                            let _history = ObservationTimer::new(ObservationPhase::History);
+                            let events = observer::ThreadEvents::new(&Events { sequence:cursor, ..Default::default() });
+                            let mut watch = observer::TerminalWatch::capture(&c,&b,previous.as_ref(),&events).await;
+                            let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
+                            let result = tokio::time::timeout(Duration::from_secs(10), async {
+                                if b.agent.is_empty() || b.agent == "codex" {
+                                    crate::kernel::origin::ORIGIN.scope(json!({"sourceId":b.source_id}),
+                                        crate::waiter::codex_notification_observe(&c,&args,discover)).await
+                                } else {
+                                    counters.lock().unwrap().history_reads += 1;
+                                    agents.observe_notification(&b.agent,&b.thread_id,&b.turn_id).await.map(|v|(v,None))
+                                }
+                            }).await;
+                            let result = match result {
+                                Ok(Ok((mut observed,history))) => {
+                                    if watch.path != history && history.is_some() { watch.path = history; watch.stamp = None; }
+                                    enrich_completion(&c,&b,&mut observed).await;
+                                    Ok(observed)
+                                }
+                                Ok(Err(error)) => Err(error),
+                                Err(_) => Err("native-observation-timeout".into()),
+                            };
+                            (b,result,watch)
+                        }).await });
                     }
-                    // Downtime terminal reconciliation precedes capacity recovery.
-                    // A scheduled retry must not erase the predecessor's one event.
-                    if b.observation["reconciliation"] == "pending-after-restart"
-                        && matches!(
-                            string(&observed, "state"),
-                            "completed" | "failed" | "cancelled"
-                        )
+                    drop(scan);
+                    while let Some(result) = reads.join_next().await {
+                        let _process = ObservationTimer::new(ObservationPhase::Process);
+                        let Ok((old,result,watch)) = result else { continue; };
+                        let path = path_in(&directory(),&old.thread_id,&old.turn_id);
+                        terminal_watches.insert(path,watch);
+                        let mut observed = match result {
+                            Ok(observed) => observed,
+                            Err(error) => {
+                                let _guard = LOCK.lock().await;
+                                if let Some(mut b) = binding(&directory(),&old.thread_id,&old.turn_id)? {
+                                    // A successful explicit read racing this failure wins.
+                                    if !observation_changed(&old.observation,&b.observation) {
+                                        b.observation = observer::unavailable(&b.observation,&error);
+                                        persist(&directory(),&b)?;
+                                    }
+                                }
+                                continue;
+                            }
+                        };
+                        let mut b = old;
+                        if matches!(string(&observed,"state"),"running"|"interaction-required") || observed["recordedStatus"] == "inProgress" {
+                            owner_threads.insert(b.thread_id.clone());
+                        }
+                        for request in observed["interaction"].as_array_mut().into_iter().flatten() { crate::respond_tokens::issue(&b.source_id,request)?; }
+                        if (b.observation["reconciliation"] == "pending-after-restart" || observer::exhausted(&b))
+                            && matches!(string(&observed,"state"),"completed"|"failed"|"cancelled") {
+                            process(&directory(),&LOCK,&mut b,&observed).await?;
+                        }
+                        match retry::handle(&control,&mut b,&observed).await {
+                            Ok(true) => continue,
+                            Ok(false) => {},
+                            Err(error) => {
+                                b.retry["status"] = json!("skipped"); b.retry["reason"] = json!(error);
+                                let retry = b.retry.clone(); retry::update(&mut b,retry,false).await?;
+                            }
+                        }
+                        process(&directory(),&LOCK,&mut b,&observed).await?;
+                    }
                     {
-                        process(&directory(), &LOCK, &mut b, &observed).await?;
+                        let _ownership = ObservationTimer::new(ObservationPhase::Ownership);
+                        for thread in owner_threads { let _ = control.observe_ownership(&thread).await; }
                     }
-                    match retry::handle(&control, &mut b, &observed).await {
-                        Ok(true) => continue,
-                        Ok(false) => {}
-                        Err(error) => {
-                            // Fail closed: incomplete history must not hide a failure indefinitely.
-                            b.retry["status"] = json!("skipped");
-                            b.retry["reason"] = json!(error);
-                            let retry = b.retry.clone();
-                            retry::update(&mut b, retry, false).await?;
-                        }
+                    for b in shared_records(&directory())?.iter().filter(|b| !b.source_id.is_empty()) {
+                        if b.observation["reconciliation"] == "pending-after-restart" { pass.sample.lock().unwrap().pending_reconciliations += 1; }
+                        if observer::exhausted(b) { pass.sample.lock().unwrap().reconciliation_exhausted += 1; }
                     }
-                    process(&directory(), &LOCK, &mut b, &observed).await?;
-                    if observer::reusable(&b) {
-                        if let Some(history) = history {
-                            terminal_watches.insert(
-                                path_in(&directory(), &b.thread_id, &b.turn_id),
-                                observer::TerminalWatch {
-                                    path: history,
-                                    stamp,
-                                    execution,
-                                    cursor: events.cursor,
-                                },
-                            );
-                        }
-                    }
-                }
-                for thread in owner_threads {
-                    let _ = control.observe_ownership(&thread).await;
-                }
-                Ok::<_, String>(())
+                    pass.sample.lock().unwrap().completed_passes = 1;
+                    Ok::<_,String>(())
+                }).await
             };
             tokio::select! {
                 biased;
@@ -2910,6 +2892,57 @@ mod tests {
         current["currentOwner"] = json!("desktop");
         assert!(observation_changed(&previous, &current));
         assert!(observation_changed(&Value::Null, &previous));
+    }
+    #[tokio::test]
+    async fn exhausted_restart_reconciliation_recovers_on_an_explicit_observation() {
+        // Regression: unavailable restart reads retried forever instead of exposing a bounded state with explicit recovery.
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        let lock = Mutex::new(());
+        for _ in 0..observer::RECONCILIATION_ATTEMPTS {
+            super::process(
+                &dir.0,
+                &lock,
+                &mut b,
+                &json!({"state":"unconfirmed","reason":"native-read-unavailable"}),
+            )
+            .await
+            .unwrap();
+        }
+        assert!(!b.terminal);
+        assert!(observer::exhausted(&b));
+        let status = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"threadId":b.thread_id}),
+            100,
+            &json!({}),
+        )
+        .unwrap();
+        let diagnosis = &status["threads"][0]["diagnosis"];
+        assert!(diagnosis["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("unavailable-after-restart")));
+        assert_eq!(diagnosis["next"]["args"]["turnId"], b.turn_id);
+        assert!(diagnosis["next"]["args"]["statusOnly"].is_null());
+        let spec = catalog()["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|op| op["name"] == "codex_read")
+            .unwrap()
+            .clone();
+        crate::egress::validate_op(&spec, &diagnosis["next"]["args"]).unwrap();
+        super::process(&dir.0, &lock, &mut b, &json!({"state":"completed"}))
+            .await
+            .unwrap();
+        assert!(b.terminal);
+        assert_eq!(b.observation["reconciliation"], "reconciled");
+        assert_eq!(
+            b.deliveries.iter().filter(|d| d.key == "terminal").count(),
+            1
+        );
     }
     #[test]
     fn delivery_clocks_keep_the_scheduler_awake() {
@@ -4567,7 +4600,7 @@ mod tests {
             b.terminal = terminal;
             b.created_at = 100;
             persist(&dir.0, &b).unwrap();
-            assert!(!remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS).unwrap());
+            assert!(!remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS, false).unwrap());
             governance::control_in(
                 &dir.0,
                 "claude",
@@ -4587,9 +4620,9 @@ mod tests {
             .unwrap();
             let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
             assert_eq!(b.created_at, 100);
-            assert!(!remove_expired(&dir.0, &b, 100 + RETENTION_SECONDS).unwrap());
+            assert!(!remove_expired(&dir.0, &b, 100 + RETENTION_SECONDS, false).unwrap());
             assert_eq!(
-                remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS).unwrap(),
+                remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS, false).unwrap(),
                 terminal
             );
             assert_eq!(
@@ -5257,10 +5290,10 @@ async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observe
             &b.thread_id,
             &b.turn_id,
             string(observed, "state"),
-            b.observation["observedAt"]
-                .as_str()
-                .filter(|_| b.observation["reconciliation"] == "pending-after-restart"),
-            b.observation["reconciliation"] == "pending-after-restart",
+            b.observation["observedAt"].as_str().filter(|_| {
+                b.observation["reconciliation"] == "pending-after-restart" || observer::exhausted(b)
+            }),
+            b.observation["reconciliation"] == "pending-after-restart" || observer::exhausted(b),
         )
         .await
         .unwrap_or_else(|error| json!({"unavailable":error}));

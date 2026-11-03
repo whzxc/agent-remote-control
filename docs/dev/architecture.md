@@ -56,15 +56,45 @@ may exceed the byte budget until expiry so native history reads remain supported
 Serialized weight is not a heap bound; the IPC frame limit remains independent.
 Eviction never deletes native history, changes authorization, or cancels a task.
 
-The notification observer reuses settled terminal evidence while the native
-rollout stamp, execution configuration and relevant thread events remain
-unchanged. It keeps the existing reconciliation cadence for active tasks and
-checks terminal rollout metadata on that cadence. Startup reconciliation,
-scheduled retries, unresolved interactions, missing rollout paths and event
-buffer gaps require fresh reads. Closed bindings skip native reads and remain
-available for delivery and inbox history until the existing retention rules
-allow removal. Open continuation scopes retain their native retry semantics;
-unchanged historical scopes do not repeatedly hydrate history or probe owners.
+The notification observer stamps native history before its first full read and
+reuses settled terminal evidence while rollout, execution configuration, writer
+state and per-thread event sequences are unchanged. Historical reads use the
+read-only app-server rather than discovering every Desktop owner. Owner discovery
+is limited to active turns, pending interactions and changed evidence. Events
+retain at most 4096 thread sequence numbers independently of the payload ring;
+forgetting a thread identity triggers conservative repair, while a busy peer's
+payload eviction does not invalidate unrelated histories.
+
+Reconciliation has three unsuccessful attempts per unchanged evidence revision.
+Exhaustion exposes `unavailable-after-restart` without manufacturing a task outcome
+or deleting pending deliveries. Closed terminal scopes finish pending reconciliation
+as `scope-ended` without a native read. Changed evidence or an explicit selected-turn read
+can resume it. The latest interrupted origin scope retains unlimited native Resume
+eligibility. Settled older terminal bindings gain the existing seven-day retention
+when a newer binding exists for that same source and thread. Pending/sending
+deliveries still prevent removal. See [Control loop](control-loop.md#72-native-retry).
+
+`runtime_metrics.notificationObserve` exposes `currentPass`, `lastPass` and
+`totals`. Each sample includes `completedPasses`, `bindingsScanned`, `bindingsReused`, `historyReads`,
+`ownershipDiscoveries`, `pendingReconciliations`, `reconciliationExhausted`,
+`retiredBindings` and `unattributedBindings`. History reads count complete native
+observation attempts, including an active-owner fallback; metadata-only reads are
+included in history phase time. Ownership discoveries count actual Desktop
+`thread-owner-discovery` calls, including calls inside backend selection and history
+reads. Pending/exhausted fields are binding-state gauges at pass completion; their
+totals sum these per-pass samples, not retry attempts or unique bindings. `completedPasses` is one only after a
+successful pass, so partial passes never imply an empty pending set.
+`phaseWallMs` records scan, history, process, ownership and ownerDiscovery time.
+History time sums concurrent task durations. OwnerDiscovery time is nested in
+history or ownership time. These fields must not be summed as elapsed pass time;
+the existing work counter reports elapsed pass wall time.
+
+Coordination startup replay and its checkpoints use uncached reads. Task-list
+receipt projection also reads full receipts without admitting their payloads to
+the shared JSON cache; its existing derived metadata projection remains cached.
+Explicit receipt reads retain the ordinary JSON cache. Startup replay still
+inspects retained owners for pending transitions, without retaining every decoded
+receipt after that inspection.
 
 The JSON cache uses an ordered LRU index to avoid scanning every resident entry
 for each eviction. Diagnostics include hits, evictions, evicted source bytes and

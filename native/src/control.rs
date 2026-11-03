@@ -1300,7 +1300,7 @@ impl Control {
             if uuid::Uuid::parse_str(request).is_err() {
                 continue;
             }
-            let mut r = match self.receipt(request).await {
+            let mut r = match RECEIPTS.read_for_projection(request, &self.session) {
                 Ok(r) => r,
                 Err(e) => {
                     complete = false;

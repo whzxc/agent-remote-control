@@ -499,6 +499,7 @@ impl Ipc {
             .map_err(submitted_error)
     }
     pub async fn owner(&self, thread: &str) -> Result<String> {
+        let _metric = crate::runtime_metrics::observation_owner_discovery();
         let r = self
             .request(
                 "thread-owner-discovery",

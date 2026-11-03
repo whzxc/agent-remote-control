@@ -453,9 +453,9 @@ pub(super) fn project_at(
     checkpoint: &Path,
     emit: &dyn Fn(EventInput) -> Result<Value>,
 ) -> Result<()> {
-    let row = crate::kernel::file_cache::load(path)?;
+    let row = crate::load(path)?;
     let mut done = if checkpoint.exists() {
-        crate::kernel::file_cache::load(checkpoint)?
+        crate::load(checkpoint)?
     } else {
         json!({})
     };
@@ -541,7 +541,9 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
             }
             let batch = std::mem::take(&mut pending);
             for path in batch {
-                if let Ok(row) = crate::kernel::file_cache::load(&path) {
+                // Startup replay visits historical owners once. Do not fill the
+                // hot JSON cache with complete receipt payloads and checkpoints.
+                if let Ok(row) = crate::load(&path) {
                     let receipt_path = (path.parent() == Some(receipt_directory.as_path())
                         || path.parent() == Some(agent_receipt_directory.as_path()))
                         && path

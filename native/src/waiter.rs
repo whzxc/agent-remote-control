@@ -472,6 +472,8 @@ pub(crate) async fn codex_observe_with_path(
     args: &Value,
 ) -> Result<(Value, Option<PathBuf>)> {
     let mut source = codex_source(control, args).await?;
+    let _ = crate::runtime_metrics::OBSERVATION
+        .try_with(|sample| sample.lock().unwrap().history_reads += 1);
     let observation = source.observe().await?;
     if !source.alive() {
         return Err("connection-closed".into());
@@ -482,6 +484,39 @@ pub(crate) async fn codex_observe_with_path(
     );
     let path = observation["thread"]["path"].as_str().map(PathBuf::from);
     Ok((result, path))
+}
+
+/// Historical notification reconciliation uses a read-only app-server, without
+/// probing every historical thread's Desktop owner. Active turns still use it.
+pub(crate) async fn codex_notification_observe(
+    control: &Arc<Control>,
+    args: &Value,
+    discover_owner: bool,
+) -> Result<(Value, Option<PathBuf>)> {
+    if discover_owner {
+        return codex_observe_with_path(control, args).await;
+    }
+    let mut source = CodexSource {
+        owner: CodexOwner::Background(control.utility().await?),
+        thread: string(args, "threadId").into(),
+        turn: args["turnId"].as_str().map(str::to_owned),
+        desktop_owner: None,
+        events: control.events.clone(),
+    };
+    let _ = crate::runtime_metrics::OBSERVATION
+        .try_with(|sample| sample.lock().unwrap().history_reads += 1);
+    let observation = source.observe().await?;
+    let result = source.classify(
+        &observation,
+        &mut args["turnId"].as_str().map(str::to_owned),
+    );
+    if result["recordedStatus"] == "inProgress" || result["state"] == "interaction-required" {
+        return codex_observe_with_path(control, args).await;
+    }
+    Ok((
+        result,
+        observation["thread"]["path"].as_str().map(PathBuf::from),
+    ))
 }
 
 pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {

@@ -14,7 +14,14 @@ impl ReceiptStore {
         Ok(root().join(self.directory).join(format!("{request}.json")))
     }
     pub fn read(&self, request: &str, session: &str) -> Result<Value> {
-        let mut receipt = load(&self.path(request)?)?;
+        Self::normalize(load(&self.path(request)?)?, session)
+    }
+    /// Bulk task projections retain their own metadata snapshot, not full receipt
+    /// payloads in the shared JSON cache.
+    pub fn read_for_projection(&self, request: &str, session: &str) -> Result<Value> {
+        Self::normalize(crate::load(&self.path(request)?)?, session)
+    }
+    fn normalize(mut receipt: Value, session: &str) -> Result<Value> {
         if !receipt.is_object() {
             return Err("INVALID_RECEIPT".into());
         }

@@ -19,6 +19,8 @@ pub(super) fn turn(b: &Binding) -> Value {
     }
     if b.observation["reconciliation"] == "pending-after-restart" {
         reasons.push(json!("pending-after-restart"));
+    } else if observer::exhausted(b) {
+        reasons.push(json!("unavailable-after-restart"));
     } else if !b.terminal && b.observation.is_null() {
         reasons.push(json!("pending-observation"));
     }
@@ -51,7 +53,17 @@ pub(super) fn turn(b: &Binding) -> Value {
             reasons.push(reason);
         }
     }
-    let next = if owner["currentOwner"] == "desktop" {
+    let next = if observer::exhausted(b) {
+        let (op, args) = if b.agent.is_empty() || b.agent == "codex" {
+            (
+                "codex_read",
+                json!({"threadId":b.thread_id,"turnId":b.turn_id}),
+            )
+        } else {
+            ("agent_read", json!({"agent":b.agent,"taskId":b.thread_id}))
+        };
+        json!({"via":"query","op":op,"args":args,"hint":"Automatic reconciliation exhausted its bounded attempts. Read this task to retry. Native history, execution configuration, writer or thread-event changes also reactivate observation."})
+    } else if owner["currentOwner"] == "desktop" {
         json!({"via":"query","op":"codex_owner","args":{"threadId":b.thread_id},"hint":"Inspect the current Desktop owner and handoff history. The notification scope remains bound across a proven resume."})
     } else {
         json!({"via":"query","op":"codex_read","args":{"threadId":b.thread_id,"statusOnly":true},"hint":"Read the current native turn. Unknown history remains pending; a new unrelated turn does not inherit this binding."})
