@@ -88,3 +88,27 @@ test('unchanged terminal evidence preserves the activity snapshot and read ackno
     assert.equal(trackedActivity.get(), settled);
   });
 });
+
+test('a hidden connector refreshes current state immediately when shown', async context => {
+  // Regression: AX-23 the hidden desktop kept polling full status and source snapshots while idle.
+  await harness(async (server, window) => {
+    let hidden = false, state = 'initial';
+    Object.defineProperty(window.document, 'hidden', { get: () => hidden });
+    globalThis.fetch = async url => new Response(JSON.stringify(String(url) === '/api/status'
+      ? { core: { appServer: { state: 'ready' } }, marker: state }
+      : String(url) === '/api/source' ? { sources: [] } : {}));
+    const { startConnector, connector } = await server.ssrLoadModule('/ui/state/connector.ts');
+    context.mock.timers.enable({ apis: ['setInterval'] });
+    const stop = startConnector();
+    try {
+      await eventually(() => connector.get().status?.marker === 'initial');
+      hidden = true; state = 'changed';
+      context.mock.timers.tick(2000);
+      await Promise.resolve();
+      assert.equal(connector.get().status.marker, 'initial');
+      hidden = false;
+      window.document.dispatchEvent(new window.Event('visibilitychange'));
+      await eventually(() => connector.get().status?.marker === 'changed');
+    } finally { stop(); context.mock.timers.reset(); }
+  });
+});

@@ -8,6 +8,7 @@ import type { ControlSource } from './types';
 export const accounts = createStore<{ items: Account[]; login: AccountLogin | null; loading: boolean; error: string }>({ items: [], login: null, loading: true, error: '' });
 let pending: Promise<void> | undefined;
 let consumers = 0;
+const pollAccounts = () => { if (!document.hidden) void refreshAccounts(); };
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 export function boundNotificationSessions(account: Account) {
   return account.notifications.sessions.filter(session => session.target.trim().length > 0);
@@ -31,12 +32,14 @@ export function useAccounts() {
   const state = accounts.use();
   useEffect(() => {
     if (++consumers === 1) {
-      void refreshAccounts();
+      pollAccounts();
+      document.addEventListener('visibilitychange', pollAccounts);
       // Native account details cache profile quota reads for three minutes.
-      pollTimer = setInterval(() => void refreshAccounts(), 10000);
+      pollTimer = setInterval(pollAccounts, 10000);
     }
     return () => {
       if (--consumers === 0) {
+        document.removeEventListener('visibilitychange', pollAccounts);
         clearInterval(pollTimer);
         pollTimer = undefined;
       }

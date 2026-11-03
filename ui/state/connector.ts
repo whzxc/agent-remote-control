@@ -95,9 +95,10 @@ export function startConnector() {
   let stopped = false;
   let stream: EventSource | undefined;
   const read = () => {
-    if (!stopped) void refreshConnector().catch(() => {});
+    if (!stopped && !document.hidden) void refreshConnector().catch(() => {});
   };
   read();
+  document.addEventListener("visibilitychange", read);
   // Dev previews share an HTTP/1 connection pool across IAB tabs. Use polling
   // so three long-lived streams per preview cannot starve ordinary API reads.
   if (!isDesktop && !import.meta.env.DEV) {
@@ -113,11 +114,13 @@ export function startConnector() {
     stream.onerror = read;
   }
   const timer = setInterval(() => {
+    if (document.hidden) return;
     if (isDesktop || stream?.readyState !== EventSource.OPEN || connector.get().error) read();
   }, 2000);
   return () => {
     stopped = true;
     clearInterval(timer);
+    document.removeEventListener("visibilitychange", read);
     stream?.close();
     clearTimeout(feedbackTimer);
   };

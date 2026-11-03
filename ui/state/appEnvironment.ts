@@ -73,11 +73,13 @@ export function observeAppEnvironment() {
   const update = () => { document.documentElement.dataset.reducedMotion = String(media.matches); };
   media.addEventListener("change", update); update();
   const refresh = () => {
+    if (document.hidden) return;
     const sample = appEnvironment.get();
     if (sample?.active && sample.expiresAt !== null && Date.now() >= sample.expiresAt) appEnvironment.set(undefined);
     void refreshAppEnvironment().catch(console.error);
   };
   refresh();
+  document.addEventListener("visibilitychange", refresh);
   const timer = setInterval(refresh, 500);
-  return () => { clearInterval(timer); media.removeEventListener("change", update); };
+  return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); media.removeEventListener("change", update); };
 }
