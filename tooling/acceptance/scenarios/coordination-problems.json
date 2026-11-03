@@ -61,7 +61,7 @@
       "headline": "Updating the sample renderer"
     }
   ],
-  "page": "coordination",
+  "page": "overview",
   "coordination": "problems",
   "viewports": [
     {
@@ -90,5 +90,6 @@
       "willResume": [],
       "unaffected": []
     }
-  }
+  },
+  "studio": "day"
 }

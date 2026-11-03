@@ -1,57 +1,45 @@
-# Find changes and coordinate shared work
+# Read the Agent Board
 
-Open **Event center** in the bottom-left navigation capsule.
-Choose **Events** to inspect changes or **Board** to coordinate resources.
-Use **Needs attention** to find current actions. Use the resource filter to narrow
-both views. Studio's pending-task count opens **Task input** directly.
+Click the current-activity row below the homepage clock and date to open **Board**.
+The whole row opens the dialog. With Studio disabled, the activity row remains at
+the top of the homepage. Its running and pending-input counts keep their task-only
+meaning.
 
-## Handle an event
+## Inspect current work
 
-Open a task to answer its question, respond to a permission request, or use its
-existing retry or resume controls. Closing the detail returns to the event center
-with its filters preserved. Connection and update links open their existing
-controls. Expand grouped observations to inspect individual outcomes and IDs.
+**Current** shows running work, published resource declarations, resource blockers
+and outstanding items. Filter by resource or choose **Task input** to find tasks
+waiting for a user decision. Open a record to inspect its owner, resources, state
+and last observed activity. Use **History** to include closed, withdrawn and
+cleared records. Expand **Metadata** for record identifiers and raw evidence.
 
-The capsule counts distinct current actions, including outstanding blockers and
-observed connection, notification and update problems. Studio keeps its task-only
-count. An unavailable total appears as a dash. Opening a record leaves its action
-outstanding until its owner confirms a change.
+Board is read-only. Agents publish, update and close their notices through their
+existing operations. Resources remain advisory declarations. Outstanding items
+stay with their task, resource or service owner until that owner confirms a change.
 
-Use **Load retained history** to read older journal pages. If retention or a scope
-change invalidates a cursor, inspect the gap and choose **Reset cursor**. A failed
-refresh keeps the last readable data and offers a retry.
+Follow a task link to answer a question, respond to a permission request or use the
+task's existing controls. Connection and update links open their existing surfaces.
+Closing the owner detail returns to Board with its view and focus preserved.
+Press Escape to leave a record detail, then press Escape again to close Board and
+return focus to the homepage activity row.
 
-## Publish work and resource conditions
+## Read recent changes
 
-In **Board**, choose **Post notice**. Enter a one-line intent, select resources,
-and estimate the duration in seconds. Link local tasks when available. Open a
-notice to edit it or close its work scope. Closing a notice releases its advisory
-claims and leaves linked tasks running.
-
-Choose **Open blocker** to report a resource condition. Supply its cause code and
-summary. A stale or uncertain blocker stays outstanding. Open it and choose
-**Clear blocker** after recovery. Supply evidence IDs and either a verified Git
-commit in a registered project or an explicit non-code recovery reason. Select a
-suggested next step. Clearing the blocker leaves task continuation to the user or
-its owning source.
-
-Use **History** to include closed, withdrawn and cleared records. Details retain
-the reason, evidence, owner and last evidenced activity. Resource conflicts are
-advisory; incomplete conflict coverage remains visible.
+Choose **Activity** for recent journal observations. Expand groups for individual
+outcomes. Task links preserve the observed turn, including historical failures.
+Use **Load retained history** for older observations. If retention invalidates a
+cursor, inspect the gap and choose **Reset cursor**. A failed refresh keeps the last
+readable data and offers a retry.
 
 ## Limits
 
 The journal retains bounded instance-local metadata. Current task attention uses
-already observed activity and execution results. Unknown or unavailable observation
-can leave coverage incomplete. A missing heartbeat does not confirm completion.
+already observed activity and execution results. Partial or unavailable observation
+remains explicit. A missing heartbeat does not confirm completion or clear a blocker.
 
-Project choices come from ARC's cached registered-project projection. Refresh
-projects through their owner when a repository is missing. Existing record resources
-remain selectable. Task links retain the native dispatch-origin restriction.
-Source-owned links can be preserved during local editing; adding links still
-requires an evidenced local dispatch. Metadata references without an available
-local target remain readable by ID.
+Resource choices use cached registered projects and existing records. Refresh
+projects through their owner when a repository is missing. Metadata references
+without an available local target remain readable by ID.
 
 Notification problems link to the existing connection surface. Source-specific
 reachability and delivery diagnosis remain available through `notify_status`.
-The event center introduces no notification acknowledgement or recovery form.

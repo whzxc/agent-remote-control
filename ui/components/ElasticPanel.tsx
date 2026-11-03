@@ -32,6 +32,7 @@ export default function ElasticPanel({
   onClose,
   onCloseStart,
   onDismiss,
+  onEscapeKeyDown,
   title,
   labelledBy,
   children,
@@ -62,6 +63,7 @@ export default function ElasticPanel({
   onClose: () => void | Promise<void>;
   onCloseStart?: () => void;
   onDismiss?: () => void;
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
   title: ReactNode;
   labelledBy?: string;
   children: ReactNode;
@@ -372,6 +374,9 @@ export default function ElasticPanel({
             // Wait for the scene to restore its bubbles and remove modal inert.
             requestAnimationFrame(() => {
               if (dock && document.querySelector("[data-panel-dock]")) return;
+              const activePanel = panelLayers.get().at(-1);
+              const focused = document.activeElement;
+              if (focused && focused !== activePanel && activePanel?.contains(focused)) return;
               const fallbacks = returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(returnFocus)) : [];
               for (const target of [trigger.current, parentPanel.current, panelLayers.get().at(-1), ...fallbacks]) {
                 if (!target?.isConnected || target === document.body || target.closest("[inert], [hidden]") || target.matches(":disabled")) continue;
@@ -383,6 +388,8 @@ export default function ElasticPanel({
             });
           }}
           onEscapeKeyDown={(e) => {
+            onEscapeKeyDown?.(e);
+            if (e.defaultPrevented) return;
             e.preventDefault();
             void close();
           }}

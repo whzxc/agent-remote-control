@@ -1,6 +1,6 @@
 import { mcpScenario, type McpFixture } from './mcp/scenario';
 import { coordinationScenario, type CoordinationFixture } from './scenarioCoordination';
-import { resetBoardObservation, centerView } from './coordination/state';
+import { resetBoardObservation, centerView, boardOpen } from './coordination/state';
 import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts } from './topology/scenarioAccounts';
@@ -162,7 +162,8 @@ export async function installScenario(name: string) {
   mcpResponse = mcpScenario(fixture.mcpServices);
   coordinationResponse = coordinationScenario(fixture.coordination);
   resetBoardObservation();
-  centerView.set({ view: 'events', filter: 'all', resource: '', history: false });
+  boardOpen.set(false);
+  centerView.set({ view: 'current', filter: 'all', resource: '', history: false });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
   const preferences = { 'mcp-services': fixture.mcpServices ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };

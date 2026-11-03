@@ -320,14 +320,26 @@ or blocker free text. Pending projection is retried in bounded batches on reads
 and in the existing observer loop. Terminal/successor evidence is saved before the
 upstream observer checkpoint. No new polling task is added.
 
-## Desktop event center
+## Desktop Board
 
-The shared navigation capsule opens Events and Board. `ui/coordination` owns
-bounded query results, filters and drafts. `taskAttention` reuses the task activity,
-execution and pending-input projections. Completion-read dismissal never resolves
-a failed execution. An evidenced successful successor removes its predecessor's
-attention while journal history remains retained. Studio uses its original task
-summary and opens the task-input filter.
+The homepage's entire activity row opens the read-only Board dialog. With Studio
+enabled, the row sits below the clock and date. Without Studio, the row remains
+available at the top of the homepage. The navigation capsule has no Board entry.
+Studio's running and pending-input counts retain their task-only meaning.
+
+`ui/coordination` owns bounded query results and view state. Current groups running
+tasks and published intent, resource blockers, and outstanding owner actions.
+Activity shows retained journal observations. Record details show the owner,
+resources, state and activity coverage. Raw metadata is disclosed on demand.
+The desktop has no publication, editing or clearance forms. Owner links open the
+existing task, connection or update surface and restore the Board view and focus
+on return. Reading does not acknowledge messages, clear blockers or resume tasks.
+
+`taskAttention` reuses the task activity, execution and pending-input projections.
+Completion-read dismissal never resolves a failed execution. An evidenced
+successful successor removes its predecessor's attention while history remains
+retained. Native shared composition and AX references are specified in
+[the Board specification](coordination-center-spec.md).
 
 Authenticated local management exposes `coordination.events`, `coordination.board`,
 `coordination.notice_post`, `coordination.notice_update`, `coordination.notice_close`,
@@ -336,8 +348,8 @@ Authenticated local management exposes `coordination.events`, `coordination.boar
 the management catalog derives these schemas directly from the domain catalog.
 The service captures built-in local authority and calls the existing journal or
 bulletin owner. Revisions, request-ID replay, validation and fixing-commit checks
-remain owner behavior. Local editing preserves unchanged source-owned thread links;
-new links retain the native dispatch-origin requirement.
+remain owner behavior. Closing a notice leaves linked tasks running. Clearing a
+blocker leaves task continuation with its owner.
 
 `coordination.resources` is a GET that projects cached registered project IDs and
 `app:installed` without discovery or upstream reads. Existing bulletin and journal
@@ -351,21 +363,18 @@ complete observation from partial or unavailable results. The desktop projects
 only problems with an available connection surface into attention. Source delivery
 and reachability controls remain `notify_status` and `notify_control`.
 
-Current board reads traverse at most four owner pages before reporting a complete
-attention count. Board and journal failures retain their last readable snapshots
-independently. The journal saves a separate opaque high-water polling cursor and
-retained-history cursor for each current resource scope. Scope changes discard the
-old query result after the replacement read. Expired cursors require an explicit
-reset and retain the gap explanation. Current task snapshots do not trigger per-row
-timeline reads. Details load only when opened.
+Current board reads traverse at most four owner pages before reporting complete
+attention coverage. Board and journal failures retain their last readable snapshots
+independently. The journal saves separate opaque polling and retained-history
+cursors for its current resource scope. Scope changes discard the old query result
+after the replacement read. Expired cursors require an explicit reset and retain
+the gap explanation. Task snapshots do not trigger per-row timeline reads. Details
+load only when opened.
 
-The visible workspace refreshes metadata every fifteen seconds. Hidden documents
-and closed history views do not poll the journal. The capsule refreshes current
-board metadata while its homepage or workspace is visible. Local forms load the
-full owner record before editing and preserve a draft across revision refresh.
-A new draft gets a new request ID; an unchanged retry retains its request ID.
-Closing a notice leaves linked tasks running. Clearing a blocker never resumes a
-task. The journal, bulletin and notification event envelopes are unchanged.
+The homepage and open Board refresh current metadata every fifteen seconds.
+Activity polls only while visible. Hidden documents and closed Activity views do
+not poll the journal. The journal, bulletin and notification envelopes retain
+their existing contracts.
 
 ## Advisory action warnings
 

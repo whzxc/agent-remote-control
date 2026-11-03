@@ -1,7 +1,7 @@
 import McpServices from './mcp/McpServices';
 import { mcpServicesEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
-import { useAttention, useBoardObservation } from './coordination/state';
+import { boardFocus, boardOpen, useBoardObservation } from './coordination/state';
 import { agentPanel, ingressPanel } from './state/overviewPanels';
 import { StudioBackground, StudioControls } from './display/Studio';
 import { studioEnabled } from './display/state';
@@ -25,7 +25,6 @@ import {
   Users,
   PawPrint,
   Cloud,
-  ListChecks,
   Plug,
 } from "lucide-react";
 import { animate } from "motion";
@@ -75,7 +74,7 @@ export default function App() {
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
-  const actionable = useAttention();
+  const bulletinOpen = boardOpen.use();
   const returning = centerReturn.use(), taskSelection = agentPanel.use(), connectionSelection = ingressPanel.use();
   const updatePanelOpen = updates.use().panelOpen;
   const returnOpened = useRef(false);
@@ -85,8 +84,7 @@ export default function App() {
     if (opened) { returnOpened.current = true; return; }
     if (!returnOpened.current) return;
     const focusId = returning.focusId;
-    centerReturn.set(undefined); setPage('coordination');
-    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(focusId)?.focus({ preventScroll: true })));
+    centerReturn.set(undefined); boardFocus.set(focusId); boardOpen.set(true);
   }, [returning, taskSelection, connectionSelection, updatePanelOpen]);
   const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
   const { feedback, status } = connector.use();
@@ -99,7 +97,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-services"] : []), "coordination"].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-services"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -110,7 +108,7 @@ export default function App() {
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = panelLayers.use();
   const modalOpen = layers.some(layer => !layer.dataset.panelDock);
-  useBoardObservation((page === 'overview' || page === 'coordination') && !modalOpen);
+  useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
     if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-services" && !mcp)) {
@@ -245,7 +243,6 @@ export default function App() {
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);
   const pages = [
-    { id: "coordination" as const, label: t("center.title"), icon: ListChecks },
     { id: "settings" as const, label: t("settings"), icon: Settings },
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
@@ -356,9 +353,7 @@ export default function App() {
             <main
               className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
             >
-              {page === "coordination" ? (
-                <CoordinationCenter />
-              ) : page === "permissions" ? (
+              {page === "permissions" ? (
                 <PermissionsPage />
               ) : page === "accounts" ? (
                 <PlatformsPage />
@@ -399,7 +394,6 @@ export default function App() {
               onClick={() => navigate(item.id)}
             >
               <Icon icon={item.icon} size={20} />
-              {item.id === 'coordination' && (!actionable.complete || actionable.items.length > 0) && <span className="center-badge" aria-label={actionable.complete ? t('center.attentionCount', { count: actionable.items.length }) : t('center.partial')}>{actionable.complete ? actionable.items.length : '—'}</span>}
 
             </button>
           ))}
@@ -431,6 +425,7 @@ export default function App() {
         if (!newConnection.forSource && !newConnection.forSwitch) navigation.set(old => ({ ...old, page: "overview", connectionsOpen: true, remoteConnectionId: id }));
         connectionSetup.set(undefined);
       }} />}
+      {bulletinOpen && <CoordinationCenter />}
       <UpdateOutcome />
       <OAuthApproval inlineEnabled={page === "overview"} requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
     </div>

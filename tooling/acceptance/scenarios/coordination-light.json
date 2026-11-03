@@ -61,7 +61,7 @@
       "headline": "Updating the sample renderer"
     }
   ],
-  "page": "coordination",
+  "page": "overview",
   "coordination": "normal",
   "viewports": [
     {
@@ -72,5 +72,6 @@
       "width": 1280,
       "height": 800
     }
-  ]
+  ],
+  "studio": "day"
 }

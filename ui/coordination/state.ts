@@ -6,10 +6,9 @@ import { taskExecutions } from '../state/taskExecution';
 import { activityApprovals, agentActivity } from '../state/activity';
 import { connector } from '../state/connector';
 import { updates, updateObservation } from '../state/updates';
-import { navigation } from '../state/navigation';
 import { liveRecord, taskAttention, type Attention, type BoardPage } from './model';
 
-export const centerView = createStore<{ view: 'events' | 'board'; filter: 'all' | 'attention' | 'input'; resource: string; history: boolean }>({ view: 'events', filter: 'all', resource: '', history: false });
+export const centerView = createStore<{ view: 'current' | 'activity'; filter: 'all' | 'attention' | 'input'; resource: string; history: boolean }>({ view: 'current', filter: 'all', resource: '', history: false });
 export const boardObservation = createStore<{ page?: BoardPage; error: string; loading: boolean }>({ error: '', loading: false });
 let reading: Promise<void> | undefined;
 let generation = 0;
@@ -39,11 +38,6 @@ export function refreshBoard() {
     } catch (error) { if (before === generation) boardObservation.set(old => ({ ...old, error: String(error), loading: false })); }
     finally { reading = undefined; }
   })();
-}
-export async function refreshBoardAfterMutation() {
-  generation++;
-  await reading;
-  await refreshBoard();
 }
 export function resetBoardObservation() { generation++; boardObservation.set({ error: '', loading: false }); }
 export function useBoardObservation(enabled: boolean) {
@@ -82,7 +76,10 @@ export function coordinationSnapshot() {
   return { view: centerView.get(), attention: { complete: attention.complete, count: attention.complete ? attention.items.length : null, items: attention.items.map(item => ({ id: item.id, kind: item.kind })) }, board: boardObservation.get() };
 }
 
-export function openCenter(input = false) {
-  if (input) centerView.set(old => ({ ...old, view: 'events', filter: 'input', resource: '' }));
-  navigation.set(old => ({ ...old, page: 'coordination' }));
+export const boardOpen = createStore(false);
+export const boardFocus = createStore<string | undefined>(undefined);
+export function openCenter() {
+  boardFocus.set(undefined);
+  centerView.set(old => ({ ...old, view: 'current', filter: 'all' }));
+  boardOpen.set(true);
 }

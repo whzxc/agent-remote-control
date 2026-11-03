@@ -26,15 +26,18 @@
 .app-scene[data-display="studio"] .home-workspace { position: relative; }
 .app-scene[data-display="studio"] .home-workspace:has(.topology-scene[data-orientation="portrait"]) { padding-top: calc(var(--studio-header-top) + var(--studio-clock-size) + 72px); }
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
-.studio-header { position: absolute; top: var(--studio-header-top); left: clamp(128px, var(--topology-hub-x, 50%), calc(100% - 128px)); transform: translateX(-50%); z-index: 2; width: max-content; max-width: min(360px, calc(100% - 32px)); display: grid; gap: 14px; text-align: center; pointer-events: none; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
+.studio-header { position: absolute; top: var(--studio-header-top, 32px); left: clamp(128px, var(--topology-hub-x, 50%), calc(100% - 128px)); transform: translateX(-50%); z-index: 2; width: max-content; max-width: min(360px, calc(100% - 32px)); display: grid; gap: 14px; text-align: center; pointer-events: none; color: var(--studio-clock); text-shadow: 0 1px 12px var(--studio-veil); }
 .studio-time { display: grid; gap: 10px; }
 .studio-date { color: var(--studio-secondary); font-size: 13px; line-height: 1.4; letter-spacing: .08em; }
 .studio-clock { font-size: var(--studio-clock-size); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .04em; line-height: 1; }
 .studio-activity { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; line-height: 1.4; color: var(--studio-secondary); }
 .studio-activity:empty { display: none; }
-.studio-activity > span, .studio-activity > button { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.studio-activity-trigger > span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .studio-running::before, .studio-pending::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mark-agent-start); flex-shrink: 0; }
-.studio-pending { color: var(--warning); pointer-events: auto; height: auto; min-height: 24px; padding: 0; font: inherit; }
+.studio-pending { color: var(--warning); }
+.studio-activity-trigger { pointer-events: auto; height: auto; min-height: 28px; padding: 2px 6px; display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; color: inherit; font: inherit; }
+.studio-header.activity-only { color: var(--text-secondary); }
+.studio-header.activity-only .studio-activity { color: inherit; }
 .studio-pending::before { background: currentColor; }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 @media (orientation: portrait) {

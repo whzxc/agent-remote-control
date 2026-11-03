@@ -202,10 +202,10 @@ coverage MUST remain distinguishable from a genuine empty result.
 
 ## Desktop read-only boundary
 
-The Board page supports reading, filtering, grouping, expanding records and
+The Board dialog supports reading, filtering, grouping, expanding records and
 navigating to existing owner details. These are observation and navigation actions.
-The public Board surface exposes no publication, edit, close, clear, confirm,
-triage, retry, resume or approval controls. It has no mark-all-resolved action.
+The public Board surface exposes no publication, editing, notice closure, blocker
+clearance, confirmation, triage, task retry, resume or approval controls. It has no mark-all-resolved action.
 
 Opening an existing task or settings surface can expose that surface's normal
 authorized interactions. The transition MUST be explicit. Those interactions remain
@@ -222,22 +222,28 @@ the default Board experience. There is no new administrative UI in this scope.
 
 ## Homepage experience
 
-An enable switch controls visibility. When enabled, Board is an atmospheric part
-of the homepage. Its shared bottom-left capsule entry remains the only launcher.
-The collapsed state SHOULD reveal at most two or three useful current summaries.
-The expanded state reveals Current and the secondary Activity view in the same
-visual family. Current opens first. Attention and resource filters retain context.
+The entire current-activity row below the homepage clock and date opens Board.
+There is no Board entry in the bottom-left navigation capsule. The row remains a
+single compact trigger. When Studio is disabled, the same activity trigger remains
+available at the top of the homepage without enabling Studio's clock or background.
+The trigger remains available when there are no active tasks.
 
-Use a compact, quiet surface connected spatially to the existing capsule, ARC
-mark and task topology. Ownership links can reveal their related nodes on hover,
-focus or expansion. Avoid duplicating the homepage's full task cards. Keep the
-room background and task topology readable. Avoid a full-height management panel,
-a scrolling event wall or a dashboard grid.
+Board opens as a shared, bounded dialog. Current is the default view. Activity is a
+secondary view in the same dialog. Current groups known work and resource
+declarations, resource blockers and outstanding owner actions. Resource and
+attention filters narrow the observation. Record expansion shows readable owner,
+resource, state and activity metadata, with technical metadata behind disclosure.
+Owner-detail navigation preserves the view and returns focus to its initiating row.
 
-Preserve the clock, date, running-task summary, earcup connections and background.
-Studio's task-input count retains its original task-only meaning. Its destination
-shows the corresponding read-only user-decision scope or the existing task detail;
-it MUST NOT silently become an Agent-work or AX count. No focus timer is added.
+Use a quiet list with clear spacing and restrained separators. Avoid decorative
+motion, playful effects, dashboard grids and full-height management panels. The
+clock, date, ARC mark, task topology, earcup connections and room background retain
+their existing layout. No additional homepage shelf or floating launcher is added.
+
+Studio's running and pending-input counts retain their original task-only meaning.
+Clicking either count or the space within their row opens Current. The row MUST NOT
+silently become an Agent-work, blocker or AX count. A task-input filter in Board
+provides the corresponding read-only user-decision scope. No focus timer is added.
 
 Use shared controls and semantic tokens. Use `SingleChoice` for Current/Activity
 and other single-choice controls. Support both themes, both languages, portrait
@@ -261,10 +267,10 @@ The control-source `guide`, `query`, `act` parameter structures remain frozen.
 The single `notification` event and its `{op, args}` outer envelope remain frozen.
 Capability changes use catalog operations and guide.
 
-The current desktop attention aggregation and bulletin editing forms are existing
-behavior to replace in a future implementation turn. Native owner contracts and
-agent operations continue to work while the presentation changes. This
-specification update includes no implementation, migration or runtime changes.
+The desktop currently composes observed task attention and bulletin metadata in
+React. The shared native projection and AX composition described here remain
+implementation targets. The desktop Board is read-only. Agent and authenticated
+management writes continue through the existing owner contracts.
 
 ## Acceptance targets
 
@@ -287,7 +293,7 @@ target presentation and do not serve as runtime acceptance evidence.
 | Stale notice, blocker or unknown execution | No invented completion, clearance or fresh heartbeat appears. |
 | Future or recurring AX work | Its real owner retains the schedule and outstanding state when a temporary notice expires. |
 | Partial, failed and empty owner reads | Coverage, retryable failure and genuine emptiness remain distinct. |
-| Enabled homepage in both themes and narrow widths | The small surface fits the room, retains topology and exposes readable metadata without horizontal page overflow. |
+| Enabled homepage in both themes and narrow widths | The activity row opens a bounded dialog, retains the homepage layout and exposes readable metadata without horizontal page overflow. |
 
 ## Scope
 
