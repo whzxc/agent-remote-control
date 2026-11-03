@@ -348,17 +348,49 @@ try {
           }
         }
         if (name === 'accounts') {
-          // Regression: account management was only reachable through Settings and hid source identities.
+          // Regression: the accounts fixture still expected the retired Accounts page after management moved to Platforms.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          await page.getByRole('heading', { name: messages['accounts.title'], exact: true }).waitFor({ state: 'visible' });
-          await page.getByRole('textbox', { name: messages['accounts.alias'], exact: true }).waitFor({ state: 'visible' });
-          await page.getByRole('button', { name: messages['accounts.add'], exact: true }).click();
-          const dialog = page.getByRole('dialog', { name: messages['accounts.add'], exact: true });
+          await page.getByRole('heading', { name: messages['platforms.title'], exact: true }).waitFor({ state: 'visible' });
+          const source = await page.evaluate(async () => {
+            const { scenarioResponse } = await import('/ui/scenarios.ts');
+            const { controlSource } = await import('/ui/controlSources.ts');
+            const source = scenarioResponse('source', 'GET').sources.find(source => source.product === 'chatgpt');
+            if (!source?.authorizationFacts?.email) throw new Error('Account fixture is missing its connected source identity');
+            return { label: source.label, email: source.authorizationFacts.email, product: controlSource(source.product).displayName };
+          });
+          const card = page.getByRole('region', { name: source.label, exact: true });
+          await card.getByRole('heading', { name: source.label, exact: true }).waitFor({ state: 'visible' });
+
+          // Regression: AX-26 copying a selection spanning an ordinary label and masked identity discarded the label.
+          const identity = card.getByRole('definition').filter({ hasText: /@/ }).getByLabel(messages['accounts.hidden'], { exact: true });
+          const standIn = await identity.innerText();
+          if (!standIn || standIn === source.email) throw new Error('Account identity is not privacy-masked');
+          const copied = await page.evaluate(({ label, identity }) => {
+            const selection = window.getSelection(), range = document.createRange();
+            range.setStartBefore(label); range.setEndAfter(identity);
+            selection.removeAllRanges(); selection.addRange(range);
+            try {
+              const selected = selection.toString(), clipboard = new DataTransfer();
+              clipboard.setData('text/plain', selected);
+              const event = new ClipboardEvent('copy', { bubbles: true, cancelable: true, clipboardData: clipboard });
+              identity.dispatchEvent(event);
+              return { selected, text: clipboard.getData('text/plain'), handled: event.defaultPrevented };
+            } finally { selection.removeAllRanges(); }
+          }, { label: await card.getByText(messages['platforms.email'], { exact: true }).elementHandle(), identity: await identity.elementHandle() });
+          if (!copied.selected.includes(messages['platforms.email']) || !copied.selected.includes(standIn)) throw new Error('Copy selection does not span ordinary text and the masked identity');
+          if (!copied.handled || !copied.text.includes(messages['platforms.email']) || !copied.text.includes(source.email) || copied.text.includes(standIn)) throw new Error('Mixed account copy lost ordinary text or failed to restore the real fixture identity');
+
+          await card.getByRole('button', { name: messages['platforms.rename'].replace('{name}', source.label), exact: true }).click();
+          const renamed = `${source.label} fixture`;
+          await card.getByRole('textbox', { name: messages['platforms.name'], exact: true }).fill(renamed);
+          await card.getByRole('button', { name: messages.save, exact: true }).click();
+          await page.getByRole('region', { name: renamed, exact: true }).getByRole('heading', { name: renamed, exact: true }).waitFor({ state: 'visible' });
+          await page.getByRole('button', { name: messages.addControlSource, exact: true }).click();
+          const addProduct = messages['setup.addProduct'].replace('{name}', source.product);
+          await page.getByRole('menuitem', { name: addProduct, exact: true }).click();
+          const dialog = page.getByRole('dialog', { name: addProduct, exact: true });
           await dialog.waitFor({ state: 'visible' });
-          await dialog.getByRole('button', { name: messages['accounts.next'], exact: true }).click();
-          await dialog.getByRole('button', { name: messages['accounts.signin'], exact: true }).click();
-          await dialog.getByRole('textbox', { name: messages['accounts.alias'], exact: true }).waitFor({ state: 'visible' });
-          await dialog.getByRole('button', { name: messages['accounts.confirm'], exact: true }).click();
+          await page.keyboard.press('Escape');
           await dialog.waitFor({ state: 'hidden' });
         }
 

@@ -16,6 +16,8 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
     { id: 'account-review', provider: 'anthropic', identityKey: 'anthropic:id:example-review-identity', alias: 'Review', email: 'review@example.com', orgName: 'Example Review', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' }, agentProfiles: [{ agent: 'claude', profileId: 'profile-review', kind: 'cli-profile', state: 'signed-out', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } },
     { id: 'account-key', provider: 'deepseek', identityKey: 'deepseek:unidentified:api-key:dsh', alias: 'Unidentified', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' }, agentProfiles: [{ agent: 'dsh', profileId: 'api-key:dsh', kind: 'api-key', state: 'unfinished', default: true }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } },
   ];
+  const connectedAccount = accounts.find(account => account.sources.includes(chatgpt.id))!;
+  chatgpt.authorizationFacts = { email: connectedAccount.email ?? undefined, orgName: connectedAccount.orgName ?? undefined };
   let polls = 0, sequence = 0, login: AccountLogin | null = null;
   let loginAccount: string | undefined;
   const requireAccount = (id: string): ProviderAccount => {
