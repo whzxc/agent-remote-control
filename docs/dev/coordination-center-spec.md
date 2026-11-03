@@ -1,224 +1,299 @@
-# Event center and bulletin board
+# Agent bulletin and activity
 
-This specification defines the first desktop coordination workspace. It builds on
-the existing [coordination owners](coordination.md) and follows the shared
-[UI conventions](ui.md). It describes the desktop workspace; the coordination reference remains
-authoritative for native behavior.
+MUST means a requirement. SHOULD means the default unless a concrete task-specific
+reason justifies an exception. MAY means an option.
 
-## Product outcome
+This specification defines the target product model for the Agent bulletin. The
+[coordination reference](coordination.md), current source and current catalog remain
+authoritative for implemented operations. This document does not change their
+contracts. The desktop follows the shared [UI conventions](ui.md).
 
-When several tasks run together, a user can find what changed, identify work that
-needs intervention, inspect the affected task or resource, and use the existing
-action that can move it forward.
+## Product outcome and audience
 
-The workspace has two views:
+Agents use the bulletin to establish shared context: what is happening, which
+resources have declared users, what needs attention, and what changed since their
+last observation. Agents publish and maintain their own coordination notices.
+Humans can observe this context on the homepage and inspect its owning records.
 
-- **Events** presents observed changes and links to their owning surfaces.
-- **Board** presents current work notices, resource claims, blockers and activity.
+The product has one public entry, **Board**, with two views:
 
-An attention filter prioritizes actionable current conditions. Reading an item
-does not resolve it. A resource claim stays advisory and never acquires a lock,
-grants permission, or changes dispatch policy.
+- **Current** presents current work, advisory resource declarations and outstanding
+  matters from their domain owners.
+- **Activity** presents observed changes from the bounded `events` journal.
 
-## Entry and navigation
+Attention is a filter of current matters. It is not another inbox or task store.
+The desktop defaults to read-only observation. Agent publication and domain actions
+form the primary workflow.
 
-Add one entry to the shared bottom-left navigation capsule. Open a normal workspace
-panel with its title bar at the top. Use `SingleChoice` for Events and Board, and
-keep the attention filter and available project/resource filter in a compact
-toolbar. Start with Events and retain the selected view and filters while the
-window remains open. Avoid a new dashboard, separate floating launcher or third
-notification panel.
+## Information model
 
-The capsule badge counts distinct current actionable items, not unread events.
-Show no badge for zero. Derive the count from the same projection used by the
-attention filter. A partial or unavailable observation cannot claim a complete
-zero. Use the existing unavailable-state convention instead of a fabricated count.
+| Information | Canonical owner | Meaning and lifecycle |
+| --- | --- | --- |
+| Running work and execution state | Existing task/activity owner | Observed execution, with its task and turn references. |
+| Work intent and temporary public notices | `coordination::bulletin` | Source-reported context maintained by its authenticated owner. |
+| Resource declarations and resource blockers | `coordination::bulletin` | Advisory claims and explicit conditions; never resource locks. |
+| AX candidates and confirmed AX entries | `coordination::ax` | Candidate confirmation, triage and resolution retain their native lifecycle and authority. |
+| Task questions and permission requests | Existing interaction owner | An outstanding request with its actual responder and permission boundary. |
+| Connection, notification or update problems | Existing connection, notification or update owner | Current unresolved conditions with an available owning diagnostic or corrective surface. |
+| Recent changes | `coordination` journal | Historical observations referring to canonical records. |
+| Addressed requests between sources | Existing `messages` owner | Source-visible inbox/outbox content and negotiation state. |
 
-Rows open the existing task, connection or update surface where one exists. Preserve
-the selected task and turn from the event reference. Preserve workspace filters
-and restore focus when returning. A missing or inaccessible target remains readable
-as metadata with an actionable explanation; do not render a nonfunctional link.
+A notice changing state can appear in Activity while its latest state appears in
+Current. Both refer to the same canonical notice. Activity does not own resolution.
+Current does not copy the event journal into another history store.
 
-## Events
+The bulletin MUST reuse registered resource identities.
+A resource declaration MUST remain advisory.
+A task reference MUST retain its task, turn and source association.
+A failed task MUST retain its execution outcome when an associated notice closes.
+A closed notice MUST NOT resolve an AX entry or another owner's outstanding matter.
 
-Use the bounded `events` journal for history. Present the newest observations first
-with time, event type, known actor, resource and outcome. Render supplied metadata
-as data. Resolve human-readable labels through existing local projections where
-available; retain opaque IDs when labels are unknown. Event references do not
-grant access to task content.
+## Agent read/write loop
 
-Keep important transitions visible: task submission and terminal outcomes,
-notification failures, stalled or unconfirmed operations, application replacement
-and recovery, resource notices and blockers, and registered worktree/Git changes.
-Group repetitive observations of the same operation or bound task turn into a
-compact expandable row. Preserve the event IDs, ordering, distinct outcomes and
-references inside that group. Do not join unrelated tasks by title or actor label.
+### 1. Read shared context
 
-Current pending input and connection conditions come from their existing owners;
-they are not fabricated historical journal records. Show current attention items
-above retained history in the same Events view. Do not copy prompts, transcripts,
-raw error bodies or private routes into the shared coordination journal.
+At turn start, after a return from a long-running operation, and before work on a
+shared resource, an Agent reads current coordination context. It reads Activity
+from its saved cursor when incremental history is useful. It also reads its own
+addressed messages when participating in source-to-source coordination.
 
-Use existing task response, retry and resume interactions in the task detail
-surface. Connection and update failures open their existing corrective controls.
-The event center does not introduce another approval form, message composer,
-dispatch engine or automatic retry mechanism.
+The existing building blocks are `query` ops `board`, `events`, `ax_list` and
+`messages`, plus the relevant task or other owner reads. An implementation may
+compose these behind a native read operation discovered through the current
+catalog and guide. The normalized current projection MUST be available to Agents
+and the desktop through the same native composition. It MUST NOT exist only in
+React. Its exact operation schema belongs in the catalog when implemented.
 
-### Attention semantics
+The context includes current work, active declarations, outstanding matters,
+observation time and coverage. Detailed records are loaded on demand. It does not
+crawl transcripts or start an Agent to build the summary.
 
-Include an item only when current owner evidence identifies an outstanding action:
+The Agent MUST keep independent cursors for each journal filter scope and addressed
+inbox scope. Desktop browsing MUST NOT advance those Agent cursors. Cursor expiry
+MUST expose the owner's gap and reset contract. A successful read MUST NOT resolve
+a matter or acknowledge a notification handshake.
 
-- An answerable, unsubmitted task question or permission request.
-- A current failed or interrupted task with an available inspection/recovery action.
-- An uncleared blocker, including stale or uncertain blockers.
-- An observed connection, notification or update problem with a relevant corrective
-  surface, while its owner still reports the condition as unresolved.
+### 2. Publish intent or immediate context
 
-Deduplicate repeated observations and overlapping task indicators by their owning
-task/turn, request or blocker identity. Prefer the pending decision as the task's
-primary action. Historical failures remain in Events but stop contributing to
-attention after the owner confirms recovery or a successful successor. Receipt
-stalling alone never proves task failure. Unknown execution and incomplete coverage
-retain their existing meaning and do not become invented questions or failures.
+An Agent publishes a short notice when shared work benefits from an explicit
+intent, resource declaration or immediate public explanation. Existing running-task
+metadata is projected from the task owner. Agents SHOULD avoid repeating task
+progress in manually maintained notices.
 
-There is no mark-all-resolved control. Opening a row does not answer a question,
-clear a blocker, advance a source inbox cursor or acknowledge recovery. Successful
-actions refresh the owner projection and therefore the attention list and count.
+The existing publication operations are `notice_post`, `notice_update` and
+`notice_close`. The source identity comes from authenticated origin. An Agent
+updates only records allowed by the native ownership contract. Revisions and
+request-ID replay remain the bulletin owner's responsibility.
 
-## Board
+A general notice needs a concise metadata summary and an authenticated owner.
+Resource and task associations are supplied when meaningful. Resource declarations
+require the affected resources. An estimated duration, when supplied, is an estimate.
+The target general-notice workflow SHOULD avoid mandatory unrelated resource or
+duration values. The current `notice_post` contract still requires resources and
+`expectedDurationSeconds`; any simplification requires an explicit domain/catalog
+change during implementation. Clients MUST use the current discovered contract
+until that change lands.
 
-Read `board` through the existing bulletin owner. The default view shows active
-notices and uncleared blockers. An explicit history option exposes retained closed
-and withdrawn records. Resource and project filters select the same underlying
-records; do not maintain another resource registry.
+### 3. Act through the canonical owner
 
-Each compact row shows the reported intent or blocker summary, owner, affected
-resources, current state and last evidenced activity. Show linked tasks and their
-known execution states when expanded. A phase is displayed only when the existing
-task owner supplies it. Use the existing owner identity projection; unknown
-ownership remains unknown.
+The Agent identifies an outstanding matter, checks its current owner state and
+uses the owner's existing operation when authorized. Examples include confirming
+an associated AX candidate, updating an owned notice, or clearing an owned blocker
+with the required recovery evidence.
 
-Keep these states distinguishable:
+A task question requiring human input remains a request for that human. A pending
+permission request MUST NOT become permission for an Agent to approve itself.
+A matter waiting for another source stays attributed to that source. Local desktop
+administrative authority MUST NOT be used to impersonate an Agent.
 
-| Record | Presentation |
-| --- | --- |
-| Active notice | Current work and advisory resource claims |
-| Closed notice | Closure reason and linked terminal evidence when available |
-| Withdrawn notice | Withdrawal reason; no current resource claim |
-| Active blocker | A resource condition that remains uncleared |
-| Stale or uncertain blocker | Still uncleared, with its activity/coverage limitation |
-| Cleared blocker | Clearance evidence and suggested next step |
+Addressed coordination replies use `messages` and `message_send` under their
+existing visibility rules. Public notices are not a substitute for private replies
+or required negotiation handling.
 
-Use `lastActiveAt`, `inactivityAgeSeconds`, `observedAt` and `activityCoverage` from
-the owner. Do not add an independent frontend expiry rule. A missing heartbeat,
-disconnection or an old observation never proves completion. A stale blocker never
-becomes cleared merely because its owner is inactive. Preserve the native rules
-for successor links, terminal closure and clock uncertainty.
+### 4. Read back the result
 
-### Local actions
+After an action, the Agent reads the owning result or record and refreshes the
+current projection. The owner determines whether the matter is still outstanding.
+The owner projects a change into Activity through its existing producer path.
+The Agent updates or closes its own notice when its declared work scope changes.
 
-Support posting, updating and closing a notice, and opening and clearing a blocker,
-using the existing authenticated local authority and bulletin operations. Load the
-full owner record before editing. Reuse existing revision, receipt, validation and
-error behavior; do not create a second mutation protocol or impersonate a source.
+A transport acknowledgement alone MUST NOT imply that work completed.
+Reading or dismissing a desktop item MUST NOT resolve it.
+Clearing a blocker MUST NOT resume a task.
+Closing a notice MUST NOT stop linked tasks.
 
-Use the shared `Dialog`, native `form`, fields and inputs. Resource selection and
-task links use existing registered identities. Keep constraints beside the relevant
-field. Preserve entered values on error and focus the first invalid field. A stale
-revision prompts a refresh while preserving the draft where practical.
+## Outstanding matters and ownership
 
-Blocker clearance collects the evidence required by the native operation: evidence
-references and a verified commit or explicit non-code recovery reason. Display the
-recorded suggested next step after clearance. Clearing a blocker never resumes a
-task. Closing a notice does not stop its linked tasks. Show these consequences at
-the respective action, where they affect the user's decision.
+The current projection contains references to outstanding owner records, never a
+second durable to-do list. Each projected matter identifies its canonical owner
+and identity, current state, affected resources or tasks, observation coverage,
+required actor and available next step. Where applicable, it retains the current
+revision and the exact catalog-discovered call or owning detail route.
 
-Display the owner's advisory conflicts next to the affected resources. Conflicts
-do not disable an otherwise authorized action. Distinguish partial or unknown
-conflict coverage from an empty conflict set.
+The required-actor categories are:
 
-## Studio integration
+- **Agent action**: an existing owner action is available to the reading source.
+- **User decision**: the owner requires a human answer, permission or decision.
+- **Other source**: progress depends on another identified source.
+- **Unknown**: ownership or actionable coverage is insufficient.
 
-Make the existing Studio pending-task summary open Events filtered to pending task
-input. Keep its count derived from the existing shared task activity projection.
-Do not silently mix blockers and connection problems into that task count. The
-workspace capsule can show the broader attention count defined above.
+These categories report existing owner facts and authorization. They MUST NOT
+introduce another authority model or infer permission from labels, accounts or
+record visibility. Shared visibility does not grant another source's actions.
 
-Preserve the clock, date, running-task summary, arc interactions, topology and
-background. Keep zero-count summaries hidden. Add no focus timer, scrolling event
-wall, extra status cards or persistent board overlay to the homepage.
+| Matter | Read and act at | When it leaves attention |
+| --- | --- | --- |
+| AX candidate needing confirmation | `ax_list`, then authorized `ax_candidate` | The AX owner confirms or rejects that candidate. Confirmation may expose a distinct triage requirement. |
+| Confirmed AX work requiring triage | `ax_list`, then authorized `ax_triage` | The AX owner's applicable requirement is satisfied. Existing Maintainer mode and ownership checks remain in force. |
+| Task input or permission | Existing interaction read/respond operations | The interaction owner confirms the response or withdrawal. |
+| Failed or interrupted execution | Existing task read/recovery operations | The task owner confirms recovery, an evidenced successful successor or another explicit disposition. |
+| Resource blocker | `board`, then authorized `blocker_clear` | The blocker owner records clearance with its required evidence. |
+| Connection, notification or update problem | Existing owner reads and controls | The corresponding owner confirms recovery. |
+| Due work, including a scheduled AX check | Its actual task or automation owner | That owner records execution, completion, cancellation or rescheduling. |
 
-## Data and ownership
+Candidates MUST NOT be presented as confirmed defects. Historical failures remain
+in Activity after current attention is cleared. Receipt stalling alone MUST NOT
+become task failure. A stale blocker remains uncleared. An unavailable owner read
+MUST NOT produce a complete zero.
 
-`coordination` owns event history; `coordination::bulletin` owns notices and blockers.
-The existing activity, task, connection and update owners supply their current
-states. React stores only view state, bounded query results and editable drafts.
-Keep source visibility, local authority and resource boundaries in the native layer.
+Deduplication uses canonical owner identities: task/turn/request, blocker or AX
+record. A pending decision is the primary task action when indicators overlap.
+Related information can be grouped without merging distinct records or outcomes.
+A notice referencing an AX entry or task does not add another attention count for
+the same requirement.
 
-Add thin local management adapters only where desktop access is missing. Route
-them through the existing domain operations and register their current contracts.
-Do not read or mutate coordination files directly from the frontend. Keep the
-control-source `guide`, `query`, `act` schemas and the single `notification` event
-with its `{op, args}` envelope unchanged. Additional desktop reads do not introduce
-a generic event bus, resource push protocol or background message delivery system.
+A shared count represents distinct current matters in its disclosed scope.
+Agent-action counts and user-decision counts MUST remain distinguishable.
+An unread event count MUST NOT be used as an outstanding-work count.
 
-Reuse existing live snapshots for current task conditions. Do not request a native
-timeline, start an Agent or crawl task history for each event row. Load details on
-demand. Fetch bounded pages, respect each owner's cursor and filter scope, cancel
-obsolete requests, and avoid polling closed or hidden views unnecessarily.
+## AX collection example
 
-Journal cursors are opaque sequence positions, not timestamps. Preserve high-water
-pagination and explicit retention gaps. On cursor expiry or scope change, use the
-provided reset contract and disclose the missing interval. A failed refresh keeps
-the last readable snapshot with an unavailable/stale state and a retry action.
-Board and event failures are independent; one cannot erase the other's valid data.
+A running AX experience check is a real task. Current shows its known execution
+state and owner through a task reference. An optional notice adds the check's
+shared work scope or affected resources.
 
-No new persisted unread store is required for this version. Current actionable
-state and retained history provide the two product concepts.
+New friction candidates remain AX-owned records. Current can group them as
+candidates awaiting the associated source's confirmation. Confirmed entries and
+triage requirements retain the AX lifecycle. Activity records the existing typed
+AX and task lifecycle observations, referring back to those owners.
 
-## Layout and accessibility
+A requirement to run a future or recurring AX check belongs to an actual task or
+automation owner. A short-lived public notice cannot provide its durable schedule
+or completion tracking. This scope does not add a scheduler or promise autonomous
+checks, Agent wakeups or notification delivery.
 
-Use existing semantic tokens, shared controls and Radix foundations. Use a compact
-list with an inline detail region on wide panels; use a single content column on
-narrow panels. Keep the title and necessary controls visible while the list scrolls.
-Long names, summaries and resources must wrap or truncate without losing access to
-the full value. Do not depend on helper slogans or secondary labels to explain the
-layout.
+## Freshness, lifecycle and coverage
 
-Support light/dark themes, Chinese/English, portrait/landscape, keyboard navigation,
-layered Escape, focus restoration and reduced motion. Expose state and action names
-to assistive technology. Background refresh must not steal focus or repeatedly
-announce the entire feed. Preserve a stable reading position as new events arrive.
+The projection uses native `lastActiveAt`, `inactivityAgeSeconds`, `observedAt` and
+`activityCoverage`. It adds no frontend expiry or heartbeat rule. The current
+bulletin owner withdraws inactive notices after six hours and marks inactive
+blockers stale. Neither withdrawal nor missing activity proves task completion.
+Long-lived pending requirements remain with their canonical owners.
 
-## Acceptance
+Native rules for linked terminal outcomes, evidenced successors, source revocation
+and clock uncertainty remain authoritative. Unknown execution stays unknown.
+Existing blocker clearance requirements remain in force. Clearance presents its
+recorded suggested next step without submitting task continuation.
 
-Browser fixtures cover the complete UI interaction with synthetic metadata and
-stateful owner responses. Unsupported fixture mutations fail locally. UI acceptance
-uses these fixtures, including states absent from the current fixture catalog.
+Journal and current-owner reads fail independently. A failed refresh retains the
+last readable data with an unavailable or stale indication and a retry. Each
+projection discloses its observed scope and coverage. Partial or unavailable
+coverage MUST remain distinguishable from a genuine empty result.
+
+## Desktop read-only boundary
+
+The Board page supports reading, filtering, grouping, expanding records and
+navigating to existing owner details. These are observation and navigation actions.
+The public Board surface exposes no publication, edit, close, clear, confirm,
+triage, retry, resume or approval controls. It has no mark-all-resolved action.
+
+Opening an existing task or settings surface can expose that surface's normal
+authorized interactions. The transition MUST be explicit. Those interactions remain
+owned by that surface. They MUST NOT be embedded as Board quick actions.
+
+The desktop MUST NOT acknowledge Agent messages, advance Agent inbox or event
+cursors, confirm AX candidates, renew another source's activity or change a
+resource declaration merely by displaying it. Native read-time reconciliation and
+lifecycle maintenance remain owner behavior; they do not fabricate Agent activity.
+
+Any separately needed local administration uses an explicit existing management
+surface and authenticated local authority. Administrative forms are not part of
+the default Board experience. There is no new administrative UI in this scope.
+
+## Homepage experience
+
+An enable switch controls visibility. When enabled, Board is an atmospheric part
+of the homepage. Its shared bottom-left capsule entry remains the only launcher.
+The collapsed state SHOULD reveal at most two or three useful current summaries.
+The expanded state reveals Current and the secondary Activity view in the same
+visual family. Current opens first. Attention and resource filters retain context.
+
+Use a compact, quiet surface connected spatially to the existing capsule, ARC
+mark and task topology. Ownership links can reveal their related nodes on hover,
+focus or expansion. Avoid duplicating the homepage's full task cards. Keep the
+room background and task topology readable. Avoid a full-height management panel,
+a scrolling event wall or a dashboard grid.
+
+Preserve the clock, date, running-task summary, earcup connections and background.
+Studio's task-input count retains its original task-only meaning. Its destination
+shows the corresponding read-only user-decision scope or the existing task detail;
+it MUST NOT silently become an Agent-work or AX count. No focus timer is added.
+
+Use shared controls and semantic tokens. Use `SingleChoice` for Current/Activity
+and other single-choice controls. Support both themes, both languages, portrait
+widths, keyboard navigation, layered Escape, focus restoration and reduced motion.
+Opening and closing use fades and slight movement of at most 180ms. Background
+refresh does not steal focus, jump the reading position or announce the full feed.
+Necessary units, constraints, errors and unknown-state explanations remain visible.
+Decorative slogans, redundant labels and diagnostics do not become primary UI.
+
+## Implementation boundaries
+
+`coordination` retains the bounded event journal. `coordination::bulletin` retains
+notices, declarations and blockers. AX, tasks, interactions, notifications,
+connections and updates retain their current ownership and permission boundaries.
+The shared native projection performs composition and deduplication. React stores
+only bounded read results and view state for the Board surface.
+
+Missing native reads use thin adapters over those owners. No second resource
+registry, generic event bus, task engine or resolution state machine is added.
+The control-source `guide`, `query`, `act` parameter structures remain frozen.
+The single `notification` event and its `{op, args}` outer envelope remain frozen.
+Capability changes use catalog operations and guide.
+
+The current desktop attention aggregation and bulletin editing forms are existing
+behavior to replace in a future implementation turn. Native owner contracts and
+agent operations continue to work while the presentation changes. This
+specification update includes no implementation, migration or runtime changes.
+
+## Acceptance targets
+
+Agent behavior is checked through the current public operation boundaries. Desktop
+UI/UX is checked with stateful browser fixtures. Concept images illustrate the
+target presentation and do not serve as runtime acceptance evidence.
 
 | Scenario | Observable result |
 | --- | --- |
-| Several concurrent tasks and resources | Distinct work, changes and blockers are discoverable from the shared entry |
-| A pending task question | Studio and workspace counts agree on that task; opening the row selects the correct task/turn |
-| Answering through the existing task detail | Owner state refresh removes the pending item and updates the count |
-| Repeated failure observations and a successful successor | One current attention item before recovery; history remains after recovery |
-| Notice create, update and close | Readback shows the saved record and closure without stopping linked tasks |
-| Blocker open and clear | Required evidence is enforced; clearance readback retains evidence without resuming tasks |
-| Stale owner, interrupted task and unknown activity coverage | No inferred completion, clearance or fresh heartbeat |
-| Cursor gap, unavailable query and empty data | Gap, retryable failure and genuine empty state remain distinct |
-| Long content, narrow portrait and both themes | Controls and details remain usable without horizontal page overflow |
-| Keyboard and nested detail/dialog navigation | Correct focus, layered Escape and return to the prior workspace context |
+| Two Agents share a resource | Each sees the other's declared intent and known work references. Claims remain advisory. |
+| Agent read, publish, update and close | Owner identity is captured natively; readback reflects the action and Activity retains its transition. |
+| Read only the new changes | A saved per-scope cursor returns bounded incremental history and exposes retention gaps. |
+| Task metadata and a related notice | The task's execution has one owner and is not duplicated as an independently maintained task. |
+| AX collection finds candidates | Candidates are readable as candidates; confirmation/triage follows the applicable AX authority. |
+| Agent action, user decision and other-source wait | The required actors remain distinct and no unavailable action is offered to the reader. |
+| One requirement referenced from several places | Current attention counts it once using its canonical owner identity. |
+| Owner action completes | Readback refreshes the same Agent/desktop projection; the history remains readable. |
+| Human opens, filters and expands Board | No publication, acknowledgement, Agent cursor advance, clearance or execution is submitted. |
+| A human follows an owner-detail link | The original task/turn context is preserved; returning restores the Board view and focus. |
+| Stale notice, blocker or unknown execution | No invented completion, clearance or fresh heartbeat appears. |
+| Future or recurring AX work | Its real owner retains the schedule and outstanding state when a temporary notice expires. |
+| Partial, failed and empty owner reads | Coverage, retryable failure and genuine emptiness remain distinct. |
+| Enabled homepage in both themes and narrow widths | The small surface fits the room, retains topology and exposes readable metadata without horizontal page overflow. |
 
-Run the repository's normal checks and the affected UI fixture scenarios. Native
-management changes additionally require a focused behavior check through their
-public operation boundary. Fixture success alone does not cover those native
-adapters. Respect the repository's test ownership, policy and normal-suite budget.
-Keep screenshots and execution evidence outside the repository.
+## Scope
 
-## Scope boundary
-
-This version includes the workspace, native desktop adapters required by it,
-actionable current-state projection, local bulletin actions, Studio entry,
-fixtures and current user/maintainer documentation. It does not include a community
-workflow engine, MCP service productization, AX triage UI, a private-message center,
-generic subscriptions, resource locks, automatic resumption or a new dispatch policy.
+The target includes the Agent read/write loop, shared native current-state
+composition, AX and task references, temporary Agent publications, a default
+read-only desktop Board, secondary Activity history and homepage integration.
+It excludes a new workflow engine, scheduler, automatic remediation, automatic task
+continuation, resource locks, AX triage forms, desktop publication forms, a public
+private-message viewer, community workflows and MCP service productization.
