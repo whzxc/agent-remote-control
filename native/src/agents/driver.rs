@@ -178,7 +178,7 @@ impl AgentDriver {
                 }
                 let t=p.state.lock().await.clone();
                 if resume && init["agentCapabilities"]["loadSession"]!=true {return Err("RESUME_UNSUPPORTED".into());}
-                let servers = super::mcp::servers(string(&t,"agent"))?;
+                let (servers,mcp_configuration) = super::mcp::servers(&t)?;
                 let mut params=json!({"cwd":cwd,"mcpServers":servers});
                 if resume {params["sessionId"]=t["sessionId"].clone();}
                 let result=p.call(if resume {"session/load"}else{"session/new"},params,60000).await?;
@@ -186,6 +186,7 @@ impl AgentDriver {
                 let mut t=p.state.lock().await;
                 if !resume {if string(&result,"sessionId").is_empty(){return Err("MISSING_SESSION_ID".into());}t["sessionId"]=result["sessionId"].clone();}
                 t["mcpServers"]=json!(servers.iter().map(|s| s["name"].clone()).collect::<Vec<_>>());
+                t["mcpConfiguration"]=mcp_configuration;
                 t["metadata"]=result;
             }
             let mut t=p.state.lock().await;t["status"]=json!("idle");t["processState"]=json!("running");t["configurationObservedAt"]=json!(now());save_task(&t)?;

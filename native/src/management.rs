@@ -32,6 +32,10 @@ pub fn catalog() -> Value {
         "description":"Read cached registered project identities without discovery or upstream requests.",
         "inputSchema":{"type":"object","properties":{},"additionalProperties":false}
     }));
+    value["operations"]
+        .as_array_mut()
+        .unwrap()
+        .extend(crate::mcp_services::operations());
     value["ingressConfiguration"] = crate::ingress::config::descriptor().clone();
     value["preferenceDefaults"] = crate::preferences::defaults();
     let mut fields = serde_json::Map::new();

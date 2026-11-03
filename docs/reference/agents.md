@@ -116,6 +116,40 @@ compatibility can describe helpArgs/helpContains/identityContains, versionRequir
 
 Agents need their own login, provider access, and runtime. Discovery is not an inference test. ACP supports initialize, new/load, prompt/update, cancel, and request_permission; ARC advertises no client filesystem, terminal, or interactive-login capability. Generic Agent ops expose only session-advertised model/config options (legacy models/modes use their native setters). They do not expose fork/list/import, image prompts, arbitrary extensions, or ACP v2. Pi extension interactions are not an additional OS sandbox. A Pi session that has never received a prompt may not yet have a persistent session file.
 
+## Experimental downstream MCP services
+
+Settings → About → Experimental → MCP services enables the shared navigation capsule entry.
+The feature is off by default.
+The workspace owns local stdio or Streamable HTTP service configuration, explicit connection checks, discovered tools, and Agent assignments.
+A check negotiates a real connection and paginates `tools/list`, then closes that check connection.
+Saving a service alone leaves it unchecked.
+Blank saved credential fields retain values; `[]` and `{}` explicitly clear arguments or maps.
+
+ACP v1 Agents accept stdio services in `session/new` and supported `session/load` requests.
+ARC delivers HTTP services through its Rust stdio adapter, including bearer/custom headers from local configuration.
+Changes apply to new ACP processes, including supported session loads after a process has stopped.
+Running processes retain their launch-time configuration, including after editing, removal, or disabling the feature.
+`agent_read.mcpConfiguration` reports the applied service names, transports, revisions, and time.
+Native Agent implementations determine whether their model receives session-provided tools.
+
+The workspace can explicitly adopt a selected existing ACP stdio entry as an experimental overlay.
+Its original `agents/mcp.json` entry remains intact and resumes its original behavior while the experiment is disabled.
+An externally changed source requires removal and explicit adoption again.
+Native profile conflicts are rejected before prompt submission.
+Do not assign a service already supplied through an Agent-specific native profile or enterprise configuration.
+
+Codex keeps its native profile, catalog, and OAuth contract through the existing `mcp` op.
+The workspace's native catalog check and OAuth action use that same owner.
+Pi has no session MCP-server parameter and keeps its native configuration.
+Experimental assignments are Agent-scoped; they do not change native project configuration.
+The context provider retains the independent configuration described below.
+
+`query {"op":"mcp_services","args":{}}` reads redacted configuration, support, and last observed tool catalogs without starting a connection.
+Local management operations are `mcp-services.list`, `.save`, `.remove`, `.adopt`, `.check`, `.native`, and `.native-login`.
+Use `cli schema <operation>` for exact input fields.
+Editing requires the current `expectedRevision`.
+See [the maintainer contract](../dev/mcp-services.md) for transport limits.
+
 ## ACP MCP servers and context occupancy
 
 Configure `agents/mcp.json` under the ARC state directory. Each key is an agent ID; settings apply to new ACP processes and supported session loads:

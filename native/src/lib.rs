@@ -54,6 +54,8 @@ pub mod kernel;
 pub mod local_access;
 pub mod logs;
 pub mod management;
+pub mod mcp_services;
+pub mod mcp_transport;
 pub mod oauth;
 pub mod operations;
 pub mod output;

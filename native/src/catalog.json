@@ -8991,6 +8991,30 @@
       "example": {
         "accountId": "source-account"
       }
+    },
+    {
+      "name": "mcp_services",
+      "description": "Read redacted experimental downstream MCP configuration, last explicit connection checks, real discovered tools, and Agent transport support. This read starts no connection. Changes apply to new ACP processes and supported session loads; running processes retain their launch configuration. Use local mcp-services management for configuration and checks. Codex native MCP remains available through mcp.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string",
+            "description": "Optional exact Agent ID to filter assignments and existing ACP sources."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {}
     }
   ],
   "domains": {
@@ -10624,6 +10648,13 @@
         ],
         "requires": [],
         "tier": "default",
+        "conditional": false
+      },
+      "mcp_services": {
+        "group": "native",
+        "presets": [],
+        "requires": [],
+        "tier": "advanced",
         "conditional": false
       }
     }

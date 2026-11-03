@@ -1,3 +1,4 @@
+import { mcpScenario, type McpFixture } from './mcp/scenario';
 import { coordinationScenario, type CoordinationFixture } from './scenarioCoordination';
 import { resetBoardObservation, centerView } from './coordination/state';
 import { installPetFixture } from "./pets/scenario";
@@ -28,9 +29,10 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { mcpServices?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
+let mcpResponse = mcpScenario();
 let conversations: Record<string, AgentConversation[]> = {};
 let accountResponse: ReturnType<typeof accountScenario> | undefined;
 let coordinationResponse = coordinationScenario();
@@ -44,6 +46,8 @@ export function scenarioResponse(path: string, method: string, body?: unknown): 
   }
 }
 function respondToScenario(path: string, method: string, body?: unknown): unknown {
+  const mcpResult = mcpResponse(path, method, body);
+  if (mcpResult !== undefined) return mcpResult;
   const coordinationResult = coordinationResponse(path, method, body);
   if (coordinationResult !== undefined) return structuredClone(coordinationResult);
   if (path === 'status' && responses.statusUnavailable) throw new Error('Connection status is unavailable in this fixture.');
@@ -79,6 +83,7 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     if (pet.origin !== 'arc') throw new Error('INVALID_ARGUMENT: Codex pets are read-only; remove them in their owning application');
     return responses.pets = { ...library, packages: library.packages.filter(p => p.key !== key) };
   }
+  if (path === 'preferences' && method === 'PUT') return responses.preferences = { ...(responses.preferences as Record<string,string>), ...(body as { values: Record<string,string> }).values };
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
   if (path === 'updates/request' && method === 'POST') {
     const request = body as { action: string; seconds?: number }, snapshot = structuredClone(updates.get().snapshot);
@@ -136,12 +141,13 @@ export async function installScenario(name: string) {
   const load = fixtures[`../tooling/acceptance/scenarios/${name}.json`];
   if (!load) throw new Error(`Unknown acceptance scenario: ${name}`);
   const fixture = await load() as Fixture;
+  mcpResponse = mcpScenario(fixture.mcpServices);
   coordinationResponse = coordinationScenario(fixture.coordination);
   resetBoardObservation();
   centerView.set({ view: 'events', filter: 'all', resource: '', history: false });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
-  const preferences = { 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
+  const preferences = { 'mcp-services': fixture.mcpServices ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-outcome-seen': '', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
   acceptPreferences(preferences);
   const now = new Date().toISOString();
   const defaults = Object.fromEntries(Object.entries(config.fields).map(([key, field]) => [key, field.default]));

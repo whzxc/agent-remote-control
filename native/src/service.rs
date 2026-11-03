@@ -558,6 +558,32 @@ impl Service {
         if self.closing.load(Ordering::SeqCst) {
             return Err("core shutting down".into());
         }
+        if route == "mcp-services" && method == "GET" {
+            return crate::mcp_services::read(self.agents.mcp_support(), None);
+        }
+        if let Some(op) = route.strip_prefix("mcp-services/") {
+            if method == "POST" {
+                crate::management::resolve(&format!("mcp-services.{op}"), &json!({"body":body}))?;
+                return match op {
+                    "save" => crate::mcp_services::save_service(body, &self.agents.mcp_support()),
+                    "remove" => crate::mcp_services::remove(&body),
+                    "adopt" => crate::mcp_services::adopt(&body, &self.agents.mcp_support()),
+                    "check" => crate::mcp_services::check(&body).await,
+                    "native" => crate::mcp_services::native_list(&self.control).await,
+                    "native-login" => {
+                        self.control
+                            .tool(
+                                "mcp",
+                                json!({"action":"oauth/login","params":{"name":body["name"]}}),
+                            )
+                            .await
+                    }
+                    _ => Err(
+                        "UNKNOWN_OPERATION: Read the current MCP services management schema".into(),
+                    ),
+                };
+            }
+        }
         if route == "coordination/resources" && method == "GET" {
             return crate::coordination::desktop_resources();
         }

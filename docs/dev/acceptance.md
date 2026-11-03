@@ -210,3 +210,15 @@ Run `npm run accept:updates -- /path/to/verified-release-artifacts` on an Apple 
 The fixture build enables the upstream single-instance plugin's semver namespace at versions `0.0.0` and `0.0.1` so it can run alongside the installed app. This feature is limited to the acceptance build; product build configuration is unchanged. Successful runs remove the disposable app and state. Failed runs retain their temporary directory for diagnosis. Reports and build logs live under `output/acceptance/updates-*`.
 
 For replacement-only lifecycle acceptance, build a signed disposable fixture with `ARC_BUILD_VERSION=0.0.0 npm run desktop:build -- --debug --features tauri-plugin-single-instance/semver --config <fixture-config.json>`. Set the fixture `identifier` to `com.whzxc.agent-remote-control.dev`. Set the fixture updater endpoint to `http://127.0.0.1:9/latest.json` and `dangerousInsecureTransportProtocol:true` to avoid public update checks. Then run `node tooling/acceptance/replacement.mjs <fixture.app>`. The runner requires version `0.0.0`, copies both candidate and target into temporary storage, and verifies normal countdown, immediate replacement, native notification submission, and rollback after deliberately invalidating only the disposable staged executable. Successful runs remove fixture data and backups; failures preserve evidence under the reported paths. Rebuild without the fixture version, feature or configuration before local installation.
+
+## MCP service fixtures
+
+`mcp-services-ready-dark`, `mcp-services-ready-light`, `mcp-services-failed-dark`, and `mcp-services-empty-light` cover service editing, Agent support, tool schemas, explicit legacy adoption, native catalog separation, and failure recovery.
+These fixtures are stateful and never contact downstream services.
+
+Run `node tooling/acceptance/mcp-services.mjs <artifact-directory>` after building `arc-core` and `contract-fixture` for transport and task acceptance.
+The synthetic HTTP service validates authentication, initialization order, session headers, paginated SSE discovery, and tool calls from an ARC-created ACP task.
+It also covers stdio discovery, a recoverable upstream failure, configuration retention, and process-scoped disable semantics.
+Pass `--live-agent=<id>` only when native Agent inference is in scope.
+That optional case uses native login and the same synthetic tool service.
+The runner preserves its isolated state and report, closes connections, and stops its owned processes.

@@ -192,3 +192,19 @@ A held writer with a confirmed ARC or Desktop owner may show a compact ownership
 Reviews retain their recorded verdict, author, timestamp and optional note. They do not certify execution completion. Review reads are on demand. Review availability never blocks dispatch or mutates another execution state. A rework verdict does not automatically classify the next dispatch as rework.
 
 Task activity exposes `parentSessionId` when native evidence identifies a parent. Codex activity reads it from `session_meta.payload.source.subagent.thread_spawn.parent_thread_id`, retaining it independently of the bounded activity tail and merging it into live sessions. The UI resolves native session aliases within the same Agent and uses explicit ancestry for cascaded bubbles. Descendants follow their parent, indent within the available bubble width and connect to the parent bubble in both orientations. Queue overflow keeps visible descendants' ancestors present. Reordering is limited to siblings, and path highlighting includes ancestors and descendants. Missing parents and cyclic references remain independent roots; titles, directories and dispatch origins do not establish ancestry. Existing Claude sidechain exclusion remains unchanged because those files do not enter the current activity feed. No MCP tool parameters or task ownership rules change.
+
+## Experimental MCP services
+
+The MCP services switch is disabled by default and lives only in Settings → About → Experimental.
+Enabling it adds the MCP services workspace to the shared navigation capsule.
+Disabling it closes that workspace and retains configuration and running Agent processes.
+The upper connection arc continues to represent control-source ingress connections.
+
+The workspace lists service configuration, Agent assignments, last explicit connection checks, and real discovered tool schemas.
+The editor uses shared form controls, SingleChoice transports, multiple Agent checkboxes, and Dialog focus restoration.
+Unsupported Agent assignments remain visibly disabled with their native ownership.
+Secret fields stay blank when editing saved configuration and preserve their values until explicitly replaced.
+Checks distinguish unchecked, passed, and failed observations and keep recovery instructions beside the failing service.
+Native Codex catalogs and OAuth remain in their own section.
+Existing ACP entries require an explicit adoption action and retain their original file.
+See [MCP services](mcp-services.md) for ownership and session timing.

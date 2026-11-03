@@ -74,6 +74,16 @@ fn remember_task_configuration(task: &Value) -> Result<()> {
 const RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("agents/requests");
 impl AgentHost {
+    pub(crate) fn mcp_support(&self) -> Value {
+        let mut rows: Vec<_> = self.drivers.iter().map(|(agent, driver)| json!({
+            "agent":agent,"displayName":driver.descriptor()["displayName"],"protocol":driver.protocol(),
+            "configurable":matches!(driver, AgentDriver::Acp(_)),
+            "transports":if matches!(driver, AgentDriver::Acp(_)) {json!(["stdio","http-via-arc"])} else {json!([])},
+            "owner":if matches!(driver,AgentDriver::Acp(_)) {"arc-session"} else {"native-profile"}
+        })).collect();
+        rows.sort_by(|a, b| string(a, "agent").cmp(string(b, "agent")));
+        json!(rows)
+    }
     /// Bounded metadata from existing live processes; no launch, disk scan or upstream read.
     pub(crate) async fn coordination_observations(
         &self,

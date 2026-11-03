@@ -1,3 +1,4 @@
+import { mcpServicesEnabled } from '../mcp/state';
 import { t } from "../i18n";
 import { topologyTuningEnabled } from "../state/topology";
 import { Group, Row, Switch } from "./ui";
@@ -9,6 +10,7 @@ import { studioEnabled } from "../display/state";
 import { relayHostingEnabled } from "../state/relay";
 
 export default function ExperimentalSettings() {
+  const mcp = mcpServicesEnabled.use();
   const tuning = topologyTuningEnabled.use(), hosting = relayHostingEnabled.use();
   const pets = showPets.use(), studio = studioEnabled.use();
   const maintainer = maintainerMode.use(), { busy, status } = connector.use();
@@ -19,7 +21,15 @@ export default function ExperimentalSettings() {
       }));
     });
   }
+  async function saveMcp(enabled: boolean) {
+    await run("mcp-services", async () => {
+      acceptPreferences(await api<Record<string, string>>("preferences", "PUT", { values: { "mcp-services": enabled ? "on" : "off" } }));
+    });
+  }
   return <Group>
+    <Row title={t("mcp.title")} description={t("mcp.experimentalEffect")}>
+      <Switch label={t("mcp.title")} checked={mcp} disabled={!!busy || !status} onChange={saveMcp} />
+    </Row>
     <Row title={t("hosting.feature")} description={t("hosting.featureDescription")}>
       <Switch label={t("hosting.feature")} checked={hosting} onChange={relayHostingEnabled.set} />
     </Row>

@@ -78,6 +78,16 @@ impl Execution {
         Ok(result)
     }
     pub(crate) async fn call_inner(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
+        if name == "mcp_services" {
+            let spec = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            return crate::mcp_services::read(self.agents.mcp_support(), args["agent"].as_str());
+        }
         if name.starts_with("src_") {
             return crate::src_conversations::op(name, args).await;
         }
