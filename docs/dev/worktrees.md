@@ -70,3 +70,8 @@ Land preflight prints `coordination-conflicts` from the shared board when the ru
 Core can map the registered parent. Lifecycle readback also returns current advisory
 conflicts and activity ages. Unknown coverage is explicit. Warnings never bypass the
 main-only guard or block an otherwise authorized action; pull `board` before landing.
+
+Lifecycle warnings exclude notices owned by the command initiator when Core verifies
+the opaque origin token injected into its command child environment. Core retains
+the verified source with the observed transition for readback. Manual commands and
+unrecognized tokens keep all overlapping notices.

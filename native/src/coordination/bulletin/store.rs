@@ -629,6 +629,20 @@ impl Store {
         self.state.notices.iter().filter(|n| n.state == "active" && Some(n.id.as_str()) != exclude)
             .flat_map(|n| n.resources.iter().filter(|r| resources.contains(r)).map(move |r| json!({"noticeId":n.id,"resource":r,"state":n.state,"lastActiveAt":timestamp(n.last_active_at),"inactivityAgeSeconds":clock.age(n.last_active_at)}))).collect()
     }
+    pub fn lifecycle_conflicts(
+        &self,
+        resources: &[ResourceKey],
+        source: Option<&str>,
+        clock: Clock,
+    ) -> Vec<Value> {
+        let owned: std::collections::HashSet<_> = self.state.notices.iter()
+            .filter(|n| matches!(&n.owner, Principal::Source { source_id, .. } if Some(source_id.as_str()) == source))
+            .map(|n| n.id.as_str()).collect();
+        self.conflicts(resources, None, clock)
+            .into_iter()
+            .filter(|n| !owned.contains(crate::string(n, "noticeId")))
+            .collect()
+    }
     pub fn recipient_resources(&self, source: &str) -> Vec<ResourceKey> {
         self.state.notices.iter().filter(|n| n.state == "active")
             .chain(self.state.blockers.iter().filter(|b| b.state != "cleared"))

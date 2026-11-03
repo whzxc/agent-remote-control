@@ -1,6 +1,46 @@
 //! Authenticated local tooling observations, never exposed as a control-source op.
 use super::*;
 use serde::Deserialize;
+// Opaque command capabilities are issued from authenticated Core context. The
+// handoff may retain the token, but cannot choose a source identity itself.
+static COMMAND_ORIGINS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::VecDeque<(String, String)>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::VecDeque::new()));
+
+pub(crate) fn command_environment(params: &mut Value, origin: &Value) {
+    let source = string(origin, "sourceId");
+    let token = if source.is_empty() {
+        String::new()
+    } else {
+        let mut origins = COMMAND_ORIGINS.lock().unwrap();
+        if let Some((token, _)) = origins.iter().find(|(_, owner)| owner == source) {
+            token.clone()
+        } else {
+            let token = id();
+            if origins.len() >= 256 {
+                origins.pop_front();
+            }
+            origins.push_back((token.clone(), source.into()));
+            token
+        }
+    };
+    if !params["env"].is_object() {
+        params["env"] = json!({});
+    }
+    params["env"]["ARC_TOOLING_ORIGIN"] = json!(token);
+    params["env"]["ARC_STATE_DIR"] = json!(root());
+}
+
+pub(crate) fn command_source(body: &Value) -> Option<String> {
+    let token = body["toolingOrigin"].as_str()?;
+    COMMAND_ORIGINS
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(issued, _)| issued == token)
+        .map(|(_, source)| source.clone())
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Report {
@@ -11,6 +51,8 @@ struct Report {
     instance: Option<String>,
     pid: Option<u32>,
     exit_code: Option<i32>,
+    #[serde(rename = "toolingOrigin")]
+    _tooling_origin: Option<String>,
 }
 fn alive(pid: u32) -> Result<bool> {
     if pid == 0 || pid > i32::MAX as u32 {
@@ -71,7 +113,8 @@ pub(crate) fn read(id: &str) -> Result<Value> {
     let resources: Vec<ResourceKey> =
         serde_json::from_value(row["coordinationPending"][0]["resources"].clone())
             .map_err(|_| "COORDINATION_STORAGE: invalid lifecycle resources")?;
-    let mut result = super::bulletin::warnings(&resources);
+    let mut result =
+        super::bulletin::warnings_for_source(&resources, row["initiatingSource"].as_str());
     result["transitionId"] = json!(id);
     result["state"] = json!("observed");
     result["kind"] = row["coordinationPending"][0]["kind"].clone();
@@ -220,7 +263,7 @@ pub(crate) async fn report(c: &crate::control::Control, body: Value) -> Result<V
             } else {
                 observers::durable(
                     &file,
-                    &json!({"digest":digest,"coordinationPending":[input]}),
+                    &json!({"digest":digest,"initiatingSource":command_source(&body),"coordinationPending":[input]}),
                 )?;
             }
         }

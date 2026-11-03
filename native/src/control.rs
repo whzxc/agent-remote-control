@@ -776,7 +776,13 @@ impl Control {
             Ok(result)
         }
     }
-    pub async fn request(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
+    pub async fn request(&self, method: &str, mut args: Value, timeout: u64) -> Result<Value> {
+        if method == "command/exec" {
+            crate::coordination::lifecycle::command_environment(
+                &mut args,
+                &crate::kernel::origin::current_origin(),
+            );
+        }
         if method == "fs/fetchFile"
             || (method == "fs/writeFile"
                 && ["expectedSha256", "append", "offset"]

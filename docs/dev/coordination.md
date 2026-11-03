@@ -378,7 +378,9 @@ their existing contracts.
 
 Posting/updating notices and local shared actions return
 `conflicts:[{noticeId,resource,state,lastActiveAt,inactivityAgeSeconds}]`.
-Conflicts include same-source sessions and never reserve or block resources.
+Notice mutations include same-source sessions in conflicts. Local tooling lifecycle
+warnings exclude the initiating source when Core verifies its command origin token;
+unknown initiators retain all overlaps. Conflicts never reserve or block resources.
 Responses cap warnings at 100; `conflictCoverage:partial` requires a board pull
 for the complete paginated resource picture.
 `conflictCoverage:unknown` means the board/resource mapping could not be read;

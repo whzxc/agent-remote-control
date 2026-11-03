@@ -62,3 +62,34 @@ test('shared action warnings survive lifecycle readback without blocking complet
     assert.equal(unavailable.conflictCoverage, 'unknown');
   });
 });
+
+test('lane lifecycle forwards its command origin through preflight and observation', async () => {
+  // Regression: ax-d7a7872f worktree handoff lost the command initiator and reported its own notices as conflicts.
+  const { beginLifecycle } = await import('../tooling/coordination-report.mjs');
+  const previous = process.env.ARC_TOOLING_ORIGIN;
+  process.env.ARC_TOOLING_ORIGIN = 'core-issued-command-token';
+  try {
+    await fixture(async directory => {
+      let transition;
+      const request = async (url, options) => {
+        if (url.endsWith('healthz')) return Response.json({ instance: 'fixture', pid: 10, owner: 'core' });
+        if (options.method === 'POST') {
+          const payload = JSON.parse(options.body);
+          assert.equal(payload.toolingOrigin, 'core-issued-command-token');
+          if (url.endsWith('/observe')) transition = payload;
+          return Response.json({ conflicts: [], conflictCoverage: 'observed' });
+        }
+        return Response.json({ transitionId: transition.transitionId, kind: transition.kind, state: 'observed', conflicts: [], conflictCoverage: 'observed' });
+      };
+      for (const kind of ['lane.created', 'lane.removed', 'lane.landed']) {
+        const finish = await beginLifecycle(path.join(directory, 'outbox'), { ...body, kind }, { stateDirectory: directory, request });
+        const result = await finish();
+        assert.equal(result.coverage, 'readback-confirmed');
+        assert.deepEqual(result.conflicts, []);
+      }
+    });
+  } finally {
+    if (previous === undefined) delete process.env.ARC_TOOLING_ORIGIN;
+    else process.env.ARC_TOOLING_ORIGIN = previous;
+  }
+});

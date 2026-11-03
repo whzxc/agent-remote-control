@@ -830,3 +830,40 @@ fn linked_running_thread_is_observed_at_post() {
         "thread-observation-gap"
     );
 }
+
+#[test]
+fn lifecycle_conflicts_exclude_only_core_verified_command_source() {
+    // Regression: ax-d7a7872f lane create/remove listed the initiating source's own notice as a conflict.
+    let mut f = Fixture::new();
+    let own = f.post();
+    f.actor = Principal::Source {
+        source_id: "source-b".into(),
+        account_id: None,
+    };
+    let foreign = f.post();
+    let resources = [ResourceKey::parse("app:installed").unwrap()];
+    let mut params = json!({"env":{"EXISTING":"value","ARC_TOOLING_ORIGIN":"forged"}});
+    super::super::lifecycle::command_environment(&mut params, &json!({"sourceId":"source-a"}));
+    assert_eq!(params["env"]["EXISTING"], "value");
+    let report = json!({"toolingOrigin":params["env"]["ARC_TOOLING_ORIGIN"]});
+    let source = super::super::lifecycle::command_source(&report);
+    let conflicts = f
+        .store
+        .lifecycle_conflicts(&resources, source.as_deref(), f.clock);
+    assert_eq!(conflicts.len(), 1);
+    assert_eq!(conflicts[0]["noticeId"], foreign["id"]);
+    for report in [json!({}), json!({"toolingOrigin":"source-a"})] {
+        let unknown = super::super::lifecycle::command_source(&report);
+        assert!(unknown.is_none());
+        let conflicts = f
+            .store
+            .lifecycle_conflicts(&resources, unknown.as_deref(), f.clock);
+        assert!(conflicts.iter().any(|n| n["noticeId"] == own["id"]));
+        assert!(conflicts.iter().any(|n| n["noticeId"] == foreign["id"]));
+    }
+    super::super::lifecycle::command_environment(&mut params, &Value::Null);
+    assert!(super::super::lifecycle::command_source(
+        &json!({"toolingOrigin":params["env"]["ARC_TOOLING_ORIGIN"]})
+    )
+    .is_none());
+}

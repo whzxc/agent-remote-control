@@ -53,9 +53,9 @@ export async function reportLifecycle(body, { stateDirectory = defaultState(), r
   }
 }
 export async function beginLifecycle(directory, body, options = {}) {
-  const report = { ...body, transitionId: randomUUID() };
+  const report = { ...body, ...(process.env.ARC_TOOLING_ORIGIN ? { toolingOrigin: process.env.ARC_TOOLING_ORIGIN } : {}), transitionId: randomUUID() };
   if (['lane.landed', 'isolated.started'].includes(body.kind)) {
-    const warnings = await reportConflicts(body, options);
+    const warnings = await reportConflicts(report, options);
     console.log(JSON.stringify({ event: 'coordination-conflicts', ...warnings }));
   }
   const file = path.join(directory, `${report.transitionId}.json`);

@@ -407,7 +407,11 @@ fn registration_next(args: &Value, session: &Value) -> Value {
 /// Advisory only: callers append this object to successful operation receipts.
 /// Failure is explicit unknown coverage, never an empty board claiming exclusivity.
 pub(crate) fn warnings(resources: &[ResourceKey]) -> Value {
-    let result = maintain().and_then(|_| with_store(|s| Ok(s.conflicts(resources, None, clock()))));
+    warnings_for_source(resources, None)
+}
+pub(crate) fn warnings_for_source(resources: &[ResourceKey], source: Option<&str>) -> Value {
+    let result = maintain()
+        .and_then(|_| with_store(|s| Ok(s.lifecycle_conflicts(resources, source, clock()))));
     match result {
         Ok(conflicts) => {
             json!({"conflictCoverage":if conflicts.len()==100 {"partial"}else{"observed"},"conflicts":conflicts})
@@ -548,7 +552,10 @@ pub(crate) fn tooling_warnings(body: &Value) -> Value {
         if let Some(instance) = body["instance"].as_str() {
             resources.push(ResourceKey::parse(&format!("isolated:{instance}"))?);
         }
-        Ok(warnings(&resources))
+        Ok(warnings_for_source(
+            &resources,
+            super::lifecycle::command_source(body).as_deref(),
+        ))
     });
     result.unwrap_or_else(|_| json!({"conflicts":[],"conflictCoverage":"unknown"}))
 }
