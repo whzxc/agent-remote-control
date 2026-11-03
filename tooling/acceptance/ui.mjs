@@ -250,6 +250,22 @@ try {
           // Semantic snapshots exclude aria-hidden Radix form inputs and visual announcement mirrors.
           row.taskAccessibility = await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).ariaSnapshot();
         }
+        if (fixture.taskModelChoice) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('button', { name: messages['taskDispatch.title'], exact: true }).click();
+          const dialog = page.getByRole('dialog', { name: messages['taskDispatch.title'], exact: true });
+          const model = dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] });
+          const effort = dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.effort'] });
+          await model.getByRole('radio', { name: 'GPT-6.1 Sol' }).click();
+          await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'] }).click();
+          await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'], checked: true }).waitFor();
+          await page.keyboard.press('Escape');
+          // Closing the choice restores the task detail it was opened from.
+          await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).waitFor();
+          await page.getByRole('button', { name: messages['taskDispatch.title'], exact: true }).click();
+          await dialog.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] }).getByRole('radio', { name: 'GPT-6.1 Sol', checked: true }).waitFor();
+          await page.keyboard.press('Escape');
+        }
         if (setup) {
           // Regression: standard setup steps scrolled inside a fixed 496px shell on large windows.
           const layout = await page.evaluate(() => {

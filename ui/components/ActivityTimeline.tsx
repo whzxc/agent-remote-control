@@ -16,7 +16,8 @@ import { activityApprovals, agentActivity, openActivitySession } from "../state/
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
-import { dispatchSourceLabel, SourceBadge, SpecPill } from "./activity";
+import { dispatchSourceLabel, SourceBadge } from "./activity";
+import { TaskSpecChoice } from "./AgentDispatchDefaults";
 import { isTaskId, taskState } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";
 import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
@@ -230,7 +231,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       <h2 id={titleId} className="activity-panel-title">{title}</h2>
       <div className="task-detail-chips"><span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-spec">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
-        <SpecPill agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary} />
+        <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
+          editable={agent === "codex" && validId && !timeline?.readOnly} />
         {source && <span className="task-source-chip"><SourceBadge source={source} /><span>{t("detail.via", { source: sourceLabel })}</span></span>}
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}

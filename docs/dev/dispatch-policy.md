@@ -37,6 +37,8 @@ Explicit tier precedes the final model's override, then the global default. Sele
 
 The Agent panel's settings dialog and the Agent details dialog in Agents settings edit the default model and, for Codex, the default effort. It writes through the local-only management ops `agents.dispatch_defaults.read` and `agents.dispatch_defaults.update`. Null restores native inheritance. Updates check allow/deny lists, preserve criteria, constraints and other Agents, and keep the previous file in dispatch-policy.json.bak. Explicit dispatch choices still win.
 
+Codex task details make the model pill a button that opens a per-task choice. It writes `task-dispatch/<threadId>.json` through `tasks.dispatch_defaults.read` and `tasks.dispatch_defaults.update`. It never submits a turn or changes a running turn. Omitted model or effort resolves in this order: explicit dispatch choice, task setting (`source: task-default`), thread inheritance, then Agent policy default. Agent allow/deny lists apply to task settings. Null clears a field.
+
 Empty allowlists are unrestricted. Denylists win. Constraints apply to final values, including policy defaults. Upstream validates native model/effort support. ARC does not duplicate that validation. Malformed policy fails explicitly without falling back to desktop defaults.
 
 `query({op:"dispatch_policy",args:{}})` returns the decision view. By default, only installed and enabled Agents appear. all:true includes uninstalled and disabled Agents without changing view. agent filters by ID. A non-Codex agent plus taskId selects an existing session. Reads never start or resume sessions.

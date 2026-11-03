@@ -1663,5 +1663,8 @@
   "dispatchDefaults.title": "{agent} dispatch defaults",
   "dispatchDefaults.model": "Default model",
   "dispatchDefaults.effort": "Default effort",
-  "dispatchDefaults.inherit": "Agent default"
+  "dispatchDefaults.inherit": "Agent default",
+  "taskDispatch.title": "Model for this task",
+  "taskDispatch.inherit": "Follow thread",
+  "taskDispatch.hint": "Applies to later turns when the dispatcher does not choose a model. The current turn is unchanged."
 }

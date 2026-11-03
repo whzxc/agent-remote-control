@@ -112,6 +112,14 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     const { agent } = body as { agent: string };
     return { agent, model: null, ...(agent === 'codex' ? { effort: null } : {}), ...(responses[`dispatch-defaults/${agent}`] as object) };
   }
+  if (path === 'tasks/dispatch-defaults/read' && method === 'POST') {
+    const { threadId } = body as { threadId: string };
+    return { threadId, model: null, effort: null, ...(responses[`task-dispatch/${threadId}`] as object) };
+  }
+  if (path === 'tasks/dispatch-defaults' && method === 'POST') {
+    const { threadId, ...values } = body as { threadId: string; model: string | null; effort: string | null };
+    return { threadId, ...(responses[`task-dispatch/${threadId}`] = values) };
+  }
   if (path === 'agents/dispatch-defaults' && method === 'POST') {
     const { agent, ...values } = body as { agent: string; model: string | null; effort?: string | null };
     return { agent, ...(responses[`dispatch-defaults/${agent}`] = values) };

@@ -1633,5 +1633,8 @@
   "dispatchDefaults.title": "{agent} 派发默认值",
   "dispatchDefaults.model": "默认模型",
   "dispatchDefaults.effort": "默认推理强度",
-  "dispatchDefaults.inherit": "跟随 Agent"
+  "dispatchDefaults.inherit": "跟随 Agent",
+  "taskDispatch.title": "本任务模型",
+  "taskDispatch.inherit": "跟随任务",
+  "taskDispatch.hint": "派发方后续发送且未指定模型时生效，不影响正在运行的这一轮。"
 }
