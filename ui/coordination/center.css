@@ -13,6 +13,7 @@
 .center-content details { margin: 8px 0; }
 .center-content summary { cursor: pointer; font-size: var(--text-sm); }
 .center-content pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-xs); max-height: 300px; overflow: auto; padding: 8px; background: var(--surface-subtle); border-radius: var(--radius-control); }
+.center-detail header > button { flex: none; }
 .center-detail header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
 .center-detail dl { display: grid; grid-template-columns: minmax(0, .38fr) minmax(0, 1fr); gap: 8px 12px; font-size: var(--text-sm); }
 .center-detail dt { overflow-wrap: anywhere; color: var(--text-secondary); }
@@ -28,7 +29,7 @@
 
 .coordination-center { container-type: inline-size; }
 .center-content.has-detail > .center-list { display: none; }
-.center-detail header h2 { font-size: var(--text-md); color: var(--text); margin: 0; }
+.center-detail header h2 { min-width: 0; font-size: var(--text-md); color: var(--text); margin: 0; }
 @container (min-width: 720px) {
   .center-content.has-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; overflow: hidden; }
   .center-content.has-detail > .center-list { display: block; grid-column: 1; grid-row: 1; min-height: 0; overflow: auto; }
