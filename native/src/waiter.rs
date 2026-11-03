@@ -464,6 +464,13 @@ async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSourc
 
 /// One fresh read using the same owner and classifier as codex_wait.
 pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Result<Value> {
+    Ok(codex_observe_with_path(control, args).await?.0)
+}
+
+pub(crate) async fn codex_observe_with_path(
+    control: &Arc<Control>,
+    args: &Value,
+) -> Result<(Value, Option<PathBuf>)> {
     let mut source = codex_source(control, args).await?;
     let observation = source.observe().await?;
     if !source.alive() {
@@ -473,7 +480,8 @@ pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Resul
         &observation,
         &mut args["turnId"].as_str().map(str::to_owned),
     );
-    Ok(result)
+    let path = observation["thread"]["path"].as_str().map(PathBuf::from);
+    Ok((result, path))
 }
 
 pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {

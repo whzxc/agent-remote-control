@@ -32,7 +32,7 @@ pub(crate) fn offer(source: &Value) -> Value {
 
 pub(crate) fn effective(origin: &Value) -> Value {
     let cli = origin["controlTransport"] == "cli";
-    let source = crate::sources::get(string(origin, "sourceId")).unwrap_or(Value::Null);
+    let source = crate::sources::authority(string(origin, "sourceId")).unwrap_or(Value::Null);
     let local = cli && crate::sources::is_local(&source);
     let setting = &source["capabilityProfile"];
     let name = if setting.is_null() {

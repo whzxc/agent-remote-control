@@ -216,7 +216,13 @@ fn decorate_capabilities(source: &mut Value) {
     }
 }
 pub fn get(id: &str) -> Result<Value> {
-    let mut source = {
+    let mut source = authority(id)?;
+    decorate_source(&mut source)?;
+    Ok(source)
+}
+/// Current source facts for authorization and preferences, without account reconciliation.
+pub(crate) fn authority(id: &str) -> Result<Value> {
+    let source = {
         let cache = cache()?.read().map_err(|e| e.to_string())?;
         cache.current["sources"]
             .as_array()
@@ -226,7 +232,6 @@ pub fn get(id: &str) -> Result<Value> {
             .cloned()
             .ok_or("SOURCE_NOT_FOUND")?
     };
-    decorate_source(&mut source)?;
     Ok(source)
 }
 /// One cached source snapshot per coordination query; the caller validates it before reading.
@@ -1527,10 +1532,7 @@ fn migrate_notification_keys() -> Result<()> {
 
 /// Opt-in only; absent fields on existing and future sources mean full text.
 pub(crate) fn minimal_text(source: &str) -> bool {
-    list().is_ok_and(|rows| {
-        rows.iter()
-            .any(|s| s["id"] == source && s["minimalText"] == true)
-    })
+    authority(source).is_ok_and(|s| s["minimalText"] == true)
 }
 
 #[cfg(test)]

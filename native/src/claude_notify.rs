@@ -6,6 +6,7 @@ pub(crate) mod coordination_delivery;
 mod diagnostics;
 mod governance;
 pub(crate) mod mcp_events;
+mod observer;
 pub(crate) mod ownership;
 mod reachability;
 mod retry;
@@ -489,14 +490,17 @@ pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
     }
 }
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
-fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
-    if (!b.continuation_bound && b.scope_end.is_none())
-        || !b.terminal
-        || b.deliveries
+fn expired(b: &Binding, now: i64) -> bool {
+    (b.continuation_bound || b.scope_end.is_some())
+        && b.terminal
+        && !b
+            .deliveries
             .iter()
             .any(|d| matches!(d.status.as_str(), "pending" | "sending"))
-        || now - b.created_at <= RETENTION_SECONDS
-    {
+        && now - b.created_at > RETENTION_SECONDS
+}
+fn remove_expired(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
+    if !expired(b, now) {
         return Ok(false);
     }
     let path = path_in(dir, &b.thread_id, &b.turn_id);
@@ -1934,7 +1938,7 @@ async fn flush(
         if source_id.is_empty() {
             continue;
         }
-        if crate::sources::get(&source_id).is_ok_and(|s| s["state"] == "revoked") {
+        if crate::sources::authority(&source_id).is_ok_and(|s| s["state"] == "revoked") {
             continue;
         }
         let (breaker, tokens) = {
@@ -2674,6 +2678,8 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
     tokio::spawn(async move {
         crate::logs::record("INFO", "Control-source notification observer started", None);
         let mut recovering = true;
+        let mut terminal_watches =
+            std::collections::HashMap::<PathBuf, observer::TerminalWatch>::new();
         loop {
             let Some(control) = weak.upgrade() else {
                 break;
@@ -2689,82 +2695,112 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 let mut reads = tokio::task::JoinSet::new();
                 let permits = Arc::new(tokio::sync::Semaphore::new(8));
                 let mut owner_threads = std::collections::HashSet::new();
-                if let Ok(entries) = binding_paths(&directory()) {
-                    for entry in entries
-                        .iter()
-                        .filter(|e| e.path.extension().is_some_and(|v| v == "json"))
-                    {
-                        let _guard = LOCK.lock().await;
-                        let Some(mut b) = read_binding(&entry.path)? else {
-                            continue;
-                        };
-                        if b.source_id.is_empty() {
-                            continue;
-                        }
-                        if remove_expired(&directory(), &b, chrono::Utc::now().timestamp())? {
-                            continue;
-                        }
-                        if recovering {
-                            recover(&directory(), &mut b)?;
-                            if !b.terminal
-                                || (!b.continuation_bound
-                                    && b.scope_end.is_none()
-                                    && b.continuation_until > 0)
-                            {
-                                if !b.observation.is_object() {
-                                    b.observation = json!({});
-                                }
-                                b.observation["reconciliation"] = json!("pending-after-restart");
-                                persist(&directory(), &b)?;
-                            }
-                        }
-                        drop(_guard);
-                        if b.scope_end.is_none() && (b.agent.is_empty() || b.agent == "codex") {
-                            owner_threads.insert(b.thread_id.clone());
-                        }
-                        if b.terminal && (b.scope_end.is_some() || b.continuation_bound) {
-                            continue;
-                        }
-                        let c = control.clone();
-                        let agents = agents.clone();
-                        let permits = permits.clone();
-                        reads.spawn(async move {
-                            let _permit = permits
-                                .acquire_owned()
-                                .await
-                                .expect("observer semaphore remains open");
-                            let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
-                            let result = tokio::time::timeout(Duration::from_secs(10), async {
-                                if b.agent.is_empty() || b.agent == "codex" {
-                                    crate::kernel::origin::ORIGIN
-                                        .scope(
-                                            json!({"sourceId":b.source_id}),
-                                            crate::waiter::codex_observe(&c, &args),
-                                        )
-                                        .await
-                                } else {
-                                    agents
-                                        .observe_notification(&b.agent, &b.thread_id, &b.turn_id)
-                                        .await
-                                }
-                            })
-                            .await;
-                            let result = match result {
-                                Ok(Ok(mut observed)) => {
-                                    enrich_completion(&c, &b, &mut observed).await;
-                                    Ok(Ok(observed))
-                                }
-                                other => other,
-                            };
-                            (b, result)
-                        });
+                let events = {
+                    let events = control.events.lock().await;
+                    observer::ThreadEvents::new(&events.rows, events.sequence)
+                };
+                let all = shared_records(&directory())?;
+                let paths: std::collections::HashSet<_> = all
+                    .iter()
+                    .map(|b| path_in(&directory(), &b.thread_id, &b.turn_id))
+                    .collect();
+                terminal_watches.retain(|path, _| paths.contains(path));
+                for original in &all {
+                    if original.source_id.is_empty() {
+                        continue;
                     }
-                }
-                while let Some(result) = reads.join_next().await {
-                    let Ok((old, result)) = result else {
+                    if !recovering
+                        && original.terminal
+                        && (original.scope_end.is_some() || original.continuation_bound)
+                        && !expired(original, chrono::Utc::now().timestamp())
+                    {
+                        continue;
+                    }
+                    let path = path_in(&directory(), &original.thread_id, &original.turn_id);
+                    let watch = terminal_watches.get_mut(&path);
+                    if !recovering
+                        && watch.as_ref().is_some_and(|watch| {
+                            watch.unchanged(original, &events).unwrap_or(false)
+                        })
+                    {
+                        // Advance over unrelated events so a busy other thread
+                        // cannot eventually manufacture a buffer gap here.
+                        watch.unwrap().cursor = events.cursor;
+                        continue;
+                    }
+                    let stamp = watch
+                        .as_ref()
+                        .and_then(|watch| file_cache::Stamp::read(&watch.path).ok().flatten());
+                    let execution =
+                        file_cache::Stamp::read(&observer::execution_path(&original.thread_id))?;
+                    let _guard = LOCK.lock().await;
+                    let Some(mut b) = read_binding(&path)? else {
                         continue;
                     };
-                    let observed = match result {
+                    if remove_expired(&directory(), &b, chrono::Utc::now().timestamp())? {
+                        continue;
+                    }
+                    if recovering {
+                        recover(&directory(), &mut b)?;
+                        if !b.terminal
+                            || (!b.continuation_bound
+                                && b.scope_end.is_none()
+                                && b.continuation_until > 0)
+                        {
+                            if !b.observation.is_object() {
+                                b.observation = json!({});
+                            }
+                            b.observation["reconciliation"] = json!("pending-after-restart");
+                            persist(&directory(), &b)?;
+                        }
+                    }
+                    drop(_guard);
+                    if b.terminal && (b.scope_end.is_some() || b.continuation_bound) {
+                        continue;
+                    }
+                    if b.scope_end.is_none() && (b.agent.is_empty() || b.agent == "codex") {
+                        owner_threads.insert(b.thread_id.clone());
+                    }
+                    let c = control.clone();
+                    let agents = agents.clone();
+                    let permits = permits.clone();
+                    reads.spawn(async move {
+                        let _permit = permits
+                            .acquire_owned()
+                            .await
+                            .expect("observer semaphore remains open");
+                        let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
+                        let result = tokio::time::timeout(Duration::from_secs(10), async {
+                            if b.agent.is_empty() || b.agent == "codex" {
+                                crate::kernel::origin::ORIGIN
+                                    .scope(
+                                        json!({"sourceId":b.source_id}),
+                                        crate::waiter::codex_observe_with_path(&c, &args),
+                                    )
+                                    .await
+                            } else {
+                                agents
+                                    .observe_notification(&b.agent, &b.thread_id, &b.turn_id)
+                                    .await
+                                    .map(|observed| (observed, None))
+                            }
+                        })
+                        .await;
+                        let result = match result {
+                            Ok(Ok((mut observed, history))) => {
+                                enrich_completion(&c, &b, &mut observed).await;
+                                Ok(Ok((observed, history)))
+                            }
+                            other => other,
+                        };
+                        (b, result, stamp, execution)
+                    });
+                }
+                while let Some(result) = reads.join_next().await {
+                    let Ok((old, result, stamp, execution)) = result else {
+                        continue;
+                    };
+                    let (observed, history) = match result {
                         Ok(Ok(observed)) => observed,
                         failure => {
                             let error = match failure {
@@ -2812,6 +2848,19 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         }
                     }
                     process(&directory(), &LOCK, &mut b, &observed).await?;
+                    if observer::reusable(&b) {
+                        if let Some(history) = history {
+                            terminal_watches.insert(
+                                path_in(&directory(), &b.thread_id, &b.turn_id),
+                                observer::TerminalWatch {
+                                    path: history,
+                                    stamp,
+                                    execution,
+                                    cursor: events.cursor,
+                                },
+                            );
+                        }
+                    }
                 }
                 for thread in owner_threads {
                     let _ = control.observe_ownership(&thread).await;

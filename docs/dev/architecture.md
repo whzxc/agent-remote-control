@@ -35,8 +35,8 @@ Task list responses contain metadata and a first-line prompt preview capped at 2
 
 ## Idle resource retention
 
-OAuth grant authorization reads the current source authority store directly.
-It does not resolve account labels or identities. Source response projection
+OAuth grant authorization, notification revocation checks and source preference
+reads use the current source authority store directly. Source response projection
 reconciles all rows in one account transaction. Notification subscription routing
 filters subscriptions before inspecting delivery bodies and does not clone the
 complete delivery collection to find existing routes. Full token buckets do not
@@ -44,13 +44,33 @@ advance their persisted refill clock while idle; spending the first token starts
 the refill interval.
 
 Desktop IPC removes pending requests when their futures are dropped, including
-outer timeouts. Repeated snapshots of the same owner/revision refresh cache age
+outer timeouts. Request deadlines cover writer-lock acquisition, frame writes and
+the response. A failed frame write retires the connection. Pending diagnostics
+group current requests by method and expose the oldest request ID and age per
+method so repeated samples can distinguish turnover from a stuck request.
+Repeated snapshots of the same owner/revision refresh cache age
 without repeating event and interaction projection. Snapshot retention expires
 after four seconds, with a one-second cleanup cadence, and admits at most 64
 entries and 32 MiB of serialized frame weight. A single larger supported frame
 may exceed the byte budget until expiry so native history reads remain supported.
 Serialized weight is not a heap bound; the IPC frame limit remains independent.
 Eviction never deletes native history, changes authorization, or cancels a task.
+
+The notification observer reuses settled terminal evidence while the native
+rollout stamp, execution configuration and relevant thread events remain
+unchanged. It keeps the existing reconciliation cadence for active tasks and
+checks terminal rollout metadata on that cadence. Startup reconciliation,
+scheduled retries, unresolved interactions, missing rollout paths and event
+buffer gaps require fresh reads. Closed bindings skip native reads and remain
+available for delivery and inbox history until the existing retention rules
+allow removal. Open continuation scopes retain their native retry semantics;
+unchanged historical scopes do not repeatedly hydrate history or probe owners.
+
+The JSON cache uses an ordered LRU index to avoid scanning every resident entry
+for each eviction. Diagnostics include hits, evictions, evicted source bytes and
+fixed content categories with resident file counts and source bytes. Categories
+never expose paths or filenames. The encoded-byte ceiling remains independent
+of parsed heap usage.
 
 `runtime_metrics` and local `runtime.inspect` expose content-free process and
 retention diagnostics. Instrumentation uses a fixed set of aggregate counters;

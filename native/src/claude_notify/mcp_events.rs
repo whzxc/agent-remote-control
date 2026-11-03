@@ -406,7 +406,7 @@ pub(super) async fn send(
     let Some(w) = &sub.webhook else {
         return SendOutcome::failed("missing_webhook", false);
     };
-    let Ok(source) = crate::sources::get(&sub.source_id) else {
+    let Ok(source) = crate::sources::authority(&sub.source_id) else {
         return SendOutcome::failed("access_revoked", false);
     };
     if source["state"] == "revoked" {

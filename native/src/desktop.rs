@@ -126,6 +126,8 @@ impl Drop for PendingCall {
 struct Pending {
     tx: oneshot::Sender<Result<Value>>,
     target: Option<String>,
+    method: String,
+    started: Instant,
 }
 pub struct Ipc {
     writer: Arc<Mutex<tokio::io::WriteHalf<DesktopStream>>>,
@@ -223,7 +225,7 @@ impl Ipc {
                 match string(&msg, "type") {
                     "client-discovery-request" => {
                         let reply = json!({"type":"client-discovery-response","requestId":msg["requestId"],"response":{"canHandle":false}});
-                        if Self::frame(&w, reply).await.is_err() {
+                        if Self::frame(&w, &a, reply).await.is_err() {
                             break;
                         }
                     }
@@ -358,16 +360,23 @@ impl Ipc {
         ipc.client = string(&init["result"], "clientId").into();
         Ok(ipc)
     }
-    async fn frame(w: &Arc<Mutex<tokio::io::WriteHalf<DesktopStream>>>, v: Value) -> Result<()> {
+    async fn frame(
+        w: &Arc<Mutex<tokio::io::WriteHalf<DesktopStream>>>,
+        alive: &std::sync::atomic::AtomicBool,
+        v: Value,
+    ) -> Result<()> {
         let bytes = serde_json::to_vec(&v).map_err(|e| e.to_string())?;
         let mut w = w.lock().await;
+        if !alive.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("DESKTOP_DISCONNECTED".into());
+        }
         w.write_u32_le(bytes.len() as u32)
             .await
             .map_err(|e| e.to_string())?;
         w.write_all(&bytes).await.map_err(|e| e.to_string())
     }
     async fn write(&self, v: Value) -> Result<()> {
-        let result = Self::frame(&self.writer, v).await;
+        let result = Self::frame(&self.writer, &self.alive, v).await;
         if result.is_err() {
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
         }
@@ -376,10 +385,24 @@ impl Ipc {
     pub(crate) async fn diagnostics(&self) -> Value {
         let mut snapshots = self.snapshots.lock().await;
         snapshots.prune();
-        let pending = self.pending.lock().unwrap().len();
+        let (pending, requests) = {
+            let pending = self.pending.lock().unwrap();
+            let mut methods = std::collections::BTreeMap::<&str, (usize, &str, Instant)>::new();
+            for (id, request) in pending.iter() {
+                let entry = methods
+                    .entry(&request.method)
+                    .or_insert((0, id, request.started));
+                entry.0 += 1;
+                if request.started < entry.2 {
+                    entry.1 = id;
+                    entry.2 = request.started;
+                }
+            }
+            (pending.len(), methods.into_iter().map(|(method,(count,id,started))| json!({"method":method,"count":count,"oldestRequestId":id,"oldestAgeMs":started.elapsed().as_millis()})).collect::<Vec<_>>())
+        };
         let owners = self.owners.lock().await.len();
         json!({"connected":self.alive(),"pendingRequests":pending,
-            "owners":owners,"snapshots":snapshots.report()})
+            "requests":requests,"owners":owners,"snapshots":snapshots.report()})
     }
     pub fn alive(&self) -> bool {
         self.alive.load(std::sync::atomic::Ordering::SeqCst)
@@ -413,6 +436,13 @@ impl Ipc {
             }
         };
         let request_id = id();
+        let started = Instant::now();
+        let deadline = tokio::time::Instant::now()
+            + Duration::from_secs(if method == "thread-owner-discovery" {
+                1
+            } else {
+                30
+            });
         let (tx, rx) = oneshot::channel();
         let base = match method {
             "thread-owner-discovery"
@@ -439,25 +469,30 @@ impl Ipc {
             Pending {
                 tx,
                 target: target.map(str::to_owned),
+                method: method.into(),
+                started,
             },
         );
         let _pending = PendingCall {
             pending: self.pending.clone(),
             key: request_id.clone(),
         };
-        if let Err(e) = self.write(msg).await {
+        let written = tokio::time::timeout_at(deadline, self.write(msg))
+            .await
+            .unwrap_or_else(|_| Err(format!("DESKTOP_REQUEST_TIMEOUT: {method}")));
+        if let Err(e) = written {
+            // A cancelled frame may be partial. Retire this connection before
+            // any caller can append another frame to that byte stream.
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
+            self.reader.abort();
+            for (_, request) in self.pending.lock().unwrap().drain() {
+                let _ = request.tx.send(Err("DESKTOP_DISCONNECTED".into()));
+            }
+            self.wake.notify_waiters();
+            self.changes.notify_waiters();
             return Err(submitted_error(e));
         }
-        let out = tokio::time::timeout(
-            Duration::from_secs(if method == "thread-owner-discovery" {
-                1
-            } else {
-                30
-            }),
-            rx,
-        )
-        .await;
+        let out = tokio::time::timeout_at(deadline, rx).await;
         out.map_err(|_| format!("DESKTOP_REQUEST_TIMEOUT: {method}"))
             .and_then(|v| v.map_err(|_| "DESKTOP_DISCONNECTED".to_string()))
             .and_then(|v| v)

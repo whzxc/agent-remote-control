@@ -1,7 +1,12 @@
 //! Bounded read caches. File stamps detect external changes; owned writes update indexes.
 use crate::*;
 use serde::de::DeserializeOwned;
-use std::{collections::HashMap, fs::FileType, sync::LazyLock, time::SystemTime};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs::FileType,
+    sync::LazyLock,
+    time::SystemTime,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stamp {
@@ -93,27 +98,45 @@ fn count_io(file: bool) {
 /// Cache contents are immutable snapshots. No lock or file handle escapes a read.
 pub struct Cache<T> {
     files: HashMap<PathBuf, File<T>>,
+    recency: BTreeMap<u64, PathBuf>,
     directories: HashMap<PathBuf, Directory>,
     bytes: u64,
     clock: u64,
     io: Io,
+    hits: u64,
+    evictions: u64,
+    evicted_bytes: u64,
 }
 impl<T> Default for Cache<T> {
     fn default() -> Self {
         Self {
             files: HashMap::new(),
+            recency: BTreeMap::new(),
             directories: HashMap::new(),
             bytes: 0,
             clock: 0,
             io: Io::default(),
+            hits: 0,
+            evictions: 0,
+            evicted_bytes: 0,
         }
     }
 }
 impl<T> Cache<T> {
     pub fn diagnostics(&self) -> Value {
+        let base = root();
+        let mut groups = BTreeMap::<&str, (usize, u64)>::new();
+        for (path, file) in &self.files {
+            let group = cache_group(path, &base);
+            let entry = groups.entry(group).or_default();
+            entry.0 += 1;
+            entry.1 += file.stamp.len;
+        }
         json!({"files":self.files.len(),"directories":self.directories.len(),
             "sourceBytes":self.bytes,"sourceByteLimit":32*1024*1024,"fileLimit":8192,
-            "fileOpens":self.io.file_opens,"directoryReads":self.io.directory_reads})
+            "fileOpens":self.io.file_opens,"directoryReads":self.io.directory_reads,
+            "hits":self.hits,"evictions":self.evictions,"evictedSourceBytes":self.evicted_bytes,
+            "groups":groups.into_iter().map(|(kind,(files,bytes))| json!({"kind":kind,"files":files,"sourceBytes":bytes})).collect::<Vec<_>>()})
     }
     pub fn io(&self) -> Io {
         self.io
@@ -158,6 +181,7 @@ impl<T> Cache<T> {
     pub fn changed(&mut self, path: &Path, before: Option<Stamp>) {
         if let Some(old) = self.files.remove(path) {
             self.bytes -= old.stamp.len;
+            self.recency.remove(&old.used);
         }
         let Some(parent) = path.parent() else { return };
         if self
@@ -205,21 +229,20 @@ impl<T> Cache<T> {
                         used: self.clock,
                     },
                 );
+                self.recency.insert(self.clock, path.into());
             }
         }
         Ok(())
     }
     fn make_room(&mut self, bytes: u64) {
         while self.bytes + bytes > 32 * 1024 * 1024 || self.files.len() >= 8192 {
-            let Some(oldest) = self
-                .files
-                .iter()
-                .min_by_key(|(_, v)| v.used)
-                .map(|(p, _)| p.clone())
-            else {
+            let Some((_, oldest)) = self.recency.pop_first() else {
                 break;
             };
-            self.bytes -= self.files.remove(&oldest).unwrap().stamp.len;
+            let len = self.files.remove(&oldest).unwrap().stamp.len;
+            self.bytes -= len;
+            self.evictions += 1;
+            self.evicted_bytes += len;
         }
     }
 }
@@ -229,7 +252,10 @@ impl<T: DeserializeOwned> Cache<T> {
             Stamp::read(path)?.ok_or_else(|| format!("File not found: {}", path.display()))?;
         self.clock += 1;
         if let Some(cached) = self.files.get_mut(path).filter(|v| v.stamp == stamp) {
+            self.recency.remove(&cached.used);
             cached.used = self.clock;
+            self.recency.insert(self.clock, path.into());
+            self.hits += 1;
             return Ok(cached.value.clone());
         }
         self.io.file_opens += 1;
@@ -239,6 +265,7 @@ impl<T: DeserializeOwned> Cache<T> {
             Arc::new(serde_json::from_slice(&bytes).map_err(|e| format!("INVALID_JSON: {e}"))?);
         if let Some(old) = self.files.remove(path) {
             self.bytes -= old.stamp.len;
+            self.recency.remove(&old.used);
         }
         // Cache only a stable read, including across atomic replacement/truncation.
         if stamp.len <= 32 * 1024 * 1024 && Stamp::read(path)?.as_ref() == Some(&stamp) {
@@ -252,8 +279,43 @@ impl<T: DeserializeOwned> Cache<T> {
                     used: self.clock,
                 },
             );
+            self.recency.insert(self.clock, path.into());
         }
         Ok(value)
+    }
+}
+/// Fixed categories only; diagnostics never expose filenames or user paths.
+pub(crate) fn cache_group(path: &Path, base: &Path) -> &'static str {
+    let Ok(relative) = path.strip_prefix(base) else {
+        return "other";
+    };
+    if relative.components().count() == 1 {
+        return if relative
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .is_some_and(|stem| uuid::Uuid::parse_str(stem).is_ok())
+        {
+            "receipts"
+        } else {
+            "settings"
+        };
+    }
+    match relative
+        .components()
+        .next()
+        .and_then(|c| c.as_os_str().to_str())
+    {
+        Some("accounts") => "accounts",
+        Some("agents") => "agents",
+        Some("coordination") => "coordination",
+        Some("dispatches") => "dispatches",
+        Some("execution") => "execution",
+        Some("external-inputs") => "external-inputs",
+        Some("notifications") => "notifications",
+        Some("respond-tokens") => "respond-tokens",
+        Some("send-queue") => "send-queue",
+        Some("tasks") => "tasks",
+        _ => "other",
     }
 }
 /// A derived collection is reused only while every owning directory is unchanged.
@@ -314,6 +376,29 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn eviction_preserves_hot_snapshots_and_in_flight_readers() {
+        // Regression: a JSON cache at its byte ceiling must evict cold snapshots without invalidating current readers.
+        let dir = Sandbox::new();
+        for name in ["a", "b", "c"] {
+            let mut bytes = serde_json::to_vec(&json!({"value":name})).unwrap();
+            bytes.resize(12 * 1024 * 1024, b' ');
+            std::fs::write(dir.0.join(name), bytes).unwrap();
+        }
+        let mut cache = Cache::<Value>::default();
+        let a = cache.read(&dir.0.join("a")).unwrap();
+        let b = cache.read(&dir.0.join("b")).unwrap();
+        assert_eq!(cache.read(&dir.0.join("a")).unwrap()["value"], "a");
+        assert_eq!(cache.read(&dir.0.join("c")).unwrap()["value"], "c");
+        assert!(Arc::ptr_eq(&a, &cache.read(&dir.0.join("a")).unwrap()));
+        assert_eq!(b["value"], "b");
+        assert!(cache.diagnostics()["sourceBytes"].as_u64().unwrap() <= 32 * 1024 * 1024);
+        save(&dir.0.join("a"), &json!({"value":"updated"})).unwrap();
+        assert_eq!(cache.read(&dir.0.join("a")).unwrap()["value"], "updated");
+        assert_eq!(a["value"], "a");
+        assert_eq!(cache.read(&dir.0.join("b")).unwrap()["value"], "b");
     }
 
     #[test]
