@@ -6,13 +6,13 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWindows, buildMac, runCommand, prepareWindowsWorker } from './windows-release.mjs';
-import { buildLinux } from './linux-release.mjs';
+import { buildLinux, preflightLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
 import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
-  validateResume, validateRemoteAssets, validateArtifactInventory, platformAssetNames, retry, boundedMap, stageTimer, parallelPlatforms } from './release-support.mjs';
+  validateResume, validateRemoteAssets, validateArtifactInventory, platformAssetNames, retry, boundedMap, stageTimer, parallelPlatforms, releasePlatforms } from './release-support.mjs';
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
 let version = buildVersion();
 const repo = 'whzxc/agent-remote-control';
@@ -130,8 +130,7 @@ if (mode === 'release') {
   if (resume && dryRun) throw new Error('--resume cannot be combined with --dry-run');
   const saved = resume ? await json(path.join(options.resume, 'release-state.json')) : undefined;
   const requested = options.version === undefined ? saved?.version : stableVersion(options.version);
-  const platforms = (options.platforms ?? saved?.platforms?.join(',') ?? 'mac,windows,linux').split(',');
-  if (new Set(platforms).size !== platforms.length || platforms.some(value => !['mac', 'windows', 'linux'].includes(value))) throw new Error('--platforms accepts a nonempty comma-separated selection of mac,windows,linux');
+  const platforms = releasePlatforms(options.platforms ?? saved?.platforms?.join(','));
   const mac = platforms.includes('mac');
   const windows = platforms.includes('windows');
   const linux = platforms.includes('linux');
@@ -175,6 +174,7 @@ if (mode === 'release') {
       if (!resume && mac) macosSigningIdentity(env, { release: true });
       sourceSha = git('rev-parse', 'HEAD');
       if (git('status', '--porcelain')) throw new Error('Release builds require a clean committed source');
+      if (!resume && linux) await preflightLinux(sourceSha);
       if (!resume && windows) {
         workerPreparation = prepareWindowsWorker({ timer });
         workerPreparation.catch(() => {});
@@ -202,7 +202,7 @@ if (mode === 'release') {
       env.ARC_BUILD_VERSION = version;
       process.env.ARC_BUILD_VERSION = version;
       base = `https://github.com/${repo}/releases/download/v${version}`;
-      console.log(`Release v${version} from ${sourceSha}; no version commit`);
+      console.log(`Release v${version} from ${sourceSha}; platforms: ${platforms.join(',')}; no version commit`);
     });
     if (resume) {
       for (const name of ['tests', 'macOS wall', 'Windows wall', 'Linux wall', 'platform critical path']) timer.skip(name);
@@ -221,7 +221,7 @@ if (mode === 'release') {
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
           ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
             worker: workerPreparation, onCollected: releaseWorker }))] : []),
-          ...(linux ? [() => timer.run('Linux wall', () => buildLinux({ sourceSha, version, output, timer }))] : []),
+          ...(linux ? [() => timer.run('Linux wall', () => buildLinux({ sourceSha, version, output, timer, platforms }))] : []),
         ]));
       });
       assertSource();

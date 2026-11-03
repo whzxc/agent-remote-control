@@ -13,6 +13,14 @@ export const gh = (args, options = {}) => execFileSync('gh', args, { ...ghOption
 export const ghTransfer = args => execute('gh', args, transferOptions);
 const ghRead = async args => (await execute('gh', args, ghOptions)).stdout;
 
+export function releasePlatforms(value = 'mac,windows') {
+  const platforms = value.split(',');
+  if (new Set(platforms).size !== platforms.length || platforms.some(platform => !['mac', 'windows', 'linux'].includes(platform))) {
+    throw new Error('--platforms accepts a nonempty comma-separated selection of mac,windows,linux');
+  }
+  return platforms;
+}
+
 export async function releaseById(repo, id, query = ghRead) {
   return JSON.parse(await query(['api', `repos/${repo}/releases/${id}`]));
 }

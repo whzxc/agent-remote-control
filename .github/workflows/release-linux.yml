@@ -1,0 +1,87 @@
+name: Build Linux release artifacts
+run-name: Linux ${{ inputs.version }} ${{ inputs.request_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full source SHA, already pushed to the dispatch ref
+        type: string
+        required: true
+      version:
+        description: Build version (x.y.z; no tag or publication)
+        type: string
+        required: true
+      platforms:
+        description: Selected release platforms (Linux builds only when explicitly included)
+        type: string
+        default: mac,windows
+      request_id:
+        description: Coordinator request identifier
+        type: string
+        default: manual
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      linux: ${{ steps.plan.outputs.linux }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Select requested platforms and verify source
+        id: plan
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ARC_BUILD_VERSION: ${{ inputs.version }}
+          RELEASE_PLATFORMS: ${{ inputs.platforms }}
+        run: node tooling/release-plan.mjs
+  linux:
+    needs: plan
+    if: needs.plan.outputs.linux == 'true'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: linux-${{ matrix.arch }}-glibc-2.28
+          workspaces: . -> target
+      - name: Install Linux build tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/linux-tools"
+          "$RUNNER_TEMP/linux-tools/bin/pip" install 'cargo-zigbuild>=0.24.0,<1' 'ziglang>=0.17.0,<1'
+          echo "$RUNNER_TEMP/linux-tools/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y binutils
+      - name: Build and execute on native Linux
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ARC_BUILD_VERSION: ${{ inputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: node tooling/linux-build.mjs "$SOURCE_SHA" "$ARC_BUILD_VERSION" "$ARCH" release-artifacts/linux
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-${{ matrix.arch }}
+          path: release-artifacts/linux/*
+          if-no-files-found: error

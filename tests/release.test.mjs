@@ -4,11 +4,40 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { assetMatches, boundedMap, ghOptions, transferOptions, platformAssetNames, publicationStages,
-  publishedTags, releaseByTag, releaseById, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv } from '../tooling/release-support.mjs';
+  publishedTags, releaseByTag, releaseById, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv, releasePlatforms } from '../tooling/release-support.mjs';
 import { workerReady, canStopWorker, validateWindowsReceipt } from '../tooling/windows-release.mjs';
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
-import { validateLinuxElf } from '../tooling/linux-release.mjs';
+import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release.mjs';
+
+test('ordinary releases select desktops and Linux requires an explicit selection', () => {
+  // Regression: ordinary releases selected Linux and blocked on local Lima and Rosetta prerequisites.
+  const platforms = releasePlatforms();
+  assert.deepEqual(platforms, ['mac', 'windows']);
+  assert.deepEqual(releasePlatforms('mac,windows,linux'), ['mac', 'windows', 'linux']);
+  assert.deepEqual(releasePlatforms('linux'), ['linux']);
+  const manifest = { version: '1.2.3', platforms: {
+    'darwin-aarch64': { url: 'https://example.com/mac.app.tar.gz' },
+    'windows-x86_64': { url: 'https://example.com/windows.exe' },
+    'windows-x86_64-nsis': { url: 'https://example.com/windows.exe' },
+  } };
+  const names = platformAssetNames(manifest, '1.2.3', platforms);
+  assert.equal(names.some(name => name.includes('linux') || name === 'install-agent-remote-control.sh'), false);
+  const all = platformAssetNames(manifest, '1.2.3', releasePlatforms('mac,windows,linux'));
+  assert.ok(all.includes('agent-remote-control-v1.2.3-linux-x86_64.tar.gz'));
+  assert.ok(all.includes('agent-remote-control-v1.2.3-linux-aarch64.tar.gz'));
+});
+
+test('Linux receipts bind source version architecture bytes and native runtime checks', () => {
+  // Property: collected Linux payloads must match every requested identity and runtime invariant.
+  const request = { sourceSha: 'a'.repeat(40), version: '1.2.3', arch: 'aarch64', digest: 'sha256:abc' };
+  const receipt = { ...request, file: 'agent-remote-control-v1.2.3-linux-aarch64.tar.gz', sha256: 'abc', glibcBaseline: '2.28', runtimeVersion: '1.2.3', runtimeHelp: true };
+  assert.doesNotThrow(() => validateLinuxReceipt(receipt, request));
+  for (const patch of [{ sourceSha: 'b'.repeat(40) }, { version: '1.2.4' }, { arch: 'x86_64' }, { sha256: 'def' },
+    { file: '../other.tar.gz' }, { glibcBaseline: '2.39' }, { runtimeVersion: '0.0.0' }, { runtimeHelp: false }]) {
+    assert.throws(() => validateLinuxReceipt({ ...receipt, ...patch }, request));
+  }
+});
 
 
 test('test execution has the same version-independent environment inside and outside release', () => {

@@ -2,11 +2,11 @@
 
 [Development](development.md) · [Installation](../installation.md)
 
-Public source and artifacts live in whzxc/agent-remote-control. Formal Git tags and GitHub Releases hold installers, updater archives, latest.json, Homebrew Cask, and checksums. No public npm package is published. Commit/push as authorized; tags, uploads, and Releases require explicit authorization. Building does not require a tag or remote commit.
+Public source and artifacts live in whzxc/agent-remote-control. Formal Git tags and GitHub Releases hold installers, updater archives, latest.json, Homebrew Cask, and checksums. No public npm package is published. Commit/push as authorized; tags, uploads, and Releases require explicit authorization. Building does not require a tag. Linux builds require the source commit pushed to main before dispatch.
 
 ## Prerequisites and signing
 
-The default release builds macOS ARM64 and both Linux architectures on the Apple Silicon Mac coordinator, plus Windows x64 on the exclusive on-demand worker. GitHub Actions is not used for release builds. The coordinator requires Node.js 24.12+, Rust from rust-toolchain.toml, full Xcode 26+, uv, npm dependencies, and authenticated gh for formal publication. Linux-only builds do not require signing keys.
+The default release selects macOS ARM64 on the Apple Silicon Mac coordinator and Windows x64 on the exclusive on-demand worker. An unqualified release request uses only these desktop platforms. Include Linux only when the user explicitly requests all platforms or Linux. Default desktop releases do not check, prepare, build, or validate Linux. The coordinator requires Node.js 24.12+, Rust from rust-toolchain.toml, full Xcode 26+, npm dependencies, and authenticated gh for formal publication. Explicit Linux builds also require gh access to dispatch and download Actions artifacts; Linux-only builds do not require signing keys.
 
 Updater Minisign keys MUST match desktop/tauri.conf.json's public key. Lookup order:
 
@@ -20,17 +20,22 @@ Packaged macOS builds use the fixed self-signed identity from tooling/macos-sign
 
 Production identifiers are com.whzxc.agent-remote-control, .core, and .screen; development uses .dev. Recheck system permissions after identity changes. Updater signatures do not establish OS code-signing identity.
 
-## Local Linux prerequisites
+## Linux builds in GitHub Actions
+
+Select `--platforms mac,windows,linux` for all platforms, or `--platforms linux` for Linux only. Both Linux architectures are one platform selection. No Mac Linux toolchain or validation VM is required.
+
+The coordinator verifies that its full source SHA is already pushed to main and that `release-linux.yml` is active. It dispatches the workflow from main with the same full SHA, version, platform selection, and a unique request identifier. The workflow verifies that its dispatch commit and checkout match that SHA. Source movement between preflight and dispatch stops the run. Push the intended source before retrying. Linux selection requires Actions access even for a dry run.
+
+The workflow defaults to `mac,windows`, which runs only source/platform planning and skips both Linux jobs. The coordinator dispatches it only when Linux is explicitly selected. It never builds desktops or publishes releases. To inspect platform selection without packaging desktop apps:
 
 ```sh
-npm run release:linux:setup
+gh workflow run release-linux.yml --ref main -f source_sha="$(git rev-parse HEAD)" -f version=X.Y.Z
+gh workflow run release-linux.yml --ref main -f source_sha="$(git rev-parse HEAD)" -f version=X.Y.Z -f platforms=mac,windows,linux
 ```
 
-This installs the latest supported major versions of cargo-zigbuild, Zig and Lima under release-artifacts/.linux-tools, verifies Lima's release checksum, installs the two GNU Rust targets for the selected stable toolchain, and creates the project-local Ubuntu 24.04 validation VM. Rosetta must already be installed through macOS; setup does not accept a license. Lima state is under release-artifacts/.l and mounts only release-artifacts/.linux-validation. The VM has x64 glibc cross-runtime libraries and readelf. Linux builds run on the Mac, not inside the VM. The VM runs ARM64 binaries directly and x64 binaries through Rosetta's Linux translator. Version and CLI-help execution checks use the actual compiled ELF binaries. A stopped project VM is started for validation and stopped afterward only if that run started it. An already-running validator is preserved.
+Linux x86_64 runs on `ubuntu-24.04`; ARM64 runs on `ubuntu-24.04-arm`. Each native runner installs cargo-zigbuild and Zig, runs clippy and a locked release build for its GNU target with GLIBC 2.28, checks ELF64 architecture and executable type, executes the actual binary's `--version` and `cli --help`, and checks required GLIBC symbol versions with readelf. There is no emulation. Each archive includes arc, LICENSE, skills, and licenses, using the existing GNU installer names and format.
 
-Linux uses the same native manifest, locked dependencies, release profile, archive names, executable, LICENSE, skills/arc-setup, licenses, and installer-script inputs as the former CI jobs. cargo-zigbuild targets GNU/Linux with an explicit GLIBC 2.28 baseline; ELF architecture, executable type, required GLIBC symbol versions, actual --version, and CLI help are checked before packaging. This preserves the GNU installer contract and supports an older glibc baseline than Ubuntu 24.04 native linking. Artifact bytes differ from native CI builds; byte-for-byte reproducibility is not claimed. Both architectures run clippy with Zig's C toolchain.
-
-Cargo targets live beneath the real path of the existing target cache: target/linux-x86_64 and target/linux-aarch64. The target symlink/cache configuration remains authoritative, including external SSD placement. Architectures have separate host/build locks so they compile concurrently. Existing cache pruning covers these nested directories. Setup tools, ordinary source clones, and compiler caches persist across rehearsals.
+Only successful jobs upload their archive and a receipt binding the source SHA, version, architecture, checksum, and runtime checks. The coordinator waits for the complete workflow to succeed, downloads that exact run's artifacts, validates both receipts and downloaded digests, then adds the two archives and matching source install script to the selected release assets. `linux-receipts.json` retains the Actions run URL with those receipts. Failed builds and their logs remain in Actions; downloaded files remain in the release output. The coordinator prints the run URL for recovery. Actions caches are per architecture and GLIBC baseline; no Linux cache or source clone is created on the Mac.
 
 ## Routine tests
 
@@ -49,13 +54,14 @@ npm run release
 npm run release -- --version X.Y.Z
 npm run release -- --skip-tests
 npm run release -- --platforms mac
-npm run release -- --platforms windows,linux
+npm run release -- --platforms mac,windows,linux
+npm run release -- --platforms linux
 npm run release -- --resume release-artifacts/vX.Y.Z-<suffix>
 ```
 
 Use a clean main checkout that is not behind its remote. Preflight validates source, signing, branch, and publication permissions and selects a version newer than public releases. ARC_BUILD_VERSION injects it into frontend, Core, Desktop, and installers; source placeholders remain 0.0.0. No version-only commit is created.
 
-The coordinator freezes the same full SHA for all ordinary clean source clones. Windows readiness starts at the beginning of preflight and overlaps tests and local builds. macOS, Windows, and both Linux architectures build concurrently. Source changes during the run fail closed. A unique release-artifacts/v<version>-<suffix> directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes main/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back public latest.json. A rehearsal never enters these mutation stages.
+The coordinator freezes the same full SHA for each selected platform. Windows readiness starts at the beginning of preflight and overlaps tests and local builds. Selected macOS, Windows, and Linux Actions builds run concurrently. Source changes during the run fail closed. A unique release-artifacts/v<version>-<suffix> directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes main/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back public latest.json. A rehearsal never enters these mutation stages.
 
 Windows connection/SCNet checkout declarations come from the installed @whzxc/work profile located through enjoy runtime; fleet connections remain in the Enjoy profile. Before acquisition, check SCNet source locks and require both mutually exclusive workers to be stopped and unowned. Preserve and report an occupied or already-running worker. Use enjoy infra execute with proxmox.worker.start/inspect/stop, target k12, a unique owner, and --fresh. Poll until both ssh_reachable and ready are true before Windows SSH. Check guest SCNet locks and build processes again before building. Shutdown requires this run's initial stopped state and retained ownership, including ambiguous start responses.
 
@@ -63,7 +69,7 @@ Transfer a Git bundle into the dedicated clean ordinary Windows checkout, detach
 
 Desktop/Core compile together in one Tauri build using one configuration and dependency graph. The bundler owns external resources; re-signing a Core/helper does not invalidate Rust compilation. Generated frontend files retain their timestamps when bytes are unchanged. Explicit build versions do not watch unrelated Git metadata. Compile, resource signing, bundling, and DMG creation have separate timers. Windows NSIS uses ZLIB instead of solid LZMA to reduce packaging CPU time at the cost of a larger EXE. Runtime content and installation behavior remain unchanged; measure size and upload impact when comparing release timings.
 
-latest.json contains only the selected desktop platforms from this build. Linux archives and install script are separate assets. Missing updater platforms stay on their prior releases. --platforms accepts a nonduplicated subset of mac,windows,linux; partial publication requires its own new version. Never append to or overwrite a public version, substitute old platform bytes, or publish an incomplete selection. No CI release workflow remains.
+latest.json contains only the selected desktop platforms from this build. Linux archives and install script are separate assets. Missing updater platforms stay on their prior releases. --platforms accepts a nonduplicated subset of mac,windows,linux; partial publication requires its own new version. Never append to or overwrite a public version, substitute old platform bytes, or publish an incomplete selection. The default selection is mac,windows. Linux Actions runs only for an explicit Linux selection; formal publication remains on the coordinator.
 
 ## Resume
 
@@ -77,9 +83,10 @@ The checkpoint saves draft ID and publish intent before publishing. A lost publi
 
 ```sh
 npm run release -- --dry-run --version X.Y.Z
+npm run release -- --dry-run --version X.Y.Z --platforms mac,windows,linux
 ```
 
-Rehearsals run the daily suite and build every selected platform, collect receipts, verify Linux runtime behavior, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. No tag, push, draft, release, upload, app installation, or replacement occurs. No publication checkpoint is created. --skip-tests explicitly bypasses tests when requested.
+Rehearsals run the daily suite and build every selected platform, collect receipts, verify selected Linux runtime checks from Actions, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. Linux jobs upload workflow artifacts for coordinator collection. No tag, source push, draft, public Release, Release asset upload, app installation, or replacement occurs. No publication checkpoint is created. --skip-tests explicitly bypasses tests when requested.
 
 Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent builds; build/test critical path covers the daily test gate followed by concurrent platform builds. Worker readiness overlaps preflight/work, and cleanup is a separate background stage. Nested durations must not be added. Overall wall includes final cleanup; formal publication timings include tagging, upload, verification, publish, and readback. Windows sends its detailed dependency/Rust/NSIS timers back to the coordinator. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts and timings are not public assets.
 

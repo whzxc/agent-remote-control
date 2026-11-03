@@ -35,7 +35,6 @@
     "mutation:ui": "stryker run",
     "mutation:native": "node tooling/mutation-native.mjs",
     "test:churn": "node tooling/test-churn.mjs",
-    "release:linux:setup": "node tooling/setup-linux-release.mjs",
     "dev:isolated": "node tooling/isolated-dev.mjs"
   },
   "devDependencies": {
