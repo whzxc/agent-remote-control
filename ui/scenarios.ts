@@ -106,8 +106,16 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   if (path === 'updates/check' && method === 'POST') return {};
 
   if (path === 'agents/dispatch-catalog' && method === 'POST') return {
-    authoritative: true, source: 'fixture', models: [{ model: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol' }, { model: 'gpt-5.6-sol', displayName: 'GPT-5.6 Sol' }],
+    authoritative: true, source: 'fixture', models: [{ model: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol', efforts: ['low', 'medium', 'high', 'max'] }, { model: 'gpt-5.6-sol', displayName: 'GPT-5.6 Sol', efforts: ['low', 'medium', 'high'] }],
   };
+  if (path === 'agents/dispatch-defaults/read' && method === 'POST') {
+    const { agent } = body as { agent: string };
+    return { agent, model: null, ...(agent === 'codex' ? { effort: null } : {}), ...(responses[`dispatch-defaults/${agent}`] as object) };
+  }
+  if (path === 'agents/dispatch-defaults' && method === 'POST') {
+    const { agent, ...values } = body as { agent: string; model: string | null; effort?: string | null };
+    return { agent, ...(responses[`dispatch-defaults/${agent}`] = values) };
+  }
   if (path === 'agents/conversations/timeline' && method === 'POST') {
     const timeline = responses[`agents/timeline/${(body as { id: string }).id}`];
     if (timeline) return structuredClone(timeline);

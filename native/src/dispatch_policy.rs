@@ -157,6 +157,64 @@ pub(crate) fn update(args: &Value) -> Result<Value> {
     save_bytes(&path, &formatted(&updated)?)?;
     Ok(json!({"scope":scope,"criteriaHash":hash(criteria),"policyPath":path,"backupPath":backup}))
 }
+/// Read the user-owned defaults applied when a dispatch omits model or effort.
+pub(crate) fn defaults(agent: &str) -> Result<Value> {
+    let policies = read()?;
+    Ok(if agent == "codex" {
+        json!({"agent":agent,"model":policies.codex.model,"effort":policies.codex.effort})
+    } else {
+        let policy = policies.agents.get(agent).cloned().unwrap_or_default();
+        json!({"agent":agent,"model":policy.model})
+    })
+}
+/// Replace one Agent's default model (and Codex effort); null restores native inheritance.
+pub(crate) fn set_defaults(body: &Value) -> Result<Value> {
+    let _guard = POLICY_LOCK.lock().map_err(|e| e.to_string())?;
+    let (policies, previous) = read_locked()?;
+    let agent = string(body, "agent");
+    let field = |key: &str| body[key].as_str().map(str::trim).filter(|v| !v.is_empty());
+    let (model, effort) = (field("model"), field("effort"));
+    if agent == "codex" {
+        let p = &policies.codex;
+        model.map_or(Ok(()), |v| {
+            check(v, &p.allow_models, &p.deny_models, "model")
+        })?;
+        effort.map_or(Ok(()), |v| {
+            check(v, &p.allow_efforts, &p.deny_efforts, "effort")
+        })?;
+    } else {
+        if effort.is_some() {
+            return Err("DISPATCH_DEFAULTS_UNSUPPORTED: effort applies only to codex".into());
+        }
+        let p = policies.agents.get(agent).cloned().unwrap_or_default();
+        model.map_or(Ok(()), |v| {
+            check(v, &p.allow_models, &p.deny_models, "model")
+        })?;
+    }
+    let mut updated = previous.clone();
+    if updated.get(agent).is_none() {
+        updated[agent] = json!({});
+    }
+    updated[agent]["model"] = json!(model);
+    if agent == "codex" {
+        updated[agent]["effort"] = json!(effort);
+    }
+    let formatted = |value: &Value| -> Result<Vec<u8>> {
+        let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    };
+    save_bytes(
+        &root().join("dispatch-policy.json.bak"),
+        &formatted(&previous)?,
+    )?;
+    save_bytes(&root().join("dispatch-policy.json"), &formatted(&updated)?)?;
+    Ok(if agent == "codex" {
+        json!({"agent":agent,"model":model,"effort":effort})
+    } else {
+        json!({"agent":agent,"model":model})
+    })
+}
 
 fn check(value: &str, allow: &[String], deny: &[String], field: &str) -> Result<()> {
     if deny.iter().any(|v| v == value) || (!allow.is_empty() && !allow.iter().any(|v| v == value)) {

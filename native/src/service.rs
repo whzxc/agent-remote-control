@@ -520,6 +520,7 @@ impl Service {
                 "logs/query",
                 "agents/conversations",
                 "agents/dispatch-catalog",
+                "agents/dispatch-defaults/read",
                 "agents/conversations/timeline",
                 "state/wait",
                 "setup/next",
@@ -926,6 +927,14 @@ impl Service {
         if route == "agents/dispatch-catalog" && method == "POST" {
             crate::management::resolve("agents.dispatch_catalog", &json!({"body":body}))?;
             return crate::dispatch_policy::catalog(&self.control, &self.agents, &body).await;
+        }
+        if route == "agents/dispatch-defaults/read" && method == "POST" {
+            crate::management::resolve("agents.dispatch_defaults.read", &json!({"body":body}))?;
+            return self.agents.dispatch_defaults(&body, false);
+        }
+        if route == "agents/dispatch-defaults" && method == "POST" {
+            crate::management::resolve("agents.dispatch_defaults.update", &json!({"body":body}))?;
+            return self.agents.dispatch_defaults(&body, true);
         }
         if route == "agents/activity" && method == "GET" {
             return Ok(self.agents.activity(&self.control).await);

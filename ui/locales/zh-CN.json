@@ -1629,5 +1629,9 @@
   "mcp.nativeLoginPending": "原生登录正在处理。请查看原生 Agent，然后重新检查目录。",
   "mcp.support": "Agent 与传输支持范围",
   "mcp.remove": "移除服务",
-  "mcp.removeEffect": "新进程将不再获得 {name}。运行中的进程保留现有配置；接管的源将恢复使用原配置。"
+  "mcp.removeEffect": "新进程将不再获得 {name}。运行中的进程保留现有配置；接管的源将恢复使用原配置。",
+  "dispatchDefaults.title": "派发默认值",
+  "dispatchDefaults.model": "默认模型",
+  "dispatchDefaults.effort": "默认推理强度",
+  "dispatchDefaults.inherit": "跟随 Agent"
 }

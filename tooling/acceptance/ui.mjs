@@ -57,6 +57,17 @@ try {
         if (name.startsWith('agent-settings-')) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
+          if (fixture.agentDetail) {
+            await page.getByRole('button', { name: 'Codex', exact: true }).first().click();
+            const model = page.getByRole('radiogroup', { name: messages['dispatchDefaults.model'] });
+            const effort = page.getByRole('radiogroup', { name: messages['dispatchDefaults.effort'] });
+            await model.getByRole('radio', { name: 'GPT-6.1 Sol' }).click();
+            await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'] }).click();
+            await effort.getByRole('radio', { name: messages['dispatchSpec.effort.max'], checked: true }).waitFor();
+            // An effort the newly selected model does not support falls back to the Agent default.
+            await model.getByRole('radio', { name: 'GPT-5.6 Sol' }).click();
+            await effort.getByRole('radio', { name: messages['dispatchDefaults.inherit'], checked: true }).waitFor();
+          }
         }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');

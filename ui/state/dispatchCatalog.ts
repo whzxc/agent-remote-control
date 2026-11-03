@@ -3,7 +3,7 @@ import { api } from '../api';
 import { createStore } from './store';
 
 export type CatalogOption = { id: string; category?: string; values?: (string | { value: string; name?: string })[] };
-export type CatalogModel = { model: string; name?: string; displayName?: string; provider?: { id: string; name: string }; contextWindow?: number | number[]; group?: string; options?: CatalogOption[] };
+export type CatalogModel = { model: string; name?: string; displayName?: string; provider?: { id: string; name: string }; contextWindow?: number | number[]; group?: string; efforts?: string[]; options?: CatalogOption[] };
 export type DispatchCatalog = {
   authoritative?: boolean;
   source?: string;
