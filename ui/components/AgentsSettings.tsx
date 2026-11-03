@@ -115,7 +115,7 @@ export function AgentDetails({
       </div>
       {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
       {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
-        <Notice>{discoveryMessage(agent)}</Notice>}
+        <Notice>{<>{discoveryMessage(agent)}<br /><small>{agent.discoveryError}</small></>}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
     </Dialog>
   );
@@ -157,8 +157,8 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         }
       >
         {!state.loaded && state.loading && <Loading />}
-        {!state.loaded && !state.loading && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsNotLoaded")}</Notice>}
-        {state.loaded && !!state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsDiscoveryFailed")}</Notice>}
+        {!state.loaded && !state.loading && !state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsNotLoaded")}</Notice>}
+        {!!state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{<>{t("agentsRequestFailed")}<br /><small>{state.error}</small></>}</Notice>}
         {state.loaded && !state.error && items.length === 0 && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsEmpty")}</Notice>}
         {items.some((agent) => agent.installed) && <>
         <h3 className="agent-section-title">{t("installedAgents")}</h3>

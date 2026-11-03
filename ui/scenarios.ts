@@ -177,7 +177,7 @@ export async function installScenario(name: string) {
   }
   status.ingressSummary = { total: status.ingresses.length, running: status.ingresses.filter(entry => entry.running).length, ready: status.ingresses.filter(entry => entry.state === 'ready').length };
   const sources = status.ingresses.flatMap(i => i.sources ?? []);
-  const inventory: Agent[] = fixture.agentInventory ?? fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, canOpenTask: agent === 'codex', status: 'ready', version: 'fixture' }));
+  const inventory: Agent[] = fixture.agentInventory ?? fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
   fixture.tasks.forEach((task, index) => {
     activity.agents[task.agent].sessions.push({ id: `fixture-task-${index}`, ...(task.parent === undefined ? {} : { parentSessionId: `fixture-task-${task.parent}` }), source: task.direct ? 'transcript' : task.agent === 'codex' ? 'codex-thread' : 'arc-task', title: task.title, headline: task.headline, phase: task.phase,

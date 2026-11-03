@@ -1,1 +1,1 @@
-{"theme":"dark","language":"en","agents":["antigravity"],"agentInventory":[{"agent":"antigravity","installed":true,"available":true,"enabled":true,"canOpenTask":false,"status":"ready","version":"fixture"}],"tasks":[],"panel":{"kind":"agent","id":"antigravity"},"platformAgent":"antigravity"}
+{"theme":"dark","language":"en","agents":["antigravity"],"agentInventory":[{"agent":"antigravity","installed":true,"available":true,"enabled":true,"status":"ready","version":"fixture"}],"tasks":[],"panel":{"kind":"agent","id":"antigravity"},"platformAgent":"antigravity"}

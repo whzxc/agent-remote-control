@@ -10,7 +10,6 @@ export type Agent = {
   agent: string;
   installed?: boolean;
   available?: boolean;
-  canOpenTask?: boolean;
   enabled?: boolean;
   status?: string;
   version?: string | null;
@@ -114,7 +113,6 @@ function persist() {
               agent,
               installed,
               available,
-              canOpenTask,
               enabled,
               version,
               displayName,
@@ -122,7 +120,6 @@ function persist() {
               agent,
               installed,
               available,
-              canOpenTask,
               enabled,
               version,
               displayName,

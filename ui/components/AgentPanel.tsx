@@ -54,7 +54,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
-          {agent.installed && agent.canOpenTask && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
+          {agent.installed && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
             setError(""); void api("agents/open", "POST", { agent: agent.agent }).catch(error => setError(String(error)));
           }} />}
         </div>

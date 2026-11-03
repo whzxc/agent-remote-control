@@ -23,6 +23,7 @@ const scenarioFilter = process.argv.find(arg => arg.startsWith('--scenario='))?.
 const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('--port='.length) ?? 5187);
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
+const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 await mkdir(base, { recursive: true });
 const previous = (await readdir(base)).filter(n => n.endsWith(`-${engine}`)).sort().at(-1);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
@@ -55,7 +56,7 @@ try {
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
         if (name.startsWith('agent-settings-')) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          await page.getByRole('button', { name: new RegExp(`${messages.manageAgents}|${messages.addAgent}`) }).click();
+          await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
         }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');

@@ -47,7 +47,7 @@
   "connectionStatus": "Connection status",
   "refreshAgents": "Refresh Agents",
   "agentsNotLoaded": "Agent discovery has not run yet.",
-  "agentsDiscoveryFailed": "Agent discovery failed. Refresh after checking the native installation.",
+  "agentsRequestFailed": "Agent discovery or update failed. Review the error, then retry.",
   "agentsEmpty": "No local Agents were discovered. Install Antigravity or Pi, sign in natively, then refresh.",
   "agentDiscoveryAntigravity": "Antigravity was found but its identity or capabilities could not be read. Sign in with agy, then refresh.",
   "agentDiscoveryFailed": "This Agent was found but is not ready. Check its native installation and sign-in, then refresh.",
