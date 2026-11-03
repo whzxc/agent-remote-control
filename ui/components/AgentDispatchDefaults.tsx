@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { orderedAgents, name } from "../state/agents";
@@ -10,6 +10,7 @@ import ModelEffortPicker from "./ModelEffortPicker";
 import { Dialog, Field, Group, Notice, Row } from "./ui";
 
 type Defaults = { model?: string | null; effort?: string | null };
+type DefaultsRequest = { active: boolean; revision: number; confirmed?: Defaults; pending: Promise<void> };
 // Ascending reasoning effort; catalogs may list efforts in any order.
 const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 
@@ -18,21 +19,39 @@ function useDefaults(read: string, write: string, key: Record<string, string>) {
   const [defaults, setDefaults] = useState<Defaults>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const request = useRef<DefaultsRequest | null>(null);
   const id = JSON.stringify(key);
   useEffect(() => {
-    let current = true;
-    setDefaults(undefined); setError("");
+    const current: DefaultsRequest = { active: true, revision: 0, pending: Promise.resolve() };
+    request.current = current;
+    setDefaults(undefined); setError(""); setSaving(false);
     api<Defaults>(read, "POST", JSON.parse(id))
-      .then(value => { if (current) setDefaults(value); })
-      .catch(e => { if (current) setError(String(e)); });
-    return () => { current = false; };
+      .then(value => { if (current.active) { current.confirmed = value; setDefaults(value); } })
+      .catch(e => { if (current.active) setError(String(e)); });
+    return () => { current.active = false; };
   }, [read, id]);
-  const save = async (next: Defaults, effort: boolean) => {
-    setSaving(true); setError("");
-    try {
-      setDefaults(await api<Defaults>(write, "POST",
-        { ...key, model: next.model || null, ...(effort ? { effort: next.effort || null } : {}) }));
-    } catch (e) { setError(String(e)); } finally { setSaving(false); }
+  const save = (next: Defaults, effort: boolean) => {
+    const current = request.current;
+    if (!current?.active) return;
+    const revision = ++current.revision;
+    // Render the latest pair immediately so the next edit retains both fields.
+    setDefaults(next); setSaving(true); setError("");
+    // The management route replaces the pair. Preserve edit order at the server
+    // and keep older acknowledgements from replacing newer local choices.
+    current.pending = current.pending.then(async () => {
+      try {
+        const value = await api<Defaults>(write, "POST",
+          { ...key, model: next.model || null, ...(effort ? { effort: next.effort || null } : {}) });
+        current.confirmed = value;
+        if (current.active && revision === current.revision) setDefaults(value);
+      } catch (e) {
+        if (current.active && revision === current.revision) {
+          setDefaults(current.confirmed); setError(String(e));
+        }
+      } finally {
+        if (current.active && revision === current.revision) setSaving(false);
+      }
+    });
   };
   return { defaults, saving, error, save };
 }
