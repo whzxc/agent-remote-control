@@ -5,8 +5,8 @@ import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 
-test('Agent and task defaults retain consecutive edits while earlier saves are pending', { timeout: 10000 }, async () => {
-  // Regression: PR #15 saved the previous model when effort changed before the model save returned.
+test('Agent and task defaults retain pending edits across consecutive changes and settings remounts', { timeout: 10000 }, async () => {
+  // Regression: PR #15 lost models on consecutive edits, including closing and reopening settings before a save returned.
   const originalFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
@@ -49,17 +49,27 @@ test('Agent and task defaults retain consecutive edits while earlier saves are p
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     const page = within(document.body);
     const click = async (element: HTMLElement) => act(async () => { fireEvent.click(element); });
+    const openTask = async () => {
+      await click(page.getByRole('button', { name: t('taskDispatch.title') }));
+      await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+    };
     const modelButton = () => page.getByRole('button', { name: new RegExp(`^${t('dispatchDefaults.model')}:`) });
-    for (const entry of ['agent', 'task']) {
+    for (const [entry, reopen] of [['agent', false], ['task', false], ['agent', true], ['task', true]] as const) {
       saved = { model: null, effort: null }; pending.length = 0;
       const render = () => root.render(h(TooltipProvider, null, entry === 'agent'
         ? h(AgentDefaults, { agent: 'codex' })
         : h(TaskSpecChoice, { agent: 'codex', threadId: '00000000-0000-4000-8000-000000000001', editable: true })));
       await act(async () => render());
-      if (entry === 'task') await click(page.getByRole('button', { name: t('taskDispatch.title') }));
+      if (entry === 'task') await openTask();
       await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
       await act(async () => { fireEvent.keyDown(modelButton(), { key: 'Enter' }); });
       await click(page.getByRole('menuitemradio', { name: 'Fixture model' }));
+      if (reopen) {
+        await act(async () => root.render(null));
+        await act(async () => render());
+        if (entry === 'task') await openTask();
+        await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
+      }
       const slider = page.getByRole('slider', { name: t('dispatchDefaults.effort') });
       await act(async () => { fireEvent.keyDown(slider, { key: 'End' }); });
       // Complete the first save only after the second user edit.
@@ -79,7 +89,7 @@ test('Agent and task defaults retain consecutive edits while earlier saves are p
       await act(async () => root.render(null));
       // Reopening reads the persisted pair rather than relying on optimistic UI state.
       await act(async () => render());
-      if (entry === 'task') await click(page.getByRole('button', { name: t('taskDispatch.title') }));
+      if (entry === 'task') await openTask();
       assert.ok(page.getByRole('button', { name: t('dispatchDefaults.spec') }).textContent?.includes('Fixture model'));
       await act(async () => root.render(null));
     }
