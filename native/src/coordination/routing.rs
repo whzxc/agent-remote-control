@@ -75,6 +75,13 @@ pub(crate) fn select(
 }
 pub(crate) fn description(outcome: &Outcome, source: &str, session: Option<&str>) -> Value {
     let mut value = delivery::routing_description(outcome.route.is_some(), &outcome.state);
+    if matches!(
+        outcome.state.as_str(),
+        "notice-no-resource-overlap" | "notice-board-unavailable"
+    ) {
+        value["next"] = json!({"via":"query","op":"messages","args":{},"actor":"recipient","sourceId":source,"hint":"This notice remains pullable. Proactive notice delivery requires an overlapping resource in the recipient's active notice or uncleared blocker on the board."});
+        return value;
+    }
     value["next"]["sourceId"] = json!(source);
     if let Some(session) = session.filter(|_| outcome.state != "session-closed") {
         value["next"]["op"] = json!("message_route");

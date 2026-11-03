@@ -710,6 +710,50 @@ impl Store {
             Ok(())
         })
     }
+    pub fn restrict_notices(
+        &mut self,
+        rows: &[Row],
+        held: Option<&[ResourceKey]>,
+    ) -> Result<Vec<Row>> {
+        self.transaction(|s| {
+            let mut pending = vec![];
+            let mut downgraded = vec![];
+            for row in rows {
+                let Some(current) = s.data.messages.iter_mut().find(|r| {
+                    r.sequence == row.sequence && r.envelope["deliveryState"] == "pending"
+                }) else {
+                    continue;
+                };
+                let outcome = super::delivery_decision(
+                    &current.envelope,
+                    held,
+                    Outcome {
+                        route: current.route.clone(),
+                        state: string(&current.envelope, "deliveryReason").into(),
+                    },
+                );
+                if outcome.route.is_none() {
+                    current.route = None;
+                    current.envelope["deliveryState"] = json!("pull-only");
+                    current.envelope["deliveryReason"] = json!(outcome.state);
+                    downgraded.push((
+                        string(&current.envelope, "messageId").to_owned(),
+                        resources(&current.envelope)?,
+                    ));
+                } else {
+                    pending.push(current.clone());
+                }
+            }
+            for (id, resources) in downgraded {
+                s.event(
+                    format!("{id}-delivery-pull-only"),
+                    EventKind::MessageDelivery,
+                    resources,
+                );
+            }
+            Ok(pending)
+        })
+    }
     pub fn mediate(&mut self, args: &Value, time: i64) -> Result<Value> {
         self.transaction(|s| {
             let n=s.data.negotiations.iter_mut().find(|n|n.id==string(args,"negotiationId")).ok_or("NEGOTIATION_NOT_FOUND: inspect local messages")?;

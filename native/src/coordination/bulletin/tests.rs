@@ -717,14 +717,53 @@ fn ax_contracts_invalid_resources_offer_forms_and_host_recovery() {
     let message = string(&result["error"], "message");
     for example in [
         "app:installed",
-        "project:workspace/main",
-        "lane:workspace/worker",
+        "project:00000000-0000-4000-8000-000000000001/main",
+        "lane:00000000-0000-4000-8000-000000000001/worker",
         "host:server",
         "isolated:preview",
     ] {
         assert!(message.contains(example));
         assert!(ResourceKey::parse(example).is_ok());
     }
+}
+
+#[test]
+fn ax_followup_peer_notice_overlap_tracks_recipient_board_ownership() {
+    // Contract: only a recipient's active notices and uncleared blockers hold resources for peer-notice push eligibility.
+    let mut f = Fixture::new();
+    let notice = f.post();
+    let eligible = |f: &Fixture, source: &str| {
+        let held = f.store.recipient_resources(source);
+        super::super::messages::delivery_decision(
+            &json!({"type":"notice","resources":["app:installed"]}),
+            Some(&held),
+            crate::claude_notify::coordination_delivery::Outcome {
+                route: Some(route_fixture()),
+                state: "resolved".into(),
+            },
+        )
+        .route
+        .is_some()
+    };
+    assert!(eligible(&f, "source-a"));
+    assert!(!eligible(&f, "source-b"));
+    f.call("notice_close", json!({"id":notice["id"]}));
+    assert!(!eligible(&f, "source-a"));
+    let blocker = f.call(
+        "blocker_open",
+        json!({"resources":["app:installed"],"causeCode":"fixture","summary":"Inspect resource"}),
+    )["blocker"]
+        .clone();
+    assert!(eligible(&f, "source-a"));
+    f.store.maintain(&["source-a".into()], f.clock).unwrap();
+    assert!(eligible(&f, "source-a"));
+    f.advance(7 * 3600 * 1000);
+    let stale = f.board(&blocker["id"])["blockers"][0].clone();
+    assert_eq!(stale["state"], "stale");
+    assert!(eligible(&f, "source-a"));
+    let cleared = f.call("blocker_clear", json!({"id":blocker["id"],"expectedRevision":stale["revision"],"reason":"Resource restored","evidenceIds":["receipt-fixture"],"suggestedNextStep":"inspect"}));
+    assert_eq!(cleared["blocker"]["state"], "cleared");
+    assert!(!eligible(&f, "source-a"));
 }
 #[test]
 fn linked_running_thread_is_observed_at_post() {

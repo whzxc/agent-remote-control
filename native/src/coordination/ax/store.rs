@@ -9,6 +9,69 @@ const ENTRY_BYTES: usize = 16 * 1024;
 const SNAPSHOT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ENTRIES: usize = 1000;
 const RETENTION: i64 = 180 * 86400 * 1000;
+const VERIFICATION_OPERATIONS: [&str; 4] = ["command", "review", "native", "agent_review"];
+
+fn verification_reasons(action: &str, args: &Value, evidence: &[Value]) -> Vec<Value> {
+    let mut reasons = vec![];
+    let field = if action == "fix" {
+        "commit"
+    } else {
+        "document"
+    };
+    if string(args, field).is_empty() {
+        reasons.push(json!({"code":"missing-change","field":field}));
+    }
+    let ids = args["evidenceIds"].as_array();
+    if ids.is_none_or(|ids| ids.is_empty()) {
+        reasons.push(json!({"code":"no-evidence"}));
+    }
+    for id in ids.into_iter().flatten() {
+        let facts: Vec<_> = evidence.iter().filter(|f| f["id"] == *id).collect();
+        if facts.iter().any(|f| {
+            f["availability"] == "available"
+                && f["state"] == "completed"
+                && VERIFICATION_OPERATIONS.contains(&string(f, "operation"))
+        }) {
+            continue;
+        }
+        let fact = facts
+            .iter()
+            .find(|f| f["availability"] == "available")
+            .copied();
+        let reason = match fact {
+            None => "unavailable",
+            Some(f) if f["state"] != "completed" => "not-completed",
+            Some(_) => "unsupported-operation",
+        };
+        let mut rejected = json!({"code":"evidence-not-accepted","id":id,"reason":reason});
+        if let Some(fact) = fact {
+            rejected["operation"] = fact["operation"].clone();
+            rejected["state"] = fact["state"].clone();
+        }
+        reasons.push(rejected);
+    }
+    reasons
+}
+
+fn decision_result(entry: &Entry, actor: &Value) -> Value {
+    let mut result = json!({"entry":entry.projection(actor)});
+    if entry.status == "triaged" && entry.owns(actor) {
+        if let Some(last) = entry
+            .history
+            .last()
+            .filter(|h| matches!(h["action"].as_str(), Some("fix" | "document")))
+        {
+            let detail = &last["detail"];
+            let evidence = detail["verification"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            result["verification"] = json!({"acceptedOperations":VERIFICATION_OPERATIONS,"reasons":verification_reasons(string(last,"action"),detail,evidence)});
+            result["next"] = json!({"via":"query","op":"ax_list","args":{"id":entry.id},"hint":"Read the current revision. Attach the change reference and available completed receipts from command, review, native, or agent_review. Retry ax_triage with the current expectedRevision and a new requestId after correcting the reported verification reasons."});
+        }
+    }
+    result
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -276,7 +339,12 @@ impl Store {
             .entries
             .values()
             .find(|e| e.applied.contains(request))
-            .map(|e| json!({"entry":e.projection(actor),"duplicateCandidates":[],"replayed":true}))
+            .map(|e| {
+                let mut result = decision_result(e, actor);
+                result["duplicateCandidates"] = json!([]);
+                result["replayed"] = json!(true);
+                result
+            })
     }
     pub(super) fn mutate(
         &mut self,
@@ -570,27 +638,7 @@ impl Store {
             }
             "fix" | "document" => {
                 entry.resolution = Some(action.into());
-                // Both a change/document reference and explicit verification evidence are required.
-                let change = if action == "fix" {
-                    string(args, "commit")
-                } else {
-                    string(args, "document")
-                };
-                let verified = args["evidenceIds"].as_array().is_some_and(|ids| {
-                    !ids.is_empty()
-                        && ids.iter().all(|id| {
-                            evidence.iter().any(|fact| {
-                                fact["id"] == *id
-                                    && fact["availability"] == "available"
-                                    && fact["state"] == "completed"
-                                    && matches!(
-                                        fact["operation"].as_str(),
-                                        Some("command" | "review" | "native" | "agent_review")
-                                    )
-                            })
-                        })
-                });
-                entry.status = if !change.is_empty() && verified {
+                entry.status = if verification_reasons(action, args, evidence).is_empty() {
                     "closed"
                 } else {
                     "triaged"
@@ -619,7 +667,7 @@ impl Store {
         }
         entry.record(action, actor, detail, time);
         entry.event(EventKind::AxChanged);
-        Ok(json!({"entry":entry.projection(actor)}))
+        Ok(decision_result(entry, actor))
     }
     pub(super) fn pending(&self) -> Vec<EventInput> {
         self.data

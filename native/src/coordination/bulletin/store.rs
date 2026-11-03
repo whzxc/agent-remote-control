@@ -629,6 +629,12 @@ impl Store {
         self.state.notices.iter().filter(|n| n.state == "active" && Some(n.id.as_str()) != exclude)
             .flat_map(|n| n.resources.iter().filter(|r| resources.contains(r)).map(move |r| json!({"noticeId":n.id,"resource":r,"state":n.state,"lastActiveAt":timestamp(n.last_active_at),"inactivityAgeSeconds":clock.age(n.last_active_at)}))).collect()
     }
+    pub fn recipient_resources(&self, source: &str) -> Vec<ResourceKey> {
+        self.state.notices.iter().filter(|n| n.state == "active")
+            .chain(self.state.blockers.iter().filter(|b| b.state != "cleared"))
+            .filter(|row| matches!(&row.owner, Principal::Source { source_id, .. } if source_id == source))
+            .flat_map(|row| row.resources.iter().cloned()).collect()
+    }
     pub fn replay(&self, request: &str, digest: &str) -> Result<Option<Value>> {
         self.state
             .applied

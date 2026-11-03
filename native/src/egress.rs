@@ -1029,7 +1029,10 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         json!({"via":"query","op":"codex_owner","args":{"threadId":thread},"hint":"Inspect this exact thread owner before retrying. Unheld threads can be read from persisted native state; do not reclaim a held writer."})
     } else if value["state"] == "executing" && value["requestId"].is_string() {
         json!({"via":"act","op":"receipt","args":{"action":"read","requestId":value["requestId"]},"retryAfterMs":1000,"hint":"The foreground command is executing. Read the original receipt for its exit; elapsed execution time is not stalled submission."})
-    } else if name == "command" && value["error"].is_object() {
+    } else if value["error"]["code"] == "INVALID_ARGUMENTS" {
+        let op = value["error"]["op"].as_str().unwrap_or(name);
+        json!({"via":"query","op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})},"hint":format!("{}: {}",string(&value["error"],"field"),string(&value["error"],"message"))})
+    } else if name == "command" && value["error"]["message"] == "RPC_TIMEOUT: command/exec" {
         json!({"via":"query","op":"guide","args":{"op":"process"},"hint":"command owns its child process tree until exit or timeout. For work that must outlive this call, use act process action:spawn with params:{command:[...],cwd:<absolute directory>,processHandle:<unique handle>,timeoutMs:null}. It lasts only for the native backend session; inspect codex_events and stop it with process action:kill."})
     } else if value["state"] == "awaiting-approval" {
         json!({"hint":"Inspect the original request, then decide according to user intent.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
@@ -1134,6 +1137,52 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ax_followup_command_validation_points_to_its_field_contract() {
+        // Regression: command outputBudget/waitMs validation errors incorrectly suggested process lifetime recovery.
+        let c = catalog();
+        let spec = c["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|o| o["name"] == "command")
+            .unwrap();
+        for field in ["outputBudget", "waitMs"] {
+            let limit = spec["inputSchema"]["properties"][field]["maximum"]
+                .as_u64()
+                .unwrap();
+            let mut args = json!({"cmd":"true","cwd":"/fixture"});
+            args[field] = json!(limit + 1);
+            let mut value = json!({"error":failure(&validate_op(spec, &args).unwrap_err())});
+            next(&mut value, "command", &args, false);
+            let value = tool(value, true)["structuredContent"]["result"].clone();
+            assert_eq!(value["error"]["code"], "INVALID_ARGUMENTS");
+            assert_eq!(value["error"]["field"], format!("/{field}"));
+            assert_eq!(value["next"]["via"], "query");
+            assert_eq!(value["next"]["op"], "guide");
+            assert_eq!(value["next"]["args"], json!({"op":"command"}));
+            assert!(string(&value["next"], "hint").contains(&limit.to_string()));
+            assert!(string(&value["next"], "hint").contains(field));
+        }
+        let mut value = json!({"error":failure("RPC_REJECTED: command failed")});
+        next(&mut value, "command", &json!({}), false);
+        assert_eq!(value["next"]["args"], json!({"op":"command"}));
+    }
+
+    #[test]
+    fn ax_followup_triage_guide_names_accepted_verification_receipts() {
+        // Regression: ax-a732f88f ax_triage guidance omitted the accepted receipt operations.
+        let guide = guide_content(&Value::Null, &json!({"op":"ax_triage"}), "en", &[]);
+        for op in ["command", "review", "native", "agent_review"] {
+            assert!(string(&guide, "description").contains(op));
+            assert!(string(
+                &guide["inputSchema"]["properties"]["evidenceIds"],
+                "description"
+            )
+            .contains(op));
+        }
+    }
 
     #[test]
     fn ax_contracts_coordination_guides_disclose_resource_forms() {
@@ -1372,7 +1421,7 @@ mod tests {
             false,
         );
         assert_eq!(reread["next"]["args"], json!({"threadId":"thread-fixture"}));
-        let mut command = json!({"error":failure("RPC_REJECTED: command failed")});
+        let mut command = json!({"error":failure("RPC_TIMEOUT: command/exec")});
         next(&mut command, "command", &json!({}), false);
         assert_eq!(command["next"]["args"], json!({"op":"process"}));
         let mut running = json!({"state":"executing","requestId":"original-request"});

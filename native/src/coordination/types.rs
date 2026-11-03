@@ -77,7 +77,7 @@ impl ResourceKey {
             _ => false,
         };
         if !valid {
-            let mut message = String::from("INVALID_ARGUMENT: use app:installed (example app:installed), project:<id>/main (example project:workspace/main), lane:<project>/<name> (example lane:workspace/worker), host:<id> (example host:server), or isolated:<id> (example isolated:preview). Event reads may use a unique retained lane shorthand (example lane:worker).");
+            let mut message = String::from("INVALID_ARGUMENT: use app:installed (example app:installed), project:<id>/main (example project:00000000-0000-4000-8000-000000000001/main), lane:<project>/<name> (example lane:00000000-0000-4000-8000-000000000001/worker), host:<id> (example host:server), or isolated:<id> (example isolated:preview). <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection. Event reads may use a unique retained lane:<name> shorthand (example lane:worker).");
             if let Some(("node" | "service" | "deployment" | "host", rest)) = value.split_once(':')
             {
                 let host = rest.split('/').next().unwrap_or_default();

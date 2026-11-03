@@ -454,7 +454,17 @@ already handed to the upstream CLI cannot be recalled. Unsupported sources,
 including ordinary Chat and Work private conversations without direct addressing,
 remain pull-only. Work resource callbacks are not a private conversation API.
 
-Only SRC peer messages from `message_send` enter the proactive outbox. ARC-generated recovery and negotiation-escalation notices remain pull-only.
+Only SRC peer messages from `message_send` enter the proactive outbox.
+Peer `request`, `grant`, `deny`, and `conditional` messages remain eligible for push.
+Peer `notice` messages are pull-only by default.
+A peer notice is eligible for push only when its resources overlap resources owned
+by the recipient source in an active notice or an uncleared blocker on the board.
+The overlap uses exact canonical resource keys and is checked before admission and
+again before push. Missing board coverage keeps the notice pull-only.
+Closing a notice or clearing a blocker before delivery can downgrade queued notices
+to pull-only. The send receipt reports `deliveryMode` and `routing.reason`.
+Messages rows retain `deliveryState` and `deliveryReason`.
+ARC-generated recovery and negotiation-escalation notices remain pull-only.
 
 The first peer message waits 30 seconds. All pending peer mail for that target coalesces into
 one count and `messages` pointer, with at most one attempt per target per 60 seconds.

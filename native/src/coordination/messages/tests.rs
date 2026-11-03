@@ -690,6 +690,102 @@ fn missing_recipient_route_receipt_preserves_pullable_mail() {
 }
 
 #[test]
+fn ax_followup_unrelated_peer_notices_stay_pull_only_and_explain_delivery() {
+    // Regression: ax-cf4ffac3 unrelated peer notices consumed a recipient model turn despite having no held resource overlap.
+    let mut f = Fixture::new();
+    let mut args = request();
+    args["type"] = json!("notice");
+    args["requestId"] = json!(id());
+    let held = [ResourceKey::parse("host:other").unwrap()];
+    let outcome = delivery_decision(
+        &args,
+        Some(&held),
+        Outcome {
+            route: Some(route()),
+            state: "explicit-route".into(),
+        },
+    );
+    assert!(outcome.route.is_none());
+    let sent = f
+        .store
+        .send(&args, "one", outcome.route, &outcome.state, f.time)
+        .unwrap();
+    assert_eq!(sent["deliveryMode"], "pull-only");
+    assert_eq!(sent["routing"]["reason"], "notice-no-resource-overlap");
+    assert_eq!(sent["routing"]["next"]["op"], "messages");
+    assert_eq!(sent["routing"]["next"]["args"], json!({}));
+    f.restart();
+    let row = &f.list("two", json!({}))["messages"][0];
+    assert_eq!(row["messageId"], args["requestId"]);
+    assert_eq!(row["deliveryState"], "pull-only");
+    assert_eq!(row["deliveryReason"], sent["routing"]["reason"]);
+    assert!(f.store.batches(f.time + 60).unwrap().is_empty());
+    assert_eq!(
+        delivery_decision(
+            &args,
+            None,
+            Outcome {
+                route: Some(route()),
+                state: "resolved".into()
+            }
+        )
+        .state,
+        "notice-board-unavailable"
+    );
+}
+
+#[test]
+fn ax_followup_addressed_negotiations_and_relevant_notices_keep_route_governance() {
+    // Contract: negotiation messages stay push eligible; notices require exact recipient resource overlap and an existing verified route.
+    let held = [ResourceKey::parse("app:installed").unwrap()];
+    for kind in ["request", "grant", "deny", "conditional", "notice"] {
+        let args = json!({"type":kind,"resources":["app:installed"]});
+        let decision = delivery_decision(
+            &args,
+            if kind == "notice" { Some(&held) } else { None },
+            Outcome {
+                route: Some(route()),
+                state: "explicit-route".into(),
+            },
+        );
+        assert_eq!(decision.route, Some(route()));
+        assert_eq!(decision.state, "explicit-route");
+        let unavailable = delivery_decision(
+            &args,
+            Some(&held),
+            Outcome {
+                route: None,
+                state: "no-verified-target".into(),
+            },
+        );
+        assert!(unavailable.route.is_none());
+        assert_eq!(unavailable.state, "no-verified-target");
+    }
+    let mut f = Fixture::new();
+    let mut notice = request();
+    notice["type"] = json!("notice");
+    let sent = f.send_route("one", notice, Some(route()));
+    let request = f.send_route("one", request(), Some(route()));
+    let rows = f.store.batches(f.time + 30).unwrap().remove(0);
+    let rows = f.store.restrict_notices(&rows, Some(&[])).unwrap();
+    assert_eq!(
+        rows.iter()
+            .map(|r| r.envelope["messageId"].clone())
+            .collect::<Vec<_>>(),
+        vec![request["message"]["messageId"].clone()]
+    );
+    let inbox = f.list("two", json!({}));
+    let downgraded = inbox["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["messageId"] == sent["message"]["messageId"])
+        .unwrap();
+    assert_eq!(downgraded["deliveryState"], "pull-only");
+    assert_eq!(downgraded["deliveryReason"], "notice-no-resource-overlap");
+}
+
+#[test]
 // Regression: notice inReplyTo incorrectly required a negotiation and returned NEGOTIATION_NOT_FOUND.
 fn notice_replies_link_received_messages_without_negotiations() {
     let mut f = Fixture::new();

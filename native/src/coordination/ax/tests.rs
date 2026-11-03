@@ -380,6 +380,80 @@ fn ax_verification_evidence_required_for_closure() {
     assert_eq!(verified["entry"]["status"], "closed");
     assert_eq!(verified["entry"]["resolution"], "fix");
 }
+
+#[test]
+fn ax_followup_unclosed_triage_explains_missing_and_rejected_verification() {
+    // Regression: ax-a732f88f fix/document stayed triaged without identifying unsupported verification receipts or missing inputs.
+    for (action, field) in [("fix", "commit"), ("document", "document")] {
+        let mut f = Fixture::new();
+        let entry = f.report("Verification explanation");
+        let mut args = json!({"requestId":id(),"id":entry["id"],"expectedRevision":entry["revision"],"action":action,"reason":"Verify resolution"});
+        let missing = f.call("ax_triage", args.clone());
+        assert_eq!(missing["entry"]["status"], "triaged");
+        assert_eq!(
+            missing["verification"]["reasons"],
+            json!([{"code":"missing-change","field":field},{"code":"no-evidence"}])
+        );
+        assert_eq!(missing["next"]["op"], "ax_list");
+        assert_eq!(missing["next"]["args"], json!({"id":entry["id"]}));
+        let catalog = catalog();
+        let spec = catalog["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|o| o["name"] == missing["next"]["op"])
+            .unwrap();
+        assert!(crate::egress::validate_op(spec, &missing["next"]["args"]).is_ok());
+        args["requestId"] = json!(id());
+        args["expectedRevision"] = missing["entry"]["revision"].clone();
+        args[field] = json!("change-reference");
+        args["evidenceIds"] = json!(["unavailable", "unfinished", "unsupported"]);
+        let facts = vec![
+            json!({"id":"unavailable","availability":"unavailable"}),
+            json!({"id":"unfinished","availability":"available","state":"running","operation":"command"}),
+            json!({"id":"unsupported","availability":"available","state":"completed","operation":"ax_triage"}),
+        ];
+        let rejected = f
+            .store
+            .mutate("ax_triage", &args, &f.actor, facts, f.time)
+            .unwrap();
+        assert_eq!(rejected["entry"]["status"], "triaged");
+        let reasons = &rejected["verification"]["reasons"];
+        for (index, id, reason) in [
+            (0, "unavailable", "unavailable"),
+            (1, "unfinished", "not-completed"),
+            (2, "unsupported", "unsupported-operation"),
+        ] {
+            assert_eq!(reasons[index]["code"], "evidence-not-accepted");
+            assert_eq!(reasons[index]["id"], id);
+            assert_eq!(reasons[index]["reason"], reason);
+        }
+        assert_eq!(reasons[2]["operation"], "ax_triage");
+        f.restart();
+        let replay = f
+            .store
+            .mutate("ax_triage", &args, &f.actor, vec![], f.time)
+            .unwrap();
+        assert_eq!(replay["verification"], rejected["verification"]);
+        assert_eq!(replay["next"], rejected["next"]);
+        let operations = ["command", "review", "native", "agent_review"];
+        args["requestId"] = json!(id());
+        args["expectedRevision"] = rejected["entry"]["revision"].clone();
+        args["evidenceIds"] = json!(operations);
+        let facts = operations
+            .iter()
+            .map(
+                |op| json!({"id":op,"availability":"available","state":"completed","operation":op}),
+            )
+            .collect();
+        let closed = f
+            .store
+            .mutate("ax_triage", &args, &f.actor, facts, f.time)
+            .unwrap();
+        assert_eq!(closed["entry"]["status"], "closed");
+        assert!(closed.get("verification").is_none());
+    }
+}
 #[test]
 // Contract: the 1000-entry bound rejects the next import atomically and candidate overflow stays separate from confirmed counts.
 fn ax_entry_bound_and_candidate_overflow() {

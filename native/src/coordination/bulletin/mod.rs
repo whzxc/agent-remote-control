@@ -419,6 +419,10 @@ pub(crate) fn warnings(resources: &[ResourceKey]) -> Value {
         Err(_) => json!({"conflicts":[],"conflictCoverage":"unknown"}),
     }
 }
+pub(super) fn recipient_resources(source: &str) -> Result<Vec<ResourceKey>> {
+    maintain()?;
+    with_store(|s| Ok(s.recipient_resources(source)))
+}
 /// Journal projection supplies canonical terminal evidence, including Agent turns.
 /// Replays never refresh activity; live caches supply freshness separately.
 pub(super) fn from_event(input: &EventInput) -> Result<()> {

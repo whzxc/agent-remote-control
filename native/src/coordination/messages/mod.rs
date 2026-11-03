@@ -4,7 +4,7 @@ mod store;
 #[cfg(test)]
 mod tests;
 use super::*;
-use crate::claude_notify::coordination_delivery::{deliver, Request, Route};
+use crate::claude_notify::coordination_delivery::{deliver, Outcome, Request, Route};
 use std::sync::{LazyLock, Mutex};
 use store::Store;
 pub(crate) const SUMMARY_LIMIT: usize = 240;
@@ -12,6 +12,33 @@ static MESSAGES: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 static REQUESTS: crate::kernel::receipts::RequestLocks = crate::kernel::receipts::RequestLocks;
 const RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
+/// Peer notices wake only recipients currently holding an overlapping board resource.
+pub(crate) fn delivery_decision(
+    args: &Value,
+    held: Option<&[ResourceKey]>,
+    outcome: Outcome,
+) -> Outcome {
+    if args["type"] != "notice" {
+        return outcome;
+    }
+    let reason = match held {
+        None => "notice-board-unavailable",
+        Some(held)
+            if held.iter().any(|key| {
+                args["resources"]
+                    .as_array()
+                    .is_some_and(|resources| resources.iter().any(|r| r == key.as_str()))
+            }) =>
+        {
+            return outcome
+        }
+        Some(_) => "notice-no-resource-overlap",
+    };
+    Outcome {
+        route: None,
+        state: reason.into(),
+    }
+}
 fn with_store<T>(f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     with_store_at(root().join("coordination/messages/state.json"), |s| {
         s.migrate_routes()?;
@@ -153,6 +180,8 @@ pub(crate) async fn call(op: &str, mut args: Value, backend: &str) -> Result<Val
         let target=string(&args,"toSourceId"); authorized(target)?;
         session(target,args["toSessionId"].as_str())?;
         let outcome=super::routing::resolve(target,args["toSessionId"].as_str())?;
+        let held=if args["type"]=="notice" {super::bulletin::recipient_resources(target).ok()} else {None};
+        let outcome=delivery_decision(&args,held.as_deref(),outcome);
         let route=outcome.route;
         let reason=outcome.state;
         if args["requestId"].is_null(){args["requestId"]=json!(id());}
@@ -203,6 +232,15 @@ async fn flush() -> Result<()> {
     refresh_recovery()?;
     let time = chrono::Utc::now().timestamp();
     for rows in with_store(|s| s.batches(time))? {
+        let held = if rows.iter().any(|r| r.envelope["type"] == "notice") {
+            super::bulletin::recipient_resources(string(&rows[0].envelope, "toSourceId")).ok()
+        } else {
+            None
+        };
+        let rows = with_store(|s| s.restrict_notices(&rows, held.as_deref()))?;
+        if rows.is_empty() {
+            continue;
+        }
         let route = rows[0].route.clone().unwrap();
         let valid = rows
             .iter()
