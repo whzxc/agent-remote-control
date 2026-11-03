@@ -482,10 +482,13 @@ impl Control {
                 json!({"threadId":thread,"released":true,"alreadyUnheld":true,"ownership":ownership,"state":"completed"}),
             );
         }
-        if ownership["state"] == "held" {
-            ownership["processes"] = crate::writer::processes(thread).await;
+        if ownership["state"] != "held" {
+            return Ok(
+                json!({"threadId":thread,"released":false,"state":"unconfirmed","ownership":ownership,"error":{"code":"WRITER_RELEASE_UNCONFIRMED","message":"The native writer lock state could not be determined. Re-probe this thread before attempting release.","next":{"via":"query","op":"codex_owner","args":{"threadId":thread}}}}),
+            );
         }
-        if ownership["state"] != "held" || ownership["owner"] != "connector" {
+        ownership["processes"] = crate::writer::processes(thread).await;
+        if ownership["owner"] != "connector" {
             return Err(json!({"code":"WRITER_RELEASE_REQUIRES_OWNER","message":"This writer is not owned by ARC's connector. The Desktop follower protocol exposes no safe per-thread release request. Use the exact owner step; ARC will not close another session.","ownership":ownership,"next":crate::writer::release_step(thread,&ownership)}).to_string());
         }
         let rpc = self.utility().await?;

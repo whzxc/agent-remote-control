@@ -239,6 +239,42 @@ test('Connector release returns a specific error and owner continuation when nat
   } finally {await fixture.close();}
 });
 
+test('Releasing the same connector thread twice succeeds after the writer is unheld', {skip:process.platform==='win32'}, async()=>{
+  // Regression: release retries must succeed after the connector has already unloaded the thread.
+  const fixture=await connectorReleaseFixture();
+  try {
+    const threadId=await fixture.create();
+    const first=await fixture.completed('codex_release',{threadId});
+    assert.equal(first.error,undefined,JSON.stringify(first));
+    assert.equal(first.result.released,true);
+    const second=await fixture.completed('codex_release',{threadId});
+    assert.equal(second.error,undefined,JSON.stringify(second));
+    assert.equal(second.state,'completed');
+    assert.equal(second.result.state,'completed');
+    assert.equal(second.result.released,true);
+    assert.equal(second.result.ownership.state,'unheld');
+    assert.notEqual(second.requestId,first.requestId);
+  } finally {await fixture.close();}
+});
+
+test('Unknown writer state returns an unconfirmed release with owner recovery', {skip:process.platform==='win32'}, async()=>{
+  // Contract: codex_release cannot attribute an unreadable lock to an external owner.
+  const directory=await mkdtemp(path.join(tmpdir(),'arc-unknown-writer-'));
+  const codexHome=path.join(directory,'codex-home-file');
+  await writeFile(codexHome,'');
+  const fixture=await nativeControl(`throw new Error('Release with unknown ownership must not call the native app-server');`,{CODEX_HOME:codexHome});
+  try {
+    const threadId='00000000-0000-4000-8000-000000000009';
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error.code,'WRITER_RELEASE_UNCONFIRMED',JSON.stringify(release));
+    assert.equal(release.result.state,'unconfirmed');
+    assert.equal(release.result.released,false);
+    assert.equal(release.result.ownership.state,'unknown');
+    assert.equal(release.next.op,'codex_owner');
+    assert.deepEqual(release.next.args,{threadId});
+  } finally {await fixture.close();await rm(directory,{recursive:true,force:true});}
+});
+
 test('Connector release preserves native rejection as a specific per-thread release error', {skip:process.platform==='win32'}, async()=>{
   // Contract: codex_release native rejection exposes WRITER_RELEASE_UNAVAILABLE with a valid codex_owner continuation.
   const fixture=await connectorReleaseFixture('reject');
