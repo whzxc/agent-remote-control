@@ -130,6 +130,19 @@ try {
           await action.press('Enter');
           if (await action.getAttribute('aria-disabled') !== 'true' || await action.getAttribute('aria-busy') !== 'false') throw new Error('Unavailable ingress control started an operation');
         }
+        if (name === 'antigravity-task') {
+          // Regression: Antigravity replies and denied actions disappeared from completed task details.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const task = fixture.tasks[0];
+          const panel = page.getByRole('dialog', { name: task.title, exact: true });
+          await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+          await panel.getByText(task.entries.find(entry => entry.phase === 'final_answer').text, { exact: true }).waitFor();
+          await panel.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['detail.process'].split('{')[0])}`) }).click();
+          for (const entry of task.entries.filter(entry => entry.type === 'error')) {
+            await panel.getByText(entry.text, { exact: true }).waitFor();
+          }
+          await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+        }
         if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {
           // Regression: activity disappearance and unrelated review failures changed execution results.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));

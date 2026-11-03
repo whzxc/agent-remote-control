@@ -1,0 +1,20 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "agents": ["antigravity"],
+  "panel": { "kind": "agent", "id": "antigravity" },
+  "detailTask": 0,
+  "tasks": [{
+    "agent": "antigravity",
+    "phase": "text",
+    "title": "Inspect project with headless permissions",
+    "headline": "Command execution was denied",
+    "completed": true,
+    "entries": [
+      { "type": "user", "status": "completed", "text": "Inspect the project and report any denied actions." },
+      { "type": "error", "status": "failed", "text": "RunCommand could not execute: command denied" },
+      { "type": "text", "status": "completed", "phase": "final_answer", "text": "The response is complete. Command execution was denied by headless permissions." },
+      { "type": "error", "status": "failed", "text": "Permission denied: RunCommand" }
+    ]
+  }]
+}

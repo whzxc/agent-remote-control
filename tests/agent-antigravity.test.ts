@@ -33,8 +33,10 @@ for await (const line of createInterface({input:process.stdin})) {
  if(prompt==='exit-without-result') { process.exit(0); }
  if(prompt==='denied')emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'ERROR',step_type:'permission',error:'command denied'}});
  const response=prompt==='large'?'x'.repeat(300*1024):prompt.toUpperCase();
- emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step,state:'ACTIVE',step_type:'agent_response',text_delta:response}});
- emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'DONE',step_type:'agent_response',text_delta:'\\n'}});
+ if(prompt!=='result-only') {
+  emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step,state:'ACTIVE',step_type:'agent_response',text_delta:response}});
+  emit({event:'step_update',step_update:{conversation_id:conversation,step_index:step++,state:'DONE',step_type:'agent_response',text_delta:'\\n'}});
+ }
  emit({event:'result',result:{conversation_id:conversation,status:'SUCCESS',response:response+'\\n',num_turns:turns,...(prompt==='denied'?{denied_actions:[{action:'command',display_name:'RunCommand'}]}:{})}});
  active=false;
 }`;
@@ -85,6 +87,84 @@ async function completeResult(fixture: Awaited<ReturnType<typeof setup>>, result
   }
   return JSON.parse(text);
 }
+
+test('Antigravity timelines retain replies, tool failures and denied work across turns and restart', { skip: process.platform === 'win32' }, async () => {
+  // Regression: completed Antigravity timelines contained only user messages and hid assistant replies and denied work.
+  const fixture = await setup();
+  try {
+    const created = await fixture.completed('agent_create', {
+      agent: 'antigravity', cwd: fixture.directory, prompt: 'first', approval: 'approved',
+    });
+    assert.equal(created.state, 'completed', JSON.stringify(created));
+    const task = { agent: 'antigravity', taskId: created.taskId };
+    const timeline = () => fixture.api(`agents/timeline/${task.taskId}`);
+    const first = await timeline();
+    assert.deepEqual(first.entries.filter((entry: any) => entry.type === 'text').map((entry: any) => entry.text), ['FIRST\n']);
+
+    const pending = await fixture.call('agent_send', { ...task, prompt: 'hold', purpose: 'self-test', notify: null, waitMs: 0 });
+    await until(timeline, value => value.entries.some((entry: any) => entry.type === 'text' && entry.text === 'Waiting' && entry.status === 'running'));
+    await fixture.completed('agent_interrupt', task);
+    await until(() => fixture.call('receipt', { requestId: pending.requestId }), value => value.state === 'completed');
+    await until(() => fixture.call('agent_read', task), value => value.processState === 'exited');
+
+    const denied = await fixture.completed('agent_send', { ...task, prompt: 'denied' });
+    assert.equal(denied.state, 'completed', JSON.stringify(denied));
+    const observed = await timeline();
+    assert.equal(observed.status, 'completed');
+    assert.ok(observed.entries.some((entry: any) => entry.type === 'error' && entry.status === 'failed' && entry.text.includes('command denied')));
+    assert.ok(observed.entries.some((entry: any) => entry.type === 'error' && entry.status === 'failed' && entry.text.includes('RunCommand')));
+    assert.ok(observed.entries.some((entry: any) => entry.type === 'text' && entry.text === 'DENIED\n' && entry.phase === 'final_answer'));
+    assert.deepEqual((await fixture.call('agent_pending', task)).requests, []);
+    assert.deepEqual(observed.entries.filter((entry: any) => entry.type === 'text').map((entry: any) => entry.text), ['FIRST\n', 'Waiting', 'DENIED\n']);
+    const deniedTurn = (await completeResult(fixture, await fixture.call('agent_read', task))).turnId;
+
+    await fixture.restart();
+    assert.deepEqual((await timeline()).entries, observed.entries);
+    const resumed = await fixture.completed('agent_send', { ...task, prompt: 'result-only' });
+    assert.equal(resumed.state, 'completed', JSON.stringify(resumed));
+    const restored = await timeline();
+    assert.ok(restored.entries.some((entry: any) => entry.type === 'text' && entry.text === 'RESULT-ONLY\n' && entry.status === 'completed'));
+    assert.deepEqual(restored.entries.filter((entry: any) => entry.turnId === deniedTurn), observed.entries.filter((entry: any) => entry.turnId === deniedTurn));
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('Antigravity native defaults survive policy edits while current deny rules still apply', { skip: process.platform === 'win32' }, async () => {
+  // Regression: changing policy defaults rejected follow-ups to Antigravity tasks created without model or effort overrides.
+  const fixture = await setup();
+  try {
+    const created = await fixture.completed('agent_create', {
+      agent: 'antigravity', cwd: fixture.directory, prompt: 'first', approval: 'approved',
+    });
+    assert.equal(created.state, 'completed', JSON.stringify(created));
+    const task = { agent: 'antigravity', taskId: created.taskId };
+    const original = await fixture.call('agent_read', task);
+    const { policyPath } = await fixture.call('dispatch_policy', { ...task, view: 'full' });
+    const policy = { antigravity: { model: 'new-policy-model', options: { effort: 'high', mode: 'auto' } } };
+    assert.equal((await fixture.completed('write', { path: policyPath, content: JSON.stringify(policy) })).state, 'completed');
+    await fixture.restart();
+    const followed = await fixture.completed('agent_send', { ...task, prompt: 'after policy edit' });
+    assert.equal(followed.state, 'completed', JSON.stringify(followed));
+    const inherited = await completeResult(fixture, await fixture.call('agent_read', task));
+    assert.deepEqual(inherited.configured, original.configured);
+    assert.equal(inherited.output, 'AFTER POLICY EDIT\n');
+
+    assert.equal((await fixture.completed('write', { path: policyPath, content: JSON.stringify({
+      antigravity: { ...policy.antigravity, denyOptions: { mode: ['accept-edits'] } },
+    }) })).state, 'completed');
+    await fixture.restart();
+    const denied = await fixture.completed('agent_send', { ...task, prompt: 'must not execute' });
+    assert.equal(denied.state, 'failed', JSON.stringify(denied));
+    assert.equal(denied.result.promptSubmitted, false);
+    assert.match(denied.result.configurationError, /DISPATCH_POLICY_DENIED/);
+    const retained = await completeResult(fixture, await fixture.call('agent_read', task));
+    assert.equal(retained.turnId, inherited.turnId);
+    assert.equal(retained.output, inherited.output);
+  } finally {
+    await fixture.close();
+  }
+});
 
 test('Antigravity discovery and stream transport preserve terminal evidence and interrupt active work', { skip: process.platform === 'win32' }, async () => {
   // Contract: Antigravity runs only after identity probes and uses result events as persistent turn boundaries.

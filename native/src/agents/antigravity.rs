@@ -43,21 +43,24 @@ pub fn configuration(
     policy: &crate::dispatch_policy::AgentPolicy,
     inherited: Option<&Value>,
 ) -> Result<Value> {
-    let inherited = inherited.unwrap_or(&Value::Null);
-    let model = args["model"]
-        .as_str()
-        .or(inherited["model"].as_str())
-        .or(policy.model.as_deref());
+    // An omitted launch flag is itself a fixed session choice. New policy
+    // defaults apply only to new tasks; current policy constraints still apply.
+    let inherited = inherited.filter(|value| value.is_object());
+    let model = args["model"].as_str().or_else(|| match inherited {
+        Some(value) => value["model"].as_str(),
+        None => policy.model.as_deref(),
+    });
     if let Some(model) = model {
         validate_text("model", model)?;
     }
-    let mut options = serde_json::Map::new();
-    for (key, value) in &policy.options {
-        options.insert(key.clone(), json!(value));
-    }
-    for (key, value) in inherited["options"].as_object().into_iter().flatten() {
-        options.insert(key.clone(), value.clone());
-    }
+    let mut options = match inherited {
+        Some(value) => value["options"].as_object().cloned().unwrap_or_default(),
+        None => policy
+            .options
+            .iter()
+            .map(|(key, value)| (key.clone(), json!(value)))
+            .collect(),
+    };
     for (key, value) in args["options"].as_object().into_iter().flatten() {
         options.insert(key.clone(), value.clone());
     }
@@ -165,6 +168,16 @@ mod tests {
         assert_eq!(explicit["model"], "requested-model");
         assert_eq!(explicit["options"]["effort"], "max");
         assert_eq!(explicit["options"]["mode"], "plan");
+
+        let native = configuration(&json!({}), &Default::default(), None).unwrap();
+        assert_eq!(
+            configuration(&json!({}), &policy, Some(&native)).unwrap(),
+            native
+        );
+        let restricted = serde_json::from_value(json!({"denyModels":["policy-model"]})).unwrap();
+        assert!(configuration(&json!({}), &restricted, Some(&native))
+            .unwrap_err()
+            .starts_with("DISPATCH_CONFIGURATION_UNKNOWN:"));
     }
 
     #[test]

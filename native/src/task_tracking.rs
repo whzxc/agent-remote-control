@@ -3,6 +3,7 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod antigravity;
 #[cfg(test)]
 mod projection_tests;
 mod transcript_input;
@@ -715,6 +716,7 @@ impl Timeline {
             _ => self.observed_events += 1,
         }
         match method {
+            "step_update" | "result" if terminal.is_none() => self.antigravity(method, msg, at),
             "session/update" => {
                 let u = &msg["params"]["update"];
                 match string(u, "sessionUpdate") {
