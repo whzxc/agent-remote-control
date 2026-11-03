@@ -352,16 +352,18 @@ try {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           await page.getByRole('heading', { name: messages['platforms.title'], exact: true }).waitFor({ state: 'visible' });
           const source = await page.evaluate(async () => {
-            const { scenarioResponse } = await import('/ui/scenarios.ts');
-            const { controlSource } = await import('/ui/controlSources.ts');
+            // Vite serves ui/ at the browser root.
+            const { scenarioResponse } = await import('/scenarios.ts');
+            const { controlSource } = await import('/controlSources.ts');
             const source = scenarioResponse('source', 'GET').sources.find(source => source.product === 'chatgpt');
             if (!source?.authorizationFacts?.email) throw new Error('Account fixture is missing its connected source identity');
-            return { label: source.label, email: source.authorizationFacts.email, product: controlSource(source.product).displayName };
+            return { label: source.label, email: source.authorizationFacts.email, productName: controlSource(source.product).displayName };
           });
           const card = page.getByRole('region', { name: source.label, exact: true });
           await card.getByRole('heading', { name: source.label, exact: true }).waitFor({ state: 'visible' });
 
           // Regression: AX-26 copying a selection spanning an ordinary label and masked identity discarded the label.
+          // Sensitive preserves @ in email stand-ins and labels its outer span with accounts.hidden.
           const identity = card.getByRole('definition').filter({ hasText: /@/ }).getByLabel(messages['accounts.hidden'], { exact: true });
           const standIn = await identity.innerText();
           if (!standIn || standIn === source.email) throw new Error('Account identity is not privacy-masked');
@@ -386,7 +388,7 @@ try {
           await card.getByRole('button', { name: messages.save, exact: true }).click();
           await page.getByRole('region', { name: renamed, exact: true }).getByRole('heading', { name: renamed, exact: true }).waitFor({ state: 'visible' });
           await page.getByRole('button', { name: messages.addControlSource, exact: true }).click();
-          const addProduct = messages['setup.addProduct'].replace('{name}', source.product);
+          const addProduct = messages['setup.addProduct'].replace('{name}', source.productName);
           await page.getByRole('menuitem', { name: addProduct, exact: true }).click();
           const dialog = page.getByRole('dialog', { name: addProduct, exact: true });
           await dialog.waitFor({ state: 'visible' });
