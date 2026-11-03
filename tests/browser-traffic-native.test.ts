@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 
@@ -10,10 +10,17 @@ test('browser task polling sends compact metadata once and no body for unchanged
   const fixture = await nativeControl('');
   try {
     await fixture.restart(async directory => {
+      await mkdir(path.join(directory, 'tasks'), { recursive: true });
       for (let i = 0; i < 32; i++) {
         const requestId = randomUUID();
+        const threadId = randomUUID();
+        await writeFile(path.join(directory, 'tasks', `${threadId}.json`), JSON.stringify({
+          runtimeStatus: 'idle', title: `Task ${i}`, preview: 'p'.repeat(128 * 1024),
+          configuration: { instructions: 'c'.repeat(64 * 1024) },
+          ownership: { currentOwner: 'desktop', state: 'idle', history: [{ evidence: 'h'.repeat(64 * 1024) }] },
+        }));
         await writeFile(path.join(directory, `${requestId}.json`), JSON.stringify({
-          requestId, threadId: randomUUID(), operation: 'create', state: 'completed',
+          requestId, threadId, operation: 'create', state: 'completed',
           backendSession: 'previous-fixture', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
           task: { kind: 'create', title: `Task ${i}`, prompt: 'Task preview\n' + 'x'.repeat(64 * 1024), input: [{ type: 'image', imageUrl: 'data:image/png;base64,' + 'a'.repeat(128 * 1024) }], settings: {} },
           result: {}, approval: { decision: 'automatic', source: 'local' },
@@ -30,11 +37,12 @@ test('browser task polling sends compact metadata once and no body for unchanged
     assert.equal(data.records.length, 32);
     assert.ok(Buffer.byteLength(text) < 128 * 1024, 'List metadata must not transfer prompts and attachments.');
     assert.ok(data.records.every((row: any) => row.task.prompt === 'Task preview' && row.task.promptTruncated));
+    assert.ok(data.records.every((row: any) => row.runtime.runtimeStatus === 'idle' && row.runtime.ownership.currentOwner === 'desktop'));
     const etag = first.headers.get('etag')!;
     assert.ok(etag);
     let repeatedBytes = 0;
     for (let i = 0; i < 4; i++) {
-      const next = await fetch(base + 'tasks', { headers: { ...headers, 'If-None-Match': etag } });
+      const next = await fetch(base + 'tasks', { headers: { ...headers, 'If-None-Match': i % 2 ? `W/${etag}` : etag } });
       assert.equal(next.status, 304);
       repeatedBytes += (await next.arrayBuffer()).byteLength;
     }

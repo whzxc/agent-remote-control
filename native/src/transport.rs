@@ -496,7 +496,7 @@ async fn local_request(
             use http_body_util::Full;
             let bytes = serde_json::to_vec(&v).unwrap();
             let etag = format!("\"{}\"", hash(&bytes));
-            let unchanged = validator.as_deref() == Some(&etag);
+            let unchanged = crate::browser::not_modified(validator.as_deref(), &etag);
             hyper::Response::builder()
                 .status(if unchanged { 304 } else { 200 })
                 .header("Content-Type", "application/json")

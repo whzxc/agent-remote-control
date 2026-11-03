@@ -29,10 +29,28 @@ pub(crate) fn display_record(record: Value) -> Value {
             "approval",
             "executionOwner",
             "open",
-            "runtime",
             "error",
         ],
     );
+    if record["runtime"].is_object() {
+        row["runtime"] = fields(
+            &record["runtime"],
+            &[
+                "runtimeStatus",
+                "title",
+                "project",
+                "observedAt",
+                "stale",
+                "archived",
+            ],
+        );
+        if record["runtime"]["ownership"].is_object() {
+            row["runtime"]["ownership"] = fields(
+                &record["runtime"]["ownership"],
+                &["owner", "currentOwner", "state", "observedAt"],
+            );
+        }
+    }
     let task = &record["task"];
     row["task"] = fields(
         task,

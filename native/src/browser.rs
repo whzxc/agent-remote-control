@@ -8,6 +8,16 @@ use std::{convert::Infallible, time::Duration};
 
 include!(concat!(env!("OUT_DIR"), "/browser_assets.rs"));
 
+pub(crate) fn not_modified(validator: Option<&str>, etag: &str) -> bool {
+    // Compression proxies may weaken an ETag without changing its entity.
+    validator.is_some_and(|value| {
+        value.split(',').any(|tag| {
+            let tag = tag.trim();
+            tag == "*" || tag.strip_prefix("W/").unwrap_or(tag) == etag
+        })
+    })
+}
+
 fn key_path() -> PathBuf {
     root().join("app/browser-access.json")
 }
@@ -377,7 +387,7 @@ pub(crate) async fn handle(
         return match upstream.bytes().await {
             Ok(bytes) => {
                 let etag = format!("\"{}\"", hash(&bytes));
-                let mut result = if validator.as_deref() == Some(&etag) {
+                let mut result = if not_modified(validator.as_deref(), &etag) {
                     empty(304)
                 } else {
                     response(200, bytes, Some("application/json"))
