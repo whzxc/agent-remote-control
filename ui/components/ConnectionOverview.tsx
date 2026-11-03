@@ -115,7 +115,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     return () => { window.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", escape); };
   }, [expandedQueue]);
   const { snapshot } = subscriptions.use();
-  const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
+  const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState<string | false>(false);
   const sources = status?.ingresses ?? [];
   const connections = sources.filter(ingress => ingress.id !== "local-cli" || ingress.transport !== "local");
   useEffect(() => {
@@ -377,7 +377,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             onManageAgents={() => setAgentsOpen(true)} />} />
         {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
           width={envOverrides().taskPanelWidth ?? panelLayout.width} expanded={envOverrides().taskPanelWidth == null && panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)}
-          onSettings={() => setDisplaySettingsOpen(true)} onPanelFrame={panelFrame} />}
+          onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
         {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
@@ -401,7 +401,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       </Dialog>}
       {switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
-      {displaySettingsOpen && <AgentDisplaySettings onClose={() => setDisplaySettingsOpen(false)} />}
+      {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
     </>
   );
 }

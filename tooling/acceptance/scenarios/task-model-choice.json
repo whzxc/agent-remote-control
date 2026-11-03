@@ -1,0 +1,21 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Task model fixture",
+      "headline": "Reviewing sample configuration"
+    }
+  ],
+  "taskModelChoice": true
+}

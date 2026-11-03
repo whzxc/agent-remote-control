@@ -190,6 +190,17 @@ impl AgentHost {
         }
         crate::dispatch_policy::update(args)
     }
+    pub(crate) fn dispatch_defaults(&self, body: &Value, write: bool) -> Result<Value> {
+        let agent = string(body, "agent");
+        if agent != "codex" && !self.drivers.contains_key(agent) {
+            return Err("UNKNOWN_AGENT".into());
+        }
+        if write {
+            crate::dispatch_policy::set_defaults(body)
+        } else {
+            crate::dispatch_policy::defaults(agent)
+        }
+    }
     pub async fn set_enabled(self: &Arc<Self>, body: &Value) -> Result<Value> {
         let agent = string(body, "agent");
         if !self.drivers.contains_key(agent) {

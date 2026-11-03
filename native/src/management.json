@@ -1742,6 +1742,149 @@
       }
     },
     {
+      "name": "agents.dispatch_defaults.read",
+      "route": "agents/dispatch-defaults/read",
+      "method": "POST",
+      "description": "Read the user-owned dispatch defaults from dispatch-policy.json for one registered Agent. Codex returns model and effort; other Agents return model. Null means the dispatch inherits native session values.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "agent": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "agent"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "agents.dispatch_defaults.update",
+      "route": "agents/dispatch-defaults",
+      "method": "POST",
+      "description": "Replace the default model, and for Codex the default effort, applied when a dispatch omits them. Null or empty restores native inheritance. Explicit dispatch choices still win. Values denied by the Agent's allow/deny lists fail with DISPATCH_POLICY_DENIED. Criteria, constraints and other Agents are preserved; the previous file is kept in dispatch-policy.json.bak.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "agent": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effort": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "agent",
+              "model"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tasks.dispatch_defaults.read",
+      "route": "tasks/dispatch-defaults/read",
+      "method": "POST",
+      "description": "Read the model and effort one Codex task uses when a send omits them. Null means the task follows thread inheritance and Agent policy.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "threadId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "threadId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "tasks.dispatch_defaults.update",
+      "route": "tasks/dispatch-defaults",
+      "method": "POST",
+      "description": "Replace one Codex task's model and effort for later turns that omit them. Precedence is explicit dispatch choice, task setting, thread inheritance, then Agent policy default. It never submits a turn or changes a running turn. Null or empty clears a field; Agent allow/deny lists still apply.",
+      "localOnly": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "threadId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effort": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "threadId",
+              "model",
+              "effort"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "agents.conversations",
       "route": "agents/conversations",
       "method": "POST",

@@ -157,6 +157,110 @@ pub(crate) fn update(args: &Value) -> Result<Value> {
     save_bytes(&path, &formatted(&updated)?)?;
     Ok(json!({"scope":scope,"criteriaHash":hash(criteria),"policyPath":path,"backupPath":backup}))
 }
+/// Read the user-owned defaults applied when a dispatch omits model or effort.
+pub(crate) fn defaults(agent: &str) -> Result<Value> {
+    let policies = read()?;
+    Ok(if agent == "codex" {
+        json!({"agent":agent,"model":policies.codex.model,"effort":policies.codex.effort})
+    } else {
+        let policy = policies.agents.get(agent).cloned().unwrap_or_default();
+        json!({"agent":agent,"model":policy.model})
+    })
+}
+/// Replace one Agent's default model (and Codex effort); null restores native inheritance.
+pub(crate) fn set_defaults(body: &Value) -> Result<Value> {
+    let _guard = POLICY_LOCK.lock().map_err(|e| e.to_string())?;
+    let (policies, previous) = read_locked()?;
+    let agent = string(body, "agent");
+    let field = |key: &str| body[key].as_str().map(str::trim).filter(|v| !v.is_empty());
+    let (model, effort) = (field("model"), field("effort"));
+    if agent == "codex" {
+        let p = &policies.codex;
+        model.map_or(Ok(()), |v| {
+            check(v, &p.allow_models, &p.deny_models, "model")
+        })?;
+        effort.map_or(Ok(()), |v| {
+            check(v, &p.allow_efforts, &p.deny_efforts, "effort")
+        })?;
+    } else {
+        if effort.is_some() {
+            return Err("DISPATCH_DEFAULTS_UNSUPPORTED: effort applies only to codex".into());
+        }
+        let p = policies.agents.get(agent).cloned().unwrap_or_default();
+        model.map_or(Ok(()), |v| {
+            check(v, &p.allow_models, &p.deny_models, "model")
+        })?;
+    }
+    let mut updated = previous.clone();
+    if updated.get(agent).is_none() {
+        updated[agent] = json!({});
+    }
+    updated[agent]["model"] = json!(model);
+    if agent == "codex" {
+        updated[agent]["effort"] = json!(effort);
+    }
+    let formatted = |value: &Value| -> Result<Vec<u8>> {
+        let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    };
+    save_bytes(
+        &root().join("dispatch-policy.json.bak"),
+        &formatted(&previous)?,
+    )?;
+    save_bytes(&root().join("dispatch-policy.json"), &formatted(&updated)?)?;
+    Ok(if agent == "codex" {
+        json!({"agent":agent,"model":model,"effort":effort})
+    } else {
+        json!({"agent":agent,"model":model})
+    })
+}
+
+/// Per-task choices live beside the policy so control sources keep owning dispatch.
+fn task_path(thread: &str) -> Result<PathBuf> {
+    uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
+    Ok(root().join("task-dispatch").join(format!("{thread}.json")))
+}
+fn task_values(thread: &str) -> Result<Value> {
+    let path = task_path(thread)?;
+    if !path.exists() {
+        return Ok(json!({"model":null,"effort":null}));
+    }
+    let value = load(&path)?;
+    Ok(json!({"model":value["model"],"effort":value["effort"]}))
+}
+/// Read the model and effort a Codex task uses when a send omits them.
+pub(crate) fn task_defaults(body: &Value) -> Result<Value> {
+    let thread = string(body, "threadId");
+    let mut value = task_values(thread)?;
+    value["threadId"] = json!(thread);
+    Ok(value)
+}
+/// Replace one Codex task's defaults; nulls remove the task setting.
+pub(crate) fn set_task_defaults(body: &Value) -> Result<Value> {
+    let thread = string(body, "threadId");
+    let path = task_path(thread)?;
+    let field = |key: &str| body[key].as_str().map(str::trim).filter(|v| !v.is_empty());
+    let (model, effort) = (field("model"), field("effort"));
+    let policy = read()?.codex;
+    model.map_or(Ok(()), |v| {
+        check(v, &policy.allow_models, &policy.deny_models, "model")
+    })?;
+    effort.map_or(Ok(()), |v| {
+        check(v, &policy.allow_efforts, &policy.deny_efforts, "effort")
+    })?;
+    if model.is_none() && effort.is_none() {
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+    } else {
+        let mut bytes = serde_json::to_vec_pretty(&json!({"model":model,"effort":effort}))
+            .map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        save_bytes(&path, &bytes)?;
+    }
+    Ok(json!({"threadId":thread,"model":model,"effort":effort}))
+}
 
 fn check(value: &str, allow: &[String], deny: &[String], field: &str) -> Result<()> {
     if deny.iter().any(|v| v == value) || (!allow.is_empty() && !allow.iter().any(|v| v == value)) {
@@ -207,6 +311,10 @@ pub(crate) fn resolve(args: &mut Value) -> Result<Value> {
 }
 pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> Result<Value> {
     let policy = read()?.codex;
+    let task = match args["threadId"].as_str().filter(|v| !v.is_empty()) {
+        Some(thread) => task_values(thread)?,
+        None => Value::Null,
+    };
     let mut selection = json!({"reason":args["reason"],"source":{}});
     for (field, mode_field, default, allow, deny) in [
         (
@@ -236,8 +344,9 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
                     None
                 }
             });
+        let task = task[field].as_str();
         let inherited = inherited[field].as_str();
-        let value = explicit.or(inherited).or(default.as_deref());
+        let value = explicit.or(task).or(inherited).or(default.as_deref());
         check_known(value, allow, deny, field)?;
         selection["source"][field] = json!("native-default");
         let Some(value) = value.map(str::to_owned) else {
@@ -245,6 +354,8 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
         };
         selection["source"][field] = json!(if explicit.is_some() {
             "explicit"
+        } else if task.is_some() {
+            "task-default"
         } else if inherited.is_some() {
             "thread-inherited"
         } else {
