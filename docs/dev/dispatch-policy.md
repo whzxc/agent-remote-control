@@ -35,7 +35,7 @@ serviceTier is a nullable global default. serviceTiers maps model IDs to overrid
 
 Explicit tier precedes the final model's override, then the global default. Selection repeats for every new turn, including model changes in one thread. Native turn.serviceTierForTurn precedes turn.serviceTier, top-level serviceTier, and thread.serviceTier. A one-turn override does not change thread defaults. Sources are explicit, policy-default, or native-default when unfilled.
 
-The Agent details dialog in Agents settings edits the default model and, for Codex, the default effort. It writes through the local-only management ops `agents.dispatch_defaults.read` and `agents.dispatch_defaults.update`. Null restores native inheritance. Updates check allow/deny lists, preserve criteria, constraints and other Agents, and keep the previous file in dispatch-policy.json.bak. Explicit dispatch choices still win.
+The Agent panel's settings dialog and the Agent details dialog in Agents settings edit the default model and, for Codex, the default effort. It writes through the local-only management ops `agents.dispatch_defaults.read` and `agents.dispatch_defaults.update`. Null restores native inheritance. Updates check allow/deny lists, preserve criteria, constraints and other Agents, and keep the previous file in dispatch-policy.json.bak. Explicit dispatch choices still win.
 
 Empty allowlists are unrestricted. Denylists win. Constraints apply to final values, including policy defaults. Upstream validates native model/effort support. ARC does not duplicate that validation. Malformed policy fails explicitly without falling back to desktop defaults.
 

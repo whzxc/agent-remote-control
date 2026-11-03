@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
+import { orderedAgents, name } from "../state/agents";
 import { useDispatchCatalog } from "../state/dispatchCatalog";
 import { modelLabel } from "./composites/dispatchSpecLabel";
 import { Field, Group, Notice, SingleChoice } from "./ui";
@@ -43,7 +44,7 @@ export default function AgentDispatchDefaults({ agent }: { agent: string }) {
         codex ? { agent, model: next.model || null, effort: next.effort || null } : { agent, model: next.model || null }));
     } catch (e) { setError(String(e)); } finally { setSaving(false); }
   };
-  return <Group title={t("dispatchDefaults.title")}>
+  return <Group title={t("dispatchDefaults.title", { agent: name(orderedAgents().find(row => row.agent === agent) ?? { agent }) })}>
     {error && <Notice>{error}</Notice>}
     <Field label={t("dispatchDefaults.model")}>
       <SingleChoice label={t("dispatchDefaults.model")} value={model || INHERIT} disabled={saving}

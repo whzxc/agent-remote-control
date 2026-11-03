@@ -1660,7 +1660,7 @@
   "mcp.support": "Agent and transport support",
   "mcp.remove": "Remove service",
   "mcp.removeEffect": "New processes will stop receiving {name}. Running processes retain their configuration; an adopted source returns to its original configuration.",
-  "dispatchDefaults.title": "Dispatch defaults",
+  "dispatchDefaults.title": "{agent} dispatch defaults",
   "dispatchDefaults.model": "Default model",
   "dispatchDefaults.effort": "Default effort",
   "dispatchDefaults.inherit": "Agent default"

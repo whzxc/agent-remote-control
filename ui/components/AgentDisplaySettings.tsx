@@ -9,6 +9,7 @@ import {
 } from "../subscriptions/displayPreferences";
 import { bubbleWidths, bubbleHeights, type BubbleDensity, type BubbleWidth } from "../state/activityModel";
 import { ActivityBubbleContent } from "./ActivityBubbles";
+import AgentDispatchDefaults from "./AgentDispatchDefaults";
 import type { CSSProperties } from "react";
 import {
   Dialog,
@@ -20,8 +21,11 @@ import {
 } from "./ui";
 export default function AgentDisplaySettings({
   onClose,
+  agent,
 }: {
   onClose: () => void;
+  /** The Agent whose panel opened these settings. */
+  agent?: string;
 }) {
   const { snapshot } = subscriptions.use(),
     layout = topologyLayout.use(), quota = quotaDisplay.use(),
@@ -43,6 +47,7 @@ export default function AgentDisplaySettings({
   return (
     <Dialog title={t("agentDisplaySettings")} onClose={onClose} busy={saving}>
       {error && <Notice>{error}</Notice>}
+      {agent && <AgentDispatchDefaults agent={agent} />}
       <Group title={t("activity.bubbleSettings")}>
         <div className="activity-preview" aria-label={t("activity.preview")}>
           <div className="activity-bubble" data-density={density} style={{ "--bubble-width": `${bubbleWidths[width]}px`, "--bubble-height": `${bubbleHeights[density]}px` } as CSSProperties}>
