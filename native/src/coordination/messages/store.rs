@@ -638,6 +638,56 @@ impl Store {
             json!({"messages":rows,"negotiations":negotiations,"nextCursor":cursor,"hasMore":matching.len()>limit,"dataOnly":true,"projectionPending":!self.data.pending.is_empty()}),
         )
     }
+    /// Clock-only work for the background delivery loop. Reads and writes still reconcile immediately.
+    pub fn next_background_at(&self, time: i64) -> Option<i64> {
+        let mut next = None;
+        let mut due = |at: i64| {
+            next = Some(next.map_or(at, |old: i64| old.min(at)));
+        };
+        if !self.data.pending.is_empty() {
+            due(time);
+        }
+        for n in &self.data.negotiations {
+            if !n.unresolved() && n.state == "open" {
+                due(n.expires_at);
+            }
+            if !n.unresolved() && n.state != "escalated" {
+                due(n.expires_at.saturating_add(7 * DAY));
+            }
+        }
+        for row in &self.data.messages {
+            let state = string(&row.envelope, "deliveryState");
+            if state == "sending" {
+                due(time);
+            }
+            if state == "pending" {
+                due(row.envelope["expiresAt"].as_i64().unwrap_or(0));
+                if let Some(route) = &row.route {
+                    due(row.due.max(
+                        self.data
+                            .last_push
+                            .get(&route.key())
+                            .map_or(0, |at| at + 60),
+                    ));
+                }
+            }
+            if !self
+                .data
+                .negotiations
+                .iter()
+                .any(|n| n.unresolved() && row.envelope["negotiationId"] == n.id)
+            {
+                due(row.envelope["createdAt"]
+                    .as_i64()
+                    .unwrap_or(time)
+                    .saturating_add(7 * DAY));
+            }
+        }
+        for at in self.data.last_push.values() {
+            due(at.saturating_add(DAY));
+        }
+        next
+    }
     pub fn batches(&mut self, time: i64) -> Result<Vec<Vec<Row>>> {
         self.transaction(|s| {
             s.maintain(time);

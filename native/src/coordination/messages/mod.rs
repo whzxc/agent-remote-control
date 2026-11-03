@@ -296,9 +296,38 @@ async fn flush() -> Result<()> {
 pub(crate) fn start(service: &Arc<crate::service::Service>) {
     let mut shutdown = service.control.shutdown.subscribe();
     tokio::spawn(async move {
+        use crate::kernel::file_cache::{Projection, Stamp};
+        let dependencies: Vec<_> = [
+            "coordination/messages/state.json",
+            "coordination/events/manifest.json",
+            "coordination/state.json",
+            "coordination/projects.json",
+            "sources.json",
+            "notifications/subscriptions/state.json",
+            "notifications/tasks",
+        ]
+        .iter()
+        .map(|path| root().join(path))
+        .collect();
+        let mut handled: Option<Vec<Option<Stamp>>> = None;
+        let mut next_at = None;
         loop {
             tokio::select! {_=shutdown.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(5))=>{}}
-            tokio::select! {_=shutdown.changed()=>break,result=flush()=>{if result.is_err(){observers::gap("messages","projection-or-delivery-unavailable");}}}
+            let pass = async {
+                let before = Projection::<()>::stamps(&dependencies)?;
+                let now = chrono::Utc::now().timestamp();
+                if handled.as_ref() == Some(&before) && next_at.is_none_or(|at| now < at) {
+                    return Ok::<_, String>(());
+                }
+                handled = None;
+                flush().await?;
+                next_at = with_store(|s| Ok(s.next_background_at(chrono::Utc::now().timestamp())))?;
+                if Projection::<()>::stamps(&dependencies)? == before {
+                    handled = Some(before);
+                }
+                Ok(())
+            };
+            tokio::select! {_=shutdown.changed()=>break,result=pass=>{if result.is_err(){observers::gap("messages","projection-or-delivery-unavailable");}}}
         }
     });
 }
