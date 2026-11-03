@@ -693,13 +693,38 @@ fn persistence_failure_and_event_size_bounds() {
 }
 
 #[test]
-fn lane_errors_offer_registered_qualified_examples() {
+fn ax_contracts_lane_errors_offer_named_bounded_examples() {
     // Regression: ax-327e2d84 lane shorthand errors omitted the registered project spelling.
-    let error = lane_resource_error("worker", &json!({"projects":[{"id":"fixture-project"}]}));
-    assert!(error.contains("lane:fixture-project/worker"));
+    let projects: Vec<_> = (0..9)
+        .map(|n| json!({"id":format!("project-{n}"),"name":format!("Workspace {n}")}))
+        .collect();
+    let error = lane_resource_error("worker", &json!({"projects":projects}));
+    for n in 0..5 {
+        assert!(error.contains(&format!("Workspace {n}: lane:project-{n}/worker")));
+    }
+    assert!(!error.contains("project-5"));
     let result = failure(error, "notice_post");
     assert_eq!(result["next"]["op"], "projects");
     assert_eq!(result["next"]["args"], json!({}));
+}
+#[test]
+fn ax_contracts_invalid_resources_offer_forms_and_host_recovery() {
+    // Regression: ax-55f3a468 node/service resource errors and guides omitted accepted resource forms.
+    let result = Fixture::new().call("notice_post", json!({"intent":"Deploy service","resources":["node:server/service"],"expectedDurationSeconds":60}));
+    assert_eq!(result["error"]["code"], "INVALID_ARGUMENT");
+    assert_eq!(result["next"]["op"], "guide");
+    assert_eq!(result["next"]["args"], json!({"op":"notice_post"}));
+    let message = string(&result["error"], "message");
+    for example in [
+        "app:installed",
+        "project:workspace/main",
+        "lane:workspace/worker",
+        "host:server",
+        "isolated:preview",
+    ] {
+        assert!(message.contains(example));
+        assert!(ResourceKey::parse(example).is_ok());
+    }
 }
 #[test]
 fn linked_running_thread_is_observed_at_post() {

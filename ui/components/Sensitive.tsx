@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type InputHTMLAttributes } from 'react';
 import { t } from '../i18n';
 import { maskSensitive, sensitiveParts } from '../privacyMask';
+import { registerSensitiveCopy } from '../privacyClipboard';
 import { usePrivacy } from '../state/privacy';
 import { accounts } from '../state/accounts';
 import { connector } from '../state/connector';
@@ -9,6 +10,9 @@ export function Sensitive({ children = '', wrap = false }: { children?: string |
   const hidden = usePrivacy(), element = useRef<HTMLSpanElement>(null);
   const value = children ?? '', replacement = maskSensitive(value);
   const [metrics, setMetrics] = useState<{ width: number; scale: number }>();
+  useLayoutEffect(() => {
+    if (hidden && element.current) return registerSensitiveCopy(element.current, value);
+  }, [hidden, value]);
   useLayoutEffect(() => {
     const node = element.current;
     if (!node || !value || wrap) { setMetrics(undefined); return; }
@@ -29,8 +33,7 @@ export function Sensitive({ children = '', wrap = false }: { children?: string |
     return () => { observer.disconnect(); document.fonts?.removeEventListener('loadingdone', measure); };
   }, [value, replacement, wrap]);
   return <span ref={element} className={`sensitive-value${wrap ? ' sensitive-value-wrap' : ''}`} style={metrics && !wrap ? { inlineSize: metrics.width } : undefined}
-    aria-label={hidden && value ? t('accounts.hidden') : undefined}
-    onCopy={hidden ? event => { event.preventDefault(); event.clipboardData.setData('text/plain', value); } : undefined}>
+    aria-label={hidden && value ? t('accounts.hidden') : undefined}>
     <span className={hidden ? 'pii' : undefined} aria-hidden={hidden || undefined}
       style={hidden && metrics && !wrap ? { transform: `scaleX(${metrics.scale})` } : undefined}>{hidden ? replacement : value}</span>
   </span>;
@@ -42,10 +45,13 @@ export function SensitiveIdentity({ email, orgName, wrap = false }: { email?: st
 
 // Editable sensitive fields are read-only while hidden. Values remain in React state.
 export function SensitiveInput({ value = '', onChange, readOnly, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value'> & { value?: string }) {
-  const hidden = usePrivacy();
-  return <input {...props} className={`input ${props.className ?? ''}`} value={hidden ? maskSensitive(value, true) : value}
+  const hidden = usePrivacy(), element = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    if (hidden && element.current) return registerSensitiveCopy(element.current, value);
+  }, [hidden, value]);
+  return <input {...props} ref={element} className={`input ${props.className ?? ''}`} value={hidden ? maskSensitive(value, true) : value}
     readOnly={hidden || readOnly} onChange={hidden ? undefined : onChange} aria-description={hidden ? t('accounts.hidden') : props['aria-description']}
-    onCopy={hidden ? event => { event.preventDefault(); event.clipboardData.setData('text/plain', value); } : props.onCopy} />;
+    onCopy={hidden ? undefined : props.onCopy} />;
 }
 
 export function useSensitiveText(additionalValues: readonly string[] = []) {

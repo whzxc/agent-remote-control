@@ -5,6 +5,21 @@ import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 import { maskSensitive, sensitiveParts } from '../ui/privacyMask.ts';
+import { buildClipboardText } from '../ui/privacyClipboard.ts';
+
+test('mixed clipboard text replaces selected stand-ins by position', () => {
+  // Regression: AX-26 copying a mixed selection discarded ordinary text and other sensitive values.
+  const first = 'alex@example.com', second = 'Team 🦊';
+  const maskedFirst = maskSensitive(first), maskedSecond = maskSensitive(second);
+  const prefix = `Keep ${maskedFirst} / `, middle = ' belongs to ', suffix = ' today.';
+  const text = prefix + maskedFirst + middle + maskedSecond + suffix;
+  const secondStart = prefix.length + maskedFirst.length + middle.length;
+  assert.equal(buildClipboardText(text, [
+    { start: secondStart, end: secondStart + maskedSecond.length, value: second },
+    { start: prefix.length, end: prefix.length + maskedFirst.length, value: first },
+  ]), prefix + first + middle + second + suffix);
+  assert.equal(buildClipboardText(text, []), text);
+});
 
 test('stand-ins are deterministic, preserve separators and replace every identity character', () => {
   // Property: masking preserves code-point length and separators while substituting every other character deterministically.
@@ -33,7 +48,7 @@ test('substring masking preserves prose and treats identities literally', () => 
 });
 
 test('account privacy replaces DOM values, restores them exactly and preserves real copy actions', async () => {
-  // Regression: blurred account identities and read-only connection inputs retained real values in DOM, while unrelated task bubbles were hidden.
+  // Regression: AX-26 mixed selections lost ordinary text; hidden identities must also remain absent from the DOM.
   const window = new Window({ url: 'http://localhost/?scenario=accounts' });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;
@@ -78,7 +93,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     // Inspect content and attributes together: a hidden raw mirror is still a leak.
     const assertPrivate = () => { for (const value of raw) assert.ok(!document.documentElement.outerHTML.includes(value), `DOM leaked ${value}`); };
     const render = async (child: any) => { await act(async () => root.render(h(TooltipProvider, null, child))); };
-    // Release acceptance could not select inline stand-ins; selected stand-ins must copy only the real identity.
+    // Selected stand-ins copy their original value, including within mixed selections.
     await act(async () => setPrivacy(true));
     await render(h(Sensitive, null, account.email));
     const masked = page.getByLabelText(t('accounts.hidden'), { exact: true });
@@ -92,6 +107,17 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     assert.equal(clipboard.getData('text/plain'), account.email);
     assert.notEqual(clipboard.getData('text/plain'), selection.toString());
     selection.removeAllRanges();
+    await render(h('section', { role: 'group', 'aria-label': 'Copy selection' }, 'Account: ', h(Sensitive, null, account.email), ' / ', h(Sensitive, null, account.orgName), ' selected.'));
+    const group = page.getByRole('group', { name: 'Copy selection' });
+    selection.selectAllChildren(group);
+    assertPrivate();
+    assert.equal(fireEvent.copy(group, { clipboardData: clipboard }), false);
+    assert.equal(clipboard.getData('text/plain'), `Account: ${account.email} / ${account.orgName} selected.`);
+    selection.selectAllChildren(page.getAllByLabelText(t('accounts.hidden'), { exact: true })[1]);
+    assert.equal(fireEvent.copy(group, { clipboardData: clipboard }), false);
+    assert.equal(clipboard.getData('text/plain'), account.orgName);
+    selection.removeAllRanges();
+    await render(h(Sensitive, null, account.email));
     await act(async () => setPrivacy(false));
     assert.ok(page.getByText(account.email, { exact: true }));
     assert.equal(fireEvent.copy(page.getByText(account.email, { exact: true }), { clipboardData: clipboard }), true);
@@ -136,8 +162,12 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const input = page.getByRole('textbox', { name: 'Session', exact: true }) as HTMLInputElement;
     assert.notEqual(input.value, account.notifications.sessions[0].target); assert.equal(input.readOnly, true);
     clipboard.setData('text/plain', input.value);
+    input.select();
     assert.equal(fireEvent.copy(input, { clipboardData: clipboard }), false);
     assert.equal(clipboard.getData('text/plain'), account.notifications.sessions[0].target);
+    input.setSelectionRange(0, 7);
+    assert.equal(fireEvent.copy(input, { clipboardData: clipboard }), false);
+    assert.equal(clipboard.getData('text/plain'), account.notifications.sessions[0].target.slice(0, 7));
     assertPrivate();
     await act(async () => setPrivacy(false));
     assert.equal(input.value, account.notifications.sessions[0].target); assert.equal(input.readOnly, false);

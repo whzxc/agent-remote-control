@@ -463,7 +463,7 @@ pub(crate) fn registered(projects: &[Value]) {
     static WRITER: Mutex<()> = Mutex::new(());
     let _writer = WRITER.lock().unwrap();
     let path = root().join("coordination/projects.json");
-    let projects:Vec<_>=projects.iter().take(33).map(|p|json!({"id":p["id"],"roots":p["roots"].as_array().into_iter().flatten().take(9).map(|r|json!({"path":r["path"]})).collect::<Vec<_>>()})).collect();
+    let projects:Vec<_>=projects.iter().take(33).map(|p|json!({"id":p["id"],"name":p["name"],"roots":p["roots"].as_array().into_iter().flatten().take(9).map(|r|json!({"path":r["path"]})).collect::<Vec<_>>()})).collect();
     let row = json!({"projects":projects,"observedAt":now()});
     if observers::durable(&path, &row).is_err() {
         observers::gap("git", "project-catalog-persistence-failed");

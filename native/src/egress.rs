@@ -138,6 +138,8 @@ pub fn failure(e: &str) -> Value {
             value["code"].as_str(),
             Some(
                 "PERMISSION_REQUIRED"
+                    | "PROJECT_NOT_FOUND"
+                    | "PROJECT_AMBIGUOUS"
                     | "INVALID_ARGUMENTS"
                     | "INVALID_OUTPUT_OFFSET"
                     | "DISPATCH_POLICY_CONFLICT"
@@ -1132,6 +1134,45 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ax_contracts_coordination_guides_disclose_resource_forms() {
+        // Regression: ax-55f3a468 resource validation linked guides whose schemas omitted all accepted key forms.
+        for (op, field) in [
+            ("events", "resource"),
+            ("ax_report", "resources"),
+            ("ax_list", "resource"),
+            ("board", "resource"),
+            ("notice_post", "resources"),
+            ("notice_update", "resources"),
+            ("blocker_open", "resources"),
+            ("message_send", "resources"),
+        ] {
+            let guide = guide_content(&Value::Null, &json!({"op":op}), "en", &[]);
+            let mut descriptions = vec![string(
+                &guide["inputSchema"]["properties"][field],
+                "description",
+            )];
+            if op == "message_send" {
+                descriptions.push(string(
+                    &guide["inputSchema"]["properties"]["conditions"]["items"]["properties"]
+                        ["resource"],
+                    "description",
+                ));
+            }
+            for description in descriptions {
+                for form in [
+                    "app:installed",
+                    "project:<id>/main",
+                    "lane:<project>/<name>",
+                    "host:<id>",
+                    "isolated:<id>",
+                ] {
+                    assert!(description.contains(form), "{op}: {form}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn creation_receipts_explain_missing_titles() {

@@ -107,12 +107,18 @@ fn read_account(reference: &str) -> Result<Value> {
     }
     Ok(a)
 }
-fn account(reference: &str) -> Result<Value> {
-    let a = read_account(reference)?;
+fn calling_account() -> Result<Option<String>> {
     let origin = crate::kernel::origin::current_origin();
     if !origin.is_null() && origin["authType"] != "local" {
         let owner = crate::accounts::resolve(string(&origin, "accountId"))?;
-        if owner["id"] != a["id"] {
+        return Ok(Some(string(&owner, "id").into()));
+    }
+    Ok(None)
+}
+fn account(reference: &str) -> Result<Value> {
+    let a = read_account(reference)?;
+    if let Some(owner) = calling_account()? {
+        if a["id"] != owner {
             return Err("SRC_ACCOUNT_SCOPE: Use the calling source account".into());
         }
     }
@@ -478,7 +484,12 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
         true,
     )
 }
-fn snapshot(a: &Value, store: &Store, live: &BTreeMap<String, Observation>) -> Value {
+fn snapshot(
+    a: &Value,
+    store: &Store,
+    live: &BTreeMap<String, Observation>,
+    caller: Option<&str>,
+) -> Value {
     let id = string(a, "id");
     let c = store.containers.get(id);
     let obs = live
@@ -506,7 +517,9 @@ fn snapshot(a: &Value, store: &Store, live: &BTreeMap<String, Observation>) -> V
             r
         })
         .collect();
-    json!({"accountId":id,"storeId":c.map(|c|&c.store_id),"status":if supported(a){c.map(|c|c.status.as_str()).unwrap_or("not-imported")}else{"unsupported"},"reason":c.and_then(|c|c.reason.as_ref()),"hint":c.and_then(|c|c.hint.as_ref()),"detectedAccountId":c.and_then(|c|c.detected_account_id.as_ref()),"safariUserAgent":c.is_some_and(|c|c.safari_user_agent),"open":obs.is_some_and(|o|o.open),"currentConversation":obs.and_then(|o|o.current.clone()),"conversations":conversations})
+    let mut result = json!({"accountId":id,"storeId":c.map(|c|&c.store_id),"status":if supported(a){c.map(|c|c.status.as_str()).unwrap_or("not-imported")}else{"unsupported"},"reason":c.and_then(|c|c.reason.as_ref()),"hint":c.and_then(|c|c.hint.as_ref()),"detectedAccountId":c.and_then(|c|c.detected_account_id.as_ref()),"safariUserAgent":c.is_some_and(|c|c.safari_user_agent),"open":obs.is_some_and(|o|o.open),"currentConversation":obs.and_then(|o|o.current.clone()),"conversations":conversations});
+    import_state::for_caller(&mut result, caller);
+    result
 }
 pub async fn op(name: &str, mut args: Value) -> Result<Value> {
     args.as_object_mut().map(|a| a.remove("requestId"));
@@ -525,6 +538,7 @@ pub async fn op(name: &str, mut args: Value) -> Result<Value> {
             .await;
     }
     if name == "src_conversations" {
+        let caller = calling_account().ok().flatten();
         let rows = if let Some(id) = args["accountId"].as_str() {
             vec![read_account(id)?]
         } else {
@@ -550,7 +564,7 @@ pub async fn op(name: &str, mut args: Value) -> Result<Value> {
                     upsert(s, &account, &r, "notify-target", &crate::now(), false);
                 }
                 Ok(
-                    json!({"accounts":rows.iter().map(|a|snapshot(a,s,l)).collect::<Vec<_>>(),"correlationSeconds":CORRELATION_SECONDS}),
+                    json!({"accounts":rows.iter().map(|a|snapshot(a,s,l,caller.as_deref())).collect::<Vec<_>>(),"correlationSeconds":CORRELATION_SECONDS}),
                 )
             },
             true,
@@ -651,7 +665,7 @@ pub async fn op(name: &str, mut args: Value) -> Result<Value> {
     } else {
         "src-containers/open"
     };
-    let result = crate::transport::forward_request(route, "POST", body).await?;
+    let mut result = crate::transport::forward_request(route, "POST", body).await?;
     if name == "src_login_import" {
         change(
             |s, _| {
@@ -662,6 +676,7 @@ pub async fn op(name: &str, mut args: Value) -> Result<Value> {
             },
             true,
         )?;
+        import_state::for_caller(&mut result, calling_account()?.as_deref());
     }
     Ok(result)
 }

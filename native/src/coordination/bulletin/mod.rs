@@ -67,9 +67,12 @@ pub fn lane_resource_error(name: &str, registry: &Value) -> String {
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|p| ResourceKey::lane(string(p, "id"), name).ok())
-        .take(8)
-        .map(|key| key.as_str().to_owned())
+        .filter_map(|p| {
+            let project_name = p["name"].as_str()?;
+            let key = ResourceKey::lane(string(p, "id"), name).ok()?;
+            Some(format!("{project_name}: {}", key.as_str()))
+        })
+        .take(5)
         .collect();
     format!("INVALID_ARGUMENT: use lane:<project>/<name>; query projects for the registered project ID. Qualified examples: {}", if examples.is_empty() { format!("lane:<project>/{name}") } else { examples.join(", ") })
 }
@@ -115,7 +118,7 @@ fn actor() -> Result<journal::Reader> {
 }
 fn failure(message: String, op: &str) -> Value {
     let code = message.split(':').next().unwrap_or("COORDINATION_STORAGE");
-    let next = if message.contains("lane:<project>/<name>") {
+    let next = if message.starts_with("INVALID_ARGUMENT: use lane:<project>/<name>;") {
         json!({"via":"query","op":"projects","args":{},"hint":message})
     } else if matches!(
         code,

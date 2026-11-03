@@ -77,7 +77,17 @@ impl ResourceKey {
             _ => false,
         };
         if !valid {
-            return Err("INVALID_ARGUMENT: use a canonical coordination resource key".into());
+            let mut message = String::from("INVALID_ARGUMENT: use app:installed (example app:installed), project:<id>/main (example project:workspace/main), lane:<project>/<name> (example lane:workspace/worker), host:<id> (example host:server), or isolated:<id> (example isolated:preview). Event reads may use a unique retained lane shorthand (example lane:worker).");
+            if let Some(("node" | "service" | "deployment" | "host", rest)) = value.split_once(':')
+            {
+                let host = rest.split('/').next().unwrap_or_default();
+                if identifier(host).is_ok() {
+                    message.push_str(&format!(
+                        " For a host or service deployment, use host:{host}."
+                    ));
+                }
+            }
+            return Err(message);
         }
         Ok(Self(value.into()))
     }

@@ -4598,7 +4598,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 270,
-            "description": "Canonical project:<id>/main, lane:<project>/<name>, app:installed, host:<opaque-id>, or isolated:<id>. A unique retained lane may use lane:<name>; ambiguous shorthand returns canonical choices."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Event reads may use a unique retained lane shorthand, such as lane:worker."
           },
           "kinds": {
             "type": "array",
@@ -7293,7 +7293,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 270
-            }
+            },
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "receiptIds": {
             "type": "array",
@@ -7405,7 +7406,8 @@
           "resource": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 270
+            "maxLength": 270,
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "severity": {
             "type": "string",
@@ -7694,7 +7696,8 @@
           "resource": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 270
+            "maxLength": 270,
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "id": {
             "type": "string",
@@ -7872,7 +7875,8 @@
             },
             "maxItems": 16,
             "minItems": 1,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "expectedDurationSeconds": {
             "type": "integer",
@@ -7967,7 +7971,8 @@
             },
             "maxItems": 16,
             "minItems": 1,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "expectedDurationSeconds": {
             "type": "integer",
@@ -8106,7 +8111,8 @@
             },
             "maxItems": 16,
             "minItems": 1,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "causeCode": {
             "type": "string",
@@ -8339,7 +8345,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 280
-            }
+            },
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
           },
           "summary": {
             "type": "string",
@@ -8377,7 +8384,8 @@
                 "resource": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 280
+                  "maxLength": 280,
+                  "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Qualify lanes with the registered project ID from query projects."
                 },
                 "predicate": {
                   "type": "string",
@@ -8700,7 +8708,7 @@
     },
     {
       "name": "src_login_import",
-      "description": "Start a background Chrome login import for this source account and return immediately with {accountId,status:\"importing\",next:{via:\"query\",op:\"src_conversations\",args:{accountId}}}. Concurrent imports for the same account return the in-flight status. Poll src_conversations: importing -> signed-in-pending when cookies are installed, not-imported when none are imported, or import-blocked with reason and a human-action hint. URL observation later yields signed-in or expired. Keychain waits up to 180 seconds; timeout/denial become keychain-timeout/keychain-denied. Enter the macOS login password in the Chrome Safe Storage prompt and choose Always Allow; never work around a denial. Native cookie writes must complete before navigation (30-second write timeout). No cookies, keys, decrypted bytes or page content are returned. No automatic retry after completion or failure. Before native installation, compare the imported lastActiveOrg in-process with confirmed SRC organization identities. A different known SRC yields import-mismatch with detectedAccountId and no installation. Unknown/missing identity yields import-unverified and no installation unless allowUnverified:true. No cookie or organization UUID is returned.",
+      "description": "Start a background Chrome login import for this source account and return immediately with {accountId,status:\"importing\",next:{via:\"query\",op:\"src_conversations\",args:{accountId}}}. Concurrent imports for the same account return the in-flight status. Poll src_conversations: importing -> signed-in-pending when cookies are installed, not-imported when none are imported, or import-blocked with reason and a human-action hint. URL observation later yields signed-in or expired. Keychain waits up to 180 seconds; timeout/denial become keychain-timeout/keychain-denied. Enter the macOS login password in the Chrome Safe Storage prompt and choose Always Allow; never work around a denial. Native cookie writes must complete before navigation (30-second write timeout). No cookies, keys, decrypted bytes or page content are returned. No automatic retry after completion or failure. Before native installation, compare the imported lastActiveOrg in-process with confirmed SRC organization identities. A different known SRC yields import-mismatch with detectedAccountId and no installation. Unknown/missing identity yields import-unverified and no installation unless allowUnverified:true. No cookie or organization UUID is returned. Importing into a different account requires a source bound to that account or local arc cli control authority.",
       "inputSchema": {
         "type": "object",
         "properties": {

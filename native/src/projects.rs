@@ -130,6 +130,40 @@ fn root_error(roots: &[Value]) -> String {
     )
 }
 
+/// Select only registered IDs or unique names; root basenames are recovery hints.
+pub fn select_project<'a>(catalog: &'a [Value], id: &str) -> Result<&'a Value> {
+    if let Some(project) = catalog.iter().find(|p| p["id"] == id) {
+        return Ok(project);
+    }
+    let candidates: Vec<_> = catalog.iter().filter(|p| p["name"] == id).collect();
+    if candidates.len() == 1 {
+        return Ok(candidates[0]);
+    }
+    let (code, mut hint) = if candidates.is_empty() {
+        ("PROJECT_NOT_FOUND", format!("No registered project matches {id:?}. Select a registered project ID or unique name from query projects."))
+    } else {
+        ("PROJECT_AMBIGUOUS", format!("The project name {id:?} matches multiple registered projects. Select a project ID from query projects."))
+    };
+    let root_matches: Vec<_> = catalog
+        .iter()
+        .flat_map(|p| {
+            p["roots"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(move |r| {
+                    let path = r["path"].as_str()?;
+                    (Path::new(path).file_name().is_some_and(|name| name == id))
+                        .then_some((p, path))
+                })
+        })
+        .collect();
+    if let [(project, path)] = root_matches.as_slice() {
+        hint.push_str(&format!(" The matching root {path:?} belongs to project {:?} (ID {:?}). Retry with that registered ID or unique name.", string(project, "name"), string(project, "id")));
+    }
+    Err(json!({"code":code,"message":hint,"next":{"via":"query","op":"projects","args":{},"hint":hint}}).to_string())
+}
+
 async fn resolve_root(
     c: &Control,
     id: &str,
@@ -151,16 +185,7 @@ async fn resolve_root(
         )
     } else {
         let catalog = catalog(c).await?;
-        let exact = catalog.iter().find(|p| p["id"] == id);
-        let candidates = if let Some(p) = exact {
-            vec![p]
-        } else {
-            catalog.iter().filter(|p| p["name"] == id).collect()
-        };
-        if candidates.len() != 1 {
-            return Err("Project does not exist or its name is not unique".into());
-        }
-        let p = candidates[0];
+        let p = select_project(&catalog, id)?;
         let roots = p["roots"].as_array().ok_or("project has no directories")?;
         let named: Vec<_> = roots
             .iter()
@@ -1254,5 +1279,56 @@ pub(crate) fn metadata(path: &Path) -> Value {
             json!({"type":if m.is_symlink(){"symlink"}else if m.is_dir(){"directory"}else if m.is_file(){"file"}else{"other"},"size":m.len(),"readonly":m.permissions().readonly(),"modifiedAt":m.modified().ok().map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()),"createdAt":m.created().ok().map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())})
         }
         Err(e) => json!({"error":e.to_string()}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ax_contracts_project_lookup_returns_discovery_and_basename_hint() {
+        // Regression: unknown root-basename project names returned CONTROL_ERROR and an unhelpful guide continuation.
+        let catalog = vec![
+            json!({"id":"workspace-id","name":"workspace","roots":[{"path":"/fixture/workspace-repository"}]}),
+        ];
+        let error = select_project(&catalog, "workspace-repository").unwrap_err();
+        let mut result = json!({"error":crate::egress::failure(&error)});
+        crate::egress::next(
+            &mut result,
+            "git",
+            &json!({"project":"workspace-repository","operation":"status"}),
+            false,
+        );
+        let result = crate::egress::tool(result, true)["structuredContent"]["result"].clone();
+        assert_eq!(result["error"]["code"], "PROJECT_NOT_FOUND");
+        assert_eq!(result["next"]["via"], "query");
+        assert_eq!(result["next"]["op"], "projects");
+        assert_eq!(result["next"]["args"], json!({}));
+        let hint = string(&result["next"], "hint");
+        assert!(hint.contains("workspace-id"));
+        assert!(hint.contains("/fixture/workspace-repository"));
+        assert_eq!(
+            select_project(&catalog, "workspace").unwrap()["id"],
+            "workspace-id"
+        );
+        assert_eq!(
+            select_project(&catalog, "workspace-id").unwrap()["name"],
+            "workspace"
+        );
+    }
+
+    #[test]
+    fn ax_contracts_ambiguous_project_names_require_an_id() {
+        // Contract: ambiguous registered project names return PROJECT_AMBIGUOUS with query projects discovery.
+        let catalog = vec![
+            json!({"id":"first","name":"workspace"}),
+            json!({"id":"second","name":"workspace"}),
+        ];
+        let error = crate::egress::failure(&select_project(&catalog, "workspace").unwrap_err());
+        assert_eq!(error["code"], "PROJECT_AMBIGUOUS");
+        assert_eq!(error["next"]["op"], "projects");
+        assert_eq!(error["next"]["args"], json!({}));
+        assert_eq!(select_project(&catalog, "second").unwrap()["id"], "second");
     }
 }
