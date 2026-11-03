@@ -739,6 +739,39 @@ impl Store {
             json!({"entries":rows,"nextCursor":next,"triageDue":args["beforeRelease"]==true || confirmed.len()>=8 || blocking>0,"counts":{"open":confirmed.len(),"blocking":blocking,"candidates":self.data.entries.values().filter(|e| e.status=="candidate").count(),"candidateOverflow":self.data.candidate_overflow},"observedAt":timestamp(time)}),
         )
     }
+    /// Reader-scoped matters for board attention: owned candidates and due triage.
+    pub(super) fn attention(&self, actor: &Value, triage: bool) -> Vec<Value> {
+        let mut items: Vec<Value> = self
+            .data
+            .entries
+            .values()
+            .filter(|e| e.status == "candidate" && e.owns(actor))
+            .take(20)
+            .map(|e| {
+                json!({"kind":"ax-candidate","id":e.id,"revision":e.revision,"severity":e.severity,
+                    "summary":e.symptom.chars().take(160).collect::<String>(),"occurrenceCount":e.occurrence_count,
+                    "ownerSourceId":e.source["sourceId"],"next":{"via":"query","op":"ax_list","args":{"id":e.id}}})
+            })
+            .collect();
+        let confirmed = self
+            .data
+            .entries
+            .values()
+            .filter(|e| matches!(e.status.as_str(), "open" | "triaged"));
+        let (open, blocking) = confirmed.fold((0, 0), |(n, b), e| {
+            (
+                n + 1,
+                b + usize::from(e.severity.as_deref() == Some("blocking")),
+            )
+        });
+        if triage && (open >= 8 || blocking > 0) {
+            items.push(
+                json!({"kind":"ax-triage","id":"ax-triage","open":open,"blocking":blocking,
+                "next":{"via":"query","op":"ax_list","args":{"status":"open"}}}),
+            );
+        }
+        items
+    }
     pub(super) fn export(&mut self, path: &Path) -> Result<Value> {
         if path.exists() {
             return Err("AX_EXPORT_EXISTS: choose a new export path".into());

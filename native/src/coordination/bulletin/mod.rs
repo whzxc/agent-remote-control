@@ -263,6 +263,14 @@ pub(crate) async fn call(
                 for session in sessions { super::routing::session_projection(session)?; }
             }
             value["projectionPending"] = json!(projection.is_some() || with_store(|s| Ok(!s.state.pending.is_empty()))?);
+            value["attention"] = attention(&reader.principal).await;
+            let lines: Vec<String> = value["attention"]["items"].as_array().into_iter().flatten()
+                .filter(|item| item["kind"] != "blocker")
+                .map(|item| format!("attention {} {} {}", string(item,"kind"), string(item,"id"), item["summary"].as_str().or(item["reason"].as_str()).unwrap_or(""))).collect();
+            if !lines.is_empty() {
+                let summary = string(&value, "summary");
+                value["summary"] = json!(if summary.is_empty() { lines.join("\n") } else { format!("{summary}\n{}", lines.join("\n")) });
+            }
             if reader.principal == Principal::LocalAuthority && args["id"].is_string() {
                 if let Some(blocker) = recovery_blocker(string(&args,"id"))? { value["localRecoverySelection"] = blocker["recoverySelection"].clone(); }
             }
@@ -329,6 +337,47 @@ pub(crate) async fn call(
         Ok(value)
     }.await;
     Ok(result.unwrap_or_else(|e| failure(e, op)))
+}
+/// Matters waiting on the reader, referenced from their owners. Reading resolves nothing.
+async fn attention(reader: &Principal) -> Value {
+    let mut items = vec![];
+    let mut coverage = json!({"bulletin":"observed","ax":"observed","notifications":"observed"});
+    match with_store(|s| Ok(s.attention(reader))) {
+        Ok(rows) => items.extend(rows),
+        Err(_) => coverage["bulletin"] = json!("unavailable"),
+    }
+    match super::ax::attention() {
+        Ok(rows) => items.extend(rows),
+        Err(_) => coverage["ax"] = json!("unavailable"),
+    }
+    let mine = |id: &Value| match reader {
+        Principal::Source { source_id, .. } => id == source_id.as_str(),
+        _ => true,
+    };
+    match crate::claude_notify::coordination_attention().await {
+        Ok(notifications) => {
+            coverage["notifications"] = notifications["coverage"].clone();
+            for problem in notifications["problems"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|p| mine(&p["sourceId"]))
+                .take(20)
+            {
+                items.push(json!({"kind":"notification","id":problem["id"],"ownerSourceId":problem["sourceId"],"reason":problem["reason"],
+                    "next":{"via":"query","op":"notify_status","args":{}}}));
+            }
+        }
+        Err(_) => coverage["notifications"] = json!("unavailable"),
+    }
+    for item in &mut items {
+        item["requiredActor"] = json!(match (reader, item["ownerSourceId"].is_string()) {
+            (Principal::Source { .. }, _) => "you",
+            (_, true) => "source",
+            _ => "user",
+        });
+    }
+    json!({"count":items.len(),"items":items,"coverage":coverage})
 }
 fn session_result(op: &str, args: &Value, value: &mut Value) -> Result<()> {
     if op != "coordination_session" || !value["session"].is_object() {

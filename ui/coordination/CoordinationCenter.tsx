@@ -102,6 +102,7 @@ export default function CoordinationCenter() {
   function openAttention(item: Attention, focusId: string) {
     if (item.kind === 'blocker') { void readRecord(item.record); return; }
     if (item.kind === 'task') { openTask(item.session.id, item.session.turnId ?? undefined, focusId); return; }
+    if (item.kind === 'ax') return;
     centerReturn.set({ kind: item.kind, focusId }); boardOpen.set(false);
     if (item.kind === 'update') showUpdate();
     else { const ingress = connection.status?.ingresses.find(row => row.id === item.connectionId); if (ingress) selectIngressPanel(ingress); }
@@ -121,7 +122,8 @@ export default function CoordinationCenter() {
   const scopedAttention = attention.items.filter(item => (view.filter !== 'input' || item.kind === 'task' && item.state === 'needsYou') && (!view.resource || item.kind === 'blocker' && item.record.resources.includes(view.resource) || item.kind === 'task' && observed.page?.notices.some(row => row.resources.includes(view.resource) && row.threadLinks?.some(link => link.threadId === item.session.id))));
   const ownerAttention = scopedAttention.filter(item => item.kind !== 'blocker');
   const resourceLabel = (key: string) => options.find(option => option.key === key)?.label ?? key;
-  const title = (item: Attention) => item.kind === 'task' ? item.session.title ?? taskTarget(item.session.id)?.session.title ?? item.session.id : item.kind === 'blocker' ? item.record.summary : item.title;
+  const title = (item: Attention) => item.kind === 'task' ? item.session.title ?? taskTarget(item.session.id)?.session.title ?? item.session.id : item.kind === 'blocker' ? item.record.summary : item.kind === 'ax' ? item.item.summary ?? t('center.axTriage', { count: item.item.open ?? 0 }) : item.title;
+  const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
   function recordDetail(row: BoardRecord) {
     return <section id="center-record-detail" className="center-detail" aria-label={t('center.recordDetail')}>
@@ -182,7 +184,7 @@ export default function CoordinationCenter() {
         {historyError && <Notice tone="danger" action={<Button onClick={() => void readHistory()}>{t('retry')}</Button>}>{historyError}</Notice>}
         <section aria-label={t('center.attention')}>{(ownerAttention.length > 0 || !attention.complete) && <h2>{t('center.attention')}</h2>}
           {!attention.complete && <p role="status">{t('center.partial')}</p>}
-          {ownerAttention.map(item => item.kind === 'task' && !taskTarget(item.session.id) ? <p key={item.id}>{title(item)} · {t('center.targetUnavailable')}</p> : <Button key={item.id} id={`attention-${encodeURIComponent(item.id)}`} className="center-attention-row" onClick={() => openAttention(item, `attention-${encodeURIComponent(item.id)}`)}><strong>{title(item)}</strong><span>{item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`)}</span></Button>)}
+          {ownerAttention.map(item => item.kind === 'ax' ? <p key={item.id} className="center-attention-row"><strong>{title(item)}</strong><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></p> : item.kind === 'task' && !taskTarget(item.session.id) ? <p key={item.id}>{title(item)} · {t('center.targetUnavailable')}</p> : <Button key={item.id} id={`attention-${encodeURIComponent(item.id)}`} className="center-attention-row" onClick={() => openAttention(item, `attention-${encodeURIComponent(item.id)}`)}><strong>{title(item)}</strong><span>{item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`)}</span></Button>)}
         </section>
         {(activeWork.length > 0 || notices.length > 0) && <h2>{t('center.work')}</h2>}
         {activeWork.map(({ agent, session }) => <Button key={`${agent}:${session.id}`} className="center-board-row" id={`work-${session.id}`} onClick={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)}><strong>{session.title ?? session.id}</strong><span>{agent} · {t('detail.state.running')}</span></Button>)}

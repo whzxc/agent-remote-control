@@ -221,6 +221,12 @@ pub(crate) async fn call(op: &str, mut args: Value, session: &str) -> Result<Val
     }.await;
     Ok(result.unwrap_or_else(|message| failure(message, op, &args)))
 }
+/// AX part of board attention for the authenticated reader. Reading resolves nothing.
+pub(crate) fn attention() -> Result<Vec<Value>> {
+    let (actor, _) = actor()?;
+    let triage = crate::preferences::maintainer_mode() || actor["type"] == "local-authority";
+    with_store(|s| Ok(s.attention(&actor, triage)))
+}
 fn require_maintainer(op: &str, actor: &Value, enabled: bool) -> Result<()> {
     if matches!(op, "ax_triage" | "import") && !enabled && actor["type"] != "local-authority" {
         return Err("MAINTAINER_MODE_REQUIRED: AX triage/import requires Maintainer mode or authenticated local authority".into());

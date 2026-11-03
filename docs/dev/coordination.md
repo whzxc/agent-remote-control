@@ -255,7 +255,12 @@ are ARC-issued, source-owned handles, pull-only until an explicitly verified
 
 Read `board` before shared-resource work. Its default summary
 contains one line per active notice or uncleared blocker, plus compact IDs,
-revisions, owners and activity metadata. Use `view:full` for resources, editable
+revisions, owners and activity metadata. `attention` lists matters waiting on
+the reader: owned AX candidates, owned live blockers, failed notification routes
+and, in Maintainer mode, due AX triage. Each item has `requiredActor`
+(`you`, `source` or `user`) and a read-only `next`; the summary appends one
+`attention` line per non-blocker item. `attention.coverage` reports bulletin, AX and
+notification observation separately. Reading attention resolves nothing. Use `view:full` for resources, editable
 fields, thread links and clearance evidence. `id` reads a retained terminal record;
 `state:all` includes history. Resource filters select metadata, not visibility.
 Pages default to 50, cap at 100 and fit 128 KiB. Cursors bind snapshot lifecycle

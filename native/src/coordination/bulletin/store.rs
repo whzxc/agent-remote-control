@@ -923,6 +923,23 @@ impl Store {
     fn session_projection(&self, s: &Session) -> Value {
         json!({"id":s.id,"owner":s.owner,"state":s.state,"createdAt":timestamp(s.created_at),"lastActiveAt":timestamp(s.last_active_at)})
     }
+    /// Live blockers the reader owns; local authority observes every owner.
+    pub fn attention(&self, reader: &Principal) -> Vec<Value> {
+        self.state
+            .blockers
+            .iter()
+            .filter(|b| b.live() && (*reader == Principal::LocalAuthority || same_owner(&b.owner, reader)))
+            .take(20)
+            .map(|b| {
+                let mut item = json!({"kind":"blocker","id":b.id,"revision":b.revision,"state":b.state,"resources":b.resources,
+                    "summary":b.summary,"next":{"via":"query","op":"board","args":{"id":b.id,"view":"full"}}});
+                if let Principal::Source { source_id, .. } = &b.owner {
+                    item["ownerSourceId"] = json!(source_id);
+                }
+                item
+            })
+            .collect()
+    }
     pub fn board(&self, args: &Value, actor_revision: &str, clock: Clock) -> Result<Value> {
         let resource = args["resource"]
             .as_str()

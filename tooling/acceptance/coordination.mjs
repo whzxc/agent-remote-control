@@ -42,7 +42,11 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
     await board().getByRole('button', { name: messages.retry, exact: true }).click();
     checks.push('unavailable observation retains unknown coverage; refresh recovers');
   }
-  await count(fixture.coordination === 'problems' ? 7 : 4);
+  await count(fixture.coordination === 'problems' ? 8 : 5);
+  // AX candidates are owner-referenced observations: readable, never a desktop action.
+  const ax = board().getByRole('region', { name: m('attention'), exact: true }).getByText('Task detail reopens the previous turn after resume');
+  assert.equal(await ax.count(), 1);
+  assert.equal(await board().getByRole('button', { name: /Task detail reopens the previous turn/ }).count(), 0);
   if (fixture.coordination === 'gap') {
     await choose(m('view'), m('activityView'));
     await board().getByText(/CURSOR_EXPIRED/).waitFor(); await snapshot('gap');
@@ -57,7 +61,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
       await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button').filter({ hasText: m(kind) }).click();
       await board().waitFor({ state: 'hidden' });
       await page.getByRole('dialog').waitFor();
-      await page.keyboard.press('Escape'); await board().waitFor(); await count(7);
+      await page.keyboard.press('Escape'); await board().waitFor(); await count(8);
     }
     await snapshot('problems'); await close();
     return [...checks, 'connection, notification and update links use their owners and preserve outstanding state'];
@@ -77,12 +81,12 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   checks.push('record inspection is read-only; layered Escape restores its row');
   await board().getByRole('checkbox', { name: m('history'), exact: true }).check();
   await board().getByRole('button', { name: /^Previous maintenance scope/ }).waitFor();
-  await count(4);
+  await count(5);
   await board().getByRole('checkbox', { name: m('history'), exact: true }).uncheck();
   await choose(m('filter'), m('input'));
   await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button', { name: new RegExp(`^${fixture.tasks[0].title}`) }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
-  await page.keyboard.press('Escape'); await board().waitFor(); await count(4);
+  await page.keyboard.press('Escape'); await board().waitFor(); await count(5);
   assert.equal(await board().getByRole('radio', { name: m('input'), exact: true }).isChecked(), true);
   checks.push('pending input stays with the task owner; return preserves scope');
   await choose(m('filter'), m('all'));
@@ -101,7 +105,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   assert.equal(original.taskDetail.id, 'fixture-task-1');
   assert.equal(original.taskDetail.turnId, 'fixture-turn-1-1');
   assert.equal(original.taskDetail.state, 'failed');
-  await page.keyboard.press('Escape'); await board().waitFor(); await count(4);
+  await page.keyboard.press('Escape'); await board().waitFor(); await count(5);
   await page.waitForFunction(() => document.activeElement?.id === 'event-event-2-fixture-task-1');
   checks.push('resource filters and original historical task detail preserve view and focus');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'document fits viewport');

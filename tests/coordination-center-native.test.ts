@@ -25,6 +25,11 @@ test('desktop bulletin management uses local authority, owner revisions, replay 
     assert.equal(board.notificationCoverage, 'observed');
     assert.deepEqual(board.notificationProblems, []);
     assert.ok(board.conflicts.some((row: any) => row.noticeId === posted.notice.id));
+    // Attention references the live blocker from its owner; local authority acts for no source.
+    const matter = board.attention.items.find((item: any) => item.id === opened.blocker.id);
+    assert.equal(matter?.kind, 'blocker');
+    assert.equal(matter.requiredActor, 'user');
+    assert.equal(board.attention.coverage.ax, 'observed');
     const cleared = await fixture.api('coordination/blocker_clear', { id: opened.blocker.id, expectedRevision: 1, reason: 'Non-code recovery observed', evidenceIds: ['synthetic-inspection'], suggestedNextStep: 'inspect' });
     assert.equal(cleared.blocker.state, 'cleared');
     assert.deepEqual(cleared.blocker.evidenceIds, ['synthetic-inspection']);
@@ -34,6 +39,7 @@ test('desktop bulletin management uses local authority, owner revisions, replay 
     assert.equal(closed.notice.state, 'closed');
     const current = await fixture.api('coordination/board', { view: 'full' });
     assert.equal(current.notices.length + current.blockers.length, 0);
+    assert.ok(!current.attention.items.some((item: any) => item.id === opened.blocker.id));
     const history = await fixture.api('coordination/board', { view: 'full', state: 'all' });
     assert.equal(history.notices[0].closedReason, 'completed');
     assert.equal(history.blockers[0].reason, 'Non-code recovery observed');

@@ -267,10 +267,14 @@ The control-source `guide`, `query`, `act` parameter structures remain frozen.
 The single `notification` event and its `{op, args}` outer envelope remain frozen.
 Capability changes use catalog operations and guide.
 
-The desktop currently composes observed task attention and bulletin metadata in
-React. The shared native projection and AX composition described here remain
-implementation targets. The desktop Board is read-only. Agent and authenticated
-management writes continue through the existing owner contracts.
+`board` returns `attention` for its reader: owned AX candidates, owned live
+blockers, failed notification routes and, in Maintainer mode, due AX triage. Each
+item carries `requiredActor` and a read-only `next`. Local authority observes every
+owner, so the desktop shows these items as read-only rows. Task questions,
+permissions and failed executions are still composed in React from observed task
+state; moving them into the native projection remains an implementation target.
+The desktop Board is read-only. Agent and authenticated management writes continue
+through the existing owner contracts.
 
 ## Acceptance targets
 

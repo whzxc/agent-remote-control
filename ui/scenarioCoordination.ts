@@ -38,7 +38,8 @@ export function coordinationScenario(mode?: CoordinationFixture) {
     if (path === 'coordination/board') {
       if (unavailable && !args.id) { unavailable = false; throw new Error('SCENARIO_BOARD_UNAVAILABLE'); }
       const filter = (row: BoardRecord) => (!args.id || row.id === args.id) && (!args.resource || row.resources.includes(args.resource)) && (args.id || args.state === 'all' || !['closed','withdrawn','cleared'].includes(row.state));
-      return { notificationProblems: mode === 'problems' ? [{ id: 'notification-a', sourceId: 'fixture-source', reason: 'delivery-failed' }] : [], notificationCoverage: 'observed', notices: notices.filter(filter), blockers: blockers.filter(filter), nextCursor: null, observedAt: at, activityCoverage: 'observed', conflicts: notices.filter(row => row.state === 'active').flatMap(row => row.resources.map(resource => ({ noticeId: row.id, resource, state: row.state }))), conflictCoverage: 'observed' } satisfies BoardPage;
+      const attention = { coverage: { bulletin: 'observed', ax: 'observed', notifications: 'observed' }, items: mode && mode !== 'empty' ? [{ kind: 'ax-candidate' as const, id: 'ax-candidate-a', summary: 'Task detail reopens the previous turn after resume', ownerSourceId: 'fixture-source', requiredActor: 'source' as const }] : [] };
+      return { attention, notificationProblems: mode === 'problems' ? [{ id: 'notification-a', sourceId: 'fixture-source', reason: 'delivery-failed' }] : [], notificationCoverage: 'observed', notices: notices.filter(filter), blockers: blockers.filter(filter), nextCursor: null, observedAt: at, activityCoverage: 'observed', conflicts: notices.filter(row => row.state === 'active').flatMap(row => row.resources.map(resource => ({ noticeId: row.id, resource, state: row.state }))), conflictCoverage: 'observed' } satisfies BoardPage;
     }
     throw new Error(`SCENARIO_ACTION_UNAVAILABLE: ${path}`);
   };

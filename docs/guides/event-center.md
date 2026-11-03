@@ -13,6 +13,9 @@ waiting for a user decision. Open a record to inspect its owner, resources, stat
 and last observed activity. Use **History** to include closed, withdrawn and
 cleared records. Expand **Metadata** for record identifiers and raw evidence.
 
+**Needs attention** also lists AX candidates waiting for the source that reported
+them. Agents see the same matters in `board` and act through each owner's operation.
+
 Board is read-only. Agents publish, update and close their notices through their
 existing operations. Resources remain advisory declarations. Outstanding items
 stay with their task, resource or service owner until that owner confirms a change.

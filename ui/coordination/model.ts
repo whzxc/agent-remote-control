@@ -11,7 +11,8 @@ export interface BoardRecord {
   suggestedNextStep?: string; clearedAt?: string; clearedBy?: unknown;
 }
 export interface Conflict { noticeId: string; resource: string; state: string }
-export interface BoardPage { notificationProblems?: { id: string; sourceId: string; reason: string }[]; notificationCoverage?: string; notices: BoardRecord[]; blockers: BoardRecord[]; nextCursor?: string | null; observedAt: string; activityCoverage: string; conflicts?: Conflict[]; conflictCoverage?: string }
+export interface BoardAttention { kind: 'blocker' | 'ax-candidate' | 'ax-triage' | 'notification'; id: string; summary?: string; reason?: string; ownerSourceId?: string; requiredActor: 'you' | 'source' | 'user'; open?: number; blocking?: number }
+export interface BoardPage { attention?: { items: BoardAttention[]; coverage: Record<string, string> }; notificationProblems?: { id: string; sourceId: string; reason: string }[]; notificationCoverage?: string; notices: BoardRecord[]; blockers: BoardRecord[]; nextCursor?: string | null; observedAt: string; activityCoverage: string; conflicts?: Conflict[]; conflictCoverage?: string }
 export interface JournalEvent {
   eventId: string; sequence: number; kind: string; summary: string; observedAt: string; status?: string;
   resources: string[]; origin?: { type: string; sourceId?: string }; threadRefs: { threadId: string; turnId?: string }[];
@@ -19,7 +20,7 @@ export interface JournalEvent {
 }
 export interface EventPage { events: JournalEvent[]; nextCursor: string; oldestCursor: string; hasMore: boolean; observedAt: string; coverage: Record<string, unknown>; resetCursor?: string; error?: { code: string; message: string }; gap?: unknown }
 export type TaskAttention = { id: string; kind: 'task'; agent: string; session: TrackedActivity; state: 'needsYou' | 'failed' | 'interrupted' };
-export type Attention = TaskAttention | { id: string; kind: 'blocker'; record: BoardRecord } | { id: string; kind: 'connection'; connectionId: string; title: string; notification?: boolean } | { id: string; kind: 'update'; title: string };
+export type Attention = TaskAttention | { id: string; kind: 'blocker'; record: BoardRecord } | { id: string; kind: 'connection'; connectionId: string; title: string; notification?: boolean } | { id: string; kind: 'update'; title: string } | { id: string; kind: 'ax'; item: BoardAttention };
 export function taskAttention(activity: Record<string, readonly TrackedActivity[]>, executions: Record<string, TaskExecution>, submissions: Record<string, ApprovalSubmission>): TaskAttention[] {
   const items = new Map<string, TaskAttention>();
   for (const [agent, sessions] of Object.entries(activity)) for (const session of sessions) {
