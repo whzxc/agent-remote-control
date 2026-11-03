@@ -348,9 +348,10 @@ try {
           }
         }
         if (name === 'accounts') {
-          // Regression: the accounts fixture still expected the retired Accounts page after management moved to Platforms.
+          // Regression: the accounts fixture targeted retired UI and matched both hub and Platforms add-source buttons.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          await page.getByRole('heading', { name: messages['platforms.title'], exact: true }).waitFor({ state: 'visible' });
+          const platforms = page.getByRole('region', { name: messages['platforms.title'], exact: true });
+          await platforms.getByRole('heading', { name: messages['platforms.title'], exact: true }).waitFor({ state: 'visible' });
           const source = await page.evaluate(async () => {
             // Vite serves ui/ at the browser root.
             const { scenarioResponse } = await import('/scenarios.ts');
@@ -359,7 +360,7 @@ try {
             if (!source?.authorizationFacts?.email) throw new Error('Account fixture is missing its connected source identity');
             return { label: source.label, email: source.authorizationFacts.email, productName: controlSource(source.product).displayName };
           });
-          const card = page.getByRole('region', { name: source.label, exact: true });
+          const card = platforms.getByRole('region', { name: source.label, exact: true });
           await card.getByRole('heading', { name: source.label, exact: true }).waitFor({ state: 'visible' });
 
           // Regression: AX-26 copying a selection spanning an ordinary label and masked identity discarded the label.
@@ -386,10 +387,11 @@ try {
           const renamed = `${source.label} fixture`;
           await card.getByRole('textbox', { name: messages['platforms.name'], exact: true }).fill(renamed);
           await card.getByRole('button', { name: messages.save, exact: true }).click();
-          await page.getByRole('region', { name: renamed, exact: true }).getByRole('heading', { name: renamed, exact: true }).waitFor({ state: 'visible' });
-          await page.getByRole('button', { name: messages.addControlSource, exact: true }).click();
+          await platforms.getByRole('region', { name: renamed, exact: true }).getByRole('heading', { name: renamed, exact: true }).waitFor({ state: 'visible' });
+          await platforms.getByRole('button', { name: messages.addControlSource, exact: true }).click();
           const addProduct = messages['setup.addProduct'].replace('{name}', source.productName);
-          await page.getByRole('menuitem', { name: addProduct, exact: true }).click();
+          const menu = page.getByRole('menu', { name: messages.addControlSource, exact: true });
+          await menu.getByRole('menuitem', { name: addProduct, exact: true }).click();
           const dialog = page.getByRole('dialog', { name: addProduct, exact: true });
           await dialog.waitFor({ state: 'visible' });
           await page.keyboard.press('Escape');
