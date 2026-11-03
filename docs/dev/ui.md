@@ -193,18 +193,16 @@ Reviews retain their recorded verdict, author, timestamp and optional note. They
 
 Task activity exposes `parentSessionId` when native evidence identifies a parent. Codex activity reads it from `session_meta.payload.source.subagent.thread_spawn.parent_thread_id`, retaining it independently of the bounded activity tail and merging it into live sessions. The UI resolves native session aliases within the same Agent and uses explicit ancestry for cascaded bubbles. Descendants follow their parent, indent within the available bubble width and connect to the parent bubble in both orientations. Queue overflow keeps visible descendants' ancestors present. Reordering is limited to siblings, and path highlighting includes ancestors and descendants. Missing parents and cyclic references remain independent roots; titles, directories and dispatch origins do not establish ancestry. Existing Claude sidechain exclusion remains unchanged because those files do not enter the current activity feed. No MCP tool parameters or task ownership rules change.
 
-## Experimental MCP services
+## Experimental MCP hub
 
-The MCP services switch is disabled by default and lives only in Settings → About → Experimental.
-Enabling it adds the MCP services workspace to the shared navigation capsule.
-Disabling it closes that workspace and retains configuration and running Agent processes.
+The MCP hub switch is disabled by default and lives only in Settings → About → Experimental.
+Enabling it adds the MCP hub workspace to the shared navigation capsule.
+Disabling it closes that workspace and retains configuration.
 The upper connection arc continues to represent control-source ingress connections.
 
-The workspace lists service configuration, Agent assignments, last explicit connection checks, and real discovered tool schemas.
-The editor uses shared form controls, SingleChoice transports, multiple Agent checkboxes, and Dialog focus restoration.
-Unsupported Agent assignments remain visibly disabled with their native ownership.
-Secret fields stay blank when editing saved configuration and preserve their values until explicitly replaced.
-Checks distinguish unchecked, passed, and failed observations and keep recovery instructions beside the failing service.
-Native Codex catalogs and OAuth remain in their own section.
-Existing ACP entries require an explicit adoption action and retain their original file.
-See [MCP services](mcp-services.md) for ownership and session timing.
+The workspace is a quiet list of servers with state, transport, tool count and attribution.
+Each row offers reconnect, remove and an enable switch; removal confirms its consequence in a Dialog.
+Tool names and short descriptions sit behind a disclosure.
+There are no add or edit forms; Agents configure servers through `mcp_configure`.
+The empty state offers a copyable prompt for a connected Agent.
+See [MCP hub](mcp-hub.md) for ownership and session behavior.

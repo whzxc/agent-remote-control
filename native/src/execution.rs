@@ -30,6 +30,9 @@ impl Execution {
         if name == "agent_archive" {
             return true; // Local cleanup does not require an enabled or installed Agent.
         }
+        if crate::mcp_hub::OPS.contains(&name) {
+            return crate::mcp_hub::enabled();
+        }
         if name == "agents" || name.starts_with("agent_") {
             return self.agents.ui_inventory(false).await["agents"]
                 .as_array()
@@ -78,7 +81,10 @@ impl Execution {
         Ok(result)
     }
     pub(crate) async fn call_inner(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
-        if name == "mcp_services" {
+        if crate::mcp_hub::OPS.contains(&name) {
+            let mut args = args;
+            // The frozen act envelope's request ID is ARC metadata, not a hub argument.
+            args.as_object_mut().map(|args| args.remove("requestId"));
             let spec = catalog()["ops"]
                 .as_array()
                 .unwrap()
@@ -86,7 +92,11 @@ impl Execution {
                 .find(|op| op["name"] == name)
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
-            return crate::mcp_services::read(self.agents.mcp_support(), args["agent"].as_str());
+            return match name {
+                "mcp_tools" => crate::mcp_hub::tools(&args).await,
+                "mcp_call" => crate::mcp_hub::call(&args).await,
+                _ => crate::mcp_hub::configure(&args).await,
+            };
         }
         if name.starts_with("src_") {
             return crate::src_conversations::op(name, args).await;

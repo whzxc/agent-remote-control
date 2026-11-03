@@ -30,7 +30,6 @@ async fn run() -> Result<()> {
             arc_core::output::line(arc_core::package::check(std::path::Path::new(path)).await?)
         }
         ["context-provider-stdio"] => arc_core::context_provider::stdio().await,
-        ["mcp-service-stdio"] => arc_core::mcp_transport::stdio().await,
         ["stdio"] => arc_core::transport::stdio().await,
         ["serve"] => runtime::serve().await,
         ["daemon"] => runtime::serve_mode(true).await,

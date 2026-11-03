@@ -57,6 +57,7 @@ When Codex completes, ARC sends a status notification that wakes the same Claude
 ## Next
 
 - Find changes and coordinate resources: [Agent Board](guides/event-center.md).
+- Share your MCP servers with every control source: [MCP hub](guides/mcp-hub.md).
 
 - Let a local Agent configure ARC: [Automatic setup](auto-setup.md).
 - Understand task ownership and tool access: [Concepts](concepts.md).

@@ -23,6 +23,7 @@ sha2 = ">=0.11, <1"
 base64 = ">=0.22, <1"
 image = { version = ">=0.25, <1", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 dirs = "6"
+toml = "1"
 reqwest = { version = ">=0.13, <1", default-features = false, features = ["json", "form", "query", "rustls-no-provider", "stream", "socks"] }
 jsonschema = { version = ">=0.60, <1", default-features = false }
 regex = "1"

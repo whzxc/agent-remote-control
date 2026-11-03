@@ -1,4 +1,4 @@
-import { mcpServicesEnabled } from '../mcp/state';
+import { mcpHubEnabled } from '../mcp/state';
 import { t } from "../i18n";
 import { topologyTuningEnabled } from "../state/topology";
 import { Group, Row, Switch } from "./ui";
@@ -10,7 +10,7 @@ import { studioEnabled } from "../display/state";
 import { relayHostingEnabled } from "../state/relay";
 
 export default function ExperimentalSettings() {
-  const mcp = mcpServicesEnabled.use();
+  const mcp = mcpHubEnabled.use();
   const tuning = topologyTuningEnabled.use(), hosting = relayHostingEnabled.use();
   const pets = showPets.use(), studio = studioEnabled.use();
   const maintainer = maintainerMode.use(), { busy, status } = connector.use();

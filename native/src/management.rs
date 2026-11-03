@@ -35,7 +35,7 @@ pub fn catalog() -> Value {
     value["operations"]
         .as_array_mut()
         .unwrap()
-        .extend(crate::mcp_services::operations());
+        .extend(crate::mcp_hub::operations());
     value["ingressConfiguration"] = crate::ingress::config::descriptor().clone();
     value["preferenceDefaults"] = crate::preferences::defaults();
     let mut fields = serde_json::Map::new();

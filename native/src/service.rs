@@ -560,31 +560,12 @@ impl Service {
         if self.closing.load(Ordering::SeqCst) {
             return Err("core shutting down".into());
         }
-        if route == "mcp-services" && method == "GET" {
-            return crate::mcp_services::read(self.agents.mcp_support(), None);
+        if route == "mcp-hub" && method == "GET" {
+            return crate::mcp_hub::overview();
         }
-        if let Some(op) = route.strip_prefix("mcp-services/") {
-            if method == "POST" {
-                crate::management::resolve(&format!("mcp-services.{op}"), &json!({"body":body}))?;
-                return match op {
-                    "save" => crate::mcp_services::save_service(body, &self.agents.mcp_support()),
-                    "remove" => crate::mcp_services::remove(&body),
-                    "adopt" => crate::mcp_services::adopt(&body, &self.agents.mcp_support()),
-                    "check" => crate::mcp_services::check(&body).await,
-                    "native" => crate::mcp_services::native_list(&self.control).await,
-                    "native-login" => {
-                        self.control
-                            .tool(
-                                "mcp",
-                                json!({"action":"oauth/login","params":{"name":body["name"]}}),
-                            )
-                            .await
-                    }
-                    _ => Err(
-                        "UNKNOWN_OPERATION: Read the current MCP services management schema".into(),
-                    ),
-                };
-            }
+        if route == "mcp-hub/configure" && method == "POST" {
+            crate::management::resolve("mcp-hub.configure", &json!({"body":body}))?;
+            return crate::mcp_hub::local(&body).await;
         }
         if route == "coordination/resources" && method == "GET" {
             return crate::coordination::desktop_resources();
@@ -994,11 +975,13 @@ impl Service {
                     item["name"] = json!(name);
                     item["description"] = tool["description"].clone();
                     item["via"] = json!(crate::egress::via(tool));
-                    item["available"] = json!(
+                    item["available"] = json!(if crate::mcp_hub::OPS.contains(&name) {
+                        crate::mcp_hub::enabled()
+                    } else {
                         name == "agent_archive"
                             || (!name.starts_with("agent_") && name != "agents")
                             || agents_available
-                    );
+                    });
                     item
                 })
                 .collect();

@@ -1,5 +1,5 @@
-import McpServices from './mcp/McpServices';
-import { mcpServicesEnabled } from './mcp/state';
+import McpHub from './mcp/McpHub';
+import { mcpHubEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
 import { boardFocus, boardOpen, useBoardObservation } from './coordination/state';
 import { agentPanel, ingressPanel } from './state/overviewPanels';
@@ -70,7 +70,7 @@ import { permissions, permissionsReady, refreshPermissions, startPermissions } f
 export default function App() {
   locale.use();
   const studio = studioEnabled.use();
-  const pets = showPets.use(), hosting = relayHostingEnabled.use(), mcp = mcpServicesEnabled.use();
+  const pets = showPets.use(), hosting = relayHostingEnabled.use(), mcp = mcpHubEnabled.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
@@ -97,7 +97,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-services"] : [])].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -111,7 +111,7 @@ export default function App() {
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
-    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-services" && !mcp)) {
+    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-hub" && !mcp)) {
       setPage("overview");
       requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page="settings"]')?.focus({ preventScroll: true }));
     }
@@ -159,7 +159,7 @@ export default function App() {
   }, [nav.page]);
 
   function navigate(next: Page) {
-    if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-services" && !mcpServicesEnabled.get())) return;
+    if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-hub" && !mcpHubEnabled.get())) return;
     if (next !== "overview") {
       lastPage.current = next;
       setSheetWide(false);
@@ -248,7 +248,7 @@ export default function App() {
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     ...(pets ? [{ id: "pets" as const, label: t("pets.title"), icon: PawPrint }] : []),
     ...(hosting ? [{ id: "relay-hosting" as const, label: t("hosting.feature"), icon: Cloud }] : []),
-    ...(mcp ? [{ id: "mcp-services" as const, label: t("mcp.title"), icon: Plug }] : []),
+    ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
     <div
@@ -359,8 +359,8 @@ export default function App() {
                 <PlatformsPage />
               ) : page === "pets" ? (
                 <PetsPage />
-              ) : page === "mcp-services" ? (
-                <McpServices />
+              ) : page === "mcp-hub" ? (
+                <McpHub />
               ) : page === "relay-hosting" ? (
                 <RelayHosting />
               ) : (

@@ -5,7 +5,7 @@
     "claude",
     "codex"
   ],
-  "page": "mcp-services",
-  "mcpServices": "ready",
+  "page": "mcp-hub",
+  "mcpHub": "empty",
   "tasks": []
 }

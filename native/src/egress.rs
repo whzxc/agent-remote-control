@@ -898,7 +898,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
                 "notify" => matches!(name, "request_route" | "notify_status" | "notify_control" | "notification_ack" | "inbox_wait" | "codex_create" | "codex_send" | "codex_read" | "agent_create" | "agent_send" | "agent_read"),
                 "review" => matches!(name, "codex_review" | "agent_review" | "codex_read" | "agent_read" | "codex_wait" | "agent_wait" | "agent_events" | "codex_changes" | "codex_items" | "codex_send" | "agent_send" | "receipt" | "task_reviews"),
                 "approvals" => matches!(name, "request_route" | "receipt" | "codex_pending" | "codex_interactions" | "codex_respond" | "agent_pending" | "agent_respond" | "codex_read" | "agent_read"),
-                _ => matches!(name, "board" | "notice_post" | "coordination_session" | "message_route" | "messages" | "message_send" | "ax_report" | "ax_list" | "notify_control" | "notify_status" | "notification_ack" | "dispatch_policy" | "dispatch_policy_update" | "command" | "read" | "write" | "edit" | "fs" | "git" | "codex_create" | "codex_send" | "codex_read" | "codex_wait" | "receipt" | "agent_create" | "agent_send" | "agent_read" | "agent_wait"),
+                _ => matches!(name, "mcp_tools" | "mcp_call" | "board" | "notice_post" | "coordination_session" | "message_route" | "messages" | "message_send" | "ax_report" | "ax_list" | "notify_control" | "notify_status" | "notification_ack" | "dispatch_policy" | "dispatch_policy_update" | "command" | "read" | "write" | "edit" | "fs" | "git" | "codex_create" | "codex_send" | "codex_read" | "codex_wait" | "receipt" | "agent_create" | "agent_send" | "agent_read" | "agent_wait"),
             }
         })
         .map(|op| {
@@ -914,11 +914,13 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
             entry
         })
         .collect();
-    let context = if topic == "loop" && crate::context_provider::configured() {
-        guides["contextProvider"].as_str().unwrap_or("")
-    } else {
-        ""
-    };
+    let mut context = String::new();
+    if topic == "loop" && crate::context_provider::configured() {
+        context.push_str(guides["contextProvider"].as_str().unwrap_or(""));
+    }
+    if topic == "loop" && crate::mcp_hub::enabled() {
+        context.push_str(guides["mcpHub"].as_str().unwrap_or(""));
+    }
     let mut result = json!({"topic":topic,"controlSource":source,"content":format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n\n{}\n{}{}",body.as_str().unwrap_or(""),if topic == "loop" && full {guides["common"].as_str().unwrap_or("")} else {""},context),"examples":examples,"ops":index});
     if topic == "loop" {
         let workflow = &guides[if maintainer { "axMaintainer" } else { "axUser" }];
