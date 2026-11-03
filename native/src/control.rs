@@ -446,6 +446,7 @@ impl Control {
                     Some("active" | "idle")
                 ) {
                     result["owner"] = json!("connector");
+                    result["runtimeStatus"] = metadata["thread"]["status"]["type"].clone();
                     return result;
                 }
             }
@@ -484,9 +485,7 @@ impl Control {
         if ownership["state"] == "held" {
             ownership["processes"] = crate::writer::processes(thread).await;
         }
-        if !self.background(thread)?
-            || (ownership["state"] == "held" && ownership["owner"] != "connector")
-        {
+        if ownership["state"] != "held" || ownership["owner"] != "connector" {
             return Err(json!({"code":"WRITER_RELEASE_REQUIRES_OWNER","message":"This writer is not owned by ARC's connector. The Desktop follower protocol exposes no safe per-thread release request. Use the exact owner step; ARC will not close another session.","ownership":ownership,"next":crate::writer::release_step(thread,&ownership)}).to_string());
         }
         let rpc = self.utility().await?;
@@ -497,17 +496,47 @@ impl Control {
                 3000,
             )
             .await?;
-        if metadata["thread"]["status"]["type"] == "active" {
-            return Err(
-                "WRITER_ACTIVE: finish or explicitly interrupt this turn before release".into(),
-            );
+        if metadata["thread"]["status"]["type"] != "idle"
+            || self
+                .events
+                .lock()
+                .await
+                .pending
+                .values()
+                .any(|v| v["params"]["threadId"] == thread)
+        {
+            return Err(json!({"code":"WRITER_ACTIVE","message":"Release requires an idle connector thread with no pending interactions. Finish or explicitly interrupt the turn before release.","next":{"via":"query","op":"codex_read","args":{"threadId":thread,"statusOnly":true}}}).to_string());
         }
-        rpc.call("thread/unsubscribe", json!({"threadId":thread}), 3000)
-            .await?;
-        let observed = crate::writer::probe(thread);
-        Ok(
-            json!({"threadId":thread,"released":observed["state"] == "unheld","ownership":observed,"state":if observed["state"] == "unheld" {"completed"} else {"unconfirmed"}}),
-        )
+        let next = json!({"via":"query","op":"codex_owner","args":{"threadId":thread},"hint":"Re-probe this exact writer after native cleanup. If it remains connector-owned, inspect the native release error. To archive it instead, use codex_archive with this threadId and release:true."});
+        let unsubscribe = rpc
+            .call("thread/unsubscribe", json!({"threadId":thread}), 3000)
+            .await;
+        let native = match unsubscribe {
+            Ok(native) => native,
+            Err(error) => {
+                let rejected = error.starts_with("RPC_REJECTED:");
+                return Ok(
+                    json!({"threadId":thread,"released":false,"state":if rejected {"failed"} else {"unconfirmed"},"error":{"code":if rejected {"WRITER_RELEASE_UNAVAILABLE"} else {"WRITER_RELEASE_UNCONFIRMED"},"message":"The native app-server did not confirm per-thread unsubscribe. Inspect ownership before another attempt.","nativeError":crate::egress::failure(&error),"next":next},"ownership":crate::writer::probe(thread)}),
+                );
+            }
+        };
+        // Native shutdown is asynchronous even with a zero retention delay.
+        // Observe only the lock: metadata reads must not resume this thread.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let observed = crate::writer::probe(thread);
+            if observed["state"] == "unheld" {
+                return Ok(
+                    json!({"threadId":thread,"released":true,"ownership":observed,"nativeStatus":native["status"],"state":"completed"}),
+                );
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Ok(
+                    json!({"threadId":thread,"released":false,"ownership":observed,"nativeStatus":native["status"],"state":"unconfirmed","error":{"code":"WRITER_RELEASE_UNCONFIRMED","message":"Native unsubscribe completed, but the writer lock did not become unheld within the release window. The app-server may still be unloading the thread or retaining another subscription.","next":next}}),
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
     }
     // Only an explicit write may load a persisted thread. Never retry a turn
     // submission on another owner: its acceptance may already be unknown.

@@ -32,6 +32,9 @@ impl Rpc {
         command.arg(std::env::var("ARC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
         #[cfg(not(feature = "test-fixture"))]
         command.arg("app-server");
+        // Unsubscribe must unload an idle ARC-owned thread instead of retaining
+        // its writer for the native default grace period (30 minutes).
+        command.args(["-c", "thread_unload_delay_secs=0"]);
         #[cfg(unix)]
         command.process_group(0);
         let inherited_nofile = crate::resources::before_spawn();

@@ -159,6 +159,7 @@ pub fn failure(e: &str) -> Value {
                     | "ARCHIVE_WRITER_BUSY"
                     | "THREAD_WRITER_BUSY"
                     | "WRITER_RELEASE_REQUIRES_OWNER"
+                    | "WRITER_ACTIVE"
                     | "RESUME_TURN_ADVANCED"
                     | "RESUME_SOURCE_MISMATCH"
                     | "RESUME_BINDING_MISSING"

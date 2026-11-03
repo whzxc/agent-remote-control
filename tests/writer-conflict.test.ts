@@ -98,6 +98,9 @@ test('Held external writers allow read-only timelines while mutations retain own
     const denied=await fixture.completed('codex_interrupt',{threadId});
     assert.equal(denied.error?.code??denied.result?.error?.code,'THREAD_WRITER_BUSY',JSON.stringify(denied));
     assert.equal((await fixture.call('codex_owner',{threadId})).state,'held');
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error.code,'WRITER_RELEASE_REQUIRES_OWNER');
+    assert.equal(release.next.op,'codex_owner');
     assert.equal(writer.exitCode,null);
   } finally {await fixture.close();writer.stdin.end();await new Promise(resolve=>writer.once('exit',resolve));await rm(directory,{recursive:true,force:true});}
 });
@@ -145,4 +148,125 @@ for await(const line of createInterface({input:process.stdin})){
     if(writer){writer.stdin!.end();await new Promise(resolve=>writer!.once('exit',resolve));}
     await rm(directory,{recursive:true,force:true});
   }
+});
+
+async function connectorReleaseFixture(mode = 'release') {
+  const directory = await mkdtemp(path.join(tmpdir(), 'arc-connector-release-'));
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    import {randomUUID} from 'node:crypto';
+    import {mkdir} from 'node:fs/promises';
+    import {spawn} from 'node:child_process';
+    import path from 'node:path';
+    const rows = new Map();
+    const lockDirectory = path.join(process.env.CODEX_HOME, 'thread-writer-locks');
+    await mkdir(lockDirectory, {recursive:true});
+    const closeWriter = async row => {
+      if (row.writer.exitCode !== null) return;
+      const exited = new Promise(resolve => row.writer.once('exit', resolve));
+      row.writer.stdin.end(); await exited; row.loaded = false;
+    };
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
+      let result={};
+      if(method==='thread/start') {
+        const threadId=randomUUID();
+        const writer=spawn('python3',['-c','import fcntl,sys; f=open(sys.argv[1],"a"); fcntl.flock(f,fcntl.LOCK_EX); print("ready",flush=True); sys.stdin.read()',path.join(lockDirectory,threadId+'.lock')]);
+        await new Promise(resolve=>writer.stdout.once('data',resolve));
+        const row={writer,loaded:true,turn:{id:randomUUID(),status:process.env.ARC_RELEASE_MODE==='active'?'inProgress':'completed',items:[]}};
+        rows.set(threadId,row); result={thread:{id:threadId,cwd:'/tmp',status:{type:'idle'}}};
+      }
+      const row=rows.get(params?.threadId);
+      if(method==='turn/start')result={turn:row.turn};
+      if(method==='thread/read')result={thread:{id:params.threadId,cwd:'/tmp',status:{type:!row?.loaded?'notLoaded':row.turn.status==='inProgress'?'active':'idle'}}};
+      if(method==='thread/turns/list')result={data:row?[row.turn]:[],nextCursor:null};
+      if(method==='thread/unsubscribe') {
+        if(process.env.ARC_RELEASE_MODE==='reject') {
+          process.stdout.write(JSON.stringify({id,error:{code:-32601,message:'Per-thread unsubscribe unavailable'}})+'\\n'); continue;
+        }
+        result={status:row?.loaded?'unsubscribed':'notLoaded'};
+        if(row && process.env.ARC_RELEASE_MODE==='release' && process.argv.includes('thread_unload_delay_secs=0'))setTimeout(()=>closeWriter(row),125);
+      }
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+    await Promise.all([...rows.values()].map(closeWriter));
+  `, {CODEX_HOME:directory, ARC_RELEASE_MODE:mode});
+  await fixture.api('task-settings', {autoOpenCodex:false}, 'PUT');
+  return {...fixture, async create() {
+    const created=await fixture.completed('codex_create',{prompt:'Connector writer fixture',thread:{cwd:'/tmp'}});
+    assert.equal(created.state,'completed',JSON.stringify(created));
+    return created.threadId as string;
+  }, async close() {await fixture.close(); await rm(directory,{recursive:true,force:true});}};
+}
+
+test('Connector release confirms asynchronous native unload for exactly one idle thread', {skip:process.platform==='win32'}, async()=>{
+  // Regression: AX fd337c9e unsubscribe retained the idle connector writer and returned OPERATION_UNCONFIRMED.
+  const fixture=await connectorReleaseFixture();
+  try {
+    const threadId=await fixture.create();
+    const other=await fixture.create();
+    const owner=await fixture.call('codex_owner',{threadId});
+    assert.equal(owner.currentOwner,'connector');
+    assert.equal(owner.runtimeStatus,'idle');
+    assert.equal(owner.next.op,'codex_release');
+    assert.deepEqual(owner.next.args,{threadId});
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error,undefined,JSON.stringify(release));
+    assert.equal(release.result.released,true);
+    assert.equal(release.result.ownership.state,'unheld');
+    assert.equal((await fixture.call('codex_owner',{threadId})).state,'unheld');
+    const retained=await fixture.call('codex_owner',{threadId:other});
+    assert.equal(retained.state,'held'); assert.equal(retained.currentOwner,'connector');
+    const read=await fixture.call('codex_read',{threadId:other,statusOnly:true});
+    assert.equal(read.runtimeStatus,'idle');
+  } finally {await fixture.close();}
+});
+
+test('Connector release returns a specific error and owner continuation when native cleanup retains the lock', {skip:process.platform==='win32'}, async()=>{
+  // Contract: codex_release exposes lock-confirmation failures and schema-valid recovery at the public result level.
+  const fixture=await connectorReleaseFixture('retain');
+  try {
+    const threadId=await fixture.create();
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error.code,'WRITER_RELEASE_UNCONFIRMED',JSON.stringify(release));
+    assert.equal(release.result.released,false);
+    assert.equal(release.result.ownership.state,'held');
+    assert.equal(release.next.op,'codex_owner');
+    assert.deepEqual(release.next.args,{threadId});
+    const replay=await fixture.call('codex_release',{threadId,requestId:release.requestId});
+    assert.equal(replay.error.code,release.error.code);
+    assert.equal(replay.requestId,release.requestId);
+  } finally {await fixture.close();}
+});
+
+test('Connector release preserves native rejection as a specific per-thread release error', {skip:process.platform==='win32'}, async()=>{
+  // Contract: codex_release native rejection exposes WRITER_RELEASE_UNAVAILABLE with a valid codex_owner continuation.
+  const fixture=await connectorReleaseFixture('reject');
+  try {
+    const threadId=await fixture.create();
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error.code,'WRITER_RELEASE_UNAVAILABLE',JSON.stringify(release));
+    assert.equal(release.error.nativeError.rpcError.code,-32601);
+    assert.equal(release.next.op,'codex_owner');
+    assert.deepEqual(release.next.args,{threadId});
+    assert.equal((await fixture.call('codex_owner',{threadId})).state,'held');
+  } finally {await fixture.close();}
+});
+
+test('Active connector writer guidance reads status and release leaves the turn running', {skip:process.platform==='win32'}, async()=>{
+  // Contract: codex_release refuses an active turn and supplies a schema-valid status continuation without interrupting it.
+  const fixture=await connectorReleaseFixture('active');
+  try {
+    const threadId=await fixture.create();
+    const owner=await fixture.call('codex_owner',{threadId});
+    assert.equal(owner.currentOwner,'connector');
+    assert.equal(owner.next.op,'codex_read');
+    assert.deepEqual(owner.next.args,{threadId,statusOnly:true});
+    const release=await fixture.completed('codex_release',{threadId});
+    assert.equal(release.error.code,'WRITER_ACTIVE',JSON.stringify(release));
+    assert.equal(release.next.op,'codex_read');
+    const read=await fixture.call('codex_read',{threadId,statusOnly:true});
+    assert.equal(read.runtimeStatus,'active');
+    assert.equal((await fixture.call('codex_owner',{threadId})).state,'held');
+  } finally {await fixture.close();}
 });

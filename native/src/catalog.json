@@ -6421,7 +6421,7 @@
     },
     {
       "name": "codex_release",
-      "description": "Request safe per-thread writer release. Only idle ARC connector-owned sessions can be unsubscribed automatically. Desktop/external owners return app/process evidence and exact manual handoff instructions; no process is killed.",
+      "description": "Release an idle ARC connector-owned thread with no pending interactions through native unsubscribe and confirm its writer lock is unheld. Native rejection or incomplete cleanup returns a specific writer release error and a codex_owner continuation. Desktop/external owners return app/process evidence and exact manual handoff instructions; no process is killed.",
       "inputSchema": {
         "type": "object",
         "properties": {

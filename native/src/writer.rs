@@ -94,6 +94,12 @@ pub(crate) async fn processes(thread: &str) -> Value {
     json!([])
 }
 pub(crate) fn release_step(thread: &str, ownership: &Value) -> Value {
+    if ownership["owner"] == "connector" {
+        if ownership["runtimeStatus"] == "idle" {
+            return json!({"via":"act","op":"codex_release","args":{"threadId":thread},"hint":"Release this idle ARC connector-owned writer. To archive it instead, use codex_archive with this threadId and release:true. The bundled executable's app path does not identify the writer owner."});
+        }
+        return json!({"via":"query","op":"codex_read","args":{"threadId":thread,"statusOnly":true},"hint":"Inspect this ARC connector-owned turn. Finish or explicitly interrupt it before codex_release; codex_archive with release:true also requires an idle thread."});
+    }
     if ownership["owner"] != "desktop" {
         return json!({"via":"query","op":"codex_owner","args":{"threadId":thread},"hint":"End only the exact owning terminal/session normally using the reported process evidence, then re-probe this thread. ARC cannot release another owner; do not open it in Desktop, kill a shared app-server, or delete locks."});
     }
