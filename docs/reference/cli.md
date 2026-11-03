@@ -350,6 +350,10 @@ setup requires a challenge newer than its saved start time and a completed task
 from the selected ingress. Claude completion additionally requires delivered
 notification evidence unless Claude Code was skipped.
 
+The setup wizard is Codex-backed. It configures ARC through a supported Codex
+or Claude control source. Configure Antigravity and Pi separately: install and
+sign in natively, refresh Agent discovery, enable the Agent, then use `agent_*`.
+
 `cli call setup.dispatch --stdin` accepts `{"body":{"goal":"claude-loop"}}`
 (or `chatgpt-chat`). It saves the goal, installs the Codex skill, creates
 `setup-workspace/` under the state directory, and submits the localized setup
@@ -365,6 +369,8 @@ that skill directory with the current version. This command and playbook reads
 work offline without starting Core. macOS loads Resources/skills/arc-setup;
 Windows loads skills/arc-setup under the installation directory; Linux loads
 skills/arc-setup beside arc. Debug builds fall back to the repository sources.
+These targets are control-source skills, not executable Agent IDs. Do not pass
+`antigravity` or `pi`; manage those Agents in ARC and use `agent_*`.
 
 Permissions require Full Disk Access and applicable command Full Disk Access.
 Accessibility, screen recording, and notifications are optional. Claude delivery
@@ -776,6 +782,10 @@ Callers SHOULD always provide optional `title` on `codex_create` and `agent_crea
 
 For ordinary work, explicitly provide `purpose:"task"` and `notify:null`.
 Retain the returned receipt, thread, and turn identifiers.
+For Antigravity, use `agent_create` with `agent:"antigravity"`, retain ARC's
+`taskId` and `turnId`, then call `agent_wait` and `agent_read`. Pi uses the same
+flow with `agent:"pi"`; Antigravity requires a terminal `result`, while Pi
+completion is reported through `agent_settled`.
 Use the controller's background-command facility for the wait:
 
 ```sh

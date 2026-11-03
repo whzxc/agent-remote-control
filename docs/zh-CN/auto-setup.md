@@ -2,7 +2,7 @@
 
 [English](../auto-setup.md) | **简体中文**
 
-全新 Mac 上，只要已登录本机 Agent，就可以从这一句话开始：
+全新 Mac 上，已登录 Codex 或 Claude 控制源客户端后，可以从这一句话开始。该 skill 不会安装或登录 Antigravity、Pi 等可执行 Agent；请在 Agent 管理中单独处理。
 
 > 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
 

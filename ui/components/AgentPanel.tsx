@@ -114,7 +114,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     <div ref={content} className="agent-panel-view">
       <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-        {selected.platform ? <AgentPlatformView agent={agent} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
+        {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
           label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}

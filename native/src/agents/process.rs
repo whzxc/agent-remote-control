@@ -58,6 +58,18 @@ pub(crate) fn stdout_read_error(error: &str) -> String {
         format!("AGENT_STDOUT_READ_FAILED: {}. Inspect the Agent process and logs, then reconcile the task before resuming.", crate::task_tracking::redact(error))
     }
 }
+fn bounded_output(mut text: String, state: &mut Value) -> String {
+    if text.len() <= 256 * 1024 {
+        return text;
+    }
+    let mut start = text.len() - 256 * 1024;
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+    text = text[start..].to_owned();
+    state["outputTruncated"] = json!(true);
+    text
+}
 pub(crate) fn exit_error(error: &str, diagnostics: &Value) -> String {
     if diagnostics["skippedLines"].as_u64().unwrap_or(0) == 0 {
         error.into()
@@ -86,6 +98,7 @@ pub struct Process {
     pub events: SharedEvents,
     pub state: Arc<Mutex<Value>>,
     pub pi: bool,
+    pub antigravity: bool,
     pub alive: std::sync::atomic::AtomicBool,
     pub capabilities: Mutex<Value>,
     pub dispatch: Mutex<()>,
@@ -97,6 +110,7 @@ impl Process {
         args: &[String],
         cwd: &Path,
         pi: bool,
+        antigravity: bool,
         mut state: Value,
         wake: Arc<tokio::sync::Notify>,
     ) -> Result<Arc<Self>> {
@@ -143,6 +157,7 @@ impl Process {
             })),
             state: Arc::new(Mutex::new(state)),
             pi,
+            antigravity,
             alive: true.into(),
             capabilities: Mutex::new(Value::Null),
             dispatch: Mutex::new(()),
@@ -196,7 +211,9 @@ impl Process {
                         continue;
                     }
                 };
-                let response = if pi {
+                let response = if antigravity {
+                    false
+                } else if pi {
                     msg["type"] == "response"
                 } else {
                     msg.get("method").is_none() && msg.get("id").is_some()
@@ -215,18 +232,37 @@ impl Process {
                 }
                 let method = if pi {
                     string(&msg, "type")
+                } else if antigravity {
+                    string(&msg, "event")
                 } else {
                     string(&msg, "method")
                 }
                 .to_owned();
                 let method = method.as_str();
-                if !pi && msg.get("id").is_some() && method != "session/request_permission" {
+                if !pi
+                    && !antigravity
+                    && msg.get("id").is_some()
+                    && method != "session/request_permission"
+                {
                     let _ = p.write(json!({"jsonrpc":"2.0","id":msg["id"],"error":{"code":-32601,"message":"Client capability not supported"}})).await;
                     continue;
                 }
                 let mut state = p.state.lock().await;
                 let terminal = terminal_status(string(&state, "status"));
                 let task = string(&state, "taskId").to_owned();
+                if antigravity {
+                    p.antigravity_event(&mut state, &msg, terminal).await;
+                    state["updatedAt"] = json!(now());
+                    if method == "step_update" && msg["step_update"]["state"] == "ACTIVE" {
+                        p.snapshot_tracking(&mut state).await;
+                        deadline
+                            .get_or_insert(tokio::time::Instant::now() + Duration::from_secs(1));
+                    } else {
+                        p.persist(&mut state).await;
+                        deadline = None;
+                    }
+                    continue;
+                }
                 let old_configuration = (method == "session/update"
                     && matches!(
                         string(&msg["params"]["update"], "sessionUpdate"),
@@ -494,6 +530,113 @@ impl Process {
             .and_then(|v| v)
             .map_err(|e| crate::rpc::submission_error(method, e))
     }
+    pub async fn antigravity_turn(&self, text: &str) -> Result<Value> {
+        if !self.alive.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("PROCESS_NOT_RUNNING".into());
+        }
+        let key = "antigravity-turn".to_owned();
+        let (tx, rx) = oneshot::channel();
+        if self.replies.lock().await.insert(key.clone(), tx).is_some() {
+            return Err("TASK_BUSY_OR_UNCONFIRMED".into());
+        }
+        let _cleanup = ReplyGuard(self.replies.clone(), key.clone());
+        let request = json!({"event":"user","message":{"content":text}});
+        if let Err(error) = self.write(request).await {
+            self.replies.lock().await.remove(&key);
+            return Err(crate::rpc::submission_error("antigravity/turn", error));
+        }
+        let task = self.state.lock().await.clone();
+        if crate::dispatch_policy::agent_submitted(&task).is_err() {
+            crate::coordination::observers::gap("dispatch", "persistence-failed");
+        }
+        rx.await
+            .map_err(|_| "PROCESS_EXIT".to_owned())?
+            .map_err(|error| crate::rpc::submission_error("antigravity/turn", error))
+    }
+    async fn antigravity_event(&self, state: &mut Value, msg: &Value, terminal: bool) {
+        let event = string(msg, "event");
+        let task = string(state, "taskId").to_owned();
+        crate::event(&self.events, &task, event, msg.clone()).await;
+        if event == "init" {
+            if state["sessionId"].is_null() {
+                state["sessionId"] = msg["conversation_id"].clone();
+            }
+            state["metadata"]["nativeInit"] = msg["init"].clone();
+            return;
+        }
+        if event == "step_update" {
+            let update = &msg["step_update"];
+            if update["step_type"] == "agent_response" {
+                if let Some(delta) = update["text_delta"].as_str() {
+                    let mut output = string(state, "output").to_owned();
+                    output.push_str(delta);
+                    state["output"] = json!(bounded_output(output, state));
+                }
+            }
+            if update["state"] == "ERROR" {
+                let errors = state["toolErrors"].as_array_mut();
+                if let Some(errors) = errors {
+                    errors.push(update.clone());
+                } else {
+                    state["toolErrors"] = json!([update]);
+                }
+            }
+            return;
+        }
+        if event != "result" || terminal {
+            return;
+        }
+        let result = &msg["result"];
+        if state["sessionId"].is_null() {
+            state["sessionId"] = result["conversation_id"].clone();
+        }
+        if let Some(response) = result["response"].as_str() {
+            state["output"] = json!(bounded_output(response.to_owned(), state));
+        }
+        state["deniedActions"] = result["denied_actions"].clone();
+        state["stopReason"] = result["finished_reason"].clone();
+        state["error"] = result["error"].clone();
+        state["status"] = json!(if result["status"] == "SUCCESS" {
+            "completed"
+        } else if result["finished_reason"] == "interrupted" {
+            "cancelled"
+        } else {
+            "failed"
+        });
+        state["turnEvidence"] = json!({
+            "source":"antigravity-result","scope":"turn","observedAt":now(),
+            "status":result["status"],"deniedActions":result["denied_actions"]
+        });
+        crate::event(
+            &self.events,
+            &task,
+            "arc/settled",
+            json!({"status":state["status"],"error":state["error"],"deniedActions":state["deniedActions"]}),
+        )
+        .await;
+        if let Some(tx) = self.replies.lock().await.remove("antigravity-turn") {
+            let _ = tx.send(Ok(result.clone()));
+        }
+    }
+    pub async fn interrupt(&self) -> Result<()> {
+        let child = self.child.lock().await;
+        let pid = child.id().ok_or("PROCESS_NOT_RUNNING")?;
+        #[cfg(unix)]
+        let result = unsafe { libc::kill(-(pid as i32), libc::SIGINT) };
+        #[cfg(unix)]
+        if result != 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        #[cfg(windows)]
+        drop(child);
+        #[cfg(windows)]
+        self.child
+            .lock()
+            .await
+            .start_kill()
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
     pub async fn close(&self) {
         if let Some(mut input) = self.input.lock().await.take() {
             let _ = input.shutdown().await;
@@ -736,6 +879,7 @@ mod stream_stability_tests {
             Path::new("/bin/sh"),
             &["-c".into(), script.into()],
             &std::env::temp_dir(),
+            false,
             false,
             state,
             live.wake.clone(),

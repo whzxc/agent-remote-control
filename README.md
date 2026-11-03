@@ -43,6 +43,9 @@ GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connect
 
 Copy the suggested prompt to have Codex reply “Connected.” [Step-by-step guide](docs/getting-started.md). Own addresses and OpenAI Secure Tunnel are under **Remote link → Advanced**.
 
+**Local Agents:** install Antigravity or Pi and sign in natively. In ARC,
+refresh Agent discovery, enable the Agent, then use the `agent_*` ops.
+
 For help from a local Agent with installation or setup:
 
 > Set up Agent Remote Control on this computer. Follow https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md
@@ -55,7 +58,7 @@ For help from a local Agent with installation or setup:
 - **Reference (English):** [Tools](docs/reference/tools.md) · [Agents](docs/reference/agents.md) · [CLI](docs/reference/cli.md) · [OAuth](docs/reference/oauth.md) · [Subscriptions](docs/reference/subscriptions.md) · [Linux](docs/reference/linux.md)
 - **Contribute (中文):** [Development](docs/dev/development.md) · [Architecture](docs/dev/architecture.md) · [UI](docs/dev/ui.md) · [Releases](docs/dev/release.md)
 
-Also supports Notion, Slack, Cursor, GitHub Copilot, Raycast, Microsoft Copilot, Grok and custom MCP clients; Pi, OpenCode and other ACP Agents run alongside Codex.
+Also supports Notion, Slack, Cursor, GitHub Copilot, Raycast, Microsoft Copilot, Grok and custom MCP clients; Antigravity, Pi, OpenCode and other ACP Agents run alongside Codex.
 
 Local ChatGPT Desktop panels live in the independent [Usage](https://github.com/whzxc/chatgpt-usage-plugin) and [Kanban](https://github.com/whzxc/chatgpt-kanban-plugin) plugin repositories.
 

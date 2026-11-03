@@ -43,6 +43,8 @@ GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两�
 
 连接完成后，复制试用提示，让 Codex 回复「连接成功」。[逐步上手](docs/zh-CN/getting-started.md)。自有地址和 OpenAI Secure Tunnel 位于**远程链接 → 高级**。
 
+**本机 Agent：**安装 Antigravity 或 Pi，并在原生程序中登录。在 ARC 中刷新 Agent 发现、启用 Agent，再使用 `agent_*` op。
+
 需要本机 Agent 协助安装或配置：
 
 > 在这台电脑上配置 Agent Remote Control，按照 https://raw.githubusercontent.com/whzxc/agent-remote-control/main/skills/arc-setup/SKILL.md 操作。
@@ -55,7 +57,7 @@ GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两�
 - **参考（英文）：**[工具](docs/reference/tools.md) · [Agents](docs/reference/agents.md) · [CLI](docs/reference/cli.md) · [OAuth](docs/reference/oauth.md) · [订阅额度](docs/reference/subscriptions.md) · [Linux](docs/reference/linux.md)
 - **维护：**[开发](docs/dev/development.md) · [架构](docs/dev/architecture.md) · [UI](docs/dev/ui.md) · [发布](docs/dev/release.md)
 
-也支持 Notion、Slack、Cursor、GitHub Copilot、Raycast、Microsoft Copilot、Grok 和自定义 MCP 客户端；Pi、OpenCode 与其他 ACP Agent 可与 Codex 一起使用。
+也支持 Notion、Slack、Cursor、GitHub Copilot、Raycast、Microsoft Copilot、Grok 和自定义 MCP 客户端；Antigravity、Pi、OpenCode 与其他 ACP Agent 可与 Codex 一起使用。
 
 本机 ChatGPT Desktop 面板由独立的 [Usage](https://github.com/whzxc/chatgpt-usage-plugin) 和 [Kanban](https://github.com/whzxc/chatgpt-kanban-plugin) 插件仓库维护。
 

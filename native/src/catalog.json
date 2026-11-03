@@ -3376,7 +3376,7 @@
     },
     {
       "name": "control_output",
-      "description": "Continue large JSON results, plain-text final-message snapshots, or Pi/ACP event archives by outputId and UTF-16 offset. Use the returned nextOffset until null. Plain-text pages never split a Unicode scalar; length:1 may return a two-unit scalar. Concatenate text directly for format:plain-text; only JSON snapshots require JSON parsing. JSON and text snapshots share a 64 MiB cache with a one-hour maximum lifetime and oldest-first eviction.",
+      "description": "Continue large JSON results, plain-text final-message snapshots, or Antigravity/Pi/ACP event archives by outputId and UTF-16 offset. Use the returned nextOffset until null. Plain-text pages never split a Unicode scalar; length:1 may return a two-unit scalar. Concatenate text directly for format:plain-text; only JSON snapshots require JSON parsing. JSON and text snapshots share a 64 MiB cache with a one-hour maximum lifetime and oldest-first eviction.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3472,7 +3472,7 @@
             "not": {
               "const": "codex"
             },
-            "description": "Non-Codex Agent ID: pi, opencode, or an ACP manifest ID."
+            "description": "Non-Codex Agent ID: antigravity, pi, opencode, or an ACP manifest ID."
           },
           "taskId": {
             "type": "string",
@@ -3511,7 +3511,7 @@
     },
     {
       "name": "agent_tasks",
-      "description": "List tasks. Pi/ACP lists only persistent tasks created by Agent Remote Control.",
+      "description": "List tasks. Antigravity/Pi/ACP lists only persistent tasks created by Agent Remote Control.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3521,7 +3521,7 @@
             "not": {
               "const": "codex"
             },
-            "description": "Non-Codex Agent ID: pi, opencode, or an ACP manifest ID."
+            "description": "Non-Codex Agent ID: antigravity, pi, opencode, or an ACP manifest ID."
           },
           "offset": {
             "type": "integer",
@@ -3641,7 +3641,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Native config ID to value. Pi uses thinkingLevel."
+            "description": "Native config ID to value. Antigravity uses effort and mode; Pi uses thinkingLevel."
           },
           "reason": {
             "type": "string",
@@ -3865,7 +3865,7 @@
     },
     {
       "name": "agent_wait",
-      "description": "Wait for a current or specified Pi/ACP turn. Terminal states or interactions return immediately. Does not automatically resume tasks. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message.",
+      "description": "Wait for a current or specified Antigravity/Pi/ACP turn. Terminal states or interactions return immediately. Does not automatically resume tasks. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3900,7 +3900,7 @@
             "not": {
               "const": "codex"
             },
-            "description": "Non-Codex Agent ID: pi, opencode, or an ACP manifest ID."
+            "description": "Non-Codex Agent ID: antigravity, pi, opencode, or an ACP manifest ID."
           },
           "taskId": {
             "type": "string",
@@ -4021,7 +4021,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Native config ID to value. Pi uses thinkingLevel."
+            "description": "Native config ID to value. Antigravity uses effort and mode; Pi uses thinkingLevel."
           },
           "reason": {
             "type": "string",
@@ -4317,7 +4317,7 @@
     },
     {
       "name": "agent_events",
-      "description": "Read native Pi/ACP events. Continue the complete archive through control_output.",
+      "description": "Read native Antigravity/Pi/ACP events. Continue the complete archive through control_output.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4327,7 +4327,7 @@
             "not": {
               "const": "codex"
             },
-            "description": "Non-Codex Agent ID: pi, opencode, or an ACP manifest ID."
+            "description": "Non-Codex Agent ID: antigravity, pi, opencode, or an ACP manifest ID."
           },
           "taskId": {
             "type": "string",

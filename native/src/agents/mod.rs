@@ -3,6 +3,7 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
 mod adapter;
+mod antigravity;
 mod archive;
 mod conversations;
 mod dispatch;
@@ -126,6 +127,7 @@ impl AgentHost {
         let mut drivers = HashMap::from([
             ("codex".into(), AgentDriver::CodexNative),
             ("pi".into(), AgentDriver::Pi),
+            ("antigravity".into(), AgentDriver::Antigravity),
         ]);
         for m in manifest::builtins()? {
             m.validate()?;
@@ -1202,7 +1204,16 @@ impl AgentHost {
         self.ensure_enabled(agent).await?;
         let p = if name == "agent_create" {
             let _guard = self.lifecycle.lock().await;
-            let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"output":""});
+            let configured = if agent == "antigravity" {
+                antigravity::configuration(
+                    args,
+                    &crate::dispatch_policy::agent_policy(agent)?,
+                    None,
+                )?
+            } else {
+                Value::Null
+            };
+            let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"configured":configured,"approval":args["approval"],"output":""});
             save_task(&t)?;
             let p = match driver.start(t, false, self.wake.clone()).await {
                 Ok(p) => p,

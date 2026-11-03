@@ -23,6 +23,7 @@ const scenarioFilter = process.argv.find(arg => arg.startsWith('--scenario='))?.
 const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('--port='.length) ?? 5187);
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
+const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 await mkdir(base, { recursive: true });
 const previous = (await readdir(base)).filter(n => n.endsWith(`-${engine}`)).sort().at(-1);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
@@ -53,6 +54,10 @@ try {
       try {
         await page.goto(`http://127.0.0.1:${port}/?scenario=${encodeURIComponent(name)}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
+        if (name.startsWith('agent-settings-')) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
+        }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
         if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');
@@ -124,6 +129,19 @@ try {
           if (await action.getAttribute('aria-disabled') !== 'true') throw new Error('Unavailable ingress control remained actionable');
           await action.press('Enter');
           if (await action.getAttribute('aria-disabled') !== 'true' || await action.getAttribute('aria-busy') !== 'false') throw new Error('Unavailable ingress control started an operation');
+        }
+        if (name === 'antigravity-task') {
+          // Regression: Antigravity replies and denied actions disappeared from completed task details.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const task = fixture.tasks[0];
+          const panel = page.getByRole('dialog', { name: task.title, exact: true });
+          await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
+          await panel.getByText(task.entries.find(entry => entry.phase === 'final_answer').text, { exact: true }).waitFor();
+          await panel.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['detail.process'].split('{')[0])}`) }).click();
+          for (const entry of task.entries.filter(entry => entry.type === 'error')) {
+            await panel.getByText(entry.text, { exact: true }).waitFor();
+          }
+          await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
         }
         if (name === 'task-states' || name === 'task-review-unavailable' || name === 'dispatch-states') {
           // Regression: activity disappearance and unrelated review failures changed execution results.

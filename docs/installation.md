@@ -10,6 +10,16 @@ Choose the newest release containing your platform’s installer and download it
 | Windows x64 | NSIS `…-setup.exe` |
 | Linux x86_64 / aarch64 | Headless Core tarball; [Linux reference](reference/linux.md) |
 
+### Local Agent prerequisites
+
+| Agent | Native prerequisite |
+| --- | --- |
+| Antigravity | Install `agy` from its official source and sign in natively. |
+| Pi | Install `pi` from its official source and sign in natively. |
+
+ARC discovers and reuses these native installations and credentials. It does
+not install them or perform their login. See [Local Agents](reference/agents.md).
+
 ## macOS
 
 Open the DMG, drag ARC to Applications, eject the DMG, and launch from Applications. For the default Codex workflow, install Codex Desktop and sign in.

@@ -98,6 +98,20 @@ impl AgentHost {
     pub(super) async fn configure_dispatch(&self, p: &Arc<Process>, args: &Value) -> Result<Value> {
         let task = p.state.lock().await.clone();
         let policy = crate::dispatch_policy::agent_policy(string(&task, "agent"))?;
+        if task["agent"] == "antigravity" {
+            let configured =
+                super::antigravity::configuration(args, &policy, Some(&task["configured"]))?;
+            if configured != task["configured"] {
+                return Err("UNSUPPORTED_DISPATCH_CONFIGURATION: Antigravity launch flags are fixed for the task; create a new task for different model, effort, or mode".into());
+            }
+            return Ok(json!({
+                "model":configured["model"],"options":configured["options"],
+                "source":{"model":if args["model"].is_string(){"explicit"}else{"session-inherited"},"options":{}},
+                "reason":args["reason"],"submittedConfiguration":{"model":args["model"],"options":args["options"]},
+                "sessionConfirmation":{"model":configured["model"],"options":configured["options"],"evidence":"requested-not-executed"},
+                "turnEvidence":null,"submission":"pending","submittedAt":now()
+            }));
+        }
         let mut facts = self.session_dispatch_facts(&task, true).await?;
         let mut options = serde_json::to_value(&policy.options).map_err(|e| e.to_string())?;
         let mut sources = json!({"model":"native-default","options":{}});
@@ -260,6 +274,9 @@ pub(super) fn catalog_facts(
     source: &str,
     levels: Value,
 ) -> Value {
+    if task["agent"] == "antigravity" {
+        return super::antigravity::facts(task, source);
+    }
     let mut facts = json!({
         "source":source,"taskId":task["taskId"],"observedAt":observed,
         "scope":"session","authoritative":false,"executionEvidence":serde_json::from_value::<crate::task_tracking::Timeline>(task["tracking"].clone()).unwrap_or_default().execution_evidence()

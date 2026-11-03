@@ -26,9 +26,14 @@ The local service that reads project facts and dispatches work. All ingresses fo
 
 ## Agent
 
-The program doing the work on your computer. Codex uses its native task interfaces. Pi and ACP Agents use their own installed programs, configuration, and login. Enable additional Agents in the home screen's Agent management panel.
+The program doing the work on your computer. Codex uses its native task interfaces. Antigravity, Pi, and ACP Agents use their own installed programs, configuration, and login. Enable additional Agents in the home screen's Agent management panel.
 
 ## Task ownership
+
+Antigravity and Pi run in ARC-owned native processes, separate from Codex task
+ownership. ARC returns its own `taskId` and `turnId`; keep both for
+`agent_wait`, then use `agent_read` for the durable task record. Native login,
+configuration, and upstream session IDs remain owned by the Agent.
 
 With **Automatically open Codex tasks** enabled, new Codex tasks execute in Codex Desktop. With it disabled, new tasks execute in ARC's background App Server. Existing tasks retain their owner. On Linux, Codex runs in the background. A task receipt confirms dispatch; read or wait for the task to see the outcome.
 

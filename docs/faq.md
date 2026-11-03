@@ -18,6 +18,10 @@ A deep link opens the app on the browser's device. Approve the pending request o
 
 MCP tools stay fixed at `guide`, `query`, and `act`. Save the connection’s op list and call `guide` again. Reselect a preset to adopt new ops; saved custom allowlists stay exact. Other Agent ops appear only when a non-Codex Agent is installed, available, and enabled. Upgrading from the old tool surface requires one client tool refresh and renewed authorization; later capability changes are disclosed through guide.
 
+To make a local Agent ready, open Agent management and refresh discovery.
+Inspect `discoveryError`, confirm the native program is installed and signed in,
+enable it, then reread `guide`. See [Local Agents](reference/agents.md).
+
 ## Where did Codex run the task?
 
 Read `executionOwner` in the receipt/result. Desktop owns new tasks by default. Turning off **Automatically open Codex tasks** changes only future tasks to ARC's background executor. Reuse the original task ID to continue. See [Concepts](concepts.md).

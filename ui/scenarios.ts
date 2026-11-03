@@ -29,7 +29,9 @@ import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';
 import { taskPanelSnapshot } from './state/taskPanel';
 
-type Fixture = { mcpServices?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
+
+type Fixture = { agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpServices?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: UpdateSnapshot; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; parent?: number; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -177,7 +179,7 @@ export async function installScenario(name: string) {
   }
   status.ingressSummary = { total: status.ingresses.length, running: status.ingresses.filter(entry => entry.running).length, ready: status.ingresses.filter(entry => entry.state === 'ready').length };
   const sources = status.ingresses.flatMap(i => i.sources ?? []);
-  const inventory: Agent[] = fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
+  const inventory: Agent[] = fixture.agentInventory ?? fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
   fixture.tasks.forEach((task, index) => {
     activity.agents[task.agent].sessions.push({ id: `fixture-task-${index}`, ...(task.parent === undefined ? {} : { parentSessionId: `fixture-task-${task.parent}` }), source: task.direct ? 'transcript' : task.agent === 'codex' ? 'codex-thread' : 'arc-task', title: task.title, headline: task.headline, phase: task.phase,
@@ -204,7 +206,7 @@ export async function installScenario(name: string) {
       const live = !task.completed && !outcome && turnIndex === count;
       turnStatuses[turnId] = task.unconfirmed ? 'unknown' : outcome ?? (live ? 'running' : 'completed');
       const start = Date.parse(session.turnStartedAt!) - (count - turnIndex) * 180000;
-      const rows: (Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>)[] = [
+      const rows: TimelineRow[] = task.entries ? structuredClone(task.entries) : [
         { type: 'user', status: 'completed', text: turnIndex === 1 ? 'Review the project and check the configuration.\n\nKeep the existing behavior while making the requested changes.' : 'Apply the changes and run the project checks.' },
         { type: 'thinking', status: 'completed', text: 'I will read the current configuration and preserve its documented behavior.', durationMs: 3200 },
         { type: 'command', status: 'completed', command: 'cat package.json', cwd: '/workspace/acceptance', output: { state: 'available', text: '{ "scripts": { "check": "tsc --noEmit" } }', truncated: false, sha256: 'fixture', hashScope: 'excerpt' }, durationMs: 300, exitCode: 0 },
@@ -217,8 +219,8 @@ export async function installScenario(name: string) {
           ? { type: 'interaction', status: 'pending', interaction: session.interaction }
           : { type: 'command', status: outcome ?? (live ? 'running' : 'completed'), command: 'npm run check', cwd: '/workspace/acceptance', ...(live ? {} : { durationMs: 1700, ...(outcome === 'failed' ? { exitCode: 1 } : outcome ? {} : { exitCode: 0 }) }) },
       ];
-      if (outcome === 'failed') rows.push({ type: 'error', status: 'failed', text: 'The sample verification command failed.' });
-      if (!live && !outcome) rows.push({ type: 'text', status: 'completed', phase: 'final_answer', text: task.finalAnswer ?? 'The requested changes are complete.\n\n| Check | Result |\n| --- | --- |\n| Configuration | Updated |\n| TypeScript | Passed |\n\n- Preserved existing behavior.\n- Verified the changed files.' });
+      if (!task.entries && outcome === 'failed') rows.push({ type: 'error', status: 'failed', text: 'The sample verification command failed.' });
+      if (!task.entries && !live && !outcome) rows.push({ type: 'text', status: 'completed', phase: 'final_answer', text: task.finalAnswer ?? 'The requested changes are complete.\n\n| Check | Result |\n| --- | --- |\n| Configuration | Updated |\n| TypeScript | Passed |\n\n- Preserved existing behavior.\n- Verified the changed files.' });
       for (const [index, row] of rows.entries()) {
         const at = new Date(start + index * 4000).toISOString();
         entries.push({ id: `${turnId}-entry-${index}`, turnId, cursor: entries.length + 1, position: entries.length,
@@ -315,7 +317,7 @@ export async function installScenario(name: string) {
   acceptUpdateSnapshot(responses['updates/status'] as UpdateSnapshot);
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
-  agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: '' });
+  agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
   resetTaskExecutions();
   acceptActivity(activity);
@@ -338,6 +340,7 @@ export async function installScenario(name: string) {
       for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
     }
     openSnapshotPanel(fixture.panel);
+    if (fixture.platformAgent) selectAgentPanel({ type: 'platform', agent: fixture.platformAgent });
     if (fixture.detailTask !== undefined) {
       await settledViewModel();
       const task = fixture.tasks[fixture.detailTask];
