@@ -199,9 +199,12 @@ try {
           if (name === 'task-review-unavailable') {
             const panel = page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true });
             await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
-            if (await panel.getByRole('alert').count()) throw new Error('Review was loaded before requesting supplementary information');
-            await panel.getByRole('button', { name: messages['detail.reviewInfo'], exact: true }).click();
-            await panel.getByText(messages['detail.reviewUnavailable'], { exact: true }).waitFor();
+            const reviewFailure = panel.getByRole('alert');
+            await reviewFailure.waitFor();
+            if (!(await reviewFailure.innerText()).includes(messages['detail.reviewUnavailable'])) throw new Error('Review read failure was not reported');
+            await reviewFailure.getByRole('button', { name: messages.retry, exact: true }).click();
+            await reviewFailure.waitFor();
+            await reviewFailure.getByRole('button', { name: messages.retry, exact: true }).waitFor();
             await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
             const view = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
             if (view.taskDetail?.state && view.taskDetail.state !== 'done') throw new Error('Review availability changed execution state');
