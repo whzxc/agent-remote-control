@@ -6,7 +6,6 @@ import { copyText } from '../platform';
 import { useAppNow } from '../state/appEnvironment';
 import { relativeTime } from '../lib/relativeTime';
 import { Button, Dialog, Icon, IconButton, Input, Loading, Notice, SingleChoice, Status, Switch } from '../components/ui';
-import { Sensitive } from '../components/Sensitive';
 import { failureKind, hubSummary, matchServer } from './model';
 import type { HubServer, HubSnapshot, HubTool } from './state';
 import './mcp.css';
@@ -78,7 +77,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
       <span className="mcp-server-icon"><Icon icon={server.transport === 'http' ? Globe : SquareTerminal} /></span>
       <div className="mcp-server-identity">
         <h3 id={headingId}>{server.name}</h3>
-        <p><span>{t(server.transport === 'http' ? 'mcp.transport.http' : 'mcp.transport.stdio')}</span>{target && <><span aria-hidden="true">·</span><span className="mcp-target"><Sensitive>{target}</Sensitive></span></>}</p>
+        <p><span>{t(server.transport === 'http' ? 'mcp.transport.http' : 'mcp.transport.stdio')}</span>{target && <><span aria-hidden="true">·</span><span className="mcp-target" title={target}>{target}</span></>}</p>
       </div>
       <span className="mcp-server-state" data-tone={tone(server.state)}><Status tone={tone(server.state)}>{t(`mcp.state.${server.state}`)}</Status></span>
       <div className="mcp-server-actions">

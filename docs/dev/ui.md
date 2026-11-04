@@ -200,7 +200,7 @@ The upper connection arc continues to represent control-source ingress connectio
 
 A summary line counts servers, available servers, failing servers and enabled tools.
 Search filters servers by name and tools by name or description, and opens matching tool lists.
-Each server is a bordered card with a transport tile, a readable name, the masked command or endpoint and a state pill.
+Each server is a bordered card with a transport tile, the server name, the command or endpoint and a state pill.
 Cards offer reconnect, remove and an enable switch; removal confirms its consequence in a Dialog.
 Facts under the name show the tool count disclosure, configured env and header names, attribution and the last check time.
 Tool rows show the name, a two-line description and Read-only or Destructive hints repeated from downstream annotations.
@@ -208,5 +208,5 @@ A failing card explains the failure category in plain language, keeps the native
 There are no add or edit forms; Agents configure servers through `mcp_configure`.
 Add server opens a Dialog of copyable Agent prompts for import, Streamable HTTP and stdio servers.
 The empty state offers the import prompt with a product choice.
-Prompts stay readable in privacy mode because they carry no secrets.
+Privacy mode leaves server names, commands, endpoints and prompts readable; env and header values are never rendered.
 See [MCP hub](mcp-hub.md) for ownership and session behavior.
