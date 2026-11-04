@@ -34,6 +34,9 @@ impl Default for Reachability {
     }
 }
 impl Reachability {
+    pub(super) fn deadline(&self) -> Option<i64> {
+        (!self.challenge_hash.is_empty()).then_some(self.expires_at)
+    }
     pub fn expire(&mut self, now: i64) {
         if !self.challenge_hash.is_empty() && now >= self.expires_at {
             let expired_at = self.expires_at.saturating_mul(1000);

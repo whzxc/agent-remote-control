@@ -2,6 +2,7 @@
 use super::*;
 use std::sync::{LazyLock, Mutex as SyncMutex};
 
+pub(super) static WAKE: LazyLock<tokio::sync::Notify> = LazyLock::new(Default::default);
 static SESSION: LazyLock<String> = LazyLock::new(id);
 static SERIAL: SyncMutex<()> = SyncMutex::new(());
 static PRESENCE: SyncMutex<Option<(String, String, i64)>> = SyncMutex::new(None);
@@ -158,6 +159,9 @@ pub(crate) fn presence(args: &Value) -> Result<Value> {
         return Err("agent and taskId required".into());
     }
     let mut p = PRESENCE.lock().unwrap();
+    let previous = p
+        .as_ref()
+        .map(|(agent, task, _)| (agent.clone(), task.clone()));
     if args["present"] == true {
         *p = Some((
             agent.into(),
@@ -166,6 +170,12 @@ pub(crate) fn presence(args: &Value) -> Result<Value> {
         ));
     } else if p.as_ref().is_some_and(|(a, t, _)| a == agent && t == task) {
         *p = None;
+    }
+    if previous
+        != p.as_ref()
+            .map(|(agent, task, _)| (agent.clone(), task.clone()))
+    {
+        WAKE.notify_one();
     }
     Ok(json!({"present":args["present"] == true}))
 }
@@ -372,6 +382,36 @@ pub(super) fn refresh(dir: &Path, b: &mut Binding) -> Result<()> {
     }
     Ok(())
 }
+/// Deferred routing wakes on its countdown, override expiry, or presence lease expiry.
+pub(super) fn deferred_deadline(b: &Binding, d: &Delivery, now: i64) -> Result<Option<i64>> {
+    let real = now.saturating_mul(1000);
+    let env = crate::app_env::read()?;
+    let mut deadline = d.interaction["routing"]["deferUntil"]
+        .as_i64()
+        .and_then(|at| env.real_deadline(at, real));
+    let mut due = |at: i64| {
+        deadline = Some(deadline.map_or(at, |old| old.min(at)));
+    };
+    if let Some(at) = env.expires_at {
+        due(at);
+    }
+    if env.presence.is_none() {
+        let presence = PRESENCE.lock().unwrap();
+        let agent = if b.agent.is_empty() {
+            "codex"
+        } else {
+            &b.agent
+        };
+        due(presence
+            .as_ref()
+            .filter(|(a, t, _)| a == agent && t == &b.thread_id)
+            .map_or(real, |(_, _, at)| at.saturating_add(6000)));
+    } else if env.presence.as_deref() == Some("absent") {
+        due(real);
+    }
+    Ok(deadline.map(|at| at.saturating_add(999) / 1000))
+}
+
 pub(super) fn held(d: &Delivery) -> bool {
     matches!(
         string(&d.interaction["routing"], "state"),

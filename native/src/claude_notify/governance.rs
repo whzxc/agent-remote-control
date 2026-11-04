@@ -297,6 +297,39 @@ impl State {
             .find(|t| t.thread_id == b.thread_id && t.source_id == b.source_id)
     }
 }
+/// Earliest transition that a delivery pass can actually advance.
+pub(super) fn next_delivery_at(
+    state: &Data,
+    settings: &Value,
+    active: impl Fn(&str) -> bool,
+) -> Option<i64> {
+    let mut next = None;
+    let mut due = |at: i64| {
+        next = Some(next.map_or(at, |old: i64| old.min(at)));
+    };
+    for sub in &state.subscriptions {
+        if let Some(at) = sub.expires_at {
+            due(at.saturating_add(999) / 1000);
+        }
+        if let Some(w) = &sub.webhook {
+            if w.previous_secret.is_some() {
+                due(w.rotate_until);
+            }
+        }
+    }
+    for target in state.targets.iter().filter(|t| active(&t.source_id)) {
+        if target.tokens < capacity(settings) {
+            due(target.refilled_at.saturating_add(refill_seconds(settings)));
+        }
+        for batch in &target.batches {
+            due(batch.at.saturating_add(3600));
+        }
+        if let Some(at) = target.reachability.deadline() {
+            due(at);
+        }
+    }
+    next
+}
 pub(super) fn capacity(s: &Value) -> u64 {
     s["notificationBucketCapacity"]
         .as_u64()

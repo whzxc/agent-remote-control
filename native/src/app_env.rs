@@ -33,6 +33,15 @@ impl Overrides {
                 .saturating_add(((real - c.real_at).max(0) as f64 * c.speed) as i64)
         })
     }
+    /// Convert a virtual deadline into the first real millisecond that can reach it.
+    pub fn real_deadline(&self, deadline: i64, real: i64) -> Option<i64> {
+        let remaining = deadline.saturating_sub(self.clock_now(real)).max(0);
+        if remaining == 0 {
+            return Some(real);
+        }
+        let speed = self.clock.as_ref().map_or(1.0, |clock| clock.speed);
+        (speed > 0.0).then(|| real.saturating_add((remaining as f64 / speed).ceil() as i64))
+    }
     pub fn clock_id(&self) -> &str {
         self.clock.as_ref().map_or("system", |c| c.id.as_str())
     }
@@ -280,5 +289,23 @@ mod tests {
             assert_eq!(reset.clock_now(1_000_000), 1_000_000);
             assert_eq!(reset.window_width, None);
         }
+    }
+    #[test]
+    fn virtual_deadlines_map_to_the_first_reachable_real_millisecond() {
+        // Property: a real deadline cannot fire before its virtual deadline, and a paused future clock waits for a change.
+        let mut env = Overrides::default();
+        assert_eq!(env.real_deadline(1400, 1000), Some(1400));
+        env.clock = Some(Clock {
+            real_at: 1000,
+            virtual_at: 5000,
+            speed: 2.0,
+            id: "clock".into(),
+        });
+        let at = env.real_deadline(5003, 1000).unwrap();
+        assert!(env.clock_now(at) >= 5003);
+        assert!(env.clock_now(at - 1) < 5003);
+        env.clock.as_mut().unwrap().speed = 0.0;
+        assert_eq!(env.real_deadline(5003, 1000), None);
+        assert_eq!(env.real_deadline(5000, 1000), Some(1000));
     }
 }

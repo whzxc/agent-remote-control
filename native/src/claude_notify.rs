@@ -11,6 +11,7 @@ pub(crate) mod ownership;
 mod reachability;
 mod retry;
 pub(crate) mod routing;
+mod scheduler;
 pub(crate) mod subscriptions;
 use governance::State;
 pub(crate) use governance::{notify_control, notify_status, source_account};
@@ -2562,44 +2563,14 @@ pub(crate) async fn migrate() -> Result<()> {
     Ok(())
 }
 
-/// Earliest clock-only governance transition. Historical batches do not require one-second passes.
-pub(crate) fn delivery_next_at(state: &Value, settings: &Value) -> Option<i64> {
-    let mut next = None;
-    let mut due = |at: i64| {
-        next = Some(next.map_or(at, |old: i64| old.min(at)));
-    };
-    for sub in state["subscriptions"].as_array().into_iter().flatten() {
-        if let Some(at) = sub["expiresAt"].as_i64() {
-            due(at.saturating_add(999) / 1000);
-        }
-        if !sub["webhook"]["previousSecret"].is_null() {
-            due(sub["webhook"]["rotateUntil"].as_i64().unwrap_or(0));
-        }
-    }
-    for target in state["targets"].as_array().into_iter().flatten() {
-        if target["tokens"].as_u64().unwrap_or(0) < governance::capacity(settings) {
-            due(target["refilledAt"]
-                .as_i64()
-                .unwrap_or(0)
-                .saturating_add(governance::refill_seconds(settings)));
-        }
-        for batch in target["batches"].as_array().into_iter().flatten() {
-            due(batch["at"].as_i64().unwrap_or(0).saturating_add(3600));
-        }
-        if target["reachability"]["reason"] == "handshake-pending" {
-            due(target["reachability"]["expiresAt"].as_i64().unwrap_or(0));
-        }
-    }
-    next
-}
-
 #[derive(PartialEq)]
 struct DeliveryInputs {
     stamps: Vec<Option<file_cache::Stamp>>,
     settings: Value,
+    revision: Option<u64>,
 }
 impl DeliveryInputs {
-    fn read(dir: &Path, settings: Value) -> Result<Self> {
+    fn read(dir: &Path, settings: Value, revision: Option<u64>) -> Result<Self> {
         Ok(Self {
             stamps: [
                 "tasks",
@@ -2613,8 +2584,13 @@ impl DeliveryInputs {
             .map(|name| file_cache::Stamp::read(&dir.join(name)))
             .collect::<Result<_>>()?,
             settings,
+            revision,
         })
     }
+}
+
+fn delivery_source_active(source: &str) -> bool {
+    !source.is_empty() && !crate::sources::authority(source).is_ok_and(|s| s["state"] == "revoked")
 }
 
 #[derive(Default)]
@@ -2629,64 +2605,41 @@ impl DeliveryIdle {
         dir: &Path,
         lock: &Mutex<()>,
         now: i64,
-        settings: Value,
+        inputs: DeliveryInputs,
     ) -> Result<()> {
-        let inputs = DeliveryInputs::read(dir, settings)?;
         if self.inputs.as_ref() == Some(&inputs) && self.next_at.is_none_or(|at| now < at) {
             return Ok(());
         }
         self.inputs = None;
         flush(executor, dir, lock, now, 30, &inputs.settings).await?;
         let _guard = lock.lock().await;
-        let state = file_cache::shared_load(&dir.join("subscriptions/state.json"))?;
-        let mut next_at = delivery_next_at(&state, &inputs.settings);
-        for b in shared_records(dir)?.iter() {
-            for d in b
-                .deliveries
-                .iter()
-                .filter(|d| matches!(d.status.as_str(), "pending" | "sending"))
-            {
-                let reason = d.timing.queue_reason.as_deref().unwrap_or("");
-                let next = match reason {
-                    "disabled" | "breaker" => None,
-                    "unbound" if d.target.is_empty() => None,
-                    "muted" | "digest-wait" => {
-                        let rule =
-                            state["threads"].as_array().into_iter().flatten().find(|r| {
-                                r["sourceId"] == b.source_id && r["threadId"] == b.thread_id
-                            });
-                        rule.and_then(|r| {
-                            if reason == "muted" {
-                                r["until"].as_i64()
-                            } else {
-                                Some(
-                                    r["digestAt"]
-                                        .as_i64()
-                                        .unwrap_or(0)
-                                        .saturating_add(3600)
-                                        .min(r["until"].as_i64().unwrap_or(i64::MAX)),
-                                )
-                            }
-                        })
-                    }
-                    "subscription-muted" => state["subscriptions"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .find(|s| s["id"] == d.subscription)
-                        .and_then(|s| s["until"].as_i64()),
-                    "retry-backoff" => Some(d.next_attempt_at.saturating_add(1)),
-                    "token-wait" => next_at,
-                    _ => Some(now.saturating_add(1)),
-                };
-                if let Some(at) = next {
-                    next_at = Some(next_at.map_or(at, |old| old.min(at)));
+        let state = State::load(dir)?;
+        let bindings = shared_records(dir)?;
+        let mut routing_at = None;
+        for b in bindings
+            .iter()
+            .filter(|b| delivery_source_active(&b.source_id))
+        {
+            for d in b.deliveries.iter().filter(|d| {
+                matches!(d.status.as_str(), "pending" | "sending")
+                    && d.interaction["routing"]["state"] == "deferred"
+            }) {
+                if let Some(at) = routing::deferred_deadline(b, d, now)? {
+                    routing_at = Some(routing_at.map_or(at, |old: i64| old.min(at)));
                 }
             }
         }
+        let next_at = scheduler::next_at(
+            &state,
+            &bindings,
+            &inputs.settings,
+            now,
+            routing_at,
+            delivery_source_active,
+        );
         // Compare against the inputs from BEFORE flush. A concurrent mutation or
         // this pass's own writes must trigger another pass, never be marked handled.
-        if DeliveryInputs::read(dir, inputs.settings.clone())? == inputs {
+        if DeliveryInputs::read(dir, inputs.settings.clone(), inputs.revision)? == inputs {
             self.next_at = next_at;
             self.inputs = Some(inputs);
         }
@@ -2711,6 +2664,21 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
         tokio::spawn(async move {
             tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.wait_for(|ready| *ready) => {} }
             let mut idle = DeliveryIdle::default();
+            let dir = directory();
+            let paths = [
+                "tasks",
+                "subscriptions/state.json",
+                "request-routing",
+                "../sources.json",
+                "../accounts/index.json",
+                "../app-env.json",
+                "../task-settings.json",
+            ]
+            .into_iter()
+            .map(|path| dir.join(path))
+            .collect();
+            let changes = file_cache::Changes::new(paths).ok();
+            let changed = changes.as_ref().map(|c| c.wake()).unwrap_or_default();
             loop {
                 let result = async {
                     idle.flush(
@@ -2718,7 +2686,11 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         &directory(),
                         &LOCK,
                         chrono::Utc::now().timestamp(),
-                        settings()?,
+                        DeliveryInputs::read(
+                            &dir,
+                            settings()?,
+                            changes.as_ref().and_then(|c| c.revision()),
+                        )?,
                     )
                     .await
                 };
@@ -2727,9 +2699,26 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     result = result => if let Err(error) = result { crate::logs::record("WARN", &format!("Notification delivery: {error}"), None); },
                 }
                 let wake = wake.lock().await.wake.clone();
+                let now = chrono::Utc::now().timestamp();
+                let delay = if idle.inputs.is_none()
+                    || changes.as_ref().and_then(|c| c.revision()).is_none()
+                {
+                    Some(Duration::from_secs(1))
+                } else {
+                    idle.next_at
+                        .map(|at| Duration::from_secs(at.saturating_sub(now).max(0) as u64))
+                };
+                let deadline = async {
+                    match delay {
+                        Some(delay) => tokio::time::sleep(delay).await,
+                        None => std::future::pending().await,
+                    }
+                };
                 tokio::select! {
                     _ = delivery_shutdown.changed() => break,
-                    _ = tokio::time::sleep(Duration::from_secs(1)) => {},
+                    _ = deadline => {},
+                    _ = changed.notified() => {},
+                    _ = routing::WAKE.notified() => {},
                     _ = wake.notified() => {},
                 }
             }
@@ -3011,20 +3000,46 @@ mod tests {
     fn delivery_clocks_schedule_only_the_next_transition() {
         // Regression: historical notification batches and expiring subscriptions forced full delivery scans every second at idle.
         let settings = json!({"notificationBucketCapacity":4,"notificationRefillSeconds":60});
-        let mut state = json!({"targets":[{"tokens":4,"batches":[],"breaker":true,"escalated":true}],"subscriptions":[]});
-        assert_eq!(delivery_next_at(&state, &settings), None);
-        state["targets"][0]["batches"] = json!([{"at":100}]);
-        assert_eq!(delivery_next_at(&state, &settings), Some(3700));
-        state["subscriptions"] = json!([{"expiresAt":200001}]);
-        assert_eq!(delivery_next_at(&state, &settings), Some(201));
-        state["targets"][0]["tokens"] = json!(3);
-        state["targets"][0]["refilledAt"] = json!(100);
-        assert_eq!(delivery_next_at(&state, &settings), Some(160));
-        state["targets"][0]["reachability"] = json!({"reason":"handshake-pending","expiresAt":120});
-        assert_eq!(delivery_next_at(&state, &settings), Some(120));
-        state["subscriptions"][0]["webhook"] =
-            json!({"previousSecret":"rotating","rotateUntil":110});
-        assert_eq!(delivery_next_at(&state, &settings), Some(110));
+        let mut state = State::default();
+        state.target("source", Channel::ClaudeSession, "target", 100, &settings);
+        state.targets[0].breaker = true;
+        state.targets[0].escalated = true;
+        let next = |s: &State| governance::next_delivery_at(s, &settings, |id| id == "source");
+        assert_eq!(next(&state), None);
+        state.targets[0].tokens = 3;
+        assert_eq!(next(&state), Some(160));
+        state
+            .target("", Channel::ClaudeSession, "unattributed", 0, &settings)
+            .tokens = 0;
+        state
+            .target("revoked", Channel::ClaudeSession, "old", 0, &settings)
+            .tokens = 0;
+        assert_eq!(next(&state), Some(160));
+        state.targets[0].tokens = 4;
+        assert_eq!(next(&state), None);
+        state.targets[0].batches.push(governance::Batch {
+            id: "batch".into(),
+            at: 100,
+            kinds: Default::default(),
+            threads: vec![],
+            status: "delivered".into(),
+            charged: true,
+        });
+        assert_eq!(next(&state), Some(3700));
+        let sub: subscriptions::Subscription = serde_json::from_value(json!({"id":"sub","sourceId":"source","channel":"mcp-events","target":"target","op":"task_status","args":{},"createdAt":0,"expiresAt":200001})).unwrap();
+        state.subscriptions.push(sub);
+        assert_eq!(next(&state), Some(201));
+        state.targets[0].reachability = serde_json::from_value(
+            json!({"reason":"handshake-pending","challengeHash":"fixture","expiresAt":120}),
+        )
+        .unwrap();
+        assert_eq!(next(&state), Some(120));
+        state.subscriptions[0].webhook = Some(subscriptions::Webhook {
+            previous_secret: Some("rotating".into()),
+            rotate_until: 110,
+            ..Default::default()
+        });
+        assert_eq!(next(&state), Some(110));
     }
     struct Sandbox(PathBuf);
     impl Sandbox {

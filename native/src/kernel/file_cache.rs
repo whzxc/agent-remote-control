@@ -14,6 +14,7 @@ pub struct Changes {
     _watcher: notify::RecommendedWatcher,
     revision: Arc<std::sync::atomic::AtomicU64>,
     failed: Arc<std::sync::atomic::AtomicBool>,
+    wake: Arc<tokio::sync::Notify>,
 }
 impl Changes {
     pub fn new(paths: Vec<PathBuf>) -> Result<Self> {
@@ -42,6 +43,8 @@ impl Changes {
         let counter = revision.clone();
         let failure = failed.clone();
         let inputs = paths.clone();
+        let wake = Arc::new(tokio::sync::Notify::new());
+        let signal = wake.clone();
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
                 Ok(event) if !matches!(event.kind, notify::EventKind::Access(_)) => {
@@ -54,10 +57,12 @@ impl Changes {
                         })
                     {
                         counter.fetch_add(1, SeqCst);
+                        signal.notify_one();
                     }
                 }
                 Err(_) => {
                     failure.store(true, SeqCst);
+                    signal.notify_one();
                 }
                 _ => {}
             })
@@ -79,7 +84,11 @@ impl Changes {
             _watcher: watcher,
             revision,
             failed,
+            wake,
         })
+    }
+    pub fn wake(&self) -> Arc<tokio::sync::Notify> {
+        self.wake.clone()
     }
     pub fn revision(&self) -> Option<u64> {
         use std::sync::atomic::Ordering::SeqCst;
