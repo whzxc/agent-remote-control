@@ -28,9 +28,18 @@ source.
 
 ## Manage servers
 
-The hub page lists each server with its state, transport and tools. Use the switch
-to turn a server off, the reconnect button to retry it, and the delete button to
-remove it. Ask an Agent to change commands, URLs or credentials.
+The hub page shows how many servers and tools are available. Search finds a server
+or tool by name or description. Each server card shows its state, how it connects,
+configured header and environment names, and when ARC last checked it. Open the
+tool count to see each tool; **Read-only** and **Destructive** repeat what the
+server declares about that tool.
+
+Use the switch to turn a server off, the reconnect button to retry it, and the
+delete button to remove it. When a server fails, its card explains the likely cause.
+Choose **Copy fix prompt** and paste it into a connected Agent to repair the
+configuration. **Add server** offers ready-made prompts for importing, adding a
+remote server or adding a local command. Ask an Agent to change commands, URLs or
+credentials.
 
 ## Limits
 
@@ -38,4 +47,5 @@ remove it. Ask an Agent to change commands, URLs or credentials.
 - Servers run on this device with your permissions. Add only servers you trust.
 - stdio and Streamable HTTP servers are supported. Legacy SSE servers are not.
 - OAuth-only servers need an explicit Authorization header.
+- Read-only and Destructive hints come from each server and are not verified by ARC.
 - Agents that ARC dispatches keep their own MCP configuration.

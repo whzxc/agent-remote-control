@@ -236,7 +236,14 @@ resource, state and activity metadata, with technical metadata behind disclosure
 Owner-detail navigation preserves the view and returns focus to its initiating row.
 
 Use a quiet list with clear spacing and restrained separators. Avoid decorative
-motion, playful effects, dashboard grids and full-height management panels. The
+motion, playful effects, dashboard grids and full-height management panels.
+Each Current row leads with a small toned glyph for its kind and keeps the kind
+label last in its metadata line. Section headings carry their row counts. Times
+read relative to now, with the absolute time on hover. Resources render as chips.
+The filter chooses All, Needs attention, Task input or History; History widens
+Current to closed, withdrawn and cleared records. Activity groups rows by local day
+on a timeline whose dot tone follows the observed status. A footer reports the
+observation time and journal coverage, with raw coverage behind a disclosure. The
 clock, date, ARC mark, task topology, earcup connections and room background retain
 their existing layout. No additional homepage shelf or floating launcher is added.
 

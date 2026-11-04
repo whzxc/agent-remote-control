@@ -9,9 +9,10 @@ meaning.
 
 **Current** shows running work, published resource declarations, resource blockers
 and outstanding items. Filter by resource or choose **Task input** to find tasks
-waiting for a user decision. Open a record to inspect its owner, resources, state
-and last observed activity. Use **History** to include closed, withdrawn and
-cleared records. Expand **Metadata** for record identifiers and raw evidence.
+waiting for a user decision. Open a record to inspect its owner, resources, state,
+estimated duration, linked tasks and last observed activity. Choose **History** to
+include closed, withdrawn and cleared records. Expand **Technical details** for
+record identifiers and raw evidence.
 
 **Needs attention** also lists AX candidates waiting for the source that reported
 them. Agents see the same matters in `board` and act through each owner's operation.
@@ -28,8 +29,9 @@ return focus to the homepage activity row.
 
 ## Read recent changes
 
-Choose **Activity** for recent journal observations. Expand groups for individual
-outcomes. Task links preserve the observed turn, including historical failures.
+Choose **Activity** for recent journal observations, grouped by day. Expand groups
+for individual outcomes. The braces button on a row shows its raw metadata. The
+footer shows when Board last observed the journal and whether coverage is complete. Task links preserve the observed turn, including historical failures.
 Use **Load retained history** for older observations. If retention invalidates a
 cursor, inspect the gap and choose **Reset cursor**. A failed refresh keeps the last
 readable data and offers a retry.

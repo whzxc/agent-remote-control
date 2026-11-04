@@ -8,7 +8,8 @@ import { connector } from '../state/connector';
 import { updates } from '../state/updates';
 import { liveRecord, taskAttention, type Attention, type BoardPage } from './model';
 
-export const centerView = createStore<{ view: 'current' | 'activity'; filter: 'all' | 'attention' | 'input'; resource: string; history: boolean }>({ view: 'current', filter: 'all', resource: '', history: false });
+/** history widens Current to closed, withdrawn and cleared records; the other filters narrow live matters. */
+export const centerView = createStore<{ view: 'current' | 'activity'; filter: 'all' | 'attention' | 'input' | 'history'; resource: string }>({ view: 'current', filter: 'all', resource: '' });
 export const boardObservation = createStore<{ page?: BoardPage; error: string; loading: boolean }>({ error: '', loading: false });
 let reading: Promise<void> | undefined;
 let generation = 0;

@@ -11,6 +11,11 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
     if (await radio.isVisible()) await radio.click();
     else { await board().getByRole('combobox', { name: label, exact: true }).click(); await page.getByRole('option', { name: option, exact: true }).click(); }
   };
+  const chosen = async (label, option) => {
+    const radio = board().getByRole('radio', { name: option, exact: true });
+    if (await radio.isVisible()) return radio.isChecked();
+    return (await board().getByRole('combobox', { name: label, exact: true }).innerText()).trim() === option;
+  };
   const count = async value => page.waitForFunction(value => window.__ARC_VIEW_MODEL__().coordination.attention.count === value, value);
   const close = async () => {
     await page.keyboard.press('Escape');
@@ -20,7 +25,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   const open = async () => {
     await page.getByRole('button', { name: m('open'), exact: true }).click();
     await board().waitFor();
-    assert.equal(await board().getByRole('radio', { name: m('current'), exact: true }).isChecked(), true);
+    assert.equal(await chosen(m('view'), m('current')), true);
   };
   // Regression: the whole homepage activity summary opens a read-only Board without a capsule entry.
   assert.equal(await page.getByRole('navigation').getByRole('button', { name: m('title'), exact: true }).count(), 0);
@@ -87,15 +92,14 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   assert.equal(await board().isVisible(), true);
   await page.waitForFunction(() => document.activeElement?.id === 'record-notice-a');
   checks.push('record inspection is read-only; layered Escape restores its row');
-  await board().getByRole('checkbox', { name: m('history'), exact: true }).check();
+  await choose(m('filter'), m('history'));
   await board().getByRole('button', { name: /^Previous maintenance scope/ }).waitFor();
   await count(5);
-  await board().getByRole('checkbox', { name: m('history'), exact: true }).uncheck();
   await choose(m('filter'), m('input'));
   await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button', { name: new RegExp(`^${fixture.tasks[0].title}`) }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
   await page.keyboard.press('Escape'); await board().waitFor(); await count(5);
-  assert.equal(await board().getByRole('radio', { name: m('input'), exact: true }).isChecked(), true);
+  assert.equal(await chosen(m('filter'), m('input')), true);
   checks.push('pending input stays with the task owner; return preserves scope');
   await choose(m('filter'), m('all'));
   await choose(m('view'), m('activityView'));

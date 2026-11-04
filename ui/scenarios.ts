@@ -153,7 +153,7 @@ export async function installScenario(name: string) {
   coordinationResponse = coordinationScenario(fixture.coordination);
   resetBoardObservation();
   boardOpen.set(false);
-  centerView.set({ view: 'current', filter: 'all', resource: '', history: false });
+  centerView.set({ view: 'current', filter: 'all', resource: '' });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
   const preferences = { 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.topology-tuning': String(!!fixture.topologyTuning), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-skipped-version': '', 'arc.privacy': 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };

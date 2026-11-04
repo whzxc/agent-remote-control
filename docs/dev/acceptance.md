@@ -203,7 +203,7 @@ Run `npm run accept:updates` on an Apple Silicon Mac with the package-signing pr
 
 ## MCP hub fixtures
 
-`mcp-hub-ready-dark`, `mcp-hub-ready-light`, `mcp-hub-failed-dark`, and `mcp-hub-empty-light` cover server states, tool disclosure, enable, reconnect, removal confirmation, failure text and the empty-state prompt.
+`mcp-hub-ready-dark`, `mcp-hub-ready-light`, `mcp-hub-failed-dark`, and `mcp-hub-empty-light` cover server states, summary counts, search, tool disclosure with annotation hints, enable, reconnect, removal confirmation, credential and command failure categories, fix prompts, Add server prompts and the empty-state import prompt.
 These fixtures are stateful and never contact downstream services.
 
 `tests/mcp-hub.test.ts` in `npm run test:extended` drives a synthetic stdio server through the hub ops: disabled exposure, add, paginated discovery, calls, `list_changed` refresh, error codes, Codex import, disable and removal.

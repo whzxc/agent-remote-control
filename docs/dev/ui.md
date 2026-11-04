@@ -198,9 +198,15 @@ Enabling it adds the MCP hub workspace to the shared navigation capsule.
 Disabling it closes that workspace and retains configuration.
 The upper connection arc continues to represent control-source ingress connections.
 
-The workspace is a quiet list of servers with state, transport, tool count and attribution.
-Each row offers reconnect, remove and an enable switch; removal confirms its consequence in a Dialog.
-Tool names and short descriptions sit behind a disclosure.
+A summary line counts servers, available servers, failing servers and enabled tools.
+Search filters servers by name and tools by name or description, and opens matching tool lists.
+Each server is a bordered card with a transport tile, a readable name, the masked command or endpoint and a state pill.
+Cards offer reconnect, remove and an enable switch; removal confirms its consequence in a Dialog.
+Facts under the name show the tool count disclosure, configured env and header names, attribution and the last check time.
+Tool rows show the name, a two-line description and Read-only or Destructive hints repeated from downstream annotations.
+A failing card explains the failure category in plain language, keeps the native error readable and copies a fix prompt for an Agent.
 There are no add or edit forms; Agents configure servers through `mcp_configure`.
-The empty state offers a copyable prompt for a connected Agent.
+Add server opens a Dialog of copyable Agent prompts for import, Streamable HTTP and stdio servers.
+The empty state offers the import prompt with a product choice.
+Prompts stay readable in privacy mode because they carry no secrets.
 See [MCP hub](mcp-hub.md) for ownership and session behavior.
