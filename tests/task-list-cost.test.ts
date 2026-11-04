@@ -83,3 +83,30 @@ test('activity discovery finds a new transcript root and follows append and remo
     await eventually(async () => !await active());
   } finally { await f.close(); }
 });
+
+test('memoized task projections retain fallback metadata and recover repaired receipts', async () => {
+  // Regression: AX-23 one malformed historical receipt disabled task/status memoization until restart.
+  const f = await nativeControl('');
+  const requestId = randomUUID(), repairedId = randomUUID(), threadId = randomUUID();
+  let directory = '';
+  const receipt = { requestId, threadId, operation: 'create', state: 'completed', backendSession: 'previous',
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+    result: { resolved: { thread: { id: threadId, name: 'Native task', cwd: '/fixture' } } } };
+  try {
+    await f.restart(async state => {
+      directory = state;
+      await writeFile(path.join(state, `${requestId}.json`), JSON.stringify(receipt));
+      await writeFile(path.join(state, `${repairedId}.json`), '[]');
+    });
+    const rows = async () => (await f.api('tasks')).records;
+    const initial = await rows();
+    assert.equal(initial.length, 1);
+    assert.equal(initial[0].task.title, 'Native task');
+    assert.equal(initial[0].task.directory, '/fixture');
+    assert.equal((await f.api('status')).diagnostics.checks.receipts.count, 0);
+    assert.deepEqual(await rows(), initial);
+    await writeFile(path.join(directory, `${repairedId}.json`), JSON.stringify({ ...receipt, requestId: repairedId, state: 'unconfirmed' }));
+    await eventually(async () => (await rows()).some((row: any) => row.requestId === repairedId));
+    assert.equal((await f.api('status')).diagnostics.checks.receipts.count, 1);
+  } finally { await f.close(); }
+});

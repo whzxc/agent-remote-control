@@ -1426,7 +1426,9 @@ impl Control {
                 .collect(),
         );
         let records = Arc::new(records);
-        if complete && file_cache::receipt_revision() == revision.0 {
+        // A readable watcher invalidates repaired records too; one malformed row
+        // must not disable the entire unchanged collection cache indefinitely.
+        if (complete || revision.1.is_some()) && file_cache::receipt_revision() == revision.0 {
             cache
                 .projection
                 .set(&dependencies, stamps, records.clone())?;

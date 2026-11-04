@@ -327,6 +327,17 @@ impl<T> Cache<T> {
 }
 impl<T: DeserializeOwned> Cache<T> {
     pub fn read(&mut self, path: &Path) -> Result<Arc<T>> {
+        self.read_with(path, |bytes| {
+            serde_json::from_slice(bytes).map_err(|e| format!("INVALID_JSON: {e}"))
+        })
+    }
+}
+impl<T> Cache<T> {
+    pub fn read_with(
+        &mut self,
+        path: &Path,
+        decode: impl FnOnce(&[u8]) -> Result<T>,
+    ) -> Result<Arc<T>> {
         let stamp =
             Stamp::read(path)?.ok_or_else(|| format!("File not found: {}", path.display()))?;
         self.clock += 1;
@@ -340,8 +351,7 @@ impl<T: DeserializeOwned> Cache<T> {
         self.io.file_opens += 1;
         count_io(true);
         let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-        let value: Arc<T> =
-            Arc::new(serde_json::from_slice(&bytes).map_err(|e| format!("INVALID_JSON: {e}"))?);
+        let value: Arc<T> = Arc::new(decode(&bytes)?);
         if let Some(old) = self.files.remove(path) {
             self.bytes -= old.stamp.len;
             self.recency.remove(&old.used);
