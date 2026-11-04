@@ -427,11 +427,12 @@ mod tests {
             ),
             "pending"
         );
+        let target = state.targets[0].target.clone();
         state.subscriptions.push(subscriptions::Subscription {
             id: "muted".into(),
             source_id: "peer".into(),
             channel: Channel::ClaudeSession,
-            target: state.targets[0].target.clone(),
+            target,
             op: "task_status".into(),
             args: json!({}),
             turn: None,

@@ -1,7 +1,7 @@
 //! A successful send is not proof that the controller received it.
 use super::*;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(super) struct Reachability {
     pub state: String,

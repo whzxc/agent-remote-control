@@ -2302,8 +2302,9 @@ async fn flush(
                 let _guard = lock.lock().await;
                 State::load(dir)?
                     .subscriptions
-                    .into_iter()
+                    .iter()
                     .find(|s| s.id == batch[0].deliveries[0].subscription)
+                    .cloned()
             };
             match sub {
                 Some(sub) => {
@@ -4613,7 +4614,7 @@ mod tests {
             count - 1
         );
         assert_eq!(file_cache::thread_io(), warm);
-        let state = governance::State::load(&dir.0).unwrap();
+        let mut state = governance::State::load(&dir.0).unwrap();
         state.save(&dir.0).unwrap();
         let path = dir.0.join("subscriptions/state.json");
         let before = file_cache::Stamp::read(&path).unwrap();
@@ -5464,10 +5465,11 @@ pub(crate) async fn account_sessions() -> Result<Vec<Value>> {
     let _guard = LOCK.lock().await;
     let state = governance::State::load(&directory())?;
     let now = chrono::Utc::now().timestamp();
-    let mut sessions: Vec<Value> = state.targets.into_iter().map(|mut t| {
-        t.reachability.expire(now);
+    let mut sessions: Vec<Value> = state.targets.iter().map(|t| {
+        let mut reachability = t.reachability.clone();
+        reachability.expire(now);
         json!({"sourceId":t.source_id,"accountId":t.account_id,"channel":t.channel,"target":t.target,
-            "registered":t.registered,"state":t.reachability.state,"verified":t.reachability.state == "verified",
+            "registered":t.registered,"state":reachability.state,"verified":reachability.state == "verified",
             "lastDelivery":t.batches.last().map(|b| json!({"at":b.at,"status":b.status})),"lastVerificationDelivery":t.reachability.delivery_status})
     }).collect();
     for sub in state

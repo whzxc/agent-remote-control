@@ -6,7 +6,7 @@ static SESSION: LazyLock<String> = LazyLock::new(id);
 static SERIAL: SyncMutex<()> = SyncMutex::new(());
 static PRESENCE: SyncMutex<Option<(String, String, i64)>> = SyncMutex::new(None);
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Routing {
     state: String,
@@ -14,7 +14,7 @@ pub(crate) struct Routing {
     paused_by: Option<String>,
     reason: String,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Entry {
     session: String,
@@ -219,14 +219,33 @@ fn routable(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
             }
     }))
 }
+static ENTRIES: LazyLock<SyncMutex<file_cache::Cache<Entry>>> = LazyLock::new(Default::default);
+fn decode_entry(bytes: &[u8]) -> Result<Entry> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|e| format!("INVALID_JSON: {e}"))?;
+    serde_json::from_value(value).map_err(|e| e.to_string())
+}
 fn load_entry(path: &Path) -> Result<Entry> {
-    serde_json::from_value(load(path)?).map_err(|e| e.to_string())
+    Ok(ENTRIES
+        .lock()
+        .map_err(|e| e.to_string())?
+        .read_with(path, decode_entry)?
+        .as_ref()
+        .clone())
 }
 fn save_entry(path: &Path, entry: &Entry) -> Result<()> {
+    let mut cache = ENTRIES.lock().map_err(|e| e.to_string())?;
+    if cache
+        .read_with(path, decode_entry)
+        .is_ok_and(|old| old.as_ref() == entry)
+    {
+        return Ok(());
+    }
+    let before = file_cache::Stamp::read(path.parent().unwrap())?;
     save(
         path,
         &serde_json::to_value(entry).map_err(|e| e.to_string())?,
-    )
+    )?;
+    cache.written(path, before, entry.clone())
 }
 
 pub(crate) fn observe(agent: &str, task: &str, request: &mut Value) -> Result<()> {

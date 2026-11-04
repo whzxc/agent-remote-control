@@ -1,7 +1,7 @@
 //! Persisted target buckets and reversible thread controls; no task decisions.
 use super::*;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Batch {
     pub id: String,
@@ -11,7 +11,7 @@ pub(super) struct Batch {
     pub status: String,
     pub charged: bool,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Target {
     #[serde(default)]
@@ -102,13 +102,13 @@ impl Target {
         }
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Rebind {
     pub channel: Channel,
     pub target: Option<String>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Thread {
     pub thread_id: String,
@@ -129,24 +129,14 @@ impl Thread {
         }
     }
 }
-#[derive(Default, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(super) struct State {
+#[derive(Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Data {
     pub targets: Vec<Target>,
     pub subscriptions: Vec<subscriptions::Subscription>,
     pub threads: Vec<Thread>,
 }
-impl State {
-    pub fn load(dir: &Path) -> Result<Self> {
-        let path = dir.join("subscriptions/state.json");
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-        Self::decode_ref(file_cache::shared_load(&path)?.as_ref())
-    }
-    pub(super) fn decode(value: Value) -> Result<Self> {
-        Self::decode_ref(&value)
-    }
+impl Data {
     fn decode_ref(value: &Value) -> Result<Self> {
         if !value.is_object() {
             return Err("Invalid notification state".into());
@@ -175,18 +165,77 @@ impl State {
                 .collect()
         }
         Ok(Self {
-            targets: rows(&value, "targets"),
-            subscriptions: rows(&value, "subscriptions"),
-            threads: rows(&value, "threads"),
+            targets: rows(value, "targets"),
+            subscriptions: rows(value, "subscriptions"),
+            threads: rows(value, "threads"),
         })
     }
-    pub fn save(&self, dir: &Path) -> Result<()> {
+}
+static CACHE: std::sync::LazyLock<std::sync::Mutex<file_cache::Cache<Data>>> =
+    std::sync::LazyLock::new(Default::default);
+
+/// Readers share a typed snapshot. The first mutable access detaches it; save compares typed
+/// state only after a mutation and never serializes an unchanged snapshot.
+#[derive(Default)]
+pub(super) struct State {
+    data: Arc<Data>,
+    saved: Option<Arc<Data>>,
+}
+impl std::ops::Deref for State {
+    type Target = Data;
+    fn deref(&self) -> &Data {
+        &self.data
+    }
+}
+impl std::ops::DerefMut for State {
+    fn deref_mut(&mut self) -> &mut Data {
+        Arc::make_mut(&mut self.data)
+    }
+}
+impl State {
+    pub fn load(dir: &Path) -> Result<Self> {
         let path = dir.join("subscriptions/state.json");
-        let value = serde_json::to_value(self).map_err(|e| e.to_string())?;
-        if file_cache::shared_load(&path).ok().as_deref() == Some(&value) {
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let data = CACHE
+            .lock()
+            .map_err(|e| e.to_string())?
+            .read_with(&path, |bytes| {
+                let value =
+                    serde_json::from_slice(bytes).map_err(|e| format!("INVALID_JSON: {e}"))?;
+                Data::decode_ref(&value)
+            })?;
+        Ok(Self {
+            saved: Some(data.clone()),
+            data,
+        })
+    }
+    pub(super) fn decode(value: Value) -> Result<Self> {
+        Ok(Self {
+            data: Arc::new(Data::decode_ref(&value)?),
+            saved: None,
+        })
+    }
+    pub fn save(&mut self, dir: &Path) -> Result<()> {
+        if self
+            .saved
+            .as_ref()
+            .is_some_and(|old| Arc::ptr_eq(old, &self.data) || old.as_ref() == self.data.as_ref())
+        {
             return Ok(());
         }
-        save(&path, &value)
+        let path = dir.join("subscriptions/state.json");
+        let value = serde_json::to_value(self.data.as_ref()).map_err(|e| e.to_string())?;
+        let before = file_cache::Stamp::read(path.parent().unwrap())?;
+        save(&path, &value)?;
+        CACHE.lock().map_err(|e| e.to_string())?.written(
+            &path,
+            before,
+            self.data.as_ref().clone(),
+        )?;
+        self.saved = Some(self.data.clone());
+        Ok(())
     }
     pub fn target(
         &mut self,
@@ -811,11 +860,11 @@ pub(super) fn bind_target_in(
 pub(crate) fn source_account(source_id: &str, target: &str) -> Result<String> {
     State::load(&directory())?
         .targets
-        .into_iter()
+        .iter()
         .find(|t| {
             t.source_id == source_id && t.channel == Channel::ClaudeSession && t.target == target
         })
-        .and_then(|t| t.account_id)
+        .and_then(|t| t.account_id.clone())
         .ok_or_else(|| {
             "ACCOUNT_SELECTION_REQUIRED: Bind this target with notify_control and an accountId"
                 .into()

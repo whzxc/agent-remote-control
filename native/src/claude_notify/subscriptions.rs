@@ -1,7 +1,7 @@
 //! One subscription contract and router for every notification channel.
 use super::*;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(super) struct Webhook {
     pub principal: String,
@@ -12,7 +12,7 @@ pub(super) struct Webhook {
     pub verified_until: i64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Subscription {
     pub id: String,
