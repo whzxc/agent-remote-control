@@ -6,7 +6,7 @@ MUST means a requirement. SHOULD means the default unless a concrete reason just
 
 The hub lets every control source reach the user's downstream MCP servers through ARC.
 A control source connects only ARC; ARC holds one set of downstream sessions for all of them.
-Agents configure the hub through catalog ops; the desktop workspace observes it and offers only enable, disable, reconnect and remove.
+Agents configure the hub through catalog ops; the desktop workspace observes it and offers only enable, disable, reconnect, remove and copyable Agent prompts.
 
 ## Ownership
 
@@ -26,6 +26,8 @@ The hub does not mount servers into dispatched Agent sessions.
 ## Catalog ops
 
 `query mcp_tools` lists servers with state and compact tool descriptions.
+Compact descriptions are the first sentence on one line, at most 160 characters.
+Compact tools carry `readOnly:true` or `destructive:true` only when the downstream server declares `readOnlyHint` or `destructiveHint`; they are downstream claims, not ARC guarantees.
 `server` returns that server's full tool definitions, including `inputSchema`.
 `server` with `tool` returns one definition.
 Listing connects enabled servers that have no tool list yet; `refresh:true` re-lists the selected servers.

@@ -248,6 +248,23 @@ async fn verify_fix_in(fix: &Value, projects: &Value) -> Result<()> {
     }
     Err("COORDINATION_FIX_UNVERIFIED: fixingCommit must exist as a commit in the registered local project; omit it only for an explicitly explained non-code recovery".into())
 }
+/// Readers own the notices and blockers they may update, close or clear; mark them so no owner ID comparison is needed.
+fn mark_owned(board: &mut Value, reader: &Principal) {
+    for key in ["notices", "blockers"] {
+        for row in board[key].as_array_mut().into_iter().flatten() {
+            let mine = match reader {
+                Principal::Source { source_id, .. } => {
+                    row["ownerSourceId"].as_str() == Some(source_id.as_str())
+                }
+                Principal::LocalAuthority => row["localOrigin"] == true,
+                _ => false,
+            };
+            if mine {
+                row["mine"] = json!(true);
+            }
+        }
+    }
+}
 pub(crate) async fn call(
     op: &str,
     mut args: Value,
@@ -266,6 +283,7 @@ pub(crate) async fn call(
                 for session in sessions { super::routing::session_projection(session)?; }
             }
             value["projectionPending"] = json!(projection.is_some() || with_store(|s| Ok(!s.state.pending.is_empty()))?);
+            mark_owned(&mut value, &reader.principal);
             value["attention"] = attention(&reader.principal).await;
             let lines: Vec<String> = value["attention"]["items"].as_array().into_iter().flatten()
                 .filter(|item| item["kind"] != "blocker")

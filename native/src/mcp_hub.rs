@@ -331,13 +331,25 @@ async fn ensure(server: &Server, refresh: bool) -> Result<Arc<Session>> {
     Err("MCP_SESSION_CLOSED: Retry the request".into())
 }
 
+/// First sentence on one line, at most 160 characters.
 fn short(text: &str) -> String {
-    let first = text.split_once(". ").map(|(a, _)| a).unwrap_or(text).trim();
+    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let first = line.split_once(". ").map(|(a, _)| a).unwrap_or(&line);
     let mut out: String = first.chars().take(160).collect();
     if first.chars().count() > 160 {
         out.push('…');
     }
     out
+}
+/// Compact index entry. readOnly and destructive repeat only explicit downstream annotations.
+fn compact_tool(tool: &Value) -> Value {
+    let mut row = json!({"name":tool["name"],"description":short(string(tool, "description"))});
+    if tool["annotations"]["readOnlyHint"] == true {
+        row["readOnly"] = json!(true);
+    } else if tool["annotations"]["destructiveHint"] == true {
+        row["destructive"] = json!(true);
+    }
+    row
 }
 fn public(server: &Server) -> Value {
     let endpoint = url::Url::parse(&server.url).ok().map(|mut url| {
@@ -375,7 +387,7 @@ fn status(server: &Server, compact: bool) -> Value {
         if live.listed {
             row["toolCount"] = json!(live.tools.len());
             row["tools"] = json!(live.tools.iter().map(|t| if compact {
-                json!({"name":t["name"],"description":short(string(t, "description"))})
+                compact_tool(t)
             } else {
                 json!({"name":t["name"],"title":t["title"],"description":t["description"],"annotations":t["annotations"]})
             }).collect::<Vec<_>>());

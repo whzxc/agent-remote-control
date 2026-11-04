@@ -7690,7 +7690,7 @@
     },
     {
       "name": "board",
-      "description": "Pull the shared metadata bulletin at turn start and before shared-resource work. attention lists matters waiting on the reader with a read-only next: owned AX candidates, owned live blockers, failed notification routes and, in Maintainer mode, due AX triage. Reading resolves nothing. Default summary has one line per active notice or uncleared blocker, with inactivity age; view:full includes editable detail. All authorized sources see all metadata. Claims warn and never reserve resources. Read lastActiveAt, inactivityAgeSeconds, observedAt and activityCoverage; unknown coverage is not an empty board. Six inactive hours withdraw notices and mark blockers stale, never cleared. Linked threads ending closes a notice; interruption remains pending for a successor. Pages cap at 100 / 128 KiB. Cursor expires after 15 minutes or a lifecycle/filter/authority change. No push or recovery broadcast.",
+      "description": "Pull the shared metadata bulletin at turn start and before shared-resource work. attention lists matters waiting on the reader with a read-only next: owned AX candidates, owned live blockers, failed notification routes and, in Maintainer mode, due AX triage. Reading resolves nothing. Default summary has one line per active notice or uncleared blocker, with inactivity age; view:full includes editable detail. Rows you own carry mine:true. All authorized sources see all metadata. Claims warn and never reserve resources. Read lastActiveAt, inactivityAgeSeconds, observedAt and activityCoverage; unknown coverage is not an empty board. Six inactive hours withdraw notices and mark blockers stale, never cleared. Linked threads ending closes a notice; interruption remains pending for a successor. Pages cap at 100 / 128 KiB. Cursor expires after 15 minutes or a lifecycle/filter/authority change. No push or recovery broadcast.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -8851,7 +8851,7 @@
     },
     {
       "name": "mcp_tools",
-      "description": "List the MCP hub: downstream MCP servers that ARC connects once for every control source, with state and tools. No args returns a compact index of every server and tool. server returns that server's full tool definitions, including inputSchema. server with tool returns one definition. Listing connects enabled servers that have no tool list yet; refresh:true re-lists the selected servers. Call tools with mcp_call and manage servers with mcp_configure.",
+      "description": "List the MCP hub: downstream MCP servers that ARC connects once for every control source, with state and tools. No args returns a compact index of every server and tool; index tools carry readOnly or destructive only when the downstream server declares that annotation, and these hints are server claims. server returns that server's full tool definitions, including inputSchema. server with tool returns one definition. Listing connects enabled servers that have no tool list yet; refresh:true re-lists the selected servers. Call tools with mcp_call and manage servers with mcp_configure.",
       "inputSchema": {
         "type": "object",
         "properties": {

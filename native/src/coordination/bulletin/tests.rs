@@ -398,6 +398,21 @@ fn notice_lifecycle_and_replay() {
     }
 }
 #[test]
+// Regression: board readers had to compare ownerSourceId UUIDs to find the notices they may update or close.
+fn board_marks_only_the_readers_own_records() {
+    let mut f = Fixture::new();
+    f.post();
+    let mut board = f.call("board", json!({}));
+    let other = Principal::Source {
+        source_id: "source-b".into(),
+        account_id: None,
+    };
+    mark_owned(&mut board, &other);
+    assert_eq!(board["notices"][0]["mine"], Value::Null);
+    mark_owned(&mut board, &f.actor);
+    assert_eq!(board["notices"][0]["mine"], true);
+}
+#[test]
 // Contract: simultaneous advisory claims both succeed and warn, including same-source sessions.
 fn conflicts_never_reserve_or_block() {
     let mut f = Fixture::new();

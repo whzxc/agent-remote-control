@@ -248,7 +248,7 @@ are ARC-issued, source-owned handles, pull-only until an explicitly verified
 
 Read `board` before shared-resource work. Its default summary
 contains one line per active notice or uncleared blocker, plus compact IDs,
-revisions, owners and activity metadata. `attention` lists matters waiting on
+revisions, owners and activity metadata. Rows the reader owns carry `mine:true`. `attention` lists matters waiting on
 the reader: owned AX candidates, owned live blockers, failed notification routes
 and, in Maintainer mode, due AX triage. Each item has `requiredActor`
 (`you`, `source` or `user`) and a read-only `next`; the summary appends one
@@ -327,8 +327,9 @@ Studio's running and pending-input counts retain their task-only meaning.
 
 `ui/coordination` owns bounded query results and view state. Current groups running
 tasks and published intent, resource blockers, and outstanding owner actions.
-Activity shows retained journal observations. Record details show the owner,
-resources, state and activity coverage. Raw metadata is disclosed on demand.
+Its filter chooses All, Needs attention, Task input or History. Activity shows
+retained journal observations by day. Record details show the owner, resources,
+state and activity coverage. Raw metadata is disclosed on demand.
 The desktop has no publication, editing or clearance forms. Owner links open the
 existing task, connection or update surface and restore the Board view and focus
 on return. Reading does not acknowledge messages, clear blockers or resume tasks.

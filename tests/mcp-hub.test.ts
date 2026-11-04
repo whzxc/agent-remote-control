@@ -9,7 +9,7 @@ import { nativeControl } from './helpers/native-control.ts';
 // announces a new tool through notifications/tools/list_changed.
 const server = `
 import { createInterface } from 'node:readline';
-const tools = [{ name: 'echo', description: 'Echo text. Second sentence.', inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }];
+const tools = [{ name: 'echo', description: 'Echo\\n  text. Second sentence.', annotations: { readOnlyHint: true }, inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }];
 const pages = () => [tools.slice(0, 1), tools.slice(1)];
 const send = message => process.stdout.write(JSON.stringify(message) + '\\n');
 for await (const line of createInterface({ input: process.stdin })) {
@@ -53,6 +53,8 @@ test('MCP hub exposes downstream tools to control sources through query and act'
     const index = await fixture.call('mcp_tools');
     assert.deepEqual(index.servers.map((row: any) => row.name), ['sample']);
     assert.equal(index.servers[0].tools[1].description, 'Echo text');
+    assert.equal(index.servers[0].tools[1].readOnly, true);
+    assert.equal(index.servers[0].tools[0].readOnly, undefined);
     const definition = await fixture.call('mcp_tools', { server: 'sample', tool: 'echo' });
     assert.equal(definition.tool.inputSchema.properties.text.type, 'string');
 
