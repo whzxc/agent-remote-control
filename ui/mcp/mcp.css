@@ -45,11 +45,11 @@
 
 .mcp-no-match { margin: 0; padding: 48px 0; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
 
-.mcp-empty { display: grid; justify-items: center; padding-top: 16px; text-align: center; }
+.mcp-empty { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-width: 0; padding-top: 16px; text-align: center; }
 .mcp-empty > .tile { color: var(--text-secondary); }
 .mcp-empty > h3 { margin-top: 16px; color: var(--text); font-size: var(--text-title); font-weight: 650; line-height: 24px; }
 .mcp-empty > p { margin: 10px 0 0; color: var(--text-secondary); font-size: var(--text-small); line-height: 20px; }
-.mcp-import { display: grid; justify-items: center; gap: 20px; width: 100%; max-width: 520px; margin-top: 26px; }
+.mcp-import { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 20px; min-width: 0; width: 100%; max-width: 520px; margin-top: 26px; }
 .mcp-empty .mcp-import { --choice-option-min-width: 113px; }
 .mcp-import > .prompt { width: 100%; text-align: left; }
 .mcp-add .mcp-import { justify-items: start; max-width: none; margin: 0; gap: 12px; }
