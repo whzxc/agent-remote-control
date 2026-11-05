@@ -1,6 +1,6 @@
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react';
 import { CheckCheck, Minus, Plus } from 'lucide-react';
-import { Button, Icon } from '../components/ui';
+import { IconButton } from '../components/ui';
 import { notify } from '../state/connector';
 import { t } from '../i18n';
 import { arcActionPositions, arcPath, type ArcActionGeometry } from './geometry';
@@ -26,11 +26,11 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
     root.current.querySelectorAll<HTMLElement>('[data-arc-action]').forEach((slot, index) => {
       const point = positions[index];
       if (!point) return;
-      Object.assign(slot.style, { left: `${point.x - 14}px`, top: `${point.y - 14}px` });
+      Object.assign(slot.style, { left: `${point.x - 15}px`, top: `${point.y - 15}px` });
       slot.style.setProperty('--action-dx', `${point.dx}px`); slot.style.setProperty('--action-dy', `${point.dy}px`);
       const bridge = slot.querySelector<HTMLElement>('.arc-action-bridge');
       if (bridge) Object.assign(bridge.style, { left: `${Math.min(0, point.dx)}px`, top: `${Math.min(0, point.dy)}px`,
-        width: `${28 + Math.abs(point.dx)}px`, height: `${28 + Math.abs(point.dy)}px` });
+        width: `${30 + Math.abs(point.dx)}px`, height: `${30 + Math.abs(point.dy)}px` });
     });
   };
   useImperativeHandle(ref, () => ({ place }));
@@ -44,13 +44,10 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
     }} /></svg>
     {actions.map(action => <div key={action.id} data-arc-action={action.id} className="arc-action-slot">
       <span className="arc-action-bridge" aria-hidden="true" />
-      <Button variant="ghost" className="arc-action-button" aria-label={action.label} disabled={action.disabled}
+      <IconButton compact variant="ghost" icon={action.icon} className="arc-action-button" label={action.label} disabled={action.disabled}
         aria-expanded={action.id === 'collapse' ? !collapsed : undefined} onPointerDown={event => event.stopPropagation()} onClick={() => {
           try { action.run(); onOpen(false); requestAnimationFrame(onDismiss); } catch (error) { notify(String(error), true); }
-        }}><svg className="arc-action-glyph" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="10" fill="var(--account-color)" />
-          <g transform="translate(2 2)" color="var(--canvas)"><Icon icon={action.icon} /></g>
-        </svg></Button>
+        }} />
     </div>)}
   </div>;
 }

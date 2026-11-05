@@ -645,13 +645,14 @@
 
 /* The solver owns layout; one imperative frame writes HTML and SVG geometry. */
 .home-workspace .connection-core { display: block; padding: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
-.connection-graph.topology-scene { position: relative; display: block; width: 100%; max-width: none; margin: 0; }
+.connection-graph.topology-scene { color: var(--text); position: relative; display: block; width: 100%; max-width: none; margin: 0; }
+:root[data-theme-color="arc"] .topology-scene { --topology-source: var(--role-source); --topology-agent: var(--role-agent); }
 .topology-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
 .topology-hub { position: absolute; left: 0; top: 0; z-index: 2; }
 .topology-hub .graph-brand { width: 100%; height: 100%; user-select: none; pointer-events: none; }
 .hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; }
 .hub-source { left: calc(14 / 92 * 100%); --hub-color: var(--topology-source); --hub-dot-scale: var(--source-dot-scale, 1); }
-.hub-agent { left: calc(78 / 92 * 100%); --hub-color: var(--mark-agent-end); --hub-dot-scale: var(--agent-dot-scale, 1); }
+.hub-agent { left: calc(78 / 92 * 100%); --hub-color: var(--topology-agent); --hub-dot-scale: var(--agent-dot-scale, 1); }
 .hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
 .hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow 180ms ease; pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
@@ -659,23 +660,23 @@
 .topology-hub:hover .hub-symbol, .topology-hub:has(.hub-entry:focus-visible) .hub-symbol, .hub-entry[data-empty] .hub-symbol { opacity: 1; transform: none; }
 .topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 6px 2px color-mix(in srgb, var(--hub-color) 45%, transparent); }
 .hub-entry[data-empty] .hub-dot::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--hub-color); border-radius: 50%; animation: hub-ripple 2s ease-out infinite; }
-.hub-hint { position: absolute; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); font-size: 12px; font-weight: 400; white-space: nowrap; pointer-events: none; animation: hub-hint-in 300ms ease both; }
-.hub-source .hub-hint { right: calc(100% + var(--hub-dot-size) * 0.75); }
-.hub-agent .hub-hint { left: calc(100% + var(--hub-dot-size) * 0.75); }
 @keyframes hub-ripple { from { transform: scale(1); opacity: .45; } 80%, to { transform: scale(1.7); opacity: 0; } }
-@keyframes hub-hint-in { from { opacity: 0; } to { opacity: 1; } }
 :root[data-reduced-motion="true"] {
   .hub-dot, .hub-symbol { transition: none; }
   .hub-symbol { transform: none; }
   .hub-entry[data-empty] .hub-dot::after { animation: none; display: none; }
-  .hub-hint { animation: none; }
 }
-.topology-node { position: absolute; left: 0; top: 0; width: 44px; height: 44px; transform-origin: center; z-index: 2; }
+/* Normalize the 44px HTML shell to the solver's 42px default node size. */
+.topology-node { --node-art-scale: calc(44 / 42); position: absolute; left: 0; top: 0; width: 44px; height: 44px; transform-origin: center; z-index: 2; }
 .topology-node .graph-node { width: 44px; height: 44px; margin: 0; --agent-quota-size: 44px; }
 .topology-node .source-icon, .topology-node .source-icon > span { display: grid; place-items: center; width: 44px; height: 44px; }
-.topology-node .source-icon svg { width: 38px; height: 38px; }
-.topology-node .agent-quota-icon:not(.has-quota) .agent-logo { width: 38px; height: 38px; }
-.graph-node-name { line-height: 14px; }
+.topology-node .source-icon svg { width: calc(38px * var(--node-art-scale)); height: calc(38px * var(--node-art-scale)); }
+.topology-node .agent-quota-icon:not(.has-quota) .agent-logo { width: calc(38px * var(--node-art-scale)); height: calc(38px * var(--node-art-scale)); }
+.topology-node .graph-node-name { top: calc(50% + 36px * var(--node-art-scale)); transform: translate(-50%, -50%); max-width: calc(110px * var(--node-art-scale)); line-height: calc(14px * var(--node-art-scale)); font-size: calc(var(--text-meta) * var(--node-art-scale)); color: var(--text); }
+.topology-node .agent-quota-icon.has-quota .agent-logo { width: calc(28px * var(--node-art-scale)); height: calc(28px * var(--node-art-scale)); }
+.topology-node .quota-outline { inset: calc((44px - 48px * var(--node-art-scale)) / 2); width: calc(48px * var(--node-art-scale)); height: calc(48px * var(--node-art-scale)); stroke-width: 2; stroke-linecap: butt; }
+.topology-node .quota-track { stroke: var(--border-strong); }
+.topology-node .quota-time-tick { stroke-width: 1.75; stroke-linecap: butt; }
 .graph-node[data-connection-state="inactive"] .source-icon,
 .graph-node[data-connection-state="inactive"] .agent-logo,
 .graph-node[data-connection-state="inactive"] .graph-node-name { opacity: 0.38; }
@@ -690,13 +691,10 @@
 .topology-wires .connecting-wire { fill: none; stroke: var(--wire-color); stroke-opacity: 0.5; stroke-linecap: round; stroke-dasharray: 2 9; animation: graph-connecting calc(1.1s * var(--topology-time-scale, 1)) linear infinite; }
 .topology-wires .right .connecting-wire { animation-direction: reverse; }
 .topology-wires .secondary { --task-color: var(--wire-color); }
-.topology-wires .secondary[data-state="needsYou"] { --task-color: var(--warning); }
-.topology-wires .secondary[data-state="done"] { --task-color: var(--success); }
 .topology-wires .secondary[data-state="failed"] { --task-color: var(--danger); }
 .topology-wires .secondary:is([data-state="interrupted"], [data-state="unknown"]) { --task-color: var(--text-tertiary); }
 .topology-wires .secondary[data-state="summary"] { --task-color: var(--border-strong); }
-.topology-wires .task-body { fill: var(--task-color); opacity: 0.62; }
-.topology-wires .secondary[data-state="done"] .task-body { opacity: 0.25; }
+.topology-wires .task-body { fill: var(--task-color); }
 .topology-wires .activity-flow { fill: none; stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 17; animation: activity-flow calc(1s * var(--topology-time-scale, 1)) linear infinite; }
 @keyframes graph-connecting { to { stroke-dashoffset: -11; } }
 .activity-slot { position: absolute; left: 0; top: 0; z-index: 3; }
@@ -1194,13 +1192,12 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-arc-actions[hidden] { display: none; }
 .arc-action-hit { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .arc-action-hit path { fill: none; stroke: transparent; stroke-width: 28px; pointer-events: stroke; }
-.arc-action-slot { position: absolute; width: 28px; height: 28px; pointer-events: none; }
+.arc-action-slot { position: absolute; width: 30px; height: 30px; pointer-events: none; }
 .arc-action-bridge { position: absolute; pointer-events: none; }
-.topology-arc-actions .arc-action-button { position: relative; z-index: 1; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 2px; border: 0; border-radius: 50%; background: transparent; opacity: 0; transform: scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
-.topology-arc-actions .arc-action-button:hover:not(:disabled) { background: transparent; }
-.arc-action-glyph { display: block; flex: none; width: 18px; height: 18px; transition: filter 140ms ease; }
-.arc-action-glyph .icon { stroke-width: 3; }
-.arc-action-button:hover .arc-action-glyph { filter: brightness(1.12); }
+.topology-arc-actions .arc-action-button { position: relative; z-index: 1; background: transparent; opacity: 0; transform: scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
+.topology-arc-actions .arc-action-button:is(:hover, [aria-expanded="true"]):not(:disabled) { background: transparent; }
+.arc-action-button::before { content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: var(--account-color); }
+.arc-action-button > .icon { position: relative; color: var(--canvas); }
 .topology-arc-actions:is([data-open], :focus-within) .arc-action-button { opacity: 1; transform: translate(var(--action-dx), var(--action-dy)); pointer-events: auto; }
 .topology-arc-actions:is([data-open], :focus-within) .arc-action-bridge { pointer-events: auto; }
 :root[data-reduced-motion="true"] { .arc-action-button { transition: none; } }
@@ -1232,7 +1229,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-hub .graph-brand { transform: rotate(var(--hub-rotation, 0deg)); }
 .hub-source { left: var(--source-dot-x, calc(14 / 92 * 100%)); top: var(--source-dot-y, 50%); }
 .hub-agent { left: var(--agent-dot-x, calc(78 / 92 * 100%)); top: var(--agent-dot-y, 50%); }
-.topology-scene[data-orientation="portrait"] .hub-hint { display: none; }
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node,
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
 .topology-scene[data-orientation="portrait"] :is(.graph-node-name, .agent-auto-compact) {
@@ -1276,17 +1272,14 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-arc[aria-disabled="true"] { cursor: default; }
 .hub-arc[aria-busy="true"] { cursor: progress; }
 .hub-arc-stroke { transition: opacity 160ms ease, stroke 160ms ease; }
-.hub-arc[data-state="empty"] .hub-arc-stroke { stroke-dasharray: 35 30 35; }
 .hub-arc[data-state="stopped"] .hub-arc-stroke { opacity: .38; stroke-dasharray: 22 16 24 16 22; }
 .hub-arc[data-state="unknown"] .hub-arc-stroke { opacity: .45; stroke-dasharray: 4 8; }
 .hub-arc[data-state="partial"] .hub-arc-stroke { stroke: var(--warning); stroke-dasharray: 64 16 20; }
 .hub-arc[data-state="error"] .hub-arc-stroke { stroke: var(--danger); stroke-dasharray: 22 16 24 16 22; }
 .hub-arc:is([data-state="starting"], [data-state="stopping"]) .hub-arc-stroke { stroke-dasharray: 18 9; animation: hub-connection-progress 1.8s linear infinite; }
-.hub-power-symbol { opacity: 0; transition: opacity 150ms ease; }
-.hub-power:not([aria-disabled="true"]):is(:hover, :focus-visible) .hub-power-symbol { opacity: 1; }
 @keyframes hub-connection-progress { to { stroke-dashoffset: -54; } }
-:root[data-reduced-motion="true"] { .hub-arc-stroke, .hub-power-symbol { transition: none; animation: none; } }
-@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) :is(.hub-arc-stroke, .hub-power-symbol) { transition: none; animation: none; } }
+:root[data-reduced-motion="true"] { .hub-arc-stroke { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-arc-stroke { transition: none; animation: none; } }
 .hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }
 
 /* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */

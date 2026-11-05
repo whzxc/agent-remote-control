@@ -3,8 +3,8 @@ import { animate } from "motion";
 import { reducedMotion } from "../motion/surface";
 import { t } from "../i18n";
 import { hubMarkGeometry } from "./geometry";
-import { Power } from 'lucide-react';
-import { Icon, Tooltip } from '../components/ui';
+import { Plus, Power } from 'lucide-react';
+import { Button, Icon, Tooltip } from '../components/ui';
 import type { ConnectionReadiness } from '../connectionReadiness';
 
 export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connectionEmpty, connectionState, onConnections, accessState, accessRunning, accessDisabled, onAccess, onAddSource, onManageAgents }: {
@@ -30,30 +30,27 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
     onBlur: () => setFocused(undefined),
   });
   return <>
-    <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control">
-      <defs><linearGradient id={`${id}-arc`} gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="92" y2="50">
-        <stop stopColor="var(--mark-agent-start)" /><stop offset="1" stopColor="var(--mark-agent-end)" />
-      </linearGradient></defs>
-    </svg>
+    <svg className="graph-brand" viewBox="4 4 92 92" role="img" aria-label="Agent Remote Control" />
     <div ref={top} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip text={connectionEmpty && !readOnly ? t('source.newConnection') : `${t('connections.title')} · ${t(`connectionState.${connectionState}`)}`}>
       <button type="button" className="hub-connections hub-arc" data-state={connectionEmpty ? 'empty' : connectionState} aria-label={t(connectionEmpty && !readOnly ? "source.newConnection" : "connections.title")} aria-description={t(`connectionState.${connectionState}`)} aria-haspopup="dialog"
+      tabIndex={connectionEmpty && !readOnly ? -1 : undefined} aria-hidden={connectionEmpty && !readOnly || undefined}
       data-panel-anchor onClick={onConnections} {...interaction('top')}>
       <svg viewBox="4 4 92 92" aria-hidden="true">
         <path data-hub-arc="top" d={mark.top} fill="none" stroke="transparent" strokeWidth="18" />
         <path className="hub-arc-stroke" data-hub-arc="top" data-panel-visual d={mark.top} fill="none" stroke="var(--topology-source)" strokeWidth="9" strokeLinecap="round" pathLength="100" />
       </svg>
-      {!readOnly && connectionEmpty && <span className="hub-connection-add rounded-full border border-solid border-border bg-background px-3 py-2 text-sm shadow-sm">+ {t("source.newConnection")}</span>}
-    </button></Tooltip></div></div>
+    </button></Tooltip>
+      {!readOnly && connectionEmpty && <Button className="hub-connection-add" data-panel-anchor aria-haspopup="dialog" onClick={onConnections} {...interaction('top')}>
+        <Icon icon={Plus} />{t("source.newConnection")}
+      </Button>}
+    </div></div>
     <div ref={bottom} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip side="bottom" text={readOnly || accessDisabled ? accessDescription : `${accessDescription} · ${action}`}>
       <button type="button" className="hub-power hub-arc" data-state={accessState} aria-label={readOnly ? accessDescription : action} aria-description={accessDescription}
         disabled={readOnly} aria-pressed={accessRunning} aria-busy={pending} aria-disabled={readOnly || accessDisabled} {...interaction('bottom')} onClick={() => { if (!readOnly && !accessDisabled) onAccess(); }}>
         <svg viewBox="4 4 92 92" aria-hidden="true">
-          <defs><mask id={`${id}-power`} maskUnits="userSpaceOnUse" x="4" y="4" width="92" height="92" style={{ maskType: 'luminance' }}>
-            <rect x="4" y="4" width="92" height="92" fill="white" />
-            <g className="hub-power-symbol" transform="translate(46 78) scale(.5)" color="black"><Icon icon={Power} /></g>
-          </mask></defs>
           <path data-hub-arc="bottom" d={mark.bottom} fill="none" stroke="transparent" strokeWidth="18" />
-          <path className="hub-arc-stroke" data-hub-arc="bottom" d={mark.bottom} fill="none" stroke={`url(#${id}-arc)`} strokeWidth="9" strokeLinecap="round" pathLength="100" mask={`url(#${id}-power)`} />
+          <path className="hub-arc-stroke" data-hub-arc="bottom" d={mark.bottom} fill="none" stroke="var(--topology-agent)" strokeWidth="9" strokeLinecap="round" pathLength="100" />
+          <g transform="translate(46.55 78.37) scale(.383333)" color="var(--canvas)"><Icon size={18} icon={Power} /></g>
         </svg>
       </button></Tooltip></div></div>
     {(["source", "agent"] as const).map(side => {
@@ -64,23 +61,19 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
         <span className="hub-dot" data-panel-visual>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <defs>
-              <linearGradient id={`${id}-${side}-fill`} gradientUnits="userSpaceOnUse" x1="-54" y1="10" x2="20" y2="10">
-                <stop stopColor="var(--mark-agent-start)" /><stop offset="1" stopColor="var(--mark-agent-end)" />
-              </linearGradient>
               <mask id={`${id}-${side}-mask`} maskUnits="userSpaceOnUse" x="0" y="0" width="20" height="20" style={{ maskType: "luminance" }}>
                 <rect width="20" height="20" fill="white" />
-                <g className="hub-symbol" fill="black" stroke="black" strokeWidth="2.5" strokeLinecap="round">
-                  <g transform="translate(10 10) scale(.72) translate(-10 -10)">
-                    {source || empty ? <path d="M3.75 10H16.25 M10 3.75V16.25" />
+                <g className="hub-symbol" fill="black" stroke="black" strokeWidth=".67" strokeLinecap="round">
+                  <g>
+                    {source || empty ? <g transform="translate(6.55 6.55) scale(.383333)" color="black"><Icon icon={Plus} size={18} /></g>
                       : <g stroke="none"><circle cx="4" cy="10" r="1.5" /><circle cx="10" cy="10" r="1.5" /><circle cx="16" cy="10" r="1.5" /></g>}
                   </g>
                 </g>
               </mask>
             </defs>
-            <circle cx="10" cy="10" r="10" fill={source ? "var(--topology-source)" : `url(#${id}-${side}-fill)`} mask={`url(#${id}-${side}-mask)`} />
+            <circle cx="10" cy="10" r="10" fill={source ? "var(--topology-source)" : "var(--topology-agent)"} mask={`url(#${id}-${side}-mask)`} />
           </svg>
         </span>
-        {empty && <span className="hub-hint" aria-hidden="true">{label}</span>}
       </button>;
     })}
   </>;

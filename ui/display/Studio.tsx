@@ -42,12 +42,13 @@ function StudioActivity() {
   const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const { snapshot, error } = agentActivity.use();
   const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
+  const summary = error ? t('studio.activityUnavailable') : !snapshot ? t('loading') : [
+    running > 0 ? t('studio.running', { count: running }) : '',
+    needsYou > 0 ? t('studio.pending', { count: needsYou }) : '',
+  ].filter(Boolean).join(' · ');
   return <div className="studio-activity" role="status" aria-label={t('studio.activity')} aria-live="polite" aria-atomic="true">
-    <Button id="board-trigger" variant="ghost" className="studio-activity-trigger" aria-label={t('center.open')} aria-haspopup="dialog" onClick={() => openCenter()}>
-      {error ? <span>{t('studio.activityUnavailable')}</span> : !snapshot ? <span>{t('loading')}</span> : running || needsYou ? <>
-        {running > 0 && <span className="studio-running">{t('studio.running', { count: running })}</span>}
-        {needsYou > 0 && <span className="studio-pending">{t('studio.pending', { count: needsYou })}</span>}
-      </> : <span>{t('center.title')}</span>}
+    <Button id="board-trigger" variant="ghost" className="studio-activity-trigger" aria-label={t('center.open')} aria-description={summary || undefined} aria-haspopup="dialog" onClick={() => openCenter()}>
+      <span>{[t('center.title'), summary].filter(Boolean).join(' · ')}</span>
     </Button>
   </div>;
 }
@@ -65,12 +66,12 @@ export function StudioBackground({ headerVisible }: { headerVisible: boolean }) 
       <div className="studio-atmosphere" />
       <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
     </div>}
-    {headerVisible && <header className={`studio-header ${enabled ? '' : 'activity-only'}`}>
-      {enabled && <time className="studio-time" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
-        <span className="studio-date">{new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date)} · {new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date)}</span>
-        <span className="studio-clock">{new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}</span>
-      </time>}
+    {headerVisible && <header className="studio-header">
       <StudioActivity />
+      {enabled && <time className="studio-time" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
+        <span>{new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date)} · {new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date)}</span>
+        {' · '}<span>{new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}</span>
+      </time>}
     </header>}
   </>;
 }

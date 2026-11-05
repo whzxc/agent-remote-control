@@ -251,7 +251,7 @@ export default function App() {
     ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
-    <div
+    <div role="region" aria-label="ARC homepage"
       className={`app-scene ${sheetWide ? "sheet-wide" : ""} ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
       data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => capturePanelOrigin(e.target)}
