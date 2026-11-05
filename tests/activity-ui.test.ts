@@ -543,3 +543,28 @@ test("durable activity reads retain only recent unique agent-task acknowledgemen
   assert.equal(bounded.every(row => now - row.readAt < activityReadRetention.maxAge), true);
   assert.deepEqual(bounded.map(row => row.readAt), Array.from({ length: activityReadRetention.maxEntries }, (_, index) => now - index));
 });
+
+test('large families share overflow without hiding independent roots or pending children', () => {
+  // Regression: child overflow flattened related tasks into the Agent queue and concealed independent roots.
+  const parent = { ...session('parent'), orderAt: 0 };
+  const children = Array.from({ length: 7 }, (_, index) => ({ ...session(`child-${index}`, index === 6 ? permission : undefined), parentSessionId: parent.id, relationKind: index === 0 ? 'side-chat' as const : 'subagent' as const, orderAt: index + 1 }));
+  const root = { ...session('independent'), orderAt: 9 };
+  const rows = [parent, ...children, root];
+  const shown = visibleActivity(rows);
+  assert.ok(shown.sessions.includes(root));
+  assert.ok(shown.sessions.includes(children[6]));
+  assert.deepEqual(shown.hiddenGroups.map(group => ({ parentId: group.parentId, ids: group.sessions.map(row => row.id) })), [{ parentId: parent.id, ids: ['child-3', 'child-4', 'child-5'] }]);
+  assert.equal(visibleActivity(rows, children[5].id).sessions.includes(children[5]), true);
+  assert.equal(visibleActivity(rows, undefined, true).sessions.length, rows.length);
+  const otherChildren = Array.from({ length: 5 }, (_, index) => ({ ...session(`other-child-${index}`), parentSessionId: root.id, orderAt: index + 10 }));
+  const expandedFamily = visibleActivity([...rows, ...otherChildren], undefined, parent.id);
+  assert.ok(children.every(child => expandedFamily.sessions.includes(child)));
+  assert.deepEqual(expandedFamily.hiddenGroups.map(group => group.parentId), [root.id]);
+  const grandchild = { ...session('pending-grandchild', permission), parentSessionId: children[4].id, orderAt: 10 };
+  const nested = visibleActivity([...rows, grandchild]);
+  assert.ok(nested.sessions.includes(grandchild));
+  assert.ok(nested.sessions.includes(children[4]));
+  const tracked = trackActivity([children[0]], [{ ...children[0], relationKind: undefined, parentSessionId: undefined }], 100);
+  assert.equal(tracked[0].relationKind, 'side-chat');
+  assert.equal(tracked[0].parentSessionId, parent.id);
+});

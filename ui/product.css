@@ -1161,3 +1161,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 
 
 .app-scene:not(.sheet-wide):has(.settings-page, .experimental-settings) { --sheet-width: min(720px, calc(100vw - 2 * var(--sheet-inset))); }
+
+.task-family-wire { fill: none; stroke: var(--border-strong); stroke-width: 1.75; stroke-linecap: round; }
+.activity-bubble.activity-family-summary { width: fit-content; max-width: 100%; min-height: 36px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-subtle); box-shadow: none; font-size: var(--text-meta); color: var(--text-secondary); }
+.topology-scene[data-orientation="portrait"] .activity-family-summary { margin-left: auto; }

@@ -335,6 +335,11 @@ try {
           await summary.waitFor({ state: 'visible' });
           await taskButton(fixture.tasks[1]).waitFor({ state: 'hidden' });
         }
+        if (fixture.taskRelationships) {
+          const { verifyTaskRelationships } = await import('./task-relationships.mjs');
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await verifyTaskRelationships(page, fixture, messages, out, key, screenshots);
+        }
         if (fixture.detailTask !== undefined) {
           // Semantic snapshots exclude aria-hidden Radix form inputs and visual announcement mirrors.
           row.taskAccessibility = await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).ariaSnapshot();

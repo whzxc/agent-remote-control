@@ -35,6 +35,7 @@ pub(super) struct TurnClock {
     project: Option<String>,
     created_at: Value,
     parent_session_id: Option<String>,
+    relation_kind: Option<&'static str>,
 }
 #[derive(Clone)]
 pub(super) struct External {
@@ -384,6 +385,7 @@ fn scan_paths(
             session["startedAt"] = clock.created_at.clone();
             if let Some(parent) = &clock.parent_session_id {
                 session["parentSessionId"] = json!(parent);
+                session["relationKind"] = json!(clock.relation_kind);
             }
             session["turnCount"] = json!(clock.turns.len());
             if !clock.turn_id.is_empty() {
@@ -489,11 +491,20 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
         return;
     }
     if agent == "codex" && record["type"] == "session_meta" {
-        clock.parent_session_id = record["payload"]["source"]["subagent"]["thread_spawn"]
-            ["parent_thread_id"]
+        let payload = &record["payload"];
+        let (parent, kind) = if payload["attached_thread"] == true {
+            (&payload["forked_from_id"], "side-chat")
+        } else {
+            (
+                &payload["source"]["subagent"]["thread_spawn"]["parent_thread_id"],
+                "subagent",
+            )
+        };
+        clock.parent_session_id = parent
             .as_str()
-            .filter(|parent| !parent.is_empty())
+            .filter(|id| !id.is_empty())
             .map(str::to_owned);
+        clock.relation_kind = clock.parent_session_id.as_ref().map(|_| kind);
     }
     if record["isSidechain"] == true {
         return;
@@ -815,11 +826,37 @@ mod tests {
         assert_eq!(row["id"], "00000000-0000-4000-8000-000000000001");
         assert_eq!(row["turnCount"], 1);
         assert_eq!(row["title"], "Review a module");
+        assert_eq!(row["relationKind"], "subagent");
         append(&path, &tool_call("codex", "read-next", &at));
         assert_eq!(
             snapshot(&directory, "codex", now, &mut cache)["parentSessionId"],
             "parent-thread"
         );
+    }
+
+    #[test]
+    fn codex_side_chat_keeps_its_relationship_after_tail_sampling() {
+        // Regression: attached Codex side chats appeared as independent tasks with no relationship type.
+        let (directory, path, now, at) = fixture();
+        append(
+            &path,
+            &[json!({"type":"session_meta","timestamp":at,"payload":{
+                "id":"00000000-0000-4000-8000-000000000001", "source":"vscode",
+                "attached_thread":true, "forked_from_id":"parent-thread"
+            }})],
+        );
+        append(&path, &prompt("codex", "turn", "Discuss the design", &at));
+        append(&path, &tool_call("codex", "read-first", &at));
+        append(&path, &large_tool_output("codex", "read-first", &at));
+        append(&path, &tool_call("codex", "read-tail", &at));
+        let mut cache = ScanCache::default();
+        let row = snapshot(&directory, "codex", now, &mut cache);
+        assert_eq!(row["parentSessionId"], "parent-thread");
+        assert_eq!(row["relationKind"], "side-chat");
+        append(&path, &tool_call("codex", "read-next", &at));
+        let row = snapshot(&directory, "codex", now, &mut cache);
+        assert_eq!(row["parentSessionId"], "parent-thread");
+        assert_eq!(row["relationKind"], "side-chat");
     }
 
     #[test]

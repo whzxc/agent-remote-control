@@ -84,6 +84,7 @@ export interface AgentInteraction {
 }
 export interface AgentActivitySession {
   parentSessionId?: string;
+  relationKind?: "side-chat" | "subagent";
   turnCount?: number;
   projectName?: string | null;
   dispatchSummary?: DispatchSummary;

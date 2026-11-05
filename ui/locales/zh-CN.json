@@ -1563,5 +1563,9 @@
   "center.coverage.clock-uncertain": "活动时间不确定",
   "center.coverage.unavailable": "观察暂不可用",
   "updates.installing": "正在安装并重启…",
-  "browser.accessDenied": "网页访问 key 已失效，请使用 ARC 当前的访问链接重新打开。"
+  "browser.accessDenied": "网页访问 key 已失效，请使用 ARC 当前的访问链接重新打开。",
+  "activity.relation.side-chat": "Side chat",
+  "activity.relation.subagent": "Subagent",
+  "activity.parentThread": "所属主线程",
+  "activity.moreChildren": "展开其余 {count} 项"
 }

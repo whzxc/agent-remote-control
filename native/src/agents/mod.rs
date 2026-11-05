@@ -601,7 +601,13 @@ impl AgentHost {
                 .and_then(|agent| agent["sessions"].as_array_mut())
                 .and_then(|sessions| sessions.iter_mut().find(|live| live["id"] == session["id"]))
             {
-                for field in ["title", "project", "startedAt", "parentSessionId"] {
+                for field in [
+                    "title",
+                    "project",
+                    "startedAt",
+                    "parentSessionId",
+                    "relationKind",
+                ] {
                     if live[field].as_str().is_none_or(str::is_empty) && session[field].is_string()
                     {
                         live[field] = session[field].clone();

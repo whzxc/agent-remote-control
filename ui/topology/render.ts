@@ -1,3 +1,4 @@
+import { taskFamilyWires } from "./taskFamilies";
 import { deg, type Side, type Layout, type Point } from "./solve";
 import { arcPath, grownWire, tentacle, finitePoints } from "./geometry";
 import { TopologyAnimator, nodeKey, taskKey } from "./animate";
@@ -95,16 +96,26 @@ export class TopologyPainter {
     const bridges: PaintTask[] = panel ? nodes.filter(n => n.selected).map(n => ({
       id: `panel:${n.id}`, parent: n.id, side: n.side, state: "running" as const, selected: true,
     })) : [];
-    for (const t of [...tasks, ...bridges]) {
+    for (const family of taskFamilyWires(tasks, task => animator.values(taskKey(task.side, task.id)))) {
+      const draw = (key: string, d: string, opacity: number, hit = false) => {
+        keep.add(key);
+        const b = this.branch(key);
+        attr(b.group, { class: "topology-family", opacity });
+        attr(b.outline, { d, class: "task-family-wire" });
+        attr(b.flow, { d: "" });
+        attr(b.hit, { d: hit && animator.live.get(key)?.alive && opacity > 0.02 ? d : "" });
+      };
+      draw(taskKey(family.parent.side, `${family.parent.id}:family`), family.d, family.opacity);
+      for (const branch of family.branches) draw(taskKey(branch.task.side, branch.task.id), branch.d, branch.opacity, true);
+    }
+    for (const t of [...tasks, ...bridges].filter(task => !task.parentTaskId)) {
       const key = taskKey(t.side, t.id), n = animator.values(nodeKey(t.side, t.parent));
       const bridge = bridges.includes(t);
       const v = bridge && n ? { x: n.x, y: n.y, port: 0, op: 1, bodyOpacity: 0.62, emphasis: n.emphasis } : animator.values(key);
       if (!v || !n) continue;
       keep.add(key);
-      const ancestor = t.parentTaskId ? animator.values(taskKey(t.side, t.parentTaskId)) : undefined;
-      const b = this.branch(key), a = deg(v.port), radial = ancestor ? { x: 0, y: 1 } : { x: t.side * Math.cos(a), y: Math.sin(a) };
-      const port = ancestor ? { x: ancestor.x + ((t.side === 1 ? 0 : 1) - ancestor.anchor) * ancestor.width + t.side * 12, y: ancestor.y + ancestor.height / 2 }
-        : { x: n.x + n.radius * radial.x, y: n.y + n.radius * radial.y };
+      const b = this.branch(key), a = deg(v.port), radial = { x: t.side * Math.cos(a), y: Math.sin(a) };
+      const port = { x: n.x + n.radius * radial.x, y: n.y + n.radius * radial.y };
       const end = bridge && panel ? { x: t.side === 1 ? panel.x : panel.x + panel.width,
         y: clamp(v.y, panel.y + 27, panel.y + panel.height - 27) } : { x: v.x + ((t.side === -1 ? 1 : 0) - (v.anchor ?? 0)) * (v.width ?? 0), y: v.y };
       const shape = tentacle(end, port, radial, t.side, scale, { t2End: p.t2End, t2Root: p.t2Root, flare: p.flare });

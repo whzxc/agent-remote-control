@@ -18,7 +18,7 @@ import { activityApprovals, agentActivity, openActivitySession } from "../state/
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
-import { dispatchSourceLabel, SourceBadge } from "./activity";
+import { dispatchSourceLabel, SourceBadge, PhaseLabel } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
 import { isTaskId, taskState } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";
@@ -27,6 +27,9 @@ import { timelineDuration, timelineGroups, turnDuration } from "../state/timelin
 import TaskNeedsYou from "./TaskNeedsYou";
 import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
+import { trackedActivity } from "../state/activityBubbles";
+import { selectAgentPanel } from "../state/overviewPanels";
+import { TaskRelation, TaskParentLink } from "./ui/TaskRelation";
 import type { TaskRuntime } from "../state/tasks";
 
 import { name, orderedAgents } from "../state/agents";
@@ -35,6 +38,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   agent: string; session: TrackedActivity; expanded: boolean; onToggleWidth: () => void; onBack: () => void; titleId?: string; resizable?: boolean;
 }) {
   const { snapshot } = agentActivity.use();
+  const tracked = trackedActivity.use();
   const detail = useRef<HTMLElement>(null);
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
@@ -60,6 +64,20 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const following = useRef(true), initial = useRef(true), previousRunning = useRef(true), previousTop = useRef(0);
   const manualDisclosure = useRef(false);
   const live = snapshot?.agents[agent]?.sessions.find(s => s.id === session.id && (!session.selectedTurnId || s.turnId === session.selectedTurnId));
+  const trackedSession = tracked[agent]?.find(row => row.id === session.id || row.nativeSessionId === session.id);
+  const relationKind = live?.relationKind ?? session.relationKind ?? trackedSession?.relationKind;
+  const parentId = live?.parentSessionId ?? session.parentSessionId ?? trackedSession?.parentSessionId;
+  const parent = parentId ? tracked[agent]?.find(row => row.id === parentId || row.nativeSessionId === parentId) : undefined;
+  const [parentTitle, setParentTitle] = useState("");
+  useEffect(() => {
+    setParentTitle("");
+    if (!parentId || parent?.title) return;
+    let stopped = false;
+    void api<TaskRuntime>(`tasks/runtime/${encodeURIComponent(parentId)}`).then(task => {
+      if (!stopped) setParentTitle(task.title?.trim() ?? "");
+    }).catch(() => {});
+    return () => { stopped = true; };
+  }, [parentId, parent?.title]);
   const external = session.source === "transcript";
   useTaskPresence(agent, session.id, !external && !readOnlyBrowser);
   // Only current activity establishes execution; persisted running/idle is not a result.
@@ -156,6 +174,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const sourceLabel = source && dispatchSourceLabel(source);
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
   const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
+  const detailPhase = relationKind && state === "running" ? executionPhase(nativeSession.phase, state) : undefined;
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
   const { review, reviewError, reloadReview } = useTaskReview(session.id, turnId, terminalState(state));
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
@@ -220,7 +239,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   // Preserve native conversation identity without borrowing another turn's configuration.
   const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
-  return <section ref={detail} className="agent-panel-layer task-detail-layer" data-narrow={narrow || undefined}>
+  return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <header className="dialog-header task-detail-header">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
@@ -231,7 +250,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         ]} /></div>}
       </div>
       <h2 id={titleId} className="activity-panel-title">{title}</h2>
-      <div className="task-detail-chips"><span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>
+      <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
+        ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
+        : <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-spec">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
           editable={!readOnlyBrowser && agent === "codex" && validId && !timeline?.readOnly} />
@@ -239,6 +260,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}
       </div>
+      {parentId && <TaskParentLink title={parent?.title || parentTitle || parentId} onClick={() => selectAgentPanel({ type: "task", agent,
+        session: parent ?? { id: parentId, nativeSessionId: parentId, source: "codex-thread", title: parentTitle || undefined,
+          phase: "idle", phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false } })} />}
       {!!groups.length && <div className="task-turn-progress">{groups.map((group, index) => {
         const current = index === groups.length - 1 && (!nativeSession.turnId || nativeSession.turnId === group.turnId);
         const turnState = taskState((group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? timeline?.status : undefined), current && running, current && hasPending);

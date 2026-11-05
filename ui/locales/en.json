@@ -1596,5 +1596,9 @@
   "center.coverage.clock-uncertain": "Activity time uncertain",
   "center.coverage.unavailable": "Observation unavailable",
   "updates.installing": "Installing and restarting…",
-  "browser.accessDenied": "The browser key is no longer valid. Reopen the current access link from ARC."
+  "browser.accessDenied": "The browser key is no longer valid. Reopen the current access link from ARC.",
+  "activity.relation.side-chat": "Side chat",
+  "activity.relation.subagent": "Subagent",
+  "activity.parentThread": "Parent thread",
+  "activity.moreChildren": "Show {count} more"
 }

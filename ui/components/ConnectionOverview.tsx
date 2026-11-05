@@ -1,3 +1,5 @@
+import { Icon } from "./ui";
+import { ChevronDown } from "lucide-react";
 import { readOnlyBrowser } from "../browserMode";
 import { activityState } from "../state/taskExecutionModel";
 import { taskExecution, taskExecutions } from "../state/taskExecution";
@@ -95,21 +97,26 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const max = maxVisibleAgents.use();
   const density = bubbleDensity.use(), width = bubbleWidths[bubbleWidth.use()], autoCompact = bubbleAutoCompact.use();
   const [expandedQueue, setExpandedQueue] = useState<string>();
+  const [expandedFamily, setExpandedFamily] = useState<string>();
+  const expandedTrigger = useRef<string>(undefined), restoreOverflowFocus = useRef(false);
   useEffect(() => { if (!visible || panelOpen) setExpandedQueue(undefined); }, [visible, panelOpen]);
   useEffect(() => {
-    if (!expandedQueue) return;
+    if (!expandedQueue) {
+      if (restoreOverflowFocus.current) {
+        restoreOverflowFocus.current = false;
+        [...(core.current?.querySelectorAll<HTMLButtonElement>("[data-overflow-key]") ?? [])]
+          .find(button => button.dataset.overflowKey === expandedTrigger.current)?.focus();
+      }
+      return;
+    }
     const outside = (event: PointerEvent) => {
       if (!(event.target instanceof Element) || event.target.closest<HTMLElement>("[data-activity-queue]")?.dataset.activityQueue !== expandedQueue) setExpandedQueue(undefined);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
+      restoreOverflowFocus.current = true;
       setExpandedQueue(undefined);
-      requestAnimationFrame(() => {
-        const trigger = [...(core.current?.querySelectorAll<HTMLButtonElement>(".activity-summary") ?? [])]
-          .find(button => button.closest<HTMLElement>("[data-activity-queue]")?.dataset.activityQueue === expandedQueue);
-        trigger?.focus();
-      });
     };
     window.addEventListener("pointerdown", outside, true);
     window.addEventListener("keydown", escape);
@@ -287,7 +294,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const groups = accountIds.length > 1 ? [...new Set(sessions.map(sessionAccount))].map(id => sessions.filter(s => sessionAccount(s) === id)) : [sessions];
     const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? sessionAccount(group[0]) : null]);
     for (const group of groups) for (const session of group) taskQueues.set(JSON.stringify([agent.agent, session.id]), group);
-    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group)), group }));
+    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group) ? expandedFamily ?? true : false), group }));
     const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
     const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
     return {
@@ -320,21 +327,26 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             reorderTasks(agent.agent, ids, sessions, taskQueues.get(JSON.stringify([agent.agent, session.id])));
           }} />,
         })),
-        ...shownGroups.flatMap(group => group.hidden ? [{ id: JSON.stringify(accountIds.length > 1 ? [agent.agent, null, sessionAccount(group.group[0])] : [agent.agent, null]), activityQueue: queueKey(group.group),
-          petTaskIds: group.group.filter(s => !group.sessions.includes(s)).map(s => s.id),
-          members: group.group.filter(s => !group.sessions.includes(s)).map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s) ?? s.agentAccountId, pending: !!s.interaction })),
-          agentAccountId: accountIds.length > 1 ? sessionAccount(group.group[0]) : undefined, count: group.hidden, pending: group.group.some(s => !!s.interaction && !group.sessions.includes(s)), width, height: bubbleHeights.compact, state: "summary" as const, selected: false,
-          content: <button type="button" className="activity-bubble activity-summary" aria-expanded={false} onClick={event => {
+        ...shownGroups.flatMap(group => group.hiddenGroups.map(hidden => ({
+          id: JSON.stringify([agent.agent, null, sessionAccount(group.group[0]), hidden.parentId ?? null]), activityQueue: queueKey(group.group),
+          parentTaskId: hidden.parentId ? JSON.stringify([agent.agent, hidden.parentId]) : undefined,
+          petTaskIds: hidden.sessions.map(s => s.id),
+          members: hidden.sessions.map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s) ?? s.agentAccountId, pending: !!s.interaction })),
+          agentAccountId: accountIds.length > 1 ? sessionAccount(group.group[0]) : undefined, count: hidden.sessions.length,
+          pending: hidden.sessions.some(s => !!s.interaction), width, height: hidden.parentId ? 36 : bubbleHeights.compact, state: "summary" as const, selected: false,
+          content: <button type="button" className={`activity-bubble activity-summary ${hidden.parentId ? "activity-family-summary" : ""}`} data-overflow-key={JSON.stringify([queueKey(group.group), hidden.parentId ?? null])} aria-expanded={false} onClick={event => {
+            expandedTrigger.current = event.currentTarget.dataset.overflowKey;
+            setExpandedFamily(hidden.parentId);
             setExpandedQueue(queueKey(group.group));
             if (event.detail === 0) {
-              const next = group.group.find(session => !group.sessions.includes(session));
               requestAnimationFrame(() => [...(core.current?.querySelectorAll<HTMLButtonElement>("[data-activity-session]") ?? [])]
-                .find(button => button.dataset.activitySession === JSON.stringify([agent.agent, next?.id]))?.focus());
+                .find(button => button.dataset.activitySession === JSON.stringify([agent.agent, hidden.sessions[0]?.id]))?.focus());
             }
           }}>
-            <PhaseTile phase="tool" animated={false} /><span className="activity-copy"><span className="activity-phase"><PhaseLabel phase="tool">{t("activity.more", { count: group.hidden })}</PhaseLabel></span><span className="activity-headline">{t("activity.viewAll")}</span></span>
+            {hidden.parentId ? <><Icon icon={ChevronDown} /><span>{t("activity.moreChildren", { count: hidden.sessions.length })}</span></>
+              : <><PhaseTile phase="tool" animated={false} /><span className="activity-copy"><span className="activity-phase"><PhaseLabel phase="tool">{t("activity.more", { count: hidden.sessions.length })}</PhaseLabel></span><span className="activity-headline">{t("activity.viewAll")}</span></span></>}
           </button>,
-        }] : []),
+        }))),
       ],
     };
   });

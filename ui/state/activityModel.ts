@@ -55,7 +55,7 @@ export function trackActivity(previous: readonly TrackedActivity[], sessions: re
   const old = new Map(previous.map(s => [s.id, s]));
   const live = new Set(sessions.map(s => s.id));
   return [
-    ...sessions.map(s => ({ ...s, parentSessionId: s.parentSessionId ?? old.get(s.id)?.parentSessionId, observed: true, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
+    ...sessions.map(s => ({ ...s, parentSessionId: s.parentSessionId ?? old.get(s.id)?.parentSessionId, relationKind: s.relationKind ?? old.get(s.id)?.relationKind, observed: true, orderAt: old.get(s.id)?.orderAt ?? (Number.isFinite(Date.parse(s.startedAt ?? "")) ? Date.parse(s.startedAt!) : now) })),
     ...previous.filter(s => !live.has(s.id)).map(s => ({ ...s, observed: false, phase: "idle" as const, interaction: undefined,
       readAt: s.readAt ?? (s.endedAt !== undefined && s.id === pinnedId ? now : undefined) }))
       .filter(s => s.readAt === undefined || s.id === pinnedId || now < s.readAt + activityLayout.hold + activityLayout.fade),
@@ -68,24 +68,49 @@ export function orderActivity(sessions: readonly TrackedActivity[], ids: readonl
     || (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     || a.orderAt - b.orderAt || a.id.localeCompare(b.id));
 }
-export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded = false) {
+export function visibleActivity(sessions: readonly TrackedActivity[], pinnedId?: string, expanded: boolean | string = false) {
   // Overflow keeps unfinished work ahead of completions, regardless of stored order.
   const ordered = sessions.length > 5
     ? [...sessions.filter(s => s.endedAt === undefined), ...sessions.filter(s => s.endedAt !== undefined)] : sessions;
-  const visible = ordered.slice(0, expanded ? ordered.length : ordered.length > 5 ? 4 : 5);
-  const pinned = sessions.find(s => s.id === pinnedId);
-  if (pinned && !visible.includes(pinned)) visible[visible.length - 1] = pinned;
   const family = activityHierarchy(ordered);
   const byId = new Map(family.map(row => [row.task.id, row]));
-  const included = new Set(visible.map(session => session.id));
-  for (const session of visible) {
-    let parent = byId.get(session.id)?.parentTaskId;
-    while (parent) { included.add(parent); parent = byId.get(parent)?.parentTaskId; }
+  const rootId = (id: string) => {
+    let row = byId.get(id)!;
+    while (row.parentTaskId) row = byId.get(row.parentTaskId)!;
+    return row.task.id;
+  };
+  const roots = [...new Set(ordered.map(session => rootId(session.id)))];
+  const visibleRoots = roots.slice(0, expanded === true ? roots.length : roots.length > 5 ? 4 : 5);
+  if (pinnedId && byId.has(pinnedId) && !visibleRoots.includes(rootId(pinnedId))) visibleRoots[visibleRoots.length - 1] = rootId(pinnedId);
+  const included = new Set(visibleRoots);
+  const children = new Map<string, TrackedActivity[]>();
+  for (const session of ordered) {
+    const parent = byId.get(session.id)?.parentTaskId;
+    if (parent) children.set(parent, [...(children.get(parent) ?? []), session]);
+  }
+  const include = (id: string) => {
+    const own = children.get(id) ?? [];
+    const visible = expanded === true || expanded === id ? own : own.slice(0, 3);
+    for (const child of own) if ((child.interaction || child.id === pinnedId) && !visible.includes(child)) visible.push(child);
+    for (const child of visible) { included.add(child.id); include(child.id); }
+  };
+  for (const id of visibleRoots) include(id);
+  for (const session of ordered.filter(row => row.id === pinnedId || row.interaction)) {
+    if (!visibleRoots.includes(rootId(session.id))) continue;
+    let id: string | undefined = session.id;
+    while (id) { included.add(id); id = byId.get(id)?.parentTaskId; }
   }
   const originals = new Map(sessions.map(session => [session.id, session]));
   const shown = family.filter(row => included.has(row.task.id)).map(row => originals.get(row.task.id)!);
+  const hiddenGroups = new Map<string | undefined, TrackedActivity[]>();
+  for (const row of family.filter(row => !included.has(row.task.id))) {
+    let parent = row.parentTaskId;
+    while (parent && !included.has(parent)) parent = byId.get(parent)?.parentTaskId;
+    hiddenGroups.set(parent, [...(hiddenGroups.get(parent) ?? []), originals.get(row.task.id)!]);
+  }
   const hidden = sessions.length - shown.length;
-  return { sessions: shown, hidden, count: shown.length + Number(hidden > 0) };
+  return { sessions: shown, hidden, count: shown.length + hiddenGroups.size,
+    hiddenGroups: [...hiddenGroups].map(([parentId, sessions]) => ({ parentId, sessions })) };
 }
 export function reorderActivity(sessions: readonly TrackedActivity[], ids: readonly string[], stored: readonly string[], queue: readonly TrackedActivity[] = sessions): string[] | undefined {
   // Use the whole displayed queue, including hidden tasks, before merging its order into the Agent preference.

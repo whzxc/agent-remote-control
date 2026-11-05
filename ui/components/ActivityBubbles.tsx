@@ -1,5 +1,6 @@
 import { useReducedMotion } from "../state/appEnvironment";
 import { useRef, useState } from "react";
+import { TaskRelation } from "./ui/TaskRelation";
 import { Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { locale, t } from "../i18n";
@@ -70,6 +71,7 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
         {state === "needsYou" ? !conversation && <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
       </span>
       {(!historical || !conversation) && <span className="activity-phase">
+        {session.relationKind && <TaskRelation kind={session.relationKind} />}
         {historical ? createdTime : <>
           <PhaseLabel phase={phase} running={running} completed={completed}>{t(phaseLabel)}</PhaseLabel>
           <Headline session={session.interaction ? { ...session, headline: session.interaction.summary } : session} />
@@ -104,7 +106,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
         event.preventDefault(); onMove(event.key === "ArrowUp" ? -1 : 1);
       } }}
       data-activity-session={JSON.stringify([agent, session.id])}
-      aria-label={`${session.title || t("timeline.title")}${unread ? ` · ${t("activity.unread")}` : ""} · ${hint}`} onClick={() => {
+      aria-label={`${session.title || t("timeline.title")}${session.relationKind ? ` · ${t(`activity.relation.${session.relationKind}`)}` : ""}${unread ? ` · ${t("activity.unread")}` : ""} · ${hint}`} onClick={() => {
         selectAgentPanel({ type: "task", agent, session });
       }}>
       <ActivityBubbleContent agent={agent} session={session} now={now} density={density} showSourceBadge={!unread} />

@@ -150,3 +150,11 @@
 .dialog.activity-panel:has(.task-detail-layer) { background: var(--surface-raised); }
 
 .task-turn[data-turn-collapsed] { cursor: pointer; }
+
+.task-detail-layer[data-related] > .task-detail-header.dialog-header { padding-top: 12px; }
+.task-detail-layer[data-related] .task-detail-header .activity-panel-title { margin-bottom: 10px; }
+.task-detail-layer[data-related] .task-detail-chips > .task-state { background: none; padding: 0; font-weight: 400; }
+.task-detail-layer[data-related] .task-detail-chips > .task-state::before { display: none; }
+.task-detail-chips .task-relation-separator { margin-left: 12px; color: var(--text-tertiary); }
+
+.task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); color: var(--phase-color); }
