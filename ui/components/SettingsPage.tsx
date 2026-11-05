@@ -3,7 +3,7 @@ import { usePrivacy, setPrivacy } from "../state/privacy";
 import { notificationsPreference } from "../state/store";
 import { topologyMode } from "../topology/accountState";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Monitor, Sun, Moon, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ChevronRight } from "lucide-react";
 import { t, language, languageOptions, setLanguage } from "../i18n";
 import { theme, themeColor, themeColors, type Theme } from "../theme";
 import { api } from "../api";
@@ -11,7 +11,8 @@ import { isDesktop } from "../platform";
 import { connector, run, notify, refreshConnector } from "../state/connector";
 import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
-import { Button, Group, Row, Switch, SingleChoice, Input, Field } from "./ui";
+import { Button, Icon, Switch, SingleChoice, Input, Field } from "./ui";
+import { SettingsSection as Group, Setting as Row, SettingsPair } from "./ui/Settings";
 import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
@@ -69,6 +70,7 @@ export default function SettingsPage() {
         if (!["http:", "https:"].includes(url.protocol)) throw new Error();
       } catch {
         setProxyError(t("validProxyUrl"));
+        document.getElementById("proxy-url")?.focus();
         return;
       }
     }
@@ -103,9 +105,9 @@ export default function SettingsPage() {
   }
   if (settingsExperimental) return <ExperimentalSettings />;
   return (
-    <div className="settings-page">
+    <div className="settings-page settings-stack">
       <Group title={t("behavior")}>
-        <Row title={t("routing.delaySetting")}>
+        <Row title={t("routing.delaySetting")} width={272}>
           <Input key={status?.requestRoutingDelaySeconds ?? 15} type="number" min={0} max={300} step={1} aria-label={t("routing.delaySetting")} defaultValue={status?.requestRoutingDelaySeconds ?? 15} disabled={!!busy || !status}
             onBlur={event => {
               const seconds = event.currentTarget.valueAsNumber;
@@ -113,13 +115,14 @@ export default function SettingsPage() {
               else event.currentTarget.value = String(status?.requestRoutingDelaySeconds ?? 15);
             }} />
         </Row>
-        <Row title={t("controlSourceNotifications")} description={t("controlSourceNotificationsDescription")}>
+        <Row title={t("controlSourceNotifications")} description={t("controlSourceNotificationsDescription")} toggle>
           <Switch label={t("controlSourceNotifications")} checked={status?.notificationsEnabled !== false}
             disabled={!!busy || !status} onChange={(value) => void saveTask({ notificationsEnabled: value })} />
         </Row>
         <Row
           title={t("automaticallyOpenCodexTasks")}
           description={t("whenDisabledNewTasksRunInTheBackground")}
+          toggle
         >
           <Switch
             label={t("automaticallyOpenCodexTasks")}
@@ -131,6 +134,7 @@ export default function SettingsPage() {
         <Row
           title={t("taskApprovalMode")}
           description={t("askForConfirmationByDefaultTheCloudCan")}
+          toggle
         >
           <Switch
             label={t("taskApprovalMode")}
@@ -141,7 +145,7 @@ export default function SettingsPage() {
         </Row>
       </Group>
       <Group title={t("general")}>
-        <Row title={t("connectAtSystemSignIn")}>
+        <Row title={t("connectAtSystemSignIn")} toggle>
           <Switch
             label={t("connectAtSystemSignIn")}
             checked={!!service?.enabled}
@@ -154,7 +158,7 @@ export default function SettingsPage() {
           />
         </Row>
         {isDesktop && (
-          <Row title={t("connectionNotifications")} description={t("connectionNotificationsDescription")}>
+          <Row title={t("connectionNotifications")} description={t("connectionNotificationsDescription")} toggle>
             <Switch
               label={t("connectionNotifications")}
               checked={notifications}
@@ -165,27 +169,28 @@ export default function SettingsPage() {
           </Row>
         )}
         <Row title={t("language")}>
-          <SingleChoice
+          <SingleChoice fill
             value={currentLanguage}
             onChange={setLanguage}
             label={t("language")}
             options={languageOptions.map(option => option.value === "auto" ? { ...option, label: t("system") } : option)}
           />
         </Row>
+        <SettingsPair>
         <Row title={t("appearance")}>
-          <SingleChoice
+          <SingleChoice fill
             value={currentTheme}
             onChange={(value) => theme.set(value as Theme)}
             label={t("appearance")}
             options={[
-              { value: "system", label: t("system"), icon: Monitor },
-              { value: "light", label: t("light"), icon: Sun },
-              { value: "dark", label: t("dark"), icon: Moon },
+              { value: "system", label: t("system") },
+              { value: "light", label: t("light") },
+              { value: "dark", label: t("dark") },
             ]}
           />
         </Row>
-        <Row title={t("themeColor")}>
-          <SingleChoice
+        <Row title={t("themeColor")} width={198}>
+          <SingleChoice fill
             swatches
             value={color}
             onChange={(value) =>
@@ -195,13 +200,14 @@ export default function SettingsPage() {
             options={Object.entries(themeColors).map(([value, color]) => ({
               value,
               label: t(color.label),
-              color: value === "arc" ? "linear-gradient(90deg, var(--brand-orange) 0% 50%, var(--brand-agent-start) 50%, var(--brand-agent-end) 100%)" : `linear-gradient(90deg, ${"sourceLight" in color ? color.sourceLight : color.light} 0% 50%, ${color.light} 50% 100%)`,
+              color: `linear-gradient(90deg, ${"sourceLight" in color ? color.sourceLight : color.light} 0% 50%, ${color.light} 50% 100%)`,
             }))}
           />
         </Row>
+        </SettingsPair>
         {mac && (
           <Row title={t("showAppIn")}>
-            <SingleChoice
+            <SingleChoice fill
               value={
                 appearance.showMenuBar
                   ? appearance.showDock
@@ -229,13 +235,13 @@ export default function SettingsPage() {
             />
           </Row>
         )}
-        <Row title={t("topology.mode")}>
-          <SingleChoice label={t("topology.mode")} value={topology}
+        <Row title={t("topology.mode")} width={180}>
+          <SingleChoice fill label={t("topology.mode")} value={topology}
             options={[{ value: "tree", label: t("topology.tree") }, { value: "flat", label: t("topology.flat") }]}
             onChange={value => topologyMode.set(value as "tree" | "flat")} />
         </Row>
-        <Row title={t('accounts.privacy')}>
-          <SingleChoice iconOnly label={t('accounts.privacy')} value={privateMode ? 'hidden' : 'visible'}
+        <Row title={t('accounts.privacy')} width={80}>
+          <SingleChoice fill iconOnly label={t('accounts.privacy')} value={privateMode ? 'hidden' : 'visible'}
             onChange={value => setPrivacy(value === 'hidden')}
             options={[{ value: 'visible', label: t('accounts.privacy.show'), icon: Eye },
               { value: 'hidden', label: t('accounts.privacy.hide'), icon: EyeOff }]} />
@@ -243,10 +249,11 @@ export default function SettingsPage() {
       </Group>
       <Group title={t("network")}>
         <Row
+          width={340}
           title={t("proxy")}
           description={t("useTheSystemProxyOrAProxyJust")}
         >
-          <SingleChoice
+          <SingleChoice fill
             value={proxyMode}
             disabled={!!busy}
             label={t("proxyMode")}
@@ -288,8 +295,8 @@ export default function SettingsPage() {
         )}
       </Group>
       <AppUpdate>
-        <Row id="settings-experimental-entry" highlight={false} title={t("topology.experimental")}
-          onNavigate={() => navigation.set(old => ({ ...old, settingsExperimental: true }))} />
+        <Button id="settings-experimental-entry" variant="ghost"
+          onClick={() => navigation.set(old => ({ ...old, settingsExperimental: true }))}>{t("topology.experimental")}<Icon icon={ChevronRight} /></Button>
       </AppUpdate>
     </div>
   );

@@ -73,6 +73,7 @@ pre {
   pointer-events: none;
 }
 .button {
+  width: var(--button-width, auto);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -96,6 +97,7 @@ pre {
 .button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--surface-sunken), var(--text) 7%);
 }
+.button.pending:disabled { opacity: 1; background: var(--action); color: var(--on-action); cursor: default; }
 .button.primary {
   background: var(--action);
   color: var(--on-action);
@@ -570,27 +572,11 @@ textarea.input {
   justify-content: center;
   border-radius: 50%;
 }
-.choice-swatches .choice-radio {
-  background: transparent;
-  padding: 4px;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.choice-swatches .choice-option {
-  background: var(--swatch);
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
-  border-radius: 50%;
-  padding: 4px;
-  color: #fff;
-}
-.choice-swatches .choice-option svg {
-  opacity: 0;
-}
-.choice-swatches .choice-option[data-state="checked"] svg {
-  opacity: 1;
-}
+.choice-fill > .select-trigger { width: 100%; }
+.choice-fill .choice-icon-only .choice-option { width: auto; border-radius: 14px; }
+.choice-swatches .choice-radio { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--surface-sunken); padding: 3px; gap: 2px; border-radius: var(--radius-control); }
+.choice-swatches .choice-option { width: 36px; min-height: 28px; padding: 0; border-radius: 14px; }
+.choice-swatch { width: 16px; height: 16px; border-radius: 50%; background: var(--swatch); }
 .select-trigger {
   width: max-content;
   max-width: 100%;
@@ -1064,17 +1050,6 @@ textarea.input {
 .quota-ring.stale {
   opacity: 0.6;
 }
-.agent-summary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.agent-summary p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
 @media (max-width: 420px) {
   .tool-items {
     grid-template-columns: 1fr;
@@ -1099,25 +1074,15 @@ textarea.input {
   overflow: auto;
 }
 .agent-section-title {
+  margin-top: 24px;
   margin-bottom: var(--space-3);
 }
 .agent-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  margin-bottom: 16px;
 }
-.agent-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: 8px 12px;
-  align-items: center;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-field);
-  background: var(--surface);
-}
+.agent-card { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 24px 16px; }
 .agent-card[data-reorderable] {
   cursor: grab;
   touch-action: none;
@@ -1129,13 +1094,7 @@ textarea.input {
   flex-direction: column;
   gap: 4px;
 }
-.agent-copy > a,
-.agent-copy > strong {
-  font-size: 13px;
-  font-weight: 500;
-  color: inherit;
-  text-decoration: none;
-}
+.agent-copy > a, .agent-copy > strong { font-size: var(--text-body); font-weight: 650; line-height: 18px; color: inherit; text-decoration: none; }
 .agent-copy > a:hover {
   text-decoration: underline;
 }
@@ -1253,12 +1212,6 @@ textarea.input {
   display: grid;
   gap: 10px;
 }
-.usage-provider-card {
-  background: var(--surface-subtle);
-  border-radius: var(--radius-field);
-  padding: 12px;
-  color: var(--text);
-}
 .row-control:has(.choice) {
   width: 340px;
 }
@@ -1311,7 +1264,6 @@ textarea.input {
 .uninstalled-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 4px; }
 .agent-uninstalled { display: flex; gap: 10px; align-items: center; padding: 8px; background: transparent; border: 0; border-radius: var(--radius-tile); text-align: left; color: inherit; text-decoration: none; }
 .agent-uninstalled:hover { background: var(--hover); }
-.agent-uninstalled .agent-quota-icon { width: 24px; height: 24px; }
 .log-table td { height: 36px; padding: 4px 8px; vertical-align: middle; }
 .log-table th { padding: 6px 8px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1415,3 +1367,7 @@ textarea.input {
 .notice-action-below .notice-copy { gap: 2px; }
 .notice-action-below .notice-copy > p { margin: 0; line-height: 18px; }
 .notice-action { display: flex; align-items: center; gap: 8px; }
+
+.brand-mark { display: inline-grid; place-items: center; flex: none; }
+.brand-mark > span, .brand-mark svg { display: block; width: 100%; height: 100%; }
+.empty.empty-flush { padding: 0; gap: 16px; }

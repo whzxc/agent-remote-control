@@ -27,15 +27,18 @@ import { usageLink } from "./usageLinks";
 import type { ProviderSnapshot } from "./types";
 import UsageHistory from "./UsageHistory";
 import ResetCreditDetails from "./ResetCreditDetails";
+import { QuotaCard, QuotaDetailAction } from "../components/ui/QuotaCard";
 import "./bubble.css";
 export default function QuotaBubble({
   provider,
   onRefresh,
   link = true,
+  refreshable = true,
 }: {
   provider: ProviderSnapshot;
   onRefresh?: () => Promise<void>;
   link?: boolean;
+  refreshable?: boolean;
 }) {
   const protect = useSensitiveText();
   const now = useNow();
@@ -115,7 +118,7 @@ export default function QuotaBubble({
     return null;
   }
   return (
-    <div className="quota-bubble embedded">
+    <QuotaCard>
       <UsageHistory
         detail={detail}
       >
@@ -162,21 +165,17 @@ export default function QuotaBubble({
                     <Icon icon={hasError ? CircleAlert : TriangleAlert} />
                   </span>
                 )}
+                <time className="refresh-age" title={preciseTime(provider.observedAt)}>· {ageText}</time>
               </span>
-              <time
-                className="refresh-age"
-                title={preciseTime(provider.observedAt)}
-              >
-                {ageText}
-              </time>
-              <IconButton
+              {refreshable && <IconButton
+                compact
                 icon={RefreshCw}
                 size={16}
                 label={t("usageRefresh")}
                 busy={requesting || provider.refreshing}
                 disabled={!provider.eligible}
                 onClick={() => void refresh()}
-              />
+              />}
             </header>
             {readings.map(({ w, pace }) => {
               const key = "reading:" + w.id;
@@ -187,10 +186,7 @@ export default function QuotaBubble({
                       {provider.providerId === "antigravity" && w.scope
                         ? `${w.scope} · `
                         : ""}
-                      {windowLabel(w.label)}
-                    </span>
-                    <span className="reading-reset" title={w.resetsAt && Number.isFinite(Date.parse(w.resetsAt)) ? t("quotaResetAt", { time: preciseTime(w.resetsAt) }) : t("quotaResetUnknown")} aria-label={t("quotaResetIn", { time: compactReset(w.resetsAt, now) })}>
-                      {compactReset(w.resetsAt, now)}
+                      {windowLabel(w.label)} · {quotaLabel()} {quotaPercent(w)}
                     </span>
                   </div>
                   <div
@@ -219,14 +215,13 @@ export default function QuotaBubble({
                     )}
                   </div>
                   <div className="reading-meta">
-                    <span>
-                      {quotaLabel()} {quotaPercent(w)}
+                    <span className="reading-reset" title={w.resetsAt && Number.isFinite(Date.parse(w.resetsAt)) ? t("quotaResetAt", { time: preciseTime(w.resetsAt) }) : t("quotaResetUnknown")} aria-label={t("quotaResetIn", { time: compactReset(w.resetsAt, now) })}>
+                      {compactReset(w.resetsAt, now)}
                     </span>
-                    <div className="reading-timing">
-                      {pace?.label && (
-                        <Button
-                          variant="ghost"
-                          className="pace-warning"
+                    <div className="reading-pace">
+                      {pace?.label && <>
+                        <span aria-hidden="true"> · </span>
+                        <QuotaDetailAction
                           ref={(node) => register(key, node)}
                           onPointerEnter={(event) => event.pointerType !== "touch" && hover(key)}
                           onPointerLeave={(event) => event.pointerType !== "touch" && hover("")}
@@ -236,16 +231,15 @@ export default function QuotaBubble({
                           aria-expanded={expanded && displayed === key}
                           aria-label={`${windowLabel(w.label)} · ${pace.label}`}
                         >
-                          {pace.flame && <Icon icon={Flame} />} {pace.label}
-                        </Button>
-                      )}
-
+                          {pace.flame && <Icon icon={Flame} size={12} />} {pace.label}
+                        </QuotaDetailAction>
+                      </>}
                     </div>
                   </div>
                 </div>
               );
             })}
-            <HoverScope className="usage-history" activeKey={highlighted}>
+            {((provider.creditBalance ?? 0) > 0 || provider.availableResetCount != null || !!provider.productUsage?.rows.length) && <HoverScope className="usage-history" activeKey={highlighted}>
               {(provider.creditBalance ?? 0) > 0 && (
                 <div className="history-period">
                   <span>{t("usageCreditBalance")}</span>
@@ -255,12 +249,10 @@ export default function QuotaBubble({
               {provider.availableResetCount != null && (
                 <div className="history-period">
                   <span>{t("usageResetCount")}</span>
-                  <Button
+                  <QuotaDetailAction
                     ref={(node) => {
                       register("resets", node);
                     }}
-                    variant="ghost"
-                    className="history-toggle"
                     data-hover-target="resets"
                     onPointerEnter={(event) => event.pointerType !== "touch" && hover("resets")}
                     onPointerLeave={(event) => event.pointerType !== "touch" && hover("")}
@@ -274,7 +266,7 @@ export default function QuotaBubble({
                         count: provider.availableResetCount,
                       })}
                     </span>
-                  </Button>
+                  </QuotaDetailAction>
                 </div>
               )}
               {!!provider.productUsage?.rows.length && (
@@ -311,10 +303,10 @@ export default function QuotaBubble({
                   </div>
                 </section>
               )}
-            </HoverScope>
+            </HoverScope>}
           </>
         )}
       </UsageHistory>
-    </div>
+    </QuotaCard>
   );
 }

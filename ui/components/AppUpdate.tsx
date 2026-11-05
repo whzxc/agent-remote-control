@@ -7,7 +7,9 @@ import { connector, notify } from "../state/connector";
 import { navigation } from "../state/navigation";
 import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, downloadUpdate, skipUpdate, updateActive } from "../state/updates";
 
-import { Button, Group, Row, Notice, Progress, Icon, IconButton, Tooltip } from "./ui";
+import { Button, Notice, Progress, Icon, IconButton, Tooltip } from "./ui";
+import { SettingsSection } from "./ui/Settings";
+import { Card } from "./ui/card";
 import "./AppUpdate.css";
 
 const action = (promise: Promise<unknown>) => void promise.catch(error => notify(String(error), true));
@@ -18,17 +20,15 @@ function PanelContents() {
   return <>
     <header className="update-panel-header"><strong>{t("newVersionValue", { version: state.version ?? "—" })}</strong><IconButton icon={X} label={t("close")} onClick={dismissUpdate} /></header>
     <div className="update-panel-body">
-      <section className="update-notes" tabIndex={0} aria-label={t("updates.notes")}><pre>{state.notes || t("updates.noNotes")}</pre></section>
+      <Card asChild><section className="update-notes" tabIndex={0} aria-label={t("updates.notes")}><pre>{state.notes || t("updates.noNotes")}</pre></section></Card>
       {downloading && <div className="update-download"><Progress label={t("updateDownloadProgress")} value={state.total ? (state.downloaded ?? 0) / state.total * 100 : 0} /><p role="status">{t("downloadingValueMb", { size: ((state.downloaded ?? 0) / 1048576).toFixed(1) })}</p></div>}
-      {state.ready && !installing && <p>{t("updates.restartHint")}</p>}
-      {installing && <p role="status">{t("updates.installing")}</p>}
       {state.error && <Notice>{state.error}</Notice>}
       {state.message && <p role="status">{state.message}</p>}
     </div>
     <footer className="update-panel-footer">
-      {available() && !updateActive() && <Button variant="ghost" onClick={skipUpdate}>{t("skipThisVersion")}</Button>}
+      {available() && <Button disabled={updateActive()} variant="ghost" onClick={skipUpdate}>{t("skipThisVersion")}</Button>}
       <span className="spacer" />
-      {available() && !downloading && !installing && <Button variant="primary" busy={updateActive()} onClick={() => action(state.ready ? installUpdate() : downloadUpdate())}>{t(state.ready ? "updates.restartNow" : "downloadUpdate")}</Button>}
+      {available() && !downloading && <Button variant="primary" busy={updateActive()} onClick={() => action(state.ready ? installUpdate() : downloadUpdate())}><span aria-live="polite">{t(installing ? "updates.installing" : state.ready ? "updates.restartNow" : "downloadUpdate")}</span></Button>}
     </footer>
   </>;
 }
@@ -52,22 +52,25 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
   const label = checking ? t('checkingLabel') : state.phase === 'downloading'
     ? t('downloadingValueMb', { size: ((state.downloaded ?? 0) / 1048576).toFixed(1) })
     : feedback ? state.error ? t('updateCheckRetry') : state.message : t('checkForUpdates');
-  return <Group title={t('aboutApp')}>
-    <Row title={`Agent Remote Control v${status?.version ?? '—'}`}>
-      <Tooltip text={feedback || label}>
-        <Button className="update-check" aria-busy={checking}
-          disabled={!isDesktop || updateActive()} onClick={() => action(checkUpdate())}>
-          {[t('checkForUpdates'), t('youAreUpToDate'), t('updateCheckRetry')].map(text => <span key={text} className="update-check-size" aria-hidden="true">{text}</span>)}
-          <span className="update-check-label" aria-live="polite">{label}</span>
-        </Button>
-      </Tooltip>
-    </Row>
-    {available() && <Row title={t('newVersionValue', { version: state.version })}>
-      <Button onClick={() => { navigation.set(old => ({ ...old, page: 'overview' })); showUpdate(); }}>{t('viewUpdate')}</Button>
-    </Row>}
-    <Row title="whzxc/agent-remote-control">
+  return <section className="settings-about">
+    <SettingsSection title={t('aboutApp')}>
+      <div className="update-summary">
+        <p>Agent Remote Control v{status?.version ?? '—'}</p>
+        {available() && <p className="update-version">{t('newVersionValue', { version: state.version })}</p>}
+        <div className="actions">
+          <Tooltip text={feedback || label}>
+            <Button busy={checking} disabled={!isDesktop || updateActive()} onClick={() => action(checkUpdate())}>
+              <span aria-live="polite">{label}</span>
+            </Button>
+          </Tooltip>
+          {available() && <Button onClick={() => { navigation.set(old => ({ ...old, page: 'overview' })); showUpdate(); }}>{t('viewUpdate')}</Button>}
+        </div>
+      </div>
+    </SettingsSection>
+    <nav className="settings-about-links" aria-label={t('aboutApp')}>
+      <span>whzxc/agent-remote-control</span>
       <Button variant="ghost" onClick={() => action(openUrl('https://github.com/whzxc/agent-remote-control'))}>GitHub <Icon icon={ExternalLink} /></Button>
-    </Row>
-    {children}
-  </Group>;
+      {children}
+    </nav>
+  </section>;
 }

@@ -1,7 +1,8 @@
 import { mcpHubEnabled } from '../mcp/state';
 import { t } from "../i18n";
 import { topologyTuningEnabled } from "../state/topology";
-import { Group, Row, Switch } from "./ui";
+import { Switch } from "./ui";
+import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 import { api } from "../api";
 import { connector, run } from "../state/connector";
 import { acceptPreferences, maintainerMode } from "../state/store";
@@ -26,24 +27,25 @@ export default function ExperimentalSettings() {
       acceptPreferences(await api<Record<string, string>>("preferences", "PUT", { values: { "mcp-services": enabled ? "on" : "off" } }));
     });
   }
-  return <Group>
-    <Row title={t("mcp.title")} description={t("mcp.experimentalEffect")}>
+  return <div className="settings-stack experimental-settings"><Group>
+    <Row toggle title={t("mcp.title")} description={t("mcp.experimentalEffect")}>
       <Switch label={t("mcp.title")} checked={mcp} disabled={!!busy || !status} onChange={saveMcp} />
     </Row>
-    <Row title={t("hosting.feature")} description={t("hosting.featureDescription")}>
+    <Row toggle title={t("hosting.feature")} description={t("hosting.featureDescription")}>
       <Switch label={t("hosting.feature")} checked={hosting} onChange={relayHostingEnabled.set} />
     </Row>
-    <Row title={t("extras.maintainerMode")} description={t("extras.maintainerModeDescription")}>
+    <Row toggle title={t("extras.maintainerMode")} description={t("extras.maintainerModeDescription")}>
       <Switch label={t("extras.maintainerMode")} checked={maintainer} disabled={!!busy || !status} onChange={saveMaintainer} />
     </Row>
-    <Row title={t("topology.tuning")} description={t("topology.settingDescription")}>
+  </Group><Group>
+    <Row toggle title={t("topology.tuning")} description={t("topology.settingDescription")}>
       <Switch label={t("topology.tuning")} checked={tuning} onChange={topologyTuningEnabled.set} />
     </Row>
-    <Row title={t("pets.title")} description={t("pets.showDescription")}>
+    <Row toggle title={t("pets.title")} description={t("pets.showDescription")}>
       <Switch label={t("pets.show")} checked={pets} onChange={showPets.set} />
     </Row>
-    <Row title={t("studio.enabled")} description={t("studio.enabledDescription")}>
+    <Row toggle title={t("studio.enabled")} description={t("studio.enabledDescription")}>
       <Switch label={t("studio.enabled")} checked={studio} onChange={studioEnabled.set} />
     </Row>
-  </Group>;
+  </Group></div>;
 }

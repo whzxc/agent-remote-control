@@ -483,13 +483,6 @@
 .elastic-panel.headerless .dialog-body {
   padding-top: 28px;
 }
-.agent-summary {
-  --agent-quota-size: 48px;
-  margin-bottom: 20px;
-}
-.agent-summary strong {
-  font-size: 15px;
-}
 @media (max-width: 600px) {
   .sources .source-icon > span {
     width: 30px;
@@ -650,27 +643,6 @@
 .permissions-page .settings-group > h2 { padding: 0; font-size: var(--text-meta); font-weight: 600; color: var(--text-secondary); margin: 0 0 var(--space-1); }
 .permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }
 
-.elastic-panel .dialog-body:has(> .usage-overview) {
-  padding: 12px;
-}
-
-.update-check {
-  display: inline-grid;
-}
-.update-check > span {
-  grid-area: 1 / 1;
-  white-space: nowrap;
-}
-.update-check-size {
-  visibility: hidden;
-}
-.update-check-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 0;
-  min-width: 100%;
-}
-
 /* The solver owns layout; one imperative frame writes HTML and SVG geometry. */
 .home-workspace .connection-core { display: block; padding: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
 .connection-graph.topology-scene { position: relative; display: block; width: 100%; max-width: none; margin: 0; }
@@ -785,8 +757,8 @@ button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(
 .activity-source-badge { position: absolute; right: -0.5px; bottom: -0.5px; width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text-secondary); }
 .activity-source-badge > .icon, .activity-source-badge .source-icon, .activity-source-badge .source-icon svg { width: 9px; height: 9px; }
 .activity-source-badge .source-icon > span { display: flex; }
-.activity-preview { display: grid; place-items: center; padding: 12px 0 20px; overflow: hidden; }
-.activity-preview .activity-bubble { transition: width 180ms cubic-bezier(.34,1.56,.64,1), height 180ms cubic-bezier(.34,1.56,.64,1); }
+.activity-preview { display: grid; align-items: center; justify-items: start; min-width: 0; }
+.activity-preview .activity-bubble { max-width: 100%; transition: width 180ms cubic-bezier(.34,1.56,.64,1), height 180ms cubic-bezier(.34,1.56,.64,1); }
 .agent-auto-compact { position: absolute; left: 50%; top: calc(100% + 22px); transform: translateX(-50%); padding: 1px 5px; border-radius: var(--radius-pill); background: var(--surface-subtle); color: var(--text-tertiary); font-size: 9px; line-height: 13px; white-space: nowrap; }
 :root[data-reduced-motion="true"] {
   button.activity-bubble, .activity-bubble-shell, .activity-preview .activity-bubble { transition: none; }
@@ -1354,3 +1326,17 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 .page-sheet:has(.platforms-page) .sheet-header { min-height: 84px; padding: 21px 24px 29px; }
 .page-sheet:has(.platforms-page) .workspace { padding-top: 0; }
+
+/* Settings surface composition; shared controls retain their own forms. */
+.workspace:has(> :is(.settings-page, .experimental-settings, .pets-page)) { padding-top: 20px; }
+.experimental-settings { gap: 24px; }
+.display-bubble-layout { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 300px); gap: 16px; align-items: center; }
+.display-bubble-choices { display: grid; gap: 16px; }
+.agents-toolbar { display: flex; align-items: center; gap: 8px; min-height: 34px; margin-top: -9px; margin-bottom: 11px; }
+.agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
+.agent-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+.agent-summary strong { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
+.agent-summary-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
+.agent-summary-meta > p { margin: 0; }
+.agent-summary-meta > a { color: var(--accent-text); font-size: var(--text-small); }
+@media (max-width: 620px) { .display-bubble-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; } }

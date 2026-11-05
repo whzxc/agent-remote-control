@@ -26,6 +26,7 @@ import {
 } from "radix-ui";
 import {
   X,
+  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -79,6 +80,12 @@ export function Icon({
 export function Tile({ icon, className = "" }: { icon: LucideIcon; className?: string }) {
   return <span className={`tile ${className}`} aria-hidden="true"><Icon icon={icon} size={18} /></span>;
 }
+/** Bundled brand artwork with no control or quota decoration. */
+export function BrandMark({ markup, size = 40 }: { markup?: string; size?: 24 | 40 }) {
+  return <span className="brand-mark" style={{ width: size, height: size }} aria-hidden="true">
+    {markup ? <span dangerouslySetInnerHTML={{ __html: markup }} /> : <Icon icon={Bot} size={20} />}
+  </span>;
+}
 export function Button({
   variant = "secondary",
   busy = false,
@@ -97,7 +104,7 @@ export function Button({
       {...props}
       disabled={disabled || busy}
       aria-busy={busy || props["aria-busy"]}
-      className={`button ${variant} ${className}`}
+      className={`button ${variant} ${busy ? "pending" : ""} ${className}`}
     >
       {busy && <Icon icon={LoaderCircle} className="spin" />}
       {children}
@@ -236,13 +243,15 @@ export function Empty({
   children,
   action,
   icon,
+  inset = true,
 }: {
   children: ReactNode;
   action?: ReactNode;
   icon?: LucideIcon;
+  inset?: boolean;
 }) {
   return (
-    <div className="empty" role="status">
+    <div className={`empty ${inset ? "" : "empty-flush"}`} role="status">
       {icon && <Tile icon={icon} />}
       <p>{children}</p>
       {action}
@@ -327,12 +336,14 @@ export function Switch({
   label,
   disabled,
   id,
+  "aria-describedby": describedBy,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
   disabled?: boolean;
   id?: string;
+  "aria-describedby"?: string;
 }) {
   return (
     <Sw.Root
@@ -340,6 +351,7 @@ export function Switch({
       checked={checked}
       onCheckedChange={onChange}
       aria-label={label}
+      aria-describedby={describedBy}
       disabled={disabled}
       className="switch"
     >
@@ -393,6 +405,7 @@ export function SingleChoice({
   label,
   disabled,
   swatches = false,
+  fill = false,
   iconOnly = false,
   compact = false,
   cards = false,
@@ -410,6 +423,7 @@ export function SingleChoice({
   label: string;
   disabled?: boolean;
   swatches?: boolean;
+  fill?: boolean;
   iconOnly?: boolean;
   compact?: boolean;
   cards?: boolean;
@@ -444,7 +458,7 @@ export function SingleChoice({
     <div
       ref={container}
       style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
-      className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
+      className={`choice ${fill ? "choice-fill" : ""} ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
       {!swatches && (tabs || options.length <= 5) && (
         <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
@@ -465,7 +479,7 @@ export function SingleChoice({
           aria-label={label}
           orientation={cards || optionCards || navigation ? "vertical" : "horizontal"}
           className={`choice-radio ${tiles || navigation || cards || optionCards || swatches || tabs ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
-          style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: contentWidth }}
+          style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: fill ? "100%" : contentWidth }}
         >
           {options.map((option) => (
             <RadioGroup.Item
@@ -483,7 +497,7 @@ export function SingleChoice({
               }
             >
               {swatches ? (
-                <Icon icon={Check} />
+                <span className="choice-swatch" aria-hidden="true" />
               ) : (
                 <>
                   {option.graphic}

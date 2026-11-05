@@ -50,6 +50,7 @@ export default function ElasticPanel({
   busy = false,
   unframed = false,
   headerless = false,
+  className = "",
   width,
   depthOffset = 0,
   initialFocus,
@@ -83,6 +84,7 @@ export default function ElasticPanel({
   busy?: boolean;
   unframed?: boolean;
   headerless?: boolean;
+  className?: string;
   width?: number;
   depthOffset?: number;
   initialFocus?: string;
@@ -351,7 +353,7 @@ export default function ElasticPanel({
         />}
         <D.Content
           ref={attach}
-          className={`dialog elastic-panel ${wide ? "dialog-wide" : ""} ${unframed ? "unframed" : ""} ${headerless ? "headerless" : ""} ${dock ? "activity-panel" : ""} ${centered ? "setup-dialog" : ""}`}
+          className={`dialog elastic-panel ${className} ${wide ? "dialog-wide" : ""} ${unframed ? "unframed" : ""} ${headerless ? "headerless" : ""} ${dock ? "activity-panel" : ""} ${centered ? "setup-dialog" : ""}`}
           data-panel-dock={dock}
           data-panel-geometry={dockRect ? "portrait" : undefined}
           data-sheet={sheet || undefined}

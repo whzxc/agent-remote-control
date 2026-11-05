@@ -1564,6 +1564,5 @@
   "center.coverage.clock-uncertain": "活动时间不确定",
   "center.coverage.unavailable": "观察暂不可用",
   "updates.installing": "正在安装并重启…",
-  "updates.restartHint": "运行中的 ARC 任务将中断。",
   "browser.accessDenied": "网页访问 key 已失效，请使用 ARC 当前的访问链接重新打开。"
 }

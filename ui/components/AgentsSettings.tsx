@@ -11,6 +11,7 @@ import {
   moveAgent,
   reorderAgents,
   name,
+  icons,
   compactAgentVersion,
   agentLinks,
   toggleAgent,
@@ -18,13 +19,15 @@ import {
   type Agent,
 } from "../state/agents";
 import { subscriptions } from "../state/subscriptions";
-import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
 import { springTransition } from "../motion/geometry";
-import { Dialog, IconButton, Switch, Notice, Loading } from "./ui";
+import { BrandMark, IconButton, Switch, Notice, Loading } from "./ui";
+
+import { SettingsDialog as Dialog } from "./ui/Settings";
+import { Card } from "./ui/card";
 
 const canReorder = (agent: Agent) =>
   !readOnlyBrowser && agent.installed === true && agent.enabled === true;
@@ -50,12 +53,12 @@ function AgentCard({ agent, onMove, children }: {
   const reduced = useReducedMotion();
   const transition = reduced ? { duration: 0 } : springTransition(0.3, 0.9);
   if (!canReorder(agent)) {
-    return <motion.article className="agent-card" layout="position" transition={transition}>
+    return <Card asChild><motion.article className="agent-card" layout="position" transition={transition}>
       {children}
-    </motion.article>;
+    </motion.article></Card>;
   }
   return (
-    <Reorder.Item
+    <Card asChild><Reorder.Item
       as="article"
       value={agent.agent}
       className="agent-card"
@@ -85,7 +88,7 @@ function AgentCard({ agent, onMove, children }: {
       }}
     >
       {children}
-    </Reorder.Item>
+    </Reorder.Item></Card>
   );
 }
 
@@ -109,13 +112,13 @@ export function AgentDetails({
   return (
     <Dialog title={name(agent)} onClose={onClose} headerless width={440}>
       <div className="agent-summary">
-        <AgentQuotaIcon agent={agent.agent} />
+        <BrandMark markup={icons[agent.agent]} />
         <div>
           <strong>{name(agent)}</strong>
-          {agent.installed !== undefined && <p title={agent.version || undefined}>{agent.installed ? compactAgentVersion(agent.version) : t("agentNotInstalled")}</p>}
+          <div className="agent-summary-meta">{agent.installed !== undefined && <p title={agent.version || undefined}>{agent.installed ? compactAgentVersion(agent.version) : t("agentNotInstalled")}</p>}
+          {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}</div>
         </div>
       </div>
-      {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}
       {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
         <Notice>{<>{discoveryMessage(agent)}<br /><small>{agent.discoveryError}</small></>}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
@@ -143,12 +146,6 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         wide
         actions={
           <>
-            <IconButton icon={Gauge} label={t("trayUsage")} onClick={() => setOverview(true)} />
-            <IconButton
-              icon={Settings}
-              label={t("agentDisplaySettings")}
-              onClick={() => setDisplay(true)}
-            />
             <IconButton
               icon={RefreshCw}
               label={t("refreshAgents")}
@@ -159,12 +156,20 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
           </>
         }
       >
+        <div className="agents-toolbar">
+          <h3>{t("installedAgents")}</h3>
+            <IconButton icon={Gauge} label={t("trayUsage")} onClick={() => setOverview(true)} />
+            <IconButton
+              icon={Settings}
+              label={t("agentDisplaySettings")}
+              onClick={() => setDisplay(true)}
+            />
+        </div>
         {!state.loaded && state.loading && <Loading />}
-        {!state.loaded && !state.loading && !state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsNotLoaded")}</Notice>}
-        {!!state.error && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{<>{t("agentsRequestFailed")}<br /><small>{state.error}</small></>}</Notice>}
-        {state.loaded && !state.error && items.length === 0 && <Notice action={<IconButton icon={RefreshCw} label={t("refreshAgents")} onClick={() => void refreshAgents(true)} />}>{t("agentsEmpty")}</Notice>}
+        {!state.loaded && !state.loading && !state.error && <Notice>{t("agentsNotLoaded")}</Notice>}
+        {!!state.error && <Notice>{<>{t("agentsRequestFailed")}<br /><small>{state.error}</small></>}</Notice>}
+        {state.loaded && !state.error && items.length === 0 && <Notice>{t("agentsEmpty")}</Notice>}
         {items.some((agent) => agent.installed) && <>
-        <h3 className="agent-section-title">{t("installedAgents")}</h3>
         <Reorder.Group
           as="div"
           axis="xy"
@@ -185,7 +190,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                 aria-haspopup="dialog"
                 onClick={() => setDetail(agent)}
               >
-                <AgentQuotaIcon agent={agent.agent} />
+                <BrandMark markup={icons[agent.agent]} />
               </button>
               <div className="agent-copy">
                 {agentLinks[agent.agent] ? (
@@ -256,7 +261,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                 void openUrl(agentLinks[agent.agent]!).catch(error => setError(String(error)));
               }}
             >
-              <AgentQuotaIcon agent={agent.agent} />
+              <BrandMark markup={icons[agent.agent]} size={24} />
               <span>{name(agent)}</span>
             </a>
           ))}
@@ -267,9 +272,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />
       )}{" "}
-      {overview && <Dialog title={t("trayUsage")} onClose={() => setOverview(false)} width={440}>
-        <UsageOverview onNavigate={() => { setOverview(false); setDisplay(true); }} />
-      </Dialog>}
+      {overview && <UsageOverview onClose={() => setOverview(false)} onNavigate={() => { setOverview(false); setDisplay(true); }} />}
       {display && <AgentDisplaySettings onClose={() => setDisplay(false)} />}
     </>
   );

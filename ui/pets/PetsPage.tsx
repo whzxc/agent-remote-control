@@ -3,14 +3,15 @@ import { t } from '../i18n';
 import { openUrl } from '../platform';
 import { Button, Field, Input, Notice } from '../components/ui';
 import { assignPet, installPet, removePet, petAssignments, petLibrary, refreshPets } from './state';
+import { Card } from '../components/ui/card';
 import PetPreview from './PetPreview';
 export default function PetsPage() {
   const library = petLibrary.use(), assignments = petAssignments.use();
-  const [url, setUrl] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [url, setUrl] = useState(''), [busy, setBusy] = useState<string | null>(null), [error, setError] = useState('');
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => { void refreshPets(); }, []);
   async function install(input: { url: string } | File) {
-    setBusy(true); setError('');
+    setBusy(input instanceof File ? 'zip' : 'url'); setError('');
     try {
       if (input instanceof File) {
         if (input.size > 25 * 1024 * 1024) throw new Error(t('pets.sizeLimit'));
@@ -19,30 +20,30 @@ export default function PetsPage() {
         await installPet({ zip: btoa(binary) });
       } else { await installPet(input); setUrl(''); }
     } catch (e) { setError(String(e)); document.getElementById('pet-link')?.focus(); }
-    finally { setBusy(false); if (file.current) file.current.value = ''; }
+    finally { setBusy(null); if (file.current) file.current.value = ''; }
   }
   async function remove(key: string) {
-    setBusy(true); setError('');
+    setBusy(key); setError('');
     try { await removePet(key); }
     catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
+    finally { setBusy(null); }
   }
   function visit(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault(); void openUrl(event.currentTarget.href).catch(error => setError(String(error)));
   }
   return <div className="pets-page">
-    <section className="pet-import">
+    <Card asChild><section className="pet-import">
       <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
       <form onSubmit={e => { e.preventDefault(); void install({ url }); }}>
-        <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" placeholder={t('pets.linkPlaceholder')} value={url} onChange={e => setUrl(e.target.value)} readOnly={busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
-        <div className="pet-actions"><Button type="submit" busy={busy} disabled={!url.trim()}>{t('pets.install')}</Button><Button disabled={busy} onClick={() => file.current?.click()}>{t('pets.chooseZip')}</Button></div>
+        <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" placeholder={t('pets.linkPlaceholder')} value={url} onChange={e => setUrl(e.target.value)} readOnly={!!busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
+        <div className="pet-actions"><Button type="submit" busy={busy === "url"} disabled={!!busy || !url.trim()}>{t('pets.install')}</Button><Button busy={busy === "zip"} disabled={!!busy} onClick={() => file.current?.click()}>{t('pets.chooseZip')}</Button></div>
         <input hidden ref={file} type="file" accept=".zip,application/zip" onChange={e => { const selected = e.target.files?.[0]; if (selected) void install(selected); }} />
       </form>
       {error && <div id="pets-import-error" role="alert"><Notice tone="danger">{error}</Notice></div>}
-    </section>
+    </section></Card>
     {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
     <section className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
-      <div className="pet-catalog">{library.packages.map(p => <article className="pet-package" key={p.key}>
+      <div className="pet-catalog">{library.packages.map(p => <Card asChild key={p.key}><article className="pet-package">
         <PetPreview pet={p} />
         <div className="pet-package-content">
           <h3 title={p.name}>{p.name}</h3>
@@ -51,11 +52,11 @@ export default function PetsPage() {
               : p.source.site === 'zip' ? t('pets.localZip') : p.description || p.source.site}
           </p>
           <div className="pet-actions">
-            <Button disabled={busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
-            {p.origin === 'arc' && <Button variant="danger" disabled={busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
+            <Button disabled={!!busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
+            {p.origin === 'arc' && <Button variant="danger" busy={busy === p.key} disabled={!!busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
           </div>
         </div>
-      </article>)}</div>
+      </article></Card>)}</div>
       {library.errors.map(e => <Notice key={e.key} tone="danger">{e.error}</Notice>)}
     </section>
     <footer>{t('pets.rights')}</footer>

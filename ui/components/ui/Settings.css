@@ -1,0 +1,28 @@
+.settings-stack { display: grid; gap: 30px; min-width: 0; }
+.settings-section { display: grid; gap: 12px; min-width: 0; }
+.settings-section > h2 { font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
+.settings-section-card { display: grid; gap: 24px; padding: 16px; }
+.settings-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 300px)); gap: 16px; align-items: start; }
+.setting { min-width: 0; }
+.setting-copy > label { display: block; font-size: var(--text-small); font-weight: 600; line-height: 16px; }
+.setting-copy > p { margin: 12px 0 0; color: var(--text-secondary); font-size: var(--text-meta); line-height: 18px; }
+.setting-field { display: grid; gap: 10px; }
+.setting-field:has(input) { gap: 8px; }
+.setting-field:has(.setting-control > .select-trigger) { gap: 20px; }
+.setting-control { max-width: 100%; min-width: 0; }
+.setting-toggle { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 16px; align-items: start; }
+.setting-toggle .setting-copy > label { font-size: var(--text-body); font-weight: 500; line-height: 26px; }
+.setting-toggle .setting-copy > p { margin-top: 0; line-height: 18px; }
+.settings-section-card > .setting-toggle + .setting-toggle { margin-top: 4px; }
+.setting-field:has(.setting-copy > p) { gap: 11px; }
+.setting-field .setting-copy > p { margin-top: 5px; }
+.setting-field:has(.setting-copy > p) .setting-copy > label { font-size: var(--text-body); font-weight: 500; }
+.dialog.elastic-panel.settings-dialog { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); }
+.settings-dialog.elastic-panel .dialog-header { min-height: 60px; padding: 13px 24px; }
+.settings-dialog.elastic-panel .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
+.settings-dialog.elastic-panel .dialog-body { padding: 20px 24px 24px; }
+.settings-dialog.elastic-panel.headerless .dialog-body { padding-top: 18px; }
+@media (max-width: 620px) { .settings-pair { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+.settings-dialog-close { position: absolute; top: 13px; right: 24px; }
+.setting-control > .select-trigger { width: 100%; }
+.setting-control > .select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

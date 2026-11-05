@@ -54,7 +54,10 @@ test('a downloaded update restarts directly from its button', { timeout: 10000 }
     await act(async () => { fireEvent.click(panel.getByRole('button', { name: t('updates.restartNow') })); });
     assert.equal(restarted, true);
     assert.equal(panel.queryByRole('button', { name: t('updates.restartNow') }), null);
-    assert.ok(panel.getByRole('status'));
+    const pending = panel.getByRole('button', { name: t('updates.installing') }) as HTMLButtonElement;
+    assert.equal(pending.disabled, true);
+    assert.equal(pending.getAttribute('aria-busy'), 'true');
+    assert.equal((panel.getByRole('button', { name: t('skipThisVersion') }) as HTMLButtonElement).disabled, true);
     await act(async () => { updates.set((old: any) => ({ ...old, panelOpen: false })); });
     assert.equal(page.queryByRole('dialog'), null);
     await act(async () => {

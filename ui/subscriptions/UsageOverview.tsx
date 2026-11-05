@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { t, locale } from "../i18n";
-import { subscriptions } from "../state/subscriptions";
+import { subscriptions, refreshSubscription } from "../state/subscriptions";
 import { agents } from "../state/agents";
 import type { Page } from "../state/navigation";
 import QuotaBubble from "./QuotaBubble";
-import { Button, Empty, Loading, Notice } from "../components/ui";
-export default function UsageOverview({ onNavigate }: { onNavigate: (page: Page) => void }) {
+import { Gauge, RefreshCw } from "lucide-react";
+import { SettingsDialog } from "../components/ui/Settings";
+import { Button, Empty, IconButton, Loading, Notice } from "../components/ui";
+export default function UsageOverview({ onNavigate, onClose }: { onNavigate: (page: Page) => void; onClose: () => void }) {
   locale.use();
   const { snapshot, error: subscriptionError } = subscriptions.use();
   const inventory = agents.use();
@@ -14,28 +16,34 @@ export default function UsageOverview({ onNavigate }: { onNavigate: (page: Page)
     ? snapshot.providers.filter((p) => p.eligible && (p.agentIds?.length ? p.agentIds : [p.agentId]).some(agent => enabled.has(agent)))
     : [];
   const [dismissKey, setDismissKey] = useState(0);
+  const [requesting, setRequesting] = useState(false), [error, setError] = useState("");
+  async function refresh() {
+    setRequesting(true); setError("");
+    const results = await Promise.allSettled(providers.map(provider => refreshSubscription(provider.providerId)));
+    const failures = results.flatMap(result => result.status === "rejected" ? [String(result.reason)] : []);
+    setError(failures.join(" · "));
+    setRequesting(false);
+  }
   return (
+    <SettingsDialog title={t("trayUsage")} onClose={onClose} width={440} actions={providers.length > 0 &&
+      <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={requesting || providers.some(provider => provider.refreshing)} onClick={() => void refresh()} />}>
     <section className="usage-overview" aria-label={t("trayUsage")}>
       <div
         className="usage-overview-scroll"
         onScroll={() => setDismissKey((k) => k + 1)}
       >
         <div className="usage-overview-content">
-          {subscriptionError && <Notice>{subscriptionError}</Notice>}
+          {(error || subscriptionError) && <Notice>{error || subscriptionError}</Notice>}
           {!snapshot && !subscriptionError && <Loading />}
           {providers.map((provider) => (
-            <div
-              key={provider.providerId}
-              className="usage-provider-card"
-            >
               <QuotaBubble
                 key={`${provider.providerId}:${dismissKey}`}
                 provider={provider}
+                refreshable={false}
               />
-            </div>
           ))}
           {snapshot && !providers.length && (
-            <Empty
+            <Empty icon={Gauge} inset={false}
               action={
                 <Button onClick={() => onNavigate("settings")}>
                   {t("traySettings")}
@@ -48,5 +56,6 @@ export default function UsageOverview({ onNavigate }: { onNavigate: (page: Page)
         </div>
       </div>
     </section>
+    </SettingsDialog>
   );
 }

@@ -9,7 +9,9 @@ import type { DispatchSummary } from "../types";
 import { SpecPill } from "./activity";
 import { modelLabel } from "./composites/dispatchSpecLabel";
 import ModelEffortPicker from "./ModelEffortPicker";
-import { Dialog, Field, Group, Notice, Row } from "./ui";
+import { Dialog, Field, Notice } from "./ui";
+
+import { SettingsSection, Setting } from "./ui/Settings";
 
 type Defaults = { model?: string | null; effort?: string | null };
 type DefaultsState = { defaults?: Defaults; saving: boolean; error: string };
@@ -95,23 +97,19 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
       // Keep effort only while the newly selected model still supports it.
       effort: next.effort && (next.model === model || !next.model || !modelEfforts(next.model).length || modelEfforts(next.model).includes(next.effort)) ? next.effort : "" })} />;
   if (inline) return <div className="task-dispatch-fields"><span>{label}</span>{picker}</div>;
-  return rows ? <Row title={label}>{picker}</Row> : <Field label={label}>{picker}</Field>;
+  return rows ? <Setting title={label} width="full">{picker}</Setting> : <Field label={label}>{picker}</Field>;
 }
 
 /** Edit the policy defaults used when a control source omits model or effort. */
-export default function AgentDispatchDefaults({ agent, rows }: {
-  agent: string;
-  /** Label-left rows for wide settings dialogs; narrow panels stack labels above controls. */
-  rows?: boolean;
-}) {
+export default function AgentDispatchDefaults({ agent }: { agent: string }) {
   const codex = agent === "codex";
   const { defaults, error, save } = useDefaults("agents/dispatch-defaults/read", "agents/dispatch-defaults", { agent });
   if (!defaults) return error ? <Notice>{error}</Notice> : null;
-  return <Group title={t("dispatchDefaults.title", { agent: name(orderedAgents().find(row => row.agent === agent) ?? { agent }) })}>
+  return <SettingsSection title={t("dispatchDefaults.title", { agent: name(orderedAgents().find(row => row.agent === agent) ?? { agent }) })}>
     {error && <Notice>{error}</Notice>}
-    <DefaultsFields agent={agent} defaults={defaults} effort={codex} inheritLabel={t("dispatchDefaults.inherit")} rows={rows}
+    <DefaultsFields agent={agent} defaults={defaults} effort={codex} inheritLabel={t("dispatchDefaults.inherit")} rows
       onSave={next => void save(next, codex)} />
-  </Group>;
+  </SettingsSection>;
 }
 
 /** The task's spec pill; editable tasks open a dialog choosing the model for later turns. */
