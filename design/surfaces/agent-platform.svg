@@ -49,13 +49,21 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/>
     </g>
     <text x="20" y="100" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Personal</text>
-    <g transform="translate(20 124)" data-component="card" data-form="default">
-      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    <g transform="translate(87.4 85)" data-component="icon-button" data-form="compact">
+      <rect width="30" height="30" rx="15" style="fill:none"/>
+      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </g>
     </g>
-    <text x="36" y="147" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota</text>
-    <text x="220" y="147" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
-    <text x="36" y="180" style="fill:var(--text);font-size:var(--text-display);font-weight:650">82%</text>
-    <g transform="translate(36 208)">
+    <g transform="translate(20 124)" data-component="card" data-form="default">
+      <rect width="216" height="112" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="36" y="148" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota · 2h 0m</text>
+    <text x="36" y="182" style="fill:var(--text);font-size:var(--text-display);font-weight:650">82%</text>
+    <g transform="translate(36 212)">
       <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
       <rect width="150.88" height="6" rx="3" style="fill:var(--accent)"/>
       <g transform="translate(73.60000000000001 -2)">
@@ -63,48 +71,19 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
     <g transform="translate(244 124)" data-component="card" data-form="default">
-      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+      <rect width="216" height="112" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="260" y="147" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly</text>
-    <text x="410" y="147" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
-    <g transform="translate(420 132)" data-component="icon-button" data-form="compact">
-      <rect width="30" height="30" rx="15" style="fill:none"/>
-      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-        <path d="M21 3v5h-5"/>
-        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-        <path d="M8 16H3v5"/>
-      </g>
-    </g>
-    <text x="260" y="180" style="fill:var(--text);font-size:var(--text-display);font-weight:650">73%</text>
-    <g transform="translate(260 208)">
+    <text x="260" y="148" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly · 3d 0h</text>
+    <text x="260" y="182" style="fill:var(--text);font-size:var(--text-display);font-weight:650">73%</text>
+    <g transform="translate(260 212)">
       <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
       <rect width="134.32" height="6" rx="3" style="fill:var(--accent)"/>
       <g transform="translate(78.85714285714285 -2)">
         <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
       </g>
     </g>
-    <text x="20" y="278" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Studio</text>
-    <g transform="translate(20 302)" data-component="card" data-form="default">
-      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
-    </g>
-    <text x="36" y="325" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota</text>
-    <text x="220" y="325" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
-    <text x="36" y="358" style="fill:var(--text);font-size:var(--text-display);font-weight:650">42%</text>
-    <text x="106.3" y="362" style="fill:var(--warning);font-size:var(--text-meta)">~3% spare</text>
-    <g transform="translate(36 386)">
-      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
-      <rect width="77.28" height="6" rx="3" style="fill:var(--warning)"/>
-      <g transform="translate(73.60000000000001 -2)">
-        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
-      </g>
-    </g>
-    <g transform="translate(244 302)" data-component="card" data-form="default">
-      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
-    </g>
-    <text x="260" y="325" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly</text>
-    <text x="410" y="325" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
-    <g transform="translate(420 310)" data-component="icon-button" data-form="compact">
+    <text x="20" y="276" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Studio</text>
+    <g transform="translate(72.4 261)" data-component="icon-button" data-form="compact">
       <rect width="30" height="30" rx="15" style="fill:none"/>
       <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
@@ -113,9 +92,26 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="M8 16H3v5"/>
       </g>
     </g>
+    <g transform="translate(20 300)" data-component="card" data-form="default">
+      <rect width="216" height="112" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="36" y="324" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota · 2h 0m</text>
+    <text x="36" y="358" style="fill:var(--text);font-size:var(--text-display);font-weight:650">42%</text>
+    <text x="106.3" y="358" style="fill:var(--warning);font-size:var(--text-meta)">~3% spare</text>
+    <g transform="translate(36 388)">
+      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
+      <rect width="77.28" height="6" rx="3" style="fill:var(--warning)"/>
+      <g transform="translate(73.60000000000001 -2)">
+        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
+      </g>
+    </g>
+    <g transform="translate(244 300)" data-component="card" data-form="default">
+      <rect width="216" height="112" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="260" y="324" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly · 3d 0h</text>
     <text x="260" y="358" style="fill:var(--text);font-size:var(--text-display);font-weight:650">27%</text>
-    <text x="328.3" y="362" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1d 11h</text>
-    <g transform="translate(260 386)">
+    <text x="328.3" y="358" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1d 11h</text>
+    <g transform="translate(260 388)">
       <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
       <rect width="49.68" height="6" rx="3" style="fill:var(--accent)"/>
       <g transform="translate(78.85714285714285 -2)">
@@ -243,22 +239,22 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </defs>
     </g>
     <g transform="translate(20 84)" data-component="card" data-form="default">
-      <rect width="440" height="138" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+      <rect width="440" height="68" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="36" y="110" style="fill:var(--text-secondary);font-size:var(--text-small)">This native Agent is ready. It does not require</text>
-    <text x="36" y="130" style="fill:var(--text-secondary);font-size:var(--text-small)">a provider account in ARC.</text>
-    <g transform="translate(36 166)" data-component="icon-button" data-form="regular">
-      <rect width="34" height="34" rx="17" style="fill:none"/>
-      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+    <text x="36" y="108" style="fill:var(--text-secondary);font-size:var(--text-small)">This native Agent is ready. It does not require</text>
+    <text x="36" y="128" style="fill:var(--text-secondary);font-size:var(--text-small)">a provider account in ARC.</text>
+    <g transform="translate(380 93)" data-component="icon-button" data-form="compact">
+      <rect width="30" height="30" rx="15" style="fill:none"/>
+      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
         <path d="M21 3v5h-5"/>
         <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
         <path d="M8 16H3v5"/>
       </g>
     </g>
-    <g transform="translate(76 166)" data-component="icon-button" data-form="regular">
-      <rect width="34" height="34" rx="17" style="fill:none"/>
-      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="settings" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+    <g transform="translate(414 93)" data-component="icon-button" data-form="compact">
+      <rect width="30" height="30" rx="15" style="fill:none"/>
+      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="settings" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/>
         <circle cx="12" cy="12" r="3"/>
       </g>

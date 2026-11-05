@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="800" viewBox="0 0 960 800" data-design="component" data-name="single-choice">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="900" viewBox="0 0 960 900" data-design="component" data-name="single-choice">
 <!-- design:tokens -->
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
@@ -17,7 +17,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
 <!-- /design:tokens -->
-<rect data-canvas="" width="960" height="800" style="fill:var(--canvas)"/>
+<rect data-canvas="" width="960" height="900" style="fill:var(--canvas)"/>
 <text x="40" y="46" class="note">pills</text>
 <g data-component="single-choice" data-form="pills" transform="translate(40 62)">
   <rect width="258" height="34" rx="17" style="fill:var(--surface-sunken)"/>
@@ -98,6 +98,15 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
   <text x="54" y="516" style="fill:var(--text-secondary);font-size:var(--text-body)">Other</text>
 </g>
+<text class="note" x="40" y="806" style="fill:var(--text-secondary);font-size:var(--text-meta)">tabs</text>
+<g transform="translate(40 826)" data-component="single-choice" data-form="tabs">
+    <rect width="152.7" height="34" rx="0" style="fill:none"/>
+    <text x="12" y="17" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Current</text>
+    <g transform="translate(12 32)">
+      <rect width="52.5" height="2" rx="1" style="fill:var(--accent-text)"/>
+    </g>
+    <text x="88.5" y="17" style="fill:var(--text-secondary);font-size:var(--text-body)">Activity</text>
+  </g>
 <text x="520" y="175" class="note">option-card</text>
   <g transform="translate(520 193)" data-component="single-choice" data-form="option-card">
     <rect width="394" height="44" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>

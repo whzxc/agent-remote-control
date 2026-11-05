@@ -121,23 +121,19 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="38" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600">Add control source</text>
     </g>
     <g transform="translate(264 140)" data-component="card" data-form="default">
-      <rect width="672" height="366" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+      <rect width="672" height="160" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(280 156) scale(1.1666666666666667)" data-brand="chatgpt" style="fill:currentColor;color:var(--text)">
       <path d="M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z"/>
     </g>
     <text x="320" y="170" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Personal</text>
-    <g transform="translate(386 155)" data-component="icon-button" data-form="compact">
+    <text x="387.4" y="170" style="fill:var(--success);font-size:var(--text-meta)">· Connected</text>
+    <g transform="translate(858 155)" data-component="icon-button" data-form="compact">
       <rect width="30" height="30" rx="15" style="fill:none"/>
       <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="pencil" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
         <path d="m15 5 4 4"/>
       </g>
-    </g>
-    <g transform="translate(794 158)" data-component="state-pill" data-form="done">
-      <rect width="92" height="24" rx="12" style="fill:var(--success);fill-opacity:.15"/>
-      <circle cx="12" cy="12" r="3" style="fill:var(--success)"/>
-      <text x="20" y="12" style="fill:var(--success);font-size:var(--text-meta);font-weight:600">Connected</text>
     </g>
     <g transform="translate(892 155)" data-component="icon-button" data-form="compact">
       <rect width="30" height="30" rx="15" style="fill:none"/>
@@ -149,33 +145,37 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
       </g>
     </g>
-    <text x="280" y="216" style="fill:var(--text-secondary);font-size:var(--text-meta)">Product</text>
-    <g transform="translate(280 240)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="58.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">RrrhATA</text>
+    <text x="280" y="206" style="fill:var(--text-secondary);font-size:var(--text-meta)">Product</text>
+    <g transform="translate(330.7 206)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="50.8" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">RrrhATA</text>
     </g>
-    <text x="608" y="216" style="fill:var(--text-secondary);font-size:var(--text-meta)">Email</text>
-    <g transform="translate(608 240)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="138.7" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">nheser@nsohssa.orh</text>
+    <text x="391.5" y="206" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="405.1" y="206" style="fill:var(--text-secondary);font-size:var(--text-meta)">Email</text>
+    <g transform="translate(441.3 206)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="121.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">nheser@nsohssa.orh</text>
     </g>
-    <text x="280" y="288" style="fill:var(--text-secondary);font-size:var(--text-meta)">Organization</text>
-    <g transform="translate(280 312)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="82.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">Sheshho Ehh</text>
+    <text x="572.5" y="206" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="586.1" y="206" style="fill:var(--text-secondary);font-size:var(--text-meta)">Organization</text>
+    <g transform="translate(664.2 206)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="71.9" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">Sheshho Ehh</text>
     </g>
-    <text x="608" y="288" style="fill:var(--text-secondary);font-size:var(--text-meta)">Connection</text>
-    <g transform="translate(608 312)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="133.9" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">RrrhATA tartrsenea</text>
+    <text x="280" y="242" style="fill:var(--text-secondary);font-size:var(--text-meta)">Connection</text>
+    <g transform="translate(350.8 242)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="117.1" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">RrrhATA tartrsenea</text>
     </g>
-    <text x="280" y="360" style="fill:var(--text-secondary);font-size:var(--text-meta)">Added</text>
-    <g transform="translate(280 384)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="122.4" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">hronteert etnrntet</text>
+    <text x="477.9" y="242" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="491.5" y="242" style="fill:var(--text-secondary);font-size:var(--text-meta)">Added</text>
+    <g transform="translate(534.2 242)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="107.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">hronteert etnrntet</text>
     </g>
-    <text x="608" y="360" style="fill:var(--text-secondary);font-size:var(--text-meta)">Authorized at</text>
-    <g transform="translate(608 384)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="117.1" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">hronsnooa aahshaae</text>
+    <text x="280" y="276" style="fill:var(--text-secondary);font-size:var(--text-meta)">Authorized at</text>
+    <g transform="translate(361.7 276)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="102.7" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">hronsnooa aahshaae</text>
     </g>
-    <text x="280" y="432" style="fill:var(--text-secondary);font-size:var(--text-meta)">Last seen</text>
-    <g transform="translate(280 456)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="117.1" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">hronsnooa aahshaae</text>
+    <text x="474.4" y="276" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="488" y="276" style="fill:var(--text-secondary);font-size:var(--text-meta)">Last seen</text>
+    <g transform="translate(548.4 276)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="102.7" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">hronsnooa aahshaae</text>
     </g>
   </g>
   <text class="note" x="1104" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">empty · accounts</text>
@@ -275,6 +275,6 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <text x="38" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600">Add control source</text>
     </g>
-    <text x="600" y="340" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">No connectors connected.</text>
+    <text x="600" y="430" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">No connectors connected.</text>
   </g>
 </svg>

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1728" height="1218" viewBox="0 0 1728 1218" data-design="surface" data-name="source-panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1728" height="1156" viewBox="0 0 1728 1156" data-design="surface" data-name="source-panel">
 <!-- design:tokens -->
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
@@ -22,7 +22,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <feGaussianBlur stdDeviation="1.6"/>
     </filter>
   </defs>
-  <rect data-canvas="" width="1728" height="1218" style="fill:var(--canvas)"/>
+  <rect data-canvas="" width="1728" height="1156" style="fill:var(--canvas)"/>
   <text class="note" x="72" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">dispatches · source-panel</text>
   <g transform="translate(72 94)" data-part="frame-dispatches" data-fixture="source-panel" data-clock="2026-01-01T00:00:00Z">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
@@ -66,9 +66,9 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <text x="20" y="208" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中</text>
-    <text x="62" y="208" style="fill:var(--text-tertiary);font-size:var(--text-meta)">2</text>
-    <g transform="translate(20 224)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
+    <text x="20" y="196" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中</text>
+    <text x="62" y="196" style="fill:var(--text-tertiary);font-size:var(--text-meta)">2</text>
+    <g transform="translate(20 212)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-thinking)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -89,7 +89,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <g transform="translate(20 296)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
+    <g transform="translate(20 284)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-thinking)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -114,7 +114,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <text class="note" x="624" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">history · dispatch-states</text>
   <g transform="translate(624 94)" data-part="frame-history" data-fixture="dispatch-states" data-clock="2026-01-01T00:00:00Z" data-action="Open source panel; scroll to load all dispatch records">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-      <rect width="480" height="1030" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <rect width="480" height="968" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Claude</text>
       <g transform="translate(382 21)" data-component="icon-button" data-form="regular">
         <rect width="34" height="34" rx="17" style="fill:none"/>
@@ -151,9 +151,9 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission awaiting-approval</text>
       <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Awaiting dispatch approval</text>
     </g>
-    <text x="20" y="208" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Running</text>
-    <text x="74.5" y="208" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
-    <g transform="translate(20 224)" data-component="task-bubble" data-form="row" style="color:var(--phase-file)">
+    <text x="20" y="196" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Running</text>
+    <text x="74.5" y="196" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
+    <g transform="translate(20 212)" data-component="task-bubble" data-form="row" style="color:var(--phase-file)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-file)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -168,9 +168,9 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <text x="20" y="324" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Unread</text>
-    <text x="68.9" y="324" style="fill:var(--text-tertiary);font-size:var(--text-meta)">3</text>
-    <g transform="translate(20 340)" data-component="task-bubble" data-form="row" style="color:var(--success)">
+    <text x="20" y="300" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Unread</text>
+    <text x="68.9" y="300" style="fill:var(--text-tertiary);font-size:var(--text-meta)">3</text>
+    <g transform="translate(20 316)" data-component="task-bubble" data-form="row" style="color:var(--success)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--success)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -184,7 +184,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <g transform="translate(20 412)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
+    <g transform="translate(20 388)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--danger)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -200,7 +200,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <g transform="translate(20 484)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
+    <g transform="translate(20 460)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -216,9 +216,9 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
-    <text x="20" y="584" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Today</text>
-    <text x="61.4" y="584" style="fill:var(--text-tertiary);font-size:var(--text-meta)">4</text>
-    <g transform="translate(20 600)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
+    <text x="20" y="548" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Today</text>
+    <text x="61.4" y="548" style="fill:var(--text-tertiary);font-size:var(--text-meta)">4</text>
+    <g transform="translate(20 564)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -229,7 +229,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission reserved</text>
       <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submitting</text>
     </g>
-    <g transform="translate(20 672)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
+    <g transform="translate(20 636)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -240,7 +240,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission not-executed</text>
       <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Not executed</text>
     </g>
-    <g transform="translate(20 744)" data-component="task-bubble" data-form="row" style="color:var(--warning)">
+    <g transform="translate(20 708)" data-component="task-bubble" data-form="row" style="color:var(--warning)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--warning)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -251,7 +251,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission unconfirmed</text>
       <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submission unconfirmed</text>
     </g>
-    <g transform="translate(20 816)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
+    <g transform="translate(20 780)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--danger)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -264,9 +264,9 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission failed</text>
       <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submission failed</text>
     </g>
-    <text x="20" y="916" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Yesterday</text>
-    <text x="84.8" y="916" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
-    <g transform="translate(20 932)" data-component="task-bubble" data-form="row" style="color:var(--success)">
+    <text x="20" y="868" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Yesterday</text>
+    <text x="84.8" y="868" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
+    <g transform="translate(20 884)" data-component="task-bubble" data-form="row" style="color:var(--success)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--success)">
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
@@ -307,23 +307,19 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z"/>
     </g>
     <g transform="translate(20 84)" data-component="card" data-form="default">
-      <rect width="440" height="302" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+      <rect width="440" height="120" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(36 100) scale(1.1666666666666667)" data-brand="claude" style="color:var(--text);fill:currentColor">
       <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" fill="#D97757" fill-rule="nonzero"/>
     </g>
     <text x="76" y="114" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Claude</text>
-    <g transform="translate(133 99)" data-component="icon-button" data-form="compact">
+    <text x="131.7" y="114" style="fill:var(--success);font-size:var(--text-meta)">· 已连接</text>
+    <g transform="translate(380 99)" data-component="icon-button" data-form="compact">
       <rect width="30" height="30" rx="15" style="fill:none"/>
       <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="pencil" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
         <path d="m15 5 4 4"/>
       </g>
-    </g>
-    <g transform="translate(330 102)" data-component="state-pill" data-form="done">
-      <rect width="78" height="24" rx="12" style="fill:var(--success);fill-opacity:.15"/>
-      <circle cx="12" cy="12" r="3" style="fill:var(--success)"/>
-      <text x="20" y="12" style="fill:var(--success);font-size:var(--text-meta);font-weight:600">已连接</text>
     </g>
     <g transform="translate(414 99)" data-component="icon-button" data-form="compact">
       <rect width="30" height="30" rx="15" style="fill:none"/>
@@ -335,25 +331,28 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
       </g>
     </g>
-    <text x="36" y="162" style="fill:var(--text-secondary);font-size:var(--text-meta)">产品</text>
-    <g transform="translate(36 187)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="45.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">Ranoat</text>
+    <text x="36" y="148" style="fill:var(--text-secondary);font-size:var(--text-meta)">产品</text>
+    <g transform="translate(66 148)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="39.5" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">Ranoat</text>
     </g>
-    <text x="244" y="162" style="fill:var(--text-secondary);font-size:var(--text-meta)">连接</text>
-    <g transform="translate(244 187)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="45.2" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">Ranoat</text>
+    <text x="115.5" y="148" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="129.1" y="148" style="fill:var(--text-secondary);font-size:var(--text-meta)">连接</text>
+    <g transform="translate(159.1 148)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="39.5" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">Ranoat</text>
     </g>
-    <text x="36" y="234" style="fill:var(--text-secondary);font-size:var(--text-meta)">添加时间</text>
-    <g transform="translate(36 259)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="118.9" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">nrresnor nrrnrrnr</text>
+    <text x="208.6" y="148" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="222.2" y="148" style="fill:var(--text-secondary);font-size:var(--text-meta)">添加时间</text>
+    <g transform="translate(276.2 148)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="104.1" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">nrresnor nrrnrrnr</text>
     </g>
-    <text x="244" y="234" style="fill:var(--text-secondary);font-size:var(--text-meta)">授权时间</text>
-    <g transform="translate(244 259)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="113.6" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">htaathro ooshsoor</text>
+    <text x="36" y="180" style="fill:var(--text-secondary);font-size:var(--text-meta)">授权时间</text>
+    <g transform="translate(90 180)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="99.6" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">htaathro ooshsoor</text>
     </g>
-    <text x="36" y="306" style="fill:var(--text-secondary);font-size:var(--text-meta)">最近活动</text>
-    <g transform="translate(36 331)" style="filter:url(#privacy-blur);opacity:0.65">
-      <text textLength="113.6" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-body)">htaathro ooshsoor</text>
+    <text x="199.6" y="180" style="fill:var(--text-tertiary);font-size:var(--text-meta)">·</text>
+    <text x="213.2" y="180" style="fill:var(--text-secondary);font-size:var(--text-meta)">最近活动</text>
+    <g transform="translate(267.2 180)" style="filter:url(#privacy-blur);opacity:0.65">
+      <text textLength="99.6" lengthAdjust="spacingAndGlyphs" x="0" y="0" style="fill:var(--text);font-size:var(--text-meta)">htaathro ooshsoor</text>
     </g>
   </g>
 </svg>
