@@ -1,5 +1,4 @@
-<?xml version="1.0" ?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1448" height="718" viewBox="0 0 1448 718" data-design="surface" data-name="approval">
+<svg xmlns="http://www.w3.org/2000/svg" width="1572" height="524" viewBox="0 0 1572 524" data-design="surface" data-name="approval">
 <!-- design:tokens -->
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
@@ -18,177 +17,156 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
 <!-- /design:tokens -->
-  <desc>Pending request dialogs reuse the modal shell as a panel-anchored sheet without a scrim. Permission: approval task 0, open its task detail at 360px then open the request. Question: task-states task 1 with the same action. Model and effort: timeline-multi-turn, open the task model dialog, picker, then model menu. No answers or overrides are selected. The model reset and Send answer controls are disabled. Fixed fixture clock: 2026-01-01T00:00:00Z.</desc>
-  <rect data-canvas="" width="1448" height="718" style="fill:var(--canvas)"/>
+  <desc>Permission: approval task 0, request sheet. Question: task-states task 1, request sheet. Model and effort: timeline-multi-turn, task model dialog with picker and model menu open. UI locale zh-CN; fixture clock 2026-01-01T00:00:00Z. Passive routing is a dialog description, using the setup subtitle treatment. Sheets size to content with 24px outer padding. Request cards use 16px padding. Actions stay last; actionable routing uses request-routing/actionable-inline immediately above them. Submitting retains the action row, replaces the activated control with button/pending and disables its siblings. Closing preserves question drafts.</desc>
+  <rect data-canvas="" width="1572" height="524" style="fill:var(--canvas)" />
   <text x="72" y="70" class="note">permission · approval · open request sheet</text>
-  <g transform="translate(72 94)" data-part="frame-permission" data-scenario="approval" data-task-index="0">
+  <g transform="translate(72 94)" data-part="frame-permission" data-scenario="approval" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="0">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-      <rect width="360" height="380" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
-      <text x="24" y="32" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">待处理请求</text>
-      <g transform="translate(306 15)" data-component="icon-button" data-form="regular">
-        <rect width="34" height="34" rx="17" style="fill:none"/>
+      <rect width="360" height="286" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
+      <text x="24" y="33" style="fill:var(--text);font-size:var(--text-title);font-weight:650">待处理请求</text>
+      <g transform="translate(302 16)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none" />
         <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="x" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-          <path d="M18 6 6 18"/>
-          <path d="m6 6 12 12"/>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
         </g>
       </g>
     </g>
-    <g transform="translate(16 64)">
+    <text x="24" y="61" style="fill:var(--text-tertiary);font-size:var(--text-meta)">将在控制源下次检查时处理</text>
+    <g transform="translate(24 88)" data-part="permission-card">
       <g transform="translate(0 0)" data-component="card" data-form="default">
-        <rect width="328" height="226" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+        <rect width="312" height="174" rx="18" style="fill:var(--surface-subtle)" data-fluid="height" />
       </g>
-      <text x="16" y="26" style="fill:var(--text);font-size:var(--text-body);font-weight:600;">Read README.md</text>
-      <g transform="translate(16 48)">
-        <rect width="296" height="56" rx="12" style="fill:var(--surface-sunken)"/>
-        <text x="14" y="28" style="fill:var(--text);font-size:var(--text-meta);" class="mono">cat README.md</text>
+      <text x="16" y="23" style="fill:var(--text);font-size:var(--text-body);font-weight:600">Read README.md</text>
+      <text x="16" y="43" style="fill:var(--text-secondary);font-size:var(--text-meta)">仅允许这一次</text>
+      <g transform="translate(16 64)">
+        <rect width="280" height="44" rx="12" style="fill:var(--surface-sunken)" />
+        <text x="14" y="22" style="fill:var(--text);font-size:var(--text-meta)" class="mono">cat README.md</text>
       </g>
-      <text x="16" y="125" style="fill:var(--text-secondary);font-size:var(--text-meta);">仅允许这一次</text>
-      <g transform="translate(114 146)">
-        <g transform="translate(0 0)" data-component="button" data-form="secondary">
-          <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)"/>
-          <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">拒绝</text>
+      <g transform="translate(98 124)" data-component="button" data-form="secondary">
+        <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)" />
+        <text x="29.0" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600" text-anchor="middle">拒绝</text>
+      </g>
+      <g transform="translate(0 0)" opacity="0.42" aria-disabled="true">
+        <g transform="translate(164 124)" data-component="button" data-form="secondary">
+          <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)" />
+          <text x="29.0" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600" text-anchor="middle">绕过</text>
         </g>
       </g>
-      <g transform="translate(180 146)" opacity="0.42" aria-disabled="true">
-        <g transform="translate(0 0)" data-component="button" data-form="secondary">
-          <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)"/>
-          <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">绕过</text>
-        </g>
-      </g>
-      <g transform="translate(246 146)">
-        <g transform="translate(0 0)" data-component="button" data-form="primary">
-          <rect width="66" height="34" rx="17" style="fill:var(--action)"/>
-          <text x="33" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600;" text-anchor="middle">批准</text>
-        </g>
-      </g>
-      <g transform="translate(16 190)" data-component="request-routing" data-form="passive">
-        <rect width="296" height="28" rx="14" style="fill:none" data-fluid="height"/>
-        <text x="0" y="14" style="fill:var(--text-secondary);font-size:var(--text-meta);">将在控制源下次检查时处理</text>
-      </g>
-    </g>
-    <g transform="translate(278 326)">
-      <g transform="translate(0 0)" data-component="button" data-form="ghost">
-        <rect width="58" height="34" rx="17" style="fill:none"/>
-        <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">稍后</text>
+      <g transform="translate(230 124)" data-component="button" data-form="primary">
+        <rect width="66" height="34" rx="17" style="fill:var(--action)" />
+        <text x="33.0" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600" text-anchor="middle">批准</text>
       </g>
     </g>
   </g>
   <text x="504" y="70" class="note">question · task-states · task 1 · open request sheet</text>
-  <g transform="translate(504 94)" data-part="frame-question" data-scenario="task-states" data-task-index="1">
+  <g transform="translate(504 94)" data-part="frame-question" data-scenario="task-states" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="1">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-      <rect width="360" height="450" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
-      <text x="24" y="32" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">待处理请求</text>
-      <g transform="translate(306 15)" data-component="icon-button" data-form="regular">
-        <rect width="34" height="34" rx="17" style="fill:none"/>
+      <rect width="360" height="374" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
+      <text x="24" y="33" style="fill:var(--text);font-size:var(--text-title);font-weight:650">待处理请求</text>
+      <g transform="translate(302 16)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none" />
         <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="x" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-          <path d="M18 6 6 18"/>
-          <path d="m6 6 12 12"/>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
         </g>
       </g>
     </g>
-    <text x="24" y="82" style="fill:var(--text);font-size:var(--text-body);font-weight:600;">Choose an option</text>
-    <g transform="translate(24 108)" data-component="single-choice" data-form="option-card">
-      <rect width="312" height="44" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
-      <text x="16" y="22" style="fill:var(--text-tertiary);font-size:var(--text-meta);" class="mono">1</text>
-      <text x="44" y="22" style="fill:var(--text);font-size:var(--text-body);font-weight:500;">Alpha</text>
+    <text x="24" y="61" style="fill:var(--text-tertiary);font-size:var(--text-meta)">将在控制源下次检查时处理</text>
+    <text x="24" y="101" style="fill:var(--text);font-size:var(--text-body);font-weight:600">Choose an option</text>
+    <g transform="translate(24 124)" data-component="single-choice" data-form="option-card">
+      <rect width="312" height="44" rx="18" style="fill:var(--surface-sunken)" data-fluid="height" />
+      <text x="16" y="22" style="fill:var(--text-tertiary);font-size:var(--text-meta)" class="mono">1</text>
+      <text x="44" y="22" style="fill:var(--text);font-size:var(--text-body);font-weight:500">Alpha</text>
     </g>
-    <g transform="translate(24 160)" data-component="single-choice" data-form="option-card">
-      <rect width="312" height="44" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
-      <text x="16" y="22" style="fill:var(--text-tertiary);font-size:var(--text-meta);" class="mono">2</text>
-      <text x="44" y="22" style="fill:var(--text);font-size:var(--text-body);font-weight:500;">Beta</text>
+    <g transform="translate(24 176)" data-component="single-choice" data-form="option-card">
+      <rect width="312" height="44" rx="18" style="fill:var(--surface-sunken)" data-fluid="height" />
+      <text x="16" y="22" style="fill:var(--text-tertiary);font-size:var(--text-meta)" class="mono">2</text>
+      <text x="44" y="22" style="fill:var(--text);font-size:var(--text-body);font-weight:500">Beta</text>
     </g>
-    <g transform="translate(24 222)" data-component="field" data-form="default">
-      <rect width="312" height="40" rx="12" style="fill:var(--surface-sunken)" y="24"/>
-      <text x="0" y="8" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">其他</text>
+    <g transform="translate(24 236)" data-component="field" data-form="default">
+      <rect width="312" height="40" rx="12" style="fill:var(--surface-sunken)" y="24" />
+      <text x="0" y="8" style="fill:var(--text);font-size:var(--text-small);font-weight:600">其他</text>
     </g>
-    <g transform="translate(158 302)">
-      <g transform="translate(0 0)" data-component="button" data-form="ghost">
-        <rect width="58" height="34" rx="17" style="fill:none"/>
-        <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">跳过</text>
-      </g>
+    <g transform="translate(158 316)" data-component="button" data-form="ghost">
+      <rect width="58" height="34" rx="17" style="fill:none" />
+      <text x="29.0" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600" text-anchor="middle">跳过</text>
     </g>
-    <g transform="translate(224 302)" opacity="0.42" aria-disabled="true">
-      <g transform="translate(0 0)" data-component="button" data-form="primary">
-        <rect width="112" height="34" rx="17" style="fill:var(--action)"/>
-        <text x="56" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600;" text-anchor="middle">发送回答</text>
-      </g>
-    </g>
-    <g transform="translate(24 350)" data-component="request-routing" data-form="passive">
-      <rect width="312" height="28" rx="14" style="fill:none" data-fluid="height"/>
-      <text x="0" y="14" style="fill:var(--text-secondary);font-size:var(--text-meta);">将在控制源下次检查时处理</text>
-    </g>
-    <g transform="translate(278 394)">
-      <g transform="translate(0 0)" data-component="button" data-form="ghost">
-        <rect width="58" height="34" rx="17" style="fill:none"/>
-        <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">稍后</text>
+    <g transform="translate(0 0)" opacity="0.42" aria-disabled="true">
+      <g transform="translate(224 316)" data-component="button" data-form="primary">
+        <rect width="112" height="34" rx="17" style="fill:var(--action)" />
+        <text x="56.0" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600" text-anchor="middle">发送回答</text>
       </g>
     </g>
   </g>
   <text x="936" y="70" class="note">model-effort · timeline-multi-turn · picker and model menu open</text>
-  <g transform="translate(936 94)" data-part="frame-model-effort" data-scenario="timeline-multi-turn">
+  <g transform="translate(936 94)" data-part="frame-model-effort" data-scenario="timeline-multi-turn" data-fixture-clock="2026-01-01T00:00:00Z">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-      <rect width="440" height="256" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
-      <text x="24" y="32" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">本任务模型</text>
-      <g transform="translate(386 15)" data-component="icon-button" data-form="regular">
-        <rect width="34" height="34" rx="17" style="fill:none"/>
+      <rect width="440" height="169" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
+      <text x="24" y="33" style="fill:var(--text);font-size:var(--text-title);font-weight:650">本任务模型</text>
+      <g transform="translate(382 16)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none" />
         <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="x" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-          <path d="M18 6 6 18"/>
-          <path d="m6 6 12 12"/>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
         </g>
       </g>
     </g>
-    <text x="24" y="82" style="fill:var(--text-secondary);font-size:var(--text-small);">派发方后续发送且未指定模型时生效，</text>
-    <text x="24" y="104" style="fill:var(--text-secondary);font-size:var(--text-small);">不影响正在运行的这一轮。</text>
-    <text x="24" y="146" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">模型与推理强度</text>
-    <g transform="translate(24 168)" data-component="single-choice" data-form="dropdown">
-      <rect width="116" height="34" rx="17" style="fill:var(--surface-sunken)"/>
-      <text x="16" y="17" style="fill:var(--text);font-size:var(--text-small);">跟随任务</text>
+    <text x="24" y="61" style="fill:var(--text-secondary);font-size:var(--text-small)">派发方后续发送且未指定模型时生效，</text>
+    <text x="24" y="81" style="fill:var(--text-secondary);font-size:var(--text-small)">不影响正在运行的这一轮。</text>
+    <text x="24" y="128" style="fill:var(--text);font-size:var(--text-small);font-weight:600">模型与推理强度</text>
+    <g transform="translate(140 111)" data-component="single-choice" data-form="dropdown">
+      <rect width="116" height="34" rx="17" style="fill:var(--surface-sunken)" />
+      <text x="16" y="17" style="fill:var(--text);font-size:var(--text-small)">跟随任务</text>
       <g transform="translate(88 9) scale(0.6666666666666666)" data-icon="chevron-down" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-        <path d="m6 9 6 6 6-6"/>
+        <path d="m6 9 6 6 6-6" />
       </g>
     </g>
-    <g transform="translate(24 216)">
+    <g transform="translate(24 153)" data-part="model-effort-picker">
       <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-        <rect width="312" height="148" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+        <rect width="312" height="148" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       </g>
-      <text x="156" y="30" style="fill:var(--text);font-size:var(--text-title);font-weight:650;" text-anchor="middle">跟随任务</text>
+      <g transform="translate(16 16)" data-component="single-choice" data-form="dropdown">
+        <rect width="232" height="34" rx="17" style="fill:var(--surface-sunken)" />
+        <text x="16" y="17" style="fill:var(--text);font-size:var(--text-small)">跟随任务</text>
+        <g transform="translate(204 9) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6" />
+        </g>
+      </g>
       <g transform="translate(0 0)" opacity="0.42" aria-disabled="true">
-        <g transform="translate(266 13)" data-component="icon-button" data-form="compact">
-          <rect width="30" height="30" rx="15" style="fill:none"/>
+        <g transform="translate(266 18)" data-component="icon-button" data-form="compact">
+          <rect width="30" height="30" rx="15" style="fill:none" />
           <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="rotate-ccw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
           </g>
         </g>
       </g>
-      <text x="146" y="66" style="fill:var(--text-secondary);font-size:var(--text-small);" text-anchor="middle">跟随任务</text>
-      <g transform="translate(180 58) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-        <path d="m9 18 6-6-6-6"/>
-      </g>
+      <text x="16" y="78" style="fill:var(--text);font-size:var(--text-small);font-weight:600">跟随任务</text>
       <g transform="translate(16 96)" data-component="effort-slider" data-form="stepped">
-        <rect width="280" height="36" rx="18" style="fill:none"/>
+        <rect width="280" height="36" rx="18" style="fill:none" />
         <g transform="translate(0 4)">
-          <rect width="280" height="28" rx="14" style="fill:var(--surface-sunken)"/>
+          <rect width="280" height="28" rx="14" style="fill:var(--surface-sunken)" />
         </g>
-        <circle cx="18" cy="18" r="2.5" style="fill:var(--text-tertiary)"/>
-        <circle cx="79" cy="18" r="2.5" style="fill:var(--text-tertiary)"/>
-        <circle cx="140" cy="18" r="2.5" style="fill:var(--text-tertiary)"/>
-        <circle cx="201" cy="18" r="2.5" style="fill:var(--text-tertiary)"/>
-        <circle cx="262" cy="18" r="2.5" style="fill:var(--text-tertiary)"/>
-        <circle cx="18" cy="18" r="18" style="fill:var(--knob);filter:var(--elev-md)"/>
+        <circle cx="18" cy="18" r="2.5" style="fill:var(--text-tertiary)" />
+        <circle cx="79" cy="18" r="2.5" style="fill:var(--text-tertiary)" />
+        <circle cx="140" cy="18" r="2.5" style="fill:var(--text-tertiary)" />
+        <circle cx="201" cy="18" r="2.5" style="fill:var(--text-tertiary)" />
+        <circle cx="262" cy="18" r="2.5" style="fill:var(--text-tertiary)" />
+        <circle cx="18" cy="18" r="18" style="fill:var(--knob);filter:var(--elev-md)" />
       </g>
     </g>
-    <g transform="translate(70 380)">
+    <g transform="translate(344 169)" data-part="model-menu">
       <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-        <rect width="220" height="164" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+        <rect width="220" height="164" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       </g>
-      <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);">选择模型</text>
-      <text x="16" y="61" style="fill:var(--text);font-size:var(--text-small);font-weight:500;">跟随任务</text>
+      <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta)">选择模型</text>
+      <text x="16" y="61" style="fill:var(--text);font-size:var(--text-small);font-weight:500">跟随任务</text>
       <g transform="translate(186 53) scale(0.6666666666666666)" data-icon="check" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
-        <path d="M20 6 9 17l-5-5"/>
+        <path d="M20 6 9 17l-5-5" />
       </g>
-      <text x="16" y="100" style="fill:var(--text);font-size:var(--text-small);">GPT-6.1 Sol</text>
-      <text x="16" y="139" style="fill:var(--text);font-size:var(--text-small);">GPT-5.6 Sol</text>
+      <text x="16" y="100" style="fill:var(--text);font-size:var(--text-small)">GPT-6.1 Sol</text>
+      <text x="16" y="139" style="fill:var(--text);font-size:var(--text-small)">GPT-5.6 Sol</text>
     </g>
   </g>
 </svg>

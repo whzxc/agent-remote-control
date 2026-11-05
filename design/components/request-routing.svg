@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="280" viewBox="0 0 600 280" data-design="component" data-name="request-routing">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="392" viewBox="0 0 600 392" data-design="component" data-name="request-routing">
 <!-- design:tokens -->
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
@@ -18,8 +18,8 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
 <!-- /design:tokens -->
-  <desc>Routing layouts: passive carries not-routable or routed text. Actionable carries the deferred countdown and Pause, or the paused label and Resume, plus Hand to Claude now. Text and controls follow the named English fixtures. Text wraps above controls when needed.</desc>
-  <rect data-canvas="" width="600" height="280" style="fill:var(--canvas)"/>
+  <desc>Routing layouts: passive carries not-routable or routed text. Actionable carries the deferred countdown and Pause, or the paused label and Resume, plus Hand to Claude now. Text and controls follow the named English fixtures. Text wraps above controls when needed. Actionable-inline groups status and routing controls in one compact row directly above request actions. Reserve at least 312px for this row inside the card, allowing the sheet to grow with its content.</desc>
+  <rect data-canvas="" width="600" height="392" style="fill:var(--canvas)"/>
   <text x="40" y="46" class="note">passive · task-routing-not-routable</text>
   <g transform="translate(40 62)" data-component="request-routing" data-form="passive">
     <rect width="520" height="28" rx="14" style="fill:none" data-fluid="height"/>
@@ -42,4 +42,17 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
   </g>
+<text x="40" y="302" class="note">actionable-inline · task-routing-paused</text>
+<g transform="translate(40 318)" data-component="request-routing" data-form="actionable-inline">
+  <rect width="312" height="34" rx="17" style="fill:none" />
+  <text x="0" y="17" style="fill:var(--text-secondary);font-size:var(--text-meta)">Paused</text>
+  <g transform="translate(56 0)" data-component="button" data-form="ghost">
+    <rect width="80" height="34" rx="17" style="fill:none" />
+    <text x="40.0" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600" text-anchor="middle">Resume</text>
+  </g>
+  <g transform="translate(144 0)" data-component="button" data-form="secondary">
+    <rect width="168" height="34" rx="17" style="fill:var(--surface-sunken)" />
+    <text x="84.0" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600" text-anchor="middle">Hand to Claude now</text>
+  </g>
+</g>
 </svg>
