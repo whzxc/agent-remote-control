@@ -83,9 +83,7 @@ Install an authorized local build from an independent terminal:
 npm run desktop:install -- "target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app"
 ```
 
-The macOS script checks the signed candidate, archives the installed app, stops the installed Desktop and Core, replaces the bundle, and launches it. It does not schedule work or resume tasks. Run it outside ARC-owned commands because replacing ARC stops those commands too. User state is preserved. Keep the printed backup path for manual recovery.
-
-An Agent task running under ARC writes the install command to an executable `.command` file and opens it with `open -a Terminal`. Do not use `launchctl submit`, because launchd keeps submitted jobs alive and reruns the installer after every exit.
+The macOS script checks the signed candidate, archives the installed app, stops the installed Desktop and Core, replaces the bundle, and launches it. It does not schedule work or resume tasks. Run it outside ARC-owned commands because replacing ARC stops those commands too. User state is preserved. Keep the printed backup path for manual recovery. Do not start it with `launchctl submit`, because launchd keeps submitted jobs alive and reruns the installer after every exit, replacing ARC in a loop.
 
 Version precedence is ARC_BUILD_VERSION, nearest reachable v-tag, then 0.0.0. package.json, Cargo, and Tauri use 0.0.0 as an internal placeholder. Formal artifacts inject versions into existing feature commits without version-bump commits.
 
