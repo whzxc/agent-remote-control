@@ -53,7 +53,7 @@ test('Agent and task defaults retain pending edits across consecutive changes an
       await click(page.getByRole('button', { name: t('taskDispatch.title') }));
       await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
     };
-    const modelButton = () => page.getByRole('button', { name: new RegExp(`^${t('dispatchDefaults.model')}:`) });
+    const modelButton = () => page.getByRole('combobox', { name: new RegExp(`^${t('dispatchDefaults.model')}:`) });
     for (const [entry, reopen] of [['agent', false], ['task', false], ['agent', true], ['task', true]] as const) {
       saved = { model: null, effort: null }; pending.length = 0;
       const render = () => root.render(h(TooltipProvider, null, entry === 'agent'
@@ -63,7 +63,7 @@ test('Agent and task defaults retain pending edits across consecutive changes an
       if (entry === 'task') await openTask();
       await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
       await act(async () => { fireEvent.keyDown(modelButton(), { key: 'Enter' }); });
-      await click(page.getByRole('menuitemradio', { name: 'Fixture model' }));
+      await click(page.getByRole('option', { name: 'Fixture model' }));
       if (reopen) {
         await act(async () => root.render(null));
         await act(async () => render());

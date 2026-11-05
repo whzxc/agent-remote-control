@@ -104,13 +104,6 @@
 
 :root {
   --task-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --task-user-bg: light-dark(#2b2420, #3a332e);
-  --task-user-ink: #fffaf4;
-  --task-log-bg: #1f1b18;
-  --task-log-ink: #f3ebe3;
-  --task-live-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  --task-attention-ring: color-mix(in srgb, var(--warning) 48%, var(--surface));
-  --task-lift: 0 10px 24px -16px color-mix(in srgb, var(--text) 30%, transparent);
 }
 
 /* Studio lighting overrides presentation without changing the saved theme. */

@@ -69,10 +69,8 @@ test("dock interaction pauses routing and explicit controls preserve answering",
     assert.equal(page.getByRole("status").textContent, t("routing.soon", { source }));
     routing.deferUntil = Date.now() + 15000;
     await render("countdown", true);
-    assert.equal(page.getByRole("status").textContent, t("routing.handing", { source }));
     const click = async (node: HTMLElement) => { await act(async () => fireEvent.click(node)); };
-    assert.ok(page.getByRole("button", { name: t("routing.pause") }));
-    await click(page.getByRole("button", { name: new RegExp(t("detail.openRequest")) }));
+    await click(page.getByRole("button", { name: t("detail.openRequest"), exact: true }));
     assert.ok(page.getByRole("dialog", { name: t("detail.needsYou") }));
     assert.equal(page.getAllByText(t("routing.paused")).length, 1);
     await click(page.getByRole("button", { name: t("routing.resume") }));

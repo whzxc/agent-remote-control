@@ -76,8 +76,8 @@ function useDefaults(read: string, write: string, key: Record<string, string>) {
 }
 
 /** The model and effort picker backed by the Agent's native catalog. */
-function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, rows, onSave }: {
-  agent: string; defaults: Defaults; effort: boolean; inheritLabel: string; rows?: boolean; onSave: (next: Defaults) => void;
+function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, rows, inline, onSave }: {
+  agent: string; defaults: Defaults; effort: boolean; inheritLabel: string; rows?: boolean; inline?: boolean; onSave: (next: Defaults) => void;
 }) {
   const catalog = useDispatchCatalog(agent)?.catalog;
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
@@ -94,6 +94,7 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
     onChange={next => onSave({ model: next.model,
       // Keep effort only while the newly selected model still supports it.
       effort: next.effort && (next.model === model || !next.model || !modelEfforts(next.model).length || modelEfforts(next.model).includes(next.effort)) ? next.effort : "" })} />;
+  if (inline) return <div className="task-dispatch-fields"><span>{label}</span>{picker}</div>;
   return rows ? <Row title={label}>{picker}</Row> : <Field label={label}>{picker}</Field>;
 }
 
@@ -130,11 +131,10 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
 
 function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threadId: string; onClose: () => void }) {
   const { defaults, saving, error, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
-  return <Dialog title={t("taskDispatch.title")} onClose={onClose} busy={saving} width={400}>
+  return <Dialog title={t("taskDispatch.title")} onClose={onClose} busy={saving} width={440} description={t("taskDispatch.hint")}>
     {error && <Notice>{error}</Notice>}
     {defaults && <div className="form">
-      <p className="row-description">{t("taskDispatch.hint")}</p>
-      <DefaultsFields agent={agent} defaults={defaults} effort inheritLabel={t("taskDispatch.inherit")}
+      <DefaultsFields agent={agent} defaults={defaults} effort inline inheritLabel={t("taskDispatch.inherit")}
         onSave={next => void save(next, true)} />
     </div>}
   </Dialog>;

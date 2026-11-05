@@ -1,0 +1,19 @@
+.task-message { width: fit-content; align-self: flex-end; max-width: 100%; min-width: 0; padding: 12px 16px; border: 0; border-radius: var(--radius-card); background: var(--surface-sunken); color: var(--text); font-size: var(--text-small); line-height: 22px; overflow-wrap: anywhere; }
+.task-message-queued { display: flex; flex-direction: column; gap: 8px; }
+.task-message-queued > p { margin: 0; white-space: pre-wrap; }
+.task-message-queued > span { font-size: var(--text-meta); color: var(--text-secondary); }
+.request-entry { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 16px; border-radius: var(--radius-card); background: var(--surface-subtle); }
+.request-entry > .icon { flex: none; color: var(--warning); align-self: flex-start; }
+.request-entry > div { display: grid; gap: 10px; min-width: 0; flex: 1; }
+.request-entry strong { font-size: var(--text-meta); font-weight: 600; color: var(--warning); }
+.request-entry > div > span { font-size: var(--text-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-unavailable { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 18px 16px; border-radius: var(--radius-card); background: var(--surface-subtle); font-size: var(--text-small); color: var(--text-secondary); }
+.review-unavailable > span { flex: 1; }
+.ownership-tag { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-meta); }
+.ownership-tag > .icon { flex: none; width: 14px; height: 14px; }
+.ownership-tag > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-phase-tile { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: var(--radius-tile); background: color-mix(in srgb, var(--phase-thinking) 16%, transparent); }
+.agent-phase-tile > span, .agent-phase-tile svg { display: block; width: 16px; height: 16px; }
+
+.task-back-button.button { min-width: 0; justify-content: flex-start; padding-inline: 0; font-size: var(--text-meta); }
+.task-back-button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

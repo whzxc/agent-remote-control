@@ -394,6 +394,10 @@ export function SingleChoice({
   iconOnly = false,
   compact = false,
   cards = false,
+  optionCards = false,
+  dropdown = false,
+  menuLabel,
+  side = "bottom",
   navigation = false,
   tiles = false,
 }: {
@@ -406,6 +410,10 @@ export function SingleChoice({
   iconOnly?: boolean;
   compact?: boolean;
   cards?: boolean;
+  optionCards?: boolean;
+  dropdown?: boolean;
+  menuLabel?: string;
+  side?: "bottom" | "right";
   navigation?: boolean;
   tiles?: boolean;
 }) {
@@ -432,7 +440,7 @@ export function SingleChoice({
     <div
       ref={container}
       style={compact ? { width: contentWidth } : undefined}
-      className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${navigation ? "choice-navigation" : ""} ${tiles ? "choice-tiles" : ""}`}
+      className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
       {!swatches && options.length <= 5 && (
         <div ref={measure} className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
@@ -445,15 +453,15 @@ export function SingleChoice({
           </div>
         </div>
       )}
-      {tiles || navigation || cards || swatches || (options.length <= 5 && fits) ? (
+      {!dropdown && (tiles || navigation || cards || optionCards || swatches || (options.length <= 5 && fits)) ? (
         <RadioGroup.Root
           value={value}
           onValueChange={onChange}
           disabled={disabled}
           aria-label={label}
-          orientation={cards || navigation ? "vertical" : "horizontal"}
-          className={`choice-radio ${tiles || navigation || cards || swatches ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
-          style={tiles || navigation || cards || swatches ? undefined : { width: contentWidth }}
+          orientation={cards || optionCards || navigation ? "vertical" : "horizontal"}
+          className={`choice-radio ${tiles || navigation || cards || optionCards || swatches ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
+          style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: contentWidth }}
         >
           {options.map((option) => (
             <RadioGroup.Item
@@ -476,7 +484,7 @@ export function SingleChoice({
                 <>
                   {option.graphic}
                   {option.icon && <Icon icon={option.icon} />}
-                  {!iconOnly && <span>{option.label}{(cards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
+                  {!iconOnly && <span>{option.label}{(cards || optionCards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
                 </>
               )}
             </RadioGroup.Item>
@@ -487,13 +495,15 @@ export function SingleChoice({
           <S.Trigger className="select-trigger" aria-label={label}>
             <S.Value />
             <S.Icon>
-              <Icon icon={ChevronDown} />
+              <Icon icon={side === "right" ? ChevronRight : ChevronDown} />
             </S.Icon>
           </S.Trigger>
           <S.Portal>
             <S.Content
-              className="select-content"
+              className={`select-content ${menuLabel ? "choice-labelled-menu" : ""}`}
               position="popper"
+              side={side}
+              align="start"
               sideOffset={6}
               collisionPadding={12}
             >
@@ -501,6 +511,7 @@ export function SingleChoice({
                 <Icon icon={ChevronUp} />
               </S.ScrollUpButton>
               <S.Viewport>
+                {menuLabel && <div className="choice-menu-label">{menuLabel}</div>}
                 <HoverScope tracking="highlighted">
                 {options.map((option) => (
                   <S.Item
@@ -724,3 +735,5 @@ export function CopyField({
 
 
 import "./DetailDialog.css";
+
+import "./TaskControls.css";

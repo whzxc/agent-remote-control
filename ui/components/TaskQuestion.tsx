@@ -1,5 +1,5 @@
 import { readOnlyBrowser } from "../browserMode";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import type { AgentActivitySession } from "../types";
 import { t } from "../i18n";
 import { activityApprovals, submitActivityResponse } from "../state/activity";
@@ -22,11 +22,11 @@ function QuestionField({ question, value, onChange, disabled }: { question: Ques
     if (option) { event.preventDefault(); pick(option.label); }
   }}><legend>{question.text}</legend>
     {question.multiple ? question.options.map((option, index) => <div className="task-multi-option" key={option.label}><Checkbox checked={value.includes(option.label)} onChange={() => pick(option.label)} disabled={disabled}>{option.label}</Checkbox>{option.description && <small>{option.description}</small>}<kbd>{index + 1}</kbd></div>)
-      : !!question.options.length && <SingleChoice cards label={question.text} value={custom ? "" : value[0] ?? ""} onChange={pick} disabled={disabled} options={question.options.map((option, index) => ({ value: option.label, label: option.label, description: option.description, graphic: <kbd>{index + 1}</kbd> }))} />}
+      : !!question.options.length && <SingleChoice optionCards label={question.text} value={custom ? "" : value[0] ?? ""} onChange={pick} disabled={disabled} options={question.options.map((option, index) => ({ value: option.label, label: option.label, description: option.description, graphic: <kbd>{index + 1}</kbd> }))} />}
     {(question.other || !question.options.length) && <Field id={id} label={t(question.options.length ? "detail.other" : "timeline.answer")}><Input id={id} type={question.secret ? "password" : "text"} value={other} onFocus={() => { if (!question.multiple) onChange(other ? [other] : []); }} onChange={event => onChange([...(question.multiple ? value.filter(answer => question.options.some(option => option.label === answer)) : []), event.target.value])} disabled={disabled} /></Field>}
   </fieldset>;
 }
-export default function TaskQuestion({ agent, session, answers, onAnswersChange }: { agent: string; session: AgentActivitySession; answers: Record<string, string[]>; onAnswersChange: (answers: Record<string, string[]>) => void }) {
+export default function TaskQuestion({ agent, session, answers, onAnswersChange, routing }: { routing?: ReactNode; agent: string; session: AgentActivitySession; answers: Record<string, string[]>; onAnswersChange: (answers: Record<string, string[]>) => void }) {
   const submissions = activityApprovals.use();
   const submission = submissions[interactionKey(agent, session)];
   const interaction = session.interaction!;
@@ -42,7 +42,8 @@ export default function TaskQuestion({ agent, session, answers, onAnswersChange 
     {!supported && <p className="timeline-meta">{t("timeline.responseUnavailable")}</p>}
     {submission?.status === "unconfirmed" && <p role="status">{t("activity.unconfirmed")}</p>}
     {submission?.status === "failed" && <p role="alert">{taskErrorText(submission.error)}</p>}
-    <div className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed"} onClick={() => send(true)}>{t("detail.skip")}</Button>
-      <Button type="submit" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed"} busy={submission?.status === "submitting"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></div>
+    {routing}
+    <div className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "cancel"} onClick={() => send(true)}>{t("detail.skip")}</Button>
+      <Button type="submit" variant="primary" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "answer"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></div>
   </form>;
 }

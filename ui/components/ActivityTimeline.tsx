@@ -4,6 +4,7 @@ import { pendingSessions } from "../state/taskInteractions";
 import { useTaskPresence } from "../state/requestRouting";
 import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
+import { TaskCard, ReviewUnavailable, TaskBackButton } from "./ui/TaskPresentation";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
@@ -15,7 +16,7 @@ import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
-import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
+import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
 import { dispatchSourceLabel, SourceBadge } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
@@ -221,7 +222,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-narrow={narrow || undefined}>
     <header className="dialog-header task-detail-header">
-      <div className="task-detail-navigation"><Button variant="ghost" aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></Button>
+      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
         {narrow && (!readOnlyBrowser && validId && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
@@ -271,7 +272,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           setAtLatest(node.scrollHeight - node.scrollTop - node.clientHeight <= 24);
         }}>
         <div ref={content} className={loading ? "timeline-loading" : "timeline-entries"} onClickCapture={event => {
-          if ((event.target as Element).closest("button, .timeline-turn[data-state=closed]")) manualDisclosure.current = true;
+          if ((event.target as Element).closest("button, [data-turn-collapsed]")) manualDisclosure.current = true;
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
           {(!validId || error || openError) && <p className="timeline-error" role="alert">{!validId ? t("detail.taskUnavailable") : taskErrorText(openError || error)}</p>}
@@ -286,15 +287,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             onResume={!readOnlyBrowser && agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
           <TaskQueuedMessages queue={queue} />
-          {terminalState(state) && review && <article className="task-final task-review-info" data-verdict={review.verdict}>
+          {terminalState(state) && review && <TaskCard reply className="task-final task-review-info" data-verdict={review.verdict}>
             <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>
             <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
               {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
               <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
             </div>
             {review.note && <p>{review.note}</p>}
-          </article>}
-          {terminalState(state) && reviewError && <Notice action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</Notice>}
+          </TaskCard>}
+          {terminalState(state) && reviewError && <ReviewUnavailable action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</ReviewUnavailable>}
 
           </>}
         </div>

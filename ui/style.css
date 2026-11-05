@@ -1189,10 +1189,6 @@ textarea.input {
   font-size: 12px;
   margin-left: auto;
 }
-.task-prompt {
-  font: 14px/1.8 var(--font-ui);
-  margin: 0;
-}
 .log-table-scroll {
   overflow: auto;
 }

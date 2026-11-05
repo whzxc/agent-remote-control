@@ -2,13 +2,15 @@ import * as React from "react"
 import { Slot } from "radix-ui"
 import { cn } from "../../lib/utils"
 
-function Card({ className, asChild = false, ...props }: React.ComponentProps<"div"> & { asChild?: boolean }) {
+function Card({ className, asChild = false, padded = false, variant = "default", ...props }: React.ComponentProps<"div"> & { asChild?: boolean; padded?: boolean; variant?: "default" | "reply" }) {
   const Component = asChild ? Slot.Root : "div";
   return (
     <Component
       data-slot="card"
       className={cn(
-        "flex flex-col gap-4 rounded-[var(--radius-card)] bg-[var(--surface-subtle)] py-4 text-[var(--text)]",
+        "flex min-w-0 flex-col gap-4 rounded-[var(--radius-card)] text-[var(--text)]",
+        padded ? "p-4" : "py-4",
+        variant === "reply" ? "bg-[var(--surface)]" : "bg-[var(--surface-subtle)]",
         className
       )}
       {...props}

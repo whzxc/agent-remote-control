@@ -34,6 +34,7 @@ export default function ElasticPanel({
   onDismiss,
   onEscapeKeyDown,
   title,
+  description,
   labelledBy,
   children,
   footer,
@@ -65,6 +66,7 @@ export default function ElasticPanel({
   onDismiss?: () => void;
   onEscapeKeyDown?: (event: KeyboardEvent) => void;
   title: ReactNode;
+  description?: ReactNode;
   labelledBy?: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -353,7 +355,7 @@ export default function ElasticPanel({
           data-recessed={recessed || undefined}
           inert={recessed || undefined}
           data-panel-depth={baseDepth + depthOffset}
-          aria-describedby={undefined}
+          {...(!description ? { "aria-describedby": undefined } : {})}
           {...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
           style={
             {
@@ -453,6 +455,7 @@ export default function ElasticPanel({
                     <X size={20} strokeWidth={1.75} />
                   </button>
                 </div>
+                {description && <D.Description asChild><div className="dialog-description">{description}</div></D.Description>}
                 {headerDetail}
               </header>
             )}

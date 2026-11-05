@@ -11,7 +11,8 @@ import { pendingSessions } from "../state/taskInteractions";
 import { tasks, type TaskRecord } from "../state/tasks";
 import ActivityInteraction from "./ActivityInteraction";
 import TaskQuestion from "./TaskQuestion";
-import { Button, Dialog, IconButton } from "./ui";
+import { Dialog, IconButton } from "./ui";
+import { TaskCard, RequestEntry } from "./ui/TaskPresentation";
 
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {
   return records.filter(record => (record.agent || "codex") === agent && (record.taskId || record.threadId || record.task.threadId) === id);
@@ -40,23 +41,30 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   useEffect(() => { if (!count || !narrow) setSheetOpen(false); }, [count, narrow]);
   if (!count) return null;
   const interaction = pending?.interaction;
+  const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />;
+  const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive") : undefined;
+  const actionable = routing.routing && ["deferred", "paused"].includes(routing.routing.state);
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>
-    {count > 1 && <header><strong>{t("detail.needsYou")}</strong><div className="actions"><IconButton icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></div></header>}
-    {pending && interaction && <>
-      {interaction.kind === "question" ? <TaskQuestion key={identity} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} /> : <>
-        <div className="task-request-preview"><strong>{interaction.title || interaction.summary}</strong>
-        {(interaction.command || interaction.preview || interaction.path) && <pre>{interaction.command || interaction.preview || interaction.path}</pre>}
-        {interaction.cwd && <div className="mono">{t("timeline.cwd")} · {interaction.cwd}</div>}
-        {interaction.reason && <p>{interaction.reason}</p>}</div>
-        <ActivityInteraction key={identity} agent={agent} session={pending} />
+    {!narrow && <header><strong>{t("detail.needsYou")}</strong>{passive}</header>}
+    {count > 1 && <nav className="actions" aria-label={t("detail.needsYou")}><IconButton compact icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton compact icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></nav>}
+    {pending && interaction && <TaskCard className="task-request-card">
+      {interaction.kind === "question" ? <TaskQuestion key={identity} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} routing={route("actionable")} /> : <>
+        <div className="task-request-preview"><header><strong>{interaction.title || interaction.summary}</strong><span>{t("timeline.allowOnce")}</span></header>
+          {(interaction.command || interaction.preview || interaction.path) && <pre>{interaction.command || interaction.preview || interaction.path}</pre>}
+          {interaction.cwd && <div className="mono">{t("timeline.cwd")} · {interaction.cwd}</div>}
+          {interaction.reason && <p>{interaction.reason}</p>}
+        </div>
+        <ActivityInteraction key={identity} agent={agent} session={pending} routing={route("actionable")} />
       </>}
-    </>}
-    <RequestRouting routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />
+    </TaskCard>}
   </section>;
   if (!narrow) return <footer className="dialog-footer task-detail-footer">{dock}</footer>;
-  return <><footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}><Button variant="secondary" className="task-needs-banner" onClick={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} aria-haspopup="dialog"><span><strong>{t("detail.needsYou")} · {count}</strong><span>{interaction?.summary}</span></span><span>{t("detail.openRequest")}</span></Button>{!sheetOpen && <><RequestRouting routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} /></>}</footer>
-    {sheetOpen && <Dialog sheet width={360} title={t("detail.needsYou")} onClose={() => setSheetOpen(false)} returnFocus=".task-needs-banner" footer={<Button variant="ghost" onClick={() => setSheetOpen(false)}>{t("detail.later")}</Button>}><div className="task-input-sheet">{dock}</div></Dialog>}
+  return <><footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
+    <RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
+  </footer>
+    {sheetOpen && <Dialog sheet width={actionable ? 392 : 360} title={t("detail.needsYou")} description={passive} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{dock}</div></Dialog>}
   </>;
+
 }
 
 export function TaskReceiptHistory({ agent, id, turnId, latest }: { agent: string; id: string; turnId?: string; latest: boolean }) {

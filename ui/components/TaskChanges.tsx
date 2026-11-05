@@ -16,7 +16,7 @@ export function ChangedFiles({ entries, project }: { entries: AgentTimelineEntry
       {file.added !== undefined && <span className="task-added">+{file.added}</span>}
       {file.removed !== undefined && <span className="task-removed">−{file.removed}</span>}
     </div>;
-  return <Collapsible.Root open={expanded} onOpenChange={setExpanded} asChild><section className="task-changes" aria-label={t("timeline.changes")}>
+  return <Collapsible.Root open={expanded} onOpenChange={setExpanded} asChild><section className="task-changes" aria-label={t("timeline.changes")} data-single={files.length === 1 || undefined}>
     {files.length > 3 ? <Collapsible.Trigger asChild><Button variant="ghost" className="task-changes-summary"><strong>{t("detail.filesChanged", { count: files.length })}</strong><Icon icon={ChevronRight} className="timeline-chevron" /></Button></Collapsible.Trigger>
       : <strong>{t("detail.filesChanged", { count: files.length })}</strong>}
     {files.slice(0, 3).map(renderFile)}

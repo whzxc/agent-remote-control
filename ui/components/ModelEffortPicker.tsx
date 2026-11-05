@@ -1,8 +1,10 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { DropdownMenu as M, Popover, Slider as RS } from "radix-ui";
-import { Check, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Popover } from "radix-ui";
+import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
-import { Icon, IconButton } from "./ui";
+import { IconButton, SingleChoice } from "./ui";
+import EffortSlider from "./ui/EffortSlider";
+import ChoiceTrigger from "./ui/ChoiceTrigger";
 import "./ModelEffortPicker.css";
 
 // Radix radio values must be nonempty; it maps to "" (inheritance) on change.
@@ -41,44 +43,20 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
   };
   return <Popover.Root>
     <Popover.Trigger asChild>
-      <button type="button" className="spec-picker-trigger" aria-label={label} disabled={disabled}>
-        <span>{summary}</span><Icon icon={ChevronDown} />
-      </button>
+      <ChoiceTrigger aria-label={label} disabled={disabled}>{summary}</ChoiceTrigger>
     </Popover.Trigger>
     <Popover.Portal>
-      <Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="end" sideOffset={8} collisionPadding={12}>
-        <header>
-          <span />
-          <strong aria-live="polite">{withEffort ? stepLabel(preview) : modelName}</strong>
-          <IconButton icon={RotateCcw} label={t("dispatchDefaults.reset")} disabled={disabled || (!model && !effort)}
+      <Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
+        <div className="spec-picker-model-row">
+          <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
+            options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"
+            onChange={value => onChange({ model: value === INHERIT ? "" : value, effort })} />
+          <IconButton compact variant="ghost" icon={RotateCcw} label={t("dispatchDefaults.reset")} disabled={disabled || (!model && !effort)}
             onClick={() => onChange({ model: "", effort: "" })} />
-        </header>
-        <M.Root>
-          <M.Trigger asChild>
-            <button type="button" className="spec-picker-model" disabled={disabled} aria-label={`${t("dispatchDefaults.model")}: ${modelName}`}>
-              {modelName}<Icon icon={ChevronRight} />
-            </button>
-          </M.Trigger>
-          <M.Portal>
-            <M.Content className="menu spec-picker-models" aria-label={t("dispatchDefaults.model")} side="bottom" align="center" sideOffset={6} collisionPadding={12}>
-              <M.Label className="spec-picker-models-title">{t("dispatchDefaults.chooseModel")}</M.Label>
-              <M.RadioGroup value={model || INHERIT} onValueChange={value => onChange({ model: value === INHERIT ? "" : value, effort })}>
-                {[{ value: INHERIT, label: inheritLabel }, ...models].map(row => <M.RadioItem key={row.value} value={row.value} className="menu-item">
-                  {row.label}<M.ItemIndicator><Icon icon={Check} /></M.ItemIndicator>
-                </M.RadioItem>)}
-              </M.RadioGroup>
-            </M.Content>
-          </M.Portal>
-        </M.Root>
-        {withEffort && <RS.Root className="spec-picker-slider" min={0} max={steps.length - 1} step={1} value={[preview]} disabled={disabled}
-          onValueChange={([value]) => setPreview(value)} onValueCommit={([value]) => commit(value)}>
-          <RS.Track className="spec-picker-track">
-            <RS.Range className="spec-picker-range" />
-            {steps.map((step, index) => <span key={step} className="spec-picker-mark" data-filled={index <= preview || undefined}
-              style={{ "--mark": `${steps.length > 1 ? index / (steps.length - 1) : 0}` } as CSSProperties} />)}
-          </RS.Track>
-          <RS.Thumb className="spec-picker-thumb" aria-label={t("dispatchDefaults.effort")} aria-valuetext={stepLabel(preview)} />
-        </RS.Root>}
+        </div>
+        {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">{stepLabel(preview)}</strong>
+          <EffortSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
+        </div>}
       </Popover.Content>
     </Popover.Portal>
   </Popover.Root>;

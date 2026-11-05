@@ -1,0 +1,23 @@
+/* single-choice/option-card: keyboard radio behavior stays in SingleChoice. */
+.choice-option-cards .choice-measure { display: none; }
+.choice-option-cards .choice-radio { display: grid; width: 100%; padding: 0; gap: 8px; background: none; }
+.choice-option-cards .choice-option { min-height: 44px; justify-content: flex-start; gap: 16px; padding: 12px 16px; border: 0; border-radius: var(--radius-card); background: var(--surface-sunken); color: var(--text); font-size: var(--text-body); line-height: 20px; font-weight: 500; white-space: normal; text-align: left; }
+.choice-option-cards .choice-option[data-state="checked"] { background: var(--surface-raised); box-shadow: var(--shadow-sm); }
+.choice-option-cards .choice-option > span { min-width: 0; overflow-wrap: anywhere; }
+.choice-option-cards kbd { flex: none; min-width: 12px; font: var(--text-meta)/20px var(--font-mono); color: var(--text-tertiary); }
+.choice-option-cards small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: var(--text-meta); font-weight: 400; }
+.choice-labelled-menu { min-width: 220px; border: 0; border-radius: var(--radius-panel); padding: 8px; box-shadow: var(--shadow-lg); }
+.choice-menu-label { padding: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
+.choice-labelled-menu .select-item { min-height: 39px; padding: 8px; font-weight: 400; }
+.choice-labelled-menu .select-item[data-state="checked"] { font-weight: 500; }
+.effort-slider { position: relative; display: flex; align-items: center; height: 36px; touch-action: none; user-select: none; }
+.effort-slider-track { position: relative; flex: 1; height: 28px; border-radius: var(--radius-pill); background: var(--surface-sunken); }
+.effort-slider-mark { position: absolute; top: 50%; left: calc(18px + var(--mark) * (100% - 36px)); width: 5px; height: 5px; border-radius: 50%; background: var(--text-tertiary); transform: translate(-50%, -50%); pointer-events: none; }
+.effort-slider-thumb { display: block; width: 36px; height: 36px; border-radius: 50%; background: var(--knob); box-shadow: var(--shadow-md); cursor: grab; }
+.effort-slider-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.effort-slider[data-disabled] { opacity: .42; }
+.request-routing-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
+.request-routing-inline > span { overflow-wrap: anywhere; }
+.request-routing-inline > .actions { display: flex; align-items: center; gap: 8px; margin: 0; }
+
+.choice-dropdown .select-trigger { width: 100%; }
