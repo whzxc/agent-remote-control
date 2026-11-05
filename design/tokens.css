@@ -2,6 +2,7 @@
 :root {
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;
+  --text-display: 28px;
   --text-title: 18px;
   --text-body: 14px;
   --text-small: 13px;
