@@ -280,8 +280,7 @@ async fn flush() -> Result<()> {
         }
         let result = deliver(Request {
             route,
-            messages: rows.iter().map(|r| r.envelope.clone()).collect(),
-            escalated: rows.iter().any(|r| r.envelope["escalated"] == true),
+            count: rows.len(),
             batch_id: string(&rows[0].envelope, "messageId").into(),
         })
         .await;

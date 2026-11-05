@@ -611,15 +611,6 @@ fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
                 .iter()
                 .any(|d| d.interaction["method"] == "request_user_input_async"))
 }
-// Bound one line of source-reported metadata.
-fn receipt_line(value: &str, limit: usize) -> String {
-    let text = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if text.chars().count() > limit {
-        format!("{}…", text.chars().take(limit - 1).collect::<String>())
-    } else {
-        text
-    }
-}
 fn task_title(b: &Binding) -> &str {
     [&b.thread_title, &b.title, &b.project]
         .into_iter()
@@ -630,7 +621,7 @@ fn task_title(b: &Binding) -> &str {
 const RECEIPT_HEADER: &str = "⟢ ARC · automated, not from the user · guide topic:notify";
 // Pushed text carries no task data; receivers read details from the inbox.
 // Attention-first order of the glyph vocabulary declared in the notify guide.
-const GLYPHS: [&str; 8] = [
+const GLYPHS: [&str; 9] = [
     "? input",
     "⚑ approve",
     "✗ failed",
@@ -639,7 +630,9 @@ const GLYPHS: [&str; 8] = [
     "✓ done",
     "↔ handoff",
     "↻ revived",
+    MAIL,
 ];
+const MAIL: &str = "✉ mail";
 
 fn glyph(d: &Delivery) -> &'static str {
     match d.task_state.as_str() {
