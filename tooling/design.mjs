@@ -281,25 +281,37 @@ async function render(args) {
   } finally { await browser.close(); }
 }
 
-function gallery() {
-  const files = listAssets();
-  const groups = Map.groupBy(files, file => path.relative(designDir, path.dirname(file)) || 'design');
-  const sections = [...groups].map(([group, list]) => `<section><h2>${group}</h2>${list.map(file =>
-    `<figure><figcaption>${relative(file)}</figcaption>${readFileSync(file, 'utf8').replace(/<\?xml[^>]*\?>\s*/, '')}</figure>`).join('')}</section>`).join('');
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>ARC design assets</title><style>
-body{margin:0;background:var(--canvas);color:var(--text);font-family:var(--font-ui)}
-header{position:sticky;top:0;z-index:1;display:flex;gap:8px;align-items:center;padding:12px 24px;background:var(--surface-raised);border-bottom:1px solid var(--border)}
-header strong{margin-right:auto;font-size:14px}
-header button{font:inherit;font-size:13px;padding:6px 14px;border:0;border-radius:999px;background:var(--surface-sunken);color:var(--text-secondary);cursor:pointer}
-header button[aria-pressed="true"]{background:var(--action);color:var(--on-action)}
-section{padding:8px 24px 24px}h2{font:500 12px var(--font-mono);color:var(--text-tertiary)}
-figure{margin:0 0 24px}figcaption{font:12px var(--font-mono);color:var(--text-tertiary);margin-bottom:8px}figure svg{display:block;max-width:100%;height:auto}
-</style></head><body><header><strong>ARC design assets</strong><button data-choice="system">System</button><button data-choice="light">Light</button><button data-choice="dark">Dark</button></header><main>${sections}</main><script>
-const buttons = document.querySelectorAll('[data-choice]');
-const apply = choice => { if (choice === 'system') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = choice; buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.choice === choice))); };
-buttons.forEach(b => b.addEventListener('click', () => apply(b.dataset.choice)));
-apply('system');
-</script></body></html>`;
+async function gallery() {
+  const embed = (file, theme) => {
+    let svg = readFileSync(file, 'utf8').replace(/<svg\b/, `<svg data-theme="${theme}"`);
+    svg = svg.replace(/href="(\.\.?\/[^"#]+\.svg)"/g, (_, target) =>
+      `href="data:image/svg+xml;base64,${Buffer.from(embed(path.resolve(path.dirname(file), target), theme)).toString('base64')}"`);
+    return svg;
+  };
+  const assets = listAssets().map((file, index) => {
+    const drawing = theme => {
+      // Inline vectors stay sharp while zooming; scope shared filter and clip IDs.
+      const prefix = `gallery-${index}-`;
+      let svg = embed(file, theme).replace(/<style>[\s\S]*?<\/style>/g, '');
+      svg = svg.replace(/\bid="([^"]+)"/g, (_, id) => `id="${prefix}${id}"`)
+        .replace(/url\(#([^)]+)\)/g, (_, id) => `url(#${prefix}${id})`)
+        .replace(/href="#([^"]+)"/g, (_, id) => `href="#${prefix}${id}"`);
+      const elevation = ['sm', 'md', 'lg'].map(size => `--elev-${size}:url(#${prefix}elev-${size}-${theme})`).join(';');
+      return svg.replace('<svg ', `<svg style="${elevation}" `);
+    };
+    return { name: path.basename(file, '.svg'), path: relative(file), light: drawing('light'), dark: drawing('dark') };
+  });
+  const { build } = await import('vite');
+  const { default: react } = await import('@vitejs/plugin-react');
+  const { default: tailwindcss } = await import('@tailwindcss/vite');
+  const result = await build({ configFile: false, root, logLevel: 'warn', plugins: [react(), tailwindcss()],
+    define: { __CONNECTOR_VERSION__: JSON.stringify('design-gallery'), 'process.env.NODE_ENV': JSON.stringify('production') },
+    build: { write: false, lib: { entry: path.join(root, 'ui/design-gallery.tsx'), name: 'ArcDesignGallery', formats: ['iife'] } } });
+  const output = (Array.isArray(result) ? result : [result]).flatMap(result => result.output);
+  const css = output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(item => item.source).join('\n');
+  const js = output.filter(item => item.type === 'chunk').map(item => item.code).join('\n').replaceAll('</script', '<\\/script');
+  const data = JSON.stringify(assets).replaceAll('<', '\\u003c');
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ARC design canvas</title><style>${css}</style></head><body><div id="root"></div><script>window.arcDesignAssets=${data};</script><script>${js}</script></body></html>`;
   mkdirSync(outDir, { recursive: true });
   writeFileSync(path.join(outDir, 'index.html'), html);
   console.log(relative(path.join(outDir, 'index.html')));
