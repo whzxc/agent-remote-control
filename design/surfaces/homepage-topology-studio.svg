@@ -240,10 +240,6 @@ text{font-family:var(--font-ui);dominant-baseline:central}
             <circle cx="18" cy="50" r="10" style="fill:var(--role-source)" />
             <circle cx="82" cy="50" r="10" style="fill:var(--role-agent)" />
           </g>
-          <g data-icon="power" transform="translate(111 194) scale(0.75)" style="fill:none;stroke:var(--canvas);stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
-            <path d="M12 2v10" />
-            <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
-          </g>
         </g>
       </g>
       <text x="482.2500052928924" y="48" style="fill:var(--text);font-size:var(--text-title);font-weight:650;text-anchor:middle">公示牌 · 2 进行中</text>

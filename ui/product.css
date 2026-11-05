@@ -498,6 +498,7 @@
 .hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
 .hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow 180ms ease; pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
+.hub-plus { stroke-width: 5.865; }
 .hub-symbol { transform-box: view-box; transform-origin: 10px 10px; opacity: 0; transform: scale(.3) rotate(-90deg); transition: transform 300ms cubic-bezier(.34, 1.56, .64, 1), opacity 150ms ease; }
 .topology-hub:hover .hub-symbol, .topology-hub:has(.hub-entry:focus-visible) .hub-symbol, .hub-entry[data-empty] .hub-symbol { opacity: 1; transform: none; }
 .topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 6px 2px color-mix(in srgb, var(--hub-color) 45%, transparent); }
@@ -1070,6 +1071,13 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-arc > svg { display: block; position: absolute; left: 0; width: 100%; height: 250%; overflow: visible; pointer-events: none; }
 .hub-connections > svg { top: 0; }
 .hub-power > svg { bottom: 0; }
+/* The lower arc outer edge is 86.5 in viewBox 4..96; its SVG is 250% of the hit area. */
+.hub-power-action { position: absolute; left: 50%; top: calc(74.184783% + 8px); width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--topology-agent); color: var(--canvas); opacity: 0; transform: translate(-50%, -8px) rotate(calc(0deg - var(--hub-rotation, 0deg))) scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
+.hub-power-action::before { content: ''; position: absolute; inset: -16px -6px -6px; }
+.hub-power:is(:hover, :focus-visible) .hub-power-action { opacity: 1; transform: translate(-50%, 0) rotate(calc(0deg - var(--hub-rotation, 0deg))); pointer-events: auto; }
+:root[data-reduced-motion="true"] .hub-power-action { transition: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-power-action { transition: none; } }
+
 .hub-arc path { pointer-events: stroke; }
 .hub-arc:focus-visible { outline: none; }
 .hub-arc:focus-visible .hub-arc-stroke { filter: brightness(1.18); }

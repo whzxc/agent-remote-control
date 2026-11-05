@@ -51,11 +51,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
             <circle cx="18" cy="50" r="10" style="fill:var(--role-source)" />
             <circle cx="82" cy="50" r="10" style="fill:var(--role-agent)" />
           </g>
-          <g data-icon="power" transform="translate(111 194) scale(0.75)" style="fill:none;stroke:var(--canvas);stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
-            <path d="M12 2v10" />
-            <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
-          </g>
-          <g data-icon="plus" transform="translate(27.5 111) scale(0.75)" style="fill:none;stroke:var(--canvas);stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
+          <g data-icon="plus" transform="translate(20.52 104) scale(1.3333333333)" style="fill:none;stroke:var(--canvas);stroke-width:5.865;stroke-linecap:round;stroke-linejoin:round">
             <path d="M5 12h14" />
             <path d="M12 5v14" />
           </g>

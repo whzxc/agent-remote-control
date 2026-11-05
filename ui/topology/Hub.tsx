@@ -50,8 +50,8 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
         <svg viewBox="4 4 92 92" aria-hidden="true">
           <path data-hub-arc="bottom" d={mark.bottom} fill="none" stroke="transparent" strokeWidth="18" />
           <path className="hub-arc-stroke" data-hub-arc="bottom" d={mark.bottom} fill="none" stroke="var(--topology-agent)" strokeWidth="9" strokeLinecap="round" pathLength="100" />
-          <g transform="translate(46.55 78.37) scale(.383333)" color="var(--canvas)"><Icon size={18} icon={Power} /></g>
         </svg>
+        {!readOnly && <span className="hub-power-action" aria-hidden="true"><Icon size={14} icon={Power} /></span>}
       </button></Tooltip></div></div>
     {(["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;
@@ -65,7 +65,7 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
                 <rect width="20" height="20" fill="white" />
                 <g className="hub-symbol" fill="black" stroke="black" strokeWidth=".67" strokeLinecap="round">
                   <g>
-                    {source || empty ? <g transform="translate(6.55 6.55) scale(.383333)" color="black"><Icon icon={Plus} size={18} /></g>
+                    {source || empty ? <g transform="translate(3.866667 3.866667) scale(.68148148)" color="black"><Icon className="hub-plus" icon={Plus} size={18} /></g>
                       : <g stroke="none"><circle cx="4" cy="10" r="1.5" /><circle cx="10" cy="10" r="1.5" /><circle cx="16" cy="10" r="1.5" /></g>}
                   </g>
                 </g>
