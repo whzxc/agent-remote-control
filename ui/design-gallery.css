@@ -31,7 +31,10 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; }
   .gallery-modules button { padding-inline: 8px; font-size: var(--text-meta); }
 }
 
-.gallery-drawing > svg { width: 100%; height: 100%; display: block; }
+.gallery-drawing > img, .gallery-vector, .gallery-vector > svg { width: 100%; height: 100%; display: block; }
 .gallery-drawing text { font-family: var(--font-ui); dominant-baseline: central; }
 .gallery-drawing .mono { font-family: var(--font-mono); }
 .gallery-drawing .note { font-family: var(--font-mono); font-size: var(--text-caption); fill: var(--text-tertiary); }
+
+.gallery-drawing > img { object-fit: contain; }
+.gallery-error { position: fixed; top: 72px; right: 24px; padding: 12px; background: var(--surface); color: var(--text-primary); border-radius: var(--radius-tile); }

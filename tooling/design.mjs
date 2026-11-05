@@ -7,7 +7,7 @@ const designDir = path.join(root, 'design');
 const outDir = path.join(root, 'output/design');
 const BEGIN = '<!-- design:tokens -->';
 const END = '<!-- /design:tokens -->';
-const USAGE = 'Usage: npm run design -- sync | check [asset...] | render [asset...] | gallery | measure <text> [--size=14] [--weight=400] [--mono] | compare <asset> --frame=<part> --scenario=<fixture> --region=<name> [--click=<button>...] [--viewport=1280x800]';
+const USAGE = 'Usage: npm run design -- sync | check [asset...] | render [asset...] | measure <text> [--size=14] [--weight=400] [--mono] | compare <asset> --frame=<part> --scenario=<fixture> --region=<name> [--click=<button>...] [--viewport=1280x800]';
 const THEMES = ['light', 'dark'];
 
 export function parseTokens(css) {
@@ -281,42 +281,6 @@ async function render(args) {
   } finally { await browser.close(); }
 }
 
-async function gallery() {
-  const embed = (file, theme) => {
-    let svg = readFileSync(file, 'utf8').replace(/<svg\b/, `<svg data-theme="${theme}"`);
-    svg = svg.replace(/href="(\.\.?\/[^"#]+\.svg)"/g, (_, target) =>
-      `href="data:image/svg+xml;base64,${Buffer.from(embed(path.resolve(path.dirname(file), target), theme)).toString('base64')}"`);
-    return svg;
-  };
-  const assets = listAssets().map((file, index) => {
-    const drawing = theme => {
-      // Inline vectors stay sharp while zooming; scope shared filter and clip IDs.
-      const prefix = `gallery-${index}-`;
-      let svg = embed(file, theme).replace(/<style>[\s\S]*?<\/style>/g, '');
-      svg = svg.replace(/\bid="([^"]+)"/g, (_, id) => `id="${prefix}${id}"`)
-        .replace(/url\(#([^)]+)\)/g, (_, id) => `url(#${prefix}${id})`)
-        .replace(/href="#([^"]+)"/g, (_, id) => `href="#${prefix}${id}"`);
-      const elevation = ['sm', 'md', 'lg'].map(size => `--elev-${size}:url(#${prefix}elev-${size}-${theme})`).join(';');
-      return svg.replace('<svg ', `<svg style="${elevation}" `);
-    };
-    return { name: path.basename(file, '.svg'), path: relative(file), light: drawing('light'), dark: drawing('dark') };
-  });
-  const { build } = await import('vite');
-  const { default: react } = await import('@vitejs/plugin-react');
-  const { default: tailwindcss } = await import('@tailwindcss/vite');
-  const result = await build({ configFile: false, root, logLevel: 'warn', plugins: [react(), tailwindcss()],
-    define: { __CONNECTOR_VERSION__: JSON.stringify('design-gallery'), 'process.env.NODE_ENV': JSON.stringify('production') },
-    build: { write: false, lib: { entry: path.join(root, 'ui/design-gallery.tsx'), name: 'ArcDesignGallery', formats: ['iife'] } } });
-  const output = (Array.isArray(result) ? result : [result]).flatMap(result => result.output);
-  const css = output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(item => item.source).join('\n');
-  const js = output.filter(item => item.type === 'chunk').map(item => item.code).join('\n').replaceAll('</script', '<\\/script');
-  const data = JSON.stringify(assets).replaceAll('<', '\\u003c');
-  const html = `<!doctype html><html lang="en" data-arc-browser><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ARC design canvas</title><style>${css}</style></head><body><div id="root"></div><script>window.arcDesignAssets=${data};</script><script>${js}</script></body></html>`;
-  mkdirSync(outDir, { recursive: true });
-  writeFileSync(path.join(outDir, 'index.html'), html);
-  console.log(relative(path.join(outDir, 'index.html')));
-}
-
 async function measure(args) {
   const text = args.find(arg => !arg.startsWith('--'));
   if (text === undefined) throw new Error(USAGE);
@@ -466,7 +430,6 @@ async function main() {
   if (command === 'sync' && !args.length) return sync();
   if (command === 'check') return check(args);
   if (command === 'render') return render(args);
-  if (command === 'gallery' && !args.length) return gallery();
   if (command === 'measure') return measure(args);
   if (command === 'compare') return compare(args);
   throw new Error(USAGE);

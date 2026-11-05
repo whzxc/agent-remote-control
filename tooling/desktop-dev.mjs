@@ -11,18 +11,20 @@ import { createServer } from 'vite';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stateDir } from './dev-state.mjs';
 import { buildEnv } from './build-env.mjs';
+import { startDesignServer } from './design-server.mjs';
 import { developmentConfig } from './dev-identity.mjs';
 import { coreRequest, processAlive, readCore, stopCore } from './dev-core.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-if (process.argv.length > 2) throw new Error('Usage: npm run dev. Use desktop:build for distribution builds.');
+const designMode = process.argv.length === 3 && process.argv[2] === '--design';
+if (process.argv.length > 2 && !designMode) throw new Error('Usage: npm run dev [-- --design]. Use desktop:build for distribution builds.');
 const env = { ...buildEnv(), ARC_STATE_DIR: stateDir };
 const devUrl = developmentConfig(env).build.devUrl;
 const binary = path.join(root, 'target/debug', process.platform === 'win32' ? 'agent-remote-control-desktop.exe' : 'agent-remote-control-desktop');
 const lockPath = path.join(stateDir, 'app/dev.json');
-let server, app, build, restoreExecutable, currentInstance, developmentBuild;
+let server, designServer, app, build, restoreExecutable, currentInstance, developmentBuild;
 let stopping = false, dirty = true, rebuilding = false, timer;
-let rebuildPromise;
+let rebuildPromise, designStartup;
 const watchers = [];
 
 function child(command, args, options = {}) {
@@ -150,6 +152,8 @@ function shutdown() {
     for (const watcher of watchers) watcher.close();
     try { await restoreInstalled(); }
     catch (error) { console.error(error.message); process.exitCode = 1; }
+    await designStartup?.catch(() => {});
+    await designServer?.close();
     await server?.close();
     await rm(lockPath, { force: true });
   })();
@@ -171,7 +175,12 @@ try {
 } catch (error) { console.error(error.message); process.exit(1); }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { void shutdown(); });
 
-try {
+async function startDevelopment() {
+  if (designMode) {
+    designStartup = startDesignServer().then(server => { designServer = server; });
+    await designStartup;
+  }
+  if (stopping) return;
   if (spawnSync('cargo', ['--version'], { env, stdio: 'ignore' }).status !== 0) {
     const cargo = spawnSync('rustup', ['which', 'cargo'], { env, encoding: 'utf8' });
     if (cargo.status !== 0) throw new Error('Install the Rust stable toolchain first. Ensure cargo or rustup is on PATH.');
@@ -229,4 +238,5 @@ try {
     }));
   }
   await rebuild();
-} catch (error) { console.error(error.message); process.exitCode = 1; await shutdown(); }
+}
+try { await startDevelopment(); } catch (error) { console.error(error.message); process.exitCode = 1; await shutdown(); }

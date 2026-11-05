@@ -17,6 +17,7 @@
     "test": "node tooling/test.mjs",
     "test:extended": "node tooling/test.mjs --extended",
     "check:package": "node tooling/check-package.mjs",
+    "dev:design": "node tooling/design-server.mjs",
     "dev:ui": "vite --config vite.config.ts",
     "dev": "node tooling/desktop-dev.mjs",
     "desktop:prepare": "node tooling/prepare-desktop.mjs",
