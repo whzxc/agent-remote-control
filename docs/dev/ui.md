@@ -1,6 +1,8 @@
 # UI conventions
 
-[Remote link design and phases](remote-link.md) · [Development](development.md) · [Architecture](architecture.md)
+[Design assets](design.md) · [Remote link design and phases](remote-link.md) · [Development](development.md) · [Architecture](architecture.md)
+
+[Design assets](design.md) own visual appearance. This document owns behavior, data projection and layout logic.
 
 React renders. Tauri/Rust owns configuration, connections, tasks, authentication, native windows, and updates. The main window shares semantic tokens, preferences, and controls.
 
@@ -125,7 +127,7 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 
 ## Theme and motion
 
-ui/tokens.css owns semantic colors, type, spacing, radii, dimensions, and shadows. ui/theme.ts follows the system by default. Explicit light/dark overrides use opaque white/black canvases. System fonts use 13-14px body, 12px metadata, and 14px reading text. IDs/credentials use shared monospace styling.
+design/tokens.css is the token source. ui/tokens.css is the runtime sheet for semantic colors, type, spacing, radii, dimensions, and shadows. ui/theme.ts follows the system by default. Explicit light/dark overrides use opaque white/black canvases. System fonts use 13-14px body, 12px metadata, and 14px reading text. IDs/credentials use shared monospace styling.
 
 Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Agent roots, account children, panels, and quota views use the same mapping. Control-source products and provider platforms use separate mappings, even when they reuse the same SVG. The product picker reads the shared control-source registry; remote MCP clients are grouped under Remote connections.
 

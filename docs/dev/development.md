@@ -1,6 +1,6 @@
 # Development
 
-[Architecture](architecture.md) · [UI](ui.md) · [Release](release.md) · [Acceptance](acceptance.md)
+[Architecture](architecture.md) · [UI](ui.md) · [Design assets](design.md) · [Release](release.md) · [Acceptance](acceptance.md)
 
 ## Local development
 
@@ -52,6 +52,15 @@ npm run cache:prune
 ```
 
 The workspace shares root Cargo.lock and target. The compilation-cache budget is 30 GiB. Pruning removes inactive profile groups while retaining running/protected artifacts and unique data. Preview with npm run cache:prune -- --dry-run. The budget is not a total-size cap for target.
+
+## Design assets
+
+```sh
+npm run design -- check
+npm run design -- render
+```
+
+Visual changes start in `design/`. See [Design assets](design.md) for the format, commands and workflow.
 
 ## Desktop artifacts
 
