@@ -26,7 +26,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <rect x="0" y="0" width="34" height="34" rx="17" style="fill:none" /><g data-icon="x" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>
 </g>
 </g><g transform="translate(662 13)" data-component="icon-button" data-form="regular">
-<rect x="0" y="0" width="34" height="34" rx="17" style="fill:none" /><g data-icon="maximize" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></g>
+<rect x="0" y="0" width="34" height="34" rx="17" style="fill:none" /><g data-icon="maximize-2" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></g>
 </g><text x="24" y="100"  style="fill:var(--text);font-size:var(--text-body);font-weight:650;" >Hosted relays</text><g transform="translate(550 83)" data-component="button" data-form="secondary">
 <rect x="0" y="0" width="186" height="34" rx="17" style="fill:var(--surface-sunken)" /><text x="93.0" y="17"  style="fill:var(--text);font-size:var(--text-small);font-weight:600;text-anchor:middle;" >Deploy new relay</text>
 </g><text x="24" y="164"  style="fill:var(--text-secondary);font-size:var(--text-body);" >You have not deployed a relay yet.</text>
