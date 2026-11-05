@@ -136,7 +136,8 @@ pub(super) async fn verify_in(
         state.save(&dir)?;
     }
     // The code exists only in the delivered message; receipts and status cannot confirm it.
-    let body = format!("{RECEIPT_HEADER}\nNotification reachability check. Only after receiving this message in this conversation, call act with {}. This confirms delivery, not task acceptance.", json!({"op":"notification_ack","args":{"target":target,"code":code}}));
+    // The notify guide declares the ping glyph; the message itself carries no instruction.
+    let body = format!("{RECEIPT_HEADER}\n◎ ping · {code}");
     let delivery = deliver_target(executor, source_id, &target, &body).await;
     let missing = delivery
         .as_ref()

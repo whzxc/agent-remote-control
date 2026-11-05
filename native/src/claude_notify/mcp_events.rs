@@ -229,7 +229,7 @@ pub(crate) fn payload(op: &str, event: &Value) -> Value {
     if let Some(ownership) = data["ownership"].as_object_mut() {
         ownership.remove("causedBySourceId");
     }
-    // Lifecycle text lives in summary, outside the strict recovery payload.
+    // Retired lifecycle text stays outside the strict recovery payload.
     if let Some(recovery) = data["recovery"].as_object_mut() {
         recovery.remove("message");
     }
