@@ -351,7 +351,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g transform="translate(24 138)" data-component="notice" data-form="danger">
       <rect width="772" height="116" rx="14" data-fluid="height" style="fill:var(--danger);fill-opacity:0.1"/>
-      <text x="16" y="24" style="fill:var(--danger);font-size:var(--text-small);font-weight:600">History interval missing; reset the cursor to continue ·</text>
+      <text x="16" y="24" style="fill:var(--danger);font-size:var(--text-small);font-weight:600">History interval missing; reset the cursor to continue</text>
       <text x="16" y="44" style="fill:var(--text);font-size:var(--text-meta)">CURSOR_EXPIRED: Refresh the current owner record and retry.</text>
       <g transform="translate(16 66)" data-component="button" data-form="secondary">
         <rect width="112.1" height="34" rx="17" style="fill:var(--surface-sunken)"/>
@@ -408,7 +408,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g transform="translate(24 138)" data-component="notice" data-form="danger">
       <rect width="772" height="116" rx="14" data-fluid="height" style="fill:var(--danger);fill-opacity:0.1"/>
-      <text x="16" y="24" style="fill:var(--danger);font-size:var(--text-small);font-weight:600">Refresh unavailable; retained data may be stale ·</text>
+      <text x="16" y="24" style="fill:var(--danger);font-size:var(--text-small);font-weight:600">Refresh unavailable; retained data may be stale</text>
       <text x="16" y="44" style="fill:var(--text);font-size:var(--text-meta)">Error: SCENARIO_BOARD_UNAVAILABLE</text>
       <g transform="translate(16 66)" data-component="button" data-form="secondary">
         <rect width="66.1" height="34" rx="17" style="fill:var(--surface-sunken)"/>
