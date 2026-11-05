@@ -51,7 +51,7 @@ Review the composition of every frame before showing it. A frame that copies the
 
 - Group by meaning. Items that serve one decision sit together, and the gap between groups is clearly larger than the gap inside a group.
 - End a decision with one action row. Attach scope and consequence text to the title or content it qualifies.
-- Do not stack rows that push short text to one edge and a short control to the other. Edge-to-edge rows belong to lists and toolbars.
+- Settings use one setting per row, with its name and effect on the left and its control on the right. Keep unrelated settings on separate rows. Group rows by the scope they affect.
 - Join short metadata into one line with ` · `. A short status or count does not own a row.
 - Give a row or step at most a title and one meta line.
 - Show each state once. A spinner in a step tile and a separate in-progress line for the same step duplicate each other.
