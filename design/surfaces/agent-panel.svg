@@ -18,7 +18,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 </defs>
 <!-- /design:tokens -->
 <rect data-canvas="" width="1056" height="1006" style="fill:var(--canvas)"/>
-<text x="72" y="78" class="note">overview · 420 宽</text>
+<text x="72" y="78" class="note">overview · 420px</text>
 <g data-part="frame-overview" transform="translate(72 94)">
   <g data-component="panel" data-form="workspace" transform="translate(0 0)">
     <rect width="420" height="840" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
@@ -26,6 +26,10 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-component="icon-button" data-form="compact" transform="translate(136.5 13)">
       <rect width="30" height="30" rx="15" style="fill:none"/>
       <g data-icon="arrow-up-right" transform="translate(7 7) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></g>
+    </g>
+    <g data-component="icon-button" data-form="regular" transform="translate(290 21)">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g data-icon="refresh-cw" transform="translate(9 9) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g>
     </g>
     <g data-component="icon-button" data-form="regular" transform="translate(328 21)">
       <rect width="34" height="34" rx="17" style="fill:none"/>
@@ -48,8 +52,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-component="card" data-form="default" transform="translate(0 0)">
       <rect width="186" height="100" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h 额度</text>
-    <text x="170" y="24" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
+    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h 额度 · 2h 0m</text>
     <text x="16" y="56" style="fill:var(--text);font-size:var(--text-display);font-weight:650">27%</text>
     <text x="86.4" y="60" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1h 7m</text>
     <rect x="16" y="78" width="154" height="6" rx="3" style="fill:var(--surface-sunken)"/>
@@ -60,20 +63,14 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-component="card" data-form="default" transform="translate(0 0)">
       <rect width="186" height="100" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">周额度</text>
-    <text x="140" y="24" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
-    <g data-component="icon-button" data-form="compact" transform="translate(144 9)">
-      <rect width="30" height="30" rx="15" style="fill:none"/>
-      <g data-icon="refresh-cw" transform="translate(7 7) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g>
-    </g>
+    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">周额度 · 3d 0h</text>
     <text x="16" y="56" style="fill:var(--text);font-size:var(--text-display);font-weight:650">32%</text>
     <text x="88.1" y="60" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1d 21h</text>
     <rect x="16" y="78" width="154" height="6" rx="3" style="fill:var(--surface-sunken)"/>
     <rect x="16" y="78" width="49.3" height="6" rx="3" style="fill:var(--warning)"/>
     <rect x="102.8" y="76" width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
   </g>
-  <text x="20" y="212" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600">需要你处理</text>
-  <text x="86" y="212" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
+  <text x="20" y="212" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600">需要你处理 · 1</text>
   <g data-component="task-bubble" data-form="row-attention" transform="translate(20 228)" style="color:var(--warning)">
     <rect width="380" height="82" rx="18" data-fluid="height" style="fill:var(--warning);fill-opacity:0.1"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--warning)">
@@ -96,8 +93,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <text x="368" y="60" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="346" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中</text>
-  <text x="62" y="346" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
+  <text x="20" y="346" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中 · 1</text>
   <g data-component="task-bubble" data-form="row" transform="translate(20 362)" style="color:var(--phase-command)">
     <rect width="380" height="82" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--phase-command)">
@@ -121,8 +117,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <text x="368" y="60" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="480" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">今天</text>
-  <text x="50" y="480" style="fill:var(--text-tertiary);font-size:var(--text-meta)">3</text>
+  <text x="20" y="480" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">今天 · 3</text>
   <g data-component="task-bubble" data-form="row" transform="translate(20 496)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
@@ -162,8 +157,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="740" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">昨天</text>
-  <text x="50" y="740" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
+  <text x="20" y="740" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">昨天 · 1</text>
   <g data-component="task-bubble" data-form="row" transform="translate(20 756)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
@@ -181,11 +175,15 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <text x="564" y="78" class="note">empty</text>
 <g data-part="frame-empty" transform="translate(564 94)">
   <g data-component="panel" data-form="workspace" transform="translate(0 0)">
-    <rect width="420" height="768" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+    <rect width="420" height="320" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
     <text x="76" y="28" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Codex</text>
     <g data-component="icon-button" data-form="compact" transform="translate(136.5 13)">
       <rect width="30" height="30" rx="15" style="fill:none"/>
       <g data-icon="arrow-up-right" transform="translate(7 7) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></g>
+    </g>
+    <g data-component="icon-button" data-form="regular" transform="translate(290 21)">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g data-icon="refresh-cw" transform="translate(9 9) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g>
     </g>
     <g data-component="icon-button" data-form="regular" transform="translate(328 21)">
       <rect width="34" height="34" rx="17" style="fill:none"/>
@@ -208,8 +206,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-component="card" data-form="default" transform="translate(0 0)">
       <rect width="186" height="100" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h 额度</text>
-    <text x="170" y="24" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
+    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h 额度 · 2h 0m</text>
     <text x="16" y="56" style="fill:var(--text);font-size:var(--text-display);font-weight:650">27%</text>
     <text x="86.4" y="60" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1h 7m</text>
     <rect x="16" y="78" width="154" height="6" rx="3" style="fill:var(--surface-sunken)"/>
@@ -220,22 +217,17 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-component="card" data-form="default" transform="translate(0 0)">
       <rect width="186" height="100" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
-    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">周额度</text>
-    <text x="140" y="24" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
-    <g data-component="icon-button" data-form="compact" transform="translate(144 9)">
-      <rect width="30" height="30" rx="15" style="fill:none"/>
-      <g data-icon="refresh-cw" transform="translate(7 7) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g>
-    </g>
+    <text x="16" y="24" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">周额度 · 3d 0h</text>
     <text x="16" y="56" style="fill:var(--text);font-size:var(--text-display);font-weight:650">32%</text>
     <text x="88.1" y="60" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1d 21h</text>
     <rect x="16" y="78" width="154" height="6" rx="3" style="fill:var(--surface-sunken)"/>
     <rect x="16" y="78" width="49.3" height="6" rx="3" style="fill:var(--warning)"/>
     <rect x="102.8" y="76" width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
   </g>
-  <g data-component="tile" data-form="card" transform="translate(190 438)" style="color:var(--text-secondary)">
+  <g data-component="tile" data-form="card" transform="translate(190 228)" style="color:var(--text-secondary)">
     <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
     <g data-icon="messages-square" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><path d="M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1"/></g>
   </g>
-  <text x="210" y="496" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">暂无未归档对话。</text>
+  <text x="210" y="286" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">暂无未归档对话。</text>
 </g>
 </svg>
