@@ -11,7 +11,7 @@ ARC reads native provider login and upstream responses. Quota monitoring runs in
 | Codex / ChatGPT | Native account quota windows, plan, reset credits |
 | Claude | Native Claude Code `/usage` quota windows |
 | OpenCode Go | Existing OpenCode subscription response |
-| Cursor | Desktop login, billing-cycle quota, X Pass |
+| Cursor | Native login, included-period quota, X Pass |
 | Antigravity | Running language server; macOS login fallback |
 | Grok | Native login, CLI billing quota and reported plan |
 | Kimi | Saved API key and membership/quota response |
@@ -22,7 +22,7 @@ Display grouping puts Cursor Agent under Cursor and Grok CLI/Build under Grok. A
 
 Successful quota readings persist in private ARC state. Startup restores them as stale while refresh runs. Failed requests retain the last reading and retry with backoff; 401/403 remain upstream errors. Readings become stale after 15 minutes; expired windows are hidden. Disabling an Agent or monitoring or explicitly removing credentials clears its quota cache.
 
-Codex obtains a native account reader on refresh. Claude runs the installed CLI's built-in `/usage` command without tools, project settings, MCP servers or a persisted session. Claude Code owns its login and renewal. Cursor prefers its desktop token, falling back to Keychain when absent. Antigravity token renewal belongs to Antigravity. Grok reads `GROK_HOME/auth.json`, defaulting to its native home, and requests `/v1/billing?format=credits`. After an upstream 401, ARC rereads the login, asks the installed `grok models` command to renew it when unchanged, then retries once. ARC never exchanges a rotating refresh token itself. Interrupted JSON writes are reread before reporting a failure. Both native commands honor ARC's network proxy setting.
+Codex obtains a native account reader on refresh. Claude runs the installed CLI's built-in `/usage` command without tools, project settings, MCP servers or a persisted session. Claude Code owns its login and renewal. Cursor reads its native Keychain token on macOS, then its native `auth.json`, then the desktop token. Its merged plans report one included weekly or monthly window according to the upstream plan; older plans retain their model pools. Antigravity token renewal belongs to Antigravity. Grok reads `GROK_HOME/auth.json`, defaulting to its native home, and requests `/v1/billing?format=credits`. After an upstream 401, ARC rereads the login, asks the installed `grok models` command to renew it when unchanged, then retries once. ARC never exchanges a rotating refresh token itself. Interrupted JSON writes are reread before reporting a failure. Both native commands honor ARC's network proxy setting.
 
 ## Display and controls
 

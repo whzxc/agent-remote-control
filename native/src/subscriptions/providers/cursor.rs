@@ -1,3 +1,5 @@
+// Native login and merged-plan usage follow magpie-community's Cursor plugin.
+// See licenses/magpie-community-LICENSE.txt.
 use super::*;
 use base64::Engine;
 fn claims(token: &str) -> Option<Value> {
@@ -7,6 +9,50 @@ fn claims(token: &str) -> Option<Value> {
     serde_json::from_slice(&bytes).ok()
 }
 pub async fn credential() -> std::result::Result<Credential, Failure> {
+    #[cfg(target_os = "macos")]
+    if let Ok(Ok(out)) = tokio::time::timeout(
+        Duration::from_secs(4),
+        tokio::process::Command::new("security")
+            .args([
+                "find-generic-password",
+                "-s",
+                "cursor-access-token",
+                "-a",
+                "cursor-user",
+                "-w",
+            ])
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    {
+        if out.status.success() {
+            if let Ok(token) = String::from_utf8(out.stdout) {
+                if !token.trim().is_empty() {
+                    return Credential::new(token.trim().into(), "cursor-login");
+                }
+            }
+        }
+    }
+    // cursor-agent stores its native login here when Keychain is unavailable.
+    #[cfg(target_os = "macos")]
+    let auth = home()?.join(".cursor/auth.json");
+    #[cfg(target_os = "windows")]
+    let auth = dirs::config_dir()
+        .ok_or(Failure::from("credentials-missing"))?
+        .join("Cursor/auth.json");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let auth = dirs::config_dir()
+        .ok_or(Failure::from("credentials-missing"))?
+        .join("cursor/auth.json");
+    if let Ok(saved) = file(&auth) {
+        if let Some(token) = saved["accessToken"]
+            .as_str()
+            .filter(|s| !s.trim().is_empty())
+        {
+            return Credential::new(token.into(), "cursor-login");
+        }
+    }
     let sqlite = tokio::task::spawn_blocking(|| {
         #[cfg(target_os = "macos")]
         let dir = dirs::home_dir()?.join("Library/Application Support");
@@ -41,35 +87,8 @@ pub async fn credential() -> std::result::Result<Credential, Failure> {
     })
     .await
     .map_err(|_| Failure::from("credential-access-denied"))?;
-    #[allow(unused_mut)]
-    let mut keychain: Option<String> = None;
-    #[cfg(target_os = "macos")]
-    if sqlite.is_none() {
-        if let Ok(Ok(out)) = tokio::time::timeout(
-            Duration::from_secs(4),
-            tokio::process::Command::new("security")
-                .args(["find-generic-password", "-s", "cursor-access-token", "-w"])
-                .kill_on_drop(true)
-                .output(),
-        )
-        .await
-        {
-            if out.status.success() {
-                keychain = String::from_utf8(out.stdout).ok().map(|s| s.trim().into());
-            }
-        }
-    }
-    let token = sqlite
-        .or(keychain)
-        .ok_or(Failure::from("credentials-missing"))?;
-    let claims = claims(&token).ok_or(Failure::from("invalid-response"))?;
-    let account = claims["sub"]
-        .as_str()
-        .and_then(|s| s.rsplit('|').next())
-        .filter(|s| !s.is_empty())
-        .ok_or(Failure::from("invalid-response"))?;
     Credential::new(
-        format!("WorkosCursorSessionToken={account}%3A%3A{token}"),
+        sqlite.ok_or(Failure::from("credentials-missing"))?,
         "cursor-login",
     )
 }
@@ -78,11 +97,8 @@ pub async fn read(
     client: &reqwest::Client,
     c: &Credential,
 ) -> std::result::Result<Reading, Failure> {
-    let token = c
-        .secret
-        .rsplit("%3A%3A")
-        .next()
-        .ok_or(Failure::from("credentials-missing"))?;
+    let token = &c.secret;
+    let cookie = session_cookie(token);
     let rpc = |method: &str| {
         client
             .post(format!(
@@ -96,55 +112,25 @@ pub async fn read(
     let mut raw = json!({});
     let mut windows = vec![];
     if let Ok(v) = usage {
-        let q = &v["planUsage"];
-        let reset =
-            timestamp(&v["billingCycleEnd"]).or_else(|| timestamp(&v["billingCycleEndDate"]));
-        for (field, id) in [
-            ("totalPercentUsed", "plan"),
-            ("autoPercentUsed", "cursorModels"),
-            ("apiPercentUsed", "otherModels"),
-        ] {
-            let percent = number(&q[field]).or_else(|| {
-                if id != "plan" {
-                    return None;
-                }
-                let limit = number(&q["limit"]).filter(|n| *n > 0.)?;
-                number(&q["totalSpend"]).map(|n| n / limit * 100.)
-            });
-            if let Some(w) = window(id, id, id, percent, reset.clone()) {
-                windows.push(w);
-            }
-        }
+        windows = parse_usage(&v["planUsage"], &v, plan.as_ref().ok(), "totalSpend");
         raw["usage"] = v;
     }
     if let Ok(v) = plan {
         raw["plan"] = v;
     }
-    if windows.is_empty() {
+    if windows.is_empty() && cookie.is_some() {
         match get(client
             .get("https://cursor.com/api/usage-summary")
-            .header("Cookie", &c.secret))
+            .header("Cookie", cookie.as_deref().unwrap()))
         .await
         {
             Ok(v) => {
-                let q = &v["individualUsage"]["plan"];
-                let reset = date(&v["billingCycleEnd"]);
-                for (field, id) in [
-                    ("totalPercentUsed", "plan"),
-                    ("autoPercentUsed", "cursorModels"),
-                    ("apiPercentUsed", "otherModels"),
-                ] {
-                    let percent = number(&q[field]).or_else(|| {
-                        if id != "plan" {
-                            return None;
-                        }
-                        let limit = number(&q["limit"]).filter(|n| *n > 0.)?;
-                        number(&q["used"]).map(|n| n / limit * 100.)
-                    });
-                    if let Some(w) = window(id, id, id, percent, reset.clone()) {
-                        windows.push(w);
-                    }
-                }
+                windows = parse_usage(
+                    &v["individualUsage"]["plan"],
+                    &v,
+                    Some(&raw["plan"]),
+                    "used",
+                );
                 raw["summary"] = v;
             }
             Err(e) if raw.as_object().is_none_or(|v| v.is_empty()) => return Err(e),
@@ -189,8 +175,9 @@ pub async fn read(
                     number(&q["creditUsagePercent"]),
                     date(&q["currentPeriod"]["end"]),
                 ) {
-                    windows.retain(|w| w.id != "plan" && w.id != "cursorModels");
-                    windows.insert(0, w);
+                    if windows.is_empty() {
+                        windows.push(w);
+                    }
                 }
                 raw["sharedUsage"] = v;
             }
@@ -200,6 +187,52 @@ pub async fn read(
     }
     Reading::new(windows, raw)
 }
+fn session_cookie(token: &str) -> Option<String> {
+    let claims = claims(token)?;
+    let account = claims["sub"].as_str()?.rsplit('|').next()?;
+    let session = format!("{account}::{token}");
+    let encoded: String = url::form_urlencoded::byte_serialize(session.as_bytes()).collect();
+    Some(format!("WorkosCursorSessionToken={encoded}"))
+}
+
+pub(super) fn parse_usage(
+    quota: &Value,
+    usage: &Value,
+    plan: Option<&Value>,
+    spend_field: &str,
+) -> Vec<QuotaWindow> {
+    let plan = plan.unwrap_or(&Value::Null);
+    let reset = timestamp(&usage["billingCycleEnd"])
+        .or_else(|| timestamp(&usage["billingCycleEndDate"]))
+        .or_else(|| timestamp(&plan["planInfo"]["includedUsageResetsAt"]));
+    let total = number(&quota["totalPercentUsed"]).or_else(|| {
+        let limit = number(&quota["limit"]).filter(|n| *n > 0.)?;
+        number(&quota[spend_field]).map(|n| n / limit * 100.)
+    });
+    if plan["isMerged"] == true {
+        let label = match plan["planInfo"]["includedUsagePeriod"].as_str() {
+            Some("INCLUDED_USAGE_PERIOD_WEEKLY") => "weekly",
+            Some("INCLUDED_USAGE_PERIOD_MONTHLY") => "monthly",
+            _ => match plan["planInfo"]["includedUsagePeriod"].as_u64() {
+                Some(2) => "weekly",
+                Some(1) => "monthly",
+                _ => "current-period",
+            },
+        };
+        return window("cursorModels", "cursorModels", label, total, reset)
+            .into_iter()
+            .collect();
+    }
+    [
+        ("plan", total),
+        ("cursorModels", number(&quota["autoPercentUsed"])),
+        ("otherModels", number(&quota["apiPercentUsed"])),
+    ]
+    .into_iter()
+    .filter_map(|(id, percent)| window(id, id, id, percent, reset.clone()))
+    .collect()
+}
+
 fn timestamp(v: &Value) -> Option<String> {
     date(v).or_else(|| {
         v.as_i64()
@@ -213,4 +246,33 @@ fn timestamp(v: &Value) -> Option<String> {
             })
             .map(|d| d.to_rfc3339())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn merged_plan_reports_one_included_window_with_its_period_and_reset() {
+        // Regression: Cursor Premium's merged weekly allowance was parsed as unlabeled monthly model pools.
+        let usage = json!({"billingCycleEnd":"1800000000000"});
+        let quota = json!({"totalPercentUsed":12.5,"autoPercentUsed":12.5,"apiPercentUsed":0});
+        for (period, label) in [
+            (json!("INCLUDED_USAGE_PERIOD_WEEKLY"), "weekly"),
+            (json!(2), "weekly"),
+            (json!("INCLUDED_USAGE_PERIOD_MONTHLY"), "monthly"),
+            (json!(1), "monthly"),
+        ] {
+            let plan = json!({"isMerged":true,"planInfo":{"includedUsagePeriod":period}});
+            let windows = parse_usage(&quota, &usage, Some(&plan), "totalSpend");
+            assert_eq!(windows.len(), 1);
+            assert_eq!(windows[0].pool_id, "cursorModels");
+            assert_eq!(windows[0].label, label);
+            assert_eq!(windows[0].used_percent, 12.5);
+            assert_eq!(
+                windows[0].resets_at.as_deref(),
+                Some("2027-01-15T08:00:00+00:00")
+            );
+        }
+    }
 }
