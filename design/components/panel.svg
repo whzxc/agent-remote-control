@@ -23,11 +23,11 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <rect width="560" height="240" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
   <text x="24" y="30" style="fill:var(--text);font-size:var(--text-title);font-weight:650">MCP 中枢</text>
   <g data-component="icon-button" data-form="regular" transform="translate(462 13)">
-    <rect width="34" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+    <rect width="34" height="34" rx="17" style="fill:none"/>
     <g data-icon="maximize-2" transform="translate(9 9) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></g>
   </g>
   <g data-component="icon-button" data-form="regular" transform="translate(502 13)">
-    <rect width="34" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+    <rect width="34" height="34" rx="17" style="fill:none"/>
     <g data-icon="x" transform="translate(9 9) scale(0.6667)" style="fill:none;stroke:var(--text);stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>
   </g>
   <rect x="24" y="72" width="512" height="144" rx="18" style="fill:none;stroke:var(--border-strong);stroke-dasharray:4 4"/>

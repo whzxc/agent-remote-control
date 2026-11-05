@@ -48,11 +48,7 @@
   font-variant-numeric: tabular-nums;
 }
 .quota-bubble .icon-button {
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  min-height: 20px;
-  padding: 3px;
+  --icon-button-size: 20px;
 }
 .quota-bubble .icon-button svg {
   width: 14px;

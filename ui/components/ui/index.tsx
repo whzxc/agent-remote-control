@@ -435,7 +435,7 @@ export function SingleChoice({
       className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${navigation ? "choice-navigation" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
       {!swatches && options.length <= 5 && (
-        <div ref={measure} className="choice-measure" aria-hidden="true">
+        <div ref={measure} className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
           <div>
             {options.map((option) => (
               <span key={option.value}>
@@ -452,7 +452,7 @@ export function SingleChoice({
           disabled={disabled}
           aria-label={label}
           orientation={cards || navigation ? "vertical" : "horizontal"}
-          className={`choice-radio ${tiles || navigation || cards || swatches ? "" : "choice-pills"}`}
+          className={`choice-radio ${tiles || navigation || cards || swatches ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
           style={tiles || navigation || cards || swatches ? undefined : { width: contentWidth }}
         >
           {options.map((option) => (

@@ -131,7 +131,7 @@ design/tokens.css is the token source. ui/tokens.css imports it and adds runtime
 
 Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Agent roots, account children, panels, and quota views use the same mapping. Control-source products and provider platforms use separate mappings, even when they reuse the same SVG. The product picker reads the shared control-source registry; remote MCP clients are grouped under Remote connections.
 
-Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
+Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Icon buttons stay circular; local overrides change only `--icon-button-size`. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
 Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared spring highlights following pointer, keyboard, and Radix state. reduced-motion removes unnecessary transitions.
 

@@ -132,18 +132,22 @@ pre {
   text-underline-offset: 3px;
 }
 .icon-button {
-  width: var(--control-height);
-  min-width: var(--control-height);
-  height: var(--control-height);
-  min-height: var(--control-height);
+  --icon-button-size: var(--control-height);
+  flex: none;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   padding: 0;
   border-radius: 50%;
+  background: transparent;
 }
 .icon-button.compact {
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
-  min-height: 30px;
+  --icon-button-size: 30px;
+}
+.icon-button:hover:not(:disabled),
+.icon-button:is([aria-expanded="true"], [data-state="open"]) {
+  background: var(--surface-sunken);
 }
 .input {
   width: 100%;
@@ -556,6 +560,13 @@ textarea.input {
 }
 .choice-pills .choice-option[data-state="checked"] {
   font-weight: 650;
+}
+.choice-icon-only .choice-option,
+.choice-measure.choice-icon-only > div > span {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
 }
 .choice-swatches .choice-radio {
   background: transparent;
