@@ -2148,7 +2148,7 @@ async fn flush(
                     state.save(dir)?;
                     continue;
                 }
-                body = batch.iter().map(message).collect::<Vec<_>>().join("\n\n");
+                body = doorbell(batch.iter().flat_map(|b| &b.deliveries).map(glyph));
             }
             let breaker = state.targets.iter().any(|t| {
                 t.source_id == batch[0].source_id
