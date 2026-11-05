@@ -52,7 +52,7 @@ export default function PetsPage() {
           </p>
           <div className="pet-actions">
             <Button disabled={busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
-            {p.origin === 'arc' && <Button variant="danger-outline" disabled={busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
+            {p.origin === 'arc' && <Button variant="danger" disabled={busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
           </div>
         </div>
       </article>)}</div>

@@ -42,10 +42,9 @@ function applyTheme() {
   document.documentElement.dataset.themeColor = themeColor.get();
   const color = themeColors[themeColor.get()];
   document.documentElement.style.setProperty(
-    "--accent",
+    "--theme-agent",
     resolved ? color.dark : color.light,
   );
-  document.documentElement.style.setProperty("--accent-dark", color.dark);
   if ("sourceLight" in color)
     document.documentElement.style.setProperty("--theme-source", resolved ? color.sourceDark : color.sourceLight);
   else document.documentElement.style.removeProperty("--theme-source");

@@ -5,10 +5,10 @@
   justify-content: stretch;
   background: var(--danger-soft);
   color: var(--danger);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-tile);
   gap: var(--space-3);
   padding: var(--space-4);
-  font-size: var(--text-md);
+  font-size: var(--text-body);
   line-height: 20px;
 }
 .ui-error-content { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); min-width: 0; width: 100%; }

@@ -97,7 +97,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
     </section>
     <div className="hosted-relay-danger">
       <div><h3>{t("hosting.deleteTitle")}</h3><p className="muted small">{t("hosting.deleteDescription")}</p></div>
-      <Button variant="danger-outline" disabled={blocked} onClick={() => { setError(""); setConfirm("delete"); }}>{t("hosting.delete")}</Button>
+      <Button variant="danger" disabled={blocked} onClick={() => { setError(""); setConfirm("delete"); }}>{t("hosting.delete")}</Button>
     </div>
     {error && !confirm && <Notice tone="danger">{error}</Notice>}
     {confirm && <Dialog title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} width={440} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>

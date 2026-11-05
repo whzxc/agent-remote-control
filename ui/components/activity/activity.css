@@ -7,7 +7,7 @@
 [data-phase="text"] { --phase-color: var(--phase-text); }
 [data-phase="interaction"] { --phase-color: var(--warning); }
 [data-phase="completed"] { --phase-color: var(--success); }
-.phase-tile { position: relative; display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 9px; color: var(--phase-color); background: color-mix(in srgb, var(--phase-color) 15%, transparent); }
+.phase-tile { position: relative; display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: var(--radius-tile); color: var(--phase-color); background: color-mix(in srgb, var(--phase-color) 17%, transparent); }
 /* Keep the rounded border mask stationary; only the gradient layer rotates. */
 .phase-orbit { position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; pointer-events: none; }
 .phase-orbit::before { content: ""; position: absolute; inset: -50%; background: conic-gradient(transparent 0deg 240deg, var(--phase-color) 330deg, transparent 360deg); will-change: transform; animation: phase-orbit 1.6s linear infinite; }
@@ -25,7 +25,7 @@
 .phase-shimmer { position: absolute; inset: 0; pointer-events: none; mask: linear-gradient(90deg, transparent, #000 15%, transparent 30%); will-change: transform; animation: phase-shimmer 2.4s linear infinite; }
 .phase-shimmer > span { display: block; overflow: hidden; text-overflow: ellipsis; color: color-mix(in srgb, var(--phase-color) 85%, var(--text)); will-change: transform; animation: phase-shimmer-text 2.4s linear infinite; }
 .step-trail { display: inline-flex; flex: none; align-items: center; gap: 2px; }
-.step-trail i { width: 5px; height: 5px; border-radius: 1.5px; background: var(--phase-color); opacity: 0.5; }
+.step-trail i { width: 5px; height: 5px; border-radius: 50%; background: var(--phase-color); opacity: 0.55; }
 .step-trail i:last-child { opacity: 1; }
 .step-trail[data-running] i:last-child { animation: phase-pulse 1.6s ease-in-out infinite; }
 @keyframes phase-orbit { to { transform: rotate(360deg); } }

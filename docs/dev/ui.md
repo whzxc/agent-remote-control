@@ -127,11 +127,11 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 
 ## Theme and motion
 
-design/tokens.css is the token source. ui/tokens.css is the runtime sheet for semantic colors, type, spacing, radii, dimensions, and shadows. ui/theme.ts follows the system by default. Explicit light/dark overrides use opaque white/black canvases. System fonts use 13-14px body, 12px metadata, and 14px reading text. IDs/credentials use shared monospace styling.
+design/tokens.css is the token source. ui/tokens.css imports it and adds runtime-only tokens for spacing, durations, hover tints, soft state colors, brand artwork, charts and the topology. ui/theme.ts follows the system by default and applies explicit light/dark overrides. The Agent theme color tints only the topology Agent side; controls use the design accent. IDs/credentials use shared monospace styling.
 
 Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Agent roots, account children, panels, and quota views use the same mapping. Control-source products and provider platforms use separate mappings, even when they reuse the same SVG. The product picker reads the shared control-source registry; remote MCP clients are grouped under Remote connections.
 
-Functional icons use shared Icon with Lucide at 16/20px and 1.75px strokes. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
+Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
 Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared spring highlights following pointer, keyboard, and Radix state. reduced-motion removes unnecessary transitions.
 
@@ -202,11 +202,12 @@ The upper connection arc continues to represent control-source ingress connectio
 
 A summary line counts servers, available servers, failing servers and enabled tools.
 Search filters servers by name and tools by name or description, and opens matching tool lists.
-Each server is a bordered card with a transport tile, the server name, the command or endpoint and a state pill.
+Each server card shows its transport, the command or endpoint and its state.
 Cards offer reconnect, remove and an enable switch; removal confirms its consequence in a Dialog.
-Facts under the name show the tool count disclosure, configured env and header names, attribution and the last check time.
+Facts show the tool count disclosure, configured env and header names, attribution and the last check time.
 Tool rows show the name, a two-line description and Read-only or Destructive hints repeated from downstream annotations.
 A failing card explains the failure category in plain language, keeps the native error readable and copies a fix prompt for an Agent.
+[design/surfaces/mcp-hub.svg](../../design/surfaces/mcp-hub.svg) defines the ready, failed and empty forms.
 There are no add or edit forms; Agents configure servers through `mcp_configure`.
 Add server opens a Dialog of copyable Agent prompts for import, Streamable HTTP and stdio servers.
 The empty state offers the import prompt with a product choice.

@@ -30,9 +30,11 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  CircleAlert,
   LoaderCircle,
   Copy,
   Eye,
+  Search,
   EyeOff,
   type LucideIcon,
 } from "lucide-react";
@@ -43,8 +45,16 @@ export { HoverScope };
 export { HoverPreviewGroup } from "./HoverPreviewGroup";
 export { ErrorCallout, LoadingIndicator } from "./Feedback";
 export { DataTable, Pagination } from "./DataTable";
-export function Tag({ children, title, tone }: { children: ReactNode; title?: string; tone?: "source" | "agent" }) {
-  return <span className="task-tag" title={title} data-tone={tone}>{children}</span>;
+export type IconSize = 12 | 14 | 16 | 18 | 20;
+/** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
+export function Tag({ children, title, id, form = "spec" }: { children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" }) {
+  return <span id={id} className="tag" data-form={form} title={title}>{children}</span>;
+}
+/** A fact-sized button that shows or hides related content. */
+export function Disclosure({ expanded, controls, onToggle, children }: { expanded: boolean; controls?: string; onToggle: () => void; children: ReactNode }) {
+  return <button type="button" className="tag disclosure" aria-expanded={expanded} aria-controls={controls} onClick={onToggle}>
+    {children}<Icon icon={expanded ? ChevronUp : ChevronDown} size={12} />
+  </button>;
 }
 export function Icon({
   icon: Component,
@@ -52,17 +62,22 @@ export function Icon({
   className = "",
 }: {
   icon: LucideIcon;
-  size?: 16 | 20;
+  size?: IconSize;
   className?: string;
 }) {
   return (
     <Component
       size={size}
       strokeWidth={1.75}
+      absoluteStrokeWidth
       aria-hidden="true"
       className={`icon ${className}`}
     />
   );
+}
+/** A tinted square that carries an icon in the color of its parent's `color`. */
+export function Tile({ icon, className = "" }: { icon: LucideIcon; className?: string }) {
+  return <span className={`tile ${className}`} aria-hidden="true"><Icon icon={icon} size={18} /></span>;
 }
 export function Button({
   variant = "secondary",
@@ -94,21 +109,22 @@ export function IconButton({
   label,
   busy = false,
   size = 16,
+  compact = false,
   className = "",
   ...props
 }: Omit<Parameters<typeof Button>[0], "children" | "title"> & {
   icon: LucideIcon;
   label: string;
-  size?: 16 | 20;
+  size?: IconSize;
+  compact?: boolean;
 }) {
   return (
     <Button
-      variant="ghost"
       {...props}
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
       aria-label={label}
-      className={`icon-button ${className}`}
+      className={`icon-button ${compact ? "compact" : ""} ${className}`}
     >
       <Icon icon={busy ? LoaderCircle : icon} size={size} className={busy ? "spin" : ""} />
     </Button>
@@ -119,6 +135,13 @@ export function Input({
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   return <input {...props} className={`input ${className}`} />;
+}
+/** A rounded search field with a leading icon. The placeholder doubles as the accessible name. */
+export function SearchInput({ className = "", placeholder, ...props }: InputHTMLAttributes<HTMLInputElement> & { placeholder: string }) {
+  return <label className={`search ${className}`}>
+    <Icon icon={Search} size={14} />
+    <input type="search" {...props} placeholder={placeholder} aria-label={props["aria-label"] ?? placeholder} className="input" />
+  </label>;
 }
 export function Slider({ label, value, min, max, step, onChange, onCommit }: {
   label: string; value: number; min: number; max: number; step: number;
@@ -159,31 +182,53 @@ export function Field({
           className="field-error"
           role="alert"
         >
+          <Icon icon={CircleAlert} size={14} />
           {error}
         </p>
       )}
     </div>
   );
 }
+/** A tinted message. With `title`, the children become detail lines under it. */
 export function Notice({
   children,
+  title,
   tone = "danger",
   action,
 }: {
   children: ReactNode;
+  title?: ReactNode;
   tone?: "danger" | "warning" | "success";
   action?: ReactNode;
 }) {
   const protect = useSensitiveText();
+  const body = typeof children === "string" ? protect(children) : children;
   return (
     <div
       className={`notice ${tone}`}
       role={tone === "danger" ? "alert" : "status"}
     >
-      <span>{typeof children === "string" ? protect(children) : children}</span>
+      {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
       {action}
     </div>
   );
+}
+/** Copyable text for the user to paste into an Agent, with its copy button beside it. */
+export function Prompt({ text, label, context }: { text: string; label: string; context?: string }) {
+  const [copied, setCopied] = useState(false), [error, setError] = useState(""), id = useId();
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return <div className="prompt">
+    <p id={id}>{text}</p>
+    <Button aria-describedby={id} onClick={() => { setError(""); void copyText(text).then(() => setCopied(true), () => setError(t("copyFailedSelectAndCopyTheTextManually"))); }}>
+      <Icon icon={copied ? Check : Copy} />{copied ? t("copied") : label}{context && <span className="sr-only">{context}</span>}
+    </Button>
+    {error && <p className="field-error" role="alert"><Icon icon={CircleAlert} size={14} />{error}</p>}
+    {copied && <span className="sr-only" role="status">{t("copied")}</span>}
+  </div>;
 }
 export function Empty({
   children,
@@ -215,7 +260,7 @@ export function Status({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "success" | "warning" | "danger";
+  tone?: "neutral" | "running" | "success" | "warning" | "danger";
 }) {
   return (
     <span className={`status ${tone}`}>
@@ -391,11 +436,13 @@ export function SingleChoice({
     >
       {!swatches && options.length <= 5 && (
         <div ref={measure} className="choice-measure" aria-hidden="true">
-          {options.map((option) => (
-            <span key={option.value}>
-              {option.icon && <Icon icon={option.icon} />} {!iconOnly && option.label}
-            </span>
-          ))}
+          <div>
+            {options.map((option) => (
+              <span key={option.value}>
+                {option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       {tiles || navigation || cards || swatches || (options.length <= 5 && fits) ? (
@@ -405,7 +452,8 @@ export function SingleChoice({
           disabled={disabled}
           aria-label={label}
           orientation={cards || navigation ? "vertical" : "horizontal"}
-          className="choice-radio"
+          className={`choice-radio ${tiles || navigation || cards || swatches ? "" : "choice-pills"}`}
+          style={tiles || navigation || cards || swatches ? undefined : { width: contentWidth }}
         >
           {options.map((option) => (
             <RadioGroup.Item

@@ -1,5 +1,5 @@
 .detail-dialog-overlay { position: fixed; inset: 0; z-index: 100; }
-.detail-dialog { position: fixed; z-index: 101; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 40px)); max-height: 85dvh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-control); box-shadow: 0 16px 60px #0003; overflow: hidden; }
+.detail-dialog { position: fixed; z-index: 101; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 40px)); max-height: 85dvh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-tile); box-shadow: 0 16px 60px #0003; overflow: hidden; }
 .detail-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .detail-dialog h2 { font-size: 16px; margin: 0; }
 .detail-dialog-body { overflow: auto; max-height: calc(85dvh - 74px); }

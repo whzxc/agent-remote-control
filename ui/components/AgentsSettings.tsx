@@ -68,7 +68,7 @@ function AgentCard({ agent, onMove, children }: {
       dragControls={controls}
       dragMomentum={false}
       dragElastic={!reduced}
-      whileDrag={{ cursor: "grabbing", boxShadow: "var(--shadow)" }}
+      whileDrag={{ cursor: "grabbing", boxShadow: "var(--shadow-md)" }}
       onPointerDown={(event) => {
         if (event.button !== 0 || !event.isPrimary ||
           (event.target as Element).closest("button, a, input, select, textarea, [role='button'], [role='switch']")) return;

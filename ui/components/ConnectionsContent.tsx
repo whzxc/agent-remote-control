@@ -37,7 +37,7 @@ export default function ConnectionsContent() {
     {entries.map(connection => {
       const relay = relays.relays.find(r => r.ingressId === connection.id);
       const attached = visible.filter(s => s.ingressId === connection.id);
-      return <Card key={connection.id} asChild className="min-w-0 gap-4 border-solid border-border py-4 shadow-none"><section aria-label={connection.name}>
+      return <Card key={connection.id} asChild className="min-w-0"><section aria-label={connection.name}>
         <CardHeader className="px-4"><div className="flex min-w-0 flex-wrap items-center gap-2">
           <Icon icon={connectionIcon(connection)} size={20} />
           <h3 className="min-w-0 flex-1 break-words">{connection.name}</h3>
