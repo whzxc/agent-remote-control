@@ -3,7 +3,7 @@
 .update-available-dot { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--update-accent); }
 .update-ring { animation: update-spin 1.4s linear infinite; }
 @keyframes update-spin { to { transform: rotate(360deg); } }
-.update-panel { display: flex; flex-direction: column; width: min(520px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); overflow: hidden; z-index: 70; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); animation: update-panel-in 160ms ease-out; }
+.update-panel { display: flex; flex-direction: column; width: min(520px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); overflow: hidden; z-index: 70; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); animation: update-panel-in 160ms ease-out; }
 @keyframes update-panel-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .update-panel-header, .update-panel-footer { display: flex; flex: none; align-items: center; gap: 12px; padding: 16px 20px; }
 .update-panel-body { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }

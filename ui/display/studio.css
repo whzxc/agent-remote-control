@@ -39,7 +39,7 @@
 .studio-header.activity-only { color: var(--text-secondary); }
 .studio-header.activity-only .studio-activity { color: inherit; }
 .studio-pending::before { background: currentColor; }
-.studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
   .studio-night { background-image: url('/studio/portrait-night.webp'); }

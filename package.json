@@ -10,6 +10,7 @@
   "scripts": {
     "wt": "node tooling/worktree.mjs",
     "brand": "node tooling/brand.mjs",
+    "design": "node tooling/design.mjs",
     "check": "tsc --noEmit -p ui/tsconfig.json",
     "build": "vite build --config vite.config.ts && node tooling/build-native.mjs",
     "cache:prune": "node tooling/prune-build-cache.mjs",

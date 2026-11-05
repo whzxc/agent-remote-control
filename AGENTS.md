@@ -30,14 +30,27 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - Product UI, promotional documentation, and end-user onboarding documentation remain localized. Preserve Chinese user input and original upstream evidence.
 - Use the fixed vocabulary in [terminology](docs/dev/terminology.md). Define MUST, SHOULD, and MAY once at the top of each guide response. Use one rule per sentence.
 
-## UI components
+## UI design
 
-- Use `SingleChoice` for every single-choice control. Use pill tabs with at most five options when width permits. Otherwise use a dropdown. Do not add standalone Select, native `select`, or duplicate single-choice styling in business pages. Configure themes centrally. Preserve keyboard navigation, disabled states, and validation.
-- Use React for rendering. Reuse `ui/components/ui/index.tsx` for shared controls and Radix for complex interactions. Do not reimplement equivalent controls in business pages.
-- Define semantic tokens in `ui/tokens.css`. Manage light/dark state in `ui/theme.ts`, following the system by default. Use the shared `Icon` wrapper with Lucide at 16/20px and 1.75px strokes. Retain brand-specific assets.
-- Reuse `Dialog` for editing. Use native `form` with shared `Field`/`Input`. Default to one column with labels above inputs. Only short, related fields may share a row. Associate validation errors with their fields. Focus the first error after failed submission. Restore trigger focus after closing an overlay.
-- The homepage uses the ARC mark and earcup connections. Preserve topology, spatial transitions for expanded node panels, and simplified tactile toggles. Functional pages use quiet, compact, consistent layouts. Keep workspace-panel title bars at the top. Opening and closing use only fades and slight movement of at most 180ms. Nested views switch content without morphing the whole panel. Related tooltips remain visible while smoothly moving and resizing. Hover highlights use the shared spring-following layer. Preserve reduced motion, keyboard navigation, layered Escape, and focus restoration. Radix owns common interaction foundations. Layout components only arrange content and do not duplicate input/button styles. See [UI](docs/dev/ui.md).
-- Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
+- SVG assets in `design/` are the visual source of truth for components, panels, dialogs and pages. See [Design assets](docs/dev/design.md).
+- Visual changes MUST start in the asset. Draft or update the SVG, render it, and get the user's approval before implementing it. Behavior-only changes do not need an asset change.
+- Each asset contains only the presentation forms the user declares. Do not generate combinations of theme, width, locale or interaction state.
+- `design/tokens.css` is the token source. Assets paint through `var(--token)`. Literal colors are allowed only in brand artwork.
+- Implementations MUST match their approved asset. When they disagree, the asset wins until the user approves a change to it.
+- Run `npm run design -- check` after editing assets. It MUST pass before committing.
+- A surface without an approved asset keeps its current implementation. Its next visual change starts by drawing its asset.
+
+## UI implementation
+
+- Use React for rendering. Radix owns interaction foundations: focus, keyboard navigation, dismissal layers, portals and modal behavior.
+- Implement each design component once in `ui/components/ui/` and reuse it. Business pages MUST NOT restyle or reimplement shared controls.
+- Use `SingleChoice` for every single-choice control. It shows pills for at most five options when width permits and a dropdown otherwise. Do not add standalone Select or native `select`. Preserve keyboard navigation, disabled states, and validation.
+- `ui/tokens.css` is the runtime token sheet. Migrations align it with `design/tokens.css`. Manage light/dark state in `ui/theme.ts`, following the system by default.
+- Use the shared `Icon` wrapper with Lucide. Retain brand-specific assets.
+- Reuse `Dialog` for editing. Use native `form` with shared `Field`/`Input`. Associate validation errors with their fields. Focus the first error after failed submission. Restore trigger focus after closing an overlay.
+- The homepage keeps the ARC mark, earcup connections and topology. Expanded node panels use spatial transitions. Hub toggles stay simple and tactile.
+- Workspace panels open and close with fades and slight movement of at most 180ms. Nested views switch content without morphing the whole panel. Related tooltips remain visible while smoothly moving and resizing. Hover highlights use the shared spring-following layer.
+- Preserve reduced motion, keyboard navigation, layered Escape, and focus restoration. See [UI](docs/dev/ui.md).
 - Experimental feature switches MUST only enable or disable features. Enabled features with configuration or interactive controls MUST expose their entry in the shared bottom-left navigation capsule. Keep their configuration and actions behind that entry; do not embed them in Experimental or add separate floating launchers.
 
 ## Documentation layers
@@ -45,6 +58,6 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - Promotional: keep README.md and README.zh-CN.md short and centered on Claude + Codex Loop and ChatGPT Chat + Codex.
 - Onboarding and guides: docs/getting-started.md, concepts.md, guides/, auto-setup.md, faq.md, installation.md, and story.md have English primary files and complete matching Chinese versions under docs/zh-CN/. Keep them synchronized.
 - Reference: docs/reference/ is English only. It owns precise contracts for tools, Agents, CLI, OAuth, Linux, and subscriptions.
-- Maintainer: docs/dev/ is English only. It describes development, releases, architecture, and UI. Internal lifecycle belongs in architecture.
+- Maintainer: docs/dev/ is English only. It describes development, releases, architecture, UI and design assets. Internal lifecycle belongs in architecture.
 - Organize user guides by task. Use short sentences and lead with actions. Collect real limitations at the end under Limits or the localized equivalent. Avoid repeated defensive explanations.
 - Current source, cli help, and cli guide are authoritative. Path changes MUST update internal links, application/CLI URLs, and README Agent prompts. cli guide embeds docs/reference/cli.md.

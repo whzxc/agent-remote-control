@@ -191,7 +191,7 @@
   border-radius: 10px;
   background: var(--surface-raised);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
   z-index: 220;
   outline: none;
   overflow: visible;

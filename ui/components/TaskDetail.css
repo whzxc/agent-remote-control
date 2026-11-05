@@ -1,6 +1,6 @@
 .task-detail-layer { container-type: inline-size; }
 .task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
-.task-queue-error { color: var(--danger); font-size: var(--text-sm); }
+.task-queue-error { color: var(--danger); font-size: var(--text-small); }
 .task-detail-layer > .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px 12px; background: var(--surface); }
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
 .task-detail-navigation > .button { min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: flex-start; color: var(--text-secondary); }
@@ -167,8 +167,8 @@
 .task-question-field .choice-cards .choice-option { min-height: 44px; padding: 8px 12px; }
 
 .task-timeline { position: relative; }
-.task-timeline > .timeline-latest { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); width: var(--control-md); height: var(--control-md); border-radius: var(--radius-pill); background: var(--surface-raised); border: 1px solid var(--border); box-shadow: var(--shadow); }
-.task-timeline:has(> .timeline-latest) .timeline-entries { padding-bottom: calc(var(--control-md) + var(--space-6)); }
+.task-timeline > .timeline-latest { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); width: var(--field-height); height: var(--field-height); border-radius: var(--radius-pill); background: var(--surface-raised); border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+.task-timeline:has(> .timeline-latest) .timeline-entries { padding-bottom: calc(var(--field-height) + var(--space-6)); }
 .task-queued-message { align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 86%; padding: 10px 14px; border: 1px dashed var(--border); border-radius: 16px; background: var(--surface); }
 .task-queued-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-queued-message > span { color: var(--text-secondary); font-size: 12px; }

@@ -52,7 +52,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
     [t('source.authorizedAt'), grant?.connectedAt || source.connectedAt ? sourceDate(grant?.connectedAt || source.connectedAt) : undefined],
     [t('source.lastSeen'), source.lastSeenAt ? sourceDate(source.lastSeenAt) : undefined],
   ].filter((row): row is [string, string] => !!row[1]);
-  return <Card asChild className="border-solid border-border shadow-none"><section aria-label={source.label}>
+  return <Card asChild><section aria-label={source.label}>
     <CardHeader><div className="flex min-w-0 flex-wrap items-center gap-3"><SourceIcon platform={source.product} />
       {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) finishEditing(); }

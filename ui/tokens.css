@@ -1,3 +1,4 @@
+@import "../design/tokens.css";
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
 @source "./components";
@@ -8,137 +9,75 @@
   --color-border: var(--border);
   --color-accent: var(--hover);
 }
+/* Runtime-only tokens. Design tokens come from design/tokens.css. */
 :root {
   color-scheme: light dark;
-  --font-ui:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-mono:
-    ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-md: 14px;
   --text-lg: 16px;
-  --text-title: 26px;
+  --text-display: 26px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
-  --control-sm: 32px;
-  --control-md: 36px;
-  --button-height: 32px;
-  --icon-button-size: 28px;
-  --radius-control: 10px;
-  --radius-row: 12px;
-  --radius-panel: 20px;
   --radius-pill: 999px;
   --duration: 150ms;
   --duration-panel: 200ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --canvas: #fff;
-  --surface: #fff;
-  --surface-subtle: #f5f5f5;
+  --hover: color-mix(in srgb, var(--text) 6%, transparent);
   --surface-soft: color-mix(in srgb, var(--surface-subtle) 50%, var(--surface));
-  --surface-raised: #fff;
-  --text: #171719;
-  --text-secondary: #5d5d65;
-  --text-tertiary: #686871;
-  --border: #e4e4e7;
-  --border-strong: #c6c6cd;
-  --hover: #ededf0;
-  --action: #242428;
-  --on-action: #fff;
-  --accent: #5b5ff5;
+  --success-soft: color-mix(in srgb, var(--success) 14%, var(--surface));
+  --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  --role-source-soft: color-mix(in srgb, var(--role-source) 10%, var(--surface));
+  --role-agent-soft: color-mix(in srgb, var(--role-agent) 10%, var(--surface));
+  --on-success: #ffffff;
+  --update-accent: var(--success);
   --brand-ink: #1d1d1f;
   --brand-orange: #d97757;
   --brand-agent-start: #9c8cff;
   --brand-agent-end: #3f63ff;
-  --role-source: #a04625;
-  --role-agent: #5145b5;
-  --role-source-soft: color-mix(in srgb, var(--role-source) 10%, var(--surface));
-  --role-agent-soft: color-mix(in srgb, var(--role-agent) 10%, var(--surface));
-  --phase-thinking: #6950b8;
-  --phase-command: #285fac;
-  --phase-file: #00856d;
-  --phase-tool: #595960;
-  --phase-text: #3c52b8;
-
+  --phase-tool: var(--text-secondary);
+  --phase-text: #4a5bbd;
   --topology-error: #d7263d;
-  --success: #058750;
-  --on-success: #fff;
-  --update-accent: var(--success);
-  --warning: #8a5108;
-  --danger: #bc2936;
-  --success-soft: #e8faf0;
-  --warning-soft: #fff5df;
-  --danger-soft: #fff0f1;
-  --shadow: 0 8px 32px #0000001f, 0 1px 4px #00000014;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #000;
-  --surface: #171719;
-  --surface-subtle: #222225;
-  --surface-raised: #29292d;
-  --text: #f5f5f7;
-  --text-secondary: #b8b8c0;
-  --text-tertiary: #ababb5;
-  --border: #353539;
-  --border-strong: #5e5e67;
-  --hover: #34343a;
-  --action: #f0f0f3;
-  --on-action: #202024;
-  --accent: #7a7dff;
+  --on-success: #0d2416;
   --brand-ink: #f5f5f7;
   --brand-orange: #e8865e;
   --brand-agent-start: #b7aaff;
   --brand-agent-end: #5c7cff;
-  --role-source: #ffb399;
-  --role-agent: #c4baff;
-  --phase-thinking: #b7aaff;
-  --phase-command: #8dbbff;
-  --phase-file: #58dfbf;
-  --phase-tool: #b8b8c0;
   --phase-text: #9aaeff;
-
   --topology-error: #ff4967;
-  --success: #59e6a0;
-  --on-success: #062819;
-  --warning: #f0c17d;
-  --danger: #ffa0a7;
-  --success-soft: #123d29;
-  --warning-soft: #392d1c;
-  --danger-soft: #3f2328;
-  --shadow: 0 12px 40px #0008, 0 0 0 1px #ffffff0a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --canvas: #000;
-    --text: #f5f5f7;
+    --canvas: #171412;
+    --text: #f3ebe3;
   }
 }
 /* Host colors remain semantic; shared controls use the same Connector tokens. */
 :root[data-surface="mcp"] {
   --canvas: var(--color-background-primary, var(--surface));
-  --surface: var(--color-background-secondary, light-dark(#fff, #171719));
-  --surface-subtle: var(--color-background-tertiary, light-dark(#f5f5f5, #222225));
-  --text: var(--color-text-primary, light-dark(#171719, #f5f5f7));
-  --text-secondary: var(--color-text-secondary, light-dark(#5d5d65, #b8b8c0));
+  --surface: var(--color-background-secondary, light-dark(#fffdfa, #221e1b));
+  --surface-subtle: var(--color-background-tertiary, light-dark(#f6f0e8, #2e2925));
+  --text: var(--color-text-primary, light-dark(#2b2420, #f3ebe3));
+  --text-secondary: var(--color-text-secondary, light-dark(#625952, #bcafa4));
   --text-tertiary: var(--color-text-tertiary, var(--text-secondary));
-  --border: var(--color-border-primary, light-dark(#e4e4e7, #353539));
+  --border: var(--color-border-primary, light-dark(#e7ded2, #3a332e));
   --font-ui: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  --text-md: var(--font-text-md-size, 14px);
-  --text-sm: var(--font-text-sm-size, 13px);
+  --text-body: var(--font-text-md-size, 14px);
+  --text-small: var(--font-text-sm-size, 13px);
 }
 
+/* The theme color preference tints the topology's Agent side, not the design accent. */
 :root {
   --topology-source: var(--theme-source, var(--brand-ink));
-  --topology-agent: var(--accent);
-  --mark-agent-start: var(--accent);
-  --mark-agent-end: var(--accent);
+  --topology-agent: var(--theme-agent);
+  --mark-agent-start: var(--theme-agent);
+  --mark-agent-end: var(--theme-agent);
 }
 :root[data-theme-color="arc"] {
   --topology-source: var(--brand-orange);
@@ -162,15 +101,14 @@
   --setup-viewport-margin: 96px;
   --setup-spacing: clamp(20px, 1.875vw, 28px);
   --setup-gap: clamp(12px, 1.25vw, 18px);
-  --radius-card: 14px;
 }
 
 :root {
   --task-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --task-user-bg: light-dark(#1a1b1f, #32343d);
-  --task-user-ink: #fff;
-  --task-log-bg: #16171b;
-  --task-log-ink: #e8e8ec;
+  --task-user-bg: light-dark(#2b2420, #3a332e);
+  --task-user-ink: #fffaf4;
+  --task-log-bg: #1f1b18;
+  --task-log-ink: #f3ebe3;
   --task-live-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
   --task-attention-ring: color-mix(in srgb, var(--warning) 48%, var(--surface));
   --task-lift: 0 10px 24px -16px color-mix(in srgb, var(--text) 30%, transparent);

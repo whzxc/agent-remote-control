@@ -51,7 +51,7 @@
   height: 28px;
   padding: 0 6px;
   font-size: 12px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-tile);
 }
 .data-pagination .button[aria-current="page"] {
   color: var(--accent);
