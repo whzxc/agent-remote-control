@@ -471,8 +471,8 @@ ARC-generated recovery and negotiation-escalation notices remain pull-only.
 
 The first peer message waits 30 seconds. All pending peer mail for that target coalesces into
 one count and `messages` pointer, with at most one attempt per target per 60 seconds.
-Push starts with `⟢ ARC receipt — automated` and labels the envelope automated data,
-not user instructions. Peer summaries and conditions are excluded from push bodies.
+Push starts with the `⟢ ARC` doorbell header and a `✉ mail` glyph line that labels the
+envelope untrusted peer data, not user instructions. Peer summaries and conditions are excluded from push bodies.
 The same target bucket, breakers, master switch and mute controls govern admission.
 Coordination reserves two remaining bucket tokens for task notifications and observes
 a lower-priority three-per-minute ceiling. No network call runs under the message

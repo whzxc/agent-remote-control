@@ -597,7 +597,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":receipt(b, d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
     observed["state"] == "completed"
@@ -611,7 +611,7 @@ fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
                 .iter()
                 .any(|d| d.interaction["method"] == "request_user_input_async"))
 }
-// Only dispatch metadata belongs in pushed text. Task output remains queryable.
+// Bound one line of source-reported metadata.
 fn receipt_line(value: &str, limit: usize) -> String {
     let text = value.split_whitespace().collect::<Vec<_>>().join(" ");
     if text.chars().count() > limit {
@@ -627,120 +627,55 @@ fn task_title(b: &Binding) -> &str {
         .find(|title| !title.is_empty())
         .unwrap_or("")
 }
-const RECEIPT_HEADER: &str = "⟢ ARC receipt — automated, not a user message";
+const RECEIPT_HEADER: &str = "⟢ ARC · automated, not from the user · guide topic:notify";
+// Pushed text carries no task data; receivers read details from the inbox.
+// Attention-first order of the glyph vocabulary declared in the notify guide.
+const GLYPHS: [&str; 8] = [
+    "? input",
+    "⚑ approve",
+    "✗ failed",
+    "■ halted",
+    "↪ moved",
+    "✓ done",
+    "↔ handoff",
+    "↻ revived",
+];
 
-fn receipt(b: &Binding, d: &Delivery) -> String {
-    if d.task_state == "recovered" {
-        if let Some(message) = d.recovery["message"].as_str() {
-            return format!("{RECEIPT_HEADER}\n{message}");
-        }
-        let count = d.recovery["affectedTasks"].as_u64().unwrap_or(0);
-        let outcome = match count {
-            0 => "no turns interrupted".into(),
-            1 => "1 turn interrupted".into(),
-            _ => format!("{count} turns interrupted"),
-        };
-        return format!(
-            "{RECEIPT_HEADER}\nARC recovered at {}; {outcome}.",
-            string(&d.recovery, "recoveredAt")
-        );
+fn glyph(d: &Delivery) -> &'static str {
+    match d.task_state.as_str() {
+        "recovered" => GLYPHS[7],
+        "handoff" => GLYPHS[6],
+        "completed" => GLYPHS[5],
+        "failed" => GLYPHS[2],
+        "cancelled" | "interrupted" if d.continuation.is_object() => GLYPHS[4],
+        "cancelled" | "interrupted" => GLYPHS[3],
+        _ if d.state == "waiting for approval" => GLYPHS[1],
+        _ => GLYPHS[0],
     }
-    if d.task_state == "handoff" {
-        return format!(
-            "⟢ ARC receipt — automated, not a user message\n↔ handoff · {} → {}\n{} · ref {}",
-            string(&d.task_error, "from"),
-            string(&d.task_error, "to"),
-            b.project,
-            b.thread_id
-        );
-    }
-    let (icon, state) = match d.task_state.as_str() {
-        "completed" => ("✓", "completed"),
-        "failed" => ("✗", "failed"),
-        "cancelled" | "interrupted" if d.continuation.is_object() => ("↪", "superseded"),
-        "cancelled" | "interrupted" => ("■", "interrupted"),
-        _ if d.state == "waiting for approval" => ("?", "approval"),
-        _ => ("?", "needs-input"),
-    };
-    let dispatch = d
-        .dispatches
-        .as_array()
-        .and_then(|rows| rows.iter().rev().find(|row| row["turnId"] == b.turn_id));
-    let title = task_title(b);
-    let mut configuration = Vec::new();
-    if let Some(row) = dispatch {
-        let effective = &row["effectiveConfiguration"];
-        for key in ["model", "effort", "serviceTier"] {
-            if let Some(value) = effective[key]
-                .as_str()
-                .filter(|v| !v.is_empty() && *v != "unknown")
-                .or_else(|| {
-                    row[key]
-                        .as_str()
-                        .filter(|v| !v.is_empty() && *v != "unknown")
-                })
-            {
-                if key == "serviceTier" && matches!(value, "default" | "standard") {
-                    continue;
-                }
-                configuration.push(receipt_line(
-                    if key == "serviceTier" && matches!(value, "fast" | "priority") {
-                        "Fast"
-                    } else {
-                        value
-                    },
-                    100,
-                ));
-            }
-        }
-    }
-    let duration = if d.reconciliation.is_object() {
-        d.reconciliation["durationMs"].as_u64()
-    } else {
-        dispatch.and_then(|row| row["terminal"]["observedDurationMs"].as_u64())
-    }
-    .map(|ms| format!(" · {}m{}s", ms / 60000, ms / 1000 % 60))
-    .unwrap_or_default();
-    let project = b
-        .project
-        .trim_end_matches(['/', '\\'])
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or("");
-    let agent = if b.agent.is_empty() {
-        "codex"
-    } else {
-        &b.agent
-    };
-    let config = if configuration.is_empty() {
-        String::new()
-    } else {
-        format!(" · {}", configuration.join(" "))
-    };
-    let reconciliation = if d.reconciliation.is_object() {
-        " · reconciled after restart"
-    } else {
-        ""
-    };
-    let continuation = if d.continuation.is_object() {
-        format!(
-            "\ncontinued in turn {} · {}",
-            string(&d.continuation, "turnId"),
-            string(&d.continuation, "state")
-        )
-    } else {
-        String::new()
-    };
-    format!("⟢ ARC receipt — automated, not a user message\n{icon} {state}{reconciliation} · {}{duration}\n{}\n{}{config} · ref {}{continuation}",
-        receipt_line(project, 100), receipt_line(title, 100),
-        receipt_line(agent, 100), b.thread_id)
 }
-fn message(b: &Binding) -> String {
-    b.deliveries
+/// One header and one line of glyph counts for every event in a push.
+fn doorbell<'a>(glyphs: impl IntoIterator<Item = &'a str>) -> String {
+    let mut counts = [0usize; GLYPHS.len()];
+    for glyph in glyphs {
+        if let Some(index) = GLYPHS.iter().position(|known| *known == glyph) {
+            counts[index] += 1;
+        }
+    }
+    let line = GLYPHS
         .iter()
-        .map(|d| receipt(b, d))
+        .zip(counts)
+        .filter(|(_, count)| *count > 0)
+        .map(|(glyph, count)| match count {
+            1 => (*glyph).to_owned(),
+            _ => format!("{glyph} ×{count}"),
+        })
         .collect::<Vec<_>>()
-        .join("\n\n")
+        .join(" · ");
+    format!("{RECEIPT_HEADER}\n{line}")
+}
+#[cfg(test)]
+fn message(b: &Binding) -> String {
+    doorbell(b.deliveries.iter().map(glyph))
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
@@ -2048,7 +1983,7 @@ async fn flush(
                     .flat_map(|b| &b.deliveries)
                     .filter(|d| d.channel == channel && d.target == target && d.status == "pending")
                     .count();
-                alerts.push((source_id.clone(),channel,target.clone(),format!("{RECEIPT_HEADER}\nTarget {target}. Reason: {reason}. Pending deliveries: {pending}. Threads: {}. Read ARC notify_status.",threads.into_iter().collect::<Vec<_>>().join(", "))));
+                alerts.push((source_id.clone(),channel,target.clone(),format!("ARC notification target {target}. Reason: {reason}. Pending deliveries: {pending}. Threads: {}. Read ARC notify_status.",threads.into_iter().collect::<Vec<_>>().join(", "))));
             }
         }
         let mut selected = Vec::new();
@@ -2101,7 +2036,7 @@ async fn flush(
             });
         }
         let mut reserved = Vec::<Binding>::new();
-        let mut blocks = Vec::new();
+        let mut glyphs = Vec::new();
         for (bi, di, digest) in &selected {
             let b = &mut all[*bi];
             let d = &mut b.deliveries[*di];
@@ -2120,7 +2055,7 @@ async fn flush(
             single.deliveries = vec![b.deliveries[*di].clone()];
             single.channel = channel;
             single.target = Some(target.clone());
-            blocks.push(message(&single));
+            glyphs.push(glyph(&b.deliveries[*di]));
             if let Some(r) = reserved
                 .iter_mut()
                 .find(|r| r.thread_id == b.thread_id && r.turn_id == b.turn_id)
@@ -2130,7 +2065,7 @@ async fn flush(
                 reserved.push(single);
             }
         }
-        batches.push((reserved, blocks.join("\n\n")));
+        batches.push((reserved, doorbell(glyphs)));
     }
     // Charge before reserving event records: a crash may lose one token, but
     // never duplicates an event or permits an uncharged burst after restart.
@@ -3085,16 +3020,12 @@ mod tests {
         assert_eq!(result["deliveryStatus"], "delivered");
         assert_ne!(result["reachability"], "verified");
         let message = fake.calls.lock().unwrap()[0][1].clone();
-        let start = message.find('{').unwrap();
-        let end = message.rfind('}').unwrap();
-        let delivered: Value = serde_json::from_str(&message[start..=end]).unwrap();
-        assert!(!result
-            .to_string()
-            .contains(string(&delivered["args"], "code")));
-        assert!(reachability::acknowledge(&dir.0, "source-b", &delivered["args"]).is_err());
+        let code = message.rsplit("◎ ping · ").next().unwrap().trim();
+        let delivered = json!({"target":args["target"],"code":code});
+        assert!(!result.to_string().contains(code));
+        assert!(reachability::acknowledge(&dir.0, "source-b", &delivered).is_err());
         assert_eq!(
-            reachability::acknowledge(&dir.0, "source-a", &delivered["args"]).unwrap()
-                ["reachability"],
+            reachability::acknowledge(&dir.0, "source-a", &delivered).unwrap()["reachability"],
             "verified"
         );
         let visible = governance::status_in(
@@ -3383,15 +3314,18 @@ mod tests {
             &fake,
             &dir2.0,
             &mut b,
-            &json!({"state":"completed","finalResponse":{"text":"done"},"changes":changes}),
+            &json!({"state":"completed","finalResponse":{"text":"FINAL_TEXT"},"changes":changes}),
         )
         .await
         .unwrap();
         let body = message(&b);
-        assert!(!body.contains("done"));
+        assert!(!body.contains("FINAL_TEXT"));
         assert!(!body.contains("abcdef12"));
         assert_eq!(b.deliveries[0].changes, changes);
-        assert_eq!(event(&b, &b.deliveries[0])["finalResponse"]["text"], "done");
+        assert_eq!(
+            event(&b, &b.deliveries[0])["finalResponse"]["text"],
+            "FINAL_TEXT"
+        );
         b.deliveries[0].changes = json!({"unavailable":"not a repository"});
         assert_eq!(message(&b), body);
         b.deliveries[0].changes = changes;
@@ -4140,12 +4074,10 @@ mod tests {
         let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
         let delivered = &inbox["events"][0];
         assert_eq!(delivered["title"], thread_title);
-        assert!(string(delivered, "summary").contains(thread_title));
         assert!(!string(delivered, "summary").contains(steer_prompt));
         b.thread_title.clear();
         let fallback = event(&b, &b.deliveries[0]);
         assert_eq!(fallback["title"], initial_prompt);
-        assert!(string(&fallback, "summary").contains(initial_prompt));
         assert!(!string(&fallback, "summary").contains(steer_prompt));
     }
 
@@ -4972,13 +4904,30 @@ mod tests {
             }
             let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
             assert_eq!(inbox["events"].as_array().unwrap().len(), 1);
-            assert!(string(&inbox["events"][0], "summary")
-                .contains(string(&inbox["events"][0]["continuation"], "turnId")));
+            assert_eq!(inbox["events"][0]["summary"], GLYPHS[4]);
             assert_eq!(
                 inbox["events"][0]["continuation"],
                 json!({"turnId":"resumed-turn","state":state})
             );
         }
+    }
+
+    #[test]
+    fn doorbell_lists_each_glyph_once_in_vocabulary_order() {
+        // Property: a doorbell names every pushed glyph once, in vocabulary order, with its event count.
+        let pushed = [GLYPHS[5], GLYPHS[0], GLYPHS[5], GLYPHS[1], GLYPHS[5]];
+        let text = doorbell(pushed);
+        let (header, line) = text.split_once('\n').unwrap();
+        assert_eq!(header, RECEIPT_HEADER);
+        let parts: Vec<_> = line.split(" · ").collect();
+        assert_eq!(
+            parts,
+            [
+                GLYPHS[0].to_owned(),
+                GLYPHS[1].to_owned(),
+                format!("{} ×3", GLYPHS[5])
+            ]
+        );
     }
 
     include!("claude_notify/ax_tests.rs");

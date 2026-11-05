@@ -57,7 +57,7 @@ Claude 可以调用 `notify_control({action:"bind",target})` 绑定自己的通�
 
 未验证、失败或未绑定时，使用回执中的等待参数。如果 Claude 能安排稍后回到本会话，就按匹配历史耗时给出的 `next.revisitAfterMinutes` 回访；无样本不建议分钟数。仅短任务在回合内分段等待。Claude 每次等待最多 170000 ms，超时按 `next` 续等。
 
-绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送固定状态消息，标明项目、任务和轮次。Claude 随后通过 `query codex_read` / `query codex_items` 读取实际输出，通过 `query codex_changes` 或 `query git` 审查改动。
+绑定的轮次完成、失败、中断或等待审批/输入时，ARC 发送一条简短的状态信号，例如 `✓ done` 或 `? input`，不含任务详情。Claude 通过 `query inbox_wait` 读取事件，通过 `query codex_read` / `query codex_items` 读取实际输出，通过 `query codex_changes` 或 `query git` 审查改动。
 
 让 Claude 对照验收标准判断结果，说明剩余问题，再用 `act codex_send` 派出下一轮。每个新轮次都带上 `notify`。向当前轮次追加输入时，省略此字段会保留绑定；传 `null` 可解除绑定。失败/中断轮次之后紧接的、可确认的原生 Codex 重试可在十分钟内继承绑定，显式绑定或解除优先。ARC 会补记该重试以供审查。Desktop 新消息和来源无法确认的重试不继承。
 

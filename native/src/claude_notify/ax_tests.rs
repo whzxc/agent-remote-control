@@ -74,7 +74,7 @@ async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
             event["continuation"],
             json!({"turnId":next_id,"state":"completed"})
         );
-        assert!(string(event, "summary").contains("superseded"));
+        assert_eq!(event["summary"], GLYPHS[4]);
         assert_eq!(event["next"]["op"], "codex_read");
         for obsolete in ["resume", "retry"] {
             assert!(!string(event, "summary").contains(obsolete));

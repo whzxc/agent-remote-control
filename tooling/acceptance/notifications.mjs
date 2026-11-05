@@ -35,7 +35,7 @@ async function dispatch(op='codex_create',args={}){
  assert.equal(r.state,'completed',JSON.stringify(r));return r;
 }
 const status=async()=>{const s=await call('notify_status',{target:'session_selftest'});return s.targets.find(t=>t.target==='session_selftest');};
-async function received(){const text=await readFile(path.join(dir,'delivered.txt'),'utf8');return JSON.parse(text.match(/call act with (\{.*\})\. This confirms/)[1]).args;}
+async function received(){const text=await readFile(path.join(dir,'delivered.txt'),'utf8');return {target:'session_selftest',code:text.match(/◎ ping · (\S+)/)[1]};}
 try{
  await mkdir(env.HOME,{recursive:true});await mkdir(path.join(dir,'bin'));
  await put('ingresses/index.json',['default']);

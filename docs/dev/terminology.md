@@ -22,6 +22,8 @@ Use one rule per sentence.
 | receipt | The durable result of an ARC write request, addressed by requestId. |
 | ingress | An ARC connection endpoint with its own authorization and control-source settings. |
 | notification | The frozen MCP event name or a delivered ARC task update. |
+| doorbell | A pushed notification that carries only the ARC header and glyph counts. |
+| glyph | A fixed symbol plus keyword, such as `✓ done`, declared in the notify guide. |
 | quota pool | A shared upstream usage allowance. |
 | observed duration | Time from submission to the first terminal observation, including observation delay. |
 | terminal | Completed, failed, or interrupted native execution. |
