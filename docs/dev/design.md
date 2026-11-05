@@ -38,12 +38,28 @@ An instance matches its form's container height, radius, fill, stroke and elevat
 1. Start from the user's request and the matching `accept:ui` fixture data.
 2. Draw or update the asset. Use `npm run design -- measure` for text widths.
 3. Run `npm run design -- check` and fix every problem.
-4. Run `npm run design -- render` and review both theme renders.
+4. Run `npm run design -- render` and review both theme renders against the layout review.
 5. Show the renders to the user and iterate until they approve the asset.
 6. Implement with the shared React components and runtime tokens.
 7. Run `npm run design -- compare` against the matching fixture and fix the reported differences before reporting.
 
 An asset frame uses the language and text of its fixture, including dates under the fixed 2026-01-01 fixture clock. Generate repetitive geometry with a script kept outside the repository, measure text with `measure`, and copy icon geometry from Lucide. A drafter may propose forms. Approving the renders approves those forms. Drafting, `check`, `render` and implementation may run in a coding lane. `compare` and `accept:ui` run in the main checkout after landing.
+
+## Layout review
+
+Review the composition of every frame before showing it. A frame that copies the current implementation also copies its layout problems.
+
+- Group by meaning. Items that serve one decision sit together, and the gap between groups is clearly larger than the gap inside a group.
+- End a decision with one action row. Attach scope and consequence text to the title or content it qualifies.
+- Do not stack rows that push short text to one edge and a short control to the other. Edge-to-edge rows belong to lists and toolbars.
+- Join short metadata into one line with ` · `. A short status or count does not own a row.
+- Give a row or step at most a title and one meta line.
+- Show each state once. A spinner in a step tile and a separate in-progress line for the same step duplicate each other.
+- Pad a container equally on all sides. Its height follows its content.
+- Give an overlay one dismissal. Do not add a footer button that repeats close.
+- Keep navigation, filters and actions apart. Panel actions such as refresh sit with close in the header. Filters share one toolbar row.
+- Keep a transition in place. A running action turns its own control into the pending state and disables its siblings. Do not hide the footer or replace it with body text.
+- Cut advisory text that the user does not need in order to act.
 
 ## Implementation checklist
 
