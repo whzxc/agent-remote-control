@@ -42,6 +42,7 @@ import {
 import { t } from "../../i18n";
 import { copyText } from "../../platform";
 import { HoverScope } from "./HoverScope";
+import ChoiceTrigger from "./ChoiceTrigger";
 export { HoverScope };
 export { SetupAction, WelcomeChoice, WelcomeStatusAction } from "./SetupChoice";
 export { HoverPreviewGroup } from "./HoverPreviewGroup";
@@ -521,6 +522,27 @@ export function SingleChoice({
             </RadioGroup.Item>
           ))}
         </RadioGroup.Root>
+      ) : menuLabel ? (
+        <M.Root>
+          <M.Trigger asChild>
+            <ChoiceTrigger aria-label={label} disabled={disabled} side={side}>{options.find(option => option.value === value)?.label}</ChoiceTrigger>
+          </M.Trigger>
+          <M.Portal>
+            <M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
+              side={side} align="start" sideOffset={6} collisionPadding={12}
+              style={{ maxHeight: "var(--radix-dropdown-menu-content-available-height)", overflowY: "auto" }}>
+              <M.Label className="choice-menu-label">{menuLabel}</M.Label>
+              <M.RadioGroup value={value} onValueChange={onChange}>
+                <HoverScope tracking="highlighted">
+                  {options.map(option => <M.RadioItem key={option.value} value={option.value} disabled={option.disabled}
+                    className="select-item" data-hover-target={option.value}>
+                    <span>{option.label}</span><M.ItemIndicator><Icon icon={Check} /></M.ItemIndicator>
+                  </M.RadioItem>)}
+                </HoverScope>
+              </M.RadioGroup>
+            </M.Content>
+          </M.Portal>
+        </M.Root>
       ) : (
         <S.Root value={value} onValueChange={onChange} disabled={disabled}>
           <S.Trigger className="select-trigger" aria-label={label}>
@@ -531,7 +553,7 @@ export function SingleChoice({
           </S.Trigger>
           <S.Portal>
             <S.Content
-              className={`select-content ${menuLabel ? "choice-labelled-menu" : ""}`}
+              className="select-content"
               position="popper"
               side={side}
               align="start"
@@ -542,7 +564,6 @@ export function SingleChoice({
                 <Icon icon={ChevronUp} />
               </S.ScrollUpButton>
               <S.Viewport>
-                {menuLabel && <div className="choice-menu-label">{menuLabel}</div>}
                 <HoverScope tracking="highlighted">
                 {options.map((option) => (
                   <S.Item
