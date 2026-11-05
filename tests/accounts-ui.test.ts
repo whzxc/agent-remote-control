@@ -182,13 +182,13 @@ test('built-in local authority is absent from control sources, accounts and disc
 test('connection management exposes connections without source or platform administration', async () => {
   // Regression: connection management mixed duplicate source/account rows and platform grouping with connection lifecycle actions.
   await withAccountUI(async ({ server, root }) => {
-    const { default: ConnectionsContent } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
+    const { ConnectionsDialog } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     navigation.set((old: any) => ({ ...old, page: 'overview', connectionsOpen: true, remoteSourceId: undefined, remoteConnectionId: undefined }));
-    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsContent))));
+    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsDialog))));
     const page = within(document.body);
     assert.ok(page.getByRole('button', { name: t('source.newConnection'), exact: true }));
     assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
@@ -197,7 +197,7 @@ test('connection management exposes connections without source or platform admin
     const card = within(page.getByRole('region', { name: connection.name, exact: true }));
     assert.ok(card.getByRole('textbox', { name: t('source.copyAddress'), exact: true }));
     await act(() => fireEvent.click(card.getByRole('button', { name: t('remove'), exact: true })));
-    await act(() => fireEvent.click(within(page.getByRole('dialog')).getByRole('button', { name: t('cancel'), exact: true })));
+    await act(() => fireEvent.click(within(page.getByRole('dialog', { name: t('setup.removeConnection'), exact: true })).getByRole('button', { name: t('cancel'), exact: true })));
     assert.ok(card.getByRole('button', { name: t('edit'), exact: true }));
     assert.ok(page.getByRole('heading', { name: connection.name, exact: true }));
     assert.equal(page.queryByRole('button', { name: t('setup.addSourceForConnection'), exact: true }), null);

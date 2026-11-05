@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { readOnlyBrowser } from "../browserMode";
 import { activityState } from "../state/taskExecutionModel";
 import { taskExecution, taskExecutions } from "../state/taskExecution";
@@ -53,10 +52,10 @@ import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, conne
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentDisplaySettings from "./AgentDisplaySettings";
-import { Button, Dialog, Icon, Notice } from "./ui";
+import { Button, Notice } from "./ui";
 import AgentPanel from "./AgentPanel";
 import ChangeConnection from "./ChangeConnection";
-import ConnectionsContent from "./ConnectionsContent";
+import { ConnectionsDialog } from "./ConnectionsContent";
 import Hub from "../topology/Hub";
 function wireState(state: string): WireState {
   if (["connected", "agentAvailable"].includes(state)) return "normal";
@@ -401,11 +400,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
-      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <Dialog centered title={t("connections.title")} width={680}
-        actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup()}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
-        returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
-        <ConnectionsContent />
-      </Dialog>}
+      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <ConnectionsDialog />}
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
       {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}

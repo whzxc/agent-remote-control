@@ -1,17 +1,27 @@
 import { readOnlyBrowser } from "../browserMode";
 import { Fragment, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { connector, refreshConnector } from "../state/connector";
 import { useRelays } from "../state/relay";
+import { navigation } from "../state/navigation";
+import { openConnectionSetup } from "../state/onboarding";
 import { connectionIcon, connectionKind, connectionProvider, isLocalSource, isPendingSource } from "../sourcePresentation";
 import type { Ingress } from "../state/types";
 import IngressDialog from "./IngressDialog";
 import SourceIcon from "./SourceIcon";
 import { RelaySettings } from "./RelaySettings";
-import { Button, CopyField, Dialog, IconButton, Notice, Status, Tile } from "./ui";
+import { Button, CopyField, Dialog, Icon, IconButton, Notice, Status, Tile } from "./ui";
 import { Card, CardContent, CardHeader } from "./ui/card";
+
+export function ConnectionsDialog() {
+  return <Dialog centered title={t("connections.title")} width={680}
+    actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup()}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
+    returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
+    <ConnectionsContent />
+  </Dialog>;
+}
 
 export default function ConnectionsContent() {
   const { status, sources, error: readError } = connector.use(), relays = useRelays();
