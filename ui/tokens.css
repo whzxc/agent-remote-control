@@ -2,13 +2,6 @@
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
 @source "./components";
-@theme inline {
-  --color-card: var(--surface);
-  --color-card-foreground: var(--text);
-  --color-muted-foreground: var(--text-secondary);
-  --color-border: var(--border);
-  --color-accent: var(--hover);
-}
 /* Runtime-only tokens. Design tokens come from design/tokens.css. */
 :root {
   color-scheme: light dark;
@@ -18,18 +11,14 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
-  --space-8: 32px;
   --radius-pill: 999px;
   --duration: 150ms;
   --duration-panel: 200ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --hover: color-mix(in srgb, var(--text) 6%, transparent);
-  --surface-soft: color-mix(in srgb, var(--surface-subtle) 50%, var(--surface));
   --success-soft: color-mix(in srgb, var(--success) 14%, var(--surface));
   --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
   --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
-  --role-source-soft: color-mix(in srgb, var(--role-source) 10%, var(--surface));
-  --role-agent-soft: color-mix(in srgb, var(--role-agent) 10%, var(--surface));
   --on-success: #ffffff;
   --update-accent: var(--success);
   --brand-ink: #1d1d1f;
@@ -93,8 +82,6 @@
 :root[data-studio-phase="day"] {
   --studio-wall: #eee4d6;
   --studio-veil: #fff9ee30;
-  --studio-clock: #61516c;
-  --studio-secondary: #625b65;
   --studio-window-glow: #ffecbd;
   --studio-leaf-shadow: #5b644c;
   --studio-lamp-glow: #ffd69a;
@@ -103,8 +90,6 @@
 :root[data-studio-phase="night"] {
   --studio-wall: #272534;
   --studio-veil: #17152314;
-  --studio-clock: #e3d2ee;
-  --studio-secondary: #d5c9d8;
   --studio-window-glow: #7e9dd8;
   --studio-leaf-shadow: #080e26;
   --studio-lamp-glow: #ffce83;

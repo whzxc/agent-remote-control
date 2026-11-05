@@ -65,7 +65,7 @@ Review the composition of every frame before showing it. A frame that copies the
 
 - Size shared controls through their size variables, such as `--icon-button-size`. A width or height override leaves the control's minimum size in place and distorts its shape.
 - Make each surface rule win over generic panel rules, such as `.elastic-panel .dialog-header h2`. A text width difference in `compare` usually means a font rule lost.
-- Remove a runtime token from `ui/tokens.css` when `design/tokens.css` defines the same name, because the runtime sheet loads later and wins.
+- Remove redundant base definitions from `ui/tokens.css` when `design/tokens.css` owns the same token. Keep the scoped `data-surface="mcp"` overrides that map semantic tokens to host colors.
 - Avoid `font-variant-numeric` and `letter-spacing` values that the asset does not use, because they change text widths.
 - Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.
 - Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.

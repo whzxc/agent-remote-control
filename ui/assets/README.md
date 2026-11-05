@@ -17,4 +17,4 @@ The homepage center always displays the ARC mark.
 
 Runtime brand mappings live in [brand-reserve/magpie](brand-reserve/magpie/manifest.json), copied from Magpie's prepared resources. Agent icons are distinct from provider and product icons. Topology roots, account children, management cards, task prose, and quota views share the Agent mapping. See [brand-reserve/README.md](brand-reserve/README.md) for provenance and retained upstream assets.
 
-Legacy collected graphics remain under `agents/` and `brand-reserve/agents/` with their original license notices. Brand trademarks remain with their owners.
+Collected graphics remain under `brand-reserve/agents/` with their original license notices. Brand trademarks remain with their owners.
