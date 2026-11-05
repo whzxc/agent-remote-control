@@ -128,8 +128,9 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
 }
 
 function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threadId: string; onClose: () => void }) {
-  const { defaults, saving, error, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
-  return <Dialog title={t("taskDispatch.title")} onClose={onClose} busy={saving} width={440} description={t("taskDispatch.hint")}>
+  const { defaults, error, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
+  // Autosaves belong to the record and survive dismissal; they must not consume Escape.
+  return <Dialog title={t("taskDispatch.title")} onClose={onClose} width={440} description={t("taskDispatch.hint")}>
     {error && <Notice>{error}</Notice>}
     {defaults && <div className="form">
       <DefaultsFields agent={agent} defaults={defaults} effort inline inheritLabel={t("taskDispatch.inherit")}

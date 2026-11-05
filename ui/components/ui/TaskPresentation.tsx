@@ -15,7 +15,7 @@ export function RequestEntry({ title, summary, action, onOpen }: { title: string
     <Button aria-haspopup="dialog" onClick={onOpen}>{action}</Button></div>;
 }
 export function ReviewUnavailable({ children, action }: { children: ReactNode; action: ReactNode }) {
-  return <div className="review-unavailable" role="status"><span>{children}</span>{action}</div>;
+  return <div className="review-unavailable" role="alert"><span>{children}</span>{action}</div>;
 }
 export function OwnershipTag(props: ComponentProps<"span">) { return <span {...props} className="ownership-tag" />; }
 export function RoutingRow({ children }: { children: ReactNode }) { return <div className="request-routing-inline">{children}</div>; }

@@ -313,6 +313,7 @@ test("timeline turn disclosures preserve choices through incremental work and re
     const { t } = await server.ssrLoadModule("/ui/i18n.ts");
     const group = () => page.getByRole("button", { name: name => name.includes(t("detail.tools.read", { count: 1 })) });
     await render([first, second]);
+    await click(page.getByRole("button", { name: first.command }));
     assert.ok(page.getAllByText(first.output.text).length > 0);
     await click(group());
     assert.equal(group().getAttribute("aria-expanded"), "false");
@@ -352,7 +353,8 @@ test("timeline turn disclosures preserve choices through incremental work and re
     const interaction = { kind: "question", summary: "Choose an option", respond: { op: "agent_respond", args: { agent: "claude", taskId: "example", interactionId: 1 } } };
     const pending = { ...base, id: "interaction", type: "interaction", status: "pending", interaction };
     await render([pending]);
-    assert.ok(page.getByText(t("detail.needsYou")));
+    // Unanswered requests live in the dock; the timeline shows their resolved history.
+    assertNodeIdentity(page.queryByText(interaction.summary), null);
     const key = interactionKey("claude", { ...session, phaseSince: base.startedAt, interaction });
     for (const [decision, label] of [["answer", "timeline.answered"], ["deny", "detail.verdict.reject"]]) {
       await act(() => activityApprovals.set({ [key]: { status: "submitted", decision, payload: { op: "agent_respond", args: { value: "A" } } } }));

@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { assertNodeIdentity } from './helpers/dom-assert.ts';
 import { Window } from 'happy-dom';
 import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
-import { within, fireEvent } from '@testing-library/dom';
+import { within, fireEvent, waitFor } from '@testing-library/dom';
 
 test('Agent and task defaults retain pending edits across consecutive changes and settings remounts', { timeout: 10000 }, async () => {
-  // Regression: PR #15 lost pending defaults; d82ad4e made the named model button unreachable in Agent and task settings.
+  // Regression: PR #15 lost pending defaults; d82ad4e hid the model button; autosaving task defaults swallowed dialog dismissal.
   const originalFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
@@ -50,7 +51,9 @@ test('Agent and task defaults retain pending edits across consecutive changes an
     const page = within(document.body);
     const click = async (element: HTMLElement) => act(async () => { fireEvent.click(element); });
     const openTask = async () => {
-      await click(page.getByRole('button', { name: t('taskDispatch.title') }));
+      const trigger = page.getByRole('button', { name: t('taskDispatch.title') });
+      await act(async () => trigger.focus());
+      await click(trigger);
       await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
     };
     const modelButton = () => page.getByRole('button', { name: new RegExp(`^${t('dispatchDefaults.model')}:`) });
@@ -70,8 +73,22 @@ test('Agent and task defaults retain pending edits across consecutive changes an
         if (entry === 'task') await openTask();
         await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
       }
-      const slider = page.getByRole('slider', { name: t('dispatchDefaults.effort') });
+      let slider = page.getByRole('slider', { name: t('dispatchDefaults.effort') });
       await act(async () => { fireEvent.keyDown(slider, { key: 'End' }); });
+      if (entry === 'task' && reopen) {
+        // Both writes are still pending. Escape dismisses one layer at a time.
+        await act(async () => { fireEvent.keyDown(slider, { key: 'Escape' }); });
+        await waitFor(() => assert.ok(page.getByRole('button', { name: t('dispatchDefaults.spec') }).matches(':focus')));
+        assertNodeIdentity(page.queryByRole('dialog', { name: t('dispatchDefaults.spec') }), null);
+        assert.ok(page.getByRole('dialog', { name: t('taskDispatch.title') }));
+        await act(async () => { fireEvent.keyDown(page.getByRole('button', { name: t('dispatchDefaults.spec') }), { key: 'Escape' }); });
+        await waitFor(() => assertNodeIdentity(page.queryByRole('dialog', { name: t('taskDispatch.title') }), null));
+        await waitFor(() => assert.ok(page.getByRole('button', { name: t('taskDispatch.title') }).matches(':focus')));
+        await openTask();
+        await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
+        slider = page.getByRole('slider', { name: t('dispatchDefaults.effort') });
+        assert.equal(slider.getAttribute('aria-valuetext'), t('dispatchSpec.effort.high'));
+      }
       // Complete the first save only after the second user edit.
       await act(async () => { pending.shift()!.finish(); });
       await act(async () => { pending.shift()!.finish(); });
