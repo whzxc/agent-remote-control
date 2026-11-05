@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="904" height="474" viewBox="0 0 904 474" data-design="surface" data-name="relay-hosting">
+<svg xmlns="http://www.w3.org/2000/svg" width="904" height="344" viewBox="0 0 904 344" data-design="surface" data-name="relay-hosting">
 <desc>Empty hosting workspace from relay-hosting-light. The dark fixture has the same layout in Chinese. No hosted relay or member data is provided by these fixtures.</desc>
 <!-- design:tokens -->
 <style>
@@ -18,17 +18,17 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
 <!-- /design:tokens -->
-<rect data-canvas="" width="904" height="474" style="fill:var(--canvas)"/>
+<rect data-canvas="" width="904" height="344" style="fill:var(--canvas)"/>
 <defs><filter id="privacy-mask"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
 <text x="72" y="52" class="note">empty / relay-hosting-light</text><g transform="translate(72 72)" data-part="frame-empty" data-fixture="relay-hosting-light">
 <g transform="translate(0 0)" data-component="panel" data-form="workspace">
-<rect width="760" height="330" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/><text x="24" y="30"  style="fill:var(--text);font-size:var(--text-title);font-weight:650;" >Relay hosting</text><g transform="translate(702 13)" data-component="icon-button" data-form="regular">
+<rect width="760" height="200" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/><text x="24" y="30"  style="fill:var(--text);font-size:var(--text-title);font-weight:650;" >Relay hosting</text><g transform="translate(702 13)" data-component="icon-button" data-form="regular">
 <rect x="0" y="0" width="34" height="34" rx="17" style="fill:none" /><g data-icon="x" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>
 </g>
 </g><g transform="translate(662 13)" data-component="icon-button" data-form="regular">
 <rect x="0" y="0" width="34" height="34" rx="17" style="fill:none" /><g data-icon="maximize-2" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></g>
-</g><text x="24" y="100"  style="fill:var(--text);font-size:var(--text-body);font-weight:650;" >Hosted relays</text><g transform="translate(550 83)" data-component="button" data-form="secondary">
+</g><text x="24" y="86"  style="fill:var(--text);font-size:var(--text-body);font-weight:650;" >Hosted relays</text><text x="24" y="114"  style="fill:var(--text-secondary);font-size:var(--text-body);" >You have not deployed a relay yet.</text><g transform="translate(24 142)" data-component="button" data-form="secondary">
 <rect x="0" y="0" width="186" height="34" rx="17" style="fill:var(--surface-sunken)" /><text x="93.0" y="17"  style="fill:var(--text);font-size:var(--text-small);font-weight:600;text-anchor:middle;" >Deploy new relay</text>
-</g><text x="24" y="164"  style="fill:var(--text-secondary);font-size:var(--text-body);" >You have not deployed a relay yet.</text>
+</g>
 </g>
 </svg>
