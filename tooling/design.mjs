@@ -339,11 +339,45 @@ function implementationTexts(root) {
     const text = node.textContent.replace(/\s+/g, ' ').trim();
     const owner = node.parentElement;
     if (!text || !owner || owner.closest('.sr-only, [aria-hidden="true"]')) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    const rect = [...range.getClientRects()].find(r => r.width > 1 && r.height > 1);
-    if (!rect) continue;
-    texts.push({ text, x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height });
+    // A wrapped text node yields one entry per rendered line, as an asset draws one text per line.
+    const range = document.createRange(), lines = [];
+    for (let index = 0; index < node.length; index++) {
+      range.setStart(node, index);
+      range.setEnd(node, index + 1);
+      const rect = [...range.getClientRects()].find(r => r.width > 0 && r.height > 1);
+      if (!rect) continue;
+      const line = lines.at(-1);
+      if (line && Math.abs(line.top - rect.top) < rect.height / 2) {
+        line.text += node.data[index];
+        line.right = Math.max(line.right, rect.right);
+        line.bottom = Math.max(line.bottom, rect.bottom);
+      } else lines.push({ text: node.data[index], left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+    }
+    for (const line of lines) {
+      const leading = line.text.length - line.text.trimStart().length, trailing = line.text.length - line.text.trimEnd().length;
+      const content = line.text.replace(/\s+/g, ' ').trim();
+      if (!content) continue;
+      // Trim the boxes of collapsed edge spaces so the anchored edge is the first glyph.
+      const box = { left: line.left, right: line.right };
+      if (leading || trailing) {
+        const start = lines.slice(0, lines.indexOf(line)).reduce((sum, item) => sum + item.text.length, 0);
+        const ink = document.createRange();
+        ink.setStart(node, start + leading); ink.setEnd(node, start + line.text.length - trailing);
+        const rects = [...ink.getClientRects()].filter(r => r.width > 0);
+        if (rects.length) { box.left = Math.min(...rects.map(r => r.left)); box.right = Math.max(...rects.map(r => r.right)); }
+      }
+      texts.push({ text: content, x: box.left - origin.left, y: line.top - origin.top, width: box.right - box.left, height: line.bottom - line.top });
+    }
+  }
+  // An empty field shows its placeholder, which has no text node.
+  const canvas = document.createElement('canvas').getContext('2d');
+  for (const input of root.querySelectorAll('input[placeholder]:placeholder-shown, textarea[placeholder]:placeholder-shown')) {
+    const rect = input.getBoundingClientRect(), style = getComputedStyle(input, '::placeholder');
+    if (rect.width < 1 || input.closest('[aria-hidden="true"]')) continue;
+    canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const box = getComputedStyle(input), height = parseFloat(style.fontSize) * 1.2;
+    texts.push({ text: input.placeholder.replace(/\s+/g, ' ').trim(), x: rect.left + parseFloat(box.borderLeftWidth) + parseFloat(box.paddingLeft) - origin.left,
+      y: rect.top + rect.height / 2 - height / 2 - origin.top, width: canvas.measureText(input.placeholder).width, height });
   }
   return { box: { x: origin.left, y: origin.top, width: origin.width, height: origin.height }, texts };
 }

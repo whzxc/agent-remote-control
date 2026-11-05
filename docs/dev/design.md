@@ -58,7 +58,7 @@ npm run design -- compare <asset> --frame=<part> --scenario=<fixture> --region=<
 
 `render` writes `output/design/<path>-light.png` and `-dark.png` at 2x. `gallery` writes `output/design/index.html`, which shows every asset with a System, Light and Dark switch.
 
-`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region to capture, and each `--click` activates a button by accessible name first. It pairs texts by content and reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means the implementation does not match yet. It starts Vite, so it runs only in the main checkout.
+`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region to capture, and each `--click` activates a button by accessible name first. It reads one text per rendered line, including the placeholders of empty fields, and pairs texts by content. It reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. It does not compare shapes, so review the overlay as well. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means the implementation does not match yet. It starts Vite, so it runs only in the main checkout.
 
 ## Migration
 
