@@ -14,6 +14,8 @@ Core owns normalization. ACP/Pi save it with task records. Codex backfills histo
 
 agents/activity returns session snapshots plus activeAgents for existing callers. Approval/question/selection waits count as active. agent_context.evidence contains selected-turn command/file entries. executionEvidence is true, false, or partial according to observation. Protocol events without tools yield empty evidence, not unsupported. Desktop subscribes to agents:activity, Web to SSE, with GET for initial load/fallback.
 
+Codex transcript activity requires a running native turn. Fork initialization and user-role context without a running turn remain idle. The incremental lifecycle clock supplies turn status when the start event is outside the bounded content tail. Silence does not end a running turn.
+
 | Type | Meaning |
 | --- | --- |
 | user | User/control-source input, including thread additions. |

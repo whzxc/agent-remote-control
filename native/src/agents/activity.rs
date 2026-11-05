@@ -164,9 +164,12 @@ impl ScanCache {
             tail.timeline.turn = tail.clock.turn_id.clone();
             tail.timeline.status = tail.clock.status.clone().unwrap_or_default();
         }
-        let session = tail
-            .timeline
-            .transcript_active(modified, now)
+        // Codex can initialize a fork with user-role context before any
+        // turn starts. Content alone is not evidence of running work.
+        let active = tail.timeline.transcript_active(modified, now)
+            && (agent != "codex"
+                || matches!(tail.clock.status.as_deref(), Some("running" | "inProgress")));
+        let session = active
             .then(|| {
                 let id = tail.timeline.info["id"]
                     .as_str()

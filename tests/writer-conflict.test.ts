@@ -6,6 +6,52 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
+test('Initialized Codex side conversations become active only during a native turn', async () => {
+  // Regression: an idle side conversation's boundary message stayed active forever while its native detail was empty.
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-idle-fork-')));
+  const threadId = '00000000-0000-4000-8000-000000000011';
+  const turnId = '00000000-0000-4000-8000-000000000012';
+  const rollout = path.join(directory, 'sessions', `${threadId}.jsonl`);
+  const record = (type: string, payload: unknown) => JSON.stringify({ type, timestamp: new Date().toISOString(), payload }) + '\n';
+  await mkdir(path.dirname(rollout));
+  await writeFile(rollout,
+    record('session_meta', { id: threadId, attached_thread: true, forked_from_id: 'parent-thread' })
+    + record('event_msg', { type: 'thread_settings_applied', thread_settings: { service_tier: 'default' } })
+    + record('response_item', { type: 'message', role: 'user', content: [{ text: 'Side conversation context' }] }));
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    import {readFileSync} from 'node:fs';
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
+      const records=readFileSync(${JSON.stringify(rollout)},'utf8').trim().split('\\n').map(JSON.parse);
+      const started=records.some(r=>r.payload.type==='task_started');
+      const turn={id:${JSON.stringify(turnId)},status:'inProgress',items:[{id:'prompt',type:'userMessage',content:[{type:'text',text:'Inspect project'}]}]};
+      const result=method==='thread/read'?{thread:{id:params.threadId,cwd:'/project',status:{type:started?'active':'idle'}}}:
+        method==='thread/turns/list'?{data:started?[turn]:[],nextCursor:null}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `, { CODEX_HOME: directory });
+  try {
+    const sessions = async () => (await fixture.api('agents/activity')).agents.codex?.sessions ?? [];
+    const timeline = () => fixture.api('agents/conversations/timeline', { agent: 'codex', id: threadId });
+    assert.deepEqual(await sessions(), []);
+    assert.deepEqual((await timeline()).entries, []);
+    await appendFile(rollout,
+      record('event_msg', { type: 'task_started', turn_id: turnId })
+      + record('response_item', { type: 'message', role: 'user', content: [{ text: 'Inspect project' }] }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.equal((await sessions()).find((s: any) => s.id === threadId)?.turnId, turnId);
+    const detail = await timeline();
+    assert.ok(detail.entries.some((entry: any) => entry.type === 'user' && entry.text === 'Inspect project'));
+    await appendFile(rollout, record('event_msg', { type: 'task_complete', turn_id: turnId }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.deepEqual(await sessions(), []);
+  } finally {
+    await fixture.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('native writer conflicts retain recovery guidance through send, load and read', async () => {
   // Regression: native errors include the thread ID between thread and already, including nested load failures.
   const fixture = await nativeControl(`
