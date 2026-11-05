@@ -1,0 +1,474 @@
+<?xml version="1.0" ?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2208" height="1310" viewBox="0 0 2208 1310" data-design="surface" data-name="task-detail">
+<!-- design:tokens -->
+<style>
+:root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
+:root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+text{font-family:var(--font-ui);dominant-baseline:central}
+.mono{font-family:var(--font-mono)}
+.note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
+</style>
+<defs data-design-tokens="">
+<filter id="elev-sm-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 8%)"/><feComposite in2="o0" operator="in" result="s0"/><feMerge><feMergeNode in="s0"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-md-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 5%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="10"/><feOffset dx="0" dy="6" result="o1"/><feFlood style="flood-color:rgb(74 52 36 / 8%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-lg-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 5%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="28"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(74 52 36 / 13%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-sm-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 35%)"/><feComposite in2="o0" operator="in" result="s0"/><feMerge><feMergeNode in="s0"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-md-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dx="0" dy="6" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 40%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<!-- /design:tokens -->
+  <desc>Task detail forms. Running: timeline-multi-turn with the previous turn expanded. Needs-you: timeline-pending with its request dock. Failed: task-states task index 3. All use the fixture clock 2026-01-01T00:00:00Z and zh-CN UI. Other tool disclosures remain collapsed. Queue and review content are absent in these fixture snapshots.</desc>
+  <rect data-canvas="" width="2208" height="1310" style="fill:var(--canvas)"/>
+  <text x="72" y="70" class="note">running-multi-turn · timeline-multi-turn · previous turn expanded</text>
+  <g transform="translate(72 94)" data-part="frame-running-multi-turn" data-scenario="timeline-multi-turn" data-fixture-clock="2026-01-01T00:00:00Z">
+    <g transform="translate(0 0)" data-component="panel" data-form="workspace">
+      <rect width="640" height="1144" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <text x="20" y="76" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">Review project configuration and verify the requested changes</text>
+    </g>
+    <g transform="translate(12 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="arrow-left" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m12 19-7-7 7-7"/>
+        <path d="M19 12H5"/>
+      </g>
+    </g>
+    <text x="52" y="31" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">Codex · acceptance</text>
+    <g transform="translate(588 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="maximize-2" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15 3h6v6"/>
+        <path d="m21 3-7 7"/>
+        <path d="m3 21 7-7"/>
+        <path d="M9 21H3v-6"/>
+      </g>
+    </g>
+    <g transform="translate(20 102)" data-component="state-pill" data-form="running">
+      <rect width="66" height="24" rx="12" style="fill:var(--accent-text)" fill-opacity="0.15"/>
+      <circle cx="12" cy="12" r="3" style="fill:var(--accent-text)"/>
+      <text x="20" y="12" style="fill:var(--accent-text);font-size:var(--text-meta);font-weight:600;">运行中</text>
+    </g>
+    <g transform="translate(94 104)" data-component="tag" data-form="spec">
+      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
+      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>
+      </g>
+    </g>
+    <g transform="translate(212 104)" data-component="tag" data-form="spec">
+      <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
+        <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
+      </g>
+      <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
+    </g>
+    <text x="620" y="114" style="fill:var(--text-secondary);font-size:var(--text-meta);" text-anchor="end">22 分 31 秒</text>
+    <g transform="translate(20 142)">
+      <rect width="298" height="3" rx="1.5" style="fill:var(--success)"/>
+    </g>
+    <g transform="translate(322 142)">
+      <rect width="298" height="3" rx="1.5" style="fill:var(--accent-text)"/>
+    </g>
+    <g transform="translate(20 164)">
+      <g transform="translate(0 0)" data-component="card" data-form="default">
+        <rect width="600" height="486" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+      </g>
+      <text x="16" y="22" style="fill:var(--text-secondary);font-size:var(--text-meta);">第 1 轮 · 4 项操作 · 37 秒</text>
+      <text x="16" y="46" style="fill:var(--text);font-size:var(--text-small);">The requested changes are complete.</text>
+      <g transform="translate(570 25) scale(0.6666666666666666)" data-icon="chevron-down" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m6 9 6 6 6-6"/>
+      </g>
+    </g>
+    <g transform="translate(184 238)" data-component="task-message" data-form="prompt">
+      <rect width="420" height="68" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
+      <text x="16" y="23" style="fill:var(--text);font-size:var(--text-small);">Review the project and check the configuration.</text>
+      <text x="16" y="45" style="fill:var(--text);font-size:var(--text-small);">Keep the existing behavior while making the requested changes.</text>
+    </g>
+    <g transform="translate(36 324)">
+      <rect width="568" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+      <g transform="translate(0 1)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">过程 · 1 条进展 · 0 次答复 · 4 项操作 · 37 秒</text>
+        <g transform="translate(538 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(36 374)">
+      <g transform="translate(0 0)" data-component="card" data-form="reply">
+        <rect width="568" height="260" rx="18" style="fill:var(--surface)" data-fluid="height"/>
+      </g>
+      <g transform="translate(16 16) scale(0.6666666666666666)" data-icon="check" style="fill:none;stroke:var(--success);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M20 6 9 17l-5-5"/>
+      </g>
+      <text x="40" y="24" style="fill:var(--success);font-size:var(--text-meta);font-weight:600;">最终回复</text>
+      <g transform="translate(524 9)" data-component="icon-button" data-form="compact">
+        <rect width="30" height="30" rx="15" style="fill:none"/>
+        <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="copy" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+        </g>
+      </g>
+      <text x="16" y="62" style="fill:var(--text);font-size:var(--text-body);">The requested changes are complete.</text>
+      <g transform="translate(16 88)">
+        <rect width="536" height="88" rx="12" style="fill:var(--surface-subtle)"/>
+        <text x="12" y="14" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">Check</text>
+        <text x="276" y="14" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">Result</text>
+        <text x="12" y="44" style="fill:var(--text);font-size:var(--text-small);">Configuration</text>
+        <text x="276" y="44" style="fill:var(--text);font-size:var(--text-small);">Updated</text>
+        <text x="12" y="72" style="fill:var(--text);font-size:var(--text-small);">TypeScript</text>
+        <text x="276" y="72" style="fill:var(--text);font-size:var(--text-small);">Passed</text>
+      </g>
+      <text x="18" y="194" style="fill:var(--text);font-size:var(--text-body);">•  Preserved existing behavior.</text>
+      <text x="18" y="216" style="fill:var(--text);font-size:var(--text-body);">•  Verified the changed files.</text>
+      <text x="16" y="244" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600;">1 个文件有改动</text>
+      <text x="142" y="244" style="fill:var(--text);font-size:var(--text-meta);">config.json</text>
+    </g>
+    <g transform="translate(20 666)">
+      <g transform="translate(0 0)" data-component="card" data-form="default">
+        <rect width="600" height="426" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+      </g>
+      <g transform="translate(214 16)" data-component="task-message" data-form="prompt">
+        <rect width="370" height="46" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
+        <text x="16" y="23" style="fill:var(--text);font-size:var(--text-small);">Apply the changes and run the project checks.</text>
+      </g>
+      <g transform="translate(0 78)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">1 条命令</text>
+        <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+      <g transform="translate(16 120)">
+        <g transform="translate(0 4)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+          <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17"/>
+          <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
+            <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff"/>
+            <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#codex-gradient)"/>
+            <defs>
+              <linearGradient gradientUnits="userSpaceOnUse" id="codex-gradient" x1="12" x2="12" y1="3" y2="21">
+                <stop stop-color="#B1A7FF"/>
+                <stop offset=".5" stop-color="#7A9DFF"/>
+                <stop offset="1" stop-color="#3941FF"/>
+              </linearGradient>
+            </defs>
+          </g>
+        </g>
+        <text x="52" y="13" style="fill:var(--text);font-size:var(--text-body);">The project configuration is ready. I am applying</text>
+        <text x="52" y="35" style="fill:var(--text);font-size:var(--text-body);">the change next.</text>
+      </g>
+      <g transform="translate(0 186)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">修改 1 个文件 · 1 项工具调用</text>
+        <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+      <g transform="translate(16 238)">
+        <text x="0" y="8" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600;">计划</text>
+        <g transform="translate(0 28) scale(0.6666666666666666)" data-icon="circle" style="fill:none;stroke:var(--accent-text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <circle cx="12" cy="12" r="10"/>
+        </g>
+        <text x="26" y="36" style="fill:var(--accent-text);font-size:var(--text-small);font-weight:600;">Verify project changes</text>
+      </g>
+      <g transform="translate(0 296)">
+        <g transform="translate(0 0)">
+          <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">1 条命令运行中</text>
+          <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-down" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+            <path d="m6 9 6 6 6-6"/>
+          </g>
+        </g>
+        <g transform="translate(16 45) scale(0.6666666666666666)" data-icon="terminal" style="fill:none;stroke:var(--phase-command);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M12 19h8"/>
+          <path d="m4 17 6-6-6-6"/>
+        </g>
+        <text x="42" y="53" style="fill:var(--text);font-size:var(--text-meta);" class="mono">npm run check</text>
+        <g transform="translate(570 45) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+      <text x="16" y="394" style="fill:var(--text-tertiary);font-size:var(--text-small);">The existing check command covers the changed TypeScript files.</text>
+    </g>
+  </g>
+  <text x="784" y="70" class="note">needs-you · timeline-pending</text>
+  <g transform="translate(784 94)" data-part="frame-needs-you" data-scenario="timeline-pending" data-fixture-clock="2026-01-01T00:00:00Z">
+    <g transform="translate(0 0)" data-component="panel" data-form="workspace">
+      <rect width="640" height="940" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <text x="20" y="76" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">Review project configuration and verify the requested changes</text>
+    </g>
+    <g transform="translate(12 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="arrow-left" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m12 19-7-7 7-7"/>
+        <path d="M19 12H5"/>
+      </g>
+    </g>
+    <text x="52" y="31" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">Codex · acceptance</text>
+    <g transform="translate(588 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="maximize-2" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15 3h6v6"/>
+        <path d="m21 3-7 7"/>
+        <path d="m3 21 7-7"/>
+        <path d="M9 21H3v-6"/>
+      </g>
+    </g>
+    <g transform="translate(20 102)" data-component="state-pill" data-form="waiting">
+      <rect width="78" height="24" rx="12" style="fill:var(--warning)" fill-opacity="0.15"/>
+      <circle cx="12" cy="12" r="3" style="fill:var(--warning)"/>
+      <text x="20" y="12" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600;">等待输入</text>
+    </g>
+    <g transform="translate(106 104)" data-component="tag" data-form="spec">
+      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
+      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>
+      </g>
+    </g>
+    <g transform="translate(224 104)" data-component="tag" data-form="spec">
+      <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
+        <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
+      </g>
+      <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
+    </g>
+    <text x="620" y="114" style="fill:var(--text-secondary);font-size:var(--text-meta);" text-anchor="end">22 分 31 秒</text>
+    <g transform="translate(20 142)">
+      <rect width="298" height="3" rx="1.5" style="fill:var(--success)"/>
+    </g>
+    <g transform="translate(322 142)">
+      <rect width="298" height="3" rx="1.5" style="fill:var(--warning)"/>
+    </g>
+    <g transform="translate(20 164)">
+      <g transform="translate(0 0)" data-component="card" data-form="default">
+        <rect width="600" height="68" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+      </g>
+      <text x="16" y="22" style="fill:var(--text-secondary);font-size:var(--text-meta);">第 1 轮 · 4 项操作 · 37 秒</text>
+      <text x="16" y="46" style="fill:var(--text);font-size:var(--text-small);">The requested changes are complete.</text>
+      <g transform="translate(570 25) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m9 18 6-6-6-6"/>
+      </g>
+    </g>
+    <g transform="translate(20 248)">
+      <g transform="translate(0 0)" data-component="card" data-form="default">
+        <rect width="600" height="426" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+      </g>
+      <g transform="translate(214 16)" data-component="task-message" data-form="prompt">
+        <rect width="370" height="46" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
+        <text x="16" y="23" style="fill:var(--text);font-size:var(--text-small);">Apply the changes and run the project checks.</text>
+      </g>
+      <g transform="translate(0 78)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">1 条命令</text>
+        <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+      <g transform="translate(16 120)">
+        <g transform="translate(0 4)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+          <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17"/>
+          <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
+            <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff"/>
+            <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#codex-gradient)"/>
+            <defs>
+              <linearGradient gradientUnits="userSpaceOnUse" id="codex-gradient" x1="12" x2="12" y1="3" y2="21">
+                <stop stop-color="#B1A7FF"/>
+                <stop offset=".5" stop-color="#7A9DFF"/>
+                <stop offset="1" stop-color="#3941FF"/>
+              </linearGradient>
+            </defs>
+          </g>
+        </g>
+        <text x="52" y="13" style="fill:var(--text);font-size:var(--text-body);">The project configuration is ready. I am applying</text>
+        <text x="52" y="35" style="fill:var(--text);font-size:var(--text-body);">the change next.</text>
+      </g>
+      <g transform="translate(0 186)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">修改 1 个文件 · 1 项工具调用</text>
+        <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m9 18 6-6-6-6"/>
+        </g>
+      </g>
+      <g transform="translate(16 238)">
+        <text x="0" y="8" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600;">计划</text>
+        <g transform="translate(0 28) scale(0.6666666666666666)" data-icon="circle" style="fill:none;stroke:var(--accent-text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <circle cx="12" cy="12" r="10"/>
+        </g>
+        <text x="26" y="36" style="fill:var(--accent-text);font-size:var(--text-small);font-weight:600;">Verify project changes</text>
+      </g>
+      <g transform="translate(16 300)">
+        <g transform="translate(0 0) scale(0.75)" data-icon="shield-alert" style="fill:none;stroke:var(--warning);stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+          <path d="M12 8v4"/>
+          <path d="M12 16h.01"/>
+        </g>
+        <text x="28" y="8" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600;">待处理请求</text>
+        <text x="28" y="30" style="fill:var(--text);font-size:var(--text-small);">Read README.md</text>
+      </g>
+      <text x="16" y="394" style="fill:var(--text-tertiary);font-size:var(--text-small);">The existing check command covers the changed TypeScript files.</text>
+    </g>
+    <g transform="translate(20 690)">
+      <g transform="translate(0 0)" data-component="card" data-form="default">
+        <rect width="600" height="238" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+      </g>
+      <text x="16" y="26" style="fill:var(--text);font-size:var(--text-body);font-weight:600;">Read README.md</text>
+      <g transform="translate(16 48)">
+        <rect width="568" height="56" rx="12" style="fill:var(--surface-sunken)"/>
+        <text x="14" y="28" style="fill:var(--text);font-size:var(--text-meta);" class="mono">cat README.md</text>
+      </g>
+      <text x="16" y="125" style="fill:var(--text-secondary);font-size:var(--text-meta);">仅允许这一次</text>
+      <g transform="translate(386 146)">
+        <g transform="translate(0 0)" data-component="button" data-form="secondary">
+          <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+          <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">拒绝</text>
+        </g>
+      </g>
+      <g transform="translate(452 146)" opacity="0.42" aria-disabled="true">
+        <g transform="translate(0 0)" data-component="button" data-form="secondary">
+          <rect width="58" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+          <text x="29" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">绕过</text>
+        </g>
+      </g>
+      <g transform="translate(518 146)">
+        <g transform="translate(0 0)" data-component="button" data-form="primary">
+          <rect width="66" height="34" rx="17" style="fill:var(--action)"/>
+          <text x="33" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600;" text-anchor="middle">批准</text>
+        </g>
+      </g>
+      <g transform="translate(16 200)" data-component="request-routing" data-form="passive">
+        <rect width="568" height="28" rx="14" style="fill:none" data-fluid="height"/>
+        <text x="0" y="14" style="fill:var(--text-secondary);font-size:var(--text-meta);">将在控制源下次检查时处理</text>
+      </g>
+    </g>
+  </g>
+  <text x="1496" y="70" class="note">failed-turn · task-states · task 3</text>
+  <g transform="translate(1496 94)" data-part="frame-failed-turn" data-scenario="task-states" data-task-index="3" data-fixture-clock="2026-01-01T00:00:00Z">
+    <g transform="translate(0 0)" data-component="panel" data-form="workspace">
+      <rect width="640" height="792" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <text x="20" y="76" style="fill:var(--text);font-size:var(--text-title);font-weight:650;">Failed task</text>
+    </g>
+    <g transform="translate(12 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="arrow-left" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m12 19-7-7 7-7"/>
+        <path d="M19 12H5"/>
+      </g>
+    </g>
+    <text x="52" y="31" style="fill:var(--text);font-size:var(--text-small);font-weight:600;">Codex · acceptance</text>
+    <g transform="translate(588 14)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="maximize-2" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15 3h6v6"/>
+        <path d="m21 3-7 7"/>
+        <path d="m3 21 7-7"/>
+        <path d="M9 21H3v-6"/>
+      </g>
+    </g>
+    <g transform="translate(20 102)" data-component="state-pill" data-form="failed">
+      <rect width="54" height="24" rx="12" style="fill:var(--danger)" fill-opacity="0.15"/>
+      <circle cx="12" cy="12" r="3" style="fill:var(--danger)"/>
+      <text x="20" y="12" style="fill:var(--danger);font-size:var(--text-meta);font-weight:600;">失败</text>
+    </g>
+    <g transform="translate(82 104)" data-component="tag" data-form="spec">
+      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
+      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>
+      </g>
+    </g>
+    <g transform="translate(200 104)" data-component="tag" data-form="spec">
+      <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+      <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
+        <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
+      </g>
+      <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
+    </g>
+    <text x="620" y="114" style="fill:var(--text-secondary);font-size:var(--text-meta);" text-anchor="end">37 秒</text>
+    <g transform="translate(20 142)">
+      <rect width="600" height="3" rx="1.5" style="fill:var(--danger)"/>
+    </g>
+    <g transform="translate(20 164)" data-component="card" data-form="default">
+      <rect width="600" height="608" rx="18" style="fill:var(--surface-subtle)" data-fluid="height"/>
+    </g>
+    <g transform="translate(184 180)" data-component="task-message" data-form="prompt">
+      <rect width="420" height="68" rx="18" style="fill:var(--surface-sunken)" data-fluid="height"/>
+      <text x="16" y="23" style="fill:var(--text);font-size:var(--text-small);">Review the project and check the configuration.</text>
+      <text x="16" y="45" style="fill:var(--text);font-size:var(--text-small);">Keep the existing behavior while making the requested changes.</text>
+    </g>
+    <g transform="translate(36 266)">
+      <rect width="568" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+      <g transform="translate(0 1)">
+        <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">过程 · 1 条进展 · 0 次答复 · 4 项操作 · 37 秒</text>
+        <g transform="translate(538 8) scale(0.6666666666666666)" data-icon="chevron-down" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="m6 9 6 6 6-6"/>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(20 320)">
+      <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">1 条命令</text>
+      <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m9 18 6-6-6-6"/>
+      </g>
+    </g>
+    <g transform="translate(36 366)">
+      <g transform="translate(0 4)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+        <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17"/>
+        <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
+          <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff"/>
+          <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#codex-gradient)"/>
+          <defs>
+            <linearGradient gradientUnits="userSpaceOnUse" id="codex-gradient" x1="12" x2="12" y1="3" y2="21">
+              <stop stop-color="#B1A7FF"/>
+              <stop offset=".5" stop-color="#7A9DFF"/>
+              <stop offset="1" stop-color="#3941FF"/>
+            </linearGradient>
+          </defs>
+        </g>
+      </g>
+      <text x="52" y="13" style="fill:var(--text);font-size:var(--text-body);">The project configuration is ready. I am applying</text>
+      <text x="52" y="35" style="fill:var(--text);font-size:var(--text-body);">the change next.</text>
+    </g>
+    <g transform="translate(20 430)">
+      <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">修改 1 个文件 · 1 项工具调用</text>
+      <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m9 18 6-6-6-6"/>
+      </g>
+    </g>
+    <g transform="translate(36 474)">
+      <text x="0" y="8" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600;">计划</text>
+      <g transform="translate(0 28) scale(0.6666666666666666)" data-icon="check" style="fill:none;stroke:var(--success);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M20 6 9 17l-5-5"/>
+      </g>
+      <text x="26" y="36" style="fill:var(--text-secondary);font-size:var(--text-small);">Verify project changes</text>
+    </g>
+    <g transform="translate(20 534)">
+      <text x="16" y="16" style="fill:var(--text-secondary);font-size:var(--text-meta);">1 条命令</text>
+      <g transform="translate(570 8) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-secondary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="m9 18 6-6-6-6"/>
+      </g>
+    </g>
+    <text x="36" y="588" style="fill:var(--danger);font-size:var(--text-small);">The sample verification command failed.</text>
+    <g transform="translate(36 614)">
+      <g transform="translate(0 0)" data-component="card" data-form="reply">
+        <rect width="568" height="142" rx="18" style="fill:var(--surface)" data-fluid="height"/>
+      </g>
+      <g transform="translate(16 15) scale(0.75)" data-icon="circle-alert" style="fill:none;stroke:var(--danger);stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" x2="12" y1="8" y2="12"/>
+        <line x1="12" x2="12.01" y1="16" y2="16"/>
+      </g>
+      <text x="42" y="24" style="fill:var(--danger);font-size:var(--text-body);font-weight:600;">本轮失败</text>
+      <text x="16" y="52" style="fill:var(--text);font-size:var(--text-body);">The sample verification command failed.</text>
+      <text x="16" y="78" style="fill:var(--text);font-size:var(--text-body);">已记录的改动保留在磁盘上，ARC 未执行回退。</text>
+      <text x="16" y="104" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600;">1 个文件有改动</text>
+      <text x="142" y="104" style="fill:var(--text);font-size:var(--text-meta);">config.json</text>
+      <g transform="translate(364 94)">
+        <g transform="translate(0 0)" data-component="button" data-form="secondary">
+          <rect width="92" height="34" rx="17" style="fill:var(--surface-sunken)"/>
+          <text x="46" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">重试本轮</text>
+        </g>
+      </g>
+      <g transform="translate(464 94)">
+        <g transform="translate(0 0)" data-component="button" data-form="ghost">
+          <rect width="88" height="34" rx="17" style="fill:none"/>
+          <text x="44" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;" text-anchor="middle">复制日志</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
