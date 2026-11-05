@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1176" height="778" viewBox="0 0 1176 778" data-design="surface" data-name="agent-platform">
+<!-- design:tokens -->
+<style>
+:root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
+:root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+text{font-family:var(--font-ui);dominant-baseline:central}
+.mono{font-family:var(--font-mono)}
+.note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
+</style>
+<defs data-design-tokens="">
+<filter id="elev-sm-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 8%)"/><feComposite in2="o0" operator="in" result="s0"/><feMerge><feMergeNode in="s0"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-md-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 5%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="10"/><feOffset dx="0" dy="6" result="o1"/><feFlood style="flood-color:rgb(74 52 36 / 8%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-lg-light" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(74 52 36 / 5%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="28"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(74 52 36 / 13%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-sm-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 35%)"/><feComposite in2="o0" operator="in" result="s0"/><feMerge><feMergeNode in="s0"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-md-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/><feOffset dx="0" dy="1" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dx="0" dy="6" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 40%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="elev-lg-dark" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dx="0" dy="2" result="o0"/><feFlood style="flood-color:rgb(0 0 0 / 30%)"/><feComposite in2="o0" operator="in" result="s0"/><feGaussianBlur in="SourceAlpha" stdDeviation="30"/><feOffset dx="0" dy="18" result="o1"/><feFlood style="flood-color:rgb(0 0 0 / 55%)"/><feComposite in2="o1" operator="in" result="s1"/><feMerge><feMergeNode in="s0"/><feMergeNode in="s1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<!-- /design:tokens -->
+  <defs>
+    <filter id="privacy-blur">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+  <rect data-canvas="" width="1176" height="778" style="fill:var(--canvas)"/>
+  <text class="note" x="72" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">accounts · brand-accounts-light</text>
+  <g transform="translate(72 94)" data-part="frame-accounts" data-fixture="brand-accounts-light" data-clock="2026-01-01T00:00:00Z" data-action="Click the Claude Code Agent platform node">
+    <g transform="translate(0 0)" data-component="panel" data-form="workspace">
+      <rect width="480" height="590" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Claude Code</text>
+      <g transform="translate(382 21)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none"/>
+        <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="maximize-2" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15 3h6v6"/>
+          <path d="m21 3-7 7"/>
+          <path d="m3 21 7-7"/>
+          <path d="M9 21H3v-6"/>
+        </g>
+      </g>
+      <g transform="translate(422 21)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none"/>
+        <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="x" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M18 6 6 18"/>
+          <path d="m6 6 12 12"/>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(24 22) scale(1.3333333333333333)" data-brand="claude-code" style="color:var(--text);fill:currentColor">
+      <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/>
+    </g>
+    <text x="20" y="100" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Personal</text>
+    <g transform="translate(20 124)" data-component="card" data-form="default">
+      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="36" y="147" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota</text>
+    <text x="220" y="147" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
+    <text x="36" y="180" style="fill:var(--text);font-size:var(--text-display);font-weight:650">82%</text>
+    <g transform="translate(36 208)">
+      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
+      <rect width="150.88" height="6" rx="3" style="fill:var(--accent)"/>
+      <g transform="translate(73.60000000000001 -2)">
+        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
+      </g>
+    </g>
+    <g transform="translate(244 124)" data-component="card" data-form="default">
+      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="260" y="147" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly</text>
+    <text x="410" y="147" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
+    <g transform="translate(420 132)" data-component="icon-button" data-form="compact">
+      <rect width="30" height="30" rx="15" style="fill:none"/>
+      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </g>
+    </g>
+    <text x="260" y="180" style="fill:var(--text);font-size:var(--text-display);font-weight:650">73%</text>
+    <g transform="translate(260 208)">
+      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
+      <rect width="134.32" height="6" rx="3" style="fill:var(--accent)"/>
+      <g transform="translate(78.85714285714285 -2)">
+        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
+      </g>
+    </g>
+    <text x="20" y="278" style="fill:var(--text);font-size:var(--text-body);font-weight:650">Studio</text>
+    <g transform="translate(20 302)" data-component="card" data-form="default">
+      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="36" y="325" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">5h quota</text>
+    <text x="220" y="325" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">2h 0m</text>
+    <text x="36" y="358" style="fill:var(--text);font-size:var(--text-display);font-weight:650">42%</text>
+    <text x="106.3" y="362" style="fill:var(--warning);font-size:var(--text-meta)">~3% spare</text>
+    <g transform="translate(36 386)">
+      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
+      <rect width="77.28" height="6" rx="3" style="fill:var(--warning)"/>
+      <g transform="translate(73.60000000000001 -2)">
+        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
+      </g>
+    </g>
+    <g transform="translate(244 302)" data-component="card" data-form="default">
+      <rect width="216" height="108" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="260" y="325" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500">Weekly</text>
+    <text x="410" y="325" style="fill:var(--text-tertiary);font-size:var(--text-meta);text-anchor:end">3d 0h</text>
+    <g transform="translate(420 310)" data-component="icon-button" data-form="compact">
+      <rect width="30" height="30" rx="15" style="fill:none"/>
+      <g transform="translate(7 7) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </g>
+    </g>
+    <text x="260" y="358" style="fill:var(--text);font-size:var(--text-display);font-weight:650">27%</text>
+    <text x="328.3" y="362" style="fill:var(--warning);font-size:var(--text-meta)">≈ 1d 11h</text>
+    <g transform="translate(260 386)">
+      <rect width="184" height="6" rx="3" style="fill:var(--surface-sunken)"/>
+      <rect width="49.68" height="6" rx="3" style="fill:var(--accent)"/>
+      <g transform="translate(78.85714285714285 -2)">
+        <rect width="2" height="10" rx="1" style="fill:var(--text-secondary)"/>
+      </g>
+    </g>
+  </g>
+  <text class="note" x="624" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">native · antigravity-platform</text>
+  <g transform="translate(624 94)" data-part="frame-native" data-fixture="antigravity-platform" data-clock="2026-01-01T00:00:00Z">
+    <g transform="translate(0 0)" data-component="panel" data-form="workspace">
+      <rect width="480" height="590" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+      <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Antigravity</text>
+      <g transform="translate(382 21)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none"/>
+        <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="maximize-2" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15 3h6v6"/>
+          <path d="m21 3-7 7"/>
+          <path d="m3 21 7-7"/>
+          <path d="M9 21H3v-6"/>
+        </g>
+      </g>
+      <g transform="translate(422 21)" data-component="icon-button" data-form="regular">
+        <rect width="34" height="34" rx="17" style="fill:none"/>
+        <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="x" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M18 6 6 18"/>
+          <path d="m6 6 12 12"/>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(24 22) scale(1.3333333333333333)" data-brand="antigravity" style="color:var(--text);fill:currentColor">
+      <mask height="23" id="lobe-icons-antigravity-0-_R_0_" maskUnits="userSpaceOnUse" width="24" x="0" y="1">
+        <path d="M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z" fill="#fff"/>
+      </mask>
+      <g mask="url(#lobe-icons-antigravity-0-_R_0_)">
+        <g filter="url(#lobe-icons-antigravity-1-_R_0_)">
+          <path d="M-1.018-3.992c-.408 3.591 2.686 6.89 6.91 7.37 4.225.48 7.98-2.043 8.387-5.633.408-3.59-2.686-6.89-6.91-7.37-4.225-.479-7.98 2.043-8.387 5.633z" fill="#FFE432"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-2-_R_0_)">
+          <path d="M15.269 7.747c1.058 4.557 5.691 7.374 10.348 6.293 4.657-1.082 7.575-5.653 6.516-10.21-1.058-4.556-5.691-7.374-10.348-6.292-4.657 1.082-7.575 5.653-6.516 10.21z" fill="#FC413D"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-3-_R_0_)">
+          <path d="M-12.443 10.804c1.338 4.703 7.36 7.11 13.453 5.378 6.092-1.733 9.947-6.95 8.61-11.652C8.282-.173 2.26-2.58-3.833-.848-9.925.884-13.78 6.1-12.443 10.804z" fill="#00B95C"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-4-_R_0_)">
+          <path d="M-12.443 10.804c1.338 4.703 7.36 7.11 13.453 5.378 6.092-1.733 9.947-6.95 8.61-11.652C8.282-.173 2.26-2.58-3.833-.848-9.925.884-13.78 6.1-12.443 10.804z" fill="#00B95C"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-5-_R_0_)">
+          <path d="M-7.608 14.703c3.352 3.424 9.126 3.208 12.896-.483 3.77-3.69 4.108-9.459.756-12.883C2.69-2.087-3.083-1.871-6.853 1.82c-3.77 3.69-4.108 9.458-.755 12.883z" fill="#00B95C"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-6-_R_0_)">
+          <path d="M9.932 27.617c1.04 4.482 5.384 7.303 9.7 6.3 4.316-1.002 6.971-5.448 5.93-9.93-1.04-4.483-5.384-7.304-9.7-6.301-4.316 1.002-6.971 5.448-5.93 9.93z" fill="#3186FF"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-7-_R_0_)">
+          <path d="M2.572-8.185C.392-3.329 2.778 2.472 7.9 4.771c5.122 2.3 11.042.227 13.222-4.63 2.18-4.855-.205-10.656-5.327-12.955-5.122-2.3-11.042-.227-13.222 4.63z" fill="#FBBC04"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-8-_R_0_)">
+          <path d="M-3.267 38.686c-5.277-2.072 3.742-19.117 5.984-24.83 2.243-5.712 8.34-8.664 13.616-6.592 5.278 2.071 11.533 13.482 9.29 19.195-2.242 5.713-23.613 14.298-28.89 12.227z" fill="#3186FF"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-9-_R_0_)">
+          <path d="M28.71 17.471c-1.413 1.649-5.1.808-8.236-1.878-3.135-2.687-4.531-6.201-3.118-7.85 1.412-1.649 5.1-.808 8.235 1.878s4.532 6.2 3.119 7.85z" fill="#749BFF"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-10-_R_0_)">
+          <path d="M18.163 9.077c5.81 3.93 12.502 4.19 14.946.577 2.443-3.612-.287-9.727-6.098-13.658-5.81-3.931-12.502-4.19-14.946-.577-2.443 3.612.287 9.727 6.098 13.658z" fill="#FC413D"/>
+        </g>
+        <g filter="url(#lobe-icons-antigravity-11-_R_0_)">
+          <path d="M-.915 2.684c-1.44 3.473-.97 6.967 1.05 7.804 2.02.837 4.824-1.3 6.264-4.772 1.44-3.473.97-6.967-1.05-7.804-2.02-.837-4.824 1.3-6.264 4.772z" fill="#FFEE48"/>
+        </g>
+      </g>
+      <defs>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="17.587" id="lobe-icons-antigravity-1-_R_0_" width="19.838" x="-3.288" y="-11.917">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="1.117"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="38.565" id="lobe-icons-antigravity-2-_R_0_" width="38.9" x="4.251" y="-13.493">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="5.4"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="36.517" id="lobe-icons-antigravity-3-_R_0_" width="40.955" x="-21.889" y="-10.592">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="4.591"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="36.517" id="lobe-icons-antigravity-4-_R_0_" width="40.955" x="-21.889" y="-10.592">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="4.591"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="36.595" id="lobe-icons-antigravity-5-_R_0_" width="36.632" x="-19.099" y="-10.278">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="4.591"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="34.087" id="lobe-icons-antigravity-6-_R_0_" width="33.533" x=".981" y="8.758">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="4.363"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="35.276" id="lobe-icons-antigravity-7-_R_0_" width="35.978" x="-6.143" y="-21.659">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="3.954"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="46.523" id="lobe-icons-antigravity-8-_R_0_" width="45.114" x="-11.96" y="-.46">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="3.531"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="24.054" id="lobe-icons-antigravity-9-_R_0_" width="25.094" x="10.485" y=".58">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="3.159"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="30.007" id="lobe-icons-antigravity-10-_R_0_" width="33.508" x="5.833" y="-12.467">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="2.669"/>
+        </filter>
+        <filter color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" height="26.151" id="lobe-icons-antigravity-11-_R_0_" width="22.194" x="-8.355" y="-8.876">
+          <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+          <feGaussianBlur result="effect1_foregroundBlur_977_115" stdDeviation="3.303"/>
+        </filter>
+      </defs>
+    </g>
+    <g transform="translate(20 84)" data-component="card" data-form="default">
+      <rect width="440" height="138" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+    </g>
+    <text x="36" y="110" style="fill:var(--text-secondary);font-size:var(--text-small)">This native Agent is ready. It does not require</text>
+    <text x="36" y="130" style="fill:var(--text-secondary);font-size:var(--text-small)">a provider account in ARC.</text>
+    <g transform="translate(36 166)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="refresh-cw" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </g>
+    </g>
+    <g transform="translate(76 166)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g transform="translate(9 9) scale(0.6666666666666666)" data-icon="settings" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
+        <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/>
+        <circle cx="12" cy="12" r="3"/>
+      </g>
+    </g>
+  </g>
+</svg>
