@@ -61,7 +61,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="322" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">· 22 分 31 秒</text>
+    <text x="314" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
     <g transform="translate(20 132)">
       <rect width="298" height="3" rx="1.5" style="fill:var(--success)" />
     </g>
@@ -230,7 +230,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="334" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">· 22 分 31 秒</text>
+    <text x="326" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
     <g transform="translate(20 132)">
       <rect width="298" height="3" rx="1.5" style="fill:var(--success)" />
     </g>
@@ -365,7 +365,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="310" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">· 37 秒</text>
+    <text x="302" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">37 秒</text>
     <g transform="translate(20 132)">
       <rect width="600" height="3" rx="1.5" style="fill:var(--danger)" />
     </g>
