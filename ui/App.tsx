@@ -323,6 +323,7 @@ export default function App() {
           aria-label={pages.find((item) => item.id === page)?.label}
         >
           <div className="page-sheet-content">
+            {page === "mcp-hub" ? <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : <>
             <header className="sheet-header">
               {page === "settings" && nav.settingsExperimental && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} />}
               <h1 className="capsule-title" tabIndex={-1}>
@@ -359,15 +360,13 @@ export default function App() {
                 <PlatformsPage />
               ) : page === "pets" ? (
                 <PetsPage />
-              ) : page === "mcp-hub" ? (
-                <McpHub />
               ) : page === "relay-hosting" ? (
                 <RelayHosting />
               ) : (
                 <SettingsPage />
               )}
             </main>
-
+            </>}
           </div>
         </section>
       )}

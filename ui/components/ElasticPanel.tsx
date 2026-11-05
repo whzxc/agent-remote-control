@@ -57,6 +57,7 @@ export default function ElasticPanel({
   dock,
   dockRect,
   expanded = false,
+  contentFit = false,
   closeRequested = false,
   originKey,
   returnFocus,
@@ -91,6 +92,7 @@ export default function ElasticPanel({
   dock?: "left" | "right";
   dockRect?: SurfaceRect;
   expanded?: boolean;
+  contentFit?: boolean;
   closeRequested?: boolean;
   originKey?: string;
   returnFocus?: string;
@@ -141,8 +143,8 @@ export default function ElasticPanel({
   const layers = panelLayers.use(),
     recessed = !!node && layers.includes(node) && layers.at(-1) !== node;
   const previousExpanded = useRef(expanded), previousWidth = useRef(width), dockFrame = useRef<SurfaceRect | null>(null);
-  const latest = useRef({ onClose, onCloseStart, onDismiss, busy, depthOffset });
-  latest.current = { onClose, onCloseStart, onDismiss, busy, depthOffset };
+  const latest = useRef({ onClose, onCloseStart, onDismiss, busy, depthOffset, onPanelFrame });
+  latest.current = { onClose, onCloseStart, onDismiss, busy, depthOffset, onPanelFrame };
   const moveTo = (x: number, y: number) => {
     if (!node) return;
     if (dock) { setPosition(dockPosition()); return; }
@@ -240,6 +242,17 @@ export default function ElasticPanel({
     return () => window.removeEventListener("resize", resize);
   }, [node, expanded, width]);
   useLayoutEffect(() => {
+    if (!node || !dock || !contentFit) return;
+    const observer = new ResizeObserver(() => {
+      if (motion.current?.running || closing.current) return;
+      const rect = node.getBoundingClientRect();
+      dockFrame.current = rect;
+      latest.current.onPanelFrame?.(rect);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, dock, contentFit]);
+  useLayoutEffect(() => {
     if (!node || !dock) return;
     const rect = node.getBoundingClientRect(), from = dockFrame.current;
     if (previousExpanded.current !== expanded || previousWidth.current !== width || JSON.stringify(previousDockRect.current) !== JSON.stringify(dockRect)) {
@@ -248,13 +261,14 @@ export default function ElasticPanel({
       previousDockRect.current = dockRect;
       if (from && motion.current && !closing.current) {
         const panelWidth = Math.min(expanded ? innerWidth - 32 : width ?? 400, innerWidth - 32);
-        const target = dockRect ?? { x: dock === "left" ? 16 : innerWidth - panelWidth - 16, y: 16, width: panelWidth, height: innerHeight - 32 };
+        const panelHeight = contentFit ? rect.height : innerHeight - 32;
+        const target = dockRect ?? { x: dock === "left" ? 16 : innerWidth - panelWidth - 16, y: (innerHeight - panelHeight) / 2, width: panelWidth, height: panelHeight };
         void motion.current.to(frameAt(target, 1, "20px"), { from: frameAt(from, 1, "20px"), duration: 0.18 });
         return;
       }
     }
     if (!motion.current?.running) { dockFrame.current = rect; onPanelFrame?.(rect); }
-  }, [node, position, dock, dockRect, expanded, width, onPanelFrame]);
+  }, [node, position, dock, dockRect, expanded, width, contentFit, onPanelFrame]);
   async function close(replacement?: HTMLElement, dismiss = false) {
     if (latest.current.busy || closing.current || !node) return;
     if (latest.current.depthOffset > 0 && !dismiss) {

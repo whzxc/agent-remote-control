@@ -289,6 +289,7 @@ textarea.input {
   font-size: var(--text-small);
   line-height: 20px;
   overflow-wrap: anywhere;
+  user-select: text;
 }
 .prompt > .button {
   flex: none;
@@ -296,6 +297,8 @@ textarea.input {
 .prompt > .field-error {
   flex-basis: 100%;
 }
+.prompt-action-below { display: grid; justify-items: start; gap: 14px; padding: 16px; }
+.prompt-action-below > p:first-child { margin: 0; }
 .form {
   display: grid;
   gap: 20px;
@@ -1369,4 +1372,4 @@ textarea.input {
 
 .brand-mark { display: inline-grid; place-items: center; flex: none; }
 .brand-mark > span, .brand-mark svg { display: block; width: 100%; height: 100%; }
-.empty.empty-flush { padding: 0; gap: 16px; }
+.empty.empty-flush { padding: 0; gap: var(--empty-gap, 16px); }

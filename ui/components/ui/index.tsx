@@ -226,15 +226,15 @@ export function Notice({
     </div>
   );
 }
-/** Copyable text for the user to paste into an Agent, with its copy button beside it. */
-export function Prompt({ text, label, context }: { text: string; label: string; context?: string }) {
+/** Copyable text for the user to paste into an Agent. */
+export function Prompt({ text, label, context, actionBelow = false }: { text: string; label: string; context?: string; actionBelow?: boolean }) {
   const [copied, setCopied] = useState(false), [error, setError] = useState(""), id = useId();
   useEffect(() => {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
   }, [copied]);
-  return <div className="prompt">
+  return <div className={`prompt ${actionBelow ? "prompt-action-below" : ""}`}>
     <p id={id}>{text}</p>
     <Button aria-describedby={id} onClick={() => { setError(""); void copyText(text).then(() => setCopied(true), () => setError(t("copyFailedSelectAndCopyTheTextManually"))); }}>
       <Icon icon={copied ? Check : Copy} />{copied ? t("copied") : label}{context && <span className="sr-only">{context}</span>}

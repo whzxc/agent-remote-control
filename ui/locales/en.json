@@ -1511,7 +1511,7 @@
   "time.justNow": "just now",
   "mcp.title": "MCP hub",
   "mcp.experimentalEffect": "Every control source reaches your MCP servers through ARC. Agents add and change servers.",
-  "mcp.empty": "Every control source connected to ARC can then use their tools. Ask a connected Agent to import your existing servers.",
+  "mcp.empty": "Every control source connected to ARC can then use their tools.",
   "mcp.state.ready": "Connected",
   "mcp.state.idle": "Ready",
   "mcp.state.connecting": "Connecting",

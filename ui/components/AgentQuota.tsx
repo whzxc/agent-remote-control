@@ -1,5 +1,3 @@
-import { readOnlyBrowser } from "../browserMode";
-import { RefreshCw } from "lucide-react";
 import { locale, t } from "../i18n";
 import { useNow } from "../state/hooks";
 import { agentQuotaWindows } from "../subscriptions/QuotaRing";
@@ -9,11 +7,11 @@ import { quotaPeriod } from "../subscriptions/quotaTiming";
 import { compactReset, preciseTime, quotaColor } from "../subscriptions/presentation";
 import { quotaPace } from "../subscriptions/pace";
 import type { ProviderSnapshot } from "../subscriptions/types";
-import { Button, IconButton } from "./ui";
+import { Button } from "./ui";
 import UsageHistory from "../subscriptions/UsageHistory";
 import ResetCreditDetails from "../subscriptions/ResetCreditDetails";
 
-export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = readOnlyBrowser, form = "agent" }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean; form?: "agent" | "account" }) {
+export default function AgentQuota({ provider, form = "agent" }: { provider: ProviderSnapshot; form?: "agent" | "account" }) {
   const now = useNow();
   locale.use();
   const display = quotaDisplay.use(), reset = resetDisplay.use();
@@ -41,10 +39,6 @@ export default function AgentQuota({ provider, onRefresh, refreshing, readOnly =
             <time dateTime={Number.isFinite(resetAt) ? window.resetsAt : undefined}
               title={Number.isFinite(resetAt) ? t("quotaResetAt", { time: preciseTime(window.resetsAt) }) : t("quotaResetUnknown")}
               aria-label={t(reset === "time" ? "quotaResetAt" : "quotaResetIn", { time: resetText })}>{resetText}</time>
-            {form !== "account" && !readOnly && window === summaryWindow && <span className="agent-quota-refresh">
-              <IconButton icon={RefreshCw} size={16} label={t("usageRefresh")} busy={refreshing || provider.refreshing}
-                disabled={!provider.eligible} onClick={onRefresh} />
-            </span>}
           </div>
           <div className="agent-quota-balance">
             <strong className="agent-quota-percent" aria-label={`${label} · ${quotaLabel()} ${quotaPercent(window)}`}>{quotaPercent(window)}</strong>

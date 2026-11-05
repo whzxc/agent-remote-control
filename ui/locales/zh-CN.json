@@ -1481,7 +1481,7 @@
   "time.justNow": "刚刚",
   "mcp.title": "MCP 中枢",
   "mcp.experimentalEffect": "所有控制源通过 ARC 使用你的 MCP 服务，服务由 Agent 添加和调整。",
-  "mcp.empty": "连接到 ARC 的所有控制源都能使用它们的工具。让已连接的 Agent 导入你现有的服务。",
+  "mcp.empty": "连接到 ARC 的所有控制源都能使用它们的工具。",
   "mcp.state.ready": "已连接",
   "mcp.state.idle": "可用",
   "mcp.state.connecting": "连接中",

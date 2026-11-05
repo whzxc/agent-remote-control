@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash } from 'lucide-react';
+import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash, Maximize2, Minimize2, X } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { copyText } from '../platform';
@@ -14,18 +14,11 @@ const tone = (state: HubServer['state']) => state === 'ready' || state === 'idle
 const profiles = ['codex', 'claude', 'cursor', 'gemini'] as const;
 const profileName = (from?: string) => from && (profiles as readonly string[]).includes(from) ? t(`mcp.profile.${from}`) : from ?? '';
 
-/** Shows a counted label with its number emphasized, wherever the locale places the number. */
-function Count({ id, count, danger = false }: { id: string; count: number; danger?: boolean }) {
-  const text = t(id, { count }), number = String(count), at = text.indexOf(number);
-  const before = at < 0 ? text : text.slice(0, at).trim(), after = at < 0 ? '' : text.slice(at + number.length).trim();
-  return <span className={danger ? 'mcp-stat danger' : 'mcp-stat'}>{before && <span>{before}</span>}{at >= 0 && <strong>{number}</strong>}{after && <span>{after}</span>}</span>;
-}
-
-function ImportPrompt() {
+function ImportPrompt({ actionBelow = false }: { actionBelow?: boolean }) {
   const [from, setFrom] = useState<string>('codex');
   return <div className="mcp-import">
     <SingleChoice compact label={t('mcp.importFrom')} value={from} onChange={setFrom} options={profiles.map(value => ({ value, label: t(`mcp.profile.${value}`) }))} />
-    <Prompt label={t('mcp.copyPrompt')} context={t('mcp.importFrom')} text={t('mcp.promptImport', { from: t(`mcp.profile.${from}`) })} />
+    <Prompt actionBelow={actionBelow} label={t('mcp.copyPrompt')} context={t('mcp.importFrom')} text={t('mcp.promptImport', { from: t(`mcp.profile.${from}`) })} />
   </div>;
 }
 
@@ -43,7 +36,7 @@ function Failure({ server }: { server: HubServer }) {
   const [copied, setCopied] = useState(false), [error, setError] = useState(''), kind = failureKind(server.error);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(timer); }, [copied]);
   const copy = () => { setError(''); void copyText(t('mcp.promptFix', { name: server.name, error: server.error ?? '' })).then(() => setCopied(true), () => setError(t('copyFailedSelectAndCopyTheTextManually'))); };
-  return <Notice title={t(`mcp.failure.${kind}`)} action={<Button onClick={copy}><Icon icon={copied ? Check : Copy} />{t(copied ? 'copied' : 'mcp.copyFix')}</Button>}>
+  return <Notice actionBelow title={t(`mcp.failure.${kind}`)} action={<Button onClick={copy}><Icon icon={copied ? Check : Copy} />{t(copied ? 'copied' : 'mcp.copyFix')}</Button>}>
     <p>{t(`mcp.failureHint.${kind}`)}</p>
     <code>{server.error}</code>
     {error && <p className="field-error" role="alert">{error}</p>}
@@ -75,7 +68,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
         <h3 id={headingId}>{server.name}</h3>
         <p>{target ? `${transport} · ` : transport}{target && <span className="mcp-target" title={target}>{target}</span>}</p>
       </div>
-      <Status tone={tone(server.state)}>{t(`mcp.state.${server.state}`)}</Status>
+      {!failure && <Status tone={tone(server.state)}>{t(`mcp.state.${server.state}`)}</Status>}
       <div className="mcp-server-actions">
         <IconButton compact icon={RotateCw} label={t('mcp.check', { name: server.name })} busy={busy === `refresh:${server.name}`} disabled={!!busy || !server.enabled} onClick={() => act('refresh', server)} />
         <IconButton compact icon={Trash} label={t('mcp.remove', { name: server.name })} disabled={!!busy} onClick={() => remove(server)} />
@@ -83,22 +76,21 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
       </div>
     </div>
     {(failure || meta || expanded) && <div className="mcp-server-body">
-      {failure && <Failure server={server} />}
       {meta && <div className="mcp-server-meta">
         {server.toolCount !== undefined && (server.toolCount > 0
           ? <Disclosure expanded={expanded} controls={toolsId} onToggle={() => setOpen(!expanded)}>
             {searching && match.tools.length < server.toolCount ? t('mcp.toolsMatched', { count: match.tools.length, total: server.toolCount }) : t('mcp.tools', { count: server.toolCount })}
           </Disclosure>
           : <Tag form="fact">{t('mcp.noTools')}</Tag>)}
-        {facts.map(fact => <Tag key={fact} form="fact">{fact}</Tag>)}
-        {checked && <time className="tag" data-form="fact" dateTime={server.observedAt!}>{t('mcp.checked', { time: checked })}</time>}
+        <span className="mcp-server-facts">{facts.join(' · ')}{checked && <>{facts.length > 0 && ' · '}<time dateTime={server.observedAt!}>{t('mcp.checked', { time: checked })}</time></>}</span>
       </div>}
+      {failure && <Failure server={server} />}
       {expanded && !!shown.length && <ul id={toolsId} className="mcp-tools" aria-label={t('mcp.toolList')}>{shown.map(tool => <ToolRow key={tool.name} tool={tool} />)}</ul>}
     </div>}
   </article>;
 }
 
-export default function McpHub() {
+export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {
   locale.use();
   const now = useAppNow(30_000);
   const [snapshot, setSnapshot] = useState<HubSnapshot>(), [error, setError] = useState(''), [busy, setBusy] = useState('');
@@ -119,33 +111,38 @@ export default function McpHub() {
     } catch (error) { setError(String(error)); }
     finally { setBusy(''); requestAnimationFrame(() => { if (document.activeElement === document.body && trigger?.isConnected) trigger.focus({ preventScroll: true }); }); }
   }
-  if (!snapshot) return error ? <Notice action={<Button onClick={() => { setError(''); void refresh(); }}>{t('retry')}</Button>}>{error}</Notice> : <Loading />;
-  const summary = hubSummary(snapshot.servers);
-  const visible = snapshot.servers.filter(server => matchServer(server, query).server);
+  const summary = snapshot && hubSummary(snapshot.servers);
+  const visible = snapshot?.servers.filter(server => matchServer(server, query).server) ?? [];
   return <div className="mcp-page">
-    {error && <Notice>{error}</Notice>}
-    {snapshot.servers.length ? <>
-      <header className="mcp-summary">
-        <p className="mcp-stats">
-          <Count id="mcp.serverCount" count={summary.total} />
-          <Count id="mcp.availableCount" count={summary.available} />
-          {summary.failed > 0 && <Count id="mcp.failedCount" count={summary.failed} danger />}
-          <Count id="mcp.toolTotal" count={summary.tools} />
-        </p>
-        <div className="mcp-summary-actions">
-          <SearchInput className="mcp-search" value={query} placeholder={t('mcp.search')} onChange={event => setQuery(event.target.value)} />
+    <header className="sheet-header mcp-header">
+      <h1 className="capsule-title" tabIndex={-1}>{t('mcp.title')}</h1>
+      {summary && summary.total > 0 && <p className="mcp-stats">
+        {t('mcp.serverCount', { count: summary.total })}{' · '}{t('mcp.availableCount', { count: summary.available })}
+        {summary.failed > 0 && <>{' · '}<span className="mcp-failed-count">{t('mcp.failedCount', { count: summary.failed })}</span></>}
+        {' · '}{t('mcp.toolTotal', { count: summary.tools })}
+      </p>}
+      <div className="mcp-header-actions">
+        {!!snapshot?.servers.length && <>
+          <Button variant="primary" disabled={reading || !!busy} onClick={() => setAdding(true)}><Icon icon={Plus} />{t('mcp.add')}</Button>
           <IconButton icon={RotateCw} label={t('refresh')} busy={reading && !busy} disabled={!!busy} onClick={() => void refresh()} />
-          <Button variant="primary" onClick={() => setAdding(true)}><Icon icon={Plus} />{t('mcp.add')}</Button>
-        </div>
-      </header>
-      <div className="mcp-servers">{visible.map(server => <Server key={server.name} server={server} query={query} busy={busy} act={act} remove={setRemoving} now={now} />)}</div>
-      {!visible.length && <p className="mcp-no-match" role="status">{t('mcp.noMatch')}</p>}
-    </> : <section className="mcp-empty" aria-labelledby="mcp-empty-title">
-      <Tile icon={Plug} />
-      <h3 id="mcp-empty-title">{t('mcp.emptyTitle')}</h3>
-      <p>{t('mcp.empty')}</p>
-      <ImportPrompt />
-    </section>}
+        </>}
+        <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />
+        <IconButton icon={X} label={t('backToHome')} onClick={onClose} />
+      </div>
+    </header>
+    <main className="mcp-content" aria-busy={reading || !!busy}>
+      {error && <Notice action={!snapshot && <Button busy={reading} onClick={() => void refresh()}>{t('retry')}</Button>}>{error}</Notice>}
+      {!snapshot ? !error && <Loading /> : snapshot.servers.length ? <>
+        <SearchInput className="mcp-search" value={query} placeholder={t('mcp.search')} onChange={event => setQuery(event.target.value)} />
+        <div className="mcp-servers">{visible.map(server => <Server key={server.name} server={server} query={query} busy={busy} act={act} remove={setRemoving} now={now} />)}</div>
+        {!visible.length && <p className="mcp-no-match" role="status">{t('mcp.noMatch')}</p>}
+      </> : <section className="mcp-empty" aria-labelledby="mcp-empty-title">
+        <Tile icon={Plug} />
+        <h3 id="mcp-empty-title">{t('mcp.emptyTitle')}</h3>
+        <p>{t('mcp.empty')}</p>
+        <ImportPrompt actionBelow />
+      </section>}
+    </main>
     {adding && <Dialog title={t('mcp.addTitle')} width={520} onClose={() => setAdding(false)} footer={<Button onClick={() => setAdding(false)}>{t('close')}</Button>}>
       <div className="mcp-add">
         <p>{t('mcp.addIntro')}</p>

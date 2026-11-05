@@ -48,9 +48,10 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
     catch (error) { setError(String(error)); }
     finally { setRefreshing(false); }
   }
+  const quotaBusy = refreshing || !!provider?.refreshing;
   return <section className="agent-panel-layer agent-overview-layer">
     <header className="dialog-header agent-panel-header">
-      {platformAvailable ? <Button variant="link" aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual /></Button>
+      {platformAvailable ? <Button variant="link" disabled={quotaBusy} aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual /></Button>
         : <AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual />}
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
@@ -61,17 +62,19 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
         </div>
         <span className="activity-panel-meta" title={agent.version || undefined}>{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span>
       </div>
-      <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />
-        <IconButton icon={Settings} label={t("agentDisplaySettings")} onClick={onSettings} />
+      <div className="actions">
+        {provider && !readOnlyBrowser && <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={quotaBusy}
+          disabled={!provider.eligible} onClick={() => void refresh()} />}
+        <PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />
+        <IconButton icon={Settings} label={t("agentDisplaySettings")} disabled={quotaBusy} onClick={onSettings} />
         {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")}
           aria-pressed={expanded} onClick={onToggleWidth} />}
       </div>
     </header>
     <div className="agent-view-scroll">
       {error && <p className="timeline-error" role="alert">{error}</p>}
-      {providerError && <Notice action={<IconButton icon={RefreshCw} size={16} label={t("usageRefresh")}
-        disabled={readOnlyBrowser} busy={refreshing || provider?.refreshing} onClick={() => void refresh()} />}>{providerError}</Notice>}
-      {provider ? <AgentQuota provider={provider} onRefresh={() => void refresh()} refreshing={refreshing} readOnly={readOnlyBrowser} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
+      {providerError && <Notice>{providerError}</Notice>}
+      {provider ? <AgentQuota provider={provider} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
       <AgentConversations key={`${agent.agent}:${accountId ?? ""}`} agent={agent.agent} account={account} accountId={accountId} active={active} />
     </div>
   </section>;
@@ -106,7 +109,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     previous.current = selected;
   }, [selected]);
   const panelId = agentPanelId(selected);
-  return <Dialog width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <Dialog contentFit={!selected.platform} className={selected.platform ? undefined : `agent-history-panel ${!session && !expanded && !dockRect ? "agent-history-fit" : ""}`} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}

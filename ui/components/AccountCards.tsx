@@ -22,6 +22,6 @@ export function AgentAccountCard({ account, onSelect }: { account: Account; onSe
       {account.plan && <Tag>{account.plan}</Tag>}
     </div>
     {account.email && <Sensitive wrap>{account.email}</Sensitive>}
-    <AgentQuota provider={provider} refreshing={refreshing} onRefresh={() => void refresh()} form="account" />
+    <AgentQuota provider={provider} form="account" />
   </section>;
 }
