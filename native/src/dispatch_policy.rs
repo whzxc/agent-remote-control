@@ -487,7 +487,7 @@ async fn codex_facts(c: &control::Control, compact: bool) -> Result<Value> {
         } else { vec![] };
         json!({"ordinaryUsageAllowed":v["ordinaryUsageAllowed"],"pools":pools.iter().map(|(id,p)| {
             let mut pool = json!({"id":id});
-            for key in ["rateLimitReachedType","spendControlReached"] {
+            for key in ["rateLimitReachedType","spendControlReached","credits"] {
                 if !p[key].is_null() { pool[key]=p[key].clone(); }
             }
             for key in ["primary","secondary"] {

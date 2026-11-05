@@ -6,6 +6,35 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {nativeControl} from './helpers/native-control.ts';
 
+test('Codex dispatch policy retains credit balance alongside exhausted subscription limits', async () => {
+  // Regression: dispatch_policy dropped native credits and made an exhausted subscription look unavailable despite a usable balance.
+  const credits = { hasCredits: true, unlimited: false, balance: '12345.6789012345' };
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method}=JSON.parse(line); if(id===undefined)continue;
+      const result=method==='account/rateLimits/read'?{
+        ordinaryUsageAllowed:false,
+        rateLimitsByLimitId:{codex:{credits:${JSON.stringify(credits)},rateLimitReachedType:'rate_limit_reached',spendControlReached:false,primary:{usedPercent:100,windowDurationMins:10080}}}
+      }:{data:[]};
+      console.log(JSON.stringify({id,result}));
+    }
+  `);
+  try {
+    const decision = await fixture.call('dispatch_policy', { agent: 'codex', all: true });
+    const quota = decision.agents[0].quota.find((q: any) => q.id === 'codex/codex');
+    assert.deepEqual(quota.credits, credits);
+    assert.equal(quota.ordinaryUsageAllowed, false);
+    assert.equal(quota.rateLimitReachedType, 'rate_limit_reached');
+    const full = await fixture.call('dispatch_policy', { agent: 'codex', all: true, view: 'full' });
+    const pool = full.agents[0].quota.pools.find((q: any) => q.id === 'codex');
+    assert.deepEqual(pool.credits, credits);
+    assert.equal(pool.spendControlReached, false);
+    assert.equal(pool.primary.usedPercent, 100);
+    assert.equal(full.agents[0].quota.ordinaryUsageAllowed, false);
+  } finally { await fixture.close(); }
+});
+
 test('Dispatch criteria hashes round-trip as strings or per-agent maps in both views',async()=>{
   // Regression: passing the criteriaHash string returned by dispatch_policy failed with INVALID_ARGUMENTS.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-policy-hash-'));

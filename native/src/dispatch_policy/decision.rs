@@ -224,6 +224,9 @@ fn quotas(row: &Value) -> Vec<(String, Value)> {
                 v[k] = pool[k].clone();
             }
         }
+        if pool["credits"].is_object() {
+            v["credits"] = pool["credits"].clone();
+        }
         if q["ordinaryUsageAllowed"] == false {
             v["ordinaryUsageAllowed"] = json!(false);
         }

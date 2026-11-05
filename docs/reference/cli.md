@@ -794,7 +794,8 @@ When `finalResponseTruncated:true`, follow `finalResponseNext` for the selected 
 Follow `completeEvidence` for full evidence before recording `codex_review` or `agent_review`.
 An independent model review requires a separate dispatched task.
 
-`cli skill install --target claude-code` installs both `arc-setup` and `arc-local-code`.
+`cli skill install --target codex` and `cli skill install --target claude-code` both install `arc-setup` and `arc-local-code` in the selected client's skills directory.
+The shared local skill covers dispatch, waits, review, credit-aware quota reads and proactive AX reporting in Maintainer mode.
 `cli stats control --since 1d` includes profile/transport cohorts under `profileSequences`.
 Sequences use the existing five-minute inactivity threshold and are not conversation identities.
 Compare guide-byte median/p95, calls before confirmed dispatch, and argument-error retries per 100 dispatch attempts.

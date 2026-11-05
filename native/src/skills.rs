@@ -66,11 +66,7 @@ pub fn install(target: &str) -> Result<Value> {
         "claude-code" => ".claude",
         _ => return Err("INVALID_ARGUMENT: target must be codex or claude-code; these are control-source skill targets. Configure Antigravity/Pi in Agent management and use agent_* operations".into()),
     };
-    let names = if target == "claude-code" {
-        vec!["arc-setup", "arc-local-code"]
-    } else {
-        vec!["arc-setup"]
-    };
+    let names = ["arc-setup", "arc-local-code"];
     let sources = names
         .iter()
         .map(|name| source(name))

@@ -2029,6 +2029,44 @@ test('guide progressively discloses every enabled op and caches projected conten
 });
 
 
+test('Local skill installation gives Codex the same dispatch skill as Claude Code', async () => {
+  // Regression: the codex skill target installed setup alone and could not discover the shared local dispatch workflow.
+  for (const target of ['codex', 'claude-code']) {
+    const installed = JSON.parse(execFileSync(fixtureCommand, ['cli', 'skill', 'install', '--target', target], { env: fixtureEnv, encoding: 'utf8' }));
+    assert.equal(installed.ok, true);
+    assert.equal(installed.result.target, target);
+    assert.deepEqual(installed.result.paths.map((p: string) => path.basename(p)).sort(), ['arc-local-code', 'arc-setup']);
+  }
+});
+
+test('Local Code exposes proactive AX reporting within the guide budget', async () => {
+  // Regression: the Local Code guide mentioned only AX listing and omitted proactive friction reporting.
+  const cli = (args: string[], input?: unknown) => JSON.parse(execFileSync(fixtureCommand, ['cli', ...args], {
+    env: fixtureEnv, encoding: 'utf8', ...(input === undefined ? {} : { input: JSON.stringify(input) }),
+  })).result;
+  const guide = () => cli(['control', 'guide']);
+  const sourceId = guide().sourceId;
+  const before = await management('preferences');
+  try {
+    await management(`source/${sourceId}`, 'PUT', { capabilityProfile: { hostAccess: 'host', waitMode: 'background-cli' } });
+    cli(['config', 'set', '--stdin'], { maintainerMode: true });
+    const on = guide();
+    assert.equal(on.profile.name, 'local-code');
+    assert.ok([...JSON.stringify(on)].length <= 2500);
+    assert.match(on.content, /\bax_report\b/);
+    assert.match(on.content, /\bax_list\b/);
+    const report = cli(['control', 'ax_report', '--stdin'], { symptom: 'Synthetic local friction', expected: 'Actionable local workflow', severity: 'workaround' });
+    assert.ok(report.entry.id);
+    cli(['config', 'set', '--stdin'], { maintainerMode: false });
+    const off = guide();
+    assert.doesNotMatch(off.content, /\bax_report\b/);
+    assert.notEqual(off.guideHash, on.guideHash);
+  } finally {
+    await management(`source/${sourceId}`, 'PUT', { capabilityProfile: null });
+    await management('preferences', 'PUT', { values: before });
+  }
+});
+
 test('control stats report byte baselines and waste candidates without call content', async()=>{
   // Contract: CLI stats control returns content-free accounting for frozen control calls.
   const guide=(await call('guide')).result;

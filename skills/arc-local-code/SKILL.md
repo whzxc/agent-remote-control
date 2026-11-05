@@ -1,12 +1,12 @@
 ---
 name: arc-local-code
-description: Dispatch work or cross-model review from Claude Code on the ARC host to Codex or another ARC Agent, then wait in the background and review the task outcome through the local ARC CLI.
+description: Use ARC from Codex or Claude Code on the ARC host to select Agents through the live dispatch policy, dispatch work or independent reviews, wait for results, and record ARC friction through AX.
 ---
 
-# ARC from local Claude Code
+# ARC from local Codex and Claude Code
 
 Use this flow only when this session can run the CLI on the ARC execution host.
-A claude.ai MCP connector is shared by Code, Chat and Cowork and cannot identify this local session.
+Use the built-in local CLI source for this flow.
 Use your own shell, files and Git for host work.
 
 ## Discover and select
@@ -28,6 +28,11 @@ For multiple criteria blocks, pass a hash map keyed by Agent ID and `global` for
 Use `arc cli control dispatch_policy --stdin` with the args object, such as `{"agent":"codex","knownCriteriaHash":"<criteriaHash>"}`.
 Read `arc cli control guide <op>` for each operation's live schema and retry contract.
 Do not embed model names, quotas or dispatch criteria from previous sessions.
+For Codex, consider native pool credits alongside subscription windows.
+An exhausted subscription window or `ordinaryUsageAllowed:false` alone does not rule out credit-backed work when `credits.hasCredits:true` or `credits.unlimited:true`.
+Preserve `credits.balance` in its native units and precision.
+Honor native spend controls and execution errors.
+If an older ARC omits credits from `dispatch_policy`, read `codex_query` with `method:"account/rateLimits/read"` before deciding that Codex is unavailable.
 Refresh the guide when `arcVersion` changes.
 Use `cli control guide --stdin` with `{"view":"full"}` for all permitted operations.
 
@@ -47,7 +52,7 @@ printf '%s' '{"project":"/workspace/project","title":"Implement requested change
 Retain `requestId`, `threadId` and `turnId` from the response.
 If dispatch is pending, read the original receipt until submission is confirmed.
 After an uncertain response, reconcile the original receipt or task rather than redispatching.
-Run the following command through Claude Code's background-command facility so its completion can return control to this session:
+Run the following command through the current client's background-command facility when it can return completion to this session:
 
 ```sh
 printf '%s' '{"threadId":"<threadId>","turnId":"<turnId>","until":"terminal-or-interaction","view":"summary"}' | arc cli wait --control --op codex_wait --stdin --until '/conditionMet==true' --timeout 1800
@@ -70,3 +75,18 @@ For an independent cross-model assessment, dispatch another review task through 
 `codex_review` and `agent_review` record verdicts; they do not launch a reviewing model.
 Read the review schema and record `pass` or `rework` for the exact terminal turn.
 Keep unknown change attribution explicit rather than treating it as no changes.
+
+## AX feedback
+
+Read `arc cli config get` once to check `maintainerMode`.
+When it is enabled, proactively report reproducible ARC friction after working around it through `arc cli control ax_report --stdin`.
+Read `arc cli control guide ax_report` for the live schema and retry contract.
+Include `symptom`, `expected`, `severity`, and relevant receipt or thread IDs.
+Use metadata only; omit prompts, conversation content, credentials, and private routes.
+Separate observed behavior from proposed causes.
+Retain the returned request ID for retries and inspect similar existing entries before filing another occurrence.
+Inspect candidate evidence before confirming or rejecting it through `ax_candidate`.
+Inspect `ax_list` before release preparation, at about eight open entries, and on a confirmed blocker.
+Preserve occurrence and triage history when resolving or merging entries.
+Record the user's decision for unresolved blockers before release.
+With maintainer mode disabled, describe the friction and offer the read-only `ax_issue_draft` flow; do not publish an issue automatically.

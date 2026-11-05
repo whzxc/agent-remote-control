@@ -117,6 +117,7 @@ The query guide op additionally supports `coordination`, `src`, and `context` to
 Notification prose appears automatically only for Remote push.
 Coordination, SRC, and context workflow prose appears only on an explicit related topic request.
 Maintainer guidance retains the existing Maintainer-mode gate.
+Loop guides include proactive AX reporting, candidate review and triage rules when Maintainer mode is enabled, including the Local Code profile.
 Full views retain unrelated op discoverability without expanding unrelated workflow prose.
 `guideHash` covers the final projection rather than just catalog text.
 An effective profile change invalidates cached guide content.
@@ -127,7 +128,7 @@ Minimal MCP text remains a separate opt-in setting.
 ## CLI outcomes and review
 
 The bundled [arc-local-code skill](../../skills/arc-local-code/SKILL.md) teaches the local discovery, dispatch, wait, and review flow.
-`cli skill install --target claude-code` installs it alongside `arc-setup`.
+`cli skill install --target codex` and `cli skill install --target claude-code` install it alongside `arc-setup`.
 Normal local work MUST explicitly set `purpose:"task"` and `notify:null` because dispatch defaults remain unchanged.
 The controller SHOULD read live operation schemas and `dispatch_policy` before dispatch.
 The controller SHOULD run `cli wait --control --op codex_wait` through its background-command facility with `view:"summary"` and the returned task/turn identifiers.

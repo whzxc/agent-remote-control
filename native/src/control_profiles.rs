@@ -79,7 +79,8 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Option<Value
         content.push_str(guides["profile-notify"].as_str().unwrap_or(""));
     }
     if topic == "loop" && crate::preferences::maintainer_mode() {
-        content.push_str("\nMaintainers SHOULD use guide({op:\"ax_list\"}) for AX triage.");
+        content.push('\n');
+        content.push_str(guides["axMaintainer"].as_str().unwrap_or(""));
     }
     let preset = if topic == "loop" {
         name.to_owned()
