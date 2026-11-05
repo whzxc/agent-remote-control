@@ -59,9 +59,6 @@
   --text-secondary: var(--color-text-secondary, light-dark(#625952, #bcafa4));
   --text-tertiary: var(--color-text-tertiary, var(--text-secondary));
   --border: var(--color-border-primary, light-dark(#e7ded2, #3a332e));
-  --font-ui: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  --text-body: var(--font-text-md-size, 14px);
-  --text-small: var(--font-text-sm-size, 13px);
 }
 
 /* The theme color preference tints the topology's Agent side, not the design accent. */
@@ -86,13 +83,6 @@
   --chart-6: light-dark(#847050, #b7a482);
   --chart-7: light-dark(#357cbc, #74aad9);
   --chart-8: light-dark(#9761bc, #c496e6);
-}
-
-:root {
-  --setup-width: clamp(560px, 44vw, 720px);
-  --setup-viewport-margin: 96px;
-  --setup-spacing: clamp(20px, 1.875vw, 28px);
-  --setup-gap: clamp(12px, 1.25vw, 18px);
 }
 
 :root {

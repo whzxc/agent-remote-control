@@ -217,6 +217,9 @@ export default function IngressDialog({
       setWorking(false);
     }
   }
+  const credentialHelp = (url: string, label: string) => setupFormId
+    ? <Button variant="ghost" onClick={() => void openUrl(url).catch(e => setError(String(e)))}>{label}</Button>
+    : <a href={url} onClick={e => { e.preventDefault(); void openUrl(url).catch(e => setError(String(e))); }}>{label}</a>;
   const textField = (
     key: keyof ConnectionForm,
     label: string,
@@ -228,10 +231,11 @@ export default function IngressDialog({
       id={`ingress-${key}`}
       label={label}
       help={help}
+      helpPlacement={setupFormId ? "label" : "end"}
       error={errors[key]}
     >
       <SensitiveInput
-        className={key === "tunnelId" || secretFields.some(field => field.key === key) ? "mono" : undefined}
+        className={!setupFormId && (key === "tunnelId" || secretFields.some(field => field.key === key)) ? "mono" : undefined}
         id={`ingress-${key}`}
         aria-invalid={!!errors[key]}
         aria-describedby={errors[key] ? `ingress-${key}-error` : undefined}
@@ -315,7 +319,7 @@ export default function IngressDialog({
           {!setupFormId && nameField}
           {allowTunnel && (
             <Field label={t("connectionMethod")}>
-              <SingleChoice
+              <SingleChoice fill={!!setupFormId}
                 value={form.connectionMode}
                 onChange={(value) =>
                   change(
@@ -339,7 +343,7 @@ export default function IngressDialog({
                 "Tunnel ID",
                 false,
                 "tunnel_…",
-<a href="https://platform.openai.com/settings/organization/tunnels" onClick={(e) => { e.preventDefault(); void openUrl(e.currentTarget.href).catch(e => setError(String(e))); }}>{t("getCredentials")}</a>,
+                credentialHelp("https://platform.openai.com/settings/organization/tunnels", t("getCredentials")),
               )}
               {textField(
                 "apiKey",
@@ -348,7 +352,7 @@ export default function IngressDialog({
                 ingress?.config.hasApiKey
                   ? t("savedLeaveBlankToKeep")
                   : t("pasteRuntimeKey"),
-                <a href="https://platform.openai.com/settings/organization/api-keys" onClick={(e) => { e.preventDefault(); void openUrl(e.currentTarget.href).catch(e => setError(String(e))); }}>{t("getApiKey")}</a>,
+                credentialHelp("https://platform.openai.com/settings/organization/api-keys", t("getApiKey")),
               )}
             </>
           ) : (
@@ -356,7 +360,7 @@ export default function IngressDialog({
               <Field
                 label={t("connectionMethod") + (allowTunnel ? "" : " · HTTPS MCP")}
               >
-                <SingleChoice
+                <SingleChoice fill={!!setupFormId}
                   value={form.httpsProvider}
                   onChange={(value) =>
                     change(
@@ -374,7 +378,7 @@ export default function IngressDialog({
               </Field>
               {provider.mode && provider.modes.length > 1 && (
                 <Field label={t("domainMode")}>
-                  <SingleChoice
+                  <SingleChoice fill={!!setupFormId}
                     value={form[provider.mode]}
                     onChange={(value) =>
                       change(provider.mode!, value as "named" | "quick")
@@ -391,9 +395,10 @@ export default function IngressDialog({
                 </Field>
               )}
               {form.httpsProvider === "cloudflare" && form.cloudflareAuth === "login" && <Notice>{t("setup.cloudflare-managed")}</Notice>}
-              {fixedDomain(form) &&
-                textField("domain", t("domain"), false, "mcp.example.com")}
-              {setupFormId && nameField}
+              {(fixedDomain(form) || setupFormId) && <div className={setupFormId && fixedDomain(form) ? "connection-domain-name" : undefined}>
+                {fixedDomain(form) && textField("domain", t("domain"), false, "mcp.example.com")}
+                {setupFormId && nameField}
+              </div>}
               {needsCredential(form) &&
                 provider.credential &&
                 textField(
@@ -403,10 +408,10 @@ export default function IngressDialog({
                   credentialSaved(ingress?.config, provider.credential)
                     ? t("savedLeaveBlankToKeep")
                     : t("pasteCredential", { provider: provider.label, credential: provider.credentialLabel }),
-                  provider.help && <a href={provider.help} onClick={(e) => { e.preventDefault(); void openUrl(provider.help!).catch(e => setError(String(e))); }}>{t("getCredentials")}</a>,
+                  provider.help && credentialHelp(provider.help, t("getCredentials")),
                 )}
               <Field label={t("authentication")}>
-                <SingleChoice
+                <SingleChoice fill={!!setupFormId}
                   value={auth}
                   onChange={value => { dirty.current.add("auth"); setAuth(value); }}
                   label={t("authentication")}

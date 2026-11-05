@@ -1,11 +1,12 @@
 import { usePrivacy } from "../state/privacy";
 import { maskSensitive } from "../privacyMask";
-import { Check, Circle } from "lucide-react";
+import { Check, Circle, LoaderCircle } from "lucide-react";
 import { t } from "../i18n";
 import { copyText } from "../platform";
 import type { RelayProgress as Progress } from "../state/relay";
-import { Button, Icon, Loading, Notice, SingleChoice } from "./ui";
-export default function RelayProgress({ progress, busy, account, setAccount, onCancel, onRetry }: {
+import { Button, Notice, SingleChoice, Tile } from "./ui";
+export default function RelayProgress({ progress, busy, account, setAccount, onCancel, onRetry, cancelInFooter = false }: {
+  cancelInFooter?: boolean;
   progress: Progress; busy: boolean; account: string; setAccount: (value: string) => void; onCancel: () => void; onRetry: () => void;
 }) {
   const hidden = usePrivacy();
@@ -23,9 +24,9 @@ export default function RelayProgress({ progress, busy, account, setAccount, onC
       {!!progress.accounts?.length && <SingleChoice label={t("connect.chooseAccount")} value={String(accountOptions.findIndex(option => option.id === account))} onChange={value => setAccount(accountOptions[Number(value)].id)} options={accountOptions.map((a, index) => ({ value: String(index), label: hidden ? maskSensitive(a.name || a.id, true) : a.name || a.id }))} />}
       <Button variant="primary" busy={busy} disabled={!!progress.accounts?.length && !account} onClick={onRetry}>{t("retry")}</Button>
     </> : <ol className="remote-steps">{["login", "deploying", "connecting"].map((step, index) => <li key={step} aria-current={index === phase ? "step" : undefined}>
-      <Icon icon={phase > index ? Check : Circle} /><div><strong>{t(`connect.phase.${step}`)}</strong>{step === "deploying" && <small>{t("connect.twentySeconds")}</small>}{phase === index && <Loading label={t("connect.inProgress")} />}</div>
+      <Tile icon={phase > index ? Check : phase === index ? LoaderCircle : Circle} className={phase > index ? "step-complete" : phase === index ? "step-running" : "step-waiting"} /><div><strong>{t(`connect.phase.${step}`)}</strong>{(step === "deploying" || phase === index) && <small>{[phase === index && t("connect.inProgress"), step === "deploying" && t("connect.twentySeconds")].filter(Boolean).join(" · ")}</small>}</div>
     </li>)}</ol>}
     {progress.loginUrl && <Button variant="ghost" onClick={() => void copyText(progress.loginUrl!)}>{t("connect.copyLogin")}</Button>}
-    <Button disabled={busy} onClick={onCancel}>{t("cancel")}</Button>
+    {!cancelInFooter && <div className="remote-progress-actions"><Button disabled={busy} onClick={onCancel}>{t("cancel")}</Button>{progress.phase !== "failed" && <Button variant="primary" busy>{t("connect.inProgress")}</Button>}</div>}
   </div>;
 }

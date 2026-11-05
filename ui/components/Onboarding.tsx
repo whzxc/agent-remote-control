@@ -9,7 +9,7 @@ import { navigation } from "../state/navigation";
 import { isPendingSource } from "../sourcePresentation";
 import type { Login } from "../state/types";
 import AddControlSource from "./AddControlSource";
-import { Button, Icon, Notice, Status } from "./ui";
+import { Button, Notice, Status, WelcomeChoice, WelcomeStatusAction } from "./ui";
 
 export default function Onboarding({ returnFocus }: { returnFocus?: string }) {
   const flow = onboarding.use()!, { status, sources, sourcesLoaded } = connector.use(); permissions.use();
@@ -32,15 +32,16 @@ export default function Onboarding({ returnFocus }: { returnFocus?: string }) {
   return <section className="welcome-page" aria-labelledby="welcome-title">
     <img className="welcome-mark" src={new URL("../assets/arc/mark.svg", import.meta.url).href} alt="ARC" />
     <h1 id="welcome-title">{t("setup.welcomeTitle")}</h1>
-    <p className="welcome-subtitle">{t("setup.welcomeSubtitle")}</p>
     {error && <Notice>{error}</Notice>}
-    <div className="welcome-cards">{(["local", "remote"] as const).map(group => <Button key={group} className="welcome-card" onClick={() => onboarding.set({ step: "product", focusGroup: group })}>
-      <Icon icon={group === "local" ? Monitor : Smartphone} size={20} />
-      <strong>{t(`setup.welcome.${group}`)}</strong><span>{t(`setup.welcome.${group}Products`)}</span>
-      <small>{t(`setup.welcome.${group}Time`)}</small>
-    </Button>)}</div>
-    <footer className="welcome-readiness"><Button variant="ghost" disabled={busy} onClick={() => login === "authenticated" ? (onboarding.set(undefined), navigation.set(old => ({ ...old, page: "settings" }))) : void signIn()}><Status tone={login === "authenticated" ? "success" : "warning"}>{t(login === "authenticated" ? "connect.codexReady" : "connect.codexFix")}</Status></Button>
-      <Button variant="ghost" onClick={() => { onboarding.set(undefined); navigation.set(old => ({ ...old, page: "permissions" })); }}><Status tone={permissionsReady(status?.ingresses ?? []) ? "success" : "warning"}>{t(permissionsReady(status?.ingresses ?? []) ? "connect.permissionsReady" : "connect.permissionsFix")}</Status></Button>
+    <div className="welcome-cards">{(["local", "remote"] as const).map(group => <WelcomeChoice key={group}
+      icon={group === "local" ? Monitor : Smartphone} tone={group === "local" ? "command" : "accent"}
+      title={t(`setup.welcome.${group}`)} description={t(`setup.welcome.${group}Products`)} meta={t(`setup.welcome.${group}Time`)}
+      onClick={() => onboarding.set({ step: "product", focusGroup: group })} />)}</div>
+    <footer className="welcome-readiness"><Status tone={login === "authenticated" && permissionsReady(status?.ingresses ?? []) ? "success" : "warning"}>
+      <WelcomeStatusAction busy={busy} onClick={() => login === "authenticated" ? (onboarding.set(undefined), navigation.set(old => ({ ...old, page: "settings" }))) : void signIn()}>{t(login === "authenticated" ? "connect.codexReady" : "connect.codexFix")}</WelcomeStatusAction>
+      <span aria-hidden="true"> · </span>
+      <WelcomeStatusAction onClick={() => { onboarding.set(undefined); navigation.set(old => ({ ...old, page: "permissions" })); }}>{t(permissionsReady(status?.ingresses ?? []) ? "connect.permissionsReady" : "connect.permissionsFix")}</WelcomeStatusAction>
+    </Status>
       <Button variant="ghost" onClick={() => openConnectionSetup({ method: "join" })}>{t("setup.invite")}</Button>
     </footer>
   </section>;

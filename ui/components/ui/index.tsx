@@ -43,6 +43,7 @@ import { t } from "../../i18n";
 import { copyText } from "../../platform";
 import { HoverScope } from "./HoverScope";
 export { HoverScope };
+export { SetupAction, WelcomeChoice, WelcomeStatusAction } from "./SetupChoice";
 export { HoverPreviewGroup } from "./HoverPreviewGroup";
 export { ErrorCallout, LoadingIndicator } from "./Feedback";
 export { DataTable, Pagination } from "./DataTable";
@@ -168,17 +169,19 @@ export function Field({
   label,
   error,
   help,
+  helpPlacement = "end",
   children,
 }: {
   id?: string;
   label: ReactNode;
   error?: string;
   help?: ReactNode;
+  helpPlacement?: "end" | "label";
   children: ReactNode;
 }) {
   return (
     <div className="field">
-      <div className="field-heading">
+      <div className="field-heading" data-help-placement={helpPlacement}>
         <label htmlFor={id}>{label}</label>
         {help}
       </div>
@@ -416,6 +419,8 @@ export function SingleChoice({
   navigation = false,
   tabs = false,
   tiles = false,
+  form,
+  secondaryFrom,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -434,7 +439,11 @@ export function SingleChoice({
   navigation?: boolean;
   tabs?: boolean;
   tiles?: boolean;
+  form?: "setup-row" | "setup-product";
+  secondaryFrom?: number;
 }) {
+  cards ||= form === "setup-row";
+  tiles ||= form === "setup-product";
   const container = useRef<HTMLDivElement>(null);
   const measure = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(false);
@@ -457,6 +466,8 @@ export function SingleChoice({
   return (
     <div
       ref={container}
+      data-form={form}
+      data-secondary-from={secondaryFrom}
       style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
       className={`choice ${fill ? "choice-fill" : ""} ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
@@ -481,12 +492,14 @@ export function SingleChoice({
           className={`choice-radio ${tiles || navigation || cards || optionCards || swatches || tabs ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
           style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: fill ? "100%" : contentWidth }}
         >
-          {options.map((option) => (
+          {options.map((option, index) => (
             <RadioGroup.Item
               key={option.value}
               value={option.value}
               disabled={option.disabled}
               className="choice-option"
+              data-secondary={secondaryFrom !== undefined && index >= secondaryFrom || undefined}
+              data-description={!!option.description || undefined}
               data-hover-target={navigation ? option.value : undefined}
               aria-label={option.label}
               title={iconOnly ? option.label : option.disabled ? option.description : undefined}
@@ -502,7 +515,7 @@ export function SingleChoice({
                 <>
                   {option.graphic}
                   {option.icon && <Icon icon={option.icon} />}
-                  {!iconOnly && <span data-label={tabs ? option.label : undefined}>{option.label}{(cards || optionCards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
+                  {!iconOnly && <span data-label={tabs ? option.label : undefined}>{option.label}{(cards || optionCards || navigation || form === "setup-product") && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
                 </>
               )}
             </RadioGroup.Item>
@@ -706,7 +719,7 @@ export function CopyField({
   return (
     <div>
       <div className="copy-field">
-        <div className="input copy-value" role="textbox" aria-readonly="true" aria-label={label} aria-busy={loading} tabIndex={0}
+        <div className="copy-value" role="textbox" aria-readonly="true" aria-label={label} aria-busy={loading} tabIndex={0}
           onCopy={event => { event.preventDefault(); event.clipboardData.setData('text/plain', value); }}>
           {value ? <Sensitive>{password && !visible ? maskSensitive(value, true) : value}</Sensitive> : placeholder}
         </div>
@@ -755,3 +768,5 @@ export function CopyField({
 import "./DetailDialog.css";
 
 import "./TaskControls.css";
+import "./SetupChoice.css";
+import "./CopyField.css";

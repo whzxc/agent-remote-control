@@ -11,7 +11,8 @@ import { SensitiveInput, useSensitiveText } from "./Sensitive";
 import IngressDialog from "./IngressDialog";
 import RelayProgress from "./RelayProgress";
 import SetupDialog from "./SetupDialog";
-import { Button, CopyField, Field, Icon, Input, Loading, Notice, SingleChoice, Status } from "./ui";
+import { Card } from "./ui/card";
+import { Button, CopyField, Field, Icon, Input, Loading, Notice, SingleChoice, Status, Tile } from "./ui";
 
 type LocalAccess = { codeAvailable: boolean; desktopAvailable: boolean };
 const steps = ["method", "address", "success"] as const;
@@ -84,28 +85,29 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   const methodName = methods.find(m => m.value === method)!.label;
   const editing = step === "address" && !operation && ["https", "openai-tunnel"].includes(method);
   const waiting = !!operation && progress.phase !== "failed";
+  async function cancelRelay() { await perform(async () => { await api("relay/cancel", "POST"); setOperation(undefined); }); }
   const flow = onboarding.get();
   const parentTitle = options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
   return <SetupDialog title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
     active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy} onClose={onClose}
-    returnFocus={returnFocus}
+    returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
     footer={<>
-      {step !== "success" && <Button disabled={busy || configBusy || waiting} variant="ghost" onClick={() => step === "method" ? onClose() : (setError(""), setStep("method"))}>{t("back")}</Button>}
-      {step === "method" && <Button variant="primary" disabled={!!reason(method)} onClick={() => { setError(""); setStep("address"); if (method === "create") void startRelay(); }}>{t(method === "create" ? "setup.deploy" : "source.next")}{method === "create" && <Icon icon={ExternalLink} />}</Button>}
+      {step === "address" && !waiting && <Button disabled={busy || configBusy} variant="ghost" onClick={() => { setError(""); setStep("method"); }}>{t("back")}</Button>}
+      {step === "method" && <Button variant="primary" disabled={!!reason(method)} onClick={() => { setError(""); setStep("address"); if (method === "create") void startRelay(); }}>{method === "create" && <Icon icon={ExternalLink} />}{t(method === "create" ? "setup.deploy" : "source.next")}</Button>}
       {step === "address" && !operation && <Button type="submit" form={formId} variant="primary" busy={busy || configBusy} disabled={!!reason(method) || !!target && (!local || !local[target === "code" ? "codeAvailable" : "desktopAvailable"] || revoked)}>{t(editing ? "setup.saveStart" : method === "create" ? "setup.deploy" : "source.next")}</Button>}
-      {waiting && <Loading label={t("connect.inProgress")} />}
-      {step === "success" && <>{!(options.forSource || options.forSwitch) && <Button onClick={onClose}>{t("source.done")}</Button>}<span className="spacer" /><Button variant="primary" disabled={!created || busy} onClick={() => { if (!createdId) return; onAdded(createdId); if (!(options.forSource || options.forSwitch)) openOnboarding("product", { ingressId: createdId, fixedConnection: true }); }}>{t((options.forSource || options.forSwitch) ? "setup.continueConnection" : "setup.addSourceForConnection")}</Button></>}
+      {waiting && <><Button variant="ghost" disabled={busy} onClick={() => void cancelRelay()}>{t("cancel")}</Button><Button variant="primary" busy>{t("connect.inProgress")}</Button></>}
+      {step === "success" && <><Button variant="primary" disabled={!created || busy} onClick={() => { if (!createdId) return; onAdded(createdId); if (!(options.forSource || options.forSwitch)) openOnboarding("product", { ingressId: createdId, fixedConnection: true }); }}>{t((options.forSource || options.forSwitch) ? "setup.continueConnection" : "setup.addSourceForConnection")}</Button></>}
     </>}>
     <div className={`setup-content ${step === "method" ? "setup-methods" : ""}`}>
       {error && <Notice>{protect(error)}</Notice>}
-      {step === "method" && <SingleChoice cards label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
+      {step === "method" && <SingleChoice form="setup-row" secondaryFrom={options.forSource || options.forSwitch ? undefined : 3} label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
       {["https", "openai-tunnel"].includes(method) && <div hidden={!editing}><IngressDialog key={method} setupFormId={formId}
         initialTransport={method === "openai-tunnel" ? "openai-tunnel" : "https"} onBusy={setConfigBusy} onClose={() => setStep("method")} onRemoved={onClose} onSaved={entry => {
           complete(entry.id); void perform(async () => { await api(`ingress/${entry.id}/start`, "POST"); await refreshConnector(); });
         }} /></div>}
       {step === "address" && !editing && (operation ? <>
         {progressError && <Notice>{t("connect.readFailed")}</Notice>}
-        <RelayProgress progress={progress} busy={busy} account={account} setAccount={setAccount} onRetry={() => void startRelay(true)} onCancel={() => void perform(async () => { await api("relay/cancel", "POST"); setOperation(undefined); })} />
+        <RelayProgress cancelInFooter={waiting} progress={progress} busy={busy} account={account} setAccount={setAccount} onRetry={() => void startRelay(true)} onCancel={() => void cancelRelay()} />
       </> : <form className="setup-form" id={formId} onSubmit={e => { e.preventDefault(); void configure(); }}>
         {method === "join" && <>
           <Field id={`${formId}-link`} label={t("connect.sharedLink")}><SensitiveInput id={`${formId}-link`} required type="url" value={link} onChange={e => setLink(e.target.value)} /></Field>
@@ -120,10 +122,10 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
           {revoked && <Notice tone="warning">{t("source.revokedConnection")}</Notice>}
         </>}
       </form>)}
-      {step === "success" && <div className="setup-success"><span className="setup-success-mark"><Icon icon={Check} size={20} /></span><h3>{t("connection.added")}</h3>
-        {created && <div className="setup-connection-card"><strong>{created.name}</strong><span>{t(`source.kind.${connectionKind(created)}`)}</span>
-          {created.url && <CopyField value={created.url} label={t("source.copyAddress")} />}<Status tone={created.state === "ready" ? "success" : "neutral"}>{t(created.state === "ready" ? "connect.online" : "connect.offline")}</Status>
-          <span className="muted">{t("source.count", { count: sources.filter(s => s.ingressId === created.id && s.state !== "revoked" && !isPendingSource(s, status?.ingresses ?? [])).length })}</span></div>}
+      {step === "success" && <div className="setup-success"><div className="setup-success-heading"><Tile icon={Check} /><h3>{t("connection.added")}</h3></div>
+        {created && <Card className="setup-connection-card"><div className="setup-connection-identity"><strong>{created.name}</strong>
+          <div className="connection-meta"><Status tone={created.state === "ready" ? "success" : "neutral"}>{t(created.state === "ready" ? "connect.online" : "connect.offline")}</Status><span> · {t("source.count", { count: sources.filter(s => s.ingressId === created.id && s.state !== "revoked" && !isPendingSource(s, status?.ingresses ?? [])).length })}</span></div></div>
+          <div className="setup-connection-address"><span>{t(`source.kind.${connectionKind(created)}`)}</span>{created.url && <CopyField value={created.url} label={t("source.copyAddress")} />}</div></Card>}
         {target && <p>{t("connect.restartClaude")}</p>}
         {created?.error && <Notice>{created.error}</Notice>}
         {!created && <Button busy={busy} onClick={() => void perform(refreshConnector)}>{t("retry")}</Button>}

@@ -145,8 +145,10 @@ export default function RelayHosting() {
   }
   const owners = relays.relays.filter(relay => relay.owner);
   return <div className="relay-hosting">
-    <div className="hosting-section-heading"><h2>{t("hosting.title")}</h2><Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); setDeploy(true); }}>{t("hosting.deploy")}</Button></div>
-    {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}
+    <div className="hosting-empty-group"><h2>{t("hosting.title")}</h2>
+      {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}
+      <Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); setDeploy(true); }}>{t("hosting.deploy")}</Button>
+    </div>
     {relays.error && <Notice tone="danger" action={<Button onClick={() => void relays.refresh().catch(() => {})}>{t("retry")}</Button>}>{t("connect.readFailed")}</Notice>}
     {error && !deploy && !job && <Notice tone="danger">{error}</Notice>}
     {owners.map(relay => <HostedRelay key={`${relay.id}:${revision}`} relay={relay} version={relays.version} startJob={startJob} disabled={busy || !!job} />)}

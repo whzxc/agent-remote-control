@@ -207,6 +207,8 @@ textarea.input {
   font-weight: 600;
   line-height: 16px;
 }
+.field-heading[data-help-placement="label"] { justify-content:flex-start; }
+.field-heading[data-help-placement="label"] > .button { margin-block:-9px; }
 .field-error {
   display: flex;
   align-items: center;
@@ -723,16 +725,6 @@ textarea.input {
   border-top: 1px solid var(--border);
   flex: none;
   flex-wrap: wrap;
-}
-.copy-field {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  min-width: 0;
-}
-.copy-field .input {
-  font-family: var(--font-mono);
-  font-size: 12px;
 }
 .progress {
   height: 6px;
@@ -1310,6 +1302,13 @@ textarea.input {
 .slider-thumb { display: block; width: 16px; height: 16px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); }
 
 .choice-cards .choice-measure { display:none; }
+.choice-tiles .choice-radio { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: transparent; padding: 0; }
+.choice-tiles .choice-option { min-height: clamp(48px, 3.2vw, 58px); padding: 0 12px; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius-field); justify-content: start; text-align: start; background: transparent; min-width: 0; font-size: var(--text-small); white-space: normal; }
+.choice-tiles .choice-option[data-state="checked"] { border: 1.5px solid var(--text); background: var(--surface); box-shadow: none; }
+.choice-tiles .choice-option[value="custom"] { border-style: dashed; }
+.choice-tiles .source-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.choice-tiles .source-icon > span, .choice-tiles .source-icon svg { width: 100%; height: 100%; }
+.choice-option:disabled { opacity: .5; cursor: not-allowed; }
 .choice-cards .choice-radio { display:grid; grid-template-columns:minmax(0, 1fr); width:100%; gap:10px; background:none; border:0; padding:0; }
 .choice-cards .choice-option { min-height:82px; justify-content:flex-start; border:1px solid var(--border); border-radius:12px; text-align:start; padding:16px; white-space:normal; }
 .choice-cards .choice-option > span { min-width:0; overflow-wrap:anywhere; }

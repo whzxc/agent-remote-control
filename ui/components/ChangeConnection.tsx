@@ -10,7 +10,7 @@ import { connectionDisabledReason, connectionKind, isPendingSource } from "../so
 import type { Ingress } from "../state/types";
 import SetupDialog from "./SetupDialog";
 import { ApprovalCard } from "./OAuthApproval";
-import { Button, CopyField, Field, Icon, Loading, Notice, SingleChoice } from "./ui";
+import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction } from "./ui";
 
 const steps = ["connection", "address", "approval"] as const;
 export default function ChangeConnection() {
@@ -63,25 +63,25 @@ export default function ChangeConnection() {
   const canApprove = request?.status === "pending" && !expired;
   return <SetupDialog title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy}
     steps={[{ label: t("source.step.connection"), value: target?.name }, { label: t("switch.address") }, { label: t("switch.reauthorize") }]}
-    returnFocus="[data-change-connection]" onClose={() => cancel(true)} footer={<>
+    actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onClose={() => cancel(true)} footer={<>
       {flow.step === "approval" && canApprove ? <><Button form={`approval-${request.id}`} type="submit" value="deny" disabled={busy}>{t("oauthDeny")}</Button><Button form={`approval-${request.id}`} type="submit" value="allow" variant="primary" busy={busy}>{t("switch.approve")}</Button></> : <>
         <Button variant="ghost" disabled={busy} onClick={() => void cancel(flow.step === "connection")}>{t(flow.step === "connection" ? "cancel" : "back")}</Button>
-        {flow.step === "connection" ? <Button variant="primary" busy={busy} disabled={!target || !!reason(target)} onClick={() => void begin()}>{t("source.next")}</Button> : !expired && <Loading label={t(request?.status === "approved" ? "connect.returning" : "connect.waitClient", { name: productName })} />}
+        {flow.step === "connection" ? <Button variant="primary" busy={busy} disabled={!target || !!reason(target)} onClick={() => void begin()}>{t("source.next")}</Button> : !expired && <Button variant="primary" busy>{t(request?.status === "approved" ? "connect.returning" : "connect.waitClient", { name: productName })}</Button>}
       </>}
     </>}>
     <div className="setup-content">
       {error && <Notice>{error}</Notice>}
       {flow.step === "connection" ? <>
         <p>{t("switch.currentVia", { name: current?.name ?? source?.connectionName ?? t("source.connectionRemoved") })}</p>
-        <SingleChoice cards label={t("source.connections")} value={flow.ingressId ?? ""} onChange={ingressId => connectionSwitch.set({ ...flow, ingressId })} disabled={busy} options={connections.map(i => ({ value: i.id, label: i.name, disabled: !!reason(i), description: reason(i) || [t(`source.kind.${connectionKind(i)}`), t(i.state === "ready" ? "connect.online" : "connect.offline"), sources.filter(s => s.ingressId === i.id && s.state !== "revoked" && !isPendingSource(s, entries)).map(s => s.label).join(", ")].filter(Boolean).join(" · ") }))} />
-        <Button className="setup-new" data-add-connection disabled={busy} onClick={() => openConnectionSetup({ forSwitch: true, product: source?.product })}><Icon icon={Plus} /><span>{t("source.newConnection")}<small>{t("setup.newConnectionHint")}</small></span></Button>
+        <SingleChoice form="setup-row" label={t("source.connections")} value={flow.ingressId ?? ""} onChange={ingressId => connectionSwitch.set({ ...flow, ingressId })} disabled={busy} options={connections.map(i => ({ value: i.id, label: i.name, disabled: !!reason(i), description: reason(i) || [t(`source.kind.${connectionKind(i)}`), t(i.state === "ready" ? "connect.online" : "connect.offline"), sources.filter(s => s.ingressId === i.id && s.state !== "revoked" && !isPendingSource(s, entries)).map(s => s.label).join(", ")].filter(Boolean).join(" · ") }))} />
+        <SetupAction data-add-connection disabled={busy} icon={Plus} label={t("source.newConnection")} description={t("setup.newConnectionHint")} onClick={() => openConnectionSetup({ forSwitch: true, product: source?.product })} />
         <Notice tone="warning">{addressInstruction} {t("switch.warning")}</Notice>
       </> : <>
         {target ? <>
           <CopyField value={target.url || target.config.tunnelId} label={t("source.copyAddress")} />
           {credentials?.ingressId === target.id && <Field label={t("source.bearerHeader")}><CopyField password value={`Bearer ${credentials.bearerToken}`} label={t("source.bearerHeader")} /></Field>}
           {flow.step === "address" && <><p>{addressInstruction}</p><h3>{t("setup.configureProduct", { name: productName })}</h3><p>{info?.setup?.path[locale.get()] ?? t("connect.customPath")}</p>
-            {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}>{t("connect.openSettings", { name: productName })}<Icon icon={ExternalLink} /></Button>}
+            {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}><Icon icon={ExternalLink} />{t("connect.openSettings", { name: productName })}</Button>}
             <p>{t(target.auth === "oauth" ? "setup.browserCode" : "source.noOAuthApproval")}</p>
             {target.state !== "ready" && <Button busy={busy} onClick={() => void perform(async () => { await api(`ingress/${target.id}/start`, "POST"); await refreshConnector(); })}>{t("retry")}</Button>}
           </>}

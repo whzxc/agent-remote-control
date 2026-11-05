@@ -1,17 +1,16 @@
 import { readOnlyBrowser } from "../browserMode";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { connector, refreshConnector } from "../state/connector";
-import { openConnectionSetup } from "../state/onboarding";
 import { useRelays } from "../state/relay";
 import { connectionIcon, connectionKind, connectionProvider, isLocalSource, isPendingSource } from "../sourcePresentation";
 import type { Ingress } from "../state/types";
 import IngressDialog from "./IngressDialog";
 import SourceIcon from "./SourceIcon";
 import { RelaySettings } from "./RelaySettings";
-import { Button, CopyField, Dialog, Icon, IconButton, Notice, Status, Tooltip } from "./ui";
+import { Button, CopyField, Dialog, IconButton, Notice, Status, Tile } from "./ui";
 import { Card, CardContent, CardHeader } from "./ui/card";
 
 export default function ConnectionsContent() {
@@ -31,30 +30,31 @@ export default function ConnectionsContent() {
       await refreshConnector(); await relays.refresh(); setRemoving(undefined);
     } catch (e) { setError(String(e)); } finally { setRemoveBusy(false); }
   }
-  return <div className="grid min-w-0 gap-4">
+  return <div className="connections-content">
     {readError && <Notice>{readError}</Notice>}
-    <Button disabled={readOnlyBrowser} className="justify-self-start" data-new-connection variant="primary" onClick={() => openConnectionSetup()}>{t("source.newConnection")}</Button>
     {entries.map(connection => {
       const relay = relays.relays.find(r => r.ingressId === connection.id);
       const attached = visible.filter(s => s.ingressId === connection.id);
       return <Card key={connection.id} asChild className="min-w-0"><section aria-label={connection.name}>
-        <CardHeader className="px-4"><div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Icon icon={connectionIcon(connection)} size={20} />
-          <h3 className="min-w-0 flex-1 break-words">{connection.name}</h3>
-          <Status tone={connection.state === "ready" ? "success" : "neutral"}>{t(connection.state === "ready" ? "connect.online" : "connect.offline")}</Status>
-          <IconButton disabled={readOnlyBrowser} icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
-          {!["local", "relay"].includes(connection.transport) && <IconButton disabled={readOnlyBrowser} icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
+        <CardHeader className="grid-rows-1 gap-0"><div className="connection-card-heading">
+          <Tile icon={connectionIcon(connection)} className={connection.transport === "openai-tunnel" ? "connection-tunnel" : "connection-relay"} />
+          <div className="connection-card-identity"><h3>{connection.name}</h3><div className="connection-meta">
+            <Status tone={connection.state === "ready" ? "success" : "neutral"}>{t(connection.state === "ready" ? "connect.online" : "connect.offline")}</Status>
+            {attached.map(source => <Fragment key={source.id}><span aria-hidden="true"> · </span><span className="connection-source-meta"><SourceIcon platform={source.product} /><span>{source.label}</span></span></Fragment>)}
+          </div></div>
+          <div className="actions">
+            {!["local", "relay"].includes(connection.transport) && <IconButton disabled={readOnlyBrowser} icon={Pencil} label={t("edit")} onClick={() => setEditing(connection)} />}
+            <IconButton disabled={readOnlyBrowser} icon={Trash2} label={t(relay && !relay.owner ? "connect.leave" : "remove")} onClick={() => { setError(""); setRemoving(connection); }} />
+          </div>
         </div></CardHeader>
-        <CardContent className="grid min-w-0 gap-4 px-4">
+        <CardContent className="connection-card-content">
           {connection.url && <CopyField value={connection.url} label={t("source.copyAddress")} />}
-          <dl className="m-0 grid grid-cols-2 gap-3 text-sm">
-            <div className="min-w-0"><dt className="text-muted-foreground">{t("source.provider")}</dt><dd className="m-0 break-words">{connection.transport === "relay" ? "Cloudflare Workers" : connectionProvider(connection)}</dd></div>
-            <div className="min-w-0"><dt className="text-muted-foreground">{t("connectionMethod")}</dt><dd className="m-0">{t(`source.kind.${connectionKind(connection)}`)}</dd></div>
-            {relay && <div><dt className="text-muted-foreground">{t("setup.workerVersion")}</dt><dd className="m-0">{relay.workerVersion ?? "—"}</dd></div>}
+          <dl className="connection-facts">
+            <div><dt>{t("source.provider")}</dt><dd>{connection.transport === "relay" ? "Cloudflare Workers" : connectionProvider(connection)}</dd>
+              {relay && <div className="connection-version">{t("setup.workerVersion")} · {relay.workerVersion ?? "—"}</div>}
+            </div>
+            <div><dt>{t("connectionMethod")}</dt><dd>{t(`source.kind.${connectionKind(connection)}`)}</dd></div>
           </dl>
-          {attached.length > 0 && <div className="flex flex-wrap items-center -space-x-2 gap-y-1" role="group" aria-label={t("source.count", { count: attached.length })}>
-            {attached.map(source => <Tooltip key={source.id} text={source.label}><span tabIndex={0} role="img" aria-label={source.label} className="relative flex size-8 shrink-0 hover:z-10 focus:z-10 items-center justify-center rounded-full border border-border bg-card [&_.source-icon]:size-5 [&_.source-icon_svg]:size-5"><SourceIcon platform={source.product} /></span></Tooltip>)}
-          </div>}
           {connection.error && <Notice>{connection.error}</Notice>}
           {relay && <RelaySettings relay={relay} version={relays.version} refresh={relays.refresh} />}
         </CardContent>

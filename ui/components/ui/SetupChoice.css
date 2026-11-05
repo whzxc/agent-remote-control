@@ -1,0 +1,44 @@
+/* design/components/setup-choice.svg; shared by setup selection and navigation. */
+.choice[data-form^="setup-"] .choice-measure { display:none; }
+.choice[data-form^="setup-"] .choice-radio { width:100%; display:grid; padding:0; background:none; gap:12px; border-radius:0; }
+.choice[data-form^="setup-"] .choice-option, .setup-choice-action {
+  display:flex; align-items:center; justify-content:flex-start; min-width:0; min-height:56px; box-sizing:border-box;
+  padding:16px 15px; gap:13px; border:0; border-radius:var(--radius-card); background:var(--surface-subtle); color:var(--text);
+  text-align:start; white-space:normal; font:650 var(--text-body)/16px var(--font-ui); cursor:pointer; box-shadow:none;
+}
+.choice[data-form^="setup-"] .choice-option[data-state="checked"] { border:0; background:var(--surface-subtle); box-shadow:none; }
+.choice[data-form="setup-row"] .choice-radio { grid-template-columns:minmax(0,1fr); }
+.choice[data-form="setup-row"] .choice-option::before { content:""; flex:none; width:18px; height:18px; border-radius:50%; background:var(--surface-sunken); }
+.choice[data-form="setup-row"] .choice-option[data-state="checked"]::before { background:radial-gradient(circle, var(--accent-text) 0 4px, transparent 4.5px), var(--surface-sunken); }
+.choice[data-form^="setup-"] .choice-option > span, .setup-choice-action > span { min-width:0; }
+.choice[data-form^="setup-"] .choice-option small, .setup-choice-action small { display:block; margin-top:8px; font:400 var(--text-small)/16px var(--font-ui); color:var(--text-secondary); }
+.choice[data-form="setup-row"] .choice-option[data-description], .setup-choice-action[data-description] { min-height:72px; }
+.choice[data-form="setup-row"][data-secondary-from] .choice-radio { grid-template-columns:1.2fr 1fr 1fr; }
+.choice[data-form="setup-row"][data-secondary-from] .choice-option:not([data-secondary]) { grid-column:1 / -1; }
+.choice[data-form="setup-row"] .choice-option[data-secondary] { margin-top:26px; }
+.choice[data-form="setup-product"] .choice-radio { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.choice[data-form="setup-product"] .choice-option[data-state="checked"] { background:color-mix(in srgb,var(--accent) 12%,var(--surface-subtle)); }
+.choice[data-form="setup-product"] .choice-option { display:grid; align-content:start; grid-template-columns:24px minmax(0,1fr); column-gap:10px; row-gap:0; padding:16px 14px 10px; font:600 var(--text-small)/20px var(--font-ui); }
+.choice[data-form="setup-product"] .choice-option > span:not(.source-icon) { display:contents; }
+.choice[data-form="setup-product"] .choice-option small { grid-column:1 / -1; margin-top:10px; font-size:var(--text-meta); }
+.choice[data-form="setup-product"] .source-icon { width:24px; height:24px; }
+.choice[data-form="setup-product"] .source-icon > span, .choice[data-form="setup-product"] .source-icon svg { width:100%; height:100%; }
+.choice[data-form^="setup-"] .choice-option:disabled, .setup-choice-action:disabled { opacity:.5; cursor:not-allowed; }
+.setup-choice-action { width:100%; padding:16px; gap:14px; }
+.setup-choice-action > .icon { flex:none; margin-inline:0 0; }
+.setup-choice-action strong { font:inherit; }
+.setup-choice-badge { flex:none; margin-left:auto; color:var(--accent-text); font:400 var(--text-meta)/16px var(--font-ui); }
+.welcome-choice { display:flex; flex-direction:column; align-items:flex-start; padding:20px; border:0; border-radius:var(--radius-card); background:var(--surface-subtle); color:var(--text); text-align:start; cursor:pointer; }
+.welcome-choice .tile { color:var(--accent); }
+.welcome-choice[data-tone="command"] .tile { color:var(--phase-command); }
+.welcome-choice strong { margin-top:18px; font:650 var(--text-body)/16px var(--font-ui); }
+.welcome-choice > span:not(.tile) { margin-top:8px; color:var(--text-secondary); font:400 var(--text-small)/20px var(--font-ui); }
+.welcome-choice small { margin-top:20px; color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
+@media (max-width:520px) {
+  .choice[data-form="setup-product"] .choice-radio { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .choice[data-form="setup-row"][data-secondary-from] .choice-radio { grid-template-columns:minmax(0,1fr); }
+  .choice[data-form="setup-row"] .choice-option[data-secondary] { margin-top:0; }
+  .choice[data-form="setup-row"] .choice-option:not([data-secondary]) + [data-secondary] { margin-top:26px; }
+}
+
+.welcome-status-link.button { color:var(--text); font:600 var(--text-small)/20px var(--font-ui); }

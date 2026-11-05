@@ -99,14 +99,14 @@ export default function ToolPolicyField({
   return (
     <>
       <Field label={t("toolList")}>
-        <SingleChoice
+        <SingleChoice fill
           value={mode}
           onChange={choose}
           label={t("toolList")}
           options={options}
           disabled={disabled || !catalog}
         />
-        <div className="actions" style={{ visibility: catalog ? undefined : "hidden" }} aria-hidden={!catalog}>
+        <div className="tool-policy-summary" style={{ visibility: catalog ? undefined : "hidden" }} aria-hidden={!catalog}>
           <span className="muted small">
             {t("toolSelectionCount", {
               groups: new Set(exposed.map((tool) => tool.group)).size,

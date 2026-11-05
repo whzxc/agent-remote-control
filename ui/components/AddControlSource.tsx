@@ -1,6 +1,6 @@
 import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useState } from "react";
-import { Check, ExternalLink, Plus } from "lucide-react";
+import { Check, Cloud, Link, Plug, ExternalLink, Plus } from "lucide-react";
 import { api } from "../api";
 import { controlSource, curatedSources, nextSourceName } from "../controlSources";
 import { locale, t } from "../i18n";
@@ -11,7 +11,7 @@ import { connectionDisabledReason, connectionKind, isPendingSource } from "../so
 import SetupDialog from "./SetupDialog";
 import SourceIcon from "./SourceIcon";
 import { ApprovalCard } from "./OAuthApproval";
-import { Button, CopyField, Field, Icon, Loading, Notice, SingleChoice } from "./ui";
+import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction, Tile } from "./ui";
 
 const steps: OnboardingStep[] = ["product", "connection", "address", "approval", "success"];
 const products = [...curatedSources.map(source => source.id), "grok-bot", "local-code", "local-desktop", "custom"];
@@ -87,12 +87,14 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   const footer = <>
     {flow.step === "approval" && waiting?.status === "pending" && <><Button type="submit" form={`approval-${waiting.id}`} value="deny" disabled={readOnlyBrowser || busy}>{t("oauthDeny")}</Button><Button variant="primary" type="submit" form={`approval-${waiting.id}`} value="allow" disabled={readOnlyBrowser} busy={busy}>{t("oauthAllow")}</Button></>}
     {flow.step !== "product" && flow.step !== "success" && flow.step !== "approval" && <Button variant="ghost" disabled={busy} onClick={() => step(flow.step === "address" && flow.fixedConnection ? "product" : steps[Math.max(0, steps.indexOf(flow.step) - 1)])}>{t("back")}</Button>}
-    {flow.step === "product" && <><span className="spacer" /><Button variant="primary" busy={busy} disabled={!flow.source || !!(flow.fixedConnection && current && connectionDisabledReason(current, product, sources, flow.localTarget))} onClick={() => flow.fixedConnection && flow.ingressId ? void selectConnection(flow.ingressId) : step("connection")}>{t("source.next")}</Button></>}
-    {flow.step === "connection" && <Button variant="primary" busy={busy} disabled={!existing.some(i => i.id === route)} onClick={() => void selectConnection(route)}>{t("source.next")}</Button>}
-    {flow.step === "address" && <Loading label={t(current?.auth === "oauth" ? "connect.waitClient" : "source.waitConnection", { name })} />}
-    {flow.step === "success" && <><Button variant="ghost" onClick={() => { if (flow.sourceId) addedSource.set(flow.sourceId); onboarding.set({ step: "product" }); }}>{t("setup.addAnother")}</Button><Button variant="primary" onClick={finishSourceSetup}>{t("source.done")}</Button></>}
+    {flow.step === "product" && <><Button variant="primary" busy={busy} disabled={!flow.source || !!(flow.fixedConnection && current && connectionDisabledReason(current, product, sources, flow.localTarget))} onClick={() => flow.fixedConnection && flow.ingressId ? void selectConnection(flow.ingressId) : step("connection")}>{t("source.next")}</Button></>}
+    {flow.step === "connection" && existing.length > 0 && <Button variant="primary" busy={busy} disabled={!existing.some(i => i.id === route)} onClick={() => void selectConnection(route)}>{t("source.next")}</Button>}
+    {flow.step === "address" && <Button variant="primary" busy>{t(current?.auth === "oauth" ? "connect.waitClient" : "source.waitConnection", { name })}</Button>}
+    {flow.step === "success" && <><Button variant="primary" onClick={() => { if (flow.sourceId) addedSource.set(flow.sourceId); onboarding.set({ step: "product" }); }}>{t("setup.addAnother")}</Button></>}
   </>;
   return <SetupDialog title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
+    context={flow.step === "product" && flow.fixedConnection && current ? t("setup.via", { name: current.name }) : undefined}
+    actionLayout={["product", "approval", "success"].includes(flow.step) ? "end" : "split"}
     active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy} onClose={finishSourceSetup}
     initialFocus={flow.step === "product" && flow.focusGroup ? `platform-${flow.focusGroup}` : undefined}
     returnFocus={returnFocus}
@@ -102,18 +104,17 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
     {flow.step === "product" && <>
       {(["remote", "local"] as const).map(group => <section className="platform-group" key={group}>
         <h3 id={`platform-${group}`} tabIndex={-1}>{t(`setup.group.${group}`)}</h3>
-        <SingleChoice tiles label={t(`setup.group.${group}`)} value={selectedProduct} onChange={chooseProduct}
+        <SingleChoice form="setup-product" label={t(`setup.group.${group}`)} value={selectedProduct} onChange={chooseProduct}
           options={products.filter(id => (id.startsWith("local-") || id === "custom") === (group === "local")).map(id => {
             const localTarget = id.startsWith("local-") ? id.slice(6) as "code" | "desktop" : undefined;
             const reason = flow.fixedConnection && current ? connectionDisabledReason(current, localTarget ? "claude" : id, sources, localTarget) : "";
             return { value: id, label: productName(id), disabled: !!reason, description: reason, graphic: <SourceIcon platform={id === "local-code" ? "claude-code" : id === "local-desktop" ? "claude" : id} /> };
           })} />
       </section>)}
-      {flow.fixedConnection && current && <p className="muted">{t("setup.via", { name: current.name })}</p>}
     </>}
     {flow.step === "connection" && <>
-      <p className="muted">{t("setup.connectionPrompt", { name: productName(selectedProduct || "custom") })}</p>
-      {visible.length > 0 && <SingleChoice cards label={t("source.connections")} value={route} onChange={setRoute} disabled={readOnlyBrowser || busy} options={visible.map(i => {
+      {existing.length > 0 && <p className="muted">{t("setup.connectionPrompt", { name: productName(selectedProduct || "custom") })}</p>}
+      {visible.length > 0 && <SingleChoice form="setup-row" label={t("source.connections")} value={route} onChange={setRoute} disabled={readOnlyBrowser || busy} options={visible.map(i => {
         const carried = sources.filter(s => s.ingressId === i.id && !isPendingSource(s, entries) && s.state !== "revoked");
         const reason = connectionDisabledReason(i, product, sources, flow.localTarget);
         return { value: i.id, label: i.name, disabled: !!reason,
@@ -121,20 +122,21 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
       })} />}
       {!existing.length && <div className="setup-empty">
         <h3>{t("setup.noConnection")}</h3>
-        {flow.localTarget ? <Button disabled={readOnlyBrowser} onClick={() => newConnection(flow.localTarget === "code" ? "local-code" : "local-desktop")}>{t("connection.localSetup", { name: productName(selectedProduct) })}</Button> : <>
-          <Button disabled={readOnlyBrowser} className="setup-recommended" onClick={() => newConnection("create")}>{t("source.createRelay")}<span className="setup-badge">{t("setup.recommended")}</span></Button>
-          <Button disabled={readOnlyBrowser} onClick={() => newConnection("join")}>{t("source.pasteRelay")}</Button>
-          <Button disabled={readOnlyBrowser} onClick={() => newConnection("https")}>{t("setup.ownAddress")}</Button>
-        </>}
+        <p className="muted">{t("setup.connectionPrompt", { name: productName(selectedProduct || "custom") })}</p>
+        {flow.localTarget ? <Button disabled={readOnlyBrowser} onClick={() => newConnection(flow.localTarget === "code" ? "local-code" : "local-desktop")}>{t("connection.localSetup", { name: productName(selectedProduct) })}</Button> : <div className="setup-empty-actions">
+          <SetupAction disabled={readOnlyBrowser} icon={Cloud} label={t("source.createRelay")} badge={t("setup.recommended")} onClick={() => newConnection("create")} />
+          <SetupAction disabled={readOnlyBrowser} icon={Link} label={t("source.pasteRelay")} onClick={() => newConnection("join")} />
+          <SetupAction disabled={readOnlyBrowser} icon={Plug} label={t("setup.ownAddress")} onClick={() => newConnection("https")} />
+        </div>}
       </div>}
-      {existing.length > 0 && <Button className="setup-new" data-add-connection disabled={readOnlyBrowser || busy} onClick={() => newConnection()}><Icon icon={Plus} /><span>{t("source.newConnection")}<small>{t("setup.newConnectionHint")}</small></span></Button>}
+      {existing.length > 0 && <SetupAction data-add-connection disabled={readOnlyBrowser || busy} icon={Plus} label={t("source.newConnection")} description={t("setup.newConnectionHint")} onClick={() => newConnection()} />}
     </>}
     {flow.step === "address" && (current ? <>
       {current.transport === "local" ? <p>{t("connect.restartClaude")}</p> : <ol className="setup-instructions">
         <li><div><strong>{t("source.copyAddress")}</strong><CopyField value={current.url || current.config.tunnelId} label={t("source.copyAddress")} />
           {credentials?.ingressId === current.id && <Field label={t("source.bearerHeader")}><CopyField password value={`Bearer ${credentials.bearerToken}`} label={t("source.bearerHeader")} /></Field>}</div></li>
-        <li><div><strong>{t("setup.configureProduct", { name })}</strong><p>{info?.setup?.path[locale.get()] ?? t("connect.customPath")}</p>
-          {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}>{t("connect.openSettings", { name })}<Icon icon={ExternalLink} /></Button>}</div></li>
+        <li><div><strong>{t("setup.configureProduct", { name })}</strong><div className="setup-instruction-action"><p>{info?.setup?.path[locale.get()] ?? t("connect.customPath")}</p>
+          {settingsUrl && <Button onClick={() => void perform(() => openUrl(settingsUrl))}><Icon icon={ExternalLink} />{t("connect.openSettings", { name })}</Button>}</div></div></li>
         <li><div><strong>{t("setup.clickConnect", { name })}</strong><p>{t(current.auth === "oauth" ? "setup.browserCode" : "source.noOAuthApproval")}</p></div></li>
       </ol>}
       {current.error && <Notice>{current.error}</Notice>}
@@ -146,8 +148,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
       {waiting && current ? <ApprovalCard key={waiting.id} request={waiting} ingress={current} product={product} inline onBusy={setBusy} onDecided={allow => { if (!allow) retry(); }} /> : <Notice tone="warning">{t("connect.requestExpired")}</Notice>}
       {(!waiting || ["denied", "expired"].includes(waiting.status)) && <Button onClick={retry}>{t("retry")}</Button>}
     </>}
-    {flow.step === "success" && <div className="setup-success"><span className="setup-success-mark"><Icon icon={Check} size={20} /></span>
-      <h3>{t("source.added", { name: added?.label ?? name })}</h3><p>{t("setup.via", { name: current?.name ?? t("source.connectionRemoved") })}</p>
+    {flow.step === "success" && <div className="setup-success"><div className="setup-success-heading"><Tile icon={Check} /><div><h3>{t("source.added", { name: added?.label ?? name })}</h3><p>{t("setup.via", { name: current?.name ?? t("source.connectionRemoved") })}</p></div></div>
       <Field label={t("setup.tryPrompt", { name })}><CopyField value={t("setup.firstPrompt")} label={t("copy")} /></Field>
     </div>}
     </div>
