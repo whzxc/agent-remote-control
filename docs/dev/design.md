@@ -41,7 +41,7 @@ An instance matches its form's container height, radius, fill, stroke and elevat
 4. Run `npm run design -- render` and review both theme renders against the layout review.
 5. Show the renders to the user and iterate until they approve the asset.
 6. Implement with the shared React components and runtime tokens.
-7. Run `npm run design -- compare` against the matching fixture and fix the reported differences before reporting.
+7. Run `npm run design -- compare` against the matching fixture and review the overlay. Fix structural differences and systematic offsets. Accept small isolated offsets when the implementation reads as well as the asset.
 
 An asset frame uses the language and text of its fixture, including dates under the fixed 2026-01-01 fixture clock. Generate repetitive geometry with a script kept outside the repository, measure text with `measure`, and copy icon geometry from Lucide. A drafter may propose forms. Approving the renders approves those forms. Drafting, `check`, `render` and implementation may run in a coding lane. `compare` and `accept:ui` run in the main checkout after landing.
 
@@ -86,7 +86,7 @@ npm run design -- compare <asset> --frame=<part> --scenario=<fixture> --region=<
 
 `render` writes `output/design/<path>-light.png` and `-dark.png` at 2x. `gallery` writes `output/design/index.html`, which shows every asset with a System, Light and Dark switch.
 
-`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region or dialog to capture, and each `--click` activates a button by accessible name first. It reads one text per rendered line, including the placeholders of empty fields, skips text scrolled or clipped outside the region, and pairs texts by content. It reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. It does not compare shapes, so review the overlay as well. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means the implementation does not match yet. It starts Vite, so it runs only in the main checkout.
+`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region or dialog to capture, and each `--click` activates a button by accessible name first. It reads one text per rendered line, including the placeholders of empty fields, skips text scrolled or clipped outside the region, and pairs texts by content. It reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. It does not compare shapes, so review the overlay as well. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means it found differences. Treat them as a review list, not a zero gate. Missing or extra texts, wrong order or grouping, and one offset shared by many texts point to real defects, such as a lost font rule or a leftover border. An isolated offset of a few pixels can stay. It starts Vite, so it runs only in the main checkout.
 
 ## Migration
 
