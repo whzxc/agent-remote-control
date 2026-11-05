@@ -418,6 +418,7 @@ export default function ElasticPanel({
                   if (
                     centered || sheet || dock || e.button !== 0 ||
                     !e.isPrimary ||
+                    !e.currentTarget.contains(e.target as Node) ||
                     (e.target as Element).closest("button") ||
                     motion.current?.running
                   )

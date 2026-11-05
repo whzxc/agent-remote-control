@@ -446,9 +446,9 @@ export function SingleChoice({
       style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
       className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
-      {!swatches && options.length <= 5 && (
-        <div ref={measure} className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
-          <div>
+      {!swatches && (tabs || options.length <= 5) && (
+        <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
+          <div ref={measure}>
             {options.map((option) => (
               <span key={option.value}>
                 {option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}
@@ -457,7 +457,7 @@ export function SingleChoice({
           </div>
         </div>
       )}
-      {!dropdown && (tiles || navigation || cards || optionCards || swatches || (options.length <= 5 && fits)) ? (
+      {!dropdown && (tiles || navigation || cards || optionCards || swatches || ((tabs || options.length <= 5) && fits)) ? (
         <RadioGroup.Root
           value={value}
           onValueChange={onChange}

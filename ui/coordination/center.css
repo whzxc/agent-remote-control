@@ -6,7 +6,7 @@
 .elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header { justify-content: flex-start; gap: 32px; padding: 21px 24px 29px; }
 .elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header > h2 { flex: none; margin: 0; font-size: var(--text-title); font-weight: 650; }
 .elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header > .actions { margin-left: auto; gap: 6px; }
-.center-navigation { min-width: 0; }
+.center-navigation { flex: 1; min-width: 0; }
 .center-filters { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .center-filters > * { min-width: 0; max-width: 100%; }
 .center-resource { display: flex; }
@@ -121,5 +121,6 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 }
 :root[data-reduced-motion="true"] .center-technical > summary > .icon { transition: none; }
 @media (max-width: 600px) {
+  .elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header { gap: 8px; padding-inline: 16px; }
   .elastic-panel .dialog-body:has(.coordination-center) { padding: 0 16px 12px; }
 }

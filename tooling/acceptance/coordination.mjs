@@ -6,15 +6,24 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   const checks = [];
   const snapshot = suffix => screenshots ? page.screenshot({ path: path.join(out, `${key}-${suffix}.png`), animations: 'disabled' }) : undefined;
   const board = () => page.getByRole('dialog', { name: m('title'), exact: true });
+  const group = label => board().getByRole('radiogroup', { name: label, exact: true });
+  const dropdown = label => board().getByRole('combobox', { name: label, exact: true });
   const choose = async (label, option) => {
-    const radio = board().getByRole('radio', { name: option, exact: true });
-    if (await radio.isVisible()) await radio.click();
-    else { await board().getByRole('combobox', { name: label, exact: true }).click(); await page.getByRole('option', { name: option, exact: true }).click(); }
+    await group(label).or(dropdown(label)).waitFor();
+    const radio = group(label).getByRole('radio', { name: option, exact: true });
+    if (await radio.isVisible()) {
+      await radio.click();
+      await group(label).getByRole('radio', { name: option, exact: true, checked: true }).waitFor();
+    } else {
+      await dropdown(label).click();
+      await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
+      await dropdown(label).getByText(option, { exact: true }).waitFor();
+    }
   };
   const chosen = async (label, option) => {
-    const radio = board().getByRole('radio', { name: option, exact: true });
+    const radio = group(label).getByRole('radio', { name: option, exact: true });
     if (await radio.isVisible()) return radio.isChecked();
-    return (await board().getByRole('combobox', { name: label, exact: true }).innerText()).trim() === option;
+    return (await dropdown(label).innerText()).trim() === option;
   };
   const count = async value => page.waitForFunction(value => window.__ARC_VIEW_MODEL__().coordination.attention.count === value, value);
   const close = async () => {

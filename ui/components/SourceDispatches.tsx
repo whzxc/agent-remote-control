@@ -86,7 +86,7 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const tone = state === 'needsYou' || state === 'awaitingApproval' || state === 'unknown' || state === 'submissionUnknown' ? 'warning'
             : state === 'done' ? 'success' : state === 'failed' || state === 'submissionFailed' ? 'danger'
             : state === 'running' ? ({ thinking: 'phase-thinking', command: 'phase-command', file: 'phase-file', tool: 'text-secondary', text: 'text-secondary', interaction: 'warning', idle: 'text-tertiary' }[phase]) : 'text-tertiary';
-          return <TaskRow key={record.requestId} disabled={!canOpen} title={title} meta={<>{record.agent ?? "Codex"} · {label}</>} tone={tone} attention={state === 'needsYou' || state === 'awaitingApproval'}
+          return <TaskRow key={record.requestId} disabled={!canOpen} title={title} meta={<>{record.agent ?? "Codex"} · <span>{label}</span></>} tone={tone} attention={state === 'needsYou' || state === 'awaitingApproval'}
             tile={<PhaseTile phase={phase} running={state === "running"} completed={state === "done"} paused={state === "interrupted"} outcome={state === "failed" || state === "submissionFailed" ? "failed" : state === "unknown" || state === "submissionUnknown" ? "unknown" : undefined} />} onClick={() => {
             if (!id || !canOpen) return;
             selectAgentPanel({ type: "task", agent, session: { ...(live ? { ...live, orderAt: Date.parse(record.createdAt) } : unread ? { ...unread, orderAt: Date.parse(record.createdAt) } : {

@@ -250,7 +250,7 @@ export default function CoordinationCenter() {
   const busy = reading || observed.loading || loadingHistory || !!pendingAction;
   const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
   return <Dialog initialFocus={initialFocus} title={t('center.title')} width={820}
-    headerNavigation={<div className="center-navigation"><SingleChoice tabs compact disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
+    headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
     actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
       await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
     })} />}
