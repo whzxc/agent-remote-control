@@ -82,12 +82,12 @@
 .task-interaction-anchor { display: flex; gap: 10px; font-size: var(--text-meta); color: var(--success); }
 .task-interaction-anchor > div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .task-interaction-anchor span { color: var(--text); }
-.task-detail-footer.dialog-footer { display: flex; flex-direction: column; align-items: stretch; padding: 16px 20px 20px; gap: 16px; border: 0; background: var(--surface-raised); }
-.task-needs-you { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; overflow-wrap: anywhere; }
+.task-detail-layer > .task-detail-footer.dialog-footer { display: flex; flex-direction: column; align-items: stretch; padding: 16px 20px 20px; gap: 16px; border: 0; background: var(--surface-raised); }
+.task-needs-you { display: flex; flex: 1 1 auto; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; overflow: hidden; overflow-wrap: anywhere; }
 .task-needs-you > header { display: grid; gap: 8px; }
 .task-needs-you > header > strong { font-size: var(--text-body); font-weight: 600; line-height: 20px; }
 .task-needs-you > header .request-routing-inline { font-size: var(--text-meta); color: var(--text-tertiary); }
-.task-request-card { flex: 1 1 auto; min-height: 0; }
+.task-request-card { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .task-question-options, .task-request-preview { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .task-request-preview { display: flex; flex-direction: column; gap: 16px; }
 .task-request-preview > * { flex-shrink: 0; }
@@ -96,7 +96,7 @@
 .task-request-preview > header > span { font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
 .task-request-preview > p { margin: 0; font-size: var(--text-small); }
 .task-request-preview > pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--text-meta)/20px var(--font-mono); background: var(--surface-sunken); padding: 12px 14px; border-radius: var(--radius-field); }
-.task-question { display: flex; flex-direction: column; min-height: 0; gap: 16px; }
+.task-question { display: flex; flex-direction: column; min-height: 0; gap: 16px; overflow: hidden; }
 .task-question-options { display: grid; gap: 24px; }
 .task-question-field { margin: 0; padding: 0; border: 0; display: grid; gap: 16px; min-width: 0; }
 .task-question-field legend { padding: 0; margin-bottom: 16px; font-size: var(--text-body); line-height: 20px; font-weight: 600; }

@@ -2,14 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { build } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { chromium, type Locator } from "playwright";
 import { fileURLToPath } from "node:url";
 import copy from "../ui/locales/en.json" with { type: "json" };
 
 test("pending input actions and routing stay inside short panels and narrow sheets while content scrolls", { timeout: 30000 }, async () => {
   // Regression: pending input clipped actions and previews; raw fixture snapshots exposed unnamed Radix form radios.
-  // Compile only the DOM fixture in memory. No app, dev server or Core is started.
-  const built = await build({ configFile: false, logLevel: "error", plugins: [react()],
+  // Compile the DOM fixture with the app’s React and utility-CSS plugins. No app, dev server or Core is started.
+  const built = await build({ configFile: false, logLevel: "error", plugins: [react(), tailwindcss()],
     define: { __CONNECTOR_VERSION__: JSON.stringify("test"), "process.env.NODE_ENV": JSON.stringify("production") },
     build: { write: false, minify: false, assetsInlineLimit: Infinity,
       lib: { entry: fileURLToPath(new URL("./fixtures/task-dock-layout.tsx", import.meta.url)), name: "TaskDockFixture", formats: ["iife"] } } });
