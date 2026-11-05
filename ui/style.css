@@ -581,6 +581,9 @@ textarea.input {
   justify-content: center;
   border-radius: 50%;
 }
+.choice-fill .choice-pills { grid-auto-columns: minmax(max-content, 1fr); }
+.choice-measure-swatches > div { gap: 2px; }
+.choice-measure-swatches > div > span { width: 36px; padding: 0; }
 .choice-fill > .select-trigger { width: 100%; }
 .choice-fill .choice-icon-only .choice-option { width: auto; border-radius: 14px; }
 .choice-swatches .choice-radio { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--surface-sunken); padding: 3px; gap: 2px; border-radius: var(--radius-control); }

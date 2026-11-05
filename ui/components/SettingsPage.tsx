@@ -12,7 +12,7 @@ import { connector, run, notify, refreshConnector } from "../state/connector";
 import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Icon, Switch, SingleChoice, Input, Field } from "./ui";
-import { SettingsSection as Group, Setting as Row, SettingsPair } from "./ui/Settings";
+import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
@@ -107,7 +107,7 @@ export default function SettingsPage() {
   return (
     <div className="settings-page settings-stack">
       <Group title={t("behavior")}>
-        <Row title={t("routing.delaySetting")} width={272}>
+        <Row title={t("routing.delaySetting")} width={104}>
           <Input key={status?.requestRoutingDelaySeconds ?? 15} type="number" min={0} max={300} step={1} aria-label={t("routing.delaySetting")} defaultValue={status?.requestRoutingDelaySeconds ?? 15} disabled={!!busy || !status}
             onBlur={event => {
               const seconds = event.currentTarget.valueAsNumber;
@@ -176,12 +176,13 @@ export default function SettingsPage() {
             options={languageOptions.map(option => option.value === "auto" ? { ...option, label: t("system") } : option)}
           />
         </Row>
-        <SettingsPair>
-        <Row title={t("appearance")}>
+      </Group>
+      <Group title={t("appearance")}>
+        <Row title={t("settings.theme")}>
           <SingleChoice fill
             value={currentTheme}
             onChange={(value) => theme.set(value as Theme)}
-            label={t("appearance")}
+            label={t("settings.theme")}
             options={[
               { value: "system", label: t("system") },
               { value: "light", label: t("light") },
@@ -204,7 +205,6 @@ export default function SettingsPage() {
             }))}
           />
         </Row>
-        </SettingsPair>
         {mac && (
           <Row title={t("showAppIn")}>
             <SingleChoice fill

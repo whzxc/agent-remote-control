@@ -13,11 +13,8 @@ export function SettingsSection({ title, children }: { title?: ReactNode; childr
     <Card className="settings-section-card">{children}</Card>
   </section>;
 }
-export function SettingsPair({ children }: { children: ReactNode }) {
-  return <div className="settings-pair">{children}</div>;
-}
 export function Setting({ title, description, children, width = 300, toggle = false }: {
-  title: ReactNode; description?: ReactNode; children: ReactNode; width?: number | "full"; toggle?: boolean;
+  title: ReactNode; description?: ReactNode; children: ReactNode; width?: number; toggle?: boolean;
 }) {
   const id = useId();
   const labelled = isValidElement(children) && (children.type === Input || children.type === Switch);
@@ -29,8 +26,8 @@ export function Setting({ title, description, children, width = 300, toggle = fa
     {description && <p id={`${id}-description`}>{description}</p>}
   </div>;
   return <div className={`setting ${toggle ? "setting-toggle" : "setting-field"}`}>
-    {toggle && control}{copy}
-    {!toggle && <div className="setting-control" style={{ width: width === "full" ? "100%" : width }}>{control}</div>}
+    {copy}
+    <div className="setting-control" style={{ width: toggle ? 44 : width }}>{control}</div>
   </div>;
 }
 export function SettingsDialog({ width = 720, ...props }: ComponentProps<typeof Dialog>) {

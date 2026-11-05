@@ -1142,8 +1142,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 /* Settings surface composition; shared controls retain their own forms. */
 .workspace:has(> :is(.settings-page, .experimental-settings, .pets-page)) { padding-top: 20px; }
 .experimental-settings { gap: 24px; }
-.display-bubble-layout { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 300px); gap: 16px; align-items: center; }
-.display-bubble-choices { display: grid; gap: 16px; }
+.display-settings .activity-preview { justify-items: center; padding: 20px 0 28px; }
 .agents-toolbar { display: flex; align-items: center; gap: 8px; min-height: 34px; margin-top: -9px; margin-bottom: 11px; }
 .agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
 .agent-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
@@ -1151,4 +1150,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-summary-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
 .agent-summary-meta > p { margin: 0; }
 .agent-summary-meta > a { color: var(--accent-text); font-size: var(--text-small); }
-@media (max-width: 620px) { .display-bubble-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
+
+.app-scene:not(.sheet-wide):has(.settings-page, .experimental-settings) { --sheet-width: min(720px, calc(100vw - 2 * var(--sheet-inset))); }

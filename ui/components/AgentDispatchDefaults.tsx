@@ -97,7 +97,7 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
       // Keep effort only while the newly selected model still supports it.
       effort: next.effort && (next.model === model || !next.model || !modelEfforts(next.model).length || modelEfforts(next.model).includes(next.effort)) ? next.effort : "" })} />;
   if (inline) return <div className="task-dispatch-fields"><span>{label}</span>{picker}</div>;
-  return rows ? <Setting title={label} width="full">{picker}</Setting> : <Field label={label}>{picker}</Field>;
+  return rows ? <Setting title={label} width={360}>{picker}</Setting> : <Field label={label}>{picker}</Field>;
 }
 
 /** Edit the policy defaults used when a control source omits model or effort. */

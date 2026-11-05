@@ -8,7 +8,7 @@ import { navigation } from "../state/navigation";
 import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, downloadUpdate, skipUpdate, updateActive } from "../state/updates";
 
 import { Button, Notice, Progress, Icon, IconButton, Tooltip } from "./ui";
-import { SettingsSection } from "./ui/Settings";
+import { SettingsSection, Setting } from "./ui/Settings";
 import { Card } from "./ui/card";
 import "./AppUpdate.css";
 
@@ -54,9 +54,8 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
     : feedback ? state.error ? t('updateCheckRetry') : state.message : t('checkForUpdates');
   return <section className="settings-about">
     <SettingsSection title={t('aboutApp')}>
-      <div className="update-summary">
-        <p>Agent Remote Control v{status?.version ?? '—'}</p>
-        {available() && <p className="update-version">{t('newVersionValue', { version: state.version })}</p>}
+      <Setting title={`Agent Remote Control v${status?.version ?? '—'}`} width={available() ? 280 : 152}
+        description={available() ? t('newVersionValue', { version: state.version }) : undefined}>
         <div className="actions">
           <Tooltip text={feedback || label}>
             <Button busy={checking} disabled={!isDesktop || updateActive()} onClick={() => action(checkUpdate())}>
@@ -65,7 +64,7 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
           </Tooltip>
           {available() && <Button onClick={() => { navigation.set(old => ({ ...old, page: 'overview' })); showUpdate(); }}>{t('viewUpdate')}</Button>}
         </div>
-      </div>
+      </Setting>
     </SettingsSection>
     <nav className="settings-about-links" aria-label={t('aboutApp')}>
       <span>whzxc/agent-remote-control</span>

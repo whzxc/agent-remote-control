@@ -13,14 +13,15 @@
 .update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: var(--text-body); line-height: 24px; margin: 0; }
 .update-panel-footer { padding: 24px; flex-wrap: wrap; }
 .update-panel-footer > .primary { --button-width: 220px; max-width: 100%; }
-.update-summary { display: grid; gap: 12px; }
-.update-summary > p { line-height: 18px; }
-.update-summary > .update-version { color: var(--text-secondary); font-size: var(--text-meta); margin-top: -8px; }
-.settings-about-links { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-inline: 16px; margin-top: 14px; }
+.settings-about-links { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-inline: 16px; margin-top: 17px; }
 .settings-about-links > span { font-size: var(--text-meta); color: var(--text-secondary); }
 @media (prefers-reduced-motion: reduce) { .update-ring, .update-panel { animation: none; } }
 :root[data-reduced-motion="true"] :is(.update-ring, .update-panel) { animation: none; }
-.update-summary .actions > :first-child { --button-width: 152px; }
-.update-summary .actions > :nth-child(2) { --button-width: 112px; }
 .settings-about-links > button { --button-width: 102px; }
 .settings-about-links > button + button { --button-width: 136px; }
+
+.settings-about .setting-control .actions { justify-content: flex-end; }
+.settings-about .setting-control .button { --button-width: auto; }
+.settings-about-links > #settings-experimental-entry { margin-left: auto; }
+
+.settings-about .setting { min-height: 64px; }

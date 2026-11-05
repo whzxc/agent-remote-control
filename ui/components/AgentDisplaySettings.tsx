@@ -17,7 +17,7 @@ import {
   SingleChoice,
   Switch,
 } from "./ui";
-import { SettingsDialog as Dialog, SettingsSection as Group, Setting as Row, SettingsPair } from "./ui/Settings";
+import { SettingsDialog as Dialog, SettingsSection as Group, Setting as Row } from "./ui/Settings";
 export default function AgentDisplaySettings({
   onClose,
   agent,
@@ -49,7 +49,7 @@ export default function AgentDisplaySettings({
       {error && <Notice>{error}</Notice>}
       {agent && <AgentDispatchDefaults agent={agent} />}
       <Group title={t("activity.bubbleSettings")}>
-        <div className="display-bubble-layout"><div className="activity-preview" aria-label={t("activity.preview")}>
+        <div className="activity-preview" aria-label={t("activity.preview")}>
           <div className="activity-bubble" data-density={density} style={{ "--bubble-width": `${bubbleWidths[width]}px`, "--bubble-height": `${bubbleHeights[density]}px` } as CSSProperties}>
             <ActivityBubbleContent density={density} now={83000} session={{ id: "preview", source: "arc-task", title: t("activity.previewTitle"), phase: "command", headline: "npm run check", phaseSince: null,
               turnStartedAt: "1970-01-01T00:00:00Z", timeline: false, orderAt: 0, project: "/workspace/arc", recentContent: [t("activity.previewPrevious"), "npm run check"], recentSteps: ["thinking", "file", "command"],
@@ -57,14 +57,13 @@ export default function AgentDisplaySettings({
             }} />
           </div>
         </div>
-        <div className="display-bubble-choices"><Row title={t("activity.density")}><SingleChoice fill label={t("activity.density")} value={density} onChange={value => bubbleDensity.set(value as BubbleDensity)}
+        <Row title={t("activity.density")}><SingleChoice fill label={t("activity.density")} value={density} onChange={value => bubbleDensity.set(value as BubbleDensity)}
           options={Object.keys(bubbleHeights).map(value => ({ value, label: t(`activity.density.${value}`) }))} /></Row>
         <Row title={t("activity.width")}><SingleChoice fill label={t("activity.width")} value={width} onChange={value => bubbleWidth.set(value as BubbleWidth)}
           options={Object.keys(bubbleWidths).map(value => ({ value, label: t(`activity.width.${value}`) }))} /></Row>
-        </div></div>
         <Row toggle title={t("activity.autoCompact")} description={t("activity.autoCompactHint")}><Switch label={t("activity.autoCompact")} checked={autoCompact} onChange={bubbleAutoCompact.set} /></Row>
       </Group>
-      <Group title={t("usageAppearance")}><SettingsPair>
+      <Group title={t("usageAppearance")}>
         <Row title={t("topology.layout")}><SingleChoice fill label={t("topology.layout")} value={layout}
           onChange={value => topologyLayout.set(value as LayoutPreference)}
           options={['auto', 'landscape', 'portrait'].map(value => ({ value, label: t(`topology.layout.${value}`) }))} /></Row>
@@ -79,14 +78,14 @@ export default function AgentDisplaySettings({
             }))}
           />
         </Row>
-      </SettingsPair></Group>
+      </Group>
       <Group title={t("agentQuotaGroup")}>
         <Row toggle title={t("usageEnabled")}>
           <Switch label={t("usageEnabled")} checked={!!snapshot?.settings.enabled}
             disabled={readOnlyBrowser || saving || !snapshot}
             onChange={(enabled) => void save(() => saveSubscriptions({ enabled }))} />
         </Row>
-        <SettingsPair><Row title={t("agentQuotaDisplay")} width={220}>
+        <Row title={t("agentQuotaDisplay")} width={220}>
           <SingleChoice fill
             value={quota}
             onChange={(value) =>
@@ -112,7 +111,7 @@ export default function AgentDisplaySettings({
             ]}
           />
         </Row>
-        </SettingsPair>
+
         <Row title={t("usageAutoRefresh")}>
           <SingleChoice fill
             value={String(snapshot?.settings.refreshMinutes ?? 3)}

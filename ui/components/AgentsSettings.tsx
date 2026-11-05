@@ -110,7 +110,7 @@ export function AgentDetails({
       )
     : undefined;
   return (
-    <Dialog title={name(agent)} onClose={onClose} headerless width={440}>
+    <Dialog title={name(agent)} onClose={onClose} headerless>
       <div className="agent-summary">
         <BrandMark markup={icons[agent.agent]} />
         <div>

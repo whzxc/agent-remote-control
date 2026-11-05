@@ -463,7 +463,7 @@ export function SingleChoice({
     if (container.current) observer.observe(container.current);
     if (measure.current) observer.observe(measure.current);
     return () => observer.disconnect();
-  }, [options, iconOnly, tabs]);
+  }, [options, iconOnly, swatches, tabs]);
   return (
     <div
       ref={container}
@@ -472,18 +472,18 @@ export function SingleChoice({
       style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
       className={`choice ${fill ? "choice-fill" : ""} ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
-      {!swatches && (tabs || options.length <= 5) && (
-        <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
+      {(swatches || tabs || options.length <= 5) && (
+        <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""} ${swatches ? "choice-measure-swatches" : ""}`} aria-hidden="true">
           <div ref={measure}>
             {options.map((option) => (
               <span key={option.value}>
-                {option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}
+                {!swatches && <>{option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}</>}
               </span>
             ))}
           </div>
         </div>
       )}
-      {!dropdown && (tiles || navigation || cards || optionCards || swatches || ((tabs || options.length <= 5) && fits)) ? (
+      {!dropdown && (tiles || navigation || cards || optionCards || ((swatches || tabs || options.length <= 5) && fits)) ? (
         <RadioGroup.Root
           value={value}
           onValueChange={onChange}
