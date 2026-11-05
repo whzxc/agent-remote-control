@@ -7,7 +7,7 @@ const designDir = path.join(root, 'design');
 const outDir = path.join(root, 'output/design');
 const BEGIN = '<!-- design:tokens -->';
 const END = '<!-- /design:tokens -->';
-const USAGE = 'Usage: npm run design -- sync | check [asset...] | render [asset...] | gallery | measure <text> [--size=14] [--weight=400] [--mono]';
+const USAGE = 'Usage: npm run design -- sync | check [asset...] | render [asset...] | gallery | measure <text> [--size=14] [--weight=400] [--mono] | compare <asset> --frame=<part> --scenario=<fixture> --region=<name> [--click=<button>...] [--viewport=1280x800]';
 const THEMES = ['light', 'dark'];
 
 export function parseTokens(css) {
@@ -74,16 +74,38 @@ export function syncSvg(svg, region) {
 }
 
 // An instance keeps its form's container geometry and paint and only uses the form's text styles.
+// A data-fluid container may change height with its content.
 export function compareInstance(definition, instance) {
   const differences = [];
   if (!definition.container !== !instance.container) differences.push('container rect presence differs');
   else if (definition.container) {
     for (const key of ['height', 'rx', 'fill', 'stroke', 'filter']) {
+      if (key === 'height' && definition.container.fluid) continue;
       if (definition.container[key] !== instance.container[key]) differences.push(`${key} ${JSON.stringify(instance.container[key])} should be ${JSON.stringify(definition.container[key])}`);
     }
   }
   for (const style of instance.text) if (!definition.text.includes(style)) differences.push(`text style ${style} is not used by the form`);
   return differences;
+}
+
+
+// Pairs design and implementation text boxes by content, in reading order.
+export function matchTexts(design, implementation) {
+  const order = (a, b) => a.y - b.y || a.x - b.x;
+  const pool = [...implementation].sort(order), pairs = [], missing = [];
+  for (const item of [...design].sort(order)) {
+    let index = pool.findIndex(other => other.text === item.text);
+    if (index < 0) index = pool.findIndex(other => other.text.startsWith(item.text));
+    if (index < 0) { missing.push(item); continue; }
+    pairs.push([item, pool.splice(index, 1)[0]]);
+  }
+  return { pairs, missing, extra: pool };
+}
+
+// Compares the anchored edge, vertical center and width of a paired text.
+export function textDelta(design, implementation) {
+  const edge = box => design.anchor === 'middle' ? box.x + box.width / 2 : design.anchor === 'end' ? box.x + box.width : box.x;
+  return { dx: edge(implementation) - edge(design), dy: (implementation.y + implementation.height / 2) - (design.y + design.height / 2), dw: implementation.width - design.width };
 }
 
 function listAssets(dir = designDir) {
@@ -171,7 +193,7 @@ function inspectDocument() {
       nested: !!group.parentElement.closest('[data-component]'),
       at: `${group.dataset.component}/${group.dataset.form ?? '?'} at ${group.getAttribute('transform') ?? 'origin'}`,
       signature: {
-        container: container ? { height: container.getAttribute('height'), rx: container.getAttribute('rx') ?? '0', fill: container.style.fill, stroke: container.style.stroke, filter: container.style.filter } : null,
+        container: container ? { height: container.getAttribute('height'), fluid: container.hasAttribute('data-fluid'), rx: container.getAttribute('rx') ?? '0', fill: container.style.fill, stroke: container.style.stroke, filter: container.style.filter } : null,
         text: [...new Set(own.map(t => [t.style.fill, t.style.fontSize, t.style.fontWeight, t.classList.contains('mono') ? 'mono' : 'ui'].join(' ')))].sort(),
       },
     });
@@ -297,6 +319,99 @@ async function measure(args) {
   } finally { await browser.close(); }
 }
 
+
+function designFrame(part) {
+  const frame = document.querySelector(`[data-part="${part}"]`);
+  if (!frame) return null;
+  const shell = frame.querySelector('[data-component] > rect') ?? frame;
+  const origin = shell.getBoundingClientRect();
+  const texts = [...frame.querySelectorAll('text')].filter(t => !t.classList.contains('note') && t.textContent.trim()).map(t => {
+    const b = t.getBoundingClientRect();
+    return { text: t.textContent.replace(/\s+/g, ' ').trim(), x: b.left - origin.left, y: b.top - origin.top, width: b.width, height: b.height, anchor: getComputedStyle(t).textAnchor };
+  });
+  return { box: { x: origin.left, y: origin.top, width: origin.width, height: origin.height }, texts };
+}
+
+function implementationTexts(root) {
+  const origin = root.getBoundingClientRect(), texts = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.textContent.replace(/\s+/g, ' ').trim();
+    const owner = node.parentElement;
+    if (!text || !owner || owner.closest('.sr-only, [aria-hidden="true"]')) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rect = [...range.getClientRects()].find(r => r.width > 1 && r.height > 1);
+    if (!rect) continue;
+    texts.push({ text, x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height });
+  }
+  return { box: { x: origin.left, y: origin.top, width: origin.width, height: origin.height }, texts };
+}
+
+async function compare(args) {
+  const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+  const asset = args.find(arg => !arg.startsWith('--'));
+  const frame = option('frame'), scenario = option('scenario'), region = option('region');
+  if (!asset || !frame || !scenario || !region) throw new Error(USAGE);
+  const { requireMainCheckout } = await import('./coding-lane.mjs');
+  requireMainCheckout();
+  const file = selectAssets([asset])[0];
+  const fixture = JSON.parse(readFileSync(path.join(root, 'tooling/acceptance/scenarios', `${scenario}.json`), 'utf8'));
+  const theme = fixture.theme === 'dark' ? 'dark' : 'light';
+  const [width, height] = (option('viewport') ?? '1280x800').split('x').map(Number);
+  const clicks = args.filter(arg => arg.startsWith('--click=')).map(arg => arg.slice('--click='.length));
+  const target = path.join(outDir, 'compare', `${path.basename(file, '.svg')}-${frame}-${scenario}`);
+  mkdirSync(target, { recursive: true });
+  const { createServer } = await import('vite');
+  const port = Number(option('port') ?? 5188);
+  const server = await createServer({ configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true }, logLevel: 'error' });
+  const browser = await launch();
+  let design, implementation;
+  try {
+    await server.listen();
+    const sheet = await browser.newPage({ colorScheme: theme });
+    await sheet.setViewportSize(svgSize(readFileSync(file, 'utf8')));
+    await sheet.goto(pathToFileURL(file).href);
+    design = await sheet.evaluate(designFrame, frame);
+    if (!design) throw new Error(`${relative(file)} has no data-part="${frame}"`);
+    await sheet.screenshot({ path: path.join(target, 'design.png'), clip: design.box });
+    const app = await browser.newPage({ viewport: { width, height }, colorScheme: theme, reducedMotion: 'reduce', locale: fixture.language === 'zh-CN' ? 'zh-CN' : 'en-US' });
+    await app.route('**/api/**', route => route.abort());
+    // Matches accept:ui: stable elapsed labels while timers keep running.
+    await app.addInitScript(() => { const original = Date; const fixed = original.parse('2026-01-01T00:00:00Z'); Date = class extends original { constructor(...values) { super(...(values.length ? values : [fixed])); } static now() { return fixed; } }; });
+    await app.goto(`http://127.0.0.1:${port}/?scenario=${encodeURIComponent(scenario)}`);
+    await app.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
+    for (const name of clicks) await app.getByRole('button', { name, exact: true }).first().click();
+    await app.waitForTimeout(300);
+    const panel = app.getByRole('region', { name: region, exact: true });
+    implementation = await panel.evaluate(implementationTexts);
+    await panel.screenshot({ path: path.join(target, 'implementation.png') });
+  } finally { await browser.close(); await server.close(); }
+  const { PNG } = await import('pngjs');
+  const a = PNG.sync.read(readFileSync(path.join(target, 'design.png'))), b = PNG.sync.read(readFileSync(path.join(target, 'implementation.png')));
+  const overlay = new PNG({ width: Math.min(a.width, b.width), height: Math.min(a.height, b.height) });
+  for (let y = 0; y < overlay.height; y++) for (let x = 0; x < overlay.width; x++) {
+    const o = (y * overlay.width + x) * 4, i = (y * a.width + x) * 4, j = (y * b.width + x) * 4;
+    for (let c = 0; c < 3; c++) overlay.data[o + c] = Math.round((a.data[i + c] + b.data[j + c]) / 2);
+    overlay.data[o + 3] = 255;
+  }
+  writeFileSync(path.join(target, 'overlay.png'), PNG.sync.write(overlay));
+  const { pairs, missing, extra } = matchTexts(design.texts, implementation.texts);
+  const rows = pairs.map(([d, i]) => ({ text: d.text, ...textDelta(d, i) })).map(row => ({ ...row, off: Math.max(Math.abs(row.dx), Math.abs(row.dy), Math.abs(row.dw)) }));
+  const off = rows.filter(row => row.off > 2).sort((p, q) => q.off - p.off);
+  const report = { asset: relative(file), frame, scenario, size: { design: [Math.round(design.box.width), Math.round(design.box.height)], implementation: [Math.round(implementation.box.width), Math.round(implementation.box.height)] }, matched: rows.length, offBy2px: off, missing: missing.map(m => m.text), extra: extra.map(e => e.text) };
+  writeFileSync(path.join(target, 'report.json'), JSON.stringify(report, null, 2));
+  const cell = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fmt = value => (value > 0 ? '+' : '') + value.toFixed(1);
+  writeFileSync(path.join(target, 'index.html'), `<!doctype html><meta charset="utf-8"><title>${cell(report.asset)} ${cell(frame)}</title><style>body{font:13px system-ui;margin:24px;background:#f4f4f4}.row{display:flex;gap:16px;align-items:flex-start;overflow:auto}figure{margin:0}img{display:block;max-width:none;border:1px solid #ccc}table{border-collapse:collapse;margin-top:24px}td,th{padding:4px 10px;border-bottom:1px solid #ddd;text-align:left}td.n{font-family:ui-monospace,monospace;text-align:right}</style>
+<h1>${cell(report.asset)} · ${cell(frame)} vs ${cell(scenario)}</h1><p>Matched ${rows.length} texts. ${off.length} differ by more than 2px. ${missing.length} missing in implementation. ${extra.length} extra in implementation.</p>
+<div class="row"><figure><figcaption>Design</figcaption><img src="design.png"></figure><figure><figcaption>Implementation</figcaption><img src="implementation.png"></figure><figure><figcaption>Overlay</figcaption><img src="overlay.png"></figure></div>
+<table><tr><th>Text</th><th>dx</th><th>dy</th><th>dw</th></tr>${off.map(row => `<tr><td>${cell(row.text)}</td><td class="n">${fmt(row.dx)}</td><td class="n">${fmt(row.dy)}</td><td class="n">${fmt(row.dw)}</td></tr>`).join('')}</table>
+<h2>Missing in implementation</h2><p>${missing.map(m => cell(m.text)).join(' · ') || 'None'}</p><h2>Extra in implementation</h2><p>${extra.map(e => cell(e.text)).join(' · ') || 'None'}</p>`);
+  console.log(`${relative(path.join(target, 'index.html'))}: matched ${rows.length}, ${off.length} off by >2px, ${missing.length} missing, ${extra.length} extra.`);
+  if (off.length || missing.length || extra.length) process.exitCode = 1;
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   if (command === 'sync' && !args.length) return sync();
@@ -304,6 +419,7 @@ async function main() {
   if (command === 'render') return render(args);
   if (command === 'gallery' && !args.length) return gallery();
   if (command === 'measure') return measure(args);
+  if (command === 'compare') return compare(args);
   throw new Error(USAGE);
 }
 

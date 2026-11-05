@@ -20,7 +20,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <rect data-canvas="" width="704" height="406" style="fill:var(--canvas)"/>
 <text x="72" y="78" class="note">workspace</text>
 <g data-component="panel" data-form="workspace" transform="translate(72 94)">
-  <rect width="560" height="240" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+  <rect width="560" height="240" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
   <text x="24" y="30" style="fill:var(--text);font-size:var(--text-title);font-weight:650">MCP 中枢</text>
   <g data-component="icon-button" data-form="regular" transform="translate(462 13)">
     <rect width="34" height="34" rx="17" style="fill:var(--surface-sunken)"/>

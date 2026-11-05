@@ -8,7 +8,7 @@ SVG assets in `design/` define how ARC looks. React implementations follow them.
 
 - `design/tokens.css` holds color, type, radius, size and shadow tokens for the light and dark themes. It is the token source for assets and for the runtime sheet.
 - `design/components/<name>.svg` holds one shared component. Each top-level `data-component` group in the file is one presentation form.
-- `design/surfaces/<name>.svg` holds a panel, dialog or page composed from component instances.
+- `design/surfaces/<name>.svg` holds a panel, dialog or page composed from component instances. Each declared form is a `data-part="frame-<form>"` group whose first component is the surface shell.
 
 ## Presentation forms
 
@@ -31,7 +31,7 @@ SVG assets in `design/` define how ARC looks. React implementations follow them.
 - Form labels and other annotations use `class="note"` and stay outside component groups.
 - An asset may animate with CSS or SMIL to show timing and easing. Interactive behavior stays in [UI conventions](ui.md).
 
-An instance matches its form's container height, radius, fill, stroke and elevation. It uses only text styles that the form uses. Width and content may vary.
+An instance matches its form's container height, radius, fill, stroke and elevation. It uses only text styles that the form uses. Width and content may vary. A form whose container rect carries `data-fluid="height"` may also change height with its content.
 
 ## Workflow
 
@@ -41,7 +41,7 @@ An instance matches its form's container height, radius, fill, stroke and elevat
 4. Run `npm run design -- render` and review both theme renders.
 5. Show the renders to the user and iterate until they approve the asset.
 6. Implement with the shared React components and runtime tokens.
-7. Compare the matching fixture screenshot with the asset render at the same size before reporting.
+7. Run `npm run design -- compare` against the matching fixture and fix the reported differences before reporting.
 
 ## Commands
 
@@ -51,11 +51,14 @@ npm run design -- check [asset...]
 npm run design -- render [asset...]
 npm run design -- gallery
 npm run design -- measure "<text>" [--size=14] [--weight=400] [--mono]
+npm run design -- compare <asset> --frame=<part> --scenario=<fixture> --region=<name> [--click=<button>...] [--viewport=1280x800]
 ```
 
 `check` loads every asset in Chromium. It reports stale token regions, literal colors, undefined tokens, overlapping text, text outside the canvas, text overflowing its container, unknown forms and instances that differ from their form. A nonzero exit means the asset is not ready.
 
 `render` writes `output/design/<path>-light.png` and `-dark.png` at 2x. `gallery` writes `output/design/index.html`, which shows every asset with a System, Light and Dark switch.
+
+`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region to capture, and each `--click` activates a button by accessible name first. It pairs texts by content and reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means the implementation does not match yet. It starts Vite, so it runs only in the main checkout.
 
 ## Migration
 
