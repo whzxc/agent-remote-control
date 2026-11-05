@@ -563,6 +563,10 @@ textarea.input {
     color var(--duration),
     box-shadow var(--duration);
 }
+.choice-measure > div > span,
+.choice-pills .choice-option {
+  min-width: var(--choice-option-min-width, auto);
+}
 .choice-pills .choice-option:hover:not([data-state="checked"]) {
   background: transparent;
   color: var(--text);

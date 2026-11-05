@@ -124,7 +124,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
-    <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 3</text>
+    <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 1</text>
     <g data-component="tag" data-form="spec" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
@@ -150,7 +150,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
-    <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 1</text>
+    <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 3</text>
     <g data-component="tag" data-form="spec" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
