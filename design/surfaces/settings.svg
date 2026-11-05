@@ -129,25 +129,27 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <g transform="translate(3 3)" >
 <rect width="36" height="28" rx="14" style="fill:var(--surface-raised);filter:var(--elev-sm)"/>
 </g>
-<g transform="translate(12 9)" >
-<circle cx="8" cy="8" r="8" style="fill:var(--role-source)"/>
-<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:var(--role-agent)"/>
+<g data-brand="theme-color-swatches">
+<g transform="translate(12 9)" data-theme-color="arc">
+<circle cx="8" cy="8" r="8" style="fill:#5B5FF5"/>
+<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:#5B5FF5"/>
 </g>
-<g transform="translate(50 9)" >
-<circle cx="8" cy="8" r="8" style="fill:var(--phase-file)"/>
-<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:var(--phase-command)"/>
+<g transform="translate(50 9)" data-theme-color="blue">
+<circle cx="8" cy="8" r="8" style="fill:#00a6c7"/>
+<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:#007aff"/>
 </g>
-<g transform="translate(88 9)" >
-<circle cx="8" cy="8" r="8" style="fill:var(--role-source)"/>
-<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:var(--phase-thinking)"/>
+<g transform="translate(88 9)" data-theme-color="purple">
+<circle cx="8" cy="8" r="8" style="fill:#f8509e"/>
+<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:#943d96"/>
 </g>
-<g transform="translate(126 9)" >
-<circle cx="8" cy="8" r="8" style="fill:var(--danger)"/>
-<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:var(--accent)"/>
+<g transform="translate(126 9)" data-theme-color="orange">
+<circle cx="8" cy="8" r="8" style="fill:#e1393e"/>
+<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:#f78218"/>
 </g>
-<g transform="translate(164 9)" >
-<circle cx="8" cy="8" r="8" style="fill:var(--warning)"/>
-<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:var(--success)"/>
+<g transform="translate(164 9)" data-theme-color="green">
+<circle cx="8" cy="8" r="8" style="fill:#e0b219"/>
+<path d="M8 0a8 8 0 0 1 0 16Z" style="fill:#22b85c"/>
+</g>
 </g>
 </g>
 </g>
