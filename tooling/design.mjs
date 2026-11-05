@@ -311,7 +311,7 @@ async function gallery() {
   const css = output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(item => item.source).join('\n');
   const js = output.filter(item => item.type === 'chunk').map(item => item.code).join('\n').replaceAll('</script', '<\\/script');
   const data = JSON.stringify(assets).replaceAll('<', '\\u003c');
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ARC design canvas</title><style>${css}</style></head><body><div id="root"></div><script>window.arcDesignAssets=${data};</script><script>${js}</script></body></html>`;
+  const html = `<!doctype html><html lang="en" data-arc-browser><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ARC design canvas</title><style>${css}</style></head><body><div id="root"></div><script>window.arcDesignAssets=${data};</script><script>${js}</script></body></html>`;
   mkdirSync(outDir, { recursive: true });
   writeFileSync(path.join(outDir, 'index.html'), html);
   console.log(relative(path.join(outDir, 'index.html')));
