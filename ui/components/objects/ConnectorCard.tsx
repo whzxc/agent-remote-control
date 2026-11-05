@@ -8,7 +8,7 @@ import { controlSource, controlSourcePlatform } from '../../controlSources';
 import { connector, refreshConnector } from '../../state/connector';
 import { sourceDate } from '../../sourcePresentation';
 import type { ControlSource } from '../../state/types';
-import { Button, Dialog, IconButton, Input, Notice, Status } from '../ui';
+import { Button, Dialog, IconButton, Input, Notice } from '../ui';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Sensitive } from '../Sensitive';
 import SourceIcon from '../SourceIcon';
@@ -41,19 +41,24 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
     catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
-  const details = [
+  const identity = [
     [t('platforms.product'), product?.displayName],
     [t('platforms.client'), grant?.clientName !== product?.displayName ? grant?.clientName : undefined],
     [t('platforms.email'), source.authorizationFacts?.email],
     [t('platforms.organization'), source.authorizationFacts?.orgName],
     [t('platforms.accountId'), source.authorizationFacts?.accountId],
+  ].filter((row): row is [string, string] => !!row[1]);
+  const connection = [
     [t('platforms.connection'), ingress?.name ?? source.connectionName],
     [t('platforms.added'), source.createdAt ? new Date(source.createdAt).toLocaleString(locale.get(), { hour12: false }) : undefined],
+  ].filter((row): row is [string, string] => !!row[1]);
+  const activity = [
     [t('source.authorizedAt'), grant?.connectedAt || source.connectedAt ? sourceDate(grant?.connectedAt || source.connectedAt) : undefined],
     [t('source.lastSeen'), source.lastSeenAt ? sourceDate(source.lastSeenAt) : undefined],
   ].filter((row): row is [string, string] => !!row[1]);
-  return <Card asChild><section aria-label={source.label}>
-    <CardHeader><div className="flex min-w-0 flex-wrap items-center gap-3"><SourceIcon platform={source.product} />
+  const facts = identity.length <= 1 ? [[...identity, ...connection], activity] : [identity, connection, activity];
+  return <Card asChild className="gap-3"><section className="connector-card" aria-label={source.label}>
+    <CardHeader><div className="connector-card-heading"><SourceIcon platform={source.product} />
       {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) finishEditing(); }
       }}>
@@ -61,14 +66,15 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
           <IconButton icon={Check} label={t('save')} type="submit" busy={busy} />
           <IconButton icon={X} label={t('cancel')} disabled={busy} onClick={finishEditing} />
         </div>{error && <p id={`${labelId}-error`} className="field-error" role="alert">{error}</p>}
-      </form> : <div className="connector-name flex min-w-0 flex-1 items-center gap-2"><h3 className="min-w-0 break-words">{source.label}</h3>
-        <IconButton ref={editTrigger} disabled={readOnlyBrowser} className="connector-rename shrink-0" icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />
-      </div>}
-      <Status tone={source.state === 'connected' ? 'success' : 'neutral'}>{t(`source.state.${source.state}`)}</Status>
+      </form> : <div className="connector-name"><h3>{source.label}</h3><span className="connector-state" data-connected={source.state === 'connected' || undefined}>· {t(`source.state.${source.state}`)}</span></div>}
+      {editing && <span className="connector-state" data-connected={source.state === 'connected' || undefined}>{t(`source.state.${source.state}`)}</span>}
+      <div className="connector-actions">
+      {!editing && <IconButton compact ref={editTrigger} disabled={readOnlyBrowser || busy} icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />}
       <PetPicker scope={`source:${source.id}`} name={source.label} platform={controlSourcePlatform(source.product).id} />
-      <IconButton icon={Trash2} disabled={readOnlyBrowser || editing} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
+      <IconButton compact icon={Trash2} disabled={readOnlyBrowser || editing || busy} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
+      </div>
     </div></CardHeader>
-    <CardContent><dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2">{details.map(([name, value]) => <div key={name} className="min-w-0"><dt className="text-sm text-muted-foreground">{name}</dt><dd className="m-0 break-words"><Sensitive>{value}</Sensitive></dd></div>)}</dl></CardContent>
+    <CardContent><dl className="connector-facts">{facts.filter(group => group.length).map((group, index) => <div className="connector-fact-group" key={index}>{group.map(([name, value]) => <div className="connector-fact" key={name}><dt>{name}</dt><dd><Sensitive>{value}</Sensitive></dd></div>)}</div>)}</dl></CardContent>
     {removing && <Dialog centered title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><Button disabled={busy} onClick={() => setRemoving(false)}>{t('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
       <p>{t('platforms.removeConfirm')}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}

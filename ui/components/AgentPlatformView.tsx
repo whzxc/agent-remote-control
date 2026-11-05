@@ -1,6 +1,6 @@
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { RefreshCw, Settings, X } from 'lucide-react';
 import { t } from '../i18n';
 import { useAccounts } from '../state/accounts';
@@ -11,11 +11,13 @@ import { orderedSubset } from '../topology/order';
 import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
 import { AgentAccountCard } from './AccountCards';
 import { DialogClose, IconButton, Notice } from './ui';
+import { Card } from './ui/card';
 
 export default function AgentPlatformView({ agent, onSettings, widthControl }: { agent: Agent; onSettings: () => void; widthControl?: ReactNode }) {
+  const [refreshing, setRefreshing] = useState(false);
   const state = useAccounts(), orders = topologyAccountOrder.use();
   const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
-  return <section className="agent-panel-layer">
+  return <section className="agent-panel-layer agent-platform-view">
     <header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} quota={null} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
@@ -25,10 +27,13 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
       {state.error && <Notice>{state.error}</Notice>}
       {accounts.map(account => <AgentAccountCard key={account.id} account={account}
         onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: account.id })} />)}
-      {!accounts.length && !state.error && <Notice action={<>
-        <IconButton icon={RefreshCw} label={t('refreshAgents')} onClick={() => void refreshAgents(true)} />
-        <IconButton icon={Settings} label={t('agents')} onClick={onSettings} />
-      </>}>{t(agent.installed && agent.available && agent.enabled ? 'agentReadyNoAccounts' : 'agentNeedsSetup')}</Notice>}
+      {!accounts.length && !state.error && <Card className="native-agent-card">
+        <p>{t(agent.installed && agent.available && agent.enabled ? 'agentReadyNoAccounts' : 'agentNeedsSetup')}</p>
+        <div className="actions">
+        <IconButton compact icon={RefreshCw} label={t('refreshAgents')} busy={refreshing} onClick={async () => { setRefreshing(true); try { await refreshAgents(true); } finally { setRefreshing(false); } }} />
+        <IconButton compact icon={Settings} label={t('agents')} disabled={refreshing} onClick={onSettings} />
+        </div>
+      </Card>}
     </div>
   </section>;
 }

@@ -50,13 +50,6 @@
   --phase-text: #9aaeff;
   --topology-error: #ff4967;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-    --canvas: #171412;
-    --text: #f3ebe3;
-  }
-}
 /* Host colors remain semantic; shared controls use the same Connector tokens. */
 :root[data-surface="mcp"] {
   --canvas: var(--color-background-primary, var(--surface));
@@ -106,7 +99,7 @@
   --task-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
-/* Studio lighting overrides presentation without changing the saved theme. */
+/* Studio lighting owns backdrop colors; panels use the design theme. */
 :root[data-studio-phase="day"] {
   --studio-wall: #eee4d6;
   --studio-veil: #fff9ee30;
@@ -116,16 +109,6 @@
   --studio-leaf-shadow: #5b644c;
   --studio-lamp-glow: #ffd69a;
   --studio-night-glint: #c6d7ff;
-  --surface: #fffdf8;
-  --surface-subtle: #f6f0e8;
-  --surface-raised: #fffefa;
-  --text: #302d34;
-  --text-secondary: #625b65;
-  --text-tertiary: #746b76;
-  --border: #d8cfc6;
-  --border-strong: #b9aaa4;
-  --hover: #eee6dd;
-  --shadow: 0 8px 28px #51402b20, 0 1px 3px #51402b12;
 }
 :root[data-studio-phase="night"] {
   --studio-wall: #272534;
@@ -136,14 +119,4 @@
   --studio-leaf-shadow: #080e26;
   --studio-lamp-glow: #ffce83;
   --studio-night-glint: #bfd3ff;
-  --surface: #292735;
-  --surface-subtle: #33303f;
-  --surface-raised: #3a3547;
-  --text: #f8f0e9;
-  --text-secondary: #d5c9d8;
-  --text-tertiary: #c0b5c9;
-  --border: #51475d;
-  --border-strong: #796584;
-  --hover: #443b50;
-  --shadow: 0 10px 32px #100b2380, 0 1px 3px #100b2340;
 }

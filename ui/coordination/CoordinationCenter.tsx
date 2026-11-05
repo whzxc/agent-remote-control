@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Braces, ChevronDown, ChevronRight, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { Button, Dialog, Icon, IconButton, Notice, SingleChoice } from '../components/ui';
+import { Card } from '../components/ui/card';
 import { connector, refreshConnector } from '../state/connector';
 import { acceptActivity } from '../state/activity';
 import type { AgentActivitySnapshot } from '../types';
@@ -37,11 +38,15 @@ function RowGlyph({ icon, tone }: { icon: LucideIcon; tone: Tone }) {
 function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
   return <span className="center-pill" data-tone={tone}>{children}</span>;
 }
-function Section({ label, count, children }: { label: string; count?: number; children: ReactNode }) {
-  return <section className="center-section" aria-label={label}>
-    <h2>{label}{count !== undefined && count > 0 && <span className="center-count">{count}</span>}</h2>
+function Section({ label, count, note, attention, children }: { label: string; count?: number; note?: string; attention?: boolean; children: ReactNode }) {
+  return <section className="center-section" data-attention={attention || undefined} aria-label={label}>
+    <h2>{label}{count !== undefined && count > 0 && <span className="center-count">{count}</span>}{note && <span role="status" className="center-section-note">· {note}</span>}</h2>
     <div className="center-rows">{children}</div>
   </section>;
+}
+
+function RecordRow({ children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <Card asChild className={`center-row ${className}`}><button type="button" {...props}>{children}</button></Card>;
 }
 
 export default function CoordinationCenter() {
@@ -53,6 +58,7 @@ export default function CoordinationCenter() {
   const [resources, setResources] = useState<ResourceOption[]>([]), [resourceError, setResourceError] = useState('');
   const [history, setHistory] = useState<BoardPage>(), [historyError, setHistoryError] = useState(''), [loadingHistory, setLoadingHistory] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [pendingAction, setPendingAction] = useState('');
   const [reading, setReading] = useState(false), [rawEvent, setRawEvent] = useState('');
   const selected = selectedRecord.use(), setSelected = selectedRecord.set;
   const firstSelection = useRef(true);
@@ -152,21 +158,20 @@ export default function CoordinationCenter() {
   const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
   function attentionRow(item: Attention) {
     const look = attentionLook(item), meta = <span className="center-row-meta">{item.kind === 'task' && <span>{agentLabel(item.agent)}</span>}<span>{kindLabel(item)}</span></span>;
-    if (item.kind === 'ax') return <div key={item.id} className="center-row static"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></span></span></div>;
-    if (item.kind === 'task' && !taskTarget(item.session.id)) return <div key={item.id} className="center-row static"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{t('center.targetUnavailable')}</span></span></span></div>;
+    if (item.kind === 'ax') return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></span></span></Card>;
+    if (item.kind === 'task' && !taskTarget(item.session.id)) return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{t('center.targetUnavailable')}</span></span></span></Card>;
     const id = `attention-${encodeURIComponent(item.id)}`;
-    return <Button key={item.id} id={id} variant="ghost" className="center-row" onClick={() => openAttention(item, id)}><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong>{meta}</span><Icon icon={ChevronRight} className="center-row-go" /></Button>;
+    return <RecordRow key={item.id} id={id} onClick={() => openAttention(item, id)}><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong>{meta}</span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow>;
   }
   function recordRow(row: BoardRecord) {
     const live = liveRecord(row);
-    return <Button key={row.id} id={`record-${row.id}`} variant="ghost" className={`center-row ${live ? '' : 'muted'}`} aria-expanded={selected?.id === row.id} aria-controls={selected?.id === row.id ? 'center-record-detail' : undefined} onClick={() => void readRecord(row)}>
+    return <RecordRow key={row.id} id={`record-${row.id}`} className={live ? '' : 'muted'} aria-expanded={selected?.id === row.id} aria-controls={selected?.id === row.id ? 'center-record-detail' : undefined} onClick={() => void readRecord(row)}>
       <RowGlyph {...recordLook(row)} />
       <span className="center-row-body"><strong>{row.intent ?? row.summary}</strong>
-        <span className="center-row-meta">{(row.intent == null || !live || row.state !== 'active') && <Pill tone={stateTone(row.state)}>{stateName(row.state)}</Pill>}<span>{owner(row)}</span>{row.lastActiveAt && <time dateTime={row.lastActiveAt} title={date(row.lastActiveAt)}>{ago(row.lastActiveAt)}</time>}{coverageNote(row)}</span>
-        {chips(row.resources)}
+        <span className="center-row-meta">{(row.intent == null || !live || row.state !== 'active') && <span>{stateName(row.state)}</span>}<span>{owner(row)}</span>{row.lastActiveAt && <time dateTime={row.lastActiveAt} title={date(row.lastActiveAt)}>{ago(row.lastActiveAt)}</time>}{coverageNote(row)}{row.resources.map(key => <span key={key}>{resourceLabel(key)}</span>)}</span>
       </span>
       <Icon icon={ChevronRight} className="center-row-go" />
-    </Button>;
+    </RecordRow>;
   }
   function recordDetail(row: BoardRecord) {
     const linked = row.threadLinks ?? [], conflicts = (observed.page?.conflicts ?? []).filter(conflict => conflict.noticeId !== row.id && row.resources.includes(conflict.resource));
@@ -177,7 +182,7 @@ export default function CoordinationCenter() {
         <Button onClick={closeRecord}>{t('back')}</Button>
       </header>
       <div className="center-row-meta"><Pill tone={stateTone(row.state)}>{stateName(row.state)}</Pill><span>{owner(row)}</span>{chips(row.resources)}</div>
-      {detailError && <Notice tone="danger" action={<Button onClick={() => void readRecord(row)}>{t('retry')}</Button>}>{detailError}</Notice>}
+      {detailError && <Notice tone="danger" action={<Button busy={pendingAction === 'retry-detail'} disabled={busy} onClick={() => void runAction('retry-detail', () => readRecord(row))}>{t('retry')}</Button>}>{detailError}</Notice>}
       {conflicts.map(conflict => <Notice key={`${conflict.noticeId}:${conflict.resource}`} tone="warning">{t('center.conflict', { resource: resourceLabel(conflict.resource), id: conflict.noticeId })}</Notice>)}
       <dl>
         {fact(t('center.activity'), <><time dateTime={row.lastActiveAt} title={date(row.lastActiveAt)}>{row.lastActiveAt ? ago(row.lastActiveAt) : '—'}</time>{row.activityCoverage !== 'observed' && <span className="center-note"> · {t(`center.coverage.${row.activityCoverage}`)}</span>}</>)}
@@ -192,7 +197,7 @@ export default function CoordinationCenter() {
       </dl>
       {linked.length > 0 && <div className="center-linked"><h3>{t('center.linkedTasks')}</h3>
         {linked.map(link => { const target = taskTarget(link.threadId, link.observedTurnId), id = `link-${row.id}-${link.threadId}`;
-          return target ? <div key={link.threadId} className="center-linked-row"><Button id={id} variant="ghost" className="center-row" onClick={() => openTask(link.threadId, link.observedTurnId, id)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{taskTarget(link.threadId)?.session.title ?? link.threadId}</strong></span><Icon icon={ChevronRight} className="center-row-go" /></Button><span className="center-linked-meta">{agentLabel(target.agent)}</span></div>
+          return target ? <div key={link.threadId} className="center-linked-row"><RecordRow id={id} onClick={() => openTask(link.threadId, link.observedTurnId, id)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{taskTarget(link.threadId)?.session.title ?? link.threadId}</strong></span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow><span className="center-linked-meta">{agentLabel(target.agent)}</span></div>
             : <p key={link.threadId} className="center-note">{link.threadId} · {t('center.targetUnavailable')}</p>; })}
       </div>}
       {observed.page?.conflictCoverage !== 'observed' && <p className="center-note">{t('center.conflictsUnknown')}</p>}
@@ -242,43 +247,44 @@ export default function CoordinationCenter() {
     ? feed.page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(feed.page.observedAt) })}</span><span data-tone={coverage?.state === 'observed' ? undefined : 'warning'}>{coverageName(coverage?.state ?? 'unknown')}</span>
       <details className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.coverage')}</summary><pre>{JSON.stringify(feed.page.coverage, null, 2)}</pre></details></footer>
     : page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></footer>;
-  return <Dialog initialFocus={initialFocus} title={t('center.title')} width={820} onClose={() => { setSelected(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center">
-    <div className="center-toolbar">
-      <SingleChoice compact label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} />
-      <IconButton icon={RefreshCw} label={t('refresh')} busy={reading || observed.loading || loadingHistory} onClick={() => { void refreshBoard(); if (selected) void readRecord(selected); void refreshConnector().catch(() => {}); void api<AgentActivitySnapshot>('agents/activity').then(acceptActivity).catch(() => {}); if (view.view === 'activity') void readEvents(); else if (showHistory) void readHistory(); }} />
+  const busy = reading || observed.loading || loadingHistory || !!pendingAction;
+  const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
+  return <Dialog initialFocus={initialFocus} title={t('center.title')} width={820}
+    headerNavigation={<div className="center-navigation"><SingleChoice tabs compact disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
+    actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
+      await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
+    })} />}
+    onClose={() => { setSelected(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center" aria-busy={busy}>
+    <div className="center-filters">
+      {view.view === 'current' && <SingleChoice compact disabled={busy} label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input', 'history'].map(value => ({ value, label: t(`center.${value}`) }))} />}
+      <div className="center-resource"><SingleChoice dropdown compact disabled={busy} label={t('center.resourceFilter')} value={view.resource || 'all-resources'} onChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} options={[{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))]} /></div>
     </div>
-    {(view.view === 'current' || options.length > 1) && <div className="center-filters">
-      {view.view === 'current' && <SingleChoice compact label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input', 'history'].map(value => ({ value, label: t(`center.${value}`) }))} />}
-      {options.length > 1 && <div className="center-resource"><SingleChoice compact label={t('center.resourceFilter')} value={view.resource || 'all-resources'} onChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} options={[{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))]} /></div>}
-    </div>}
-    {(reading && !feed.page && view.view === 'activity' || (observed.loading && !observed.page || showHistory && loadingHistory && !history) && view.view === 'current') && <p role="status" className="center-note">{t('loading')}</p>}
     {resourceError && <p role="status" className="center-note">{resourceError}</p>}
-    {observed.error && <Notice tone="danger" action={<Button onClick={() => void refreshBoard()}>{t('retry')}</Button>}>{t('center.unavailable')} · {observed.error}</Notice>}
+    {observed.error && <Notice tone="danger" title={t('center.unavailable')} actionBelow action={<Button busy={pendingAction === 'retry'} disabled={busy} onClick={() => void runAction('retry', refreshBoard)}>{t('retry')}</Button>}><p>{observed.error}</p></Notice>}
     <div className={`center-content ${selected ? 'has-detail' : ''}`}>
-      {selected && recordDetail(selected)}<div className="center-list">{view.view === 'activity' ? <>
+      {selected && recordDetail(selected)}<div className="center-list" data-empty={emptyCurrent || undefined}>{view.view === 'activity' ? <>
         <section aria-label={t('center.activityView')}>
-          {feed.error && <Notice tone="danger" action={<Button onClick={() => void readEvents(feed.reset ? 'reset' : 'refresh')}>{t(feed.reset ? 'center.reset' : 'retry')}</Button>}>{feed.reset ? t('center.gap') : t('center.unavailable')} · {feed.error}</Notice>}
-          {feed.gap?.resource === view.resource && !feed.reset && <Notice tone="warning">{t('center.retainedGap')} · {date(feed.gap.observedAt)}</Notice>}
+          {feed.error && <Notice tone="danger" title={t(feed.reset ? 'center.gap' : 'center.unavailable')} actionBelow action={<Button busy={pendingAction === 'retry'} disabled={busy} onClick={() => void runAction('retry', () => readEvents(feed.reset ? 'reset' : 'refresh'))}>{t(feed.reset ? 'center.reset' : 'retry')}</Button>}><p>{feed.error}</p></Notice>}
+          {feed.gap?.resource === view.resource && !feed.reset && <Notice tone="warning">{[t('center.retainedGap'), feed.gap.observedAt ? date(feed.gap.observedAt) : ''].filter(Boolean).join(' · ')}</Notice>}
           {!feed.rows.length && !reading && !feed.error && feed.page && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyEvents')}</p></div>}
           {timeline(feed.resource === view.resource ? feed.rows : [])}
           <div className="center-more">
-            {feed.page?.hasMore && <Button busy={reading} onClick={() => void readEvents()}>{t('center.more')}</Button>}
-            {feed.page && feed.historyCursor !== '' && <Button variant="ghost" busy={reading} onClick={() => void readEvents('history')}>{t('center.retainedHistory')}</Button>}
+            {feed.page?.hasMore && <Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readEvents())}>{t('center.more')}</Button>}
+            {feed.page && feed.historyCursor !== '' && <Button variant="ghost" busy={pendingAction === 'history'} disabled={busy} onClick={() => void runAction('history', () => readEvents('history'))}>{t('center.retainedHistory')}</Button>}
           </div>
         </section>
       </> : <>
-        {historyError && <Notice tone="danger" action={<Button onClick={() => void readHistory()}>{t('retry')}</Button>}>{historyError}</Notice>}
-        {(ownerAttention.length > 0 || !attention.complete && !showHistory) && <Section label={t('center.attention')} count={ownerAttention.length}>
-          {!attention.complete && <p role="status" className="center-note">{t('center.partial')}</p>}
+        {historyError && <Notice tone="danger" action={<Button busy={pendingAction === 'retry-history'} disabled={busy} onClick={() => void runAction('retry-history', () => readHistory())}>{t('retry')}</Button>}>{historyError}</Notice>}
+        {(ownerAttention.length > 0 || !attention.complete && !showHistory) && <Section label={t('center.attention')} count={ownerAttention.length} attention note={!attention.complete ? t('center.partial') : undefined}>
           {ownerAttention.map(attentionRow)}
         </Section>}
         {(activeWork.length > 0 || notices.length > 0) && <Section label={t(showHistory ? 'center.notices' : 'center.work')} count={activeWork.length + notices.length}>
-          {activeWork.map(({ agent, session }) => <Button key={`${agent}:${session.id}`} variant="ghost" className="center-row" id={`work-${session.id}`} onClick={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{session.title ?? session.id}</strong><span className="center-row-meta"><span>{agentLabel(agent)}</span><span>{t('detail.state.running')}</span></span></span><Icon icon={ChevronRight} className="center-row-go" /></Button>)}
+          {activeWork.map(({ agent, session }) => <RecordRow key={`${agent}:${session.id}`} id={`work-${session.id}`} onClick={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{session.title ?? session.id}</strong><span className="center-row-meta"><span>{agentLabel(agent)}</span><span>{t('detail.state.running')}</span></span></span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow>)}
           {notices.map(recordRow)}
         </Section>}
         {blockers.length > 0 && <Section label={t('center.blockers')} count={blockers.length}>{blockers.map(recordRow)}</Section>}
         {emptyCurrent && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t(view.filter === 'all' || showHistory ? 'center.emptyBoard' : 'center.noAttention')}</p></div>}
-        {showHistory && history?.nextCursor && <div className="center-more"><Button busy={loadingHistory} onClick={() => void readHistory(history.nextCursor!)}>{t('center.more')}</Button></div>}
+        {showHistory && history?.nextCursor && <div className="center-more"><Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readHistory(history.nextCursor!))}>{t('center.more')}</Button></div>}
       </>}
     </div></div>
     {footer}

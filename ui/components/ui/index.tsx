@@ -195,21 +195,23 @@ export function Notice({
   title,
   tone = "danger",
   action,
+  actionBelow = false,
 }: {
   children: ReactNode;
   title?: ReactNode;
   tone?: "danger" | "warning" | "success";
   action?: ReactNode;
+  actionBelow?: boolean;
 }) {
   const protect = useSensitiveText();
   const body = typeof children === "string" ? protect(children) : children;
   return (
     <div
-      className={`notice ${tone}`}
+      className={`notice ${tone} ${actionBelow ? "notice-action-below" : ""}`}
       role={tone === "danger" ? "alert" : "status"}
     >
       {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
-      {action}
+      {action && (actionBelow ? <div className="notice-action">{action}</div> : action)}
     </div>
   );
 }
@@ -399,6 +401,7 @@ export function SingleChoice({
   menuLabel,
   side = "bottom",
   navigation = false,
+  tabs = false,
   tiles = false,
 }: {
   value: string;
@@ -415,6 +418,7 @@ export function SingleChoice({
   menuLabel?: string;
   side?: "bottom" | "right";
   navigation?: boolean;
+  tabs?: boolean;
   tiles?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -435,12 +439,12 @@ export function SingleChoice({
     if (container.current) observer.observe(container.current);
     if (measure.current) observer.observe(measure.current);
     return () => observer.disconnect();
-  }, [options, iconOnly]);
+  }, [options, iconOnly, tabs]);
   return (
     <div
       ref={container}
-      style={compact ? { width: contentWidth } : undefined}
-      className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tiles ? "choice-tiles" : ""}`}
+      style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
+      className={`choice ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
       {!swatches && options.length <= 5 && (
         <div ref={measure} className={`choice-measure ${iconOnly ? "choice-icon-only" : ""}`} aria-hidden="true">
@@ -460,7 +464,7 @@ export function SingleChoice({
           disabled={disabled}
           aria-label={label}
           orientation={cards || optionCards || navigation ? "vertical" : "horizontal"}
-          className={`choice-radio ${tiles || navigation || cards || optionCards || swatches ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
+          className={`choice-radio ${tiles || navigation || cards || optionCards || swatches || tabs ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
           style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: contentWidth }}
         >
           {options.map((option) => (
@@ -484,7 +488,7 @@ export function SingleChoice({
                 <>
                   {option.graphic}
                   {option.icon && <Icon icon={option.icon} />}
-                  {!iconOnly && <span>{option.label}{(cards || optionCards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
+                  {!iconOnly && <span data-label={tabs ? option.label : undefined}>{option.label}{(cards || optionCards || navigation) && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
                 </>
               )}
             </RadioGroup.Item>

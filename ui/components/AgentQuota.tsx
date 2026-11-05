@@ -13,7 +13,7 @@ import { Button, IconButton } from "./ui";
 import UsageHistory from "../subscriptions/UsageHistory";
 import ResetCreditDetails from "../subscriptions/ResetCreditDetails";
 
-export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = readOnlyBrowser }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean }) {
+export default function AgentQuota({ provider, onRefresh, refreshing, readOnly = readOnlyBrowser, form = "agent" }: { provider: ProviderSnapshot; onRefresh: () => void; refreshing: boolean; readOnly?: boolean; form?: "agent" | "account" }) {
   const now = useNow();
   locale.use();
   const display = quotaDisplay.use(), reset = resetDisplay.use();
@@ -23,7 +23,7 @@ export default function AgentQuota({ provider, onRefresh, refreshing, readOnly =
   const pace = windows.map(window => quotaPace(window, provider, now));
   const summaryWindow = weekly ?? windows[0];
   if (!windows.length) return <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>;
-  return <section className="agent-quota-block" aria-label={t("agentQuotaGroup")}>
+  return <section className="agent-quota-block" data-form={form} aria-label={t("agentQuotaGroup")}>
     <div className="agent-quota-cards">
       {windows.map((window, index) => {
         const resetAt = Date.parse(window.resetsAt ?? "");
@@ -33,12 +33,15 @@ export default function AgentQuota({ provider, onRefresh, refreshing, readOnly =
         const tick = elapsed === undefined ? undefined : (display === "remaining" ? 1 - elapsed : elapsed) * 100;
         const label = windowLabel(window.label), value = quotaValue(window);
         const resetText = reset === "time" && Number.isFinite(resetAt) ? preciseTime(window.resetsAt) : compactReset(window.resetsAt, now);
+        const barColor = form === "account"
+          ? window.usedPercent >= 100 ? "var(--danger)" : pace[index]?.label && !pace[index]?.flame ? "var(--warning)" : "var(--accent)"
+          : pace[index]?.color ?? quotaColor(window, provider, now);
         return <div className="agent-quota-card" key={window.id} data-monthly={window === monthly || undefined}>
           <div className="agent-quota-window"><span title={window.scope}>{label}</span>
             <time dateTime={Number.isFinite(resetAt) ? window.resetsAt : undefined}
               title={Number.isFinite(resetAt) ? t("quotaResetAt", { time: preciseTime(window.resetsAt) }) : t("quotaResetUnknown")}
               aria-label={t(reset === "time" ? "quotaResetAt" : "quotaResetIn", { time: resetText })}>{resetText}</time>
-            {!readOnly && window === summaryWindow && <span className="agent-quota-refresh">
+            {form !== "account" && !readOnly && window === summaryWindow && <span className="agent-quota-refresh">
               <IconButton icon={RefreshCw} size={16} label={t("usageRefresh")} busy={refreshing || provider.refreshing}
                 disabled={!provider.eligible} onClick={onRefresh} />
             </span>}
@@ -63,7 +66,7 @@ export default function AgentQuota({ provider, onRefresh, refreshing, readOnly =
           <div className="agent-quota-track" role="meter" aria-label={`${label} · ${quotaLabel()}`}
             title={pace[index]?.tooltip}
             aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
-            <div style={{ width: `${value}%`, background: pace[index]?.color ?? quotaColor(window, provider, now) }} />
+            <div style={{ width: `${value}%`, background: barColor }} />
             {tick !== undefined && <span className="agent-quota-pace-marker" role="img" aria-label={t("quotaTimeTick")}
               title={t("quotaTimeTick")} style={{ left: `clamp(1px, ${tick}%, calc(100% - 1px))` }} />}
           </div>

@@ -12,6 +12,7 @@ import { surfaceMotion, reducedMotion as reduced, type Surface, type SurfaceRect
 import { Dialog as D } from "radix-ui";
 import { X } from "lucide-react";
 import { t } from "../i18n";
+import { IconButton } from "./ui";
 import {
   panelLayers,
   panelAnchorAt,
@@ -41,6 +42,7 @@ export default function ElasticPanel({
   actions,
   leading,
   headerDetail,
+  headerNavigation,
   centered = false,
   sheet = false,
   stepBar,
@@ -73,6 +75,7 @@ export default function ElasticPanel({
   actions?: ReactNode;
   leading?: ReactNode;
   headerDetail?: ReactNode;
+  headerNavigation?: ReactNode;
   centered?: boolean;
   sheet?: boolean;
   stepBar?: ReactNode;
@@ -443,17 +446,10 @@ export default function ElasticPanel({
               >
                 {leading}
                 <D.Title>{title}</D.Title>
+                {headerNavigation}
                 <div className="actions">
                   {actions}
-                  <button
-                    type="button"
-                    className="button ghost icon-button"
-                    aria-label={t("close")}
-                    disabled={busy}
-                    onClick={() => void close(undefined, true)}
-                  >
-                    <X size={20} strokeWidth={1.75} />
-                  </button>
+                  <IconButton icon={X} label={t("close")} disabled={busy} onClick={() => void close(undefined, true)} />
                 </div>
                 {description && <D.Description asChild><div className="dialog-description">{description}</div></D.Description>}
                 {headerDetail}

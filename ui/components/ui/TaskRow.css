@@ -1,0 +1,10 @@
+.task-row { display: flex; align-items: flex-start; gap: 12px; width: 100%; min-width: 0; min-height: 64px; padding: 12px; border: 0; border-radius: var(--radius-card); background: var(--surface-subtle); color: var(--text); text-align: left; cursor: pointer; }
+.task-row[data-attention] { background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.task-row:disabled { opacity: 1; cursor: default; }
+.task-row:not(:disabled):hover { background: var(--hover); }
+.task-row-copy { display: grid; gap: 1px; flex: 1; min-width: 0; }
+.task-row-copy > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-small); font-weight: 650; line-height: 18px; }
+.task-row-meta { color: var(--task-row-tone); font-size: var(--text-meta); font-weight: 500; line-height: 18px; }
+.task-row > .icon { align-self: center; flex: none; color: var(--text-tertiary); }
+.task-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-row > .phase-tile { --phase-color: var(--task-row-tone); }

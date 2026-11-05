@@ -5,7 +5,7 @@ import { pendingSessions } from "../state/taskInteractions";
 import { activityApprovals } from "../state/activity";
 import { useAppNow } from "../state/appEnvironment";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, MessagesSquare } from "lucide-react";
+import { MessagesSquare } from "lucide-react";
 import { locale, t } from "../i18n";
 import { tasks } from "../state/tasks";
 import { trackedActivity } from "../state/activityBubbles";
@@ -15,7 +15,8 @@ import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, dispatchTaskId } from "../state/sourceDispatch";
 import { PhaseTile } from "./activity";
-import { Empty, Icon, Notice } from "./ui";
+import { Empty, Notice } from "./ui";
+import { TaskRow } from "./ui/TaskRow";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const now = useAppNow(60_000), language = locale.use();
@@ -82,18 +83,18 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const phase = state === "needsYou" || state === "awaitingApproval" ? "interaction" : state === "running" ? live?.phase ?? "idle" : "idle";
           const canOpen = !!id && !!record.turnId;
           const label = ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state) ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
-          return <button key={record.requestId} className="source-dispatch-row" disabled={!canOpen} data-state={state} onClick={() => {
+          const tone = state === 'needsYou' || state === 'awaitingApproval' || state === 'unknown' || state === 'submissionUnknown' ? 'warning'
+            : state === 'done' ? 'success' : state === 'failed' || state === 'submissionFailed' ? 'danger'
+            : state === 'running' ? ({ thinking: 'phase-thinking', command: 'phase-command', file: 'phase-file', tool: 'text-secondary', text: 'text-secondary', interaction: 'warning', idle: 'text-tertiary' }[phase]) : 'text-tertiary';
+          return <TaskRow key={record.requestId} disabled={!canOpen} title={title} meta={<>{record.agent ?? "Codex"} · {label}</>} tone={tone} attention={state === 'needsYou' || state === 'awaitingApproval'}
+            tile={<PhaseTile phase={phase} running={state === "running"} completed={state === "done"} paused={state === "interrupted"} outcome={state === "failed" || state === "submissionFailed" ? "failed" : state === "unknown" || state === "submissionUnknown" ? "unknown" : undefined} />} onClick={() => {
             if (!id || !canOpen) return;
             selectAgentPanel({ type: "task", agent, session: { ...(live ? { ...live, orderAt: Date.parse(record.createdAt) } : unread ? { ...unread, orderAt: Date.parse(record.createdAt) } : {
               id, turnId: record.turnId, source: agent === "codex" ? "codex-thread" : "arc-task", observed: false, conversation: true, title, phase, headline: title, phaseSince: null, timeline: true,
               project: record.task.project || record.task.directory, startedAt: record.createdAt, orderAt: Date.parse(record.createdAt),
             }), selectedTurnId: record.turnId } });
             navigation.set(old => ({ ...old, page: "overview" }));
-          }}>
-            <PhaseTile phase={phase} running={state === "running"} completed={state === "done"} paused={state === "interrupted"} outcome={state === "failed" || state === "submissionFailed" ? "failed" : state === "unknown" || state === "submissionUnknown" ? "unknown" : undefined} />
-            <span><strong>{title}</strong><span className="source-dispatch-meta">{record.agent ?? "Codex"} · <span>{label}</span></span></span>
-            {canOpen && <Icon icon={ChevronRight} />}
-          </button>;
+          }} />;
         })}</div>
       </section>;
     })}
