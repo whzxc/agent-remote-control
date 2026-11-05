@@ -43,6 +43,18 @@ An instance matches its form's container height, radius, fill, stroke and elevat
 6. Implement with the shared React components and runtime tokens.
 7. Run `npm run design -- compare` against the matching fixture and fix the reported differences before reporting.
 
+An asset frame uses the language and text of its fixture, including dates under the fixed 2026-01-01 fixture clock. Generate repetitive geometry with a script kept outside the repository, measure text with `measure`, and copy icon geometry from Lucide. A drafter may propose forms. Approving the renders approves those forms. Drafting, `check`, `render` and implementation may run in a coding lane. `compare` and `accept:ui` run in the main checkout after landing.
+
+## Implementation checklist
+
+- Size shared controls through their size variables, such as `--icon-button-size`. A width or height override leaves the control's minimum size in place and distorts its shape.
+- Make each surface rule win over generic panel rules, such as `.elastic-panel .dialog-header h2`. A text width difference in `compare` usually means a font rule lost.
+- Remove a runtime token from `ui/tokens.css` when `design/tokens.css` defines the same name, because the runtime sheet loads later and wins.
+- Avoid `font-variant-numeric` and `letter-spacing` values that the asset does not use, because they change text widths.
+- Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.
+- Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.
+- Delete superseded rules, classes and visual statements in [UI conventions](ui.md) in the same change.
+
 ## Commands
 
 ```sh
