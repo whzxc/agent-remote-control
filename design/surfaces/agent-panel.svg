@@ -175,7 +175,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
-    <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">12月31日</text>
+    <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">2025年12月31日</text>
   </g>
 </g>
 <text x="564" y="78" class="note">empty</text>

@@ -241,7 +241,7 @@ export function Empty({
 }) {
   return (
     <div className="empty" role="status">
-      {icon && <Icon icon={icon} size={20} />}
+      {icon && <Tile icon={icon} />}
       <p>{children}</p>
       {action}
     </div>

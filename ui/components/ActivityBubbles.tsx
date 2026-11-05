@@ -67,7 +67,7 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
     <span className="activity-copy">
       <span className="activity-title-row"><strong>{session.title || t("timeline.title")}</strong>
         {unread && <span className="activity-unread" role="img" aria-label={t("activity.unread")} />}
-        {state === "needsYou" ? <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
+        {state === "needsYou" ? !conversation && <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
       </span>
       {(!historical || !conversation) && <span className="activity-phase">
         {historical ? createdTime : <>

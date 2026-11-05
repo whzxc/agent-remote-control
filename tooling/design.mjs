@@ -366,6 +366,9 @@ function implementationTexts(root) {
         const rects = [...ink.getClientRects()].filter(r => r.width > 0);
         if (rects.length) { box.left = Math.min(...rects.map(r => r.left)); box.right = Math.max(...rects.map(r => r.right)); }
       }
+      // Text scrolled or clipped outside the region is not visible, so the asset does not draw it.
+      const middle = (line.top + line.bottom) / 2;
+      if (middle < origin.top || middle > origin.bottom) continue;
       texts.push({ text: content, x: box.left - origin.left, y: line.top - origin.top, width: box.right - box.left, height: line.bottom - line.top });
     }
   }
@@ -417,7 +420,7 @@ async function compare(args) {
     await app.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
     for (const name of clicks) await app.getByRole('button', { name, exact: true }).first().click();
     await app.waitForTimeout(300);
-    const panel = app.getByRole('region', { name: region, exact: true });
+    const panel = app.getByRole('region', { name: region, exact: true }).or(app.getByRole('dialog', { name: region, exact: true })).first();
     implementation = await panel.evaluate(implementationTexts);
     await panel.screenshot({ path: path.join(target, 'implementation.png') });
   } finally { await browser.close(); await server.close(); }

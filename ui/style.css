@@ -365,8 +365,10 @@ textarea.input {
   color: var(--text-secondary);
   display: grid;
   justify-items: center;
-  gap: 16px;
+  gap: 10px;
 }
+.empty > .tile { color: var(--text-secondary); }
+.empty > p { margin: 0; font-size: var(--text-small); line-height: 18px; }
 .loading {
   display: flex;
   justify-content: center;
