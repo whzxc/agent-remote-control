@@ -192,13 +192,30 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
         <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">Command</text>
         <text x="124" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Running the c…</text>
-        <g data-component="tag" data-form="spec" transform="translate(53 47)">
-          <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · High</text>
+        <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · High reasoning effort · Fast">
+          <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+          <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+          <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+            <rect width="32" height="32" style="fill:none" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+            <g data-part="levels">
+              <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+              <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+              <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+              <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+            </g>
+            <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+          </g>
+          <g data-part="tier">
+            <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+              <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+            </g>
+          </g>
         </g>
-        <g data-component="tag" data-form="spec" transform="translate(153 47)">
-          <rect width="67" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="33.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">accepta…</text>
+        <g data-component="tag" data-form="meta" transform="translate(186 47)">
+          <rect width="34" height="20" rx="10" style="fill:var(--surface-sunken)" />
+          <text x="17" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">ac…</text>
         </g>
         <circle cx="235.5" cy="57" r="2.5" style="fill:var(--phase-thinking);opacity:0.55" />
         <circle cx="242.5" cy="57" r="2.5" style="fill:var(--phase-command);opacity:0.55" />
@@ -227,13 +244,30 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
         <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">Thinking</text>
         <text x="124" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Reading the p…</text>
-        <g data-component="tag" data-form="spec" transform="translate(53 47)">
-          <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · High</text>
+        <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · High reasoning effort · Fast">
+          <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+          <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+          <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+            <rect width="32" height="32" style="fill:none" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+            <g data-part="levels">
+              <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+              <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+              <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+              <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+            </g>
+            <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+          </g>
+          <g data-part="tier">
+            <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+              <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+            </g>
+          </g>
         </g>
-        <g data-component="tag" data-form="spec" transform="translate(153 47)">
-          <rect width="67" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="33.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">accepta…</text>
+        <g data-component="tag" data-form="meta" transform="translate(186 47)">
+          <rect width="34" height="20" rx="10" style="fill:var(--surface-sunken)" />
+          <text x="17" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">ac…</text>
         </g>
         <circle cx="235.5" cy="57" r="2.5" style="fill:var(--phase-thinking);opacity:0.55" />
         <circle cx="242.5" cy="57" r="2.5" style="fill:var(--phase-command);opacity:0.55" />
@@ -262,13 +296,30 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
         <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">Thinking</text>
         <text x="124" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Checking the …</text>
-        <g data-component="tag" data-form="spec" transform="translate(53 47)">
-          <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · High</text>
+        <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · High reasoning effort · Fast">
+          <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+          <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+          <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+            <rect width="32" height="32" style="fill:none" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+            <g data-part="levels">
+              <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+              <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+              <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+              <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+            </g>
+            <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+          </g>
+          <g data-part="tier">
+            <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+              <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+            </g>
+          </g>
         </g>
-        <g data-component="tag" data-form="spec" transform="translate(153 47)">
-          <rect width="67" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="33.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">accepta…</text>
+        <g data-component="tag" data-form="meta" transform="translate(186 47)">
+          <rect width="34" height="20" rx="10" style="fill:var(--surface-sunken)" />
+          <text x="17" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">ac…</text>
         </g>
         <circle cx="235.5" cy="57" r="2.5" style="fill:var(--phase-thinking);opacity:0.55" />
         <circle cx="242.5" cy="57" r="2.5" style="fill:var(--phase-command);opacity:0.55" />
@@ -291,13 +342,30 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
         <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">Completed</text>
         <text x="124" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Documentation…</text>
-        <g data-component="tag" data-form="spec" transform="translate(53 47)">
-          <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · High</text>
+        <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · High reasoning effort · Fast">
+          <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+          <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+          <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+            <rect width="32" height="32" style="fill:none" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+            <g data-part="levels">
+              <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+              <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+              <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+              <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+            </g>
+            <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+          </g>
+          <g data-part="tier">
+            <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+              <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+            </g>
+          </g>
         </g>
-        <g data-component="tag" data-form="spec" transform="translate(153 47)">
-          <rect width="67" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="33.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">accepta…</text>
+        <g data-component="tag" data-form="meta" transform="translate(186 47)">
+          <rect width="34" height="20" rx="10" style="fill:var(--surface-sunken)" />
+          <text x="17" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">ac…</text>
         </g>
         <circle cx="235.5" cy="57" r="2.5" style="fill:var(--phase-thinking);opacity:0.55" />
         <circle cx="242.5" cy="57" r="2.5" style="fill:var(--phase-command);opacity:0.55" />
@@ -321,13 +389,30 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
         <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">Needs you</text>
         <text x="124" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Waiting for p…</text>
-        <g data-component="tag" data-form="spec" transform="translate(53 47)">
-          <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · High</text>
+        <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · High reasoning effort · Fast">
+          <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+          <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+          <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+            <rect width="32" height="32" style="fill:none" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+            <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+            <g data-part="levels">
+              <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+              <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+              <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+              <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+            </g>
+            <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+          </g>
+          <g data-part="tier">
+            <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+              <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+            </g>
+          </g>
         </g>
-        <g data-component="tag" data-form="spec" transform="translate(153 47)">
-          <rect width="67" height="20" rx="10" style="fill:var(--surface-sunken)" />
-          <text x="33.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">accepta…</text>
+        <g data-component="tag" data-form="meta" transform="translate(186 47)">
+          <rect width="34" height="20" rx="10" style="fill:var(--surface-sunken)" />
+          <text x="17" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">ac…</text>
         </g>
         <circle cx="235.5" cy="57" r="2.5" style="fill:var(--phase-thinking);opacity:0.55" />
         <circle cx="242.5" cy="57" r="2.5" style="fill:var(--phase-command);opacity:0.55" />

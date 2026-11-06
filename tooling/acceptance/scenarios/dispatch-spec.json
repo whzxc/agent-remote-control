@@ -1,0 +1,24 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": ["codex"],
+  "bubbles": { "autoCompact": false },
+  "dispatchModels": [
+    { "model": "fixture-three", "displayName": "Example Three", "efforts": ["low", "medium", "high"] },
+    { "model": "fixture-five", "displayName": "Example Five", "efforts": ["minimal", "low", "medium", "high", "max"] }
+  ],
+  "tasks": [
+    {
+      "agent": "codex", "phase": "command", "title": "Three-level task", "headline": "Check configuration",
+      "spec": { "model": "fixture-three", "effort": "medium", "serviceTier": "priority" }
+    },
+    {
+      "agent": "codex", "phase": "file", "title": "Five-level task", "headline": "Review the settings",
+      "spec": { "model": "fixture-five", "effort": "high", "serviceTier": "default" }
+    },
+    {
+      "agent": "codex", "phase": "thinking", "title": "Historical task", "headline": "Check the recorded configuration",
+      "spec": { "model": "recorded-model", "effort": "recorded-effort" }
+    }
+  ]
+}

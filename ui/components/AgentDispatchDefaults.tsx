@@ -1,13 +1,13 @@
 import { readOnlyBrowser } from "../browserMode";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { orderedAgents, name } from "../state/agents";
 import { useDispatchCatalog } from "../state/dispatchCatalog";
 import { createStore } from "../state/store";
 import type { DispatchSummary } from "../types";
-import { SpecPill } from "./activity";
-import { modelLabel } from "./composites/dispatchSpecLabel";
+import RecordedDispatchSpec from "./composites/RecordedDispatchSpec";
+import { modelLabel, orderedReasoningLevels, reasoningLevels } from "./composites/dispatchSpecLabel";
 import ModelEffortPicker from "./ModelEffortPicker";
 import { Dialog, Field, Notice } from "./ui";
 
@@ -24,8 +24,6 @@ const defaultsRecords = new Map<string, ReturnType<typeof newDefaultsRecord>>();
 function releaseDefaultsRecord(id: string, record: ReturnType<typeof newDefaultsRecord>) {
   if (!record.users && !record.reading && !record.state.get().saving && defaultsRecords.get(id) === record) defaultsRecords.delete(id);
 }
-// Ascending reasoning effort; catalogs may list efforts in any order.
-const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 
 /** Load and save one defaults record through a local management route. */
 function useDefaults(read: string, write: string, key: Record<string, string>) {
@@ -84,9 +82,8 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
   const catalog = useDispatchCatalog(agent)?.catalog;
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
   const model = defaults.model ?? "", effort = defaults.effort ?? "";
-  const modelEfforts = (id: string) => models.find(row => row.model === id)?.efforts ?? [];
-  const efforts = [...new Set(model ? modelEfforts(model) : models.flatMap(row => row.efforts ?? []))]
-    .sort((a, b) => EFFORT_ORDER.indexOf(a) - EFFORT_ORDER.indexOf(b));
+  const modelEfforts = (id: string) => reasoningLevels(id, catalog);
+  const efforts = model ? modelEfforts(model) : orderedReasoningLevels(models.flatMap(row => row.efforts ?? []));
   // Retain a saved value even when the current catalog no longer lists it.
   const modelChoices = [...new Set([...models.map(row => row.model), ...(model ? [model] : [])])]
     .map(id => ({ value: id, label: modelLabel(id, models) }));
@@ -116,12 +113,11 @@ export default function AgentDispatchDefaults({ agent }: { agent: string }) {
 export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
   agent: string; threadId: string; taskId?: string; summary?: DispatchSummary; editable: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const pill = <SpecPill agent={agent} taskId={taskId} summary={summary} />;
-  if (!editable || readOnlyBrowser) return pill;
+  const [open, setOpen] = useState(false), specId = useId();
+  if (!editable || readOnlyBrowser) return <RecordedDispatchSpec agent={agent} taskId={taskId} summary={summary} />;
   return <>
-    <button type="button" className="task-spec-choice" aria-haspopup="dialog" aria-label={t("taskDispatch.title")} onClick={() => setOpen(true)}>
-      {summary?.model ? pill : <span className="activity-spec">{t("taskDispatch.inherit")}</span>}
+    <button type="button" className="task-spec-choice" aria-haspopup="dialog" aria-label={t("taskDispatch.title")} aria-describedby={specId} onClick={() => setOpen(true)}>
+      <RecordedDispatchSpec id={specId} agent={agent} taskId={taskId} summary={summary} fallback={t("taskDispatch.inherit")} />
     </button>
     {open && <TaskDispatchDialog agent={agent} threadId={threadId} onClose={() => setOpen(false)} />}
   </>;

@@ -161,6 +161,10 @@ Settings retain homepage count, remaining/used, countdown/date, enablement, and 
 
 Check light/dark, narrow windows, long Chinese/English text, keyboard traversal, layered Escape, focus restoration, and field errors. Run existing checks without adding unit tests. Browsers verify rendering. Installed WebView, tray, and lifecycle require separate real acceptance.
 
+## Execution specifications
+
+Task bubbles, Agent conversations, task headers, and model and effort picker triggers share the [dispatch spec](../../design/components/dispatch-spec.svg). The [effort gauge](../../design/components/effort-gauge.svg) uses the matching model's ordered levels and points to the recorded or previewed level. A value outside that model's available catalog stays readable as text. Fast reflects the recorded service tier. Editable defaults retain the stepped slider and preview the selected level with the same gauge.
+
 ## Task detail projection
 
 Task detail presentation follows [task-detail.svg](../../design/surfaces/task-detail.svg); request sheets and task model selection follow [approval.svg](../../design/surfaces/approval.svg). Shared question choices, effort selection and actionable routing follow [single-choice.svg](../../design/components/single-choice.svg), [effort-slider.svg](../../design/components/effort-slider.svg) and [request-routing.svg](../../design/components/request-routing.svg).

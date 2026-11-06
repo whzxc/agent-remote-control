@@ -43,25 +43,39 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
     <g transform="translate(20 96)" data-component="state-pill" data-form="running">
-      <rect width="66" height="24" rx="12" style="fill:var(--accent-text)" fill-opacity="0.15" />
+      <rect width="62" height="24" rx="12" style="fill:var(--accent-text)" fill-opacity="0.15" />
       <circle cx="12" cy="12" r="3" style="fill:var(--accent-text)" />
       <text x="20" y="12" style="fill:var(--accent-text);font-size:var(--text-meta);font-weight:600;">运行中</text>
     </g>
-    <g transform="translate(94 98)" data-component="tag" data-form="spec">
-      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)" />
-      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
-      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
-        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+    <g data-component="dispatch-spec" data-form="standard" transform="translate(90 96)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
+      <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+      <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+      <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+        <rect width="32" height="32" style="fill:none" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+        <g data-part="levels">
+          <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+          <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+          <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+          <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+        </g>
+        <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+      </g>
+      <g data-part="tier">
+        <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+        </g>
       </g>
     </g>
-    <g transform="translate(212 98)" data-component="tag" data-form="spec">
+    <g transform="translate(226 98)" data-component="tag" data-form="meta">
       <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)" />
       <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
         <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" />
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="314" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
+    <text x="328" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
     <g transform="translate(20 132)">
       <rect width="298" height="3" rx="1.5" style="fill:var(--success)" />
     </g>
@@ -212,25 +226,39 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
     <g transform="translate(20 96)" data-component="state-pill" data-form="waiting">
-      <rect width="78" height="24" rx="12" style="fill:var(--warning)" fill-opacity="0.15" />
+      <rect width="74" height="24" rx="12" style="fill:var(--warning)" fill-opacity="0.15" />
       <circle cx="12" cy="12" r="3" style="fill:var(--warning)" />
       <text x="20" y="12" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600;">等待输入</text>
     </g>
-    <g transform="translate(106 98)" data-component="tag" data-form="spec">
-      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)" />
-      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
-      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
-        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+    <g data-component="dispatch-spec" data-form="standard" transform="translate(102 96)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
+      <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+      <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+      <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+        <rect width="32" height="32" style="fill:none" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+        <g data-part="levels">
+          <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+          <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+          <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+          <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+        </g>
+        <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+      </g>
+      <g data-part="tier">
+        <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+        </g>
       </g>
     </g>
-    <g transform="translate(224 98)" data-component="tag" data-form="spec">
+    <g transform="translate(238 98)" data-component="tag" data-form="meta">
       <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)" />
       <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
         <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" />
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="326" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
+    <text x="340" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">22 分 31 秒</text>
     <g transform="translate(20 132)">
       <rect width="298" height="3" rx="1.5" style="fill:var(--success)" />
     </g>
@@ -347,25 +375,39 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
     <g transform="translate(20 96)" data-component="state-pill" data-form="failed">
-      <rect width="54" height="24" rx="12" style="fill:var(--danger)" fill-opacity="0.15" />
+      <rect width="50" height="24" rx="12" style="fill:var(--danger)" fill-opacity="0.15" />
       <circle cx="12" cy="12" r="3" style="fill:var(--danger)" />
       <text x="20" y="12" style="fill:var(--danger);font-size:var(--text-meta);font-weight:600;">失败</text>
     </g>
-    <g transform="translate(82 98)" data-component="tag" data-form="spec">
-      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)" />
-      <text x="47" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">GPT-6.1 Sol · 高</text>
-      <g transform="translate(90 4) scale(0.5)" data-icon="zap" style="fill:none;stroke:var(--text-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
-        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+    <g data-component="dispatch-spec" data-form="standard" transform="translate(78 96)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
+      <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+      <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+      <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+        <rect width="32" height="32" style="fill:none" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+        <g data-part="levels">
+          <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+          <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+          <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+          <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+        </g>
+        <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+      </g>
+      <g data-part="tier">
+        <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+        </g>
       </g>
     </g>
-    <g transform="translate(200 98)" data-component="tag" data-form="spec">
+    <g transform="translate(214 98)" data-component="tag" data-form="meta">
       <rect width="94" height="20" rx="10" style="fill:var(--surface-sunken)" />
       <g data-icon="source" transform="translate(8 4) scale(0.5)" style="fill:var(--role-source)">
         <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" />
       </g>
       <text x="56" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);" text-anchor="middle">来自 Claude</text>
     </g>
-    <text x="302" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">37 秒</text>
+    <text x="316" y="108" style="fill:var(--text-secondary);font-size:var(--text-meta);">37 秒</text>
     <g transform="translate(20 132)">
       <rect width="600" height="3" rx="1.5" style="fill:var(--danger)" />
     </g>

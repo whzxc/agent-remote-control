@@ -1,0 +1,23 @@
+.dispatch-spec {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  padding-inline: 9px;
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: 600 var(--text-meta)/24px var(--font-ui);
+  white-space: nowrap;
+}
+.dispatch-spec-model, .dispatch-spec-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dispatch-spec-value { color: var(--text-secondary); }
+.effort-gauge, .dispatch-spec-fast { display: block; flex: none; }
+.dispatch-spec-fast { color: var(--warning); }

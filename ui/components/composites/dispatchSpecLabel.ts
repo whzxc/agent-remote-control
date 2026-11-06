@@ -9,23 +9,49 @@ export function modelLabel(model: string, models: CatalogModel[] = []): string {
   return label?.split(/\s+·\s+/, 1)[0].trim() || model;
 }
 
-const efforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+const effortOrder = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+export function effortLabel(value: string, translate: (key: string) => string) {
+  return effortOrder.includes(value) ? translate(`dispatchSpec.effort.${value}`) : value;
+}
+
+export function orderedReasoningLevels(values: string[]) {
+  const levels = [...new Set(values.filter(Boolean))];
+  return levels.every(level => effortOrder.includes(level))
+    ? levels.sort((a, b) => effortOrder.indexOf(a) - effortOrder.indexOf(b))
+    : levels;
+}
+
+function catalogModel(model: string | undefined, catalog: DispatchCatalog | undefined) {
+  return Array.isArray(catalog?.models) ? catalog.models.find(row => row.model === model) : undefined;
+}
+
+function reasoningOptions(model: string | undefined, catalog: DispatchCatalog | undefined) {
+  const options = catalogModel(model, catalog)?.options
+    ?? (model && [catalog?.currentModel, catalog?.optionsForModel].includes(model) ? catalog?.options : undefined);
+  return options?.filter(option => option.category === 'thought_level' || ['reasoning_effort', 'reasoningEffort', 'thinkingLevel', 'effort', 'thought_level'].includes(option.id))
+    .flatMap(option => option.values ?? []) ?? [];
+}
+
+export function reasoningLevels(model: string | undefined, catalog: DispatchCatalog | undefined) {
+  const efforts = catalogModel(model, catalog)?.efforts;
+  return orderedReasoningLevels(efforts?.length ? efforts
+    : reasoningOptions(model, catalog).map(option => typeof option === 'string' ? option : option.value));
+}
+
+export function effortPosition(levels: string[], value?: string) {
+  const index = value ? levels.indexOf(value) : -1;
+  return index >= 0 ? { count: levels.length, index } : undefined;
+}
 
 /** Native catalogs supply names, never replacements for recorded configuration. */
 export function dispatchSpecParts(summary: DispatchSummary | undefined, catalog: DispatchCatalog | undefined, translate: (key: string) => string) {
   const model = summary?.model, effort = summary?.effort?.trim(), tier = summary?.serviceTier?.trim();
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
-  const resolved = models.find(row => row.model === model);
-  const options = resolved?.options ?? (model && [catalog?.currentModel, catalog?.optionsForModel].includes(model) ? catalog?.options : undefined);
-  const option = options?.filter(option => option.category === 'thought_level' || ['reasoning_effort', 'reasoningEffort', 'thinkingLevel', 'effort', 'thought_level'].includes(option.id))
-    .flatMap(option => option.values ?? []).find(option => typeof option !== 'string' && option.value === effort);
+  const option = reasoningOptions(model, catalog).find(option => typeof option !== 'string' && option.value === effort);
   return {
     model: model ? modelLabel(model, models) : undefined,
-    effort: typeof option === 'object' && option.name || (effort && efforts.has(effort) ? translate(`dispatchSpec.effort.${effort}`) : effort),
+    effort: typeof option === 'object' && option.name || (effort ? effortLabel(effort, translate) : undefined),
     tier: tier && tier !== 'default' ? (tier === 'fast' || tier === 'priority' ? translate('activity.fast') : tier) : undefined,
   };
-}
-
-export function dispatchSpecLabel(summary: DispatchSummary | undefined, catalog: DispatchCatalog | undefined, translate: (key: string) => string): string {
-  return Object.values(dispatchSpecParts(summary, catalog, translate)).filter(Boolean).join(' · ');
 }

@@ -96,6 +96,7 @@ try {
             await page.getByRole('button', { name: 'Codex', exact: true }).first().click();
             await page.getByRole('button', { name: messages['dispatchDefaults.spec'], exact: true }).click();
             await chooseSpec(page, messages, 'GPT-6.1 Sol', messages['dispatchSpec.effort.max']);
+            if (screenshots) await page.screenshot({ path: path.join(out, `${key}-effort.png`), animations: 'disabled' });
             // An effort the newly selected model does not support falls back to the Agent default.
             await chooseSpec(page, messages, 'GPT-5.6 Sol');
             await page.locator(`[role=slider][aria-valuetext="${messages['dispatchDefaults.inherit']}"]`).waitFor();
@@ -287,6 +288,14 @@ try {
           row.historyPaginationMs = Math.round(performance.now() - started);
           await page.getByRole('button', { name: /^Review project change 1 ·/ }).scrollIntoViewIfNeeded();
         }
+        if (name === 'dispatch-spec') {
+          const [three, five, historical] = fixture.tasks.map(task => page.getByRole('group', { name: task.title, exact: true }));
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await three.getByRole('img', { name: new RegExp(`Example Three.*${messages['dispatchSpec.effort.medium']}.*${messages['activity.fast']}`) }).waitFor();
+          await five.getByRole('img', { name: new RegExp(`Example Five.*${messages['dispatchSpec.effort.high']}`) }).waitFor();
+          if (await five.getByRole('img', { name: new RegExp(messages['activity.fast']) }).count()) throw new Error('Default service tier displayed Fast');
+          await historical.getByText(fixture.tasks[2].spec.effort, { exact: true }).waitFor();
+        }
         if (name === 'agent-panel-unread') {
           // Regression: completed unread tasks were mixed into date groups instead of appearing between Running and Today.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -359,7 +368,7 @@ try {
           await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).waitFor();
           await page.getByRole('button', { name: messages['taskDispatch.title'], exact: true }).click();
           await dialog.getByRole('button', { name: messages['dispatchDefaults.spec'], exact: true })
-            .filter({ hasText: `GPT-6.1 Sol · ${messages['dispatchSpec.effort.max']}` }).waitFor();
+            .getByRole('img', { name: new RegExp(`GPT-6\\.1 Sol.*${escapeRegex(messages['dispatchSpec.effort.max'])}`) }).waitFor();
           await page.keyboard.press('Escape');
         }
         if (setup) {

@@ -253,7 +253,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
         ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
         : <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
-        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-spec">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
+        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
           editable={!readOnlyBrowser && agent === "codex" && validId && !timeline?.readOnly} />
         {source && <span className="task-source-chip"><SourceBadge source={source} /><span>{t("detail.via", { source: sourceLabel })}</span></span>}

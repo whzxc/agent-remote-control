@@ -18,10 +18,10 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 </defs>
 <!-- /design:tokens -->
 <rect data-canvas="" width="553" height="246" style="fill:var(--canvas)"/>
-<text x="40" y="46" class="note">spec</text>
-<g data-component="tag" data-form="spec" transform="translate(40 62)">
-  <rect width="95" height="20" rx="10" style="fill:var(--surface-sunken)"/>
-  <text x="47.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · 高</text>
+<text x="40" y="46" class="note">meta</text>
+<g data-component="tag" data-form="meta" transform="translate(40 62)">
+  <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
+  <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
 </g>
 <text x="167" y="46" class="note">fact</text>
 <g data-component="tag" data-form="fact" transform="translate(167 62)">

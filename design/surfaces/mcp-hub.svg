@@ -78,14 +78,14 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g data-part="tool-list" transform="translate(68 102)">
       <rect width="828" height="168" rx="14" style="fill:var(--surface)"/>
       <text x="14" y="19" class="mono" style="fill:var(--text);font-size:var(--text-small);font-weight:500">search_docs</text>
-      <g data-component="tag" data-form="spec" transform="translate(107.8 9)">
+      <g data-component="tag" data-form="meta" transform="translate(107.8 9)">
         <rect width="38" height="20" rx="10" style="fill:var(--surface-sunken)"/>
         <text x="19" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">只读</text>
       </g>
       <text x="14" y="39" style="fill:var(--text-secondary);font-size:var(--text-meta)">Search the sample documentation index</text>
       <line x1="14" y1="56.5" x2="814" y2="56.5" style="stroke:var(--border)"/>
       <text x="14" y="75" class="mono" style="fill:var(--text);font-size:var(--text-small);font-weight:500">read_page</text>
-      <g data-component="tag" data-form="spec" transform="translate(92.2 65)">
+      <g data-component="tag" data-form="meta" transform="translate(92.2 65)">
         <rect width="38" height="20" rx="10" style="fill:var(--surface-sunken)"/>
         <text x="19" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">只读</text>
       </g>

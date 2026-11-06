@@ -1,19 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Popover } from "radix-ui";
 import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
 import { IconButton, SingleChoice } from "./ui";
+import { effortLabel, effortPosition } from "./composites/dispatchSpecLabel";
+import DispatchSpec from "./ui/DispatchSpec";
+import EffortGauge from "./ui/EffortGauge";
 import EffortSlider from "./ui/EffortSlider";
 import ChoiceTrigger from "./ui/ChoiceTrigger";
 import "./ModelEffortPicker.css";
 
 // Radix radio values must be nonempty; it maps to "" (inheritance) on change.
 const INHERIT = "inherit";
-
-export function effortLabel(value: string) {
-  const key = `dispatchSpec.effort.${value}`;
-  return t(key) === key ? value : t(key);
-}
 
 /** One trigger for a model and effort pair: effort on a stepped slider, model in a nested menu. */
 export default function ModelEffortPicker({ label, models, efforts, model, effort, inheritLabel, withEffort, disabled, onChange }: {
@@ -28,22 +26,27 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
   disabled?: boolean;
   onChange: (next: { model: string; effort: string }) => void;
 }) {
+  const specId = useId();
   const steps = [INHERIT, ...efforts.filter(value => value !== INHERIT)];
   if (effort && !steps.includes(effort)) steps.push(effort);
   const committed = Math.max(0, steps.indexOf(effort || INHERIT));
   // Follow the thumb while dragging; save only when the drag ends.
   const [preview, setPreview] = useState(committed);
   useEffect(() => setPreview(committed), [committed]);
-  const stepLabel = (index: number) => steps[index] === INHERIT ? inheritLabel : effortLabel(steps[index]);
+  const stepLabel = (index: number) => steps[index] === INHERIT ? inheritLabel : effortLabel(steps[index], t);
   const modelName = model ? models.find(row => row.value === model)?.label ?? model : inheritLabel;
-  const summary = [model ? modelName : "", withEffort && effort ? effortLabel(effort) : ""].filter(Boolean).join(" · ") || inheritLabel;
+  const selectedEffort = withEffort && effort ? effortLabel(effort, t) : undefined;
+  const previewPosition = model && effortPosition(efforts, steps[preview]);
   const commit = (index: number) => {
     const value = steps[index] === INHERIT ? "" : steps[index];
     if (value !== effort) onChange({ model, effort: value });
   };
   return <Popover.Root>
     <Popover.Trigger asChild>
-      <ChoiceTrigger aria-label={label} disabled={disabled}>{summary}</ChoiceTrigger>
+      <ChoiceTrigger aria-label={label} aria-describedby={specId} disabled={disabled} data-dispatch-spec="">
+        <DispatchSpec id={specId} model={model ? modelName : selectedEffort ? undefined : inheritLabel}
+          effort={selectedEffort} position={model ? effortPosition(efforts, effort) : undefined} />
+      </ChoiceTrigger>
     </Popover.Trigger>
     <Popover.Portal>
       <Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
@@ -54,7 +57,9 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
           <IconButton compact variant="ghost" icon={RotateCcw} label={t("dispatchDefaults.reset")} disabled={disabled || (!model && !effort)}
             onClick={() => onChange({ model: "", effort: "" })} />
         </div>
-        {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">{stepLabel(preview)}</strong>
+        {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">
+          {previewPosition && <EffortGauge {...previewPosition} />}{stepLabel(preview)}
+        </strong>
           <EffortSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
         </div>}
       </Popover.Content>

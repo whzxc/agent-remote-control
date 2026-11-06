@@ -4,7 +4,8 @@ import { TaskRelation } from "./ui/TaskRelation";
 import { Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { locale, t } from "../i18n";
-import { PhaseTile, PhaseLabel, StepTrail, SpecPill, SourceBadge } from "./activity";
+import RecordedDispatchSpec from "./composites/RecordedDispatchSpec";
+import { PhaseTile, PhaseLabel, StepTrail, SourceBadge } from "./activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { activityHeadline, type TrackedActivity, type BubbleDensity } from "../state/activityModel";
 import { useInterval } from "../state/hooks";
@@ -80,8 +81,8 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
       {density === "detailed" && <span className="activity-detail-line" title={detail}>{detail || "\u00a0"}</span>}
       {density !== "compact" && <span className={`activity-spec-row ${conversation ? "activity-conversation-meta" : ""}`}>
         {conversation && project && <span className="activity-project" title={session.project!}>{project}</span>}
-        <SpecPill agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={session.dispatchSummary} />
-        {conversation && !!session.turnCount && <span className="activity-spec">{t("timeline.turnCount", { count: session.turnCount })}</span>}
+        <RecordedDispatchSpec agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={session.dispatchSummary} />
+        {conversation && !!session.turnCount && <span className="activity-meta-chip">{t("timeline.turnCount", { count: session.turnCount })}</span>}
         {!conversation && project && <span className="activity-project" title={session.project!}>{project}</span>}
         {conversation ? createdTime : <StepTrail steps={session.recentSteps} running={running} />}
       </span>}

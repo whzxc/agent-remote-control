@@ -1,10 +1,8 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
-import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Circle, AlertCircle, Check, Zap } from "lucide-react";
+import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Circle, AlertCircle, Check } from "lucide-react";
 import type { AgentPhase, DispatchSummary } from "../../types";
-import { useDispatchCatalog } from "../../state/dispatchCatalog";
-import { dispatchSpecLabel } from "../composites/dispatchSpecLabel";
 import { controlSource } from "../../controlSources";
-import { locale, t } from "../../i18n";
+import { t } from "../../i18n";
 import SourceIcon from "../SourceIcon";
 import { Icon } from "../ui";
 import "./activity.css";
@@ -33,18 +31,6 @@ export function dispatchSourceLabel(source?: DispatchSummary["controlSource"]) {
 export function SourceBadge({ source }: { source: NonNullable<DispatchSummary["controlSource"]> }) {
   return <span className="activity-source-badge" title={dispatchSourceLabel(source)}>
     {source.kind === "local-cli" ? <Icon icon={Terminal} /> : <SourceIcon platform={source.kind ?? ""} />}
-  </span>;
-}
-export function SpecPill({ summary, agent = "", taskId }: { summary?: DispatchSummary; agent?: string; taskId?: string }) {
-  locale.use();
-  const catalog = useDispatchCatalog(agent, taskId, !!agent && !!summary?.model)?.catalog;
-  const label = dispatchSpecLabel(summary, catalog, t);
-  const fast = summary?.serviceTier === "priority" || summary?.serviceTier === "fast";
-  const text = dispatchSpecLabel(fast ? { ...summary, serviceTier: undefined } : summary, catalog, t);
-  if (!label) return null;
-  return <span className="activity-spec" title={label}>
-    {text && <span>{text}</span>}
-    {fast && <span role="img" aria-label={t("activity.fast")}><Icon icon={Zap} /></span>}
   </span>;
 }
 export function PhaseLabel({ phase, running = false, completed = false, children }: {

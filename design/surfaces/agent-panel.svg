@@ -79,7 +79,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
   <text x="20" y="212" style="fill:var(--warning);font-size:var(--text-meta);font-weight:600">需要你处理 · 1</text>
   <g data-component="task-bubble" data-form="row-attention" transform="translate(20 228)" style="color:var(--warning)">
-    <rect width="380" height="82" rx="18" data-fluid="height" style="fill:var(--warning);fill-opacity:0.1"/>
+    <rect width="380" height="86" rx="18" data-fluid="height" style="fill:var(--warning);fill-opacity:0.1"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--warning)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="shield-alert" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></g>
@@ -89,20 +89,36 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Confirm access to project files</text>
     <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">等待输入</text>
     <text x="110" y="40" style="fill:var(--text);font-size:var(--text-meta)">Read README.md</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 50)">
+    <g data-component="tag" data-form="meta" transform="translate(56 52)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
-    <g data-component="tag" data-form="spec" transform="translate(138 50)">
-      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)"/>
-      <text x="47.7" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · 高</text>
-      <g data-icon="zap" transform="translate(89.5 4) scale(0.5000)" style="fill:none;stroke:var(--text-secondary);stroke-width:3.50;stroke-linecap:round;stroke-linejoin:round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></g>
+    <g data-component="dispatch-spec" data-form="standard" transform="translate(138 50)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
+      <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+      <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+      <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+        <rect width="32" height="32" style="fill:none" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+        <g data-part="levels">
+          <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+          <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+          <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+          <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+        </g>
+        <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+      </g>
+      <g data-part="tier">
+        <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+        </g>
+      </g>
     </g>
-    <text x="368" y="60" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
+    <text x="368" y="62" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="346" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中 · 1</text>
-  <g data-component="task-bubble" data-form="row" transform="translate(20 362)" style="color:var(--phase-command)">
-    <rect width="380" height="82" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
+  <text x="20" y="350" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">运行中 · 1</text>
+  <g data-component="task-bubble" data-form="row" transform="translate(20 366)" style="color:var(--phase-command)">
+    <rect width="380" height="86" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--phase-command)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
@@ -113,66 +129,82 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <text x="368" y="21" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">21:54</text>
     <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">执行命令</text>
     <text x="110" y="40" class="mono" style="fill:var(--text);font-size:var(--text-meta)">npm run check</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 50)">
+    <g data-component="tag" data-form="meta" transform="translate(56 52)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
-    <g data-component="tag" data-form="spec" transform="translate(138 50)">
-      <rect width="110" height="20" rx="10" style="fill:var(--surface-sunken)"/>
-      <text x="47.7" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">GPT-6.1 Sol · 高</text>
-      <g data-icon="zap" transform="translate(89.5 4) scale(0.5000)" style="fill:none;stroke:var(--text-secondary);stroke-width:3.50;stroke-linecap:round;stroke-linejoin:round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></g>
+    <g data-component="dispatch-spec" data-form="standard" transform="translate(138 50)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
+      <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
+      <text x="9" y="12" data-part="model" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">GPT-6.1 Sol</text>
+      <g data-component="effort-gauge" data-form="four-levels" transform="translate(83 2) scale(0.625)">
+        <rect width="32" height="32" style="fill:none" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593 M26.3691 12.0268 A11.5 11.5 0 0 1 26.6251 21.3998" data-part="track" style="fill:none;stroke:var(--border-strong);stroke-width:2.4;stroke-linecap:round" />
+        <path d="M5.3749 21.3998 A11.5 11.5 0 0 1 5.9576 11.3965 M10.9899 6.6487 A11.5 11.5 0 0 1 20.3619 6.3593" data-part="range" style="fill:none;stroke:var(--role-agent);stroke-width:2.4;stroke-linecap:round" />
+        <g data-part="levels">
+          <circle cx="7.1905" cy="24.3921" r="1.65" data-level="1" style="fill:var(--role-agent)" />
+          <circle cx="8.1082" cy="8.6352" r="1.65" data-level="2" style="fill:var(--role-agent)" />
+          <circle cx="23.8918" cy="8.6352" r="2.35" data-level="3" data-selected="" style="fill:var(--role-agent)" />
+          <circle cx="24.8095" cy="24.3921" r="1.65" data-level="4" style="fill:var(--text-tertiary)" />
+        </g>
+        <path d="M13.4433 16.1321 L16 8.6 L18.5567 16.1321 A2.7 2.7 0 1 1 13.4433 16.1321 Z" data-part="needle" transform="rotate(43.3333 16 17)" style="fill:var(--text)" />
+      </g>
+      <g data-part="tier">
+        <g data-icon="zap" transform="translate(107 6) scale(0.5)" style="fill:none;stroke:var(--warning);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round">
+          <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+        </g>
+      </g>
     </g>
-    <text x="368" y="60" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
+    <text x="368" y="62" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="480" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">今天 · 3</text>
-  <g data-component="task-bubble" data-form="row" transform="translate(20 496)" style="color:var(--text-tertiary)">
+  <text x="20" y="488" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">今天 · 3</text>
+  <g data-component="task-bubble" data-form="row" transform="translate(20 504)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
     <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 1</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 32)">
+    <g data-component="tag" data-form="meta" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
     <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <g data-component="task-bubble" data-form="row" transform="translate(20 568)" style="color:var(--text-tertiary)">
+  <g data-component="task-bubble" data-form="row" transform="translate(20 576)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
     <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 2</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 32)">
+    <g data-component="tag" data-form="meta" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
     <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <g data-component="task-bubble" data-form="row" transform="translate(20 640)" style="color:var(--text-tertiary)">
+  <g data-component="task-bubble" data-form="row" transform="translate(20 648)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
     <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 3</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 32)">
+    <g data-component="tag" data-form="meta" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
     <text x="368" y="42" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1月1日</text>
   </g>
-  <text x="20" y="740" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">昨天 · 1</text>
-  <g data-component="task-bubble" data-form="row" transform="translate(20 756)" style="color:var(--text-tertiary)">
+  <text x="20" y="748" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">昨天 · 1</text>
+  <g data-component="task-bubble" data-form="row" transform="translate(20 764)" style="color:var(--text-tertiary)">
     <rect width="380" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     <g data-component="tile" data-form="phase" transform="translate(12 12)" style="color:var(--text-tertiary)">
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17"/>
       <g data-icon="circle" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
     </g>
     <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review project change 4</text>
-    <g data-component="tag" data-form="spec" transform="translate(56 32)">
+    <g data-component="tag" data-form="meta" transform="translate(56 32)">
       <rect width="77" height="20" rx="10" style="fill:var(--surface-sunken)"/>
       <text x="38.5" y="10" style="fill:var(--text-secondary);font-size:var(--text-caption);text-anchor:middle">acceptance</text>
     </g>
