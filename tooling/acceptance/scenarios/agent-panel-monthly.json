@@ -1,0 +1,8 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "agents": ["codex", "claude"],
+  "tasks": [],
+  "quota": "session-week-month",
+  "panel": { "kind": "agent", "id": "codex" }
+}

@@ -1,9 +1,8 @@
 import { locale, t } from "../i18n";
 import { useNow } from "../state/hooks";
-import { agentQuotaWindows } from "../subscriptions/QuotaRing";
 import { quotaDisplay, quotaLabel, quotaPercent, quotaValue, resetDisplay } from "../subscriptions/displayPreferences";
-import { windowLabel } from "../subscriptions/labels";
-import { quotaPeriod } from "../subscriptions/quotaTiming";
+import { agentQuotaWindows, windowLabel } from "../subscriptions/labels";
+import { quotaElapsed } from "../subscriptions/quotaTiming";
 import { compactReset, preciseTime, quotaColor } from "../subscriptions/presentation";
 import { quotaPace } from "../subscriptions/pace";
 import type { ProviderSnapshot } from "../subscriptions/types";
@@ -25,9 +24,7 @@ export default function AgentQuota({ provider, form = "agent" }: { provider: Pro
     <div className="agent-quota-cards">
       {windows.map((window, index) => {
         const resetAt = Date.parse(window.resetsAt ?? "");
-        const period = quotaPeriod(window, provider);
-        const elapsed = period && Number.isFinite(resetAt) && now < resetAt && now >= resetAt - period
-          ? (now - resetAt + period) / period : undefined;
+        const elapsed = quotaElapsed(window, provider, now);
         const tick = elapsed === undefined ? undefined : (display === "remaining" ? 1 - elapsed : elapsed) * 100;
         const label = windowLabel(window.label), value = quotaValue(window);
         const resetText = reset === "time" && Number.isFinite(resetAt) ? preciseTime(window.resetsAt) : compactReset(window.resetsAt, now);

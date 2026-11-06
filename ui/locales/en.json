@@ -410,6 +410,7 @@
   "durationHours": "h",
   "durationMinutes": "m",
   "quotaResetUnknown": "Reset time unknown",
+  "quotaTimingUnknown": "Quota timing unavailable",
   "usageSharedProducts": "X Pass · Shared usage",
   "usageWeeklyProducts": "This week by product",
   "usageSharedUnavailable": "X Pass breakdown unavailable; showing Cursor’s last quota reading.",

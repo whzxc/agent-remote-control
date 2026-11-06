@@ -3,7 +3,8 @@ import SourceIcon from '../components/SourceIcon';
 import type { NodeView } from './Topology';
 import { accountNodeId, sourcePlatformNodeId, type TopologyAccount } from './accounts';
 import { orderedSubset } from './order';
-import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
+import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
+import { accountQuotaProvider } from '../subscriptions/accountQuota';
 
 export interface AccountNodeActions {
   selectedPlatform?: string;
@@ -38,13 +39,14 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       return [{ ...first, label, accountId: linked[0].id, tasks, selected: members.some(v => v.selected) }];
     }
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
-    const platformIcon = <AgentQuotaIcon agent={platform} quota={null} />;
+    const platformIcon = <AgentQuotaIcon agent={platform} />;
     const children = linked.map(account => {
       const selected = members.some(v => v.selected && v.selectedAccountId === account.id);
       const suffix = account.alias === 'Unidentified' ? String(unidentified.indexOf(account.id) + 1) : undefined;
       const alias = suffix ? `${account.alias} · ${suffix}` : account.alias;
       const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
-      const icon = <AgentQuotaIcon agent={platform} quota={account.quota ?? null} />;
+      const provider = account.quota ? accountQuotaProvider(platform, account.quota) : undefined;
+      const icon = <AgentQuotaIcon agent={platform} provider={provider} summary />;
       return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, selected, account: true, label: nodeLabel, icon,
         attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
         tasks: tasks.filter(t => t.agentAccountId === account.id),

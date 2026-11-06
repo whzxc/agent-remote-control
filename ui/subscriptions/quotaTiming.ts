@@ -20,6 +20,13 @@ export function quotaPeriod(w:QuotaWindow,p:ProviderSnapshot):number|undefined {
   }
   if(w.label==='monthly')return 30*86400000;
 }
+export function quotaElapsed(window: QuotaWindow, provider: ProviderSnapshot, now: number) {
+  const period = quotaPeriod(window, provider);
+  const reset = Date.parse(window.resetsAt ?? '');
+  if (!period || !Number.isFinite(reset) || now < reset - period || now >= reset) return;
+  return (now - reset + period) / period;
+}
+
 // Compare consumption with elapsed quota time, using the same projection everywhere.
 export function quotaTiming(w: QuotaWindow, p: ProviderSnapshot, now: number) {
   const length = quotaPeriod(w, p), reset = Date.parse(w.resetsAt ?? '');

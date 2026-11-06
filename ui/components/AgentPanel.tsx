@@ -12,10 +12,10 @@ import { useAccounts, refreshAccounts } from "../state/accounts";
 import { accountQuotaProvider } from "../subscriptions/accountQuota";
 import AgentQuota from "./AgentQuota";
 import { agentActivity } from "../state/activity";
-import { refreshSubscription, subscriptions } from "../state/subscriptions";
+import { platformQuotaForAgent, refreshSubscription, subscriptions } from "../state/subscriptions";
 import { compactAgentVersion, name, type Agent } from "../state/agents";
 import { connector } from "../state/connector";
-import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
+import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { errorLabels } from "../subscriptions/presentation";
 import { Button, Dialog, IconButton, Notice } from "./ui";
 import AgentPlatformView from "./AgentPlatformView";
@@ -34,7 +34,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   const [error, setError] = useState(""), [refreshing, setRefreshing] = useState(false);
   const accountQuota = account && (accountId !== undefined || account.quota.windows.length > 0);
   const provider = accountQuota ? accountQuotaProvider(agent.agent, account.quota)
-    : !accountId && snapshot?.settings.enabled ? snapshot.providers.find(p => p.agentIds.includes(agent.agent) && p.eligible) : undefined;
+    : accountId ? undefined : platformQuotaForAgent(snapshot, agent.agent);
   const title = account?.alias ?? name(agent);
   const sessions = activity?.agents[agent.agent]?.sessions.filter(session => !accountId || (account
     ? accountOwns(account, session.agentAccountId ?? session.dispatchSummary?.agentAccountId)
@@ -51,8 +51,8 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   const quotaBusy = refreshing || !!provider?.refreshing;
   return <section className="agent-panel-layer agent-overview-layer">
     <header className="dialog-header agent-panel-header">
-      {platformAvailable ? <Button variant="link" disabled={quotaBusy} aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual /></Button>
-        : <AgentQuotaIcon agent={agent.agent} quota={accountQuota ? account.quota : undefined} dual />}
+      {platformAvailable ? <Button variant="link" disabled={quotaBusy} aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} provider={provider} /></Button>
+        : <AgentQuotaIcon agent={agent.agent} provider={provider} />}
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
           <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>

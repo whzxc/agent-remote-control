@@ -8,6 +8,11 @@ export const subscriptions = createStore<{
   snapshot?: Snapshot;
   error: string;
 }>({ error: "" });
+export function platformQuotaForAgent(snapshot: Snapshot | undefined, agent: string) {
+  return snapshot?.settings.enabled
+    ? snapshot.providers.find(provider => provider.eligible && provider.agentIds.includes(agent))
+    : undefined;
+}
 const retired = new Set<string>();
 export function acceptSubscriptions(next: Snapshot) {
   const old = subscriptions.get().snapshot;

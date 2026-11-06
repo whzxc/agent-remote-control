@@ -20,9 +20,10 @@ import { markActivitiesRead } from "../state/activityBubbles";
 import { orderActivity, visibleActivity, activityHierarchy, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
 import { taskOrder, reorderTasks } from "../state/taskOrder";
 import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
-import { subscriptions } from "../state/subscriptions";
+import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
 import { navigation, openConnections } from "../state/navigation";
-import { AgentQuotaIcon } from "../subscriptions/QuotaRing";
+import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
+import { accountQuotaProvider } from "../subscriptions/accountQuota";
 import {
   useCallback,
   useEffect,
@@ -281,6 +282,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     activityClock.current.set(agent.agent, recentActivity);
     const agentAccounts = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
     const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
+    const provider = sharedAccount ? accountQuotaProvider(agent.agent, sharedAccount.quota) : platformQuotaForAgent(snapshot, agent.agent);
+    const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary />;
     const accountIds = agentAccounts.map(a => a.id);
     const accountGroup = (id: string | null | undefined) => agentAccounts.find(account => accountOwns(account, id))?.id;
     const family = activityHierarchy(sessions);
@@ -300,14 +303,14 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     return {
       id: agent.agent, platform: agent.agent, platformLabel: name(agent),
       activityAt: recentActivity,
-      activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon: <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />,
+      activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon,
       selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: !readOnlyBrowser && agent.enabled && !panelOpen,
       unread: sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined)
         .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) ?? session.agentAccountId })),
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
-        <AgentQuotaIcon agent={agent.agent} quota={sharedAccount?.quota} />
+        {icon}
         {selection && !selected && sessions.some(s => s.endedAt === undefined) && <span className="agent-task-count" data-attention={sessions.some(s => !!s.interaction) || undefined}>{sessions.filter(s => s.endedAt === undefined).length}</span>}
         <span className="graph-node-name">{name(agent)}</span>
         {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}

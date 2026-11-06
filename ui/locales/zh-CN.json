@@ -410,6 +410,7 @@
   "durationHours": " 小时",
   "durationMinutes": " 分钟",
   "quotaResetUnknown": "重置时间未知",
+  "quotaTimingUnknown": "额度时间进度未知",
   "usageSharedProducts": "X Pass · 共享用量",
   "usageWeeklyProducts": "本周产品用量占比",
   "usageSharedUnavailable": "未获取到 X Pass 明细，当前显示 Cursor 额度读数。",

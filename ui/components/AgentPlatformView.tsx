@@ -8,7 +8,7 @@ import { name, refreshAgents, type Agent } from '../state/agents';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { topologyAccountOrder } from '../topology/accountState';
 import { orderedSubset } from '../topology/order';
-import { AgentQuotaIcon } from '../subscriptions/QuotaRing';
+import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
 import { AgentAccountCard } from './AccountCards';
 import { DialogClose, IconButton, Notice } from './ui';
 import { Card } from './ui/card';
@@ -19,7 +19,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
   return <section className="agent-panel-layer agent-platform-view">
     <header className="dialog-header agent-panel-header">
-      <AgentQuotaIcon agent={agent.agent} quota={null} />
+      <AgentQuotaIcon agent={agent.agent} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
       <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
     </header>

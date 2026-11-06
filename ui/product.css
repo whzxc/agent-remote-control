@@ -300,10 +300,6 @@
   color: inherit;
   cursor: pointer;
 }
-.connection-core .graph-node .agent-quota-icon {
-  width: var(--agent-quota-size);
-  height: var(--agent-quota-size);
-}
 .graph-error .notice {
   padding: 8px 12px;
 }
@@ -514,12 +510,8 @@
 .topology-node .graph-node { width: 44px; height: 44px; margin: 0; --agent-quota-size: 44px; }
 .topology-node .source-icon, .topology-node .source-icon > span { display: grid; place-items: center; width: 44px; height: 44px; }
 .topology-node .source-icon svg { width: calc(38px * var(--node-art-scale)); height: calc(38px * var(--node-art-scale)); }
-.topology-node .agent-quota-icon:not(.has-quota) .agent-logo { width: calc(38px * var(--node-art-scale)); height: calc(38px * var(--node-art-scale)); }
+.topology-node .agent-quota-icon { --agent-icon-art-size: calc(48px * var(--node-art-scale)); }
 .topology-node .graph-node-name { top: calc(50% + 36px * var(--node-art-scale)); transform: translate(-50%, -50%); max-width: calc(110px * var(--node-art-scale)); line-height: calc(14px * var(--node-art-scale)); font-size: calc(var(--text-meta) * var(--node-art-scale)); color: var(--text); }
-.topology-node .agent-quota-icon.has-quota .agent-logo { width: calc(28px * var(--node-art-scale)); height: calc(28px * var(--node-art-scale)); }
-.topology-node .quota-outline { inset: calc((44px - 48px * var(--node-art-scale)) / 2); width: calc(48px * var(--node-art-scale)); height: calc(48px * var(--node-art-scale)); stroke-width: 2; stroke-linecap: butt; }
-.topology-node .quota-track { stroke: var(--border-strong); }
-.topology-node .quota-time-tick { stroke-width: 1.75; stroke-linecap: butt; }
 .graph-node[data-connection-state="inactive"] .source-icon,
 .graph-node[data-connection-state="inactive"] .agent-logo,
 .graph-node[data-connection-state="inactive"] .graph-node-name { opacity: 0.38; }
@@ -759,8 +751,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-panel-title-row > .icon-button { --icon-button-size: 30px; }
 .agent-panel-header .actions { flex: none; }
 .agent-panel-header .agent-quota-icon { --agent-quota-size: 44px; }
-.dual-quota .quota-outline { stroke-width: 3; }
-.dual-quota.has-quota .agent-logo { width: 46%; height: 46%; }
 .agent-no-quota { margin: 0; }
 .agent-quota-block { display: flex; flex-direction: column; flex: none; }
 .agent-quota-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -1109,7 +1099,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .elastic-panel .source-account-header .actions, .elastic-panel .agent-platform-view .agent-panel-header .actions { gap: 6px; margin: 0; }
 .elastic-panel .source-account-header .icon-button, .elastic-panel .agent-platform-view .agent-panel-header .icon-button { --icon-button-size: var(--control-height); }
 .elastic-panel .agent-platform-view > .agent-panel-header { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; padding-top: 20px; padding-bottom: 28px; }
-.agent-platform-view .agent-panel-header > .agent-quota-icon { --agent-quota-size: 36px; margin: 0; }
+.agent-platform-view .agent-panel-header > .agent-quota-icon { --agent-quota-size: 36px; --agent-icon-art-size: calc(48px * 32 / 38); margin: 0; }
 .agent-platform-view .agent-view-scroll { gap: 24px; }
 .native-agent-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; padding: 16px; }
 .native-agent-card > p { margin: 0; color: var(--text-secondary); font-size: var(--text-small); line-height: 18px; }
