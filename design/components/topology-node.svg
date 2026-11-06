@@ -19,15 +19,20 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <!-- /design:tokens -->
 
   <title>Topology Node</title>
-  <desc>One node form for platform, connector, Agent and Agent profile content. The fixture weekly quota is 73 percent remaining. Ring, logo and name share one endpoint; unavailable quota omits the ring.</desc>
+  <desc>One node form for platform, connector, Agent and Agent profile content. The Agent icon and name share one endpoint. The fixture shows a single ring with 73 percent of weekly quota remaining.</desc>
   <rect width="170" height="136" rx="0" style="fill:var(--canvas)" data-canvas="" />
   <g data-component="topology-node" data-form="default" transform="translate(30 30)">
     <rect width="110" height="76" rx="0" style="fill:none" />
-    <circle cx="55" cy="26" r="21" pathLength="100" stroke-dasharray="100 100" transform="rotate(-90 55 26)" style="fill:none;stroke:var(--border-strong);stroke-width:2" />
-    <circle cx="55" cy="26" r="21" pathLength="100" stroke-dasharray="73 100" transform="rotate(-90 55 26)" style="fill:none;stroke:var(--success);stroke-width:2" />
-    <path d="M55 3V9" transform="rotate(205.7142857142857 55 26)" style="fill:none;stroke:var(--text-secondary);stroke-width:1.75" />
-    <g data-brand="claude-code" transform="translate(41 12) scale(1.1666666666666667)" style="color:var(--text);fill:currentColor">
-      <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd" />
+    <g data-component="agent-icon" data-form="single-ring" transform="translate(31 2)">
+      <rect width="48" height="48" style="fill:none" />
+      <g data-window="display">
+        <circle cx="24" cy="24" r="21" data-part="quota-track" style="fill:none;stroke:var(--border-strong);stroke-width:3;stroke-linecap:round" />
+        <circle cx="24" cy="24" r="21" data-part="quota-value" pathLength="100" stroke-dasharray="73 100" transform="rotate(-90 24 24)" style="fill:none;stroke:var(--success);stroke-width:3;stroke-linecap:round" />
+        <path d="M24 1V5" data-part="time-tick" transform="rotate(205.7142857142857 24 24)" style="fill:none;stroke:var(--text-secondary);stroke-width:1.5;stroke-linecap:round" />
+      </g>
+      <g data-brand="claude-code" transform="translate(10 10) scale(1.1666666666666667)" style="color:var(--text);fill:currentColor">
+        <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd" />
+      </g>
     </g>
     <text x="55" y="62" style="fill:var(--text);font-size:var(--text-meta);text-anchor:middle">Personal</text>
   </g>

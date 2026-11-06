@@ -56,33 +56,42 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <path d="M 897.0 186.0 A 32 32 0 0 1 897.0 226.0" style="fill:none;stroke:var(--role-agent);stroke-width:3.997041416168213;stroke-linecap:round" />
       <g data-component="topology-node" data-form="default" transform="translate(817 180)">
         <rect width="110" height="76" rx="0" style="fill:none" />
-        <g data-brand="codex" transform="translate(36 7) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
-          <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff" />
-          <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#lobe-icons-codex-_R_0_)" />
-          <defs>
-            <linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-codex-_R_0_" x1="12" x2="12" y1="3" y2="21">
-              <stop stop-color="#B1A7FF" />
-              <stop offset=".5" stop-color="#7A9DFF" />
-              <stop offset="1" stop-color="#3941FF" />
-            </linearGradient>
-          </defs>
+        <g data-component="agent-icon" data-form="no-ring" transform="translate(31 2)">
+          <rect width="48" height="48" style="fill:none" />
+          <g data-brand="codex" transform="translate(5 5) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
+            <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff" />
+            <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#lobe-icons-codex-_R_0_)" />
+            <defs>
+              <linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-codex-_R_0_" x1="12" x2="12" y1="3" y2="21">
+                <stop stop-color="#B1A7FF" />
+                <stop offset=".5" stop-color="#7A9DFF" />
+                <stop offset="1" stop-color="#3941FF" />
+              </linearGradient>
+            </defs>
+          </g>
         </g>
         <text x="55" y="62" style="fill:var(--text);font-size:var(--text-meta);text-anchor:middle">Codex</text>
       </g>
       <path d="M 900.8 429.0 A 32 32 0 0 1 900.8 457.0" style="fill:none;stroke:var(--role-agent);stroke-width:3.997041416168213;stroke-linecap:round" />
       <g data-component="topology-node" data-form="default" transform="translate(817 417)">
         <rect width="110" height="76" rx="0" style="fill:none" />
-        <g data-brand="claude-code" transform="translate(36 7) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
-          <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd" />
+        <g data-component="agent-icon" data-form="no-ring" transform="translate(31 2)">
+          <rect width="48" height="48" style="fill:none" />
+          <g data-brand="claude-code" transform="translate(5 5) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
+            <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd" />
+          </g>
         </g>
         <text x="55" y="62" style="fill:var(--text);font-size:var(--text-meta);text-anchor:middle">Claude Code</text>
       </g>
       <path d="M 900.8 623.0 A 32 32 0 0 1 900.8 651.0" style="fill:none;stroke:var(--role-agent);stroke-width:3.997041416168213;stroke-linecap:round" />
       <g data-component="topology-node" data-form="default" transform="translate(817 611)">
         <rect width="110" height="76" rx="0" style="fill:none" />
-        <g data-brand="pi" transform="translate(36 7) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
-          <path clip-rule="evenodd" d="M1 1h16.5v11H12v5.5H6.5V23H1V1zm5.5 5.5V12H12V6.5H6.5z" />
-          <path d="M17.5 12H23v11h-5.5V12z" />
+        <g data-component="agent-icon" data-form="no-ring" transform="translate(31 2)">
+          <rect width="48" height="48" style="fill:none" />
+          <g data-brand="pi" transform="translate(5 5) scale(1.5833333333333333)" style="color:var(--text);fill:currentColor">
+            <path clip-rule="evenodd" d="M1 1h16.5v11H12v5.5H6.5V23H1V1zm5.5 5.5V12H12V6.5H6.5z" />
+            <path d="M17.5 12H23v11h-5.5V12z" />
+          </g>
         </g>
         <text x="55" y="62" style="fill:var(--text);font-size:var(--text-meta);text-anchor:middle">Pi</text>
       </g>
