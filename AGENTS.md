@@ -37,7 +37,7 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - Each asset contains only the presentation forms the user declares. Do not generate combinations of theme, width, locale or interaction state.
 - `design/tokens.css` is the token source. Assets paint through `var(--token)`. Literal colors are allowed only in brand artwork.
 - Implementations MUST match their approved asset. When they disagree, the asset wins until the user approves a change to it.
-- Use the global `sdg` CLI (>=0.3.0) for the toolkit and viewer. Run `sdg check` after editing assets. It MUST pass before committing.
+- Use the global `sdg` CLI (>=0.3.2) for the toolkit and viewer. Run `sdg check` after editing assets. It MUST pass before committing.
 - A surface without an approved asset keeps its current implementation. Its next visual change starts by drawing its asset.
 
 ## UI implementation

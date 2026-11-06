@@ -55,7 +55,7 @@ The workspace shares root Cargo.lock and target. The compilation-cache budget is
 
 ## Design assets
 
-Use the globally installed `sdg` CLI, version 0.3.0 or later:
+Use the globally installed `sdg` CLI, version 0.3.2 or later:
 
 ```sh
 sdg check

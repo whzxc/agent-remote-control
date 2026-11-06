@@ -27,7 +27,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </defs>
   <rect data-canvas="" width="1176" height="778" style="fill:var(--canvas)"/>
   <text class="note" x="72" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">accounts · brand-accounts-light</text>
-  <g transform="translate(72 94)" data-part="frame-accounts" data-clock="2026-01-01T00:00:00Z" data-action="Click the Claude Code Agent platform node" data-fixture="brand-accounts-light">
+  <g transform="translate(72 94)" data-part="frame-accounts" data-clock="2026-01-01T00:00:00Z" data-action="Click the Claude Code Agent platform node" data-fixture="agent-platform-accounts">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="480" height="590" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Claude Code</text>
@@ -126,7 +126,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text class="note" x="624" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">native · antigravity-platform</text>
-  <g transform="translate(624 94)" data-part="frame-native" data-clock="2026-01-01T00:00:00Z" data-fixture="antigravity-platform">
+  <g transform="translate(624 94)" data-part="frame-native" data-clock="2026-01-01T00:00:00Z">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="480" height="590" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Antigravity</text>

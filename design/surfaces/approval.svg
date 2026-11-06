@@ -23,7 +23,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <desc>Permission: approval task 0, request sheet. Question: task-states task 1, request sheet. Model and effort: timeline-multi-turn, task model dialog with picker and model menu open. UI locale zh-CN; fixture clock 2026-01-01T00:00:00Z. Passive routing is a dialog description, using the setup subtitle treatment. Sheets size to content with 24px outer padding. Request cards use 16px padding. Actions stay last; actionable routing uses request-routing/actionable-inline immediately above them. Submitting retains the action row, replaces the activated control with button/pending and disables its siblings. Closing preserves question drafts.</desc>
   <rect data-canvas="" width="1572" height="524" style="fill:var(--canvas)" />
   <text x="72" y="70" class="note">permission · approval · open request sheet</text>
-  <g transform="translate(72 94)" data-part="frame-permission" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="0" data-fixture="approval">
+  <g transform="translate(72 94)" data-part="frame-permission" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="0" data-fixture="approval-permission">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="360" height="286" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="24" y="33" style="fill:var(--text);font-size:var(--text-title);font-weight:650">待处理请求</text>
@@ -63,7 +63,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text x="504" y="70" class="note">question · task-states · task 1 · open request sheet</text>
-  <g transform="translate(504 94)" data-part="frame-question" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="1" data-fixture="task-states">
+  <g transform="translate(504 94)" data-part="frame-question" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="1" data-fixture="approval-question">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="360" height="400" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="24" y="33" style="fill:var(--text);font-size:var(--text-title);font-weight:650">待处理请求</text>

@@ -81,7 +81,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 </g>
 </g>
 <text x="72" y="392" class="note">settings · updates-settings · About section</text>
-<g transform="translate(72 408)" data-part="frame-settings" data-fixture="updates-settings">
+<g transform="translate(72 408)" data-part="frame-settings">
 <g transform="translate(0 0)" data-component="panel" data-form="workspace" >
 <rect width="720" height="258" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
 </g>

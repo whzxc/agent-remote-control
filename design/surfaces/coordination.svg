@@ -375,7 +375,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text class="note" x="964" y="1310" style="fill:var(--text-secondary);font-size:var(--text-meta)">unavailable · coordination-unavailable</text>
-  <g transform="translate(964 1332)" data-part="frame-unavailable" data-clock="2026-01-01T00:00:00Z" data-action="Open Board after the initial failed read; do not retry" data-fixture="coordination-unavailable">
+  <g transform="translate(964 1332)" data-part="frame-unavailable" data-clock="2026-01-01T00:00:00Z" data-action="Open Board after the initial failed read; do not retry" data-fixture="board-unavailable">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="820" height="760" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="24" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Board</text>

@@ -736,7 +736,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
   <text x="32" y="969" style="fill:var(--text);font-size:var(--text-title);font-weight:650">04  Sources folded</text>
   <path d="M21 1392H28 M676 1392H683" style="fill:none;stroke:var(--text-tertiary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round" />
-  <g data-part="frame-sources-folded" transform="translate(32 992)" data-center="visible-composition" data-fixture="portrait-topology-0" data-viewport="640x800" data-origin="0 0">
+  <g data-part="frame-sources-folded" transform="translate(32 992)" data-center="visible-composition" data-fixture="portrait-topology-sources-folded" data-viewport="640x800" data-origin="0 0">
     <g data-component="topology-scene" data-form="default" transform="translate(0 0)">
       <rect width="640" height="800" rx="0" style="fill:var(--canvas)" data-fluid="height" />
       <rect x="0.5" y="0.5" width="639" height="799" data-part="viewport-outline" style="fill:none;stroke:var(--border-strong);stroke-width:1" />
@@ -830,7 +830,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
   <text x="696" y="969" style="fill:var(--text);font-size:var(--text-title);font-weight:650">05  Agents folded</text>
   <path d="M685 1392H692 M1340 1392H1347" style="fill:none;stroke:var(--text-tertiary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round" />
-  <g data-part="frame-agents-folded" transform="translate(696 992)" data-center="visible-composition" data-fixture="portrait-topology-0" data-viewport="640x800" data-origin="0 0">
+  <g data-part="frame-agents-folded" transform="translate(696 992)" data-center="visible-composition" data-fixture="portrait-topology-agents-folded" data-viewport="640x800" data-origin="0 0">
     <g data-component="topology-scene" data-form="default" transform="translate(0 0)">
       <rect width="640" height="800" rx="0" style="fill:var(--canvas)" data-fluid="height" />
       <rect x="0.5" y="0.5" width="639" height="799" data-part="viewport-outline" style="fill:none;stroke:var(--border-strong);stroke-width:1" />

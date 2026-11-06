@@ -357,7 +357,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text x="1496" y="70" class="note">failed-turn · task-states · task 3</text>
-  <g transform="translate(1496 94)" data-part="frame-failed-turn" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="3" data-fixture="task-states">
+  <g transform="translate(1496 94)" data-part="frame-failed-turn" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="3" data-fixture="task-detail-failed">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="640" height="642" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="20" y="70" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Failed task</text>

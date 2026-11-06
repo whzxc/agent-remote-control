@@ -22,7 +22,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <!-- /design:tokens -->
 <rect data-canvas="" width="1096" height="494" style="fill:var(--canvas)"/>
 <text x="72" y="78" class="note">overview · agent-panel · Agents → Subscription quotas</text>
-<g transform="translate(72 94)" data-part="frame-overview" data-fixture="agent-panel">
+<g transform="translate(72 94)" data-part="frame-overview" data-fixture="quota-overview">
 <g transform="translate(0 0)" data-component="panel" data-form="workspace" >
 <rect width="440" height="328" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
 <text x="24" y="30" style="fill:var(--text);font-size:var(--text-title);font-weight:650" >订阅额度</text>
