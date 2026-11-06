@@ -103,8 +103,10 @@ export class PortraitPainter {
       const wing = nodes.filter(n => n.side === side && !n.parent).map(n => a.values(nodeKey(side, n.id))).filter(v => v && v.presence > 0.01);
       const x = side === -1 ? p.sourceX : p.agentX, y = h.y;
       const earX = h.x + side * p.earOffset;
-      const edge = side === -1 ? Math.min(...wing.map(v => v!.y), y) : Math.max(...wing.map(v => v!.y), y);
-      this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45);
+      if (wing.length) {
+        const edge = side === -1 ? Math.min(...wing.map(v => v!.y), y) : Math.max(...wing.map(v => v!.y), y);
+        this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45);
+      }
       this.path(`ear${side}`, railPath([point(earX, y), point(earX + side * p.earHalf, y)]), `topology-ear ${side === -1 ? 'left' : 'right'}`, 1,
         { 'stroke-width': 14 * h.Re / 130, ...(side === 1 ? { style: `stroke:url(#${this.gradient.id})` } : {}) });
     }

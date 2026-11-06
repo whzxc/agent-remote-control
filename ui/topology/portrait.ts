@@ -9,6 +9,8 @@ export interface PortraitGeometry {
 }
 export interface PortraitLabel { width: number; twoLineWidth: number; height: number }
 export interface PortraitLabels { left: ReadonlyMap<string, PortraitLabel>; right: ReadonlyMap<string, PortraitLabel> }
+export const portraitInset = 74;
+export const portraitHubClearance = (radius: number) => radius * 0.6;
 
 // Portrait owns rows and inward columns. Queue selection and account identity
 // remain upstream, so switching orientation never rewrites either ordering.
@@ -19,7 +21,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const finalStub = Math.min(24, Math.max(12, vw * 24 / 900));
   const preferredRe = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale * 0.6;
   const Re = Math.max(preferredRe * MIN_HUB_RATIO, Math.min(preferredRe, (vw - 32) * 130 / 240));
-  const hubGap = Math.min(56, Re / 2);
+  const hubClearance = portraitHubClearance(Re);
   const earOffset = Re, earHalf = Re * 72 / 112;
   const hasTasks = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasks));
   const busy = sc.right.some(hasTasks);
@@ -53,7 +55,8 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const stackHeight = (e: Entity) => tasks(e).reduce((h, t) => h + t.height, 0) + Math.max(0, tasks(e).length - 1) * p.taskGap;
   const rowHeight = (e: Entity, side: Side, account = false): number => {
     const nested = children(e), own = stackHeight(e);
-    const base = account ? p.nodeSize + 24 : side === -1 ? p.sourceRow : busy && !hasTasks(e) ? p.minIdleRow : p.idleRow;
+    const rootRow = side === -1 ? p.sourceRow - DEFAULTS.sourceRow : p.idleRow - DEFAULTS.idleRow;
+    const base = account ? p.nodeSize + 24 : Math.max(p.nodeSize, side === 1 && busy && !hasTasks(e) ? p.minIdleRow : p.nodeSize + rootRow);
     const subtree = nested.reduce((h, child) => h + rowHeight(child, side, true), 0) + Math.max(0, nested.length - 1) * (side === -1 ? 0 : p.rowGap);
     const measured = label(e, side), s = scale();
     const labelWidth = side === -1 ? account ? sourceAccountLabelWidth : sourceLabelWidth : account ? agentAccountLabelWidth : agentLabelWidth;
@@ -67,7 +70,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
       const height = rowHeight(e, side, !!parent), own = tasks(e), nested = children(e);
       const active = hasTasks(e), idle = side === 1 && busy && !active && !parent;
       const node: NodeGeometry = { id: e.id, parent, tasks: own, active, side, x, y: y + height / 2,
-        size: p.nodeSize, scale: 1,
+        size: p.nodeSize, scale: 1, rowHeight: height,
         opacity: idle ? 0.62 : 1, dim: idle, port: 0, arc: null,
         taskBusX: x - busGap, childBusX: x - side * column / 2 };
       if (drag?.kind === 'node' && drag.side === side && drag.id === e.id) {
@@ -94,10 +97,10 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
     for (const e of list) y += place(e, y, side === -1 ? sourceX : agentX) + p.rowGap;
     return { side, nodes, tasks: bubbles, H: Math.max(0, y - top - p.rowGap), ear: { lo: 0, hi: 0 } };
   }
-  const sourceTop = 74, left = wing(sc.left, -1, sourceTop);
+  const sourceTop = portraitInset, left = wing(sc.left, -1, sourceTop);
   const sourceBottom = sourceTop + left.H;
-  const hub = { x: vw / 2, y: sourceBottom + hubGap + earOffset, Re, ...hubDots(sc.hubInteraction) };
-  const agentTop = hub.y + earOffset + hubGap, agents = wing(right, 1, agentTop);
+  const hub = { x: vw / 2, y: sourceBottom + hubClearance, Re, ...hubDots(sc.hubInteraction) };
+  const agentTop = hub.y + hubClearance, agents = wing(right, 1, agentTop);
   const agentBottom = agentTop + agents.H;
   for (const wing of [left, agents]) {
     if (sc.panel?.side !== wing.side) continue;
@@ -107,7 +110,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
     }
     for (const task of wing.tasks) { task.hidden = true; task.x += 12; }
   }
-  return { vw, vh, sceneH: Math.max(vh, agentBottom + 112), hub, wings: [left, agents],
+  return { vw, vh, sceneH: Math.max(vh, agentBottom + portraitInset), hub, wings: [left, agents],
     portrait: { sourceX, agentX, sourceTop, sourceBottom, agentTop, agentBottom, earOffset, earHalf,
       sourceLabelWidth, agentLabelWidth, sourceAccountLabelWidth, agentAccountLabelWidth },
     balance: [{ core: sourceX, full: vw / 2, squeeze: 1 }, { core: vw - agentX, full: vw / 2, squeeze: 1 }] };

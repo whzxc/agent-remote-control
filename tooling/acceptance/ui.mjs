@@ -1,4 +1,5 @@
 import { verifyCoordination } from './coordination.mjs';
+import { verifyPortraitTopology } from './portrait-topology.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
 import { chromium, webkit } from 'playwright';
@@ -151,6 +152,11 @@ try {
         if (!fixture.page && fixture.agents.some(a => !actualAgents.includes(a))) throw new Error('Fixture agents were not rendered');
         const representedTasks = model.topology?.tasks.reduce((sum, task) => sum + (task.count ?? 1), 0);
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
+        if (name.startsWith('portrait-topology-')) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await verifyPortraitTopology(page, fixture.tasks.length, messages, out, key, screenshots);
+          model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
+        }
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
         if (fixture.coordination) {

@@ -8,7 +8,7 @@ import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
 import { solvePortrait, portraitPanelRect } from "./portrait";
 import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
-import { compactRoots, compactLayout } from './compact';
+import { compactRoots, compactLayout, type CompactPlan } from './compact';
 import { t } from '../i18n';
 import { topologyCollapsed } from './accountState';
 import { highlightedPaths, type PathTask } from './accounts';
@@ -159,7 +159,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     return { ...n, collapsed: closed, selected: n.selected || closed && descendantSelected(n.children ?? []), children, tasks: closed ? [] : n.tasks };
   });
   const prunedLeft = closedWing === -1 ? [] : prune(inputLeft, -1), prunedRight = closedWing === 1 ? [] : prune(inputRight, 1);
-  const compacted = useMemo(() => viewport.vw > 0 ? compactRoots(prunedLeft, prunedRight, viewport, viewport.orientation, params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
+  const [portraitPlan, setPortraitPlan] = useState<CompactPlan>(() => ({ left: new Set(), right: new Set() }));
+  const landscapePlan = useMemo(() => viewport.vw > 0 && viewport.orientation === 'landscape' ? compactRoots(prunedLeft, prunedRight, viewport, 'landscape', params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
+  const compacted = viewport.orientation === 'portrait' ? portraitPlan : landscapePlan;
   const compact = (list: NodeView[], members: Set<string>, side: Side, inherited = false): NodeView[] => list.map(n => {
     const stackMember = inherited || members.has(n.id);
     return { ...n, stackMember, stacked: stackMember && !expandedStacks.has(side), children: compact(n.children ?? [], members, side, stackMember) };
@@ -465,14 +467,20 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   }, []);
   const solveScene = useCallback((activeDrag: Drag | null = null) => {
     const sc = scene();
+    const { params, left, right, expandedStacks } = latest.current;
+    let plan = latest.current.compacted;
     let solved: Layout;
-    if (orientation.current !== 'portrait') solved = solve(sc, latest.current.params);
+    if (orientation.current !== 'portrait') solved = solve(sc, params);
     else {
       if (graph.current) graph.current.dataset.orientation = 'portrait';
       const labels = measurePortraitLabels(latest.current.nodes, n => elements.current.get(nodeKey(n.side, n.id)));
-      solved = solvePortrait(sc, latest.current.params, null, labels);
+      solved = solvePortrait(sc, params, null, labels);
+      const measured = compactRoots(left, right, sc, 'portrait', params, solved);
+      const same = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every(id => b.has(id));
+      if (!same(measured.left, plan.left) || !same(measured.right, plan.right)) setPortraitPlan(measured);
+      plan = measured;
     }
-    const result = compactLayout(solved, latest.current.compacted, latest.current.expandedStacks, latest.current.params.rowGap);
+    const result = compactLayout(solved, plan, expandedStacks, params.rowGap);
     // Folded branches and unread source leaves retain an actionable outer arc.
     for (const wing of result.wings) for (const node of wing.nodes) {
       if (node.arc) continue;

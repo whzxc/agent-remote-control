@@ -1,5 +1,5 @@
 import { solve, type Entity, type Layout, type Params, type Scene, type Side, type Task, type Wing } from './solve.ts';
-import { solvePortrait } from './portrait.ts';
+import { portraitHubClearance, portraitInset, solvePortrait } from './portrait.ts';
 import type { Orientation } from './orientation.ts';
 
 export interface ActivityEntity extends Entity {
@@ -21,6 +21,7 @@ function branches(wing: Wing) {
     const ids = new Set([root.id]);
     for (const node of wing.nodes) if (node.parent && ids.has(node.parent)) ids.add(node.id);
     const nodes = wing.nodes.filter(n => ids.has(n.id)), tasks = wing.tasks.filter(t => ids.has(t.parent));
+    if (root.rowHeight !== undefined) return { root, nodes, tasks, top: root.y - root.rowHeight / 2, height: root.rowHeight };
     const top = Math.min(...nodes.map(n => n.y - n.size * n.scale / 2 - 12), ...tasks.map(t => t.y - t.height / 2 - 10));
     const bottom = Math.max(...nodes.map(n => n.y + n.size * n.scale / 2 + 24), ...tasks.map(t => t.y + t.height / 2 + 10));
     return { root, nodes, tasks, top, height: bottom - top };
@@ -28,7 +29,7 @@ function branches(wing: Wing) {
 }
 // Solve the entire tree first, then compact each depth onto its existing axis.
 // Identity, parent edges and input order survive both folding and unfolding.
-function foldWing(wing: Wing, hidden: Set<string>, gap: number) {
+function foldWing(wing: Wing, hidden: ReadonlySet<string>, gap: number, portrait: boolean) {
   const groups = branches(wing), kept = groups.filter(g => !hidden.has(g.root.id)), folded = groups.filter(g => hidden.has(g.root.id));
   let y = 0;
   for (const group of kept) {
@@ -38,6 +39,8 @@ function foldWing(wing: Wing, hidden: Set<string>, gap: number) {
     y += group.height + gap;
   }
   if (folded.length) {
+    if (portrait && kept.length) y -= gap * 2 / 3;
+    const step = portrait ? 7 : 10;
     const levels = new Map<number, Wing['nodes']>();
     for (const group of folded) {
       const depths = new Map<string, number>();
@@ -51,36 +54,46 @@ function foldWing(wing: Wing, hidden: Set<string>, gap: number) {
     let height = 0;
     for (const nodes of levels.values()) {
       const x = nodes[0].x, size = Math.max(...nodes.map(n => n.size * n.scale));
-      const span = size + Math.max(0, nodes.length - 1) * 10 + 24;
+      const span = size + (nodes.length - 1) * step + (portrait ? 0 : 24);
       height = Math.max(height, span);
       nodes.forEach((n, i) => {
         const dx = x - n.x;
         if (n.taskBusX !== undefined) n.taskBusX += dx;
         if (n.childBusX !== undefined) n.childBusX += dx;
-        n.x = x; n.y = y + size / 2 + i * 10; n.opacity = 1; n.dim = false;
+        n.x = x; n.y = y + size / 2 + i * step; n.opacity = 1; n.dim = false;
       });
     }
     y += height + gap;
   }
   wing.H = Math.max(0, y - gap);
+  return kept.flatMap(group => group.tasks);
 }
+const noRoots = new Set<string>();
+const copyWing = (wing: Wing): Wing => ({ ...wing, nodes: wing.nodes.map(n => ({ ...n })), tasks: wing.tasks.map(t => ({ ...t })) });
 export function compactLayout(layout: Layout, plan: CompactPlan, expanded: ReadonlySet<Side>, gap: number): Layout {
   const result: Layout = { ...layout, hub: { ...layout.hub }, portrait: layout.portrait && { ...layout.portrait },
-    wings: layout.wings.map(w => ({ ...w, nodes: w.nodes.map(n => ({ ...n })), tasks: w.tasks.map(t => ({ ...t })) })) };
-  for (const wing of result.wings) foldWing(wing, expanded.has(wing.side) ? new Set() : wing.side === -1 ? plan.left : plan.right, gap);
+    wings: layout.wings.map(copyWing) };
   const [left, right] = result.wings;
   const p = result.portrait;
+  const leftRoots = expanded.has(-1) ? noRoots : plan.left, rightRoots = expanded.has(1) ? noRoots : plan.right;
+  foldWing(left, leftRoots, gap, !!p);
+  const tasks = foldWing(right, rightRoots, gap, !!p);
   const shift = (wing: Wing, dy: number) => { wing.nodes.forEach(n => n.y += dy); wing.tasks.forEach(t => t.y += dy); };
   if (p) {
-    const hubGap = Math.min(56, result.hub.Re / 2), middle = 2 * (hubGap + p.earOffset);
-    const singleWing = (left.nodes.length === 0) !== (right.nodes.length === 0);
-    const half = Math.max(0, (result.vh - 74 - 112 - middle) / 2, left.H, right.H);
-    p.sourceTop = singleWing ? 74 : 74 + (half - left.H) / 2; p.sourceBottom = p.sourceTop + left.H;
-    result.hub.y = singleWing ? p.sourceBottom + middle / 2 : 74 + half + middle / 2;
-    p.agentTop = result.hub.y + middle / 2 + (singleWing ? 0 : (half - right.H) / 2); p.agentBottom = p.agentTop + right.H;
+    const clearance = portraitHubClearance(result.hub.Re), agentOffset = left.H + 2 * clearance;
+    const height = agentOffset + right.H;
+    let anchor = height / 2;
+    const focusTasks = left.nodes.length > 0 && right.nodes.length > 0 && (leftRoots.size > 0 || rightRoots.size > 0) && tasks.length > 0;
+    if (focusTasks) {
+      const first = Math.min(...tasks.map(t => t.y - t.height / 2));
+      const last = Math.max(...tasks.map(t => t.y + t.height / 2));
+      anchor = agentOffset + (first + last) / 2;
+    }
+    p.sourceTop = Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor); p.sourceBottom = p.sourceTop + left.H;
+    result.hub.y = p.sourceBottom + clearance;
+    p.agentTop = p.sourceTop + agentOffset; p.agentBottom = p.agentTop + right.H;
     shift(left, p.sourceTop); shift(right, p.agentTop);
-    const bottom = singleWing ? (right.nodes.length ? p.agentBottom : result.hub.y + result.hub.Re) : 74 + half * 2 + middle;
-    result.sceneH = Math.max(result.vh, bottom + 112);
+    result.sceneH = Math.max(result.vh, p.agentBottom + portraitInset);
   } else {
     result.sceneH = Math.max(result.vh, left.H + 140, right.H + 140);
     result.hub.y = result.sceneH / 2;
@@ -88,19 +101,41 @@ export function compactLayout(layout: Layout, plan: CompactPlan, expanded: Reado
   }
   return result;
 }
-export function compactRoots(left: ActivityEntity[], right: ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params): CompactPlan {
+export function compactRoots(left: readonly ActivityEntity[], right: readonly ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params, solved?: Layout): CompactPlan {
   const scene = { ...viewport, left, right };
-  const layout = orientation === 'portrait' ? solvePortrait(scene, params) : solve(scene, params);
+  const layout = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params) : solve(scene, params));
   const plan: CompactPlan = { left: new Set(), right: new Set() };
-  const middle = layout.portrait ? 2 * (layout.portrait.earOffset + Math.min(56, layout.hub.Re / 2)) : 0;
-  const visibleWings = Math.max(1, Number(left.length > 0) + Number(right.length > 0));
-  const budget = orientation === 'portrait' ? (viewport.vh - 74 - 112 - middle) / visibleWings : viewport.vh - 140;
+  const portrait = !!layout.portrait;
+  const budget = portrait ? viewport.vh - 2 * (portraitInset + portraitHubClearance(layout.hub.Re)) : viewport.vh - 140;
+  const heights = layout.wings.map(wing => {
+    if (portrait) return wing.H;
+    const copy = copyWing(wing);
+    foldWing(copy, noRoots, params.rowGap, portrait);
+    return copy.H;
+  });
   for (const [index, list] of [left, right].entries()) {
-    const ranked = [...list].sort((a, b) => priority(b).level - priority(a).level || priority(b).at - priority(a).at || a.id.localeCompare(b.id));
+    const height = () => portrait ? heights[0] + heights[1] : heights[index];
+    if (height() <= budget) continue;
+    const ranked = list.map(node => ({ id: node.id, ...priority(node) }))
+      .sort((a, b) => b.level - a.level || b.at - a.at || a.id.localeCompare(b.id));
     const hidden = index === 0 ? plan.left : plan.right;
+    let bestHeight = heights[index], best = new Set<string>();
     for (const node of ranked.slice(1).reverse()) {
-      if (compactLayout(layout, plan, new Set(), params.rowGap).wings[index].H <= budget) break;
-      if (!priority(node).pinned) hidden.add(node.id);
+      if (height() <= budget) break;
+      if (node.pinned) continue;
+      hidden.add(node.id);
+      const copy = copyWing(layout.wings[index]);
+      foldWing(copy, hidden, params.rowGap, portrait);
+      heights[index] = copy.H;
+      if (portrait && copy.H < bestHeight) {
+        bestHeight = copy.H;
+        best = new Set(hidden);
+      }
+    }
+    if (portrait) {
+      heights[index] = bestHeight;
+      if (index === 0) plan.left = best;
+      else plan.right = best;
     }
   }
   return plan;

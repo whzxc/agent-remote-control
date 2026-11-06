@@ -12,7 +12,7 @@ type Box = { x: number; y: number; width: number; height: number };
 type View = { x: number; y: number; scale: number };
 const modules = [
   { title: 'Essentials', names: ['button', 'icon-button', 'switch', 'single-choice', 'field', 'search', 'tag', 'state-pill', 'tile', 'card', 'panel', 'tooltip', 'notice', 'copy-field'] },
-  { title: 'Homepage & topology', names: ['homepage-topology-empty', 'homepage-topology-tasks', 'homepage-topology-accounts', 'homepage-topology-studio', 'topology-mark', 'topology-node', 'topology-scene', 'nav-capsule'] },
+  { title: 'Homepage & topology', names: ['homepage-topology-empty', 'homepage-topology-tasks', 'homepage-topology-accounts', 'homepage-topology-studio', 'homepage-topology-portrait', 'topology-mark', 'topology-node', 'topology-scene', 'nav-capsule'] },
   { title: 'Agents & quota', names: ['agent-panel', 'agent-platform', 'quota-overview', 'quota-card', 'effort-gauge', 'effort-slider'] },
   { title: 'Tasks & interactions', names: ['task-detail', 'approval', 'task-bubble', 'dispatch-spec', 'task-message', 'prompt', 'request-routing'] },
   { title: 'Connections & platforms', names: ['setup', 'connections', 'platforms', 'source-panel', 'setup-choice', 'mcp-hub'] },

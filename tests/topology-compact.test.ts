@@ -45,11 +45,11 @@ test('landscape leaves the fitting wing alone while compacting the overflowing w
   assert.ok(result.right.size > 0);
 });
 
-test('portrait shares height pressure between wings and keeps every topology level', () => {
+test('portrait compaction keeps every topology level', () => {
   // Regression: portrait collapsed only the lower Agents and replaced their descendants with a popover.
   const tree = (prefix: string) => Array.from({ length: 5 }, (_, i) => ({ ...node(`${prefix}-${i}`, i === 0 ? 2 : 0),
     children: [{ ...node(`${prefix}-${i}-child`), children: [node(`${prefix}-${i}-leaf`)] }] }));
-  const left = tree('source'), right = tree('agent'), viewport = { vw: 700, vh: 800 };
+  const left = tree('source'), right = tree('agent'), viewport = { vw: 700, vh: 650 };
   const plan = compactRoots(left, right, viewport, 'portrait', DEFAULTS);
   assert.ok(plan.left.size > 0 && plan.right.size > 0);
   const full = solvePortrait({ ...viewport, left, right }, DEFAULTS);
@@ -67,28 +67,48 @@ test('portrait shares height pressure between wings and keeps every topology lev
     assert.ok(open.wings[index].H > wing.H);
   }
   const p = folded.portrait!;
-  assert.ok(Math.abs((p.sourceTop + p.sourceBottom) / 2 + (p.agentTop + p.agentBottom) / 2 - 2 * folded.hub.y) < .001);
+  assert.ok(p.sourceBottom < folded.hub.y && p.agentTop > folded.hub.y);
   assert.equal(JSON.stringify(full), before);
 });
 
 test('an empty portrait wing releases its reserved height and compaction budget', () => {
   // Regression: folding a portrait wing left a vacant half-screen above the hub and kept the remaining wing unnecessarily stacked.
   const viewport = { vw: 700, vh: 1000 }, plan = { left: new Set<string>(), right: new Set<string>() };
-  let agentOnlyHub: number | undefined, sourceOnlyTop: number | undefined;
   for (const count of [1, 4, 8]) {
     const roots = Array.from({ length: count }, (_, i) => node(`root-${i}`));
     const agentOnly = compactLayout(solvePortrait({ ...viewport, left: [], right: roots }), plan, new Set(), DEFAULTS.rowGap);
     const sourceOnly = compactLayout(solvePortrait({ ...viewport, left: roots, right: [] }), plan, new Set(), DEFAULTS.rowGap);
-    agentOnlyHub ??= agentOnly.hub.y; sourceOnlyTop ??= sourceOnly.portrait!.sourceTop;
-    assert.equal(agentOnly.hub.y, agentOnlyHub);
-    assert.equal(sourceOnly.portrait!.sourceTop, sourceOnlyTop);
+    for (const layout of [agentOnly, sourceOnly]) {
+      assert.ok(Math.abs((layout.portrait!.sourceTop + layout.portrait!.agentBottom) / 2 - viewport.vh / 2) < .001);
+    }
     assert.equal(agentOnly.portrait!.sourceTop, agentOnly.portrait!.sourceBottom);
     assert.equal(sourceOnly.portrait!.agentTop, sourceOnly.portrait!.agentBottom);
     assert.ok(agentOnly.wings[1].nodes.every(n => n.y > agentOnly.hub.y));
     assert.ok(sourceOnly.wings[0].nodes.every(n => n.y < sourceOnly.hub.y));
   }
-  const roots = Array.from({ length: 6 }, (_, i) => node(`root-${i}`));
+  const roots = Array.from({ length: 11 }, (_, i) => node(`root-${i}`));
   const shared = compactRoots(roots, roots, viewport, 'portrait', DEFAULTS);
   const solo = compactRoots([], roots, viewport, 'portrait', DEFAULTS);
-  assert.ok(solo.right.size < shared.right.size);
+  assert.ok(shared.left.size > 0);
+  assert.equal(solo.right.size, 0);
+});
+
+test('portrait fits two Codex tasks and centers four by compacting the sources first', () => {
+  // Regression: equal budgets compressed the lower Agent wing first and left the running task group below the vertical center.
+  const left = ['openai', 'anthropic', 'google', 'xai'].map(id => node(id));
+  const viewport = { vw: 640, vh: 800 };
+  for (const count of [0, 2, 4]) {
+    const codex = { ...node('codex'), tasks: Array.from({ length: count }, (_, i) => ({ id: `task-${i}`, height: 76, width: 264, state: 'running' })) };
+    const right = [codex, node('claude'), node('opencode')];
+    const full = solvePortrait({ ...viewport, left, right });
+    const plan = compactRoots(left, right, viewport, 'portrait', DEFAULTS, full);
+    assert.equal(plan.left.size > 0, count === 4);
+    assert.equal(plan.right.size, 0);
+    const packed = compactLayout(full, plan, new Set(), DEFAULTS.rowGap);
+    const tasks = packed.wings[1].tasks;
+    const anchor = count === 4 ? (tasks[0].y + tasks.at(-1)!.y) / 2
+      : (packed.portrait!.sourceTop + packed.portrait!.agentBottom) / 2;
+    assert.ok(Math.abs(anchor - viewport.vh / 2) < .001);
+    assert.equal(packed.sceneH, viewport.vh);
+  }
 });

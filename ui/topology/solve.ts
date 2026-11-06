@@ -50,7 +50,7 @@ export interface Drag extends Point { kind: "node" | "task"; side: Side; id: str
 export interface Point { x: number; y: number }
 export interface NodeGeometry extends Point {
   id: string; parent?: string; tasks: readonly Task[]; active: boolean; size: number; scale: number; opacity: number; dim: boolean; side: Side;
-  taskBusX?: number; childBusX?: number;
+  taskBusX?: number; childBusX?: number; rowHeight?: number;
   port: number; arc: { R: number; lo: number; hi: number } | null;
 }
 export interface TaskGeometry extends Task, Point { parent: string; side: Side; port: number; hidden?: boolean; anchor?: number }

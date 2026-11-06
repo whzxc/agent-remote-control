@@ -1,0 +1,23 @@
+{
+  "theme": "light",
+  "language": "en",
+  "sourceProducts": [
+    "openai",
+    "anthropic",
+    "google",
+    "xai"
+  ],
+  "agents": [
+    "codex",
+    "claude",
+    "opencode"
+  ],
+  "quota": true,
+  "tasks": [],
+  "viewports": [
+    {
+      "width": 640,
+      "height": 800
+    }
+  ]
+}
