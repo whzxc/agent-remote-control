@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash, Maximize2, Minimize2, X } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
@@ -95,12 +95,17 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
   const now = useAppNow(30_000);
   const [snapshot, setSnapshot] = useState<HubSnapshot>(), [error, setError] = useState(''), [busy, setBusy] = useState('');
   const [removing, setRemoving] = useState<HubServer>(), [adding, setAdding] = useState(false), [query, setQuery] = useState(''), [reading, setReading] = useState(false);
-  const refresh = () => { setReading(true); return api<HubSnapshot>('mcp-hub').then(value => { setSnapshot(value); setError(''); }, error => setError(String(error))).finally(() => setReading(false)); };
-  useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => { if (!document.hidden) void refresh(); }, 15000);
-    return () => clearInterval(timer);
+  const refresh = useCallback((showProgress = true) => {
+    if (showProgress) setReading(true);
+    return api<HubSnapshot>('mcp-hub').then(value => { setSnapshot(value); setError(''); }, error => setError(String(error)))
+      .finally(() => { if (showProgress) setReading(false); });
   }, []);
+  const connecting = snapshot?.servers.some(server => server.state === 'connecting') ?? false;
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const timer = setInterval(() => { if (!document.hidden) void refresh(false); }, connecting ? 1000 : 15000);
+    return () => clearInterval(timer);
+  }, [connecting, refresh]);
   async function act(action: string, server: HubServer) {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
     setBusy(`${action}:${server.name}`); setError('');

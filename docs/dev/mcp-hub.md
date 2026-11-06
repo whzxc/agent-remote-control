@@ -52,7 +52,8 @@ Hub ops use read-back retry semantics; the outer act `requestId` adds no replay 
 
 ## Sessions
 
-Sessions start lazily and stay warm for ten minutes after their last use.
+When the experiment is on, Core restores enabled servers and discovers their tools in the background at startup.
+Other sessions start on demand. Sessions stay warm for ten minutes after their last use.
 The cached tool list survives idle shutdown, so listing does not restart idle servers.
 A revision change closes the old session before the next use.
 stdio servers resolve bare commands through ARC's Agent search path and receive that path as `PATH`.

@@ -215,6 +215,7 @@ The MCP hub switch is disabled by default and lives only in Settings â†’ About â
 Enabling it adds the MCP hub workspace to the shared navigation capsule.
 Disabling it closes that workspace and retains configuration.
 The upper connection arc continues to represent control-source ingress connections.
+The MCP hub fills the shared workspace height from opening, in either width. The service list scrolls beneath its header.
 
 The summary counts servers, available servers, failing servers and enabled tools.
 Search filters servers by name and tools by name or description, and opens matching tool lists.

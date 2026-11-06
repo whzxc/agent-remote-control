@@ -415,25 +415,9 @@ fn find(name: &str) -> std::result::Result<Server, Value> {
     })
 }
 
-/// query mcp_tools: compact index, one server's full tool definitions, or one tool.
-pub(crate) async fn tools(args: &Value) -> Result<Value> {
-    let servers = stored()?;
-    let refresh = args["refresh"] == true;
-    let selected: Vec<Server> = match args["server"].as_str() {
-        Some(name) => match servers.iter().find(|s| s.name == name) {
-            Some(server) => vec![server.clone()],
-            None => {
-                return Ok(fail(
-                    format!("MCP_SERVER_UNKNOWN: No hub server named {name:?}"),
-                    json!({"via":"query","op":"mcp_tools","args":{}}),
-                ))
-            }
-        },
-        None => servers.clone(),
-    };
-    // Discover enabled servers that were never listed, or all of them on refresh.
+async fn discover(servers: &[Server], refresh: bool) {
     let mut jobs = tokio::task::JoinSet::new();
-    for server in selected.iter().filter(|s| s.enabled) {
+    for server in servers.iter().filter(|s| s.enabled) {
         let listed = entry(&server.name)
             .try_lock()
             .is_ok_and(|l| l.listed && l.revision == server.revision);
@@ -443,6 +427,32 @@ pub(crate) async fn tools(args: &Value) -> Result<Value> {
         }
     }
     while jobs.join_next().await.is_some() {}
+}
+
+pub(crate) async fn restore() -> Result<()> {
+    if enabled() {
+        discover(&stored()?, false).await;
+    }
+    Ok(())
+}
+
+/// query mcp_tools: compact index, one server's full tool definitions, or one tool.
+pub(crate) async fn tools(args: &Value) -> Result<Value> {
+    let servers = stored()?;
+    let refresh = args["refresh"] == true;
+    let selected = match args["server"].as_str() {
+        Some(name) => match servers.iter().find(|s| s.name == name) {
+            Some(server) => std::slice::from_ref(server),
+            None => {
+                return Ok(fail(
+                    format!("MCP_SERVER_UNKNOWN: No hub server named {name:?}"),
+                    json!({"via":"query","op":"mcp_tools","args":{}}),
+                ))
+            }
+        },
+        None => &servers,
+    };
+    discover(selected, refresh).await;
     if let (Some(name), Some(tool)) = (args["server"].as_str(), args["tool"].as_str()) {
         let live = entry(name);
         let live = live.lock().await;

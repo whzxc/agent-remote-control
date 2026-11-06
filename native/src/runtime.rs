@@ -507,9 +507,18 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     let coordination = crate::coordination::observers::start(&service);
     let startup_service = service.clone();
     let startup = tokio::spawn(async move {
-        if daemon {
-            startup_service.autostart().await;
-        }
+        tokio::join!(
+            async {
+                if daemon {
+                    startup_service.autostart().await;
+                }
+            },
+            async {
+                if let Err(error) = crate::mcp_hub::restore().await {
+                    crate::logs::record("WARN", &format!("MCP hub startup failed: {error}"), None);
+                }
+            },
+        );
     });
     let monitor_service = Arc::downgrade(&service);
     let monitor = tokio::spawn(async move {

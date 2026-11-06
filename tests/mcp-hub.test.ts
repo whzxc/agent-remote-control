@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { nativeControl } from './helpers/native-control.ts';
+import { setTimeout as delay } from 'node:timers/promises';
+import { nativeControl, prepareCoreBinary } from './helpers/native-control.ts';
 
 // Minimal newline-delimited MCP server: two tools/list pages, an echo tool and a tool that
 // announces a new tool through notifications/tools/list_changed.
@@ -88,6 +91,68 @@ test('MCP hub exposes downstream tools to control sources through query and act'
     assert.deepEqual(remaining.servers.map((row: any) => [row.name, row.state]), [['sample', 'disabled']]);
   } finally {
     await fixture.close();
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
+test('Core restores enabled MCP hub services on restart without a discovery request', async () => {
+  // Regression: restarting ARC left saved, enabled MCP servers unchecked until a manual reconnect.
+  const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
+  await prepareCoreBinary(target);
+  const work = await mkdtemp(path.join(tmpdir(), 'arc-mcp-restart-'));
+  const script = path.join(work, 'server.mjs');
+  const binary = path.join(target, 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc');
+  const stateDirectory = path.join(work, 'state');
+  const env = { ...process.env, ARC_STATE_DIR: stateDirectory, CODEX_HOME: path.join(work, 'codex') };
+  const run = (args: string[], input?: unknown) => JSON.parse(execFileSync(binary, args, {
+    env, encoding: 'utf8', input: JSON.stringify(input), timeout: 5000,
+  }));
+  const cli = (args: string[], input?: unknown) => {
+    const result = run(['cli', ...args, ...(input === undefined ? [] : ['--stdin'])], input);
+    assert.ok(result.ok, JSON.stringify(result));
+    return result.result;
+  };
+  try {
+    await writeFile(script, server);
+    for (const restarted of [false, true]) {
+      const child = spawn(binary, ['serve'], { env, stdio: ['ignore', 'ignore', 'inherit'] });
+      const exited = once(child, 'exit');
+      try {
+        const deadline = Date.now() + 10_000;
+        let status = run(['status']);
+        while (!status.running && child.exitCode === null && Date.now() < deadline) {
+          await delay(25);
+          status = run(['status']);
+        }
+        assert.equal(status.pid, child.pid, 'Core did not start');
+        if (restarted) {
+          const list = () => cli(['call', 'mcp-hub.list']);
+          const restoreDeadline = Date.now() + 5000;
+          let snapshot = list();
+          while (snapshot.servers.some((row: { state: string }) => ['unchecked', 'connecting'].includes(row.state)) && Date.now() < restoreDeadline) {
+            await delay(25);
+            snapshot = list();
+          }
+          const [sample, disabled, unavailable] = snapshot.servers;
+          assert.equal(sample.state, 'ready');
+          assert.deepEqual(sample.tools.map((tool: { name: string }) => tool.name), ['echo']);
+          assert.equal(disabled.state, 'disabled');
+          assert.equal(unavailable.state, 'failed');
+        } else {
+          cli(['call', 'preferences.set'], { body: { values: { 'mcp-services': 'on' } } });
+          const configure = (args: Record<string, unknown>) => cli(['control', 'mcp_configure'], args);
+          const stdio = { action: 'add', transport: 'stdio', command: process.execPath, args: [script] };
+          configure({ ...stdio, name: 'sample' });
+          configure({ ...stdio, name: 'disabled' });
+          configure({ action: 'disable', name: 'disabled' });
+          configure({ ...stdio, name: 'unavailable', command: path.join(work, 'missing-mcp') });
+        }
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) child.kill();
+        await exited;
+      }
+    }
+  } finally {
     await rm(work, { recursive: true, force: true });
   }
 });
