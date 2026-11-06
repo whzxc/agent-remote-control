@@ -2307,7 +2307,7 @@
         "properties": {},
         "additionalProperties": false
       },
-      "description": "Read last relay job: jobId, phase (idle/login/deploying/connecting/ready/failed), reason, loginUrl, relayId, ingressId, result; accounts is present if account selection is required. loginUrl is transient and must not be logged.",
+      "description": "Read last relay job: jobId, phase (idle/login/deploying/connecting/ready/failed), reason, loginUrl, relayId, ingressId, result; loginStage (preparing/checking/authorizing) tracks sign-in when present. accounts is present if account selection is required. loginUrl is transient and must not be logged.",
       "localOnly": true
     },
     {

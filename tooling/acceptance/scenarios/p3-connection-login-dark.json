@@ -1,0 +1,17 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": ["codex"],
+  "tasks": [],
+  "connectionSetup": {
+    "method": "create",
+    "step": "address"
+  },
+  "relayProgress": {
+    "phase": "login",
+    "action": "create",
+    "jobId": "fixture-job",
+    "loginStage": "authorizing",
+    "loginUrl": "https://dash.cloudflare.com/oauth2/auth?state=fixture"
+  }
+}

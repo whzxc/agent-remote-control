@@ -3,7 +3,7 @@ import { api } from "../api";
 import { preference } from "./store";
 export const relayHostingEnabled = preference("arc.relay-hosting", false, raw => JSON.parse(raw) === true);
 export type Relay = { id: string; url: string; name: string; owner: boolean; ingressId: string; workerVersion: string | null };
-export type RelayProgress = { phase: "idle" | "login" | "deploying" | "connecting" | "ready" | "failed"; jobId?: string; action?: string; relayId?: string; ingressId?: string; loginUrl?: string; reason?: string; cancelled?: boolean; failedPhase?: string; accounts?: { id: string; name: string }[]; result?: { relayId?: string; ingressId?: string; url?: string; deleted?: boolean } };
+export type RelayProgress = { phase: "idle" | "login" | "deploying" | "connecting" | "ready" | "failed"; jobId?: string; action?: string; relayId?: string; ingressId?: string; loginUrl?: string; loginStage?: "preparing" | "checking" | "authorizing" | null; reason?: string; cancelled?: boolean; failedPhase?: string; accounts?: { id: string; name: string }[]; result?: { relayId?: string; ingressId?: string; url?: string; deleted?: boolean } };
 export function useRelays() {
   const [data, setData] = useState<{ relays: Relay[]; version: string }>({ relays: [], version: "" });
   const [error, setError] = useState(""), [loaded, setLoaded] = useState(false);

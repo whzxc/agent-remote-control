@@ -5,7 +5,9 @@
     "codex"
   ],
   "tasks": [],
-  "remoteLink": {},
+  "remoteLink": {
+    "url": "https://arc-relay-fixture.example.workers.dev/u/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
   "connectionSetup": {
     "step": "success",
     "createdId": "relay-main"

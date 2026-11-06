@@ -118,7 +118,9 @@ async fn run_command_until(
         {
             return Err("WRANGLER_LOGIN_REQUIRED".into());
         }
-        let reason = if output.contains("EADDRINUSE") {
+        let reason = if login
+            && (output.contains("EADDRINUSE") || output.contains("port is already in use"))
+        {
             "Cloudflare login callback port is already in use; close the other Wrangler login and retry"
         } else if output.contains("account") {
             "Check Cloudflare account selection and Workers permissions"
@@ -400,20 +402,38 @@ async fn ensure_subdomain(
         .ok_or_else(|| "No workers.dev subdomain returned".into())
 }
 
+async fn check_account(script: &Path, dir: &Path, status: &Mutex<Value>) -> Result<String> {
+    {
+        let mut state = status.lock().await;
+        state["loginStage"] = json!("checking");
+        state["loginUrl"] = Value::Null;
+    }
+    tokio::time::timeout(
+        Duration::from_secs(30),
+        wrangler(script, dir, &["whoami", "--json"], status, false),
+    )
+    .await
+    .map_err(|_| "Cloudflare account check timed out after 30 seconds; check network and proxy")?
+}
+
 pub(super) async fn run(
     config: &Value,
     public_key: &str,
     status: &Mutex<Value>,
     open_browser: bool,
 ) -> Result<String> {
-    step(status, "login").await;
-    let script = tool(config, status).await?;
+    let script = tokio::time::timeout(Duration::from_secs(300), tool(config, status))
+        .await
+        .map_err(|_| {
+            "Relay tool setup timed out after 5 minutes; check access to Node.js and npm"
+        })??;
     let dir = workspace(config)?;
-    let mut who = wrangler(&script, &dir, &["whoami", "--json"], status, false).await;
+    let mut who = check_account(&script, &dir, status).await;
     if who
         .as_ref()
         .is_err_and(|error| error == "WRANGLER_LOGIN_REQUIRED")
     {
+        status.lock().await["loginStage"] = json!("authorizing");
         // We open the printed link ourselves so lack of a browser does not kill the callback server.
         wrangler(
             &script,
@@ -423,7 +443,7 @@ pub(super) async fn run(
             open_browser,
         )
         .await?;
-        who = wrangler(&script, &dir, &["whoami", "--json"], status, false).await;
+        who = check_account(&script, &dir, status).await;
     }
     let who: Value =
         serde_json::from_str(&who?).map_err(|_| "Cannot read Wrangler account information")?;
@@ -441,7 +461,11 @@ pub(super) async fn run(
         status.lock().await["accounts"] = json!(accounts);
         return Err("Select a Cloudflare accountId and call relay.redeploy".into());
     };
-    step(status, "deploying").await;
+    {
+        let mut state = status.lock().await;
+        state["phase"] = json!("deploying");
+        state["loginStage"] = Value::Null;
+    }
     let subdomain = ensure_subdomain(
         &script,
         &dir,
@@ -460,8 +484,6 @@ pub(super) async fn run(
         &directory(string(config, "id"))?.join("config.json"),
         &saved,
     )?;
-    status.lock().await["loginUrl"] = Value::Null;
-    step(status, "deploying").await;
     // A single deployment installs the public management key atomically with the Worker.
     save(
         &dir.join("worker-secrets.json"),
@@ -539,14 +561,14 @@ mod tests {
     }
     #[cfg(unix)]
     #[tokio::test]
-    async fn non_tty_login_exposes_link_and_reports_abnormal_exit() {
-        // Regression: 42f9056; non tty login exposes link and reports abnormal exit.
+    async fn non_tty_login_exposes_link_and_reports_occupied_callback_port() {
+        // Regression: Wrangler reports an occupied callback port without including EADDRINUSE.
         let state = Mutex::new(json!({"loginUrl":null}));
         let error = tokio::time::timeout(Duration::from_secs(2), run_command(
-            script("test ! -t 0 && test ! -t 1 || exit 1; printf 'Visit this link to authenticate: https://dash.cloudflare.com/oauth2/auth?state=test'; exit 7"),
+            script("test ! -t 0 && test ! -t 1 || exit 1; printf 'Visit this link to authenticate: https://dash.cloudflare.com/oauth2/auth?state=test'; echo 'The OAuth callback server could not bind to localhost:8976 because the port is already in use.' >&2; exit 7"),
             &state, true, false,
         )).await.unwrap().unwrap_err();
-        assert!(error.contains("7"), "{error}");
+        assert!(error.contains("callback port is already in use"), "{error}");
         assert_eq!(
             state.lock().await["loginUrl"],
             "https://dash.cloudflare.com/oauth2/auth?state=test"

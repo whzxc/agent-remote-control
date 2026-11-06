@@ -318,9 +318,15 @@ pub(crate) fn request<'a>(
             return Err("A relay operation is already running".into());
         }
         if ["create", "redeploy", "join", "connect", "delete"].contains(&action) {
-            let state = Arc::new(Mutex::new(
-                json!({"jobId":id(),"action":action,"phase":if ["create","redeploy"].contains(&action){"login"}else{"connecting"},"reason":null,"loginUrl":null}),
-            ));
+            let deploys = matches!(action, "create" | "redeploy");
+            let state = Arc::new(Mutex::new(json!({
+                "jobId":id(),
+                "action":action,
+                "phase":if deploys {"login"} else {"connecting"},
+                "reason":null,
+                "loginUrl":null,
+                "loginStage":deploys.then_some("preparing"),
+            })));
             let status = state.clone();
             let service = service.clone();
             let action = action.to_owned();
