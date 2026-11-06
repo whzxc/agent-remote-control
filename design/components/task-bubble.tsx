@@ -121,6 +121,7 @@ export function TaskBubble({
     warning: "text-warning",
     success: "text-success",
     accent: "text-accent",
+    danger: "text-danger",
   };
   return (
     <div

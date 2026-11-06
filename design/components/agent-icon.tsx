@@ -15,7 +15,9 @@ import AlibabaArt from "../art/alibaba.svg";
 import ClaudeArt from "../art/claude.svg";
 import DeepseekArt from "../art/deepseek.svg";
 import PiArt from "../art/pi.svg";
+import AntigravityArt from "../art/antigravity.svg";
 const brands = {
+  antigravity: AntigravityArt,
   claude: ClaudeArt,
   deepseek: DeepseekArt,
   pi: PiArt,
@@ -147,15 +149,18 @@ export function AgentIcon({
   brand,
   readings = [],
   used = false,
+  size = 48,
 }: {
   brand?: Brand;
   readings?: readonly AgentIconReading[];
   used?: boolean;
+  size?: number;
 }) {
   const ranges = arcs[readings.length as keyof typeof arcs];
   return (
     <span
-      class="grid size-12 shrink-0 place-items-center text-text"
+      style={{ width: size, height: size }}
+      class="grid shrink-0 place-items-center text-text"
       role="img"
       aria-label={readings.map((r) => r.label).join(" · ")}
     >
@@ -163,8 +168,8 @@ export function AgentIcon({
         <svg
           data-free
           class="col-start-1 row-start-1"
-          width="48"
-          height="48"
+          width={size}
+          height={size}
           viewBox="0 0 48 48"
           fill="none"
           stroke-width="3"
@@ -196,7 +201,10 @@ export function AgentIcon({
         </svg>
       )}
       <span class="col-start-1 row-start-1 flex">
-        <BrandMark brand={brand} size={ranges ? 28 : 38} />
+        <BrandMark
+          brand={brand}
+          size={Math.round(((ranges ? 28 : 38) * size) / 48)}
+        />
       </span>
     </span>
   );

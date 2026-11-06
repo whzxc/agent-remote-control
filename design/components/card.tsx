@@ -1,4 +1,5 @@
 import { Frame } from "sdg";
+import { Button } from "./button";
 const forms = [
   { name: "default", text: "卡片内容" },
   { name: "reply", text: "Reply content" },
@@ -48,3 +49,30 @@ export default () =>
       </Card>
     </Frame>
   ));
+
+export function PermissionCard() {
+  return (
+    <Card padded class="gap-4">
+      <div class="flex flex-col gap-1">
+        <strong class="text-body leading-4 font-semibold">
+          Read README.md
+        </strong>
+        <span class="text-meta leading-3 text-text-secondary">
+          仅允许这一次
+        </span>
+      </div>
+      <pre class="flex h-11 items-center rounded-field bg-surface-sunken px-[14px] text-meta font-mono">
+        cat README.md
+      </pre>
+      <div class="flex justify-end gap-2">
+        <Button>拒绝</Button>
+        <Button disabled class="opacity-42">
+          绕过
+        </Button>
+        <Button variant="primary" class="px-5">
+          批准
+        </Button>
+      </div>
+    </Card>
+  );
+}

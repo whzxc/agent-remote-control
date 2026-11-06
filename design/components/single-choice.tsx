@@ -61,6 +61,7 @@ export type SingleChoiceProps = {
   form?: "setup-row" | "setup-product";
   class?: string;
   catalog?: boolean;
+  dropdownIcon?: string;
 };
 export function SingleChoice({
   value,
@@ -79,6 +80,7 @@ export function SingleChoice({
   compact,
   class: extra = "",
   catalog = false,
+  dropdownIcon = "chevron-down",
 }: SingleChoiceProps) {
   if (cards || tiles || form)
     return (
@@ -105,7 +107,7 @@ export function SingleChoice({
         class={`inline-flex h-(--control-height) items-center gap-[6px] px-4 rounded-control bg-surface-sunken text-text text-small whitespace-nowrap ${fill ? "w-full justify-between" : ""} ${extra}`}
       >
         <span>{options.find((option) => option.value === value)?.label}</span>
-        <Icon name="chevron-down" size={14} class="text-text-secondary" />
+        <Icon name={dropdownIcon} size={14} class="text-text-secondary" />
       </button>
     );
   return (

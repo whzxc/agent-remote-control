@@ -61,29 +61,6 @@ The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and 
 
 | Asset | Frame | Fixture | Target | Viewport | Clicks / preparation |
 | --- | --- | --- | --- | --- | --- |
-| `agent-panel.svg` | `overview` | `agent-panel` | Codex | 1280x1100 | — |
-| `agent-panel.svg` | `empty` | `agent-panel-empty` | Codex | 1280x800 | — |
-| `agent-platform.svg` | `accounts` | `agent-platform-accounts` | selector `.dialog:has(.agent-platform-view)` | 1280x800 | prepared [A] |
-| `agent-platform.svg` | `native` | — | Unavailable: zero-account platforms open Agent history [B] | — | — |
-| `approval.svg` | `permission` | `approval-permission` | selector `.dialog[data-sheet="true"]`; width drift: asset 360px, implementation 332px [F] | 510x844 | prepared task [A], then `打开` |
-| `approval.svg` | `question` | `approval-question` | selector `.dialog[data-sheet="true"]`; width drift: asset 360px, implementation 330px [F] | 525x844 | prepared task [A], then `打开` |
-| `approval.svg` | `model-effort` | `timeline-multi-turn` | selector `.dialog:has(.task-dispatch-fields)`; explicit hidden target [C] | 1280x800 | `本任务模型` → `模型与推理强度` → `默认模型: 跟随任务` [C] |
-| `connections.svg` | `overview` | `p3-workspace-add-light` | 连接 | 1280x800 | — |
-| `coordination.svg` | `current` | `coordination-problems` | Board | 1280x1400 | `Open board` |
-| `coordination.svg` | `empty` | `coordination-empty` | Board | 1280x800 | `Open board` |
-| `coordination.svg` | `gap` | `coordination-gap` | Board | 1280x800 | `Open board` → `Activity` |
-| `coordination.svg` | `unavailable` | `board-unavailable` | Board | 1280x800 | prepared [A] |
-| `mcp-hub.svg` | `ready` | `mcp-hub-ready-dark` | MCP 中枢 | 1280x1200 | — |
-| `mcp-hub.svg` | `failed` | `mcp-hub-failed-dark` | MCP 中枢 | 1280x1200 | — |
-| `mcp-hub.svg` | `empty` | `mcp-hub-empty-dark` | MCP 中枢 | 1280x1200 | — |
-| `quota-overview.svg` | `overview` | `quota-overview` | selector `.dialog:has(.usage-overview)` | 1280x800 | prepared [A], then `管理 Agent` → `订阅额度` |
-| `quota-overview.svg` | `empty` | `settings-about-dark` | selector `.dialog:has(.usage-overview)` | 1280x800 | `返回首页` → `管理 Agent` → `订阅额度` |
-| `source-panel.svg` | `dispatches` | `source-panel` | Claude | 1280x800 | — |
-| `source-panel.svg` | `history` | `dispatch-states` | Claude | 1280x1200 | — |
-| `source-panel.svg` | `platform` | `source-panel` | Anthropic | 1280x800 | `Anthropic` |
-| `task-detail.svg` | `running-multi-turn` | `timeline-multi-turn` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | — |
-| `task-detail.svg` | `needs-you` | `timeline-pending` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | — |
-| `task-detail.svg` | `failed-turn` | `task-detail-failed` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | prepared task [A] |
 
 [A] Prepared fixtures use existing scenario data and public UI controls:
 

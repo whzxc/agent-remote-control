@@ -6,14 +6,18 @@ export function TaskMessage({
   children,
   queued = false,
   status,
+  class: extra = "",
 }: {
   text?: string;
   children?: unknown;
   queued?: boolean;
   status?: string;
+  class?: string;
 }) {
   return (
-    <div class="flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text">
+    <div
+      class={`flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text ${extra}`}
+    >
       <p class="text-small leading-4">{text ?? children}</p>
       {(status || queued) && (
         <span class="self-end text-meta leading-[14px] text-text-secondary">

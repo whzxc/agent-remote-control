@@ -87,3 +87,65 @@ export default () => (
     </QuotaCard>
   </Frame>
 );
+
+export function QuotaBar({
+  remaining,
+  elapsed,
+  tone = "warning",
+}: {
+  remaining: number;
+  elapsed?: number;
+  tone?: "warning" | "accent";
+}) {
+  return (
+    <div
+      data-free
+      class="relative flex h-[6px] items-center rounded-[3px] bg-surface-sunken"
+    >
+      <div
+        style={{ width: `${remaining}%` }}
+        class={`h-full rounded-[3px] ${tone === "accent" ? "bg-accent" : "bg-warning"}`}
+      />
+      {elapsed !== undefined && (
+        <span
+          style={{ left: `calc(${elapsed * 100}% - 1px)` }}
+          class="absolute h-[10px] w-[2px] rounded-[1px] bg-text-secondary"
+        />
+      )}
+    </div>
+  );
+}
+export function QuotaSummary({
+  label,
+  remaining,
+  estimate,
+  elapsed,
+  tall = false,
+  tone = "warning",
+}: {
+  label: string;
+  remaining: number;
+  estimate?: string;
+  elapsed?: number;
+  tall?: boolean;
+  tone?: "warning" | "accent";
+}) {
+  return (
+    <div
+      class={`flex min-w-0 flex-col rounded-card bg-surface-subtle px-4 pt-4 ${tall ? "pb-[18px]" : "pb-4"}`}
+    >
+      <span class="text-meta leading-4 font-medium text-text-secondary">
+        {label}
+      </span>
+      <div
+        class={`flex h-7 items-baseline gap-[10px] leading-7 ${tall ? "mt-3" : "mt-[10px]"}`}
+      >
+        <strong class="text-display font-[650]">{remaining}%</strong>
+        {estimate && <span class="text-meta text-warning">{estimate}</span>}
+      </div>
+      <div class={tall ? "mt-4" : "mt-2"}>
+        <QuotaBar remaining={remaining} elapsed={elapsed} tone={tone} />
+      </div>
+    </div>
+  );
+}

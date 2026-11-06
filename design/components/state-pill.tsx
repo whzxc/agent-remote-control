@@ -10,9 +10,11 @@ export type TaskState = "running" | "waiting" | "done" | "failed" | "stopped";
 export function StatePill({
   state,
   children,
+  class: extra = "",
 }: {
   state: TaskState;
   children?: unknown;
+  class?: string;
 }) {
   const paint = {
     running:
@@ -27,7 +29,7 @@ export function StatePill({
   };
   return (
     <span
-      class={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-field text-meta font-semibold ${paint[state]}`}
+      class={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-field text-meta font-semibold ${paint[state]} ${extra}`}
     >
       <span class="size-[6px] rounded-[3px] bg-current" />
       {children}
