@@ -14,7 +14,7 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.3.2',
+  requires: '>=0.3.3',
   design: 'design',
   output: 'output/design',
   compare: {

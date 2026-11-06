@@ -4,7 +4,7 @@
 
 SVG assets in `design/` define how ARC looks. React implementations follow them. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.3.2 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#asset-format), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
+ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.3.3 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#asset-format), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
 
 ## Layout
 
@@ -58,9 +58,9 @@ The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and 
 | `agent-panel.svg` | `empty` | `agent-panel-empty` | Codex | 1280x800 | — |
 | `agent-platform.svg` | `accounts` | `agent-platform-accounts` | selector `.dialog:has(.agent-platform-view)` | 1280x800 | prepared [A] |
 | `agent-platform.svg` | `native` | — | Unavailable: zero-account platforms open Agent history [B] | — | — |
-| `approval.svg` | `permission` | `approval-permission` | selector `.dialog[data-sheet="true"]` | 390x844 | prepared task [A], then `打开` |
-| `approval.svg` | `question` | `approval-question` | selector `.dialog[data-sheet="true"]` | 390x844 | prepared task [A], then `打开` |
-| `approval.svg` | `model-effort` | `timeline-multi-turn` | selector `.dialog:has(.task-dispatch-fields)` | 1280x800 | `本任务模型` → `模型与推理强度` → `默认模型: 跟随任务` [C] |
+| `approval.svg` | `permission` | `approval-permission` | selector `.dialog[data-sheet="true"]`; width drift: asset 360px, implementation 332px [F] | 510x844 | prepared task [A], then `打开` |
+| `approval.svg` | `question` | `approval-question` | selector `.dialog[data-sheet="true"]`; width drift: asset 360px, implementation 330px [F] | 525x844 | prepared task [A], then `打开` |
+| `approval.svg` | `model-effort` | `timeline-multi-turn` | selector `.dialog:has(.task-dispatch-fields)`; explicit hidden target [C] | 1280x800 | `本任务模型` → `模型与推理强度` → `默认模型: 跟随任务` [C] |
 | `connections.svg` | `overview` | `p3-workspace-add-light` | 连接 | 1280x800 | — |
 | `coordination.svg` | `current` | `coordination-problems` | Board | 1280x1400 | `Open board` |
 | `coordination.svg` | `empty` | `coordination-empty` | Board | 1280x800 | `Open board` |
@@ -99,13 +99,13 @@ The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and 
 | `setup.svg` | `source-approval` | `p3-source-approval-light` | 添加 Claude | 1280x800 | — |
 | `setup.svg` | `source-success` | `p3-source-success-light` | 添加 Claude | 1280x800 | — |
 | `setup.svg` | `method` | `p3-connection-method-light` | 添加连接 | 1280x800 | — |
-| `setup.svg` | `stacked-method` | `p3-stacked-method-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
-| `setup.svg` | `stacked-relay` | `p3-stacked-relay-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
-| `setup.svg` | `stacked-local` | `p3-stacked-local-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
-| `setup.svg` | `stacked-join` | `p3-stacked-join-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
-| `setup.svg` | `stacked-own` | `p3-stacked-own-light` | selector `.setup-dialog:has(.setup-return)` | 1280x1000 | — [E] |
-| `setup.svg` | `stacked-secure` | `p3-stacked-secure-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
-| `setup.svg` | `stacked-ready` | `p3-stacked-ready-light` | selector `.setup-dialog:has(.setup-return)` | 1280x800 | — [E] |
+| `setup.svg` | `stacked-method` | `p3-stacked-method-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
+| `setup.svg` | `stacked-relay` | `p3-stacked-relay-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
+| `setup.svg` | `stacked-local` | `p3-stacked-local-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
+| `setup.svg` | `stacked-join` | `p3-stacked-join-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
+| `setup.svg` | `stacked-own` | `p3-stacked-own-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x1000 | — [E] |
+| `setup.svg` | `stacked-secure` | `p3-stacked-secure-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
+| `setup.svg` | `stacked-ready` | `p3-stacked-ready-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
 | `setup.svg` | `ready` | `p3-connection-ready-light` | 添加连接 | 1280x800 | — |
 | `setup.svg` | `relay-login` | `p3-connection-login-dark` | 添加连接 | 1280x800 | — |
 | `source-panel.svg` | `dispatches` | `source-panel` | Claude | 1280x800 | — |
@@ -135,11 +135,13 @@ Task selection follows [AgentConversations](../../ui/components/AgentConversatio
 
 [B] `agent-platform/native` has no reachable state in the current scenarios. `antigravity-platform` has zero linked accounts. [selectAgentPanel](../../ui/state/overviewPanels.ts) converts platforms with at most one account into Agent history, and [AgentPanel](../../ui/components/AgentPanel.tsx) enforces the same rule. The native empty card in `AgentPlatformView` cannot be reached through that route. Do not substitute the Antigravity history panel.
 
-[C] [TaskDispatchDialog](../../ui/components/AgentDispatchDefaults.tsx) owns the model dialog. [ModelEffortPicker](../../ui/components/ModelEffortPicker.tsx) portals its picker and nested menu; opening them can hide the underlying dialog from role lookup. The selector captures the dialog shell. The asset also draws the popovers outside that shell; inspect those separately during browser acceptance.
+[C] [TaskDispatchDialog](../../ui/components/AgentDispatchDefaults.tsx) owns the model dialog. [ModelEffortPicker](../../ui/components/ModelEffortPicker.tsx) portals its picker and nested modal menu, which makes the underlying dialog aria-hidden. SDG 0.3.3 reads an explicitly selected target inside hidden ancestors, so keep the dialog selector. The portal menu lies outside the dialog capture and is reviewed on the overlay only; its text is outside the captured target.
 
 [D] `updates/settings` has no standalone shell in any current scenario. `updates-settings` renders [AppUpdate](../../ui/components/AppUpdate.tsx) inside `SettingsPage`: `.settings-about` is the inner content, while its `.page-sheet` ancestor contains every settings group. Neither matches the asset's 720×258 standalone About panel. Review the embedded content with `updates-settings` during browser acceptance; do not treat that content crop as this frame.
 
-[E] [AddConnection](../../ui/components/AddConnection.tsx) and [SetupDialog](../../ui/components/SetupDialog.tsx) render `.setup-return` only for nested connection flows. The seven `p3-stacked-*` scenarios seed both source and connection setup; the selector identifies the child shell independently of the parent dialog's accessible visibility. The own-address form uses a taller viewport for its complete fields and footer.
+[E] [AddConnection](../../ui/components/AddConnection.tsx) and [SetupDialog](../../ui/components/SetupDialog.tsx) render `.setup-return` only for nested connection flows. The seven `p3-stacked-*` scenarios seed both source and connection setup; the selector identifies the child shell independently of the parent dialog's accessible visibility. The own-address form uses a taller viewport for its complete fields and footer. The implementation scales the nested width to 680px × .92 (626px when rounded), while all seven assets declare 680px. Keep these mappings and track the width difference as layout drift. Zero extracted texts in these nested dialogs are an ARC accessibility defect; the mapping remains the child shell.
+
+[F] The request sheet is limited to its host width minus 16px. A wider host switches to the inline request, making the asset's 360px sheet unreachable. Use the reachable permission capture at 510×844 (332×292) and question capture at 525×844 (330×406), and track their sheet widths as implementation drift. Permission has no `打开` control at 525×844; keep the two viewports distinct.
 
 The MCP hub uses the full workspace height ([UI conventions](ui.md#experimental-mcp-hub)); a taller viewport exposes its service list. Its current shell height follows the viewport, so the older content-fit sizes (662, 912 and 432px) are not current capture-size requirements. Agent platform and task-detail shells likewise follow [topology panel geometry](../../ui/topology/Topology.tsx); their width is not fixed to the drawing's 480 or 640px. Compare these differences as layout findings rather than selecting another panel or resizing the DOM.
 
