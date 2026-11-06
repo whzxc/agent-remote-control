@@ -83,6 +83,43 @@ test('native writer conflicts retain recovery guidance through send, load and re
   } finally { await fixture.close(); }
 });
 
+test('Codex Desktop records Fast settings immediately after its first turn context', {skip:process.platform==='win32'}, async () => {
+  // Regression: a Codex Desktop bubble and timeline omitted Fast when thread settings followed the matching turn context.
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-late-tier-')));
+  const threadId = '00000000-0000-4000-8000-000000000021';
+  const turnId = '00000000-0000-4000-8000-000000000022';
+  const rollout = path.join(directory, 'sessions', `${threadId}.jsonl`);
+  const record = (type: string, payload: unknown, timestamp = '2026-01-01T00:00:00.001Z') =>
+    JSON.stringify({ type, timestamp, payload }) + '\n';
+  const settings = (service_tier: string, timestamp?: string) =>
+    record('event_msg', { type: 'thread_settings_applied', thread_id: threadId, thread_settings: { service_tier } }, timestamp);
+  await mkdir(path.dirname(rollout));
+  await writeFile(rollout, record('session_meta', { id: threadId, cwd: directory })
+    + record('event_msg', { type: 'task_started', turn_id: turnId })
+    + record('turn_context', { turn_id: turnId, cwd: directory, model: 'fixture-model', effort: 'high' }));
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
+      const result=method==='thread/read'?{thread:{id:params.threadId,path:${JSON.stringify(rollout)},cwd:${JSON.stringify(directory)}}}:
+        method==='thread/turns/list'?{data:[{id:${JSON.stringify(turnId)},status:'inProgress',items:[]}],nextCursor:null}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `, { CODEX_HOME: directory });
+  try {
+    const activity = async () => (await fixture.api('agents/activity')).agents.codex.sessions.find((s: any) => s.id === threadId);
+    assert.deepEqual((await activity()).dispatchSummary, { model: 'fixture-model', effort: 'high' });
+    await appendFile(rollout, settings('priority', '2026-01-01T00:00:00.002Z') + settings('default', '2026-01-01T00:00:01Z'));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.equal((await activity()).dispatchSummary.serviceTier, 'priority');
+    const timeline = await fixture.api('agents/conversations/timeline', { agent: 'codex', id: threadId });
+    assert.equal(timeline.turnDispatchSummaries[turnId].serviceTier, 'priority');
+  } finally {
+    await fixture.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 
 test('Held external writers allow read-only timelines while mutations retain owner recovery', {skip:process.platform==='win32'}, async()=>{
   // Regression: completed parent-owned subagents stayed unconfirmed and their detail failed with THREAD_WRITER_BUSY.

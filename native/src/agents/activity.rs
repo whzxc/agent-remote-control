@@ -28,8 +28,9 @@ pub(super) struct TurnClock {
     turns: HashSet<String>,
     dispatch_summary: Option<Value>,
     turn_dispatch_summaries: HashMap<String, Value>,
-    thread_tier: Value,
+    thread_tier: crate::task_tracking::CodexThreadTier,
     turn_tier: Value,
+    turn_configuration: Value,
     title: String,
     native_title: crate::task_tracking::TranscriptTitle,
     project: Option<String>,
@@ -126,20 +127,19 @@ impl ScanCache {
             if self.tails.len() >= 128 && !self.tails.contains_key(path) {
                 self.tails.clear();
             }
+            self.file_opens += 1;
+            let file = File::open(path).map_err(|e| e.to_string())?;
+            let (records, partial) = read_tail_prefix(file, stamp.size(), 128 * 1024)?;
+            let mut timeline = Timeline::default();
+            timeline.partial = partial;
+            timeline.backfill_transcript(agent, &records);
+            verify_prefix(path, &stamp)?;
             let (clock, clock_stamp) = self
                 .tails
                 .remove(path)
                 .filter(|tail| stamp.appends_to(&tail.stamp))
                 .map(|tail| (tail.clock, tail.clock_stamp))
                 .unwrap_or_default();
-            self.file_opens += 1;
-            let (records, partial) = read_tail(path, 128 * 1024)?;
-            let mut timeline = Timeline::default();
-            timeline.partial = partial;
-            timeline.backfill_transcript(agent, &records);
-            if Stamp::read(path)?.as_ref() != Some(&stamp) {
-                return Err("Transcript changed during activity sampling".into());
-            }
             self.tails.insert(
                 path.into(),
                 Tail {
@@ -155,10 +155,7 @@ impl ScanCache {
         // Read the incremental clock even when a large output leaves no entries.
         if agent == "codex" && tail.clock_stamp.as_ref() != Some(&tail.stamp) {
             self.file_opens += 1;
-            turn_started_at(path, agent, &mut tail.clock)?;
-            if Stamp::read(path)?.as_ref() != Some(&tail.stamp) {
-                return Err("Transcript changed during activity sampling".into());
-            }
+            read_sample_clock(path, agent, tail)?;
             tail.clock_stamp = Some(tail.stamp.clone());
         }
         if agent == "codex" && !tail.clock.turn_id.is_empty() {
@@ -187,10 +184,7 @@ impl ScanCache {
         // metadata walk. Time-dependent activity is evaluated even on cache hits.
         if session.is_some() && tail.clock_stamp.as_ref() != Some(&tail.stamp) {
             self.file_opens += 1;
-            turn_started_at(path, agent, &mut tail.clock)?;
-            if Stamp::read(path)?.as_ref() != Some(&tail.stamp) {
-                return Err("Transcript changed during activity sampling".into());
-            }
+            read_sample_clock(path, agent, tail)?;
             tail.clock_stamp = Some(tail.stamp.clone());
         }
         Ok((tail, session))
@@ -456,19 +450,22 @@ pub(super) fn conversation_metadata(
     Ok(row)
 }
 
-fn turn_started_at(path: &Path, agent: &str, clock: &mut TurnClock) -> Result<Value> {
-    read_clock(File::open(path).map_err(|e| e.to_string())?, agent, clock)
+fn verify_prefix(path: &Path, stamp: &Stamp) -> Result<()> {
+    // Appends preserve the sampled byte range. Replacements and truncations do not.
+    if Stamp::read(path)?.is_some_and(|current| current == *stamp || current.appends_to(stamp)) {
+        return Ok(());
+    }
+    Err("Transcript changed during activity sampling".into())
 }
 
-fn read_clock(mut file: File, agent: &str, clock: &mut TurnClock) -> Result<Value> {
-    if file.metadata().map_err(|e| e.to_string())?.len() < clock.offset {
-        *clock = TurnClock::default();
-    }
+fn read_sample_clock(path: &Path, agent: &str, tail: &mut Tail) -> Result<()> {
+    let mut file = File::open(path).map_err(|e| e.to_string())?;
+    let clock = &mut tail.clock;
     file.seek(SeekFrom::Start(clock.offset))
         .map_err(|e| e.to_string())?;
     // The clock is byte-complete, unlike the recent-activity tail. Retain only
     // one line and its projection, and resume after the last complete record.
-    let mut reader = BufReader::new(file);
+    let mut reader = BufReader::new(file.take(tail.stamp.size() - clock.offset));
     let mut line = Vec::new();
     loop {
         line.clear();
@@ -483,7 +480,12 @@ fn read_clock(mut file: File, agent: &str, clock: &mut TurnClock) -> Result<Valu
         }
         clock.offset += count as u64;
     }
-    Ok(clock.started_at.clone())
+    if let Err(error) = verify_prefix(path, &tail.stamp) {
+        *clock = TurnClock::default();
+        tail.clock_stamp = None;
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
@@ -527,18 +529,13 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     } else if clock.title.is_empty() {
         clock.title = projection.prompt_headline();
     }
-    if agent == "codex"
-        && record["type"] == "event_msg"
-        && record["payload"]["type"] == "thread_settings_applied"
-    {
-        clock.thread_tier = record["payload"]["thread_settings"]["service_tier"].clone();
-    }
     if let Some((turn, start)) = projection.transcript_turn_start() {
         clock.status = None;
         clock.started_at = json!(start);
-        clock.turn_tier = clock.thread_tier.clone();
+        clock.turn_tier = clock.thread_tier.current.clone();
         if clock.turn_id != turn {
             clock.dispatch_summary = None;
+            clock.turn_configuration = Value::Null;
         }
         clock.turn_id = turn.into();
         clock.turns.insert(turn.into());
@@ -556,24 +553,41 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
             .turn_dispatch_summaries
             .insert(clock.turn_id.clone(), summary.clone());
     }
-    if agent == "codex" && record["type"] == "turn_context" {
-        if let Some(turn) = record["payload"]["turn_id"].as_str() {
-            if clock.turn_id != turn {
-                clock.status = None;
-                clock.turn_tier = clock.thread_tier.clone();
-            }
-            clock.turn_id = turn.into();
-            clock.turns.insert(turn.into());
-            let context = &record["payload"];
-            clock.dispatch_summary = crate::egress::dispatch_summary(&json!({
-                "model":context["model"],"effort":context["effort"],
-                "serviceTier":context["service_tier"],"threadServiceTier":clock.turn_tier
-            }));
-            if let Some(summary) = &clock.dispatch_summary {
-                clock
-                    .turn_dispatch_summaries
-                    .insert(turn.into(), summary.clone());
-            }
+    if agent != "codex" {
+        return;
+    }
+    let late_tier = clock
+        .thread_tier
+        .observe(record)
+        .is_some_and(|turn| turn == clock.turn_id);
+    let context = &record["payload"];
+    if let Some(turn) = (record["type"] == "turn_context")
+        .then(|| context["turn_id"].as_str())
+        .flatten()
+    {
+        if clock.turn_id != turn {
+            clock.status = None;
+            clock.turn_tier = clock.thread_tier.current.clone();
+        }
+        clock.turn_id = turn.into();
+        clock.turns.insert(turn.into());
+        clock.turn_configuration = json!({
+            "model":context["model"],"effort":context["effort"],"serviceTier":context["service_tier"]
+        });
+    } else if late_tier {
+        clock.turn_tier = clock.thread_tier.current.clone();
+    } else {
+        return;
+    }
+    if clock.turn_configuration.is_object() {
+        clock.turn_configuration["threadServiceTier"] = clock.turn_tier.clone();
+        clock.dispatch_summary = crate::egress::dispatch_summary(&clock.turn_configuration);
+        if let Some(summary) = &clock.dispatch_summary {
+            clock
+                .turn_dispatch_summaries
+                .insert(clock.turn_id.clone(), summary.clone());
+        } else {
+            clock.turn_dispatch_summaries.remove(&clock.turn_id);
         }
     }
 }
@@ -630,13 +644,17 @@ pub(super) fn claude_sidechain<'a>(
 }
 
 pub(super) fn read_tail(path: &Path, limit: u64) -> Result<(Vec<Value>, bool)> {
-    let mut file = File::open(path).map_err(|e| e.to_string())?;
-    let size = file.seek(SeekFrom::End(0)).map_err(|e| e.to_string())?;
+    let file = File::open(path).map_err(|e| e.to_string())?;
+    let size = file.metadata().map_err(|e| e.to_string())?.len();
+    read_tail_prefix(file, size, limit)
+}
+
+fn read_tail_prefix(mut file: File, size: u64, limit: u64) -> Result<(Vec<Value>, bool)> {
     let start = size.saturating_sub(limit);
     file.seek(SeekFrom::Start(start))
         .map_err(|e| e.to_string())?;
     let mut bytes = Vec::new();
-    file.take(limit)
+    file.take(size - start)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
     let mut lines = bytes.split(|b| *b == b'\n');
@@ -1009,6 +1027,33 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn codex_activity_keeps_its_sample_while_the_rollout_grows() {
+        // Regression: appends during activity sampling dropped the running turn from the snapshot.
+        let (directory, path, now, at) = fixture();
+        append(&path, &prompt("codex", "previous", "Inspect files", &at));
+        let end = |turn: &str| json!({"timestamp":at,"type":"event_msg","payload":{"type":"task_complete","turn_id":turn}});
+        append(&path, &[end("previous")]);
+        append(&path, &prompt("codex", "current", "Continue work", &at));
+        append(&path, &large_tool_output("codex", "large-output", &at));
+
+        // Capture the file size used by scan_paths, then simulate a writer
+        // appending a terminal event before the reader opens the file.
+        let stamp = Stamp::read(&path).unwrap().unwrap();
+        append(&path, &[end("current")]);
+        let mut cache = ScanCache::default();
+        let (_, session) = cache.tail(&path, "codex", stamp, now, now).unwrap();
+        assert_eq!(session.unwrap()["turnId"], "current");
+        let rows = scan_roots(
+            &[("codex".into(), directory.0.clone())],
+            &directory.0.join("index.jsonl"),
+            now,
+            &mut cache,
+        );
+        assert!(rows.is_empty());
+    }
+
     #[test]
     fn activity_polls_preserve_unfinished_work_until_a_terminal_event() {
         // Regression: the two-second activity poll reopened every recent rollout and the entire title index.

@@ -3091,7 +3091,7 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
     if let Ok(file) = open_persisted_history(thread) {
         let mut transcript = crate::task_tracking::CodexTranscript::default();
         let mut matched = false;
-        let mut thread_tier = json!("unknown");
+        let mut thread_tier = crate::task_tracking::CodexThreadTier::default();
         let mut turn_tiers = HashMap::new();
         let mut active_turn = String::new();
         for line in BufReader::new(file)
@@ -3109,16 +3109,25 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
             if event["type"] == "session_meta" {
                 matched = p["id"] == thread["id"];
             }
-            if matched && event["type"] == "event_msg" {
-                if p["type"] == "thread_settings_applied" && p["thread_id"] == thread["id"] {
-                    thread_tier = p["thread_settings"]
-                        .get("service_tier")
-                        .cloned()
-                        .unwrap_or(json!("unknown"));
+            if !matched {
+                continue;
+            }
+            if p["type"] != "thread_settings_applied" || p["thread_id"] == thread["id"] {
+                if let Some(turn) = thread_tier.observe(&event) {
+                    let tier = json!(thread_tier.current.as_str().unwrap_or("unknown"));
+                    if let Some(configuration) = result.configurations.get_mut(&turn) {
+                        configuration["threadServiceTier"] = tier.clone();
+                    }
+                    turn_tiers.insert(turn, tier);
                 }
+            }
+            if event["type"] == "event_msg" {
                 if p["type"] == "task_started" && p["turn_id"].is_string() {
                     active_turn = string(p, "turn_id").into();
-                    turn_tiers.insert(active_turn.clone(), thread_tier.clone());
+                    turn_tiers.insert(
+                        active_turn.clone(),
+                        json!(thread_tier.current.as_str().unwrap_or("unknown")),
+                    );
                     if event["timestamp"].is_string() {
                         result
                             .timings
@@ -3127,8 +3136,7 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
                     }
                 }
             }
-            if matched
-                && event["type"] == "event_msg"
+            if event["type"] == "event_msg"
                 && matches!(string(p, "type"), "task_complete" | "turn_aborted")
             {
                 let turn = p["turn_id"].as_str().unwrap_or(&active_turn);
@@ -3137,8 +3145,7 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
                         event["timestamp"].clone();
                 }
             }
-            if matched
-                && event["type"] == "turn_context"
+            if event["type"] == "turn_context"
                 && p["cwd"] == thread["cwd"]
                 && p["turn_id"].is_string()
             {

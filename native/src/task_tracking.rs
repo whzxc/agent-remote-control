@@ -9,7 +9,7 @@ mod projection_tests;
 mod transcript_input;
 mod transcripts;
 pub(crate) use transcript_input::transcript_user_text;
-pub(crate) use transcripts::{CodexTranscript, TranscriptTitle};
+pub(crate) use transcripts::{CodexThreadTier, CodexTranscript, TranscriptTitle};
 
 const MAX_ENTRIES: usize = 2000;
 const MAX_BYTES: usize = 8 * 1024 * 1024;

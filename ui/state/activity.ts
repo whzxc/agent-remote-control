@@ -51,9 +51,11 @@ export function acceptActivity(snapshot: AgentActivitySnapshot) {
 }
 export function startAgentActivity() {
   let stopped = false, connected = false, reading = false, generation = 0;
+  let lastSnapshot = -Infinity;
   let off: (() => void) | undefined, stream: EventSource | undefined;
   const accept = (snapshot: AgentActivitySnapshot) => {
     if (stopped) return;
+    lastSnapshot = performance.now();
     generation++;
     acceptActivity(snapshot);
   };
@@ -84,7 +86,11 @@ export function startAgentActivity() {
     stream.onerror = () => { connected = false; void read(); };
   }
   void read();
-  const timer = setInterval(() => { if (!document.hidden && !connected) void read(); }, import.meta.env.DEV ? 2000 : 5000);
+  // Both push transports suppress unchanged snapshots. A missed transition
+  // can otherwise leave the renderer on an older turn indefinitely.
+  const timer = setInterval(() => {
+    if (!document.hidden && (!connected || performance.now() - lastSnapshot >= 10000)) void read();
+  }, import.meta.env.DEV ? 2000 : 5000);
   const resume = () => { if (!document.hidden) void read(); };
   document.addEventListener("visibilitychange", resume);
   return () => {

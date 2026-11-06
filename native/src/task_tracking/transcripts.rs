@@ -21,6 +21,36 @@ impl CodexTranscript {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct CodexThreadTier {
+    pub current: Value,
+    context: Option<(chrono::DateTime<chrono::FixedOffset>, String)>,
+}
+impl CodexThreadTier {
+    pub fn observe(&mut self, record: &Value) -> Option<String> {
+        let payload = &record["payload"];
+        let timestamp = || chrono::DateTime::parse_from_rfc3339(string(record, "timestamp")).ok();
+        // Desktop can persist the initial settings immediately after the
+        // matching turn context. A later settings change applies to future turns.
+        let previous = self.context.take();
+        if record["type"] == "turn_context" {
+            if let (Some(at), Some(turn)) = (timestamp(), payload["turn_id"].as_str()) {
+                self.context = Some((at, turn.into()));
+            }
+        } else if record["type"] == "event_msg" && payload["type"] == "thread_settings_applied" {
+            self.current = payload["thread_settings"]["service_tier"].clone();
+            let (context_at, turn) = previous?;
+            let delay = timestamp()? - context_at;
+            // Consecutive records from the same initialization can straddle a
+            // millisecond boundary in the rollout timestamp.
+            return (chrono::TimeDelta::zero()..=chrono::TimeDelta::milliseconds(1))
+                .contains(&delay)
+                .then_some(turn);
+        }
+        None
+    }
+}
+
 impl Timeline {
     pub fn transcript_turn_start(&self) -> Option<(&str, &str)> {
         self.turn_started_at

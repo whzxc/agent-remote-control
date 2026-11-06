@@ -105,6 +105,9 @@ pub struct Stamp {
     identity: (u64, u64, i64, i64),
 }
 impl Stamp {
+    pub fn size(&self) -> u64 {
+        self.len
+    }
     pub fn read(path: &Path) -> Result<Option<Self>> {
         let metadata = match std::fs::metadata(path) {
             Ok(metadata) => metadata,
