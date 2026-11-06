@@ -377,4 +377,51 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <rect x="0" y="0" width="168" height="34" rx="17" style="fill:var(--action)" /><text x="84.0" y="17"  style="fill:var(--on-action);font-size:var(--text-small);font-weight:600;text-anchor:middle;" >为它添加控制源</text>
 </g>
 </g>
+<text x="824" y="4956" class="note">relay-login / p3-connection-login-dark</text>
+<g transform="translate(824 4976)" data-part="frame-relay-login" data-fixture="p3-connection-login-dark">
+  <g data-component="panel" data-form="workspace">
+    <rect width="680" height="422" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
+    <text x="24" y="30" style="fill:var(--text);font-size:var(--text-title);font-weight:650">添加连接</text>
+    <g transform="translate(622 13)" data-component="icon-button" data-form="regular">
+      <rect width="34" height="34" rx="17" style="fill:none"/>
+      <g data-icon="x" transform="translate(9 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--text);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g>
+    </g>
+  </g>
+  <rect x="24" y="62" width="202.66666666666666" height="3" rx="1.5" style="fill:var(--accent)"/>
+  <text x="24" y="79" style="fill:var(--text-secondary);font-size:var(--text-meta)">方式 · 创建我的中继</text>
+  <rect x="238.66666666666666" y="62" width="202.66666666666666" height="3" rx="1.5" style="fill:var(--accent)"/>
+  <text x="238.66666666666666" y="79" style="fill:var(--text);font-size:var(--text-meta);font-weight:600">配置</text>
+  <rect x="453.3333333333333" y="62" width="202.66666666666666" height="3" rx="1.5" style="fill:var(--surface-sunken)"/>
+  <text x="453.3333333333333" y="79" style="fill:var(--text-secondary);font-size:var(--text-meta)">就绪</text>
+  <g transform="translate(24 114)" style="color:var(--accent)" data-component="tile" data-form="card">
+    <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
+    <g data-icon="loader-circle" transform="translate(11 11) scale(0.75)" style="fill:none;stroke:currentColor;stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></g>
+  </g>
+  <text x="80" y="122" style="fill:var(--text);font-size:var(--text-body);font-weight:650">登录 Cloudflare</text>
+  <text x="80" y="146" style="fill:var(--text-secondary);font-size:var(--text-meta)">请在浏览器中完成授权</text>
+  <g transform="translate(24 178)" style="color:var(--text-tertiary)" data-component="tile" data-form="card">
+    <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
+    <g data-icon="circle" transform="translate(11 11) scale(0.75)" style="fill:none;stroke:currentColor;stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
+  </g>
+  <text x="80" y="186" style="fill:var(--text);font-size:var(--text-body);font-weight:650">部署中继</text>
+  <text x="80" y="210" style="fill:var(--text-secondary);font-size:var(--text-meta)">大约 20 秒</text>
+  <g transform="translate(24 242)" style="color:var(--text-tertiary)" data-component="tile" data-form="card">
+    <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
+    <g data-icon="circle" transform="translate(11 11) scale(0.75)" style="fill:none;stroke:currentColor;stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/></g>
+  </g>
+  <text x="80" y="262" style="fill:var(--text);font-size:var(--text-body);font-weight:650">连接这台电脑</text>
+  <g transform="translate(24 306)" data-component="button" data-form="ghost">
+    <rect width="632" height="34" rx="17" style="fill:none"/>
+    <text x="316" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600;text-anchor:middle">浏览器没打开？复制登录链接</text>
+  </g>
+  <g transform="translate(24 364)" data-component="button" data-form="ghost">
+    <rect width="58" height="34" rx="17" style="fill:none"/>
+    <text x="16" y="17" style="fill:var(--text);font-size:var(--text-small);font-weight:600">取消</text>
+  </g>
+  <g transform="translate(563 364)" data-component="button" data-form="pending">
+    <rect width="93" height="34" rx="17" style="fill:var(--action)"/>
+    <g data-icon="loader-circle" transform="translate(16 9) scale(0.6666666666666666)" style="fill:none;stroke:var(--on-action);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></g>
+    <text x="38" y="17" style="fill:var(--on-action);font-size:var(--text-small);font-weight:600">进行中</text>
+  </g>
+</g>
 </svg>
