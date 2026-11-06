@@ -289,22 +289,21 @@ function Agents() {
 }
 function AgentDetail() {
   return (
-    <Panel
-      width={720}
-      title={
-        <div class="flex items-center gap-3">
+    <Panel width={720} headerless>
+      <header class="flex h-[46px] items-start justify-between gap-4">
+        <div class="flex items-start gap-3 pt-[3px]">
           <BrandMark brand="codex" size={40} />
-          <div class="flex flex-col gap-[6px]">
-            <span>Codex</span>
+          <div class="flex flex-col gap-1 pt-[2px]">
+            <h2 class="text-title leading-6 font-[650]">Codex</h2>
             <div class="flex gap-4 text-meta leading-4 font-normal">
               <span class="text-text-secondary">fixture</span>
-              <span class="text-accent-text">Official setup</span>
+              <span class="text-small text-accent-text">Official setup</span>
             </div>
           </div>
         </div>
-      }
-    >
-      <div class="pt-7">
+        <IconButton icon="x" label="Close" />
+      </header>
+      <div class="pt-4">
         <Group title="Codex dispatch defaults">
           <SettingLine title="Model and effort" class="py-[6px]! min-h-[54px]!">
             <Choices
@@ -324,15 +323,17 @@ function Display() {
     <Panel width={720} title="Agent settings">
       <div class="flex flex-col gap-[30px] pt-2">
         <Group title="Task bubbles">
-          <div class="flex h-[120px] items-start justify-center pt-5 pr-9">
+          <div class="flex h-[124px] items-start justify-center pt-5 pr-9">
             <TaskBubble
-              neutralPhase
+              truncateHeadline={false}
+              activityGap={8}
               title="Check project changes"
               duration="1:23"
               phase="Running command"
               headline="npm run check"
               project="arc"
               dispatch={{
+                width: 128,
                 model: "GPT-6.1 Sol",
                 effort: "High reasoning effort",
                 tier: "Fast",
@@ -355,18 +356,16 @@ function Display() {
               value="Medium"
             />
           </SettingLine>
-          <ToggleRows
-            rows={[
-              {
-                title: "Compact when crowded",
-                description: [
-                  "Reduce density by one level when an",
-                  "Agent has more than 4 tasks.",
-                ],
-                checked: true,
-              },
+          <SettingLine
+            title="Compact when crowded"
+            description={[
+              "Reduce density by one level when an",
+              "Agent has more than 4 tasks.",
             ]}
-          />
+            class="pt-[17px]! pb-[9px]!"
+          >
+            <Switch checked label="Compact when crowded" />
+          </SettingLine>
         </Group>
         <Group title="Homepage Agents">
           <SettingLine title="Layout">

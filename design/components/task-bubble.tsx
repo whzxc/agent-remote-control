@@ -89,6 +89,8 @@ export type TaskBubbleProps = {
   sourceBrand?: Brand;
   width?: number;
   headlineMono?: boolean;
+  truncateHeadline?: boolean;
+  activityGap?: number;
   phaseColumn?: "latin" | "cjk";
   neutralPhase?: boolean;
 };
@@ -108,6 +110,8 @@ export function TaskBubble({
   sourceBrand,
   width,
   headlineMono = false,
+  truncateHeadline = true,
+  activityGap = 6,
   phaseColumn,
   neutralPhase = false,
 }: TaskBubbleProps) {
@@ -140,10 +144,13 @@ export function TaskBubble({
             </span>
           )}
         </div>
-        <div class="mt-[5px] flex items-center gap-[6px] text-meta leading-[14px]">
+        <div
+          style={{ "--activity-gap": `${activityGap}px` }}
+          class="mt-[5px] flex items-center gap-(--activity-gap) text-meta leading-[14px]"
+        >
           <span class={`shrink-0 font-medium ${neutralPhase ? "text-text-secondary" : ""} ${phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : ""}`}>{phase}</span>
           <span
-            class={`min-w-0 truncate text-text ${headlineMono || tone === "command" || tone === "file" ? "font-mono" : ""}`}
+            class={`${truncateHeadline ? "min-w-0 truncate" : "shrink-0 whitespace-nowrap"} text-text ${headlineMono || tone === "command" || tone === "file" ? "font-mono" : ""}`}
           >
             {headline}
           </span>

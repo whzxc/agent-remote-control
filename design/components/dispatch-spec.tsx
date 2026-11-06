@@ -14,6 +14,7 @@ export function DispatchSpec({
   position,
   tier,
   fast,
+  width,
 }: {
   id?: string;
   model?: string;
@@ -21,10 +22,12 @@ export function DispatchSpec({
   position?: EffortPosition;
   tier?: string;
   fast?: boolean;
+  width?: number;
 }) {
   return (
     <span
       id={id}
+      style={width ? { width } : undefined}
       role="img"
       aria-label={[model, effort, tier].filter(Boolean).join(" · ")}
       class="inline-flex shrink-0 items-center gap-1 h-6 px-[9px] rounded-field bg-surface-sunken text-text text-meta font-semibold"
