@@ -309,8 +309,12 @@ text{font-family:var(--font-ui);dominant-baseline:central}
           </g>
         </g>
       </g>
-      <text x="482.2500052928924" y="48" style="fill:var(--text);font-size:var(--text-title);font-weight:650;text-anchor:middle">公示牌 · 2 进行中</text>
-      <text x="482.2500052928924" y="84" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">1月1日 · 周四 · 08:00</text>
+      <g data-component="board-header" data-form="active" transform="translate(362.25 27)">
+        <rect width="240" height="88" rx="0" style="fill:none" />
+        <text x="120" y="10" data-part="date" style="fill:var(--text-secondary);font-size:var(--text-small);text-anchor:middle">1月1日 · 周四</text>
+        <text x="120" y="39" data-part="clock" style="fill:var(--text);font-size:var(--text-display);font-weight:650;font-variant-numeric:tabular-nums;text-anchor:middle">08:00</text>
+        <text x="120" y="73" data-part="board-trigger" style="fill:var(--text);font-size:var(--text-body);font-weight:600;text-anchor:middle">2 进行中</text>
+      </g>
       <g data-component="icon-button" data-form="compact" transform="translate(906.477267507412 218.0)">
         <rect width="30" height="30" rx="15" style="fill:none" />
         <circle cx="15" cy="15" r="10" style="fill:var(--role-agent)" />
