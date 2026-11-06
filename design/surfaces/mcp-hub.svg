@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -19,7 +22,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
 <!-- /design:tokens -->
 <rect data-canvas="" width="1104" height="2328" style="fill:var(--canvas)"/>
 <text x="72" y="78" class="note">ready · 960px</text>
-<g data-part="frame-ready" transform="translate(72 94)">
+<g data-part="frame-ready" transform="translate(72 94)" data-fixture="mcp-hub-ready-dark">
   <g data-component="panel" data-form="workspace" transform="translate(0 0)">
     <rect width="960" height="662" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
     <text x="24" y="41" style="fill:var(--text);font-size:var(--text-title);font-weight:650">MCP 中枢</text>
@@ -53,6 +56,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-command)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="globe" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></g>
       </g>
@@ -113,6 +117,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-file)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="terminal" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
       </g>
@@ -150,6 +155,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head" style="opacity:0.5">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-file)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="terminal" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
       </g>
@@ -177,7 +183,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
 </g>
 <text x="72" y="818" class="note">failed · 960px</text>
-<g data-part="frame-failed" transform="translate(72 834)">
+<g data-part="frame-failed" transform="translate(72 834)" data-fixture="mcp-hub-failed-dark">
   <g data-component="panel" data-form="workspace" transform="translate(0 0)">
     <rect width="960" height="912" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
     <text x="24" y="41" style="fill:var(--text);font-size:var(--text-title);font-weight:650">MCP 中枢</text>
@@ -211,6 +217,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-command)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="globe" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></g>
       </g>
@@ -249,6 +256,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-file)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="terminal" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
       </g>
@@ -286,6 +294,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-file)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="terminal" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
       </g>
@@ -324,6 +333,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
     <g data-part="server-head" style="opacity:0.5">
       <g data-component="tile" data-form="card" transform="translate(16 16)" style="color:var(--phase-file)">
+        <rect width="40" height="40" rx="12" style="fill:none"/>
         <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
         <g data-icon="terminal" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></g>
       </g>
@@ -351,7 +361,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </g>
 </g>
 <text x="72" y="1808" class="note">empty · 960px</text>
-<g data-part="frame-empty" transform="translate(72 1824)">
+<g data-part="frame-empty" transform="translate(72 1824)" data-fixture="mcp-hub-empty-dark">
   <g data-component="panel" data-form="workspace" transform="translate(0 0)">
     <rect width="960" height="432" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
     <text x="24" y="41" style="fill:var(--text);font-size:var(--text-title);font-weight:650">MCP 中枢</text>
@@ -365,6 +375,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <g data-component="tile" data-form="card" transform="translate(460 98)" style="color:var(--text-secondary)">
+    <rect width="40" height="40" rx="12" style="fill:none"/>
     <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:0.16"/>
     <g data-icon="plug" transform="translate(11 11) scale(0.7500)" style="fill:none;stroke:currentColor;stroke-width:2.33;stroke-linecap:round;stroke-linejoin:round"><path d="M12 22v-5"/><path d="M15 8V2"/><path d="M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z"/><path d="M9 8V2"/></g>
   </g>

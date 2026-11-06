@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -24,7 +27,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </defs>
   <rect data-canvas="" width="1856" height="2186" style="fill:var(--canvas)"/>
   <text class="note" x="72" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">current · coordination-problems</text>
-  <g transform="translate(72 94)" data-part="frame-current" data-fixture="coordination-problems" data-clock="2026-01-01T00:00:00Z" data-action="Open Board; Current / All; full scroll content">
+  <g transform="translate(72 94)" data-part="frame-current" data-clock="2026-01-01T00:00:00Z" data-action="Open Board; Current / All; full scroll content" data-fixture="coordination-problems">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="820" height="1144" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="24" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Board</text>
@@ -76,6 +79,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 184)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="message-circle-question" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
@@ -92,6 +96,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 256)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-pause" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <circle cx="12" cy="12" r="10"/>
@@ -108,6 +113,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 328)" data-component="tile" data-form="phase" style="color:var(--danger)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="unplug" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m19 5 3-3"/>
@@ -127,6 +133,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 400)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="bell-off" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M10.268 21a2 2 0 0 0 3.464 0"/>
@@ -144,6 +151,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 472)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-arrow-down" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <circle cx="12" cy="12" r="10"/>
@@ -160,6 +168,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 544)" data-component="tile" data-form="phase" style="color:var(--text-secondary)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="lightbulb" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
@@ -175,6 +184,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 656)" data-component="tile" data-form="phase" style="color:var(--accent)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="activity" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
@@ -189,6 +199,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 728)" data-component="tile" data-form="phase" style="color:var(--accent)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="megaphone" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
@@ -205,6 +216,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="102" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 800)" data-component="tile" data-form="phase" style="color:var(--accent)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="megaphone" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
@@ -225,6 +237,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 950)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="octagon-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M12 16h.01"/>
@@ -241,6 +254,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 1022)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="octagon-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M12 16h.01"/>
@@ -256,7 +270,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <text x="24" y="1110" style="fill:var(--text-tertiary);font-size:var(--text-meta)">Observed just now</text>
   </g>
   <text class="note" x="964" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">empty · coordination-empty</text>
-  <g transform="translate(964 94)" data-part="frame-empty" data-fixture="coordination-empty" data-clock="2026-01-01T00:00:00Z" data-action="Open Board">
+  <g transform="translate(964 94)" data-part="frame-empty" data-clock="2026-01-01T00:00:00Z" data-action="Open Board" data-fixture="coordination-empty">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="820" height="680" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="24" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Board</text>
@@ -303,6 +317,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
     </g>
     <g transform="translate(390 338)" data-component="tile" data-form="card" style="color:var(--text-secondary)">
+      <rect width="40" height="40" rx="12" style="fill:none"/>
       <rect width="40" height="40" rx="12" style="fill:currentColor;fill-opacity:.16"/>
       <g transform="translate(11 11) scale(0.75)" data-icon="inbox" style="fill:none;stroke:currentColor;stroke-width:2.3333333333333335;stroke-linecap:round;stroke-linejoin:round">
         <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
@@ -313,7 +328,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <text x="24" y="650" style="fill:var(--text-tertiary);font-size:var(--text-meta)">Observed just now</text>
   </g>
   <text class="note" x="72" y="1310" style="fill:var(--text-secondary);font-size:var(--text-meta)">gap · coordination-gap</text>
-  <g transform="translate(72 1332)" data-part="frame-gap" data-fixture="coordination-gap" data-clock="2026-01-01T00:00:00Z" data-action="Open Board; select Activity before resetting the expired cursor">
+  <g transform="translate(72 1332)" data-part="frame-gap" data-clock="2026-01-01T00:00:00Z" data-action="Open Board; select Activity before resetting the expired cursor" data-fixture="coordination-gap">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="820" height="680" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="24" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Board</text>
@@ -360,7 +375,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text class="note" x="964" y="1310" style="fill:var(--text-secondary);font-size:var(--text-meta)">unavailable · coordination-unavailable</text>
-  <g transform="translate(964 1332)" data-part="frame-unavailable" data-fixture="coordination-unavailable" data-clock="2026-01-01T00:00:00Z" data-action="Open Board after the initial failed read; do not retry">
+  <g transform="translate(964 1332)" data-part="frame-unavailable" data-clock="2026-01-01T00:00:00Z" data-action="Open Board after the initial failed read; do not retry" data-fixture="coordination-unavailable">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="820" height="760" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="24" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Board</text>
@@ -422,6 +437,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 318)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="message-circle-question" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
@@ -438,6 +454,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 390)" data-component="tile" data-form="phase" style="color:var(--warning)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-pause" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <circle cx="12" cy="12" r="10"/>
@@ -456,6 +473,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <rect width="772" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
     </g>
     <g transform="translate(40 500)" data-component="tile" data-form="phase" style="color:var(--accent)">
+      <rect width="32" height="32" rx="10" style="fill:none"/>
       <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
       <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="activity" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>

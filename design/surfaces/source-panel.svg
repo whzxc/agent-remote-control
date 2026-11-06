@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -24,7 +27,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   </defs>
   <rect data-canvas="" width="1728" height="1156" style="fill:var(--canvas)"/>
   <text class="note" x="72" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">dispatches · source-panel</text>
-  <g transform="translate(72 94)" data-part="frame-dispatches" data-fixture="source-panel" data-clock="2026-01-01T00:00:00Z">
+  <g transform="translate(72 94)" data-part="frame-dispatches" data-clock="2026-01-01T00:00:00Z" data-fixture="source-panel">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="480" height="560" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Claude</text>
@@ -53,6 +56,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 108)" data-component="task-bubble" data-form="row-attention" style="color:var(--warning)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--warning);fill-opacity:0.1"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--warning)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="shield-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
@@ -61,7 +65,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review the example change</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · 等待输入</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · 等待输入</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -71,6 +75,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 212)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-thinking)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="brain" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M12 18V5"/>
@@ -84,7 +89,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Update example documentation</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · 运行中</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · 运行中</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -92,6 +97,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 284)" data-component="task-bubble" data-form="row" style="color:var(--phase-thinking)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-thinking)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="brain" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M12 18V5"/>
@@ -105,14 +111,14 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Review example tests</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">claude · 运行中</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">claude · 运行中</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
   </g>
   <text class="note" x="624" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">history · dispatch-states</text>
-  <g transform="translate(624 94)" data-part="frame-history" data-fixture="dispatch-states" data-clock="2026-01-01T00:00:00Z" data-action="Open source panel; scroll to load all dispatch records">
+  <g transform="translate(624 94)" data-part="frame-history" data-clock="2026-01-01T00:00:00Z" data-action="Open source panel; scroll to load all dispatch records" data-fixture="dispatch-states">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="480" height="968" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Claude</text>
@@ -141,6 +147,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 108)" data-component="task-bubble" data-form="row-attention" style="color:var(--warning)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--warning);fill-opacity:0.1"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--warning)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="shield-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
@@ -149,13 +156,14 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission awaiting-approval</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Awaiting dispatch approval</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Awaiting dispatch approval</tspan></text>
     </g>
     <text x="20" y="196" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Running</text>
     <text x="74.5" y="196" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
     <g transform="translate(20 212)" data-component="task-bubble" data-form="row" style="color:var(--phase-file)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--phase-file)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="pencil" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
@@ -163,7 +171,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Current running dispatch</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Running</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Running</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -173,13 +181,14 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 316)" data-component="task-bubble" data-form="row" style="color:var(--success)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--success)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="check" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M20 6 9 17l-5-5"/>
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Completed dispatch</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Done</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Done</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -187,6 +196,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 388)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--danger)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
@@ -195,7 +205,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Failed execution</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Failed</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Failed</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -203,6 +213,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 460)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-pause" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
@@ -211,7 +222,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Interrupted execution</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Interrupted</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Interrupted</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
@@ -221,39 +232,43 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     <g transform="translate(20 564)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission reserved</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submitting</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Submitting</tspan></text>
     </g>
     <g transform="translate(20 636)" data-component="task-bubble" data-form="row" style="color:var(--text-tertiary)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--text-tertiary)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission not-executed</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Not executed</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Not executed</tspan></text>
     </g>
     <g transform="translate(20 708)" data-component="task-bubble" data-form="row" style="color:var(--warning)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--warning)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission unconfirmed</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submission unconfirmed</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Submission unconfirmed</tspan></text>
     </g>
     <g transform="translate(20 780)" data-component="task-bubble" data-form="row" style="color:var(--danger)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--danger)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="circle-alert" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <circle cx="12" cy="12" r="10"/>
@@ -262,27 +277,28 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Submission failed</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Submission failed</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Submission failed</tspan></text>
     </g>
     <text x="20" y="868" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:600">Yesterday</text>
     <text x="84.8" y="868" style="fill:var(--text-tertiary);font-size:var(--text-meta)">1</text>
     <g transform="translate(20 884)" data-component="task-bubble" data-form="row" style="color:var(--success)">
       <rect width="440" height="64" rx="18" data-fluid="height" style="fill:var(--surface-subtle)"/>
       <g transform="translate(12 12)" data-component="tile" data-form="phase" style="color:var(--success)">
+        <rect width="32" height="32" rx="10" style="fill:none"/>
         <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:.17"/>
         <g transform="translate(8 8) scale(0.6666666666666666)" data-icon="check" style="fill:none;stroke:currentColor;stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
           <path d="M20 6 9 17l-5-5"/>
         </g>
       </g>
       <text x="56" y="21" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Earlier completed dispatch</text>
-      <text x="56" y="40" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">codex · Done</text>
+      <text x="56" y="40" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">codex · Done</tspan></text>
       <g transform="translate(412 24) scale(0.6666666666666666)" data-icon="chevron-right" style="fill:none;stroke:var(--text-tertiary);stroke-width:2.625;stroke-linecap:round;stroke-linejoin:round">
         <path d="m9 18 6-6-6-6"/>
       </g>
     </g>
   </g>
   <text class="note" x="1176" y="72" style="fill:var(--text-secondary);font-size:var(--text-meta)">platform · source-panel</text>
-  <g transform="translate(1176 94)" data-part="frame-platform" data-fixture="source-panel" data-clock="2026-01-01T00:00:00Z" data-action="Click Anthropic in the source-panel header">
+  <g transform="translate(1176 94)" data-part="frame-platform" data-clock="2026-01-01T00:00:00Z" data-action="Click Anthropic in the source-panel header" data-fixture="source-panel">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="480" height="560" rx="24" data-fluid="height" style="fill:var(--surface-raised);filter:var(--elev-lg)"/>
       <text x="72" y="38" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Anthropic</text>

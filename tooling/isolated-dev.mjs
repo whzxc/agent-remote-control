@@ -12,8 +12,7 @@ import { readCore, coreRequest } from './dev-core.mjs';
 import { beginLifecycle } from './coordination-report.mjs';
 
 // Always allocate new state: never hand the development supervisor an installed instance.
-const designMode = process.argv.length === 3 && process.argv[2] === '--design';
-if (process.argv.length !== 2 && !designMode) throw new Error('Usage: npm run dev:isolated [-- --design]. A new state directory is allocated automatically.');
+if (process.argv.length !== 2) throw new Error('Usage: npm run dev:isolated. A new state directory is allocated automatically.');
 if (!['darwin', 'win32'].includes(process.platform)) throw new Error('Desktop isolation requires macOS or Windows; use ARC_STATE_DIR with headless arc start on Linux.');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const stateDirectory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-isolated-')));
@@ -21,7 +20,7 @@ const env = { ...process.env, ARC_STATE_DIR: stateDirectory, ARC_DEV_INSTANCE_ID
 await writeFile(path.join(stateDirectory, "acceptance-instance.json"), JSON.stringify({ instanceId: env.ARC_DEV_INSTANCE_ID }));
 const identity = developmentConfig(env);
 console.log(JSON.stringify({ event: 'isolated-starting', stateDirectory, bundleId: identity.identifier, appName: identity.productName }));
-const child = spawn(process.execPath, [path.join(root, 'tooling/desktop-dev.mjs'), ...(designMode ? ['--design'] : [])], { cwd: root, env, stdio: 'inherit' });
+const child = spawn(process.execPath, [path.join(root, 'tooling/desktop-dev.mjs')], { cwd: root, env, stdio: 'inherit' });
 let ended = false;
 let actualExitCode;
 let reported = "";

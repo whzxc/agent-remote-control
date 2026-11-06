@@ -11,12 +11,6 @@ import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { runTestCommand } from '../test.mjs';
 
-if (process.argv.includes('--scenario=design-canvas')) {
-  const { acceptDesign } = await import('./design.mjs');
-  await acceptDesign();
-  process.exit(0);
-}
-
 if (process.argv.includes('--task-dock')) {
   await runTestCommand(process.execPath, ['tooling/check-tests.mjs']);
   await runTestCommand(process.execPath, ['--test', 'tests/task-dock-layout.test.ts']);

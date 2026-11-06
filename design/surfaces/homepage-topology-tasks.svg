@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -21,7 +24,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <title>Homepage Topology Tasks</title>
   <desc>Proposed tasks topology foreground. Fixture: parallel-seven. Clock: 2026-01-01T00:00:00Z, Asia/Shanghai. Coordinates and tentacles sampled from unchanged solve and geometry pure functions at 1280x800. </desc>
   <rect width="1280" height="800" rx="0" style="fill:var(--canvas)" data-canvas="" />
-  <g data-part="frame-tasks" data-fixture="parallel-seven">
+  <g data-part="frame-tasks" data-fixture="parallel-seven" data-viewport="1280x800" data-origin="0 0">
     <g data-component="topology-scene" data-form="default" transform="translate(0 0)">
       <rect width="1280" height="800" rx="0" style="fill:var(--canvas)" data-fluid="height" />
       <g data-component="board-header" data-form="active" transform="translate(414.25 27)">
@@ -104,6 +107,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 82.0)" style="color:var(--phase-thinking)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="brain" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 18V5" />
@@ -122,7 +126,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 1</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">思考中</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">思考中</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">确认 API 契约</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -156,6 +160,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 168.0)" style="color:var(--phase-command)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 19h8" />
@@ -168,7 +173,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 2</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">执行命令</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">执行命令</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">npm run check</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -202,6 +207,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 254.0)" style="color:var(--phase-file)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="pencil" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
@@ -214,7 +220,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 3</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">处理文件</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">处理文件</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">ui/components…</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -248,6 +254,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 362.0)" style="color:var(--role-agent)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 19h8" />
@@ -260,7 +267,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 4</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">调用工具</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">调用工具</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">读取项目文档</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -294,6 +301,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 448.0)" style="color:var(--role-agent)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 19h8" />
@@ -306,7 +314,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 5</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">回复中</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">回复中</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">整理实现说明</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -340,6 +348,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 556.0)" style="color:var(--phase-command)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 19h8" />
@@ -352,7 +361,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 6</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">执行命令</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">执行命令</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">git status --…</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -386,6 +395,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 642.0)" style="color:var(--phase-thinking)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="brain" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 18V5" />
@@ -404,7 +414,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">并行任务 7</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">思考中</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">思考中</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">核对布局边界</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />

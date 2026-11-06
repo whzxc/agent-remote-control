@@ -1,4 +1,4 @@
-/* Design token source. Assets embed these through `npm run design -- sync`. */
+/* Design token source. Assets embed these through `sdg sync`. */
 :root {
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;

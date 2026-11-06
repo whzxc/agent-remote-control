@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -20,7 +23,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <desc>Task detail: timeline-multi-turn with the previous turn expanded; timeline-pending with an inline request dock; task-states task 3 for failure. Fixed fixture clock 2026-01-01T00:00:00Z, zh-CN UI. Tool disclosure controls share compact rows while retaining separate focus targets. Plan labels join their single step. Pending request history is represented by the dock while unanswered, then returns to the timeline when resolved. The dock heading owns passive routing. Failure evidence appears once in the outcome; the failed command disclosure moves to that outcome header. Process summaries omit facts already present in the task or turn header. Action rows use button/pending in place while submitting and disable siblings.</desc>
   <rect data-canvas="" width="2208" height="1076" style="fill:var(--canvas)" />
   <text x="72" y="70" class="note">running-multi-turn · timeline-multi-turn · previous turn expanded</text>
-  <g transform="translate(72 94)" data-part="frame-running-multi-turn" data-scenario="timeline-multi-turn" data-fixture-clock="2026-01-01T00:00:00Z">
+  <g transform="translate(72 94)" data-part="frame-running-multi-turn" data-fixture-clock="2026-01-01T00:00:00Z" data-fixture="timeline-multi-turn">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="640" height="882" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="20" y="70" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Review project configuration and verify the requested changes</text>
@@ -147,6 +150,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <g transform="translate(16 86)" data-part="process-narrative">
         <g transform="translate(0 0)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+          <rect width="32" height="32" rx="10" style="fill:none" fill-opacity="0.17" />
           <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17" />
           <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
             <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff" />
@@ -203,7 +207,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text x="784" y="70" class="note">needs-you · timeline-pending</text>
-  <g transform="translate(784 94)" data-part="frame-needs-you" data-scenario="timeline-pending" data-fixture-clock="2026-01-01T00:00:00Z">
+  <g transform="translate(784 94)" data-part="frame-needs-you" data-fixture-clock="2026-01-01T00:00:00Z" data-fixture="timeline-pending">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="640" height="736" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="20" y="70" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Review project configuration and verify the requested changes</text>
@@ -285,6 +289,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <g transform="translate(16 86)" data-part="process-narrative">
         <g transform="translate(0 0)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+          <rect width="32" height="32" rx="10" style="fill:none" fill-opacity="0.17" />
           <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17" />
           <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
             <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff" />
@@ -352,7 +357,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
     </g>
   </g>
   <text x="1496" y="70" class="note">failed-turn · task-states · task 3</text>
-  <g transform="translate(1496 94)" data-part="frame-failed-turn" data-scenario="task-states" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="3">
+  <g transform="translate(1496 94)" data-part="frame-failed-turn" data-fixture-clock="2026-01-01T00:00:00Z" data-task-index="3" data-fixture="task-states">
     <g transform="translate(0 0)" data-component="panel" data-form="workspace">
       <rect width="640" height="642" rx="24" style="fill:var(--surface-raised);filter:var(--elev-lg)" data-fluid="height" />
       <text x="20" y="70" style="fill:var(--text);font-size:var(--text-title);font-weight:650">Failed task</text>
@@ -431,6 +436,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       </g>
       <g transform="translate(16 158)" data-part="process-narrative">
         <g transform="translate(0 0)" data-component="tile" data-form="phase" style="color:var(--role-agent)">
+          <rect width="32" height="32" rx="10" style="fill:none" fill-opacity="0.17" />
           <rect width="32" height="32" rx="10" style="fill:currentColor" fill-opacity="0.17" />
           <g data-brand="codex" transform="translate(8 8) scale(0.6666666667)">
             <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff" />

@@ -3,8 +3,11 @@
 <style>
 :root{--font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;--font-mono:"SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;--text-display:28px;--text-title:18px;--text-body:14px;--text-small:13px;--text-meta:12px;--text-caption:11px;--radius-control:17px;--radius-field:12px;--radius-tile:10px;--radius-card:18px;--radius-panel:24px;--control-height:34px;--field-height:40px;--canvas:#f3eee7;--surface:#fffdfa;--surface-raised:#fffdfa;--surface-subtle:#f6f0e8;--surface-sunken:#ece4d9;--border:#e7ded2;--border-strong:#d6cabb;--text:#2b2420;--text-secondary:#625952;--text-tertiary:#7a726b;--accent:#d4663f;--accent-text:#b8532f;--on-accent:#ffffff;--action:#2b2420;--on-action:#fffaf4;--success:#398253;--warning:#a16717;--danger:#c2453b;--role-source:#d4663f;--role-agent:#6a5ad0;--phase-thinking:#7d63c9;--phase-command:#3e72c4;--phase-file:#2a816c;--tooltip:#2b2420;--on-tooltip:#fffaf4;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(74 52 36 / 8%);--shadow-md:0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);--shadow-lg:0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);--elev-sm:url(#elev-sm-light);--elev-md:url(#elev-md-light);--elev-lg:url(#elev-lg-light)}
 :root[data-theme="dark"]{--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--canvas:#171412;--surface:#221e1b;--surface-raised:#2a2522;--surface-subtle:#2e2925;--surface-sunken:#3a332e;--border:#3a332e;--border-strong:#4d4540;--text:#f3ebe3;--text-secondary:#bcafa4;--text-tertiary:#91857c;--accent:#ec8459;--accent-text:#f29a74;--on-accent:#1c120c;--action:#f3ebe3;--on-action:#1c1714;--success:#7fcb98;--warning:#e6b066;--danger:#f08b80;--role-source:#ec8459;--role-agent:#ab9fff;--phase-thinking:#b9a6ff;--phase-command:#8cb4ff;--phase-file:#6fd3b9;--tooltip:#f3ebe3;--on-tooltip:#1c1714;--knob:#ffffff;--shadow-sm:0 1px 2px rgb(0 0 0 / 35%);--shadow-md:0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);--shadow-lg:0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);--elev-sm:url(#elev-sm-dark);--elev-md:url(#elev-md-dark);--elev-lg:url(#elev-lg-dark)}}
 text{font-family:var(--font-ui);dominant-baseline:central}
+.only-dark{display:none}
+:root[data-theme="dark"] .only-light{display:none}:root[data-theme="dark"] .only-dark{display:inline}
+@media (prefers-color-scheme: dark){:root:not([data-theme]) .only-light{display:none}:root:not([data-theme]) .only-dark{display:inline}}
 .mono{font-family:var(--font-mono)}
 .note{font-family:var(--font-mono);font-size:var(--text-caption);fill:var(--text-tertiary)}
 </style>
@@ -21,7 +24,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
   <title>Homepage Topology Studio</title>
   <desc>Proposed studio topology foreground. Fixture: arc-actions-light. Clock: 2026-01-01T00:00:00Z, Asia/Shanghai. Coordinates and tentacles sampled from unchanged solve and geometry pure functions at 1280x800. Personal profile is collapsed with its existing expand and mark-all-read actions revealed. Studio decorative backdrop is outside this foreground asset.</desc>
   <rect width="1280" height="800" rx="0" style="fill:var(--canvas)" data-canvas="" />
-  <g data-part="frame-studio" data-fixture="arc-actions-light">
+  <g data-part="frame-studio" data-fixture="arc-actions-light" data-viewport="1280x800" data-origin="0 0">
     <g data-component="topology-scene" data-form="default" transform="translate(0 0)">
       <rect width="1280" height="800" rx="0" style="fill:var(--canvas)" data-fluid="height" />
       <path d="M 223.5 356.3 L 227.5 356.3 L 231.4 356.4 L 235.2 356.6 L 239.0 356.9 L 242.7 357.2 L 246.4 357.5 L 250.0 358.0 L 253.5 358.4 L 257.1 359.0 L 260.5 359.6 L 263.9 360.2 L 267.3 360.9 L 270.6 361.6 L 273.9 362.3 L 277.1 363.1 L 280.3 363.9 L 283.5 364.8 L 286.6 365.6 L 289.7 366.5 L 292.8 367.5 L 295.8 368.4 L 298.8 369.3 L 301.8 370.3 L 304.7 371.3 L 307.6 372.3 L 310.5 373.3 L 313.4 374.2 L 316.3 375.2 L 319.1 376.2 L 322.0 377.2 L 324.8 378.2 L 327.6 379.1 L 330.4 380.1 L 333.2 381.0 L 336.0 381.9 L 338.8 382.8 L 341.6 383.6 L 344.4 384.4 L 347.2 385.2 L 350.0 386.0 L 352.8 386.8 L 355.5 387.7 L 358.3 388.7 L 361.0 389.8 L 363.8 391.1 L 366.5 392.4 L 369.3 393.9 L 372.1 395.6 L 373.9 380.5 L 371.0 381.4 L 368.1 382.1 L 365.2 382.6 L 362.4 382.8 L 359.5 382.8 L 356.7 382.6 L 353.9 382.2 L 351.1 381.6 L 348.3 381.0 L 345.6 380.2 L 342.8 379.5 L 340.0 378.7 L 337.2 377.9 L 334.5 377.1 L 331.7 376.2 L 328.9 375.3 L 326.0 374.4 L 323.2 373.5 L 320.3 372.6 L 317.5 371.7 L 314.6 370.8 L 311.7 369.8 L 308.7 368.9 L 305.8 368.0 L 302.8 367.0 L 299.8 366.1 L 296.7 365.2 L 293.7 364.3 L 290.6 363.5 L 287.4 362.6 L 284.3 361.8 L 281.1 361.0 L 277.8 360.2 L 274.5 359.4 L 271.2 358.7 L 267.9 358.0 L 264.4 357.4 L 261.0 356.8 L 257.5 356.3 L 253.9 355.7 L 250.3 355.3 L 246.7 354.9 L 242.9 354.5 L 239.2 354.3 L 235.3 354.0 L 231.5 353.9 L 227.5 353.8 L 223.5 353.7 Z" data-part="primary-tentacle" style="fill:var(--role-source);fill-opacity:0.35" />
@@ -163,6 +166,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(872 418.0)" style="color:var(--phase-command)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <g data-icon="terminal" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
             <path d="M12 19h8" />
@@ -175,7 +179,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Active Codex task</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">执行命令</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">执行命令</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Checking conf…</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -209,6 +213,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(872 504.0)" style="color:var(--success)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <circle cx="26" cy="26" r="6.5" style="fill:var(--surface)" />
           <g data-icon="circle-check" transform="translate(8 8) scale(0.6667)" style="fill:none;stroke:currentColor;stroke-width:2.63;stroke-linecap:round;stroke-linejoin:round">
@@ -221,7 +226,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Codex completed task</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">已完成</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">已完成</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Configuration…</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />
@@ -255,6 +260,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
       <g data-component="task-bubble" data-form="standard" transform="translate(976 310.0)" style="color:var(--success)">
         <rect width="264" height="76" rx="18" style="fill:var(--surface);filter:var(--elev-md)" />
         <g data-component="tile" data-form="phase" transform="translate(11 12)">
+          <rect width="32" height="32" rx="10" style="fill:none" />
           <rect width="32" height="32" rx="10" style="fill:currentColor;fill-opacity:0.17" />
           <circle cx="26" cy="26" r="6.5" style="fill:var(--surface)" />
           <g data-icon="source" transform="translate(21.5 21.5) scale(0.375)" style="fill:var(--role-source)">
@@ -267,7 +273,7 @@ text{font-family:var(--font-ui);dominant-baseline:central}
         </g>
         <text x="53" y="19" style="fill:var(--text);font-size:var(--text-small);font-weight:650">Studio completed ta…</text>
         <text x="252" y="19" class="mono" style="fill:var(--text-tertiary);font-size:var(--text-caption);text-anchor:end">1:23</text>
-        <text x="53" y="38" style="fill:currentColor;font-size:var(--text-meta);font-weight:500">已完成</text>
+        <text x="53" y="38" style="fill:var(--text-secondary);font-size:var(--text-meta);font-weight:500"><tspan style="fill:currentColor">已完成</tspan></text>
         <text x="107" y="38" style="fill:var(--text);font-size:var(--text-meta)" class="mono">Studio change…</text>
         <g data-component="dispatch-spec" data-form="standard" transform="translate(53 45)" role="img" aria-label="GPT-6.1 Sol · 高推理强度 · 快速">
           <rect width="128" height="24" rx="12" style="fill:var(--surface-sunken)" />

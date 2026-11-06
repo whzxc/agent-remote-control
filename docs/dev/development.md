@@ -30,8 +30,6 @@ Set `ARC_DEV_PORT` to an unused integer from 1 to 65535 to keep an existing DEV 
 ARC_DEV_PORT=5190 npm run dev:isolated
 ```
 
-`dev:isolated -- --design` also starts design mode alongside the isolated desktop.
-
 `dev:isolated` allocates a new temporary state directory and unique development app identity. Use the emitted `stateDirectory` and `bundleId` to address its CLI and native window. It does not replace the installed app or reuse installed state. See [Acceptance](acceptance.md) for native acceptance and cleanup.
 
 ## Existing checks
@@ -57,16 +55,15 @@ The workspace shares root Cargo.lock and target. The compilation-cache budget is
 
 ## Design assets
 
+Use the globally installed `sdg` CLI, version 0.3.0 or later:
+
 ```sh
-npm run design -- check
-npm run design -- render
-npm run dev:design
-npm run dev -- --design
+sdg check
+sdg render
+sdg design
 ```
 
-Design mode serves the grouped SVG canvas at `http://127.0.0.1:5191/`, loads visible assets on demand, and refreshes saved assets. Run it independently with `dev:design`, or add `--design` to desktop development. `ARC_DESIGN_PORT` selects another port.
-
-Visual changes start in `design/`. See [Design assets](design.md) for the format, commands and workflow.
+`sdg design` opens the shared viewer independently of desktop development. Visual changes start in `design/`. [Design assets](design.md) records ARC's decisions and fixture mappings; the [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) defines the format, commands, checks and workflow.
 
 ## Desktop artifacts
 

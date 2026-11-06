@@ -2,64 +2,23 @@
 
 [UI conventions](ui.md) · [Acceptance](acceptance.md) · [Development](development.md)
 
-SVG assets in `design/` define how ARC looks. React implementations follow them. [UI conventions](ui.md) keeps the behavior, data projection and layout logic that a static asset cannot express.
+SVG assets in `design/` define how ARC looks. React implementations follow them. [UI conventions](ui.md) owns behavior, data projection and layout logic.
+
+ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.3.0 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#asset-format), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
 
 ## Layout
 
-- `design/tokens.css` holds color, type, radius, size and shadow tokens for the light and dark themes. It is the token source for assets and for the runtime sheet.
-- `design/components/<name>.svg` holds one shared component. Each top-level `data-component` group in the file is one presentation form.
-- `design/surfaces/<name>.svg` holds a panel, dialog or page composed from component instances. Each declared form is a `data-part="frame-<form>"` group whose first component is the surface shell.
+- `design/tokens.css` is ARC's token source. `ui/tokens.css` is the runtime sheet.
+- `design/components/` contains shared component sheets; `design/surfaces/` composes them into ARC panels, dialogs and pages.
+- `sdg.config.mjs` declares the required toolkit version, paths and browser fixture adapter. Generated output goes to the ignored `output/design/` directory.
+- The homepage preserves the ARC mark, earcup connections and topology. Portrait forms use a 640×800 viewport, except expanded-single-task at 640×1000; landscape forms use 1280×800.
+- Tile geometry has a neutral shell with a separate state tint. Phase labels keep shared text typography and apply their semantic color to a span.
 
 ## Presentation forms
 
-- The user declares the forms each asset contains, such as the three task-bubble densities.
-- Draw only declared forms. Do not add frames for combinations of theme, width, locale or interaction state.
-- Themes come from tokens. Every asset renders in both themes without extra frames.
-- Each asset shows one representative language.
+Keep the forms declared in the assets. Themes use the same geometry, and each sheet uses one representative language. The frames table identifies the corresponding fixture, including its language and fixed clock.
 
-## Asset format
-
-- Each file is a standalone SVG with numeric `width`, `height` and `viewBox`. A `data-canvas` rect paints `var(--canvas)` behind the content.
-- `npm run design -- sync` writes the region between `<!-- design:tokens -->` and `<!-- /design:tokens -->`. Do not edit that region by hand.
-- Paint through tokens in `style`, for example `style="fill:var(--surface)"`. Literal colors are allowed only inside a `data-brand` group.
-- A tinted surface uses the token color with `fill-opacity`. A group can set `color:var(--token)` so its children paint with `currentColor`.
-- Elevation uses `style="filter:var(--elev-md)"`. The sync step derives the `--elev-*` filters from the `--shadow-*` tokens.
-- Text `y` is the vertical center, because the token region sets `dominant-baseline: central`. Set `font-size` through a `--text-*` token and `font-weight` in `style`. Add `class="mono"` for monospace text.
-- Geometry stays literal. Corner radii and heights follow the radius and size tokens.
-- A form or instance is `<g data-component="<name>" data-form="<form>" transform="translate(x y)">` with local coordinates. Its first `rect` child is the container.
-- Icons are `<g data-icon="<lucide-name>">` groups with Lucide geometry. They keep a 1.75px rendered stroke.
-- Form labels and other annotations use `class="note"` and stay outside component groups.
-- An asset may animate with CSS or SMIL to show timing and easing. Interactive behavior stays in [UI conventions](ui.md).
-
-An instance matches its form's container height, radius, fill, stroke and elevation. It uses only text styles that the form uses. Width and content may vary. A form whose container rect carries `data-fluid="height"` may also change height with its content.
-
-## Workflow
-
-1. Start from the user's request and the matching `accept:ui` fixture data.
-2. Draw or update the asset. Use `npm run design -- measure` for text widths.
-3. Run `npm run design -- check` and fix every problem.
-4. Run `npm run design -- render` and review both theme renders against the layout review.
-5. Show the renders to the user and iterate until they approve the asset.
-6. Implement with the shared React components and runtime tokens.
-7. Run `npm run design -- compare` against the matching fixture and review the overlay. Fix structural differences and systematic offsets. Accept small isolated offsets when the implementation reads as well as the asset.
-
-An asset frame uses the language and text of its fixture, including dates under the fixed 2026-01-01 fixture clock. Generate repetitive geometry with a script kept outside the repository, measure text with `measure`, and copy icon geometry from Lucide. A drafter may propose forms. Approving the renders approves those forms. Drafting, `check`, `render` and implementation may run in a coding lane. `compare` and `accept:ui` run in the main checkout after landing.
-
-## Layout review
-
-Review the composition of every frame before showing it. A frame that copies the current implementation also copies its layout problems.
-
-- Group by meaning. Items that serve one decision sit together, and the gap between groups is clearly larger than the gap inside a group.
-- End a decision with one action row. Attach scope and consequence text to the title or content it qualifies.
-- Settings use one setting per row, with its name and effect on the left and its control on the right. Keep unrelated settings on separate rows. Group rows by the scope they affect.
-- Join short metadata into one line with ` · `. A short status or count does not own a row.
-- Give a row or step at most a title and one meta line.
-- Show each state once. A spinner in a step tile and a separate in-progress line for the same step duplicate each other.
-- Pad a container equally on all sides. Its height follows its content.
-- Give an overlay one dismissal. Do not add a footer button that repeats close.
-- Keep navigation, filters and actions apart. Panel actions such as refresh sit with close in the header. Filters share one toolbar row.
-- Keep a transition in place. A running action turns its own control into the pending state and disables its siblings. Do not hide the footer or replace it with body text.
-- Cut advisory text that the user does not need in order to act.
+Task bubbles retain compact, standard, detailed, row and attention-row forms. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded forms. The shared board-header component retains active and idle forms, used by the existing homepage frames. Setup retains standalone and nested connection flows; method and ready have distinct controls. The task-relationships component's detail-header examples are parts of its family form, not separate surface frames.
 
 ## Implementation checklist
 
@@ -71,39 +30,97 @@ Review the composition of every frame before showing it. A frame that copies the
 - Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.
 - Delete superseded rules, classes and visual statements in [UI conventions](ui.md) in the same change.
 
-## Commands
-
-```sh
-npm run design -- sync
-npm run design -- check [asset...]
-npm run design -- render [asset...]
-npm run dev:design
-npm run dev -- --design
-npm run accept:ui -- --scenario=design-canvas
-npm run design -- measure "<text>" [--size=14] [--weight=400] [--mono]
-npm run design -- compare <asset> --frame=<part> --scenario=<fixture> --region=<name> [--click=<button>...] [--viewport=1280x800]
-```
-
-`check` loads every asset in Chromium. It reports stale token regions, literal colors, undefined tokens, overlapping text, text outside the canvas, text overflowing its container, unknown forms and instances that differ from their form. A nonzero exit means the asset is not ready.
-
-`render` writes `output/design/<path>-light.png` and `-dark.png` at 2x.
-
-`dev:design` starts design mode at `http://127.0.0.1:5191/`. It runs independently of Core and installed data. `dev -- --design` starts the same server alongside desktop development and closes it when the supervisor exits. Set `ARC_DESIGN_PORT` to use a different port; an occupied port fails startup.
-
-The canvas loads an asset manifest first, then SVG images for the visible area. At higher zoom, visible drawings load inline vectors for sharp detail. Offscreen drawings unmount. Only the selected theme loads. Saving, adding or removing assets in `design/` refreshes the manifest and visible drawings while preserving the camera. Frontend code is bundled once at startup; restart design mode after editing its React or CSS implementation.
-
-Drag to pan, scroll or pinch to zoom, select a module to frame it, and select an asset to inspect it. Fit all or Escape returns to the overview; 100% resets the canvas scale. Keyboard controls are arrows, plus/minus, 0 for Fit all, and 1 for 100%. System, Light and Dark apply to the canvas and every SVG.
-
-`compare` renders one asset frame, the `data-part` group named by `--frame`, next to an `accept:ui` fixture in the fixture's theme. `--region` names the implementation region or dialog to capture, and each `--click` activates a button by accessible name first. It reads one text per rendered line, including the placeholders of empty fields, skips text scrolled or clipped outside the region, and pairs texts by content. It reports anchored-edge, vertical-center and width differences above 2px, plus texts missing from either side. It does not compare shapes, so review the overlay as well. `output/design/compare/<asset>-<frame>-<fixture>/index.html` shows the design, the implementation and their overlay. A nonzero exit means it found differences. Treat them as a review list, not a zero gate. Missing or extra texts, wrong order or grouping, and one offset shared by many texts point to real defects, such as a lost font rule or a leftover border. An isolated offset of a few pixels can stay. It starts Vite, so it runs only in the main checkout.
-
 ## Migration
 
 - A surface without an approved asset keeps its current implementation. Its next visual change starts by drawing its asset.
 - `ui/tokens.css` is the runtime token sheet. Migrating a surface aligns the tokens it uses with `design/tokens.css`.
 - Migrating a surface deletes its visual statements from [UI conventions](ui.md) and keeps its behavior statements.
 
-## Limits
+## Frames
 
-- Assets name the system font stack. Linux renders use fallback fonts, so final visual review runs on macOS.
-- SVG has no layout engine. Positions are explicit, and a geometry change to a form requires updating its instances. `check` lists the instances that no longer match.
-- Static assets do not show hover response, focus movement, dragging, springs or interruption.
+All asset paths below are relative to `design/surfaces/`. Frame names omit the `frame-` prefix. Each frame declares its `data-fixture`; all 63 frames have an existing `accept:ui` scenario. No surface frame lacks a scenario.
+
+The region column gives the exact accessible region or dialog name for `--region`, except where it explicitly names a selector. Viewport frames declare `data-viewport` and `data-origin` in the SVG. Other viewport overrides below preserve the full-height presentation where practical. Clicks run in the listed order; each button name becomes one `--click` argument. For example:
+
+```sh
+sdg compare surfaces/agent-panel.svg --frame=overview --region=Codex
+sdg compare surfaces/homepage-topology-portrait.svg --frame=expanded-empty
+```
+
+The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/` requests, and uses each scenario's theme and language with the fixed `2026-01-01T00:00:00Z` clock. Compare and browser acceptance run in the main checkout. The viewer opens independently with `sdg design`.
+
+Portrait browser acceptance sets the timezone to `Asia/Shanghai`, matching the board-header date and `08:00` clock in those assets. SDG 0.3.0 has no fixture timezone option and uses the browser's timezone. Compare review must use the same timezone for these labels.
+
+| Asset | Frame | Fixture | Region or viewport | Clicks |
+| --- | --- | --- | --- | --- |
+| `agent-panel.svg` | `overview` | `agent-panel` | Codex | — |
+| `agent-panel.svg` | `empty` | `agent-panel-empty` | Codex | — |
+| `agent-platform.svg` | `accounts` | `brand-accounts-light` | Claude Code | `Claude Code` |
+| `agent-platform.svg` | `native` | `antigravity-platform` | Antigravity | — |
+| `approval.svg` | `permission` | `approval` | 待处理请求; `--viewport=390x844` | `Codex` → `阅读项目说明 · 打开执行时间线` → `打开` |
+| `approval.svg` | `question` | `task-states` | 待处理请求; `--viewport=390x844` | `Waiting for input · 打开执行时间线` → `打开` |
+| `approval.svg` | `model-effort` | `timeline-multi-turn` | 本任务模型 | `本任务模型` → `模型与推理强度` → `默认模型: 跟随任务` |
+| `connections.svg` | `overview` | `p3-workspace-add-light` | 连接 | — |
+| `coordination.svg` | `current` | `coordination-problems` | Board; `--viewport=1280x1400` | `Open board` |
+| `coordination.svg` | `empty` | `coordination-empty` | Board | `Open board` |
+| `coordination.svg` | `gap` | `coordination-gap` | Board | `Open board` → radio `Activity` [1] |
+| `coordination.svg` | `unavailable` | `coordination-unavailable` | Board | `Open board` |
+| `homepage-topology-accounts.svg` | `accounts` | `topology-accounts` | viewport `1280x800`, origin `0 0` | — |
+| `homepage-topology-empty.svg` | `empty` | `connections-empty-light` | viewport `1280x800`, origin `0 0` | — |
+| `homepage-topology-portrait.svg` | `expanded-empty` | `portrait-topology-0` | viewport `640x800`, origin `0 0` | — |
+| `homepage-topology-portrait.svg` | `expanded-single-task` | `portrait-topology-1` | viewport `640x1000`, origin `0 0` | — |
+| `homepage-topology-portrait.svg` | `expanded-two-tasks` | `portrait-topology-2` | viewport `640x800`, origin `0 0` | — |
+| `homepage-topology-portrait.svg` | `sources-compacted` | `portrait-topology-4` | viewport `640x800`, origin `0 0` | — |
+| `homepage-topology-portrait.svg` | `sources-folded` | `portrait-topology-0` | viewport `640x800`, origin `0 0` | `Collapse control sources` |
+| `homepage-topology-portrait.svg` | `agents-folded` | `portrait-topology-0` | viewport `640x800`, origin `0 0` | `Collapse Agents` |
+| `homepage-topology-studio.svg` | `studio` | `arc-actions-light` | viewport `1280x800`, origin `0 0` | — |
+| `homepage-topology-tasks.svg` | `tasks` | `parallel-seven` | viewport `1280x800`, origin `0 0` | — |
+| `mcp-hub.svg` | `ready` | `mcp-hub-ready-dark` | MCP 中枢 | — |
+| `mcp-hub.svg` | `failed` | `mcp-hub-failed-dark` | MCP 中枢 | — |
+| `mcp-hub.svg` | `empty` | `mcp-hub-empty-dark` | MCP 中枢 | — |
+| `pets-settings.svg` | `library` | `pets-settings` | Pets | — |
+| `platforms.svg` | `connected` | `accounts` | Platforms | — |
+| `platforms.svg` | `empty` | `accounts` | Platforms | radio `Google` [1] |
+| `quota-overview.svg` | `overview` | `agent-panel` | 订阅额度 | `关闭` → `管理 Agent` → `订阅额度` |
+| `quota-overview.svg` | `empty` | `settings-about-dark` | Subscription quotas | `Back to home` → `Manage Agents` → `Subscription quotas` |
+| `relay-hosting.svg` | `empty` | `relay-hosting-light` | 中继托管 | — |
+| `settings.svg` | `about` | `settings-about-light` | Settings; `--viewport=1280x1400` | — |
+| `settings.svg` | `agents` | `agent-settings-dispatch-defaults` | Agents | `Manage Agents` |
+| `settings.svg` | `agent-detail` | `agent-settings-dispatch-defaults` | Codex | `Manage Agents` → `Codex` |
+| `settings.svg` | `display` | `agent-settings-display-light` | Agent settings; `--viewport=1280x1080` | `Manage Agents` → `Agent settings` |
+| `settings.svg` | `experimental` | `experimental-settings` | Settings | — |
+| `setup.svg` | `welcome` | `p3-welcome-light` | 从哪里指挥 Codex？ | — |
+| `setup.svg` | `source-product` | `p3-source-fixed-light` | 添加控制源 | — |
+| `setup.svg` | `source-connection` | `p3-source-connection-light` | 添加 Claude | — |
+| `setup.svg` | `source-empty` | `p3-source-empty-light` | 添加 Claude | — |
+| `setup.svg` | `source-local` | `p3-source-local-light` | 添加 Claude Code | — |
+| `setup.svg` | `source-address` | `p3-source-address-light` | 添加 Claude | — |
+| `setup.svg` | `source-approval` | `p3-source-approval-light` | 添加 Claude | — |
+| `setup.svg` | `source-success` | `p3-source-success-light` | 添加 Claude | — |
+| `setup.svg` | `method` | `p3-connection-method-light` | 添加连接 | — |
+| `setup.svg` | `stacked-method` | `p3-stacked-method-light` | 添加连接 | — |
+| `setup.svg` | `stacked-relay` | `p3-stacked-relay-light` | 添加连接 | — |
+| `setup.svg` | `stacked-local` | `p3-stacked-local-light` | 添加连接 | — |
+| `setup.svg` | `stacked-join` | `p3-stacked-join-light` | 添加连接 | — |
+| `setup.svg` | `stacked-own` | `p3-stacked-own-light` | 添加连接 | — |
+| `setup.svg` | `stacked-secure` | `p3-stacked-secure-light` | 添加连接 | — |
+| `setup.svg` | `stacked-ready` | `p3-stacked-ready-light` | 添加连接 | — |
+| `setup.svg` | `ready` | `p3-connection-ready-light` | 添加连接 | — |
+| `setup.svg` | `relay-login` | `p3-connection-login-dark` | 添加连接 | — |
+| `source-panel.svg` | `dispatches` | `source-panel` | Claude | — |
+| `source-panel.svg` | `history` | `dispatch-states` | Claude; `--viewport=1280x1200` | — |
+| `source-panel.svg` | `platform` | `source-panel` | Anthropic | `Anthropic` |
+| `task-detail.svg` | `running-multi-turn` | `timeline-multi-turn` | Review project configuration and verify the requested changes; `--viewport=1280x1080` | — |
+| `task-detail.svg` | `needs-you` | `timeline-pending` | Review project configuration and verify the requested changes | — |
+| `task-detail.svg` | `failed-turn` | `task-states` | Failed task | `Failed task · 打开执行时间线` |
+| `updates.svg` | `available` | `updates-available-panel` | App updates | — |
+| `updates.svg` | `installing` | `updates-installing` | App updates | — |
+| `updates.svg` | `settings` | `updates-settings` | selector `.settings-about`; `--viewport=1280x1400` | — |
+
+[1] `Activity` and `Google` are `SingleChoice` radio items. SDG 0.3.0 `--click` addresses buttons only. These two states require role-aware fixture preparation before capture; their source scenarios are `coordination-gap` and `accounts`. The default scenario alone does not select that radio item.
+
+SDG 0.3.0 calls the adapter's `ready` hook before `--click` actions and has no post-click readiness hook. For `coordination/unavailable`, browser acceptance waits for `SCENARIO_BOARD_UNAVAILABLE` after `Open board` and captures before retrying. The adapter cannot reproduce that wait. Portrait folded captures also wait for the requested wing's positioned nodes to disappear and orientation to settle after the keyboard action; scenario readiness alone does not cover that transition.
+
+Full-content drawings in `agent-panel/overview`, `coordination/current`, `settings/about`, `settings/display` and `source-panel/history` can exceed the implementation's scroll viewport. Compare captures visible content; inspect the remaining content during browser acceptance. `approval/model-effort` includes portalled picker and menu drawings outside the main dialog shell; the region capture covers the main dialog. Portrait folded states expose their collapse controls through keyboard focus during browser acceptance.
+
+The adapter uses DOM text extraction. Pet preview atlas labels are decorative image content inside `aria-hidden` previews; they are reviewed as shapes in the overlay.
