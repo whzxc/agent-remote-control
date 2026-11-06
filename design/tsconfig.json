@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "sdg",
+    "noEmit": true,
+    "strict": true,
+    "paths": {
+      "sdg": ["./.sdg/runtime.d.ts"],
+      "sdg/jsx-runtime": ["./.sdg/runtime.d.ts"]
+    }
+  },
+  "include": ["**/*.tsx", "**/*.ts", ".sdg/*.d.ts"]
+}

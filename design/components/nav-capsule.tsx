@@ -1,0 +1,31 @@
+import { Frame, Icon } from "sdg";
+const items = [
+  { id: "settings", icon: "settings", label: "Settings" },
+  { id: "agents", icon: "users", label: "Agents" },
+  { id: "permissions", icon: "shield-check", label: "Permissions" },
+];
+export function NavCapsule({
+  items: entries = items,
+  active = "permissions",
+}: {
+  items?: { id: string; icon: string; label: string }[];
+  active?: string;
+}) {
+  return (
+    <nav class="inline-flex items-center gap-1 px-[6px] py-1 rounded-[22px] bg-surface-raised shadow-md">
+      {entries.map((item) => (
+        <button
+          aria-label={item.label}
+          class={`flex items-center justify-center size-9 rounded-card ${item.id === active ? "bg-surface-sunken text-text" : "text-text-secondary"}`}
+        >
+          <Icon name={item.icon} size={18} />
+        </button>
+      ))}
+    </nav>
+  );
+}
+export default () => (
+  <Frame name="default">
+    <NavCapsule />
+  </Frame>
+);

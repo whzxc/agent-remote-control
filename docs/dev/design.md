@@ -2,21 +2,28 @@
 
 [UI conventions](ui.md) · [Acceptance](acceptance.md) · [Development](development.md)
 
-SVG assets in `design/` define how ARC looks. React implementations follow them. [UI conventions](ui.md) owns behavior, data projection and layout logic.
+TSX sources in `design/` define how ARC looks. Each default export declares static `Frame` presentations. React implementations follow them. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.3.3 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#asset-format), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
+ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.4.1 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#sources), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
 
 ## Layout
 
 - `design/tokens.css` is ARC's token source. `ui/tokens.css` is the runtime sheet.
-- `design/components/` contains shared component sheets; `design/surfaces/` composes them into ARC panels, dialogs and pages.
+- `design/components/<name>.tsx` exports typed, static component functions. Each default export returns only the declared forms. `design/surfaces/` composes named imports into ARC panels, dialogs and pages.
+- `design/art/` contains imported SVG brand artwork. Mark artwork instances with `data-brand`. Keep component structure in TSX.
+- `design/tsconfig.json` resolves the global toolkit declarations in the ignored `design/.sdg/` directory.
 - `sdg.config.mjs` declares the required toolkit version, paths and browser fixture adapter. Generated output goes to the ignored `output/design/` directory.
+- Author controls with flex/grid, padding and gaps. Sizes follow content; control heights use tokens. Use whole pixels outside free-form geometry. `style` outside `data-free` sets only dimensions or custom properties.
+- `TopologyScene` accepts fixture coordinates and links inside `data-free`; runtime geometry remains owned by `solve.ts`. Agent rings and effort gauges compute their geometry from readings and steps.
+- Named imports use runtime presentation prop names where available. Icons are Lucide name strings; `BrandMark` and `AgentIcon` accept an imported-art `brand` key. Static sources omit callbacks and state hooks. Width-bearing frames need a full-width shell; a frame width does not stretch its child.
+- Use `SingleChoice` for pills, dropdowns, navigation, tabs, option cards and setup choices. Compose cards and panels through `children`; use `TaskRelation` and `TaskParentLink` in detail headers.
+- Run `sdg check components/<name>` and `sdg render components/<name>` for an individual component. Named-source commands also work while other source directories are being migrated.
 - The homepage preserves the ARC mark, earcup connections and topology. Portrait forms use a 640×800 viewport, except expanded-single-task at 640×1000; landscape forms use 1280×800.
 - Tile geometry has a neutral shell with a separate state tint. Phase labels keep shared text typography and apply their semantic color to a span.
 
 ## Presentation forms
 
-Keep the forms declared in the assets. Themes use the same geometry, and each sheet uses one representative language. The frames table identifies the corresponding fixture, including its language and fixed clock.
+Keep the forms declared by each source's default export. Form names retain their existing `data-form` names. Themes use the same geometry, and each source uses one representative language. Repeated fixtures are data rendered with `map`; a component function may be reused without adding a presentation frame. The frames table identifies the corresponding fixture, including its language and fixed clock.
 
 Task bubbles retain compact, standard, detailed, row and attention-row forms. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded forms. The shared board-header component retains active and idle forms, used by the existing homepage frames. Setup retains standalone and nested connection flows; method and ready have distinct controls. The task-relationships component's detail-header examples are parts of its family form, not separate surface frames.
 
