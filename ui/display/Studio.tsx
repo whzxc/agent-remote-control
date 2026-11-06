@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
 import { Button, Icon, IconButton, SingleChoice } from '../components/ui';
+import { BoardHeader } from '../components/ui/board-header';
 import { locale, t } from '../i18n';
 import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
@@ -16,7 +17,7 @@ import { studioEnabled, studioPhase, studioTone } from './state';
 import { useStudioMotion } from './useStudioMotion';
 import './studio.css';
 
-function useStudioClock(enabled: boolean) {
+function useMinuteClock(enabled: boolean) {
   const [now, setNow] = useState(appNow);
   useEffect(() => {
     if (!enabled) return;
@@ -38,41 +39,36 @@ function useStudioClock(enabled: boolean) {
   return now;
 }
 
-function StudioActivity() {
+function HomepageBoardHeader({ now }: { now: number }) {
   const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const { snapshot, error } = agentActivity.use();
+  const language = locale.use(), date = new Date(now);
   const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
   const summary = error ? t('studio.activityUnavailable') : !snapshot ? t('loading') : [
     running > 0 ? t('studio.running', { count: running }) : '',
     needsYou > 0 ? t('studio.pending', { count: needsYou }) : '',
   ].filter(Boolean).join(' · ');
-  return <div className="studio-activity" role="status" aria-label={t('studio.activity')} aria-live="polite" aria-atomic="true">
-    <Button id="board-trigger" variant="ghost" className="studio-activity-trigger" aria-label={t('center.open')} aria-description={summary || undefined} aria-haspopup="dialog" onClick={() => openCenter()}>
-      <span>{[t('center.title'), summary].filter(Boolean).join(' · ')}</span>
-    </Button>
-  </div>;
+  const day = new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date);
+  const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date);
+  const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
+  return <BoardHeader date={`${day} · ${weekday}`} time={time} dateTime={date.toISOString()}
+    clockLabel={t('studio.clock')} activityLabel={t('studio.activity')} title={t('center.title')}
+    openLabel={t('center.open')} summary={summary} onOpen={() => openCenter()} />;
 }
 
-export function StudioBackground({ headerVisible }: { headerVisible: boolean }) {
-  const enabled = studioEnabled.use(), phase = studioPhase.use(), language = locale.use();
+export function HomepageDisplay({ headerVisible }: { headerVisible: boolean }) {
+  const enabled = studioEnabled.use(), phase = studioPhase.use();
   const motion = useStudioMotion(enabled && headerVisible);
-  const now = useStudioClock(enabled && motion.visible), tone = studioToneAt(now, phase);
+  const now = useMinuteClock(headerVisible || enabled && motion.visible), tone = studioToneAt(now, phase);
   useLayoutEffect(() => { studioTone.set(enabled ? tone : null); }, [enabled, tone]);
   useLayoutEffect(() => () => studioTone.set(null), []);
-  const date = new Date(now);
   return <>
     {enabled && <div className="studio-backdrop" data-phase={tone} data-motion={motion.state} aria-hidden="true">
       <div className="studio-image studio-day" /><div className="studio-image studio-night" />
       <div className="studio-atmosphere" />
       <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
     </div>}
-    {headerVisible && <header className="studio-header">
-      <StudioActivity />
-      {enabled && <time className="studio-time" data-studio-clock dateTime={date.toISOString()} title={t('studio.clock')}>
-        <span>{new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date)} · {new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date)}</span>
-        {' · '}<span>{new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)}</span>
-      </time>}
-    </header>}
+    {headerVisible && <HomepageBoardHeader now={now} />}
   </>;
 }
 

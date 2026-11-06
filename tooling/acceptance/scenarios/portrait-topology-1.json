@@ -1,0 +1,19 @@
+{
+  "theme": "light",
+  "language": "en",
+  "sourceProducts": ["openai", "claude", "google", "xai"],
+  "expandedSources": ["anthropic"],
+  "agents": ["codex", "dsh", "claude", "cursor", "opencode"],
+  "maxVisibleAgents": 6,
+  "quota": true,
+  "claudeQuota": true,
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Check configuration",
+      "headline": "npm run check"
+    }
+  ],
+  "viewports": [{ "width": 640, "height": 1000 }]
+}

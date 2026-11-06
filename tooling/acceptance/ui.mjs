@@ -62,7 +62,8 @@ try {
     if (setupOnly && !setup) continue;
     for (const { width, height } of fixture.viewports ?? report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;
-      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'en-US' });
+      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'en-US',
+        timezoneId: name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.route('**/api/**', route => { errors.push(`Unexpected live API: ${route.request().url()}`); return route.abort(); });
@@ -154,7 +155,7 @@ try {
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (name.startsWith('portrait-topology-')) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          await verifyPortraitTopology(page, fixture.tasks.length, messages, out, key, screenshots);
+          await verifyPortraitTopology(page, fixture, messages, out, key, screenshots);
           model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         }
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');

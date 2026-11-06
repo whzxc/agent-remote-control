@@ -46,7 +46,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const alias = suffix ? `${account.alias} · ${suffix}` : account.alias;
       const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
       const provider = account.quota ? accountQuotaProvider(platform, account.quota) : undefined;
-      const icon = <AgentQuotaIcon agent={platform} provider={provider} summary />;
+      const icon = <AgentQuotaIcon agent={platform} provider={provider} summary={platform !== 'claude'} />;
       return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, selected, account: true, label: nodeLabel, icon,
         attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
         tasks: tasks.filter(t => t.agentAccountId === account.id),

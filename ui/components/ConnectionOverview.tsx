@@ -283,7 +283,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const agentAccounts = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
     const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
     const provider = sharedAccount ? accountQuotaProvider(agent.agent, sharedAccount.quota) : platformQuotaForAgent(snapshot, agent.agent);
-    const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary />;
+    const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
     const accountIds = agentAccounts.map(a => a.id);
     const accountGroup = (id: string | null | undefined) => agentAccounts.find(account => accountOwns(account, id))?.id;
     const family = activityHierarchy(sessions);

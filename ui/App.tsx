@@ -3,7 +3,7 @@ import { mcpHubEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
 import { boardFocus, boardOpen, useBoardObservation } from './coordination/state';
 import { agentPanel, ingressPanel } from './state/overviewPanels';
-import { StudioBackground, StudioControls } from './display/Studio';
+import { HomepageDisplay, StudioControls } from './display/Studio';
 import { studioEnabled } from './display/state';
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
@@ -284,7 +284,7 @@ export default function App() {
         }
       }}
     >
-      <StudioBackground headerVisible={page === "overview" && !welcome && !modalOpen} />
+      <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}

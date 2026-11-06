@@ -4,6 +4,8 @@ import { resetBoardObservation, centerView, boardOpen } from './coordination/sta
 import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts } from './topology/scenarioAccounts';
+import { nodeKey } from './topology/animate';
+import { sourcePlatformNodeId } from './topology/accounts';
 import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, checkUpdate, type UpdateView } from './state/updates';
@@ -33,7 +35,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -172,9 +174,12 @@ export async function installScenario(name: string) {
     base.sources = fixture.sourceProducts.map((product, index) => {
       const meta = controlSourcePlatform(product);
       return { ...source, id: index === 0 ? source.id : `fixture-source-${product}`,
-        product, platform: meta.id, label: meta.displayName };
+        product, platform: meta.id, label: fixture.expandedSources?.includes(meta.id) && product === 'claude' ? 'Claude account' : meta.displayName };
     });
-    Object.assign(preferences, { 'arc.topology-mode': JSON.stringify('flat'), 'arc.source-order': JSON.stringify(base.sources.map(source => source.id)) });
+    const collapsed = base.sources.filter(source => !fixture.expandedSources?.includes(source.platform))
+      .map(source => [nodeKey(-1, sourcePlatformNodeId(source.platform)), true]);
+    Object.assign(preferences, { 'arc.topology-mode': JSON.stringify(fixture.expandedSources ? 'tree' : 'flat'),
+      'arc.topology-collapsed': JSON.stringify(Object.fromEntries(collapsed)), 'arc.source-order': JSON.stringify(base.sources.map(source => source.id)) });
   }
   acceptPreferences(preferences);
   if (fixture.remoteLink) {
@@ -309,6 +314,18 @@ export async function installScenario(name: string) {
       ] : []),
     ],
   }] : [] };
+  if (fixture.claudeQuota) {
+    subscriptionData.settings.enabled = true;
+    subscriptionData.providers.push({
+      providerId: 'claude-code', agentId: 'claude', agentIds: ['claude'], name: 'Claude', eligible: true,
+      state: 'ready', refreshing: false, observedAt: now, blockedPoolIds: [], hasCredential: true, acceptsKey: false,
+      displayWindowId: 'seven-day',
+      windows: [
+        { id: 'five-hour', poolId: 'subscription', label: 'five_hour', usedPercent: 31, resetsAt: new Date(Date.parse(now) + 2 * 3600000).toISOString() },
+        { id: 'seven-day', poolId: 'subscription', label: 'seven_day', usedPercent: 64, resetsAt: new Date(Date.parse(now) + 3 * 86400000).toISOString() },
+      ],
+    });
+  }
   acceptPreferences({ 'arc.pets.show': 'false', 'arc.pets.assignments': '{}' });
   const initialActivity = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
     sessions: group.sessions.filter(session => { const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))]; return !task?.outcome && !task?.unconfirmed; }),

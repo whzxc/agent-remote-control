@@ -23,12 +23,7 @@
 @keyframes studio-lamp { from { transform: scale(.98); opacity: .065; } to { transform: scale(1.025); opacity: .105; } }
 @keyframes studio-glints { from { opacity: .07; } to { opacity: .2; } }
 .app-scene[data-display="studio"] .home-workspace { position: relative; }
-.app-scene[data-display="studio"] .home-workspace:has(.topology-scene[data-orientation="portrait"]) { padding-top: 112px; }
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
-.studio-header { position: absolute; top: 31px; left: clamp(128px, var(--topology-hub-x, 50%), calc(100% - 128px)); transform: translateX(-50%); z-index: 2; width: max-content; max-width: min(360px, calc(100% - 32px)); display: grid; justify-items: center; gap: 10px; text-align: center; pointer-events: none; color: var(--text); }
-.studio-time { color: var(--text-secondary); font-size: var(--text-small); line-height: 18px; }
-.studio-activity { min-width: 0; max-width: 100%; }
-.studio-header .studio-activity-trigger { pointer-events: auto; flex-wrap: wrap; gap: 0; max-width: 100%; padding-inline: 0; color: var(--text); font-size: var(--text-title); line-height: 24px; font-weight: 650; }
 .studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
@@ -37,7 +32,6 @@
   .studio-leaf-shadows { left: auto; right: 4%; top: 16%; width: 32%; height: 58%; transform-origin: right bottom; }
   .studio-lamp-light { right: auto; left: -18%; bottom: -6%; width: 62%; height: 42%; }
   .studio-window-glints { left: auto; right: 0; top: 15%; width: 24%; height: 49%; }
-  .studio-header { max-width: 42vw; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-image { transition: none; } }
 :root[data-reduced-motion="true"] .studio-image { transition: none; }
