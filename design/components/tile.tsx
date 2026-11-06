@@ -6,7 +6,7 @@ const forms = [
   { name: "phase", icon: "terminal" },
 ] as const;
 export type TileTone =
-  "agent" | "command" | "file" | "thinking" | "warning" | "success" | "accent";
+  "agent" | "command" | "file" | "thinking" | "warning" | "success" | "accent" | "neutral";
 export function Tile({
   icon,
   form = "card",
@@ -22,6 +22,7 @@ export function Tile({
 }) {
   const paint = {
     agent: "text-role-agent",
+    neutral: "text-text-tertiary",
     command: "text-phase-command",
     file: "text-phase-file",
     thinking: "text-phase-thinking",

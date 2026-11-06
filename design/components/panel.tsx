@@ -11,6 +11,7 @@ export function Panel({
   description,
   width = 560,
   headerless = false,
+  roomyHeader = false,
 }: {
   title?: unknown;
   children?: unknown;
@@ -21,11 +22,12 @@ export function Panel({
   description?: unknown;
   width?: number;
   headerless?: boolean;
+  roomyHeader?: boolean;
 }) {
   return (
     <section
       style={{ width }}
-      class="flex flex-col gap-[25px] rounded-panel bg-surface-raised pb-6 px-6 pt-[13px] text-text shadow-lg"
+      class={`flex flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
       {!headerless && (
         <header class="flex h-(--control-height) items-center justify-between gap-4">

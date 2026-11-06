@@ -90,6 +90,7 @@ export type TaskBubbleProps = {
   width?: number;
   headlineMono?: boolean;
   phaseColumn?: "latin" | "cjk";
+  neutralPhase?: boolean;
 };
 export function TaskBubble({
   title,
@@ -108,10 +109,12 @@ export function TaskBubble({
   width,
   headlineMono = false,
   phaseColumn,
+  neutralPhase = false,
 }: TaskBubbleProps) {
   const row = form === "row" || form === "row-attention";
   const paint = {
     agent: "text-role-agent",
+    neutral: "text-text-tertiary",
     command: "text-phase-command",
     file: "text-phase-file",
     thinking: "text-phase-thinking",
@@ -137,7 +140,7 @@ export function TaskBubble({
           )}
         </div>
         <div class="mt-[5px] flex items-center gap-[6px] text-meta leading-[14px]">
-          <span class={`shrink-0 font-medium ${phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : ""}`}>{phase}</span>
+          <span class={`shrink-0 font-medium ${neutralPhase ? "text-text-secondary" : ""} ${phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : ""}`}>{phase}</span>
           <span
             class={`min-w-0 truncate text-text ${headlineMono || tone === "command" || tone === "file" ? "font-mono" : ""}`}
           >

@@ -93,7 +93,7 @@ The workspace subject is control sources and how each one connects.
 
 Creating something new or approving something that just arrived happens in a centered modal dialog. Existing objects are inspected and edited in side panels and workspace panels. Add flows MUST NOT open in side panels.
 
-Add control source, Add connection, and Change connection follow [setup.svg](../../design/surfaces/setup.svg). Their shared shell and controls follow the approved [design assets](design.md). Steps that complete on an external event retain the busy footer action and advance after the corresponding client authorization or relay deployment is observed.
+Add control source, Add connection, and Change connection follow [setup.tsx](../../design/surfaces/setup.tsx). Their shared shell and controls follow the approved [design assets](design.md). Steps that complete on an external event retain the busy footer action and advance after the corresponding client authorization or relay deployment is observed.
 
 Completed step labels retain the chosen value. Only the body scrolls when the viewport cannot fit the content. Local Claude Code and Claude Desktop remain separate choices. Workspace entry points keep the workspace mounted behind the dialog; dismissal restores the trigger or a visible equivalent. Source completion returns to the homepage for the new-node highlight.
 

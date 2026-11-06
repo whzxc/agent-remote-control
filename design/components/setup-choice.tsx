@@ -16,6 +16,9 @@ export function SetupChoice({
   brand,
   icon,
   badge,
+  catalog = false,
+  graphic,
+  disabled = false,
 }: {
   label: string;
   description?: string;
@@ -24,11 +27,16 @@ export function SetupChoice({
   brand?: Brand;
   icon?: string;
   badge?: string;
+  catalog?: boolean;
+  graphic?: unknown;
+  disabled?: boolean;
 }) {
   return form === "product" ? (
-    <div class="flex w-full flex-col gap-[10px] rounded-card bg-surface-subtle px-[14px] pt-4 pb-[10px]">
+    <div
+      class={`flex w-full flex-col ${disabled ? "opacity-45" : ""} gap-[10px] rounded-card bg-surface-subtle px-[14px] pt-4 ${catalog && !description ? "pb-4" : "pb-[10px]"}`}
+    >
       <div class="flex items-center gap-[10px]">
-        <BrandMark brand={brand} size={24} />
+        {graphic || <BrandMark brand={brand} size={24} />}
         <strong class="text-small text-text leading-4">{label}</strong>
       </div>
       {description && (
@@ -36,7 +44,9 @@ export function SetupChoice({
       )}
     </div>
   ) : (
-    <div class="flex w-full items-center gap-[13px] rounded-card bg-surface-subtle px-[15px] py-4">
+    <div
+      class={`flex w-full items-center gap-[13px] rounded-card bg-surface-subtle px-[15px] ${catalog && !description ? "py-[19px]" : "py-4"}`}
+    >
       {icon ? (
         <Icon name={icon} size={18} class="text-text" />
       ) : (
@@ -52,7 +62,13 @@ export function SetupChoice({
           <p class="text-small leading-4 text-text-secondary">{description}</p>
         )}
       </div>
-      {badge && <span class="text-meta text-text-secondary">{badge}</span>}
+      {badge && (
+        <span
+          class={`text-meta ${catalog ? "text-accent-text" : "text-text-secondary"}`}
+        >
+          {badge}
+        </span>
+      )}
     </div>
   );
 }
@@ -61,6 +77,7 @@ export function SetupAction(props: {
   label: string;
   description?: string;
   badge?: string;
+  catalog?: boolean;
 }) {
   return <SetupChoice {...props} />;
 }

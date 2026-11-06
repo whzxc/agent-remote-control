@@ -76,44 +76,14 @@ The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and 
 | `mcp-hub.svg` | `ready` | `mcp-hub-ready-dark` | MCP 中枢 | 1280x1200 | — |
 | `mcp-hub.svg` | `failed` | `mcp-hub-failed-dark` | MCP 中枢 | 1280x1200 | — |
 | `mcp-hub.svg` | `empty` | `mcp-hub-empty-dark` | MCP 中枢 | 1280x1200 | — |
-| `pets-settings.svg` | `library` | `pets-settings` | Pets | 1280x800 | — |
-| `platforms.svg` | `connected` | `accounts` | Platforms | 1280x800 | — |
-| `platforms.svg` | `empty` | `accounts` | Platforms | 1280x800 | `Google` |
 | `quota-overview.svg` | `overview` | `quota-overview` | selector `.dialog:has(.usage-overview)` | 1280x800 | prepared [A], then `管理 Agent` → `订阅额度` |
 | `quota-overview.svg` | `empty` | `settings-about-dark` | selector `.dialog:has(.usage-overview)` | 1280x800 | `返回首页` → `管理 Agent` → `订阅额度` |
-| `relay-hosting.svg` | `empty` | `relay-hosting-light` | Relay hosting | 1280x800 | — |
-| `settings.svg` | `about` | `settings-about-light` | Settings | 1280x1600 | — |
-| `settings.svg` | `agents` | `agent-settings-dispatch-defaults` | Agents | 1280x800 | `Manage Agents` |
-| `settings.svg` | `agent-detail` | `agent-settings-dispatch-defaults` | Codex | 1280x800 | `Manage Agents` → `Codex` |
-| `settings.svg` | `display` | `agent-settings-display-light` | Agent settings | 1280x1080 | `Manage Agents` → `Agent settings` |
-| `settings.svg` | `experimental` | `experimental-settings` | Settings | 1280x800 | — |
-| `setup.svg` | `welcome` | `p3-welcome-light` | 从哪里指挥 Codex？ | 1280x800 | — |
-| `setup.svg` | `source-product` | `p3-source-fixed-light` | 添加控制源 | 1280x800 | — |
-| `setup.svg` | `source-connection` | `p3-source-connection-light` | 添加 Claude | 1280x800 | — |
-| `setup.svg` | `source-empty` | `p3-source-empty-light` | 添加 Claude | 1280x800 | — |
-| `setup.svg` | `source-local` | `p3-source-local-light` | 添加 Claude Code | 1280x800 | — |
-| `setup.svg` | `source-address` | `p3-source-address-light` | 添加 Claude | 1280x800 | — |
-| `setup.svg` | `source-approval` | `p3-source-approval-light` | 添加 Claude | 1280x800 | — |
-| `setup.svg` | `source-success` | `p3-source-success-light` | 添加 Claude | 1280x800 | — |
-| `setup.svg` | `method` | `p3-connection-method-light` | 添加连接 | 1280x800 | — |
-| `setup.svg` | `stacked-method` | `p3-stacked-method-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `stacked-relay` | `p3-stacked-relay-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `stacked-local` | `p3-stacked-local-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `stacked-join` | `p3-stacked-join-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `stacked-own` | `p3-stacked-own-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x1000 | — [E] |
-| `setup.svg` | `stacked-secure` | `p3-stacked-secure-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `stacked-ready` | `p3-stacked-ready-light` | selector `.setup-dialog:has(.setup-return)`; width drift: asset 680px, implementation 626px [E] | 1280x800 | — [E] |
-| `setup.svg` | `ready` | `p3-connection-ready-light` | 添加连接 | 1280x800 | — |
-| `setup.svg` | `relay-login` | `p3-connection-login-dark` | 添加连接 | 1280x800 | — |
 | `source-panel.svg` | `dispatches` | `source-panel` | Claude | 1280x800 | — |
 | `source-panel.svg` | `history` | `dispatch-states` | Claude | 1280x1200 | — |
 | `source-panel.svg` | `platform` | `source-panel` | Anthropic | 1280x800 | `Anthropic` |
 | `task-detail.svg` | `running-multi-turn` | `timeline-multi-turn` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | — |
 | `task-detail.svg` | `needs-you` | `timeline-pending` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | — |
 | `task-detail.svg` | `failed-turn` | `task-detail-failed` | selector `.dialog:has(.task-detail-layer)` | 1280x1100 | prepared task [A] |
-| `updates.svg` | `available` | `updates-available-panel` | App updates | 1280x800 | — |
-| `updates.svg` | `installing` | `updates-installing` | App updates | 1280x800 | — |
-| `updates.svg` | `settings` | — | Unavailable: no standalone About shell [D] | — | — |
 
 [A] Prepared fixtures use existing scenario data and public UI controls:
 

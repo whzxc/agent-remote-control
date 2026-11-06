@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="72" height="72"><path d="M61 153V162l-4 13" fill="none" stroke="#bc6046" stroke-width="9" stroke-linecap="square" />
+<path d="M51 171h12v8h-12z" fill="#d97757" />
+<path d="M78 153V162l-4 13" fill="none" stroke="#bc6046" stroke-width="9" stroke-linecap="square" />
+<path d="M68 171h12v8h-12z" fill="#d97757" />
+<path d="M114 153V162l4 13" fill="none" stroke="#bc6046" stroke-width="9" stroke-linecap="square" />
+<path d="M112 171h12v8h-12z" fill="#d97757" />
+<path d="M131 153V162l4 13" fill="none" stroke="#bc6046" stroke-width="9" stroke-linecap="square" />
+<path d="M129 171h12v8h-12z" fill="#d97757" />
+<polyline points="51 111 39 118 33 132" fill="none" stroke="#bc6046" stroke-width="15" stroke-linecap="square" />
+<polyline points="51 111 39 118 33 132" fill="none" stroke="#d97757" stroke-width="11" stroke-linecap="square" />
+<rect x="25" y="125" width="16" height="15" fill="#e48b67" />
+<path d="M42 83h108v72H42z" fill="#d97757" />
+<path d="M42 83h108v6H42z" fill="#efa17d" />
+<path d="M42 149h108v6H42z" fill="#c86b4e" />
+<path d="M68 100h8v15h-8zm52 0h8v15h-8z" fill="#422a22" />
+<polyline points="141 111 153 118 159 132" fill="none" stroke="#bc6046" stroke-width="15" stroke-linecap="square" />
+<polyline points="141 111 153 118 159 132" fill="none" stroke="#d97757" stroke-width="11" stroke-linecap="square" />
+<rect x="151" y="125" width="16" height="15" fill="#e48b67" />
+</svg>

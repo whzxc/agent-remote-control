@@ -59,6 +59,8 @@ export type SingleChoiceProps = {
   tabs?: boolean;
   tiles?: boolean;
   form?: "setup-row" | "setup-product";
+  class?: string;
+  catalog?: boolean;
 };
 export function SingleChoice({
   value,
@@ -74,17 +76,21 @@ export function SingleChoice({
   form,
   fill,
   iconOnly,
+  compact,
+  class: extra = "",
+  catalog = false,
 }: SingleChoiceProps) {
   if (cards || tiles || form)
     return (
       <div
         role="radiogroup"
         aria-label={label}
-        class={`grid gap-3 ${tiles || form === "setup-product" ? "grid-cols-3" : "grid-cols-1"}`}
+        class={`grid ${catalog ? "gap-[10px]" : "gap-3"} ${extra} ${tiles || form === "setup-product" ? "grid-cols-3" : "grid-cols-1"}`}
       >
         {options.map((option) => (
           <SetupChoice
             {...option}
+            catalog={catalog}
             selected={option.value === value}
             form={tiles || form === "setup-product" ? "product" : "row"}
           />
@@ -96,7 +102,7 @@ export function SingleChoice({
       <button
         aria-label={label}
         disabled={disabled}
-        class="inline-flex h-(--control-height) items-center gap-[6px] px-4 rounded-control bg-surface-sunken text-text text-small"
+        class={`inline-flex h-(--control-height) items-center gap-[6px] px-4 rounded-control bg-surface-sunken text-text text-small whitespace-nowrap ${fill ? "w-full justify-between" : ""} ${extra}`}
       >
         <span>{options.find((option) => option.value === value)?.label}</span>
         <Icon name="chevron-down" size={14} class="text-text-secondary" />
@@ -106,7 +112,7 @@ export function SingleChoice({
     <div
       role="radiogroup"
       aria-label={label}
-      class={
+      class={`${extra} ${
         navigation
           ? "flex w-full flex-col gap-1 rounded-card bg-surface-sunken px-2 pt-3 pb-4"
           : optionCards
@@ -114,7 +120,7 @@ export function SingleChoice({
             : tabs
               ? "inline-flex gap-[3px]"
               : `inline-grid grid-flow-col auto-cols-fr rounded-control bg-surface-sunken p-[3px] ${fill ? "w-full" : ""}`
-      }
+      }`}
     >
       {options.map((option, index) => {
         const selected = option.value === value;
@@ -132,7 +138,7 @@ export function SingleChoice({
             role="radio"
             aria-checked={selected}
             disabled={disabled || option.disabled}
-            class={`flex items-center ${navigation ? "gap-3 h-10 px-3 rounded-[14px] text-body" : optionCards ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken" : tabs ? "h-(--control-height) px-3 text-body" : "h-7 px-4 rounded-[14px] justify-center text-small"} ${selected ? `text-text ${!optionCards ? "font-[650]" : ""} ${!tabs && !optionCards ? "bg-surface-raised shadow-sm" : ""}` : "text-text-secondary"}`}
+            class={`flex items-center ${navigation ? "gap-3 h-10 px-3 rounded-[14px] text-body" : optionCards ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken" : tabs ? "h-(--control-height) px-3 text-body" : `h-7 ${compact ? "px-0" : "px-4"} rounded-[14px] justify-center text-small whitespace-nowrap`} ${selected ? `text-text ${!optionCards ? "font-[650]" : ""} ${!tabs && !optionCards ? "bg-surface-raised shadow-sm" : ""}` : "text-text-secondary"}`}
           >
             {optionCards && (
               <span class="font-mono text-meta text-text-tertiary">

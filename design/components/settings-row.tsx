@@ -63,3 +63,34 @@ export default () => (
     </Setting>
   </Frame>
 );
+
+// Rows inside a shared settings card have their own content-driven height.
+export function SettingLine({
+  title,
+  description,
+  children,
+  class: extra = "",
+}: {
+  title: unknown;
+  description?: readonly string[];
+  children?: unknown;
+  class?: string;
+}) {
+  return (
+    <div
+      class={`flex min-h-14 items-center justify-between gap-4 px-4 ${description ? "py-[15px]" : "py-[11px]"} ${extra}`}
+    >
+      <div class="flex min-w-0 flex-col gap-[6px]">
+        <div class="text-body leading-4 font-medium">{title}</div>
+        {description && (
+          <div class="text-meta leading-[18px] text-text-secondary">
+            {description.map((line) => (
+              <div>{line}</div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div class="shrink-0">{children}</div>
+    </div>
+  );
+}
