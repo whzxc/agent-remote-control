@@ -1,6 +1,6 @@
 # Development
 
-[Architecture](architecture.md) · [UI](ui.md) · [Design assets](design.md) · [Release](release.md) · [Acceptance](acceptance.md)
+[Architecture](architecture.md) · [UI](ui.md) · [Design sources](design.md) · [Release](release.md) · [Acceptance](acceptance.md)
 
 ## Local development
 
@@ -53,9 +53,9 @@ npm run cache:prune
 
 The workspace shares root Cargo.lock and target. The compilation-cache budget is 30 GiB. Pruning removes inactive profile groups while retaining running/protected artifacts and unique data. Preview with npm run cache:prune -- --dry-run. The budget is not a total-size cap for target.
 
-## Design assets
+## Design sources
 
-Use the globally installed `sdg` CLI, version 0.3.2 or later:
+Use the globally installed `sdg` CLI, version 0.4.3 or later:
 
 ```sh
 sdg check
@@ -63,7 +63,7 @@ sdg render
 sdg design
 ```
 
-`sdg design` opens the shared viewer independently of desktop development. Visual changes start in `design/`. [Design assets](design.md) records ARC's decisions and fixture mappings; the [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) defines the format, commands, checks and workflow.
+`sdg design` opens the shared viewer independently of desktop development. Visual changes start in `design/`. [Design sources](design.md) records ARC's decisions and fixture mappings; the [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) defines the format, commands, checks and workflow.
 
 ## Desktop artifacts
 

@@ -32,13 +32,13 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 
 ## UI design
 
-- SVG assets in `design/` are the visual source of truth for components, panels, dialogs and pages. See [Design assets](docs/dev/design.md).
-- Visual changes MUST start in the asset. Draft or update the SVG, render it, and get the user's approval before implementing it. Behavior-only changes do not need an asset change.
-- Each asset contains only the presentation forms the user declares. Do not generate combinations of theme, width, locale or interaction state.
-- `design/tokens.css` is the token source. Assets paint through `var(--token)`. Literal colors are allowed only in brand artwork.
-- Implementations MUST match their approved asset. When they disagree, the asset wins until the user approves a change to it.
-- Use the global `sdg` CLI (>=0.3.2) for the toolkit and viewer. Run `sdg check` after editing assets. It MUST pass before committing.
-- A surface without an approved asset keeps its current implementation. Its next visual change starts by drawing its asset.
+- TSX design sources in `design/` are the visual source of truth for components, panels, dialogs and pages. See [Design sources](docs/dev/design.md).
+- Visual changes MUST start in the source. Write or update the TSX frame, render it, and get the user's approval before implementing it. Behavior-only changes do not need a source change.
+- Each source contains only the presentation forms the user declares. Do not generate combinations of theme, width, locale or interaction state.
+- `design/tokens.css` is the token source. Sources style with Tailwind classes generated from it. Literal colors are allowed only in brand artwork marked `data-brand`.
+- Implementations MUST match their approved frames. When they disagree, the source wins until the user approves a change to it.
+- Use the global `sdg` CLI (>=0.4.3) for the toolkit and viewer. Run `sdg check` after editing sources. It MUST pass before committing.
+- A surface without an approved source keeps its current implementation. Its next visual change starts by writing its source.
 
 ## UI implementation
 
@@ -58,6 +58,6 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - Promotional: keep README.md and README.zh-CN.md short and centered on Claude + Codex Loop and ChatGPT Chat + Codex.
 - Onboarding and guides: docs/getting-started.md, concepts.md, guides/, auto-setup.md, faq.md, installation.md, and story.md have English primary files and complete matching Chinese versions under docs/zh-CN/. Keep them synchronized.
 - Reference: docs/reference/ is English only. It owns precise contracts for tools, Agents, CLI, OAuth, Linux, and subscriptions.
-- Maintainer: docs/dev/ is English only. It describes development, releases, architecture, UI and design assets. Internal lifecycle belongs in architecture.
+- Maintainer: docs/dev/ is English only. It describes development, releases, architecture, UI and design sources. Internal lifecycle belongs in architecture.
 - Organize user guides by task. Use short sentences and lead with actions. Collect real limitations at the end under Limits or the localized equivalent. Avoid repeated defensive explanations.
 - Current source, cli help, and cli guide are authoritative. Path changes MUST update internal links, application/CLI URLs, and README Agent prompts. cli guide embeds docs/reference/cli.md.
