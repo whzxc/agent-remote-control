@@ -680,6 +680,11 @@ textarea.input {
   line-height: 18px;
   animation: appear var(--duration) var(--ease);
 }
+.tooltip[data-state="closed"] {
+  animation: none;
+  visibility: hidden;
+  pointer-events: none;
+}
 .dialog {
   position: fixed;
   left: 50%;

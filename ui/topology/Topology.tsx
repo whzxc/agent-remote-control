@@ -1,6 +1,6 @@
 import { participantPost, petSize, bubbleEnd, wanderPost, petPath, overlaps, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
-import { arcActionRegion, hubMarkGeometry } from "./geometry";
+import { arcActionRegion, hubMarkGeometry, hubControlGeometry } from "./geometry";
 import ArcActions, { type ArcActionsHandle } from './ArcActions';
 import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -329,8 +329,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       hub.current.querySelectorAll('[data-hub-arc="bottom"]').forEach(path => path.setAttribute('d', mark.bottom));
       hub.current.style.setProperty('--source-dot-scale', String(h.dotSource));
       hub.current.style.setProperty('--agent-dot-scale', String(h.dotAgent));
-      const size = h.Re * 240 / 130; // Preserve the ARC mark's existing earmuff clearance.
+      const { size, arcHeight, powerTop } = hubControlGeometry(h.Re);
       hub.current.style.width = hub.current.style.height = `${size}px`;
+      hub.current.style.setProperty('--hub-arc-height', `${arcHeight}px`);
+      hub.current.style.setProperty('--hub-power-top', `${powerTop}px`);
       hub.current.style.setProperty('--hub-rotation', `${h.rotation}deg`);
       const angle = h.rotation * Math.PI / 180;
       hub.current.style.setProperty('--source-dot-x', `${50 - Math.cos(angle) * 32 / 92 * 100}%`);
@@ -401,6 +403,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const hidden = latest.current.nodes.some(n => n.side === t.side && n.selected);
       el.style.pointerEvents = a.live.get(key)?.alive && !hidden && (v?.op ?? 0) > .02 ? "" : "none";
       el.inert = !a.live.get(key)?.alive || hidden || (v?.op ?? 0) <= .02;
+      el.setAttribute('aria-hidden', String(el.inert));
+      el.style.visibility = (v?.op ?? 0) <= .02 ? 'hidden' : '';
       if (v) {
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));
         el.style.width = `${v.width}px`;

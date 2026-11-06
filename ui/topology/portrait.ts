@@ -1,6 +1,7 @@
 import { DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
 import { bubbleWidths } from '../state/activityModel.ts';
 import { taskHierarchy } from '../state/taskHierarchy.ts';
+import { hubControlGeometry } from './geometry.ts';
 
 export interface PortraitGeometry {
   sourceX: number; agentX: number; sourceTop: number; sourceBottom: number; agentTop: number; agentBottom: number;
@@ -22,9 +23,11 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const preferredRe = Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * p.ringScale * 0.6;
   const Re = Math.max(preferredRe * MIN_HUB_RATIO, Math.min(preferredRe, (vw - 32) * 130 / 240));
   const hubClearance = Re * 0.6;
+  const taskInset = 10;
   const earOffset = Re, earHalf = Re * 72 / 112;
   const hasTasks = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasks));
   const busy = sc.right.some(hasTasks);
+  const agentHubClearance = busy ? Math.max(hubClearance, hubControlGeometry(Re).powerBottom - taskInset) : hubClearance;
   const right = [...sc.right.filter(hasTasks), ...sc.right.filter(e => !hasTasks(e))];
   const children = (e: Entity) => e.collapsed ? [] : e.children ?? [];
   const tasks = (e: Entity) => e.collapsed ? [] : e.tasks;
@@ -62,21 +65,21 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
     const labelWidth = side === -1 ? account ? sourceAccountLabelWidth : sourceLabelWidth : account ? agentAccountLabelWidth : agentLabelWidth;
     const labelHeight = (measured?.height ?? 0) * s * (measured && measured.width * s > labelWidth ? 2 : 1);
     const labelRow = account ? 2 * (p.nodeSize / 2 + 4 * s + labelHeight) : labelHeight + 16;
-    return Math.max(base, labelRow, own + (own ? 20 : 0) + subtree + (own && subtree ? p.rowGap : 0));
+    return Math.max(base, labelRow, own + (own ? 2 * taskInset : 0) + subtree + (own && subtree ? p.rowGap : 0));
   };
   const sourceCount = sc.left.length, agentCount = right.length;
   const gaps = Math.max(0, sourceCount - 1) + Math.max(0, agentCount - 1);
   const minimum = sc.left.reduce((h, root) => h + rowHeight(root, -1), 0)
     + right.reduce((h, root) => h + rowHeight(root, 1), 0) + gaps * p.rowGap;
   // Spend spare height on the rails before any root needs to be stacked.
-  const spare = Math.max(0, vh - 2 * (portraitInset + hubClearance) - minimum);
+  const spare = Math.max(0, vh - 2 * portraitInset - hubClearance - agentHubClearance - minimum);
   const sourceHubWeight = sourceCount ? 0.75 : 0;
   const agentHubWeight = agentCount ? (busy ? 0.4 : 0.75) : 0;
   const slots = gaps + sourceHubWeight + agentHubWeight;
   const extra = slots ? Math.min(34, Math.max(0, (vh - 500) * 0.075), spare / slots) : 0;
   const rowGap = p.rowGap + extra;
   const sourceClearance = hubClearance + extra * sourceHubWeight;
-  const agentClearance = hubClearance + extra * agentHubWeight;
+  const agentClearance = agentHubClearance + extra * agentHubWeight;
   function wing(list: readonly Entity[], side: Side, top: number): Wing {
     const nodes: NodeGeometry[] = [], bubbles: TaskGeometry[] = [];
     const place = (e: Entity, y: number, x: number, parent?: string): number => {
@@ -91,7 +94,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
         node.taskBusX = drag.x - busGap; node.childBusX = drag.x - side * column / 2;
       }
       nodes.push(node);
-      let taskY = nested.length ? y + 10 : node.y - stackHeight(e) / 2;
+      let taskY = nested.length ? y + taskInset : node.y - stackHeight(e) / 2;
       for (const { task, depth, parentTaskId } of taskHierarchy(own)) {
         const available = Math.min(Math.max(bubbleWidths.narrow, Math.min(480, taskRight - 16)), Math.max(1, taskRight - 16));
         const indent = Math.min(depth * 28, Math.max(0, available - 160));
@@ -102,7 +105,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
           y: moved ? drag.y : taskY + task.height / 2 });
         taskY += task.height + p.taskGap;
       }
-      let childY = y + (own.length ? stackHeight(e) + 20 + p.rowGap : (height - nested.reduce((h, c) => h + rowHeight(c, side, true), 0) - Math.max(0, nested.length - 1) * (side === -1 ? 0 : p.rowGap)) / 2);
+      let childY = y + (own.length ? stackHeight(e) + 2 * taskInset + p.rowGap : (height - nested.reduce((h, c) => h + rowHeight(c, side, true), 0) - Math.max(0, nested.length - 1) * (side === -1 ? 0 : p.rowGap)) / 2);
       for (const child of nested) childY += place(child, childY, x - side * column, e.id) + (side === -1 ? 0 : p.rowGap);
       return height;
     };

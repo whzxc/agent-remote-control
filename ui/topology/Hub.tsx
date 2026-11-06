@@ -44,7 +44,7 @@ export default function Hub({ readOnly = false, sourceEmpty, agentEmpty, connect
         <Icon icon={Plus} />{t("source.newConnection")}
       </Button>}
     </div></div>
-    <div ref={bottom} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip side="bottom" text={readOnly || accessDisabled ? accessDescription : `${accessDescription} · ${action}`}>
+    <div ref={bottom} className="hub-arc-motion"><div className="hub-arc-orbit"><Tooltip side="right" text={readOnly || accessDisabled ? accessDescription : `${accessDescription} · ${action}`}>
       <button type="button" className="hub-power hub-arc" data-state={accessState} aria-label={readOnly ? accessDescription : action} aria-description={accessDescription}
         disabled={readOnly} aria-pressed={accessRunning} aria-busy={pending} aria-disabled={readOnly || accessDisabled} {...interaction('bottom')} onClick={() => { if (!readOnly && !accessDisabled) onAccess(); }}>
         <svg viewBox="4 4 92 92" aria-hidden="true">

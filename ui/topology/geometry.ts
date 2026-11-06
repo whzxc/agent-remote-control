@@ -1,6 +1,15 @@
 import { deg, type Point, type Side } from "./solve.ts";
 
 export const finitePoints = (...points: Point[]) => points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+// Match the lower arc hit area and its revealed power control, including the
+// downward hover motion and pointer bridge below the glyph.
+export function hubControlGeometry(radius: number) {
+  const size = radius * 240 / 130;
+  const arcHeight = Math.max(28, size * 0.4);
+  const powerTop = arcHeight * 0.74184783 + 8;
+  return { size, arcHeight, powerTop, powerBottom: size / 2 - arcHeight + powerTop + 20 + 5 + 6 };
+}
 export type ArcActionGeometry = { kind: 'arc'; x: number; y: number; radius: number; lo: number; hi: number; side: Side }
   | { kind: 'line'; start: Point; end: Point; outward: Point };
 

@@ -6,8 +6,7 @@ import { act, createElement as h, useRef } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 import { assertNodeIdentity } from './helpers/dom-assert.ts';
 
-test('environment dimensions drive the mounted topology after settling and defer while dragging', async () => {
-  // Regression: app_env width-only input could not drive portrait geometry or expose effective orientation in the live snapshot.
+async function withTopology(run: (context: any) => Promise<void>) {
   const previousFetch = globalThis.fetch, window = new Window({ url: 'http://localhost' });
   const frames = new Map<number, FrameRequestCallback>(); let sequence = 0;
   class Observer { observe() {} disconnect() {} }
@@ -33,12 +32,6 @@ test('environment dimensions drive the mounted topology after settling and defer
     const { appEnvironment } = await server.ssrLoadModule('/ui/state/appEnvironment.ts');
     const { topologyLayout } = await server.ssrLoadModule('/ui/subscriptions/displayPreferences.ts');
     const { viewModel } = await server.ssrLoadModule('/ui/acceptance.ts');
-    const source = { id: 'source', label: 'Example source', state: 'normal', attention: false, selected: false, reorderable: true, tasks: [], content: h('button', null, 'Example source') };
-    function Harness() {
-      const boundary = useRef<HTMLElement>(null), handle = useRef(null);
-      return h('section', { ref: boundary }, h(Topology, { left: [source], right: [], brand: h('span', null, 'ARC'),
-        boundary, ref: handle, onReorderNodes() {}, onReorderTasks() {} }));
-    }
     const settle = async () => {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
       await act(async () => {
@@ -51,6 +44,22 @@ test('environment dimensions drive the mounted topology after settling and defer
       const now = Date.now();
       appEnvironment.set({ active: true, expiresAt: now + 60_000, realNowMs: now, overrides: { windowWidth: width, windowHeight: height, reducedMotion: true }, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } });
     };
+    await run({ Topology, appEnvironment, topologyLayout, viewModel, root, mount, settle, dimensions });
+  } finally {
+    await act(async () => root.unmount()); await server.close(); await window.happyDOM.abort();
+    globalThis.fetch = previousFetch;
+  }
+}
+
+test('environment dimensions drive the mounted topology after settling and defer while dragging', async () => {
+  // Regression: app_env width-only input could not drive portrait geometry or expose effective orientation in the live snapshot.
+  await withTopology(async ({ Topology, topologyLayout, viewModel, root, mount, settle, dimensions }) => {
+    const source = { id: 'source', label: 'Example source', state: 'normal', attention: false, selected: false, reorderable: true, tasks: [], content: h('button', null, 'Example source') };
+    function Harness() {
+      const boundary = useRef<HTMLElement>(null), handle = useRef(null);
+      return h('section', { ref: boundary }, h(Topology, { left: [source], right: [], brand: h('span', null, 'ARC'),
+        boundary, ref: handle, onReorderNodes() {}, onReorderTasks() {} }));
+    }
     await act(async () => root.render(h(Harness))); await settle();
     const button = within(mount).getByRole('button', { name: 'Example source' });
     assert.equal(viewModel().topology.orientation, 'landscape');
@@ -68,8 +77,30 @@ test('environment dimensions drive the mounted topology after settling and defer
     assert.equal(viewModel().topology.orientation, 'landscape');
     assert.equal(viewModel().topology.source, 'manual');
     assert.equal(localStorage.getItem('topology-layout'), 'landscape');
-  } finally {
-    await act(async () => root.unmount()); await server.close(); await window.happyDOM.abort();
-    globalThis.fetch = previousFetch;
-  }
+  });
+});
+
+test('task queues leave accessible navigation while their Agent panel is open and return after closing', async () => {
+  // Regression: task-relationships-detail exposed transparent queue buttons behind the task-final card.
+  await withTopology(async ({ Topology, topologyLayout, root, mount, settle }) => {
+    const title = 'Related task';
+    const task = { id: 'related', parentTaskId: 'parent', width: 264, height: 54, state: 'done',
+      content: h('button', null, title) };
+    const agent = { id: 'agent', state: 'normal', attention: false, tasks: [task], content: h('button', null, 'Agent') };
+    function Harness({ selected }: { selected: boolean }) {
+      const boundary = useRef<HTMLElement>(null);
+      return h('section', { ref: boundary }, h(Topology, { left: [], right: [{ ...agent, selected }],
+        brand: h('span', null, 'ARC'), boundary, panelKey: selected ? 'agent:example' : undefined,
+        onReorderNodes() {}, onReorderTasks() {} }));
+    }
+    for (const orientation of ['landscape', 'portrait']) {
+      await act(async () => { topologyLayout.set(orientation); root.render(h(Harness, { selected: false })); });
+      await settle();
+      assert.ok(within(mount).getByRole('button', { name: title }));
+      await act(async () => root.render(h(Harness, { selected: true }))); await settle();
+      assert.equal(within(mount).queryByRole('button', { name: title }), null);
+      await act(async () => root.render(h(Harness, { selected: false }))); await settle();
+      assert.ok(within(mount).getByRole('button', { name: title }));
+    }
+  });
 });

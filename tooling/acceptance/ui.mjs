@@ -351,6 +351,22 @@ try {
           await verifyTaskRelationships(page, fixture, messages, out, key, screenshots);
         }
         if (fixture.detailTask !== undefined) {
+          const task = fixture.tasks[fixture.detailTask];
+          if (task.parent !== undefined) {
+            // Regression: a detail scenario exposed faded queue buttons behind its panel instead of limiting interaction to the panel.
+            const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+            const detail = page.getByRole('dialog', { name: task.title, exact: true });
+            if (await page.locator('.activity-slot').getByRole('button').count()) throw new Error('The replaced task queue remains accessible behind the detail panel');
+            const parent = fixture.tasks[task.parent];
+            await detail.getByRole('button', { name: `${messages['activity.parentThread']} ${parent.title}`, exact: true }).click();
+            await page.waitForFunction(id => window.__ARC_VIEW_MODEL__().panels.agent?.session?.id === id, `fixture-task-${task.parent}`);
+            await page.getByRole('dialog', { name: parent.title, exact: true }).waitFor();
+            await page.keyboard.press('Escape');
+            await page.getByRole('dialog').waitFor({ state: 'hidden' });
+            await page.getByRole('button', { name: new RegExp(`^${escapeRegex(task.title)} · ${escapeRegex(messages[`activity.relation.${task.relationKind ?? 'subagent'}`])} ·`) }).click();
+            await page.waitForFunction(id => window.__ARC_VIEW_MODEL__().panels.agent?.session?.id === id, `fixture-task-${fixture.detailTask}`);
+            await detail.waitFor();
+          }
           // Semantic snapshots exclude aria-hidden Radix form inputs and visual announcement mirrors.
           row.taskAccessibility = await page.getByRole('dialog', { name: fixture.tasks[fixture.detailTask].title, exact: true }).ariaSnapshot();
         }
@@ -498,7 +514,7 @@ try {
             }
           }
         }
-        if (width >= 1280 && !fixture.page && !fixture.panel && fixture.tasks.some(task => task.completed)) {
+        if (width >= 1280 && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           const completed = fixture.tasks.flatMap((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`)

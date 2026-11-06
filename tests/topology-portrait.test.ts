@@ -4,6 +4,8 @@ import { solvePortrait, portraitPanelRect, portraitSourcePanelRoute, type Portra
 import { DEFAULTS, NODE_R, solve, type Entity, type Point } from '../ui/topology/solve.ts';
 import { TopologyAnimator, nodeKey, taskKey } from '../ui/topology/animate.ts';
 import { bubbleWidths } from '../ui/state/activityModel.ts';
+import { hubControlGeometry } from '../ui/topology/geometry.ts';
+import { compactLayout, compactRoots } from '../ui/topology/compact.ts';
 
 const tasks = (id: string, count: number) => Array.from({ length: count }, (_, i) => ({ id: `${id}/${i}`, width: 264, height: 54 + i * 10 }));
 const left: Entity[] = [{ id: 'source', tasks: [], children: [{ id: 'source/a', tasks: [] }, { id: 'source/b', tasks: [] }] }];
@@ -11,6 +13,26 @@ const right: Entity[] = [{ id: 'idle/a', tasks: [] }, { id: 'agent', tasks: [], 
   { id: 'account/a', tasks: tasks('a', 5) }, { id: 'account/b', tasks: tasks('b', 2) },
 ] }, { id: 'single', tasks: tasks('single', 1) }, { id: 'idle/b', tasks: [] }];
 const measured = (width: number) => ({ width, twoLineWidth: Math.ceil(width * 0.6), height: 14 });
+test('portrait tasks leave the revealed hub power control reachable through compaction', () => {
+  // Regression: studio-connections at 640x800 placed the first task across the revealed hub power control.
+  const left = [{ id: 'source', tasks: [], children: [{ id: 'connection', tasks: [] }] }];
+  const right = [
+    { id: 'codex', tasks: tasks('codex', 2) },
+    { id: 'claude', tasks: tasks('claude', 1) },
+    { id: 'dsh', tasks: tasks('dsh', 1) },
+  ];
+  for (const vh of [600, 800, 1000]) for (const ringScale of [0.6, 1, 1.4]) {
+    const scene = { vw: 640, vh, left, right }, params = { ...DEFAULTS, ringScale };
+    const full = solvePortrait(scene, params);
+    const plan = compactRoots(left, right, scene, 'portrait', params, full);
+    for (const layout of [full, compactLayout(full, plan, new Set(), params.rowGap)]) {
+      const bottom = layout.hub.y + hubControlGeometry(layout.hub.Re).powerBottom;
+      const visible = layout.wings[1].tasks.filter(task => !task.hidden);
+      assert.ok(visible.length > 0);
+      assert.ok(visible.every(task => task.y - task.height / 2 >= bottom - 1e-6));
+    }
+  }
+});
 test('task families keep their ancestry and separate rows in either orientation', () => {
   // Property: nested tasks follow their parents without overlapping row extents, with finite animator values through removal.
   const family = [{ id: 'grandchild', parentTaskId: 'child', width: 264, height: 54 }, { id: 'parent', width: 264, height: 76 }, { id: 'child', parentTaskId: 'parent', width: 264, height: 54 }];
