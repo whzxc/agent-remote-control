@@ -12,7 +12,13 @@ import RaycastArt from "../art/raycast.svg";
 import CursorArt from "../art/cursor.svg";
 import OpencodeArt from "../art/opencode.svg";
 import AlibabaArt from "../art/alibaba.svg";
+import ClaudeArt from "../art/claude.svg";
+import DeepseekArt from "../art/deepseek.svg";
+import PiArt from "../art/pi.svg";
 const brands = {
+  claude: ClaudeArt,
+  deepseek: DeepseekArt,
+  pi: PiArt,
   "claude-code": ClaudeCodeArt,
   codex: CodexArt,
   openai: OpenaiArt,

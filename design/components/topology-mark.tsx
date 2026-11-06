@@ -16,9 +16,13 @@ const geometry = {
 export function TopologyMark({
   size = geometry.size,
   lowerArcHover = false,
+  sourceAction = true,
+  agentAction = true,
 }: {
   size?: number;
   lowerArcHover?: boolean;
+  sourceAction?: boolean;
+  agentAction?: boolean;
 }) {
   const g = geometry;
   return (
@@ -34,7 +38,7 @@ export function TopologyMark({
         height={240}
         style={{ "--lower-arc-offset": lowerArcHover ? "1.916667px" : "0px" }}
       />
-      <g
+      {sourceAction && <g
         fill="none"
         stroke="var(--canvas)"
         stroke-width={7.82}
@@ -43,8 +47,8 @@ export function TopologyMark({
         <path
           d={`M${g.sourceX - 9.333} ${g.centerY}h18.666M${g.sourceX} ${g.centerY - 9.333}v18.666`}
         />
-      </g>
-      {[-1, 0, 1].map((i) => (
+      </g>}
+      {agentAction && [-1, 0, 1].map((i) => (
         <circle
           cx={g.agentX + i * g.dotGap}
           cy={g.centerY}

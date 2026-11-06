@@ -13,22 +13,34 @@ export type SceneLink = {
   color?: string;
   controls?: readonly [{ x: number; y: number }, { x: number; y: number }];
 };
+export type ScenePath = {
+  d: string;
+  class: string;
+  "stroke-width"?: string;
+  "stroke-linecap"?: string;
+  "stroke-linejoin"?: string;
+};
 /** Fixture coordinates only; runtime layout remains owned by solve.ts. */
 export function TopologyScene({
   width,
   height,
   items = [],
   links = [],
+  paths = [],
   children,
 }: {
   width: number;
   height: number;
   items?: readonly SceneItem[];
   links?: readonly SceneLink[];
+  paths?: readonly ScenePath[];
   children?: unknown;
 }) {
   return (
     <div data-free class="relative bg-canvas" style={{ width, height }}>
+      {paths.length > 0 && <svg class="absolute inset-0" width={width} height={height} fill="none">
+        {paths.map(path => <path {...path} />)}
+      </svg>}
       {links.length > 0 && (
         <svg
           class="absolute inset-0"

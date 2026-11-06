@@ -54,7 +54,7 @@ Clicks become separate `--click` arguments in order. SDG 0.3.2 resolves visible 
 ```sh
 sdg compare surfaces/task-detail.svg --frame=needs-you --selector='.dialog:has(.task-detail-layer)' --viewport=1280x1100
 sdg compare surfaces/coordination.svg --frame=gap --region=Board --viewport=1280x800 --click='Open board' --click=Activity
-sdg compare surfaces/homepage-topology-portrait.svg --frame=sources-folded
+sdg compare surfaces/homepage-topology-portrait --frame=sources-folded
 ```
 
 The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and uses the scenario's theme and language with clock `2026-01-01T00:00:00Z`. Portrait fixtures use `timezone: 'Asia/Shanghai'`, matching `accept:ui`. Compare and browser acceptance run in the main checkout. The viewer opens independently with `sdg design`.
@@ -73,16 +73,6 @@ The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and 
 | `coordination.svg` | `empty` | `coordination-empty` | Board | 1280x800 | `Open board` |
 | `coordination.svg` | `gap` | `coordination-gap` | Board | 1280x800 | `Open board` → `Activity` |
 | `coordination.svg` | `unavailable` | `board-unavailable` | Board | 1280x800 | prepared [A] |
-| `homepage-topology-accounts.svg` | `accounts` | `topology-accounts` | page, origin `0 0` | 1280x800 | — |
-| `homepage-topology-empty.svg` | `empty` | `connections-empty-light` | page, origin `0 0` | 1280x800 | — |
-| `homepage-topology-portrait.svg` | `expanded-empty` | `portrait-topology-0` | page, origin `0 0` | 640x800 | — |
-| `homepage-topology-portrait.svg` | `expanded-single-task` | `portrait-topology-1` | page, origin `0 0` | 640x1000 | — |
-| `homepage-topology-portrait.svg` | `expanded-two-tasks` | `portrait-topology-2` | page, origin `0 0` | 640x800 | — |
-| `homepage-topology-portrait.svg` | `sources-compacted` | `portrait-topology-4` | page, origin `0 0` | 640x800 | — |
-| `homepage-topology-portrait.svg` | `sources-folded` | `portrait-topology-sources-folded` | page, origin `0 0` | 640x800 | prepared [A] |
-| `homepage-topology-portrait.svg` | `agents-folded` | `portrait-topology-agents-folded` | page, origin `0 0` | 640x800 | prepared [A] |
-| `homepage-topology-studio.svg` | `studio` | `arc-actions-light` | page, origin `0 0` | 1280x800 | — |
-| `homepage-topology-tasks.svg` | `tasks` | `parallel-seven` | page, origin `0 0` | 1280x800 | — |
 | `mcp-hub.svg` | `ready` | `mcp-hub-ready-dark` | MCP 中枢 | 1280x1200 | — |
 | `mcp-hub.svg` | `failed` | `mcp-hub-failed-dark` | MCP 中枢 | 1280x1200 | — |
 | `mcp-hub.svg` | `empty` | `mcp-hub-empty-dark` | MCP 中枢 | 1280x1200 | — |

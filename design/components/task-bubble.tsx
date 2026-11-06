@@ -1,5 +1,6 @@
 import { Frame, Icon } from "sdg";
 import { Tile, type TileTone } from "./tile";
+import type { Brand } from "./agent-icon";
 import { Tag } from "./tag";
 import { DispatchSpec } from "./dispatch-spec";
 const spec = {
@@ -85,6 +86,10 @@ export type TaskBubbleProps = {
   date?: string;
   dispatch?: Parameters<typeof DispatchSpec>[0];
   source?: boolean;
+  sourceBrand?: Brand;
+  width?: number;
+  headlineMono?: boolean;
+  phaseColumn?: "latin" | "cjk";
 };
 export function TaskBubble({
   title,
@@ -99,9 +104,14 @@ export function TaskBubble({
   date,
   dispatch,
   source = true,
+  sourceBrand,
+  width,
+  headlineMono = false,
+  phaseColumn,
 }: TaskBubbleProps) {
   const row = form === "row" || form === "row-attention";
   const paint = {
+    agent: "text-role-agent",
     command: "text-phase-command",
     file: "text-phase-file",
     thinking: "text-phase-thinking",
@@ -111,9 +121,10 @@ export function TaskBubble({
   };
   return (
     <div
+      style={width ? { width } : undefined}
       class={`flex items-start rounded-card ${row ? "w-[380px] gap-3 px-3 pt-[14px] pb-3" : "w-[264px] gap-[10px] px-[11px]"} ${form === "compact" ? "py-[11px]" : form === "standard" ? "pt-3 pb-[7px]" : form === "detailed" ? "pt-[14px] pb-[9px]" : ""} ${form === "row-attention" ? "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-warning before:opacity-10" : row ? "bg-surface-subtle" : "bg-surface shadow-md"} ${paint[tone]}`}
     >
-      <Tile icon={icon} form="phase" tone={tone} source={source} />
+      <Tile icon={icon} form="phase" tone={tone} source={source} sourceBrand={sourceBrand} />
       <div class="flex min-w-0 flex-1 flex-col">
         <div class="flex items-center justify-between gap-2 leading-[14px]">
           <strong class="truncate text-small text-text font-[650]">
@@ -126,9 +137,9 @@ export function TaskBubble({
           )}
         </div>
         <div class="mt-[5px] flex items-center gap-[6px] text-meta leading-[14px]">
-          <span class="shrink-0 font-medium">{phase}</span>
+          <span class={`shrink-0 font-medium ${phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : ""}`}>{phase}</span>
           <span
-            class={`min-w-0 truncate text-text ${tone === "command" || tone === "file" ? "font-mono" : ""}`}
+            class={`min-w-0 truncate text-text ${headlineMono || tone === "command" || tone === "file" ? "font-mono" : ""}`}
           >
             {headline}
           </span>

@@ -11,6 +11,7 @@ export function IconButton({
   compact = false,
   active = false,
   disabled = false,
+  agent = false,
 }: {
   icon: string;
   label: string;
@@ -19,6 +20,7 @@ export function IconButton({
   compact?: boolean;
   active?: boolean;
   disabled?: boolean;
+  agent?: boolean;
 }) {
   return (
     <button
@@ -26,7 +28,7 @@ export function IconButton({
       disabled={disabled || busy}
       class={`flex shrink-0 items-center justify-center rounded-control text-text ${compact ? "size-[30px]" : "size-(--control-height)"} ${active ? "bg-surface-sunken" : ""}`}
     >
-      <Icon name={busy ? "loader-circle" : icon} size={size} />
+      <span class={agent ? "grid size-5 place-items-center rounded-full bg-role-agent text-canvas" : "flex"}><Icon name={busy ? "loader-circle" : icon} size={size} /></span>
     </button>
   );
 }
