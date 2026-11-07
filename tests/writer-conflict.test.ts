@@ -6,6 +6,64 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
+test('Codex activity keeps the native thread identity across a growing window rollout', async () => {
+  // Regression: window IDs at the end of long Codex rollout filenames became task IDs, breaking detail reads and completion reconciliation.
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-window-rollout-')));
+  const threadId = '00000000-0000-4000-8000-000000000031';
+  const windowId = '00000000-0000-4000-8000-000000000032';
+  const turnId = '00000000-0000-4000-8000-000000000033';
+  const rollout = path.join(directory, 'sessions', `rollout-${threadId}_${windowId}.jsonl`);
+  const record = (type: string, payload: unknown) => JSON.stringify({ type, timestamp: new Date().toISOString(), payload }) + '\n';
+  await mkdir(path.dirname(rollout));
+  await writeFile(rollout, record('session_meta', { id: threadId, cwd: directory })
+    + record('event_msg', { type: 'task_started', turn_id: turnId })
+    + record('response_item', { type: 'message', role: 'user', content: [{ text: 'Inspect project' }] }));
+  const fixture = await nativeControl(`
+    import {createInterface} from 'node:readline';
+    import {readFileSync} from 'node:fs';
+    for await (const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
+      if (params?.threadId && params.threadId !== ${JSON.stringify(threadId)}) {
+        process.stdout.write(JSON.stringify({id,error:{code:-32600,message:'Unknown thread'}})+'\\n'); continue;
+      }
+      const records=readFileSync(${JSON.stringify(rollout)},'utf8').trim().split('\\n').map(JSON.parse);
+      const completed=records.some(r=>r.payload.type==='task_complete');
+      const turn={id:${JSON.stringify(turnId)},status:completed?'completed':'inProgress',items:[
+        {id:'prompt',type:'userMessage',content:[{type:'text',text:'Inspect project'}]},
+        ...(completed?[{id:'final',type:'agentMessage',text:'Inspection complete',phase:'final_answer'}]:[])
+      ]};
+      const result=method==='thread/read'?{thread:{id:params.threadId,path:${JSON.stringify(rollout)},cwd:${JSON.stringify(directory)},status:{type:completed?'idle':'active'}}}:
+        method==='thread/turns/list'?{data:[turn],nextCursor:null}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `, { CODEX_HOME: directory });
+  try {
+    const sessions = async () => (await fixture.api('agents/activity')).agents.codex?.sessions ?? [];
+    assert.deepEqual((await sessions()).map((s: any) => s.id), [threadId]);
+    await appendFile(rollout,
+      record('response_item', { type: 'function_call_output', call_id: 'read', output: 'x'.repeat(192 * 1024) })
+      + record('response_item', { type: 'message', role: 'assistant', content: [{ text: 'Inspecting files' }] }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    const [session] = await sessions();
+    assert.equal(session.id, threadId);
+    assert.equal(session.turnId, turnId);
+    const timeline = () => fixture.api('agents/conversations/timeline', { agent: 'codex', id: session.id });
+    assert.equal((await timeline()).turnStatuses[turnId], 'running');
+    await fixture.restart();
+    assert.deepEqual((await sessions()).map((s: any) => s.id), [threadId]);
+    await appendFile(rollout, record('event_msg', { type: 'task_complete', turn_id: turnId }));
+    await new Promise(resolve => setTimeout(resolve, 2100));
+    assert.deepEqual(await sessions(), []);
+    const completed = await timeline();
+    assert.equal(completed.status, 'completed');
+    assert.equal(completed.turnStatuses[session.turnId], 'completed');
+    assert.ok(completed.entries.some((entry: any) => entry.text === 'Inspection complete'));
+  } finally {
+    await fixture.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('Initialized Codex side conversations become active only during a native turn', async () => {
   // Regression: an idle side conversation's boundary message stayed active forever while its native detail was empty.
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-idle-fork-')));

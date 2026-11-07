@@ -31,6 +31,7 @@ pub(super) struct TurnClock {
     thread_tier: crate::task_tracking::CodexThreadTier,
     turn_tier: Value,
     turn_configuration: Value,
+    session_id: Option<String>,
     title: String,
     native_title: crate::task_tracking::TranscriptTitle,
     project: Option<String>,
@@ -169,8 +170,11 @@ impl ScanCache {
                 || matches!(tail.clock.status.as_deref(), Some("running" | "inProgress")));
         let session = active
             .then(|| {
-                let id = tail.timeline.info["id"]
-                    .as_str()
+                let id = tail
+                    .clock
+                    .session_id
+                    .as_deref()
+                    .or_else(|| tail.timeline.info["id"].as_str())
                     .map(str::to_owned)
                     .or_else(|| {
                         let stem = path.file_stem()?.to_str()?;
@@ -494,6 +498,7 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     }
     if agent == "codex" && record["type"] == "session_meta" {
         let payload = &record["payload"];
+        clock.session_id = payload["id"].as_str().map(str::to_owned);
         let (parent, kind) = if payload["attached_thread"] == true {
             (&payload["forked_from_id"], "side-chat")
         } else {
