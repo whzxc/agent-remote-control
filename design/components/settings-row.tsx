@@ -1,12 +1,8 @@
+import { Card } from "./card";
+import { SingleChoice } from "./single-choice";
 import { Frame } from "sdg";
 import { Switch } from "./switch";
-const example = {
-  title: "Wake control sources",
-  description: [
-    "Send task status notifications to bound control sources.",
-    "Inboxes remain available when disabled.",
-  ],
-};
+import { example } from "../fixtures/settings-controls";
 export function Setting({
   title,
   description,
@@ -51,7 +47,7 @@ export function SettingsSection({
   );
 }
 export default () => (
-  <Frame name="default" width={640}>
+  <Frame name="setting" width={640}>
     <Setting
       title={example.title}
       description={example.description.map((line) => (
@@ -92,5 +88,52 @@ export function SettingLine({
       </div>
       <div class="shrink-0">{children}</div>
     </div>
+  );
+}
+
+export function SettingsChoices({
+  label,
+  options,
+  value = options[0],
+  width = 300,
+  dropdown = false,
+}: {
+  label: string;
+  options: string[];
+  value?: string;
+  width?: number;
+  dropdown?: boolean;
+}) {
+  return (
+    <div style={{ width }}>
+      <SingleChoice
+        label={label}
+        value={value}
+        options={options.map((text) => ({ value: text, label: text }))}
+        fill
+        dropdown={dropdown}
+      />
+    </div>
+  );
+}
+export function SettingsGroup({ title, children }: { title: string; children?: unknown }) {
+  return (
+    <section class="flex flex-col gap-3">
+      <h3 class="text-small leading-4 font-[650] text-text-secondary">
+        {title}
+      </h3>
+      <Card class="py-0! gap-0!">{children}</Card>
+    </section>
+  );
+}
+export function SettingsToggleRows({ rows }: { rows: { title: string; description: string[]; checked: boolean }[] }) {
+  return (
+    <>
+      {rows.map((row) => (
+        <SettingLine {...row}>
+          <Switch checked={row.checked} label={row.title} />
+        </SettingLine>
+      ))}
+    </>
   );
 }

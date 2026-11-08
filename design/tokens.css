@@ -1,5 +1,15 @@
 /* Design token source for TSX frames and shared artwork. */
 :root {
+  --theme-swatch-default-left: #5B5FF5;
+  --theme-swatch-default-right: #5B5FF5;
+  --theme-swatch-blue-left: #00a6c7;
+  --theme-swatch-blue-right: #007aff;
+  --theme-swatch-purple-left: #f8509e;
+  --theme-swatch-purple-right: #943d96;
+  --theme-swatch-orange-left: #e1393e;
+  --theme-swatch-orange-right: #f78218;
+  --theme-swatch-green-left: #e0b219;
+  --theme-swatch-green-right: #22b85c;
   --font-ui: -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Segoe UI","Microsoft YaHei",Inter,"WenQuanYi Zen Hei",sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;
   --text-display: 28px;

@@ -1,37 +1,17 @@
-import { Frame, Icon } from "sdg";
+import { GeneralSettings } from "../modules/general-settings";
+import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";
+import { Frame } from "sdg";
 import { Panel } from "../components/panel";
 import { Card } from "../components/card";
 import { SettingLine } from "../components/settings-row";
-import { SingleChoice } from "../components/single-choice";
+
 import { Switch } from "../components/switch";
-import { Input } from "../components/field";
+
 import { IconButton } from "../components/icon-button";
-import { Button } from "../components/button";
+
 import { BrandMark } from "../components/agent-icon";
 import { TaskBubble } from "../modules/task-presentation";
-const behavior = [
-  {
-    title: "Wake control sources",
-    description: [
-      "Send task status notifications to bound control sources.",
-      "Inboxes remain available when disabled.",
-    ],
-    checked: false,
-  },
-  {
-    title: "Automatically open Codex tasks",
-    description: ["When enabled, new tasks open automatically in Codex."],
-    checked: true,
-  },
-  {
-    title: "Task approval mode",
-    description: [
-      "Task requests require local confirmation by default.",
-      "Cloud requests can explicitly bypass confirmation.",
-    ],
-    checked: true,
-  },
-];
+
 const experiments = [
   {
     title: "MCP hub",
@@ -82,178 +62,8 @@ const experiments = [
     checked: false,
   },
 ];
-const palettes = [
-  ["default", "#5B5FF5", "#5B5FF5"],
-  ["blue", "#00a6c7", "#007aff"],
-  ["purple", "#f8509e", "#943d96"],
-  ["orange", "#e1393e", "#f78218"],
-  ["green", "#e0b219", "#22b85c"],
-];
-function Choices({
-  label,
-  options,
-  value = options[0],
-  width = 300,
-  dropdown = false,
-}: {
-  label: string;
-  options: string[];
-  value?: string;
-  width?: number;
-  dropdown?: boolean;
-}) {
-  return (
-    <div style={{ width }}>
-      <SingleChoice
-        label={label}
-        value={value}
-        options={options.map((text) => ({ value: text, label: text }))}
-        fill
-        dropdown={dropdown}
-      />
-    </div>
-  );
-}
-function Group({ title, children }: { title: string; children?: unknown }) {
-  return (
-    <section class="flex flex-col gap-3">
-      <h3 class="text-small leading-4 font-[650] text-text-secondary">
-        {title}
-      </h3>
-      <Card class="py-0! gap-0!">{children}</Card>
-    </section>
-  );
-}
-function ToggleRows({ rows }: { rows: typeof behavior }) {
-  return (
-    <>
-      {rows.map((row) => (
-        <SettingLine {...row}>
-          <Switch checked={row.checked} label={row.title} />
-        </SettingLine>
-      ))}
-    </>
-  );
-}
-function About() {
-  return (
-    <Panel
-      width={720}
-      title="Settings"
-      actions={<IconButton icon="maximize-2" label="Expand" />}
-    >
-      <div class="flex flex-col gap-7 pt-2">
-        <Group title="Behavior">
-          <SettingLine title="Request routing delay (0–300 s)" class="py-3!">
-            <Input value="15" class="w-[104px]" />
-          </SettingLine>
-          <ToggleRows rows={behavior} />
-        </Group>
-        <Group title="General">
-          <SettingLine title="Start automatically at sign-in">
-            <Switch checked={false} label="Start automatically at sign-in" />
-          </SettingLine>
-          <SettingLine title="Language">
-            <Choices
-              label="Language"
-              options={["System", "English", "简体中文"]}
-              value="English"
-            />
-          </SettingLine>
-        </Group>
-        <Group title="Appearance">
-          <SettingLine title="Theme">
-            <Choices
-              label="Theme"
-              options={["System", "Light", "Dark"]}
-              value="Light"
-            />
-          </SettingLine>
-          <SettingLine title="Theme color">
-            <SingleChoice
-              label="Theme color"
-              value="default"
-              iconOnly
-              compact
-              class="w-[198px]"
-              options={palettes.map(([value, left, right]) => ({
-                value,
-                label: value,
-                graphic: (
-                  <svg data-brand width="16" height="16" viewBox="0 0 16 16">
-                    <circle cx="8" cy="8" r="8" fill={left} />
-                    <path d="M8 0a8 8 0 0 1 0 16Z" fill={right} />
-                  </svg>
-                ),
-              }))}
-            />
-          </SettingLine>
-          <SettingLine title="Topology layout">
-            <Choices
-              label="Topology layout"
-              options={["Tree", "Flat"]}
-              width={180}
-            />
-          </SettingLine>
-          <SettingLine title="Privacy mode">
-            <SingleChoice
-              label="Privacy mode"
-              value="masked"
-              iconOnly
-              compact
-              class="w-20"
-              options={[
-                { value: "visible", label: "Visible", icon: "eye" },
-                { value: "masked", label: "Masked", icon: "eye-off" },
-              ]}
-            />
-          </SettingLine>
-        </Group>
-        <Group title="Network">
-          <SettingLine
-            title="Proxy"
-            description={[
-              "Use the system proxy or configure",
-              "a proxy just for ARC.",
-            ]}
-            class="py-[23px]!"
-          >
-            <Choices
-              label="Proxy"
-              options={["System proxy", "No proxy", "Custom"]}
-              width={340}
-            />
-          </SettingLine>
-        </Group>
-        <div class="flex flex-col gap-[17px]">
-          <Group title="About">
-            <SettingLine
-              title="Agent Remote Control vfixture"
-              class="py-[15px]!"
-            >
-              <Button disabled class="opacity-45">
-                Check for updates
-              </Button>
-            </SettingLine>
-          </Group>
-          <div class="flex items-center gap-3 px-4">
-            <span class="text-meta text-text-secondary">
-              whzxc/agent-remote-control
-            </span>
-            <Button variant="ghost">
-              GitHub <Icon name="external-link" />
-            </Button>
-            <div class="ml-auto">
-              <Button variant="ghost">
-                Experimental <Icon name="chevron-right" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Panel>
-  );
-}
+
+
 function Agents() {
   return (
     <Panel
@@ -441,7 +251,7 @@ const frames = [
     fixture: "settings-about-light",
     capture: { region: "Settings", viewport: "1280x1600" },
     note: "Full-content drawing can exceed the scroll viewport; inspect remaining scroll content during browser acceptance.",
-    view: About,
+    view: GeneralSettings,
   },
   {
     name: "agents",
