@@ -14,6 +14,7 @@ pub fn catalog() -> Value {
         "notice_close",
         "blocker_open",
         "blocker_clear",
+        "ax_list",
     ] {
         let spec = domain["ops"]
             .as_array()

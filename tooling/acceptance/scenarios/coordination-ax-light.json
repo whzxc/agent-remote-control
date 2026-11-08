@@ -1,0 +1,23 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "page": "overview",
+  "coordination": "ax",
+  "studio": "day",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "clock": "2026-11-05T06:32:00Z",
+  "timezone": "Asia/Shanghai"
+}

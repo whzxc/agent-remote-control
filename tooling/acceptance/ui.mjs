@@ -57,12 +57,12 @@ try {
     for (const { width, height } of fixture.viewports ?? report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'en-US',
-        timezoneId: name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined });
+        timezoneId: fixture.timezone ?? (name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined) });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.route('**/api/**', route => { errors.push(`Unexpected live API: ${route.request().url()}`); return route.abort(); });
       // Stable elapsed labels across runs, while rAF and the renderer keep working.
-      await page.addInitScript(() => { const original = Date; const fixed = original.parse('2026-01-01T00:00:00Z'); Date = class extends original { constructor(...args) { super(...(args.length ? args : [fixed])); } static now() { return fixed; } }; });
+      await page.addInitScript(clock => { const original = Date; const fixed = original.parse(clock); Date = class extends original { constructor(...args) { super(...(args.length ? args : [fixed])); } static now() { return fixed; } }; }, fixture.clock ?? '2026-01-01T00:00:00Z');
       const row = { name, width, height, key, errors, baseline: screenshots ? 'missing' : 'disabled', changedPixels: null, changedRatio: null };
       try {
         await page.goto(`http://127.0.0.1:${port}/${fixture.browser ? 'browser.html' : ''}?scenario=${encodeURIComponent(name)}${fixture.browser ? '&key=arc_fixture_browser_key' : ''}`);

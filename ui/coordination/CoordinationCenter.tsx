@@ -22,6 +22,8 @@ import { attentionLook, clock, duration, eventTone, recordLook, stateTone, workL
 import { boardObservation, boardOpen, boardFocus, centerView, ownerResult, refreshBoard, useAttention } from './state';
 interface ResourceOption { key: string; label: string }
 import './center.css';
+import AXPanel, { axSelection } from './AXPanel';
+import { axObservation, refreshAX } from './axState';
 
 export const centerReturn = createStore<{ kind: 'task' | 'connection' | 'update'; focusId: string } | undefined>(undefined);
 const selectedRecord = createStore<BoardRecord | undefined>(undefined);
@@ -54,6 +56,7 @@ export default function CoordinationCenter() {
   const view = centerView.use(), observed = boardObservation.use(), attention = useAttention(), feed = journal.use();
   const tracked = trackedActivity.use(), taskRecords = tasks.use().records, inventory = agents.use().items;
   const connection = connector.use();
+  const ax = axObservation.use();
   const now = useAppNow(30_000), language = locale.use();
   const [resources, setResources] = useState<ResourceOption[]>([]), [resourceError, setResourceError] = useState('');
   const [history, setHistory] = useState<BoardPage>(), [historyError, setHistoryError] = useState(''), [loadingHistory, setLoadingHistory] = useState(false);
@@ -139,7 +142,7 @@ export default function CoordinationCenter() {
     try { const page = ownerResult(await api<BoardPage>('coordination/board', 'POST', { id: row.id, view: 'full' })); const full = [...page.notices, ...page.blockers].find(r => r.id === row.id); if (!full) throw new Error('COORDINATION_NOT_FOUND'); if (mounted.current) setSelected(old => old?.id === row.id ? full : old); }
     catch (error) { if (mounted.current && selectedRecord.get()?.id === row.id) setDetailError(String(error)); }
   }
-  const patch = (value: Partial<typeof view>) => { setSelected(undefined); centerView.set(old => ({ ...old, ...value })); };
+  const patch = (value: Partial<typeof view>) => { setSelected(undefined); axSelection.set(undefined); centerView.set(old => ({ ...old, ...value })); };
   const ago = (value?: string | null) => relativeTime(value, now, language, t('time.justNow'));
   const page = showHistory ? history : observed.page;
   const boardRows = [...page?.notices ?? [], ...page?.blockers ?? []].filter(row => (!view.resource || row.resources.includes(view.resource)) && view.filter !== 'input' && (view.filter === 'all' || showHistory || row.intent == null && liveRecord(row)));
@@ -247,14 +250,16 @@ export default function CoordinationCenter() {
     ? feed.page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(feed.page.observedAt) })}</span><span data-tone={coverage?.state === 'observed' ? undefined : 'warning'}>{coverageName(coverage?.state ?? 'unknown')}</span>
       <details className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.coverage')}</summary><pre>{JSON.stringify(feed.page.coverage, null, 2)}</pre></details></footer>
     : page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></footer>;
-  const busy = reading || observed.loading || loadingHistory || !!pendingAction;
+  const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
   const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
   return <Dialog initialFocus={initialFocus} title={t('center.title')} width={820}
-    headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as 'current' | 'activity' })} options={['current','activity'].map(value => ({ value, label: t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
-    actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
+    headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as typeof view.view })} options={['current','activity','ax'].map(value => ({ value, label: value === 'ax' ? 'AX' : t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
+    actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
+      if (view.view === 'ax') { await refreshAX(); return; }
       await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
     })} />}
-    onClose={() => { setSelected(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center" aria-busy={busy}>
+    onClose={() => { setSelected(undefined); axSelection.set(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (view.view === 'ax' && axSelection.get()) { event.preventDefault(); axSelection.set(undefined); } else if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center" aria-busy={busy}>
+    {view.view === 'ax' ? <AXPanel /> : <>
     <div className="center-filters">
       {view.view === 'current' && <SingleChoice compact disabled={busy} label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input', 'history'].map(value => ({ value, label: t(`center.${value}`) }))} />}
       <div className="center-resource"><SingleChoice dropdown compact disabled={busy} label={t('center.resourceFilter')} value={view.resource || 'all-resources'} onChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} options={[{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))]} /></div>
@@ -288,5 +293,6 @@ export default function CoordinationCenter() {
       </>}
     </div></div>
     {footer}
+    </>}
   </div></Dialog>;
 }

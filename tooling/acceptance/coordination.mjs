@@ -42,6 +42,56 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await open();
   assert.equal(await board().getByRole('textbox').count(), 0);
   checks.push('homepage summary opens Current; Board exposes observation and owner navigation');
+  if (fixture.coordination.startsWith('ax')) {
+    const clipboard = page.context().browser()?.browserType().name() === 'chromium';
+    if (clipboard) await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
+    await choose(m('view'), 'AX');
+    if (fixture.coordination === 'ax-unavailable') {
+      await board().getByText(/SCENARIO_AX_UNAVAILABLE/).waitFor();
+      await snapshot('ax-unavailable');
+      await board().getByRole('button', { name: messages.retry, exact: true }).click();
+    }
+    const openLabel = m('ax.open').replace('{count}', '5'), closedLabel = m('ax.closed').replace('{count}', '12');
+    await group(m('ax.filter')).getByRole('radio', { name: openLabel, checked: true, exact: true }).waitFor();
+    await board().getByRole('button', { name: '任务已完成，推送回执仍显示中断', exact: true }).waitFor();
+    await snapshot('ax-open');
+    await choose(m('ax.filter'), closedLabel);
+    await board().getByRole('button', { name: '任务回执到达后，公示牌仍保留旧状态', exact: true }).waitFor();
+    await snapshot('ax-closed');
+    await board().getByRole('button', { name: m('ax.more'), exact: true }).click();
+    await board().getByRole('button', { name: 'Archived fixture issue 7', exact: true }).waitFor();
+    const search = board().getByRole('searchbox', { name: m('ax.search'), exact: true });
+    await search.fill('AX-108');
+    const row = board().getByRole('button', { name: '任务回执到达后，公示牌仍保留旧状态', exact: true });
+    await board().getByRole('button', { name: 'Archived fixture issue 7', exact: true }).waitFor({ state: 'hidden' });
+    await row.click();
+    const detail = board().getByRole('region', { name: m('recordDetail'), exact: true });
+    await detail.getByRole('heading', { name: '任务回执到达后，公示牌仍保留旧状态', exact: true }).waitFor();
+    await detail.getByText('a1b2c3d', { exact: true }).waitFor();
+    await detail.getByText('fixture-receipt-07', { exact: true }).waitFor();
+    await detail.getByText('fixture-thread-12', { exact: true }).waitFor();
+    await snapshot('ax-detail');
+    if (clipboard) {
+      await detail.getByRole('button', { name: m('ax.copyCommit'), exact: true }).click();
+      await detail.getByRole('button', { name: messages.copied, exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'a1b2c3d');
+    }
+    await detail.getByText(m('ax.history'), { exact: true }).scrollIntoViewIfNeeded();
+    await detail.getByText(new RegExp(m('ax.action.fix'))).scrollIntoViewIfNeeded();
+    await snapshot('ax-history');
+    await page.keyboard.press('Escape');
+    await detail.waitFor({ state: 'hidden' });
+    assert.equal(await search.inputValue(), 'AX-108');
+    await page.waitForFunction(() => document.activeElement?.id === 'ax-row-AX-108');
+    await search.fill('missing issue');
+    await board().getByText(m('emptyBoard'), { exact: true }).waitFor();
+    await search.fill('');
+    await choose(m('ax.filter'), openLabel);
+    await row.waitFor({ state: 'hidden' });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await close();
+    return [...checks, 'AX owner pages compose complete counts; status filters, search, pagination, native detail, retry and layered Escape retain list state'];
+  }
   if (fixture.coordination === 'empty') {
     await board().getByText(m('emptyBoard'), { exact: true }).waitFor();
     await snapshot('empty');

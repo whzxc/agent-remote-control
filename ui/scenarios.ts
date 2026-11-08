@@ -169,6 +169,9 @@ export async function installScenario(name: string) {
     core: { backendSession: 'acceptance-fixture', version: 'fixture', desktop: { state: 'ready', supported: true, message: '' }, appServer: { state: 'ready', resources: {} }, account: { state: 'ready' }, resources: {}, activeTurns: fixture.tasks.filter(task => !task.completed && !task.outcome).length, activeWrites: 0, pendingInteractions: 0, logs: [] },
     deviceName: 'Acceptance', platform: 'darwin', version: 'fixture', connector: { state: 'ready' }, tunnel: { state: 'ready' }, config: defaults, logs: [],
   } as unknown as Status;
+  if (fixture.coordination?.startsWith('ax')) {
+    status.ingresses[0].sources!.push({ ...status.ingresses[0].sources![0], id: 'fixture-codex', label: 'Codex', product: 'codex', platform: 'openai' });
+  }
   if (fixture.sourceProducts) {
     const base = status.ingresses[0], source = base.sources![0];
     base.sources = fixture.sourceProducts.map((product, index) => {

@@ -193,6 +193,7 @@ fn allowed(route: &str, method: &str) -> bool {
                 | "agents/conversations/timeline"
                 | "coordination/board"
                 | "coordination/events"
+                | "coordination/ax_list"
                 | "agents/dispatch-catalog"
                 | "agents/dispatch-defaults/read"
                 | "agents/resources"

@@ -580,6 +580,7 @@ impl Service {
                         | "notice_close"
                         | "blocker_open"
                         | "blocker_clear"
+                        | "ax_list"
                 )
             {
                 crate::management::resolve(&format!("coordination.{op}"), &json!({"body":body}))?;

@@ -98,6 +98,14 @@ The first run creates a baseline. Later runs compare with the latest directory f
 
 Scenarios in tooling/acceptance/scenarios/*.json include idle, single-task, parallel-seven, approval, long-multilingual, narrow-tentacles, left-panel, right-panel, light, and dark. Left and right panels are captured separately under the product's single-panel rule. The `p3-*` scenarios cover source setup (including empty, local, and fixed-connection entry), standalone and stacked connection methods/configuration/ready, Welcome, and owned/joined Connection detail in both themes. Fixtures use `sourceSetup`, `connectionSetup`, `remoteLink`, and `relayProgress` to select real renderer states without contacting Core. Copy scenario JSON to change Agents, phases, text, themes, language, and panels without unit tests.
 
+`coordination-ax-light`, `coordination-ax-dark` and `coordination-ax-unavailable`
+cover the Board's AX tab: owner pagination, complete open/closed counts, search,
+progressive list expansion, disposition/evidence/history detail, clipboard writes,
+read retry and layered Escape with focus restoration. Their synthetic AX metadata
+uses an explicit `clock` and `timezone` in scenario JSON. These optional fields
+override the acceptance runner's fixed clock and browser timezone. Clipboard
+readback runs only in Chromium's isolated context with clipboard permissions.
+
 The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects the normal homepage count setting; `topologyAccounts` installs the shared multi-account fixture.
 
 The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact opaque theme-colored action glyphs, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.

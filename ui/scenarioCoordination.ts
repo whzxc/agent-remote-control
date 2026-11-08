@@ -1,6 +1,8 @@
 import type { BoardPage, BoardRecord, EventPage, JournalEvent } from './coordination/model';
-export type CoordinationFixture = 'normal' | 'empty' | 'gap' | 'unavailable' | 'problems';
+import { axScenario } from './scenarioAX';
+export type CoordinationFixture = 'normal' | 'empty' | 'gap' | 'unavailable' | 'problems' | 'ax' | 'ax-unavailable';
 export function coordinationScenario(mode?: CoordinationFixture) {
+  const ax = axScenario(mode === 'ax-unavailable');
   const at = '2026-01-01T00:00:00.000Z';
   const ago = (minutes: number) => new Date(Date.parse(at) - minutes * 60_000).toISOString();
   let gap = mode === 'gap';
@@ -25,6 +27,8 @@ export function coordinationScenario(mode?: CoordinationFixture) {
   }));
   function failure(code: string) { return { error: { code, message: 'Refresh the current owner record and retry.' } }; }
   return (path: string, method: string, body?: unknown): unknown => {
+    const axResult = ax(path, method, body);
+    if (axResult !== undefined) return axResult;
     const args = (body ?? {}) as Record<string, any>;
     if (path === 'coordination/resources' && method === 'GET') return { resources: [{ key: 'app:installed', label: 'ARC' }, { key: 'project:sample/main', label: 'Sample project' }, { key: 'lane:sample/review', label: 'Review lane' }], coverage: 'cached', observedAt: at };
     if (!path.startsWith('coordination/')) return undefined;

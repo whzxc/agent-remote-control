@@ -3,6 +3,32 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
+test('desktop AX reads preserve pagination, closed decisions and local evidence', async () => {
+  // Regression: the Board could not read the AX owner list or inspect closed decision reasons and evidence.
+  const fixture = await nativeControl('');
+  try {
+    const first = await fixture.call('ax_report', { symptom: 'Native task state remained stale', expected: 'Show the native terminal state', severity: 'workaround' });
+    const second = await fixture.call('ax_report', { symptom: 'Decision history was inaccessible', expected: 'Expose the retained local decision', severity: 'cosmetic', receiptIds: [first.receipt.requestId] });
+    const reason = 'Retain the original native session ownership';
+    await fixture.call('ax_triage', { id: second.entry.id, expectedRevision: second.entry.revision, action: 'wontfix', reason });
+    const page = await fixture.api('coordination/ax_list', { limit: 1 });
+    assert.equal(page.entries.length, 1);
+    assert.ok(page.nextCursor);
+    const next = await fixture.api('coordination/ax_list', { limit: 1, cursor: page.nextCursor });
+    assert.equal(next.nextCursor, null);
+    assert.deepEqual([...page.entries, ...next.entries].map((row: any) => row.id).sort(), [first.entry.id, second.entry.id].sort());
+    const closed = await fixture.api('coordination/ax_list', { status: 'closed', id: second.entry.id });
+    assert.equal(closed.entries[0].resolution, 'wontfix');
+    assert.equal(closed.entries[0].history.at(-1).detail.reason, reason);
+    assert.ok(closed.entries[0].evidence.some((item: any) => item.id === first.receipt.requestId && item.availability === 'available'));
+    const cli = await fixture.shell(`printf '%s' '${JSON.stringify({ body: { id: second.entry.id } })}' | arc cli call coordination.ax_list --stdin`);
+    assert.equal(JSON.parse(cli.stdout).result.entries[0].id, second.entry.id);
+    await fixture.restart();
+    const retained = await fixture.api('coordination/ax_list', { id: second.entry.id });
+    assert.equal(retained.entries[0].history.at(-1).detail.reason, reason);
+  } finally { await fixture.close(); }
+});
+
 test('desktop bulletin management uses local authority, owner revisions, replay and retained journal readback', async () => {
   // Regression: desktop had no authenticated local adapter for bulletin edits and event reads.
   const fixture = await nativeControl('');

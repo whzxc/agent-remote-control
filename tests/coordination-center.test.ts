@@ -2,7 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taskAttention, groupEvents, mergeEvents, type JournalEvent } from '../ui/coordination/model.ts';
 import type { TrackedActivity } from '../ui/state/activityModel.ts';
+import { axClosed, axDecision, axRows, axStatus, type AXEntry } from '../ui/coordination/axModel.ts';
 const session: TrackedActivity = { id: 'thread-a', source: 'codex-thread', turnId: 'turn-a', title: 'Sample task', phase: 'idle', headline: '', phaseSince: null, timeline: true, orderAt: 1, observed: false, status: 'failed' };
+
+test('AX reopen preserves history while separating the current disposition and status partition', () => {
+  // Property: reopening moves a closed record to unfinished work without presenting an earlier decision as its current disposition.
+  const closed: AXEntry = { id: 'AX-example', revision: 2, kind: 'friction', symptom: 'Native state stayed stale', expected: 'Refresh state', resources: [], source: { type: 'local-authority' }, occurrenceCount: 1, status: 'closed', resolution: 'fix',
+    history: [{ action: 'fix', at: '2026-01-01T00:00:00Z', actor: { type: 'local-authority' }, revision: 2, detail: { commit: 'example' } }] };
+  const reopened = { ...closed, status: 'open', resolution: null, history: [...closed.history, { action: 'reopen', at: '2026-01-02T00:00:00Z', actor: closed.source, revision: 3 }] };
+  const merged = { ...closed, id: 'AX-merged', status: 'merged', resolution: 'merged' };
+  assert.equal(axClosed(reopened), false);
+  assert.equal(axStatus(reopened), 'open');
+  assert.equal(axDecision(reopened), undefined);
+  assert.equal(axDecision(closed)?.detail?.commit, 'example');
+  assert.deepEqual(axRows([closed, merged], true, 'ax-MERGED').map(row => row.id), [merged.id]);
+  assert.deepEqual(axRows([closed, reopened], false, '').map(row => row.history.length), [2]);
+});
 
 test('completion reads keep failures actionable until an evidenced successor recovers', () => {
   // Regression: homepage completion-read dismissal must not resolve event-center task attention.

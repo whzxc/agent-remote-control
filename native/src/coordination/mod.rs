@@ -120,6 +120,9 @@ pub(crate) async fn desktop_call(
     if op == "events" {
         return query(&args);
     }
+    if op == "ax_list" {
+        return ax::call(op, args, &control.session).await;
+    }
     let mut value = bulletin::call(op, args, control).await?;
     if op == "board" && value["error"].is_null() {
         let notifications = crate::claude_notify::coordination_attention()

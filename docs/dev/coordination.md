@@ -342,13 +342,25 @@ retained. Native shared composition and AX references are specified in
 
 Authenticated local management exposes `coordination.events`, `coordination.board`,
 `coordination.notice_post`, `coordination.notice_update`, `coordination.notice_close`,
-`coordination.blocker_open` and `coordination.blocker_clear` as POST routes under
+`coordination.blocker_open`, `coordination.blocker_clear` and `coordination.ax_list` as POST routes under
 `coordination/`. Each accepts `body` with the current domain operation schema;
 the management catalog derives these schemas directly from the domain catalog.
 The service captures built-in local authority and calls the existing journal or
 bulletin owner. Revisions, request-ID replay, validation and fixing-commit checks
 remain owner behavior. Closing a notice leaves linked tasks running. Clearing a
 blocker leaves task continuation with its owner.
+
+The Board's AX tab reads the existing AX owner with authenticated local authority.
+It composes all owner pages before publishing counts or applying local ID/symptom
+search, and retries a cursor-invalidated snapshot once from its first page.
+Unfinished records include open, triaged and candidate states. Closed history
+includes closed and merged records. The list reveals additional retained rows
+through Load more. Detail shows owner-provided evidence, decision reasons and
+fixing commits without mutating or resolving records. A reopen retains past
+decisions in history without presenting them as the current disposition.
+Read failures retain the previous snapshot. AX polls every fifteen seconds only
+while its tab is mounted and the document is visible. Layered Escape returns
+from detail to the same list query, scroll position and focused record.
 
 `coordination.resources` is a GET that projects cached registered project IDs and
 `app:installed` without discovery or upstream reads. Existing bulletin and journal

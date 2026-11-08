@@ -33,7 +33,8 @@ export default {
         url: `/?scenario=${encodeURIComponent(scenario)}`,
         theme: fixture.theme === 'dark' ? 'dark' : 'light',
         locale: fixture.language === 'zh-CN' ? 'zh-CN' : 'en-US',
-        clock: '2026-01-01T00:00:00Z',
+        clock: fixture.clock ?? '2026-01-01T00:00:00Z',
+        ...(fixture.timezone ? { timezone: fixture.timezone } : {}),
         ...(scenario.startsWith('portrait-topology-') ? { timezone: 'Asia/Shanghai' } : {}),
       };
     },

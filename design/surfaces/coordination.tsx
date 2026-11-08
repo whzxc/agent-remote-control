@@ -7,6 +7,7 @@ import { Tile, type TileTone } from "../components/tile";
 const tabs = [
   { value: "current", label: "Current" },
   { value: "activity", label: "Activity" },
+  { value: "ax", label: "AX" },
 ];
 const filters = ["All", "Needs attention", "Task input", "History"].map(
   (label) => ({ value: label, label }),
