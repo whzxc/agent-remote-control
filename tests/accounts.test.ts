@@ -220,7 +220,7 @@ for await(const line of createInterface({input:process.stdin})) {
 });
 
 test('Codex profiles inherit approval policy and reload shared setup before dispatch', async () => {
-  // Regression: spare Codex homes requested approval on every command and missed shared setup; interrupted resume erased the profile binding.
+  // Regression: spare Codex homes missed shared setup, resume erased their binding, and identical plugin re-extraction marked active profiles stale.
   const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
@@ -230,6 +230,10 @@ test('Codex profiles inherit approval policy and reload shared setup before disp
   await writeFile(path.join(primary, 'AGENTS.md'), 'Shared instruction fixture');
   await mkdir(path.join(primary, 'skills', 'example-skill'), { recursive: true });
   await writeFile(path.join(primary, 'skills', 'example-skill', 'SKILL.md'), 'Example shared skill');
+  const pluginDirectory = path.join(primary, 'plugins', 'cache', 'example-plugin');
+  const pluginContents = 'Example installed plugin asset';
+  await mkdir(pluginDirectory, { recursive: true });
+  await writeFile(path.join(pluginDirectory, 'plugin.txt'), pluginContents);
   const script = `import {createInterface} from 'node:readline';
 import {randomUUID} from 'node:crypto'; import fs from 'node:fs'; import path from 'node:path';
 const home=process.env.CODEX_HOME; fs.mkdirSync(home,{recursive:true});
@@ -240,22 +244,24 @@ const setup={policy,effort,instructions:fs.existsSync(path.join(home,'AGENTS.md'
 const auth=fs.existsSync(path.join(home,'auth.json'))?JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8')):null;
 const account=auth?.tokens?.account_id??'primary'; const file=path.join(home,'fixture-tasks.json');
 const tasks=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{}; const save=rows=>fs.writeFileSync(file,JSON.stringify(rows));
+const activeThreads=new Set();
 for await(const line of createInterface({input:process.stdin})) {
  const {id,method,params}=JSON.parse(line);if(id===undefined)continue;let result={};const rows=tasks();const row=rows[params?.threadId];
  if(method==='account/read')result={account:{type:'chatgpt',accountId:account,email:account+'@example.test',planType:'pro'}};
  if(method==='account/rateLimits/read')result={rateLimits:{primary:{usedPercent:0,windowDurationMins:300}}};
  if(method==='model/list')result={data:[{id:'fixture-model',model:'fixture-model',supportedReasoningEfforts:[{reasoningEffort:'low'}],defaultReasoningEffort:'low'}]};
  if(method==='thread/start'){const created={id:randomUUID(),cwd:home,updatedAt:Date.now(),status:{type:'idle'},turns:[]};rows[created.id]=created;save(rows);result={thread:created};}
- if(method==='thread/read')result={thread:row};
+ if(method==='thread/read')result={thread:{...row,status:row.status.type==='active'&&!activeThreads.has(row.id)?{type:'notLoaded'}:row.status}};
  if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
  if(method==='thread/loaded/list')result={data:Object.keys(rows)};
  if(method==='thread/list')result={data:Object.values(rows),nextCursor:null};
  if(method==='turn/start'){
   if(policy!=='never'){console.log(JSON.stringify({id,error:{code:-32000,message:'Command approval required by missing shared policy'}}));continue;}
   const active=params.input?.some(i=>i.text==='hold'); const turn={id:randomUUID(),status:active?'inProgress':'completed',items:[{id:randomUUID(),type:'agentMessage',text:JSON.stringify(setup)}]};
+  if(active)activeThreads.add(row.id);else activeThreads.delete(row.id);
   row.status={type:active?'active':'idle'};row.turns.push(turn);save(rows);result={turn};
  }
- if(method==='turn/interrupt'){row.status={type:'idle'};row.turns.at(-1).status='interrupted';save(rows);}
+ if(method==='turn/interrupt'){activeThreads.delete(row.id);row.status={type:'idle'};row.turns.at(-1).status='interrupted';save(rows);}
  console.log(JSON.stringify({id,result}));
 }`;
   const fixture = await nativeControl(script, { CODEX_HOME: primary });
@@ -285,6 +291,14 @@ for await(const line of createInterface({input:process.stdin})) {
     await writeFile(path.join(primary, 'config.toml'), config('medium'));
     for (const account of allAccounts) assert.equal((await dispatch(account)).setup.effort, 'medium');
     const held = await dispatch(imported[0], 'hold');
+    await rm(pluginDirectory, { recursive: true });
+    await mkdir(pluginDirectory, { recursive: true });
+    await writeFile(path.join(pluginDirectory, 'plugin.txt'), pluginContents);
+    const unchanged = await fixture.call('accounts', { id: imported[0].accountId });
+    assert.equal(unchanged.agentProfiles.find((profile: any) => profile.profileId === imported[0].profileId).parity.state, 'synced');
+    assert.equal((await dispatch(imported[0])).setup.effort, 'medium');
+    const stillActive = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: false } });
+    assert.equal(stillActive.thread.status.type, 'active');
     await writeFile(path.join(primary, 'config.toml'), config('high'));
     const blocked = await fixture.completed('codex_create', { account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
     assert.equal(blocked.error.code, 'CODEX_PROFILE_PARITY_BUSY', JSON.stringify(blocked));

@@ -2,6 +2,63 @@
 use crate::*;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::io::Read;
+
+#[derive(PartialEq, Eq)]
+struct FileStamp {
+    len: u64,
+    modified: std::time::SystemTime,
+    created: Option<std::time::SystemTime>,
+    #[cfg(unix)]
+    identity: (u64, u64),
+}
+impl FileStamp {
+    fn read(metadata: &std::fs::Metadata) -> Result<Self> {
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt;
+        Ok(Self {
+            len: metadata.len(),
+            modified: metadata.modified().map_err(|e| e.to_string())?,
+            created: metadata.created().ok(),
+            #[cfg(unix)]
+            identity: (metadata.dev(), metadata.ino()),
+        })
+    }
+}
+
+// Codex may re-extract unchanged plugin files at startup. Metadata is a cache
+// key, not configuration identity: identical content must keep the same revision.
+fn file_digest(path: &Path, metadata: &std::fs::Metadata) -> Result<Vec<u8>> {
+    type Cache = BTreeMap<PathBuf, (FileStamp, Vec<u8>)>;
+    static CACHE: std::sync::LazyLock<std::sync::Mutex<Cache>> =
+        std::sync::LazyLock::new(Default::default);
+    let stamp = FileStamp::read(metadata)?;
+    let mut cache = CACHE.lock().map_err(|e| e.to_string())?;
+    if let Some((previous, bytes)) = cache.get(path) {
+        if previous == &stamp {
+            return Ok(bytes.clone());
+        }
+    }
+    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0; 65536];
+    loop {
+        let count = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        if count == 0 {
+            break;
+        }
+        digest.update(&buffer[..count]);
+    }
+    if FileStamp::read(&file.metadata().map_err(|e| e.to_string())?)? != stamp {
+        return Err(
+            "Shared configuration changed while reading; retry after saving the primary home"
+                .into(),
+        );
+    }
+    let bytes = digest.finalize().to_vec();
+    cache.insert(path.to_path_buf(), (stamp, bytes.clone()));
+    Ok(bytes)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Entry {
@@ -33,8 +90,8 @@ fn entries(path: &Path) -> Result<Vec<std::fs::DirEntry>> {
     Ok(rows)
 }
 
-// Metadata avoids rereading installed plugin binaries on every dispatch. Symlink
-// targets are included, so edits through the primary home's links invalidate RPCs.
+// Include names, resolved links and file content. Cached content digests avoid
+// rereading installed plugin binaries on every dispatch.
 fn stamp(path: &Path, digest: &mut Sha256, ancestors: &mut Vec<PathBuf>) -> Result<()> {
     let resolved = path.canonicalize().map_err(|e| e.to_string())?;
     if ancestors.contains(&resolved) {
@@ -43,18 +100,17 @@ fn stamp(path: &Path, digest: &mut Sha256, ancestors: &mut Vec<PathBuf>) -> Resu
     digest.update(path.as_os_str().as_encoded_bytes());
     digest.update(resolved.as_os_str().as_encoded_bytes());
     let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
-    digest.update(metadata.len().to_le_bytes());
-    digest.update(format!(
-        "{:?}",
-        metadata.modified().map_err(|e| e.to_string())?
-    ));
     if metadata.is_dir() {
+        digest.update(b"directory");
         ancestors.push(resolved);
         for entry in entries(path)? {
             stamp(&entry.path(), digest, ancestors)?;
         }
         ancestors.pop();
-    } else if !metadata.is_file() {
+    } else if metadata.is_file() {
+        digest.update(b"file");
+        digest.update(file_digest(&resolved, &metadata)?);
+    } else {
         return Err("Shared configuration must contain only files and directories".into());
     }
     Ok(())
@@ -95,7 +151,7 @@ fn build_projection(policy: &Policy, source: &Path, target: &Path) -> Result<Pro
         }
     }
     let mut digest = Sha256::new();
-    digest.update(b"arc-account-parity-v1");
+    digest.update(b"arc-account-parity-v2");
     for (name, bytes) in &generated {
         digest.update(name.as_bytes());
         digest.update(bytes);
