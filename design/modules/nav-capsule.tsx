@@ -1,9 +1,6 @@
+import { items } from "../fixtures/nav-capsule";
 import { Frame, Icon } from "sdg";
-const items = [
-  { id: "settings", icon: "settings", label: "Settings" },
-  { id: "agents", icon: "users", label: "Agents" },
-  { id: "permissions", icon: "shield-check", label: "Permissions" },
-];
+
 export function NavCapsule({
   items: entries = items,
   active = "permissions",
@@ -16,7 +13,10 @@ export function NavCapsule({
       {entries.map((item) => (
         <button
           aria-label={item.label}
-          class={`flex items-center justify-center size-9 rounded-card ${item.id === active ? "bg-surface-sunken text-text" : "text-text-secondary"}`}
+          class={
+            "flex items-center justify-center size-9 rounded-card " +
+            String(item.id === active ? "bg-surface-sunken text-text" : "text-text-secondary")
+          }
         >
           <Icon name={item.icon} size={18} />
         </button>

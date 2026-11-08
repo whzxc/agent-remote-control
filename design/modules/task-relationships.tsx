@@ -1,6 +1,6 @@
 import { Frame, Icon } from "sdg";
 import { Tile, type TileTone } from "../components/tile";
-import { TopologyScene } from "../components/topology-scene";
+import { TopologyScene } from "./topology-scene";
 import {
   parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds,
 } from "../fixtures/task-relationships";

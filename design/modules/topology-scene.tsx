@@ -1,11 +1,7 @@
+import { example } from "../fixtures/topology-scene";
 import { Frame } from "sdg";
 import { BoardHeader } from "./board-header";
-const example = {
-  date: "1月1日 · 周四",
-  time: "08:00",
-  title: "公示牌",
-  summary: "2 进行中",
-};
+
 export type SceneItem = { x: number; y: number; content: unknown };
 export type SceneLink = {
   from: { x: number; y: number };
@@ -38,20 +34,35 @@ export function TopologyScene({
 }) {
   return (
     <div data-free class="relative bg-canvas" style={{ width, height }}>
-      {paths.length > 0 && <svg class="absolute inset-0" width={width} height={height} fill="none">
-        {paths.map(path => <path {...path} />)}
-      </svg>}
+      {paths.length > 0 && (
+        <svg class="absolute inset-0" width={width} height={height} fill="none">
+          {paths.map((path) => (
+            <path {...path} />
+          ))}
+        </svg>
+      )}
       {links.length > 0 && (
-        <svg
-          class="absolute inset-0"
-          width={width}
-          height={height}
-          fill="none"
-          stroke-width="2"
-        >
+        <svg class="absolute inset-0" width={width} height={height} fill="none" stroke-width="2">
           {links.map(({ from, to, color, controls }) => (
             <path
-              d={`M${from.x} ${from.y}C${controls?.[0].x ?? (from.x + to.x) / 2} ${controls?.[0].y ?? from.y} ${controls?.[1].x ?? (from.x + to.x) / 2} ${controls?.[1].y ?? to.y} ${to.x} ${to.y}`}
+              d={
+                "M" +
+                String(from.x) +
+                " " +
+                String(from.y) +
+                "C" +
+                String(controls?.[0].x ?? (from.x + to.x) / 2) +
+                " " +
+                String(controls?.[0].y ?? from.y) +
+                " " +
+                String(controls?.[1].x ?? (from.x + to.x) / 2) +
+                " " +
+                String(controls?.[1].y ?? to.y) +
+                " " +
+                String(to.x) +
+                " " +
+                String(to.y)
+              }
               stroke={color || "var(--role-agent)"}
             />
           ))}
@@ -68,10 +79,6 @@ export function TopologyScene({
 }
 export default () => (
   <Frame name="default">
-    <TopologyScene
-      width={480}
-      height={124}
-      items={[{ x: 120, y: 27, content: <BoardHeader {...example} /> }]}
-    />
+    <TopologyScene width={480} height={124} items={[{ x: 120, y: 27, content: <BoardHeader {...example} /> }]} />
   </Frame>
 );

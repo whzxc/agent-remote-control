@@ -1,9 +1,7 @@
+import { forms } from "../fixtures/topology-mark";
 import { Frame, Icon } from "sdg";
 import ArcMarkArt from "../art/arc-mark.svg";
-const forms = [
-  { name: "default", lowerArcHover: false },
-  { name: "lower-arc-hover", lowerArcHover: true },
-];
+
 const geometry = {
   size: 240,
   sourceX: 36.52,
@@ -38,24 +36,15 @@ export function TopologyMark({
         height={240}
         style={{ "--lower-arc-offset": lowerArcHover ? "1.916667px" : "0px" }}
       />
-      {sourceAction && <g
-        fill="none"
-        stroke="var(--canvas)"
-        stroke-width={7.82}
-        stroke-linecap="round"
-      >
-        <path
-          d={`M${g.sourceX - 9.333} ${g.centerY}h18.666M${g.sourceX} ${g.centerY - 9.333}v18.666`}
-        />
-      </g>}
-      {agentAction && [-1, 0, 1].map((i) => (
-        <circle
-          cx={g.agentX + i * g.dotGap}
-          cy={g.centerY}
-          r={g.dotRadius}
-          fill="var(--canvas)"
-        />
-      ))}
+      {sourceAction && (
+        <g fill="none" stroke="var(--canvas)" stroke-width={7.82} stroke-linecap="round">
+          <path d={`M${g.sourceX - 9.333} ${g.centerY}h18.666M${g.sourceX} ${g.centerY - 9.333}v18.666`} />
+        </g>
+      )}
+      {agentAction &&
+        [-1, 0, 1].map((i) => (
+          <circle cx={g.agentX + i * g.dotGap} cy={g.centerY} r={g.dotRadius} fill="var(--canvas)" />
+        ))}
       {lowerArcHover && (
         <g>
           <circle cx={120} cy={g.powerY} r={10} fill="var(--role-agent)" />

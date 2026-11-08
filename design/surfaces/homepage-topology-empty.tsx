@@ -1,6 +1,6 @@
 import { Frame } from "sdg";
-import { TopologyScreen } from "../scenes/topology-screen";
-import { scenes } from "../scenes/topology";
+import { TopologyScreen } from "../modules/homepage-topology";
+import { scenes } from "../fixtures/topology";
 
 const frames = [
   {
