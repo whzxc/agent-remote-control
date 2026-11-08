@@ -209,7 +209,7 @@ The UI resolves native session aliases within the same Agent. Descendants follow
 
 ## Coordination Board
 
-[coordination.tsx](../../design/surfaces/coordination.tsx) defines Current, empty, Activity gap and unavailable presentation. Current and Activity are panel navigation after the title; refresh joins the close action. Current filters by status and resource scope in that order. Activity uses only the resource scope, which remains available even when no resources have been observed.
+[coordination.tsx](../../design/surfaces/coordination.tsx) declares Current, empty, Activity gap and unavailable regions; [modules/board.tsx](../../design/modules/board.tsx) owns their parts and presentation. Current and Activity are panel navigation after the title; refresh joins the close action. Current filters by status and resource scope in that order. Activity uses only the resource scope, which remains available even when no resources have been observed.
 
 Overview rows retain complete titles and combine owner, time, coverage and resource names into metadata. Observation coverage qualifies the attention section without replacing its retained records. Notices keep their error detail and recovery action; absent joined values add no separator. Refresh, retry, cursor reset and pagination retain the initiating control in a pending state and disable sibling filters and actions until settled. Closing and layered Escape retain focus restoration. Loading is also exposed through the Board region’s `aria-busy` state.
 
