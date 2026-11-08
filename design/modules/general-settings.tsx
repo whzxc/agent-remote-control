@@ -1,3 +1,4 @@
+import { ThemeSwatch } from "./display-settings";
 import { copy, samples } from '../fixtures/general-settings';
 import { Frame, Icon } from "sdg";
 import { Panel } from "../components/panel";
@@ -61,10 +62,7 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
                 value,
                 label: value,
                 graphic: (
-                  <svg width="16" height="16" viewBox="0 0 16 16">
-                    <circle cx="8" cy="8" r="8" fill={`var(--theme-swatch-${value}-left)`} />
-                    <path d="M8 0a8 8 0 0 1 0 16Z" fill={`var(--theme-swatch-${value}-right)`} />
-                  </svg>
+                  <ThemeSwatch value={value} />
                 ),
               }))}
             />

@@ -1,19 +1,21 @@
+
+import { Display } from '../modules/display-settings';
 import { Agents, AgentDetail } from "../modules/agent-settings";
 
 
 import { GeneralSettings } from "../modules/general-settings";
-import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";
+import { SettingsToggleRows as ToggleRows } from "../components/settings-row";
 import { Frame } from "sdg";
 import { Panel } from "../components/panel";
 import { Card } from "../components/card";
-import { SettingLine } from "../components/settings-row";
 
-import { Switch } from "../components/switch";
+
+
 
 import { IconButton } from "../components/icon-button";
 
 
-import { TaskBubble } from "../modules/task-presentation";
+
 
 const experiments = [
   {
@@ -69,101 +71,7 @@ const experiments = [
 
 
 
-function Display() {
-  return (
-    <Panel width={720} title="Agent settings">
-      <div class="flex flex-col gap-[30px] pt-2">
-        <Group title="Task bubbles">
-          <div class="flex h-[124px] items-start justify-center pt-5 pr-9">
-            <TaskBubble
-              truncateHeadline={false}
-              activityGap={8}
-              title="Check project changes"
-              duration="1:23"
-              phase="Running command"
-              headline="npm run check"
-              project="arc"
-              dispatch={{
-                width: 128,
-                model: "GPT-6.1 Sol",
-                effort: "High reasoning effort",
-                tier: "Fast",
-                position: { count: 4, index: 2 },
-                fast: true,
-              }}
-            />
-          </div>
-          <SettingLine title="Content density">
-            <Choices
-              label="Content density"
-              options={["Compact", "Standard", "Detailed"]}
-              value="Standard"
-            />
-          </SettingLine>
-          <SettingLine title="Width">
-            <Choices
-              label="Width"
-              options={["Narrow", "Medium", "Wide"]}
-              value="Medium"
-            />
-          </SettingLine>
-          <SettingLine
-            title="Compact when crowded"
-            description={[
-              "Reduce density by one level when an",
-              "Agent has more than 4 tasks.",
-            ]}
-            class="pt-[17px]! pb-[9px]!"
-          >
-            <Switch checked label="Compact when crowded" />
-          </SettingLine>
-        </Group>
-        <Group title="Homepage Agents">
-          <SettingLine title="Layout">
-            <Choices
-              label="Layout"
-              options={["Auto", "Landscape", "Portrait"]}
-            />
-          </SettingLine>
-          <SettingLine title="Maximum visible Agents">
-            <Choices
-              label="Maximum visible Agents"
-              options={["4", "6", "8", "10"]}
-              value="4"
-              width={200}
-            />
-          </SettingLine>
-        </Group>
-        <Group title="Quota">
-          <SettingLine title="Quota monitoring">
-            <Switch checked={false} label="Quota monitoring" />
-          </SettingLine>
-          <SettingLine title="Quota display">
-            <Choices
-              label="Quota display"
-              options={["Remaining", "Used"]}
-              width={220}
-            />
-          </SettingLine>
-          <SettingLine title="Exhaustion time display">
-            <Choices
-              label="Exhaustion time display"
-              options={["Time until reset"]}
-              dropdown
-            />
-          </SettingLine>
-          <SettingLine title="Quota auto-refresh">
-            <Choices
-              label="Quota auto-refresh"
-              options={["1 min", "3 min", "5 min", "10 min"]}
-              value=""
-            />
-          </SettingLine>
-        </Group>
-      </div>
-    </Panel>
-  );
-}
+
 function Experimental() {
   return (
     <Panel
