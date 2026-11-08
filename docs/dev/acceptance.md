@@ -106,7 +106,7 @@ uses an explicit `clock` and `timezone` in scenario JSON. These optional fields
 override the acceptance runner's fixed clock and browser timezone. Clipboard
 readback runs only in Chromium's isolated context with clipboard permissions.
 
-The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects the normal homepage count setting; `topologyAccounts` installs the shared multi-account fixture.
+The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` sets the positive integer homepage count before compaction. Folded root members count toward fixture Agent coverage; `topologyAccounts` installs the shared multi-account fixture.
 
 The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact opaque theme-colored action glyphs, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.
 

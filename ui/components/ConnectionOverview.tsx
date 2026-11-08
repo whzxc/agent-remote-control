@@ -10,6 +10,7 @@ import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { controlSource, controlSourcePlatform } from '../controlSources';
 import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
+import { visibleAgents } from '../topology/visibleAgents';
 import { accountOwns } from '../accountPresentation';
 import { topologyMode, topologyAccountOrder } from '../topology/accountState';
 import { useAccounts } from '../state/accounts';
@@ -135,9 +136,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     if (!readOnlyBrowser && !connections.length) openConnectionSetup();
   }
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
-  const agents = orderedAgents()
-    .filter((a) => a.installed && a.enabled === true)
-    .filter((a, index) => index < ([4, 6, 8, 10].includes(max) ? max : 4) || a.agent === selection?.agent);
+  const agents = visibleAgents(orderedAgents(), max, selection?.agent);
   const running = sources.some((i) => i.running),
     progressing =
       !!busy || sources.some((i) => ["starting", "stopping"].includes(i.state));

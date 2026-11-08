@@ -1,23 +1,25 @@
 import path from 'node:path';
 import { representedTopologyRoots } from './topology.mjs';
 
+export async function readPortraitTopology(page, { sources, agents, tasks }) {
+  // Playwright polls in the browser; serialize the shared pure coverage helper.
+  const handle = await page.waitForFunction(`(({ sources, agents, tasks }) => {
+    const representedTopologyRoots = ${representedTopologyRoots.toString()};
+    const topology = window.__ARC_VIEW_MODEL__().topology;
+    return topology?.orientation === 'portrait' && !topology.orientationPending
+      && representedTopologyRoots(topology, -1).length === sources
+      && representedTopologyRoots(topology, 1).length === agents
+      && topology.tasks.filter(task => task.position?.op > 0.99).length === tasks && topology;
+  })(${JSON.stringify({ sources, agents, tasks })})`, undefined, { timeout: 5000 });
+  const topology = await handle.jsonValue();
+  await handle.dispose();
+  return topology;
+}
+
 export async function verifyPortraitTopology(page, fixture, messages, out, key, screenshots) {
   const taskCount = fixture.tasks.length, agentCount = fixture.agents.length;
   const sourceCount = fixture.sourceProducts.length;
-  const read = async (sources, agents, tasks) => {
-    // Playwright polls in the browser; serialize the shared pure coverage helper.
-    const handle = await page.waitForFunction(`({ sources, agents, tasks }) => {
-      const representedTopologyRoots = ${representedTopologyRoots.toString()};
-      const topology = window.__ARC_VIEW_MODEL__().topology;
-      return topology?.orientation === 'portrait' && !topology.orientationPending
-        && representedTopologyRoots(topology, -1).length === sources
-        && representedTopologyRoots(topology, 1).length === agents
-        && topology.tasks.filter(task => task.position?.op > 0.99).length === tasks && topology;
-    }`, { sources, agents, tasks }, { timeout: 5000 });
-    const topology = await handle.jsonValue();
-    await handle.dispose();
-    return topology;
-  };
+  const read = (sources, agents, tasks) => readPortraitTopology(page, { sources, agents, tasks });
   const center = (topology, target) => {
     const { sourceTop, agentBottom } = topology.primitives.portrait;
     if (topology.size.vw <= 520) {

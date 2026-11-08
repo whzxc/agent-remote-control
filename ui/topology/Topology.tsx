@@ -94,11 +94,12 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const groupAreas = useRef(new Map<string, HTMLDivElement>());
   const groupOrigins = useRef(new Map<string, Rect>());
   const groupTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const focusGroup = useRef<string | null>(null);
+  const focusGroup = useRef<{ id: string; member: boolean } | null>(null);
   const pendingGroupFocus = useRef<string | null>(null);
-  const openGroup = (id: string) => {
+  const openGroup = (id: string, focusMember = false) => {
     clearTimeout(groupTimers.current.get(id));
-    setExpandedGroups(old => old.has(id) ? old : new Set([...old, id]));
+    if (focusMember) focusGroup.current = { id, member: true };
+    setExpandedGroups(old => old.has(id) && !focusMember ? old : new Set([...old, id]));
   };
   const closeGroup = (id: string) => {
     clearTimeout(groupTimers.current.get(id));
@@ -109,7 +110,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   };
   const foldGroup = (id: string) => {
     clearTimeout(groupTimers.current.get(id));
-    focusGroup.current = id;
+    focusGroup.current = { id, member: false };
     setHover(null); setFocus(null);
     setExpandedGroups(old => { const next = new Set(old); next.delete(id); return next; });
   };
@@ -191,7 +192,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       layout={portrait ? group.side === -1 ? 'source' : 'agent' : 'vertical'} hideLabel={portrait && viewport.vw <= portraitLabelBreakpoint}
       aria-expanded={expandedGroups.has(group.id)}
       onPointerDown={event => { event.stopPropagation(); if (event.pointerType === 'touch') { event.preventDefault(); openGroup(group.id); } }}
-      onClick={() => openGroup(group.id)} /> };
+      onClick={() => openGroup(group.id, true)} /> };
   };
   const groupedLeft = compactTree(left, compacted.left, -1, expandedGroups, groupNode);
   const groupedRight = compactTree(right, compacted.right, 1, expandedGroups, groupNode);
@@ -199,18 +200,12 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   // Expanded capsules stay mounted as focus-return targets, outside the solver.
   const dormantGroups = groups.filter(g => expandedGroups.has(g.id)).map(g => ({ ...groupNode(g, (g.side === -1 ? fullNodes.filter(n => n.side === -1) : fullNodes.filter(n => n.side === 1)).filter(n => g.members.includes(n.id))), side: g.side, parent: g.parent }));
   useLayoutEffect(() => {
-    if (focusGroup.current) {
-      const group = groups.find(g => g.id === focusGroup.current);
-      focusGroup.current = null;
-      if (group) pendingGroupFocus.current = nodeKey(group.side, group.id);
-      return;
-    }
-    const active = document.activeElement;
-    const opened = dormantGroups.find(g => elements.current.get(nodeKey(g.side, g.id))?.contains(active));
-    if (opened) {
-      const first = nodes.find(n => n.groupMember === opened.id);
-      if (first) pendingGroupFocus.current = nodeKey(first.side, first.id);
-    }
+    const request = focusGroup.current;
+    if (!request) return;
+    focusGroup.current = null;
+    const group = groups.find(g => g.id === request.id);
+    const target = request.member ? nodes.find(n => n.groupMember === request.id) : group;
+    if (target) pendingGroupFocus.current = nodeKey(target.side, target.id);
   }, [expandedGroups, compacted]);
   const lit = accountsEnabled ? highlightedPaths(fullNodes, focus ?? hover) : null;
   const tasks = nodes.flatMap(n => n.tasks.map(t => ({ ...t, parent: n.id, side: n.side })));
@@ -390,7 +385,13 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     for (const n of latest.current.allNodes) {
       const key = nodeKey(n.side, n.id), v = a.values(key), el = elements.current.get(key);
-      if (v && el) {
+      // Hover may unfold a keyboard-focused capsule. Keep that focus anchor
+      // interactive until activation or Tab moves focus to another control.
+      const focusedCapsule = n.group && latest.current.expandedGroups.has(n.id) && el?.contains(document.activeElement);
+      if (focusedCapsule && el) {
+        el.inert = false;
+        el.style.opacity = '1';
+      } else if (v && el) {
         el.style.transform = `translate(${v.x - NODE_R}px, ${v.y - NODE_R}px) scale(${v.scale * v.size / (n.group ? 42 : NODE_R * 2)})`;
         el.style.opacity = String(v.op);
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));

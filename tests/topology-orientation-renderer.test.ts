@@ -33,19 +33,20 @@ async function withTopology(run: (context: any) => Promise<void>) {
     const { topologyLayout } = await server.ssrLoadModule('/ui/subscriptions/displayPreferences.ts');
     const { viewModel } = await server.ssrLoadModule('/ui/acceptance.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const flushFrames = () => act(async () => {
+      for (let i = 0; frames.size && i < 10; i++) {
+        const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(performance.now()));
+      }
+    });
     const settle = async () => {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
-      await act(async () => {
-        for (let i = 0; frames.size && i < 10; i++) {
-          const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(performance.now()));
-        }
-      });
+      await flushFrames();
     };
     const dimensions = (width: number, height: number) => {
       const now = Date.now();
       appEnvironment.set({ active: true, expiresAt: now + 60_000, realNowMs: now, overrides: { windowWidth: width, windowHeight: height, reducedMotion: true }, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } });
     };
-    await run({ Topology, appEnvironment, topologyLayout, viewModel, t, root, mount, settle, dimensions });
+    await run({ Topology, appEnvironment, topologyLayout, viewModel, t, root, mount, settle, flushFrames, dimensions });
   } finally {
     await act(async () => root.unmount()); await server.close(); await window.happyDOM.abort();
     globalThis.fetch = previousFetch;
@@ -106,9 +107,9 @@ test('task queues leave accessible navigation while their Agent panel is open an
   });
 });
 
-test('capsule focus waits for activation and Escape returns to the folded capsule', async () => {
-  // Regression: Tab into a folded account capsule expanded it immediately and skipped its expand action.
-  await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle }) => {
+test('capsule activation and hover preserve keyboard focus across Escape', async context => {
+  // Regression: hovering the focused capsule after Enter and Escape lost focus and folded the group again.
+  await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle, flushFrames }) => {
     const children = Array.from({ length: 11 }, (_, i) => ({ id: `account-${i}`, platform: 'codex', state: 'normal', attention: false, selected: false,
       tasks: i < 3 ? [{ id: `task-${i}`, width: 264, height: 76, state: 'running', content: h('button', null, `Task ${i}`) }] : [],
       content: h('button', { type: 'button' }, `Account ${i}`) }));
@@ -133,5 +134,12 @@ test('capsule focus waits for activation and Escape returns to the folded capsul
     await act(async () => fireEvent.keyDown(first, { key: 'Escape' })); await settle();
     assert.equal(group().folded, true);
     assert.ok(capsule.matches(':focus'));
+    context.mock.timers.enable({ apis: ['setTimeout'] });
+    try {
+      await act(async () => fireEvent.pointerOver(capsule, { pointerType: 'mouse' })); await flushFrames();
+      await act(async () => context.mock.timers.tick(500)); await flushFrames();
+      assert.equal(group().folded, false);
+      assert.ok(capsule.matches(':focus'));
+    } finally { context.mock.timers.reset(); }
   });
 });

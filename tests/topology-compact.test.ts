@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compactRoots, compactLayout, compactTree, topologyGroups, topologyGroupId, topologyPinned, type ActivityEntity } from '../ui/topology/compact.ts';
 import { solvePortrait } from '../ui/topology/portrait.ts';
+import { denseTopologyScene } from './helpers/topology-dense.ts';
 import { DEFAULTS, type Entity } from '../ui/topology/solve.ts';
 
 const node = (id: string, activityLevel = 0, activityAt = 0): ActivityEntity => ({ id, tasks: [], activityLevel, activityAt });
@@ -93,6 +94,45 @@ test('folded subtrees contribute no nodes, ports or task branches', () => {
       assert.ok(group.members.every(id => open.wings[1].nodes.some(n => n.id === id)));
     }
   }
+});
+
+test('every input node is visible or belongs to exactly one folded subtree', () => {
+  // Property: compaction and expansion partition every input node at every depth into one visible node or one folded group's subtree, without loss or duplication.
+  const nested = Array.from({ length: 4 }, (_, i) => ({ ...node(`root-${i}`), children: Array.from({ length: 3 }, (_, j) => ({ ...node(`child-${i}-${j}`),
+    children: [node(`leaf-${i}-${j}-0`), { ...node(`leaf-${i}-${j}-1`), selected: i === 0 && j === 0 }] })) }));
+  const dense = denseTopologyScene().scene;
+  for (const tree of [nested, dense.right]) for (const orientation of ['landscape', 'portrait'] as const) for (const vh of [300, 700, 1200]) {
+    const scene = { vw: 1280, vh, left: tree, right: tree }, plan = compactRoots(tree, tree, scene, orientation, DEFAULTS);
+    const allGroups = [...topologyGroups(tree, plan.left, -1), ...topologyGroups(tree, plan.right, 1)];
+    for (const expanded of [new Set<string>(), new Set(allGroups.map(g => g.id)), new Set(allGroups.slice(0, 1).map(g => g.id))]) {
+      const layout = compactLayout(scene, plan, expanded, DEFAULTS, orientation);
+      for (const wing of layout.wings) {
+        const groups = allGroups.filter(g => g.side === wing.side), input = flatten(tree);
+        const counts = new Map(input.map(n => [n.id, 0]));
+        for (const node of wing.nodes) if (counts.has(node.id)) counts.set(node.id, counts.get(node.id)! + 1);
+        for (const group of groups.filter(g => !expanded.has(g.id))) for (const id of group.members) {
+          for (const node of flatten([input.find(n => n.id === id)!])) counts.set(node.id, counts.get(node.id)! + 1);
+        }
+        assert.ok([...counts.values()].every(count => count === 1));
+        const compacted = compactTree(tree, wing.side === -1 ? plan.left : plan.right, wing.side, expanded, g => ({ id: g.id, tasks: [] }));
+        assert.deepEqual(new Set(flatten(compacted).map(n => n.id)), new Set(wing.nodes.map(n => n.id)));
+        assert.equal(new Set(wing.nodes.map(n => n.id)).size, wing.nodes.length);
+      }
+    }
+  }
+});
+
+test('the dense fixture represents every configured Agent after compaction', () => {
+  // Regression: topology-accounts-dense lost its fifth Agent before compaction because maxVisibleAgents 5 silently fell back to 4.
+  const { fixture, roots, scene } = denseTopologyScene();
+  const plan = compactRoots(scene.left, scene.right, scene, 'landscape', DEFAULTS);
+  const groups = topologyGroups(scene.right, plan.right, 1);
+  const layout = compactLayout(scene, plan, new Set(), DEFAULTS, 'landscape');
+  const actual = [...layout.wings[1].nodes.filter(n => !n.parent && roots.some(root => root.id === n.id)).map(n => n.id),
+    ...groups.filter(g => !g.parent).flatMap(g => g.members)];
+  assert.deepEqual(new Set(actual), new Set(fixture.agents));
+  assert.deepEqual(groups.find(g => g.parent === 'codex')!.members,
+    roots.find(n => n.id === 'codex')!.children!.filter(n => !n.tasks.length).map(n => n.id));
 });
 
 test('eleven Codex accounts fold eight idle children before any other roots', () => {
