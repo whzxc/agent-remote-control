@@ -225,7 +225,7 @@ Surfaces with mapped implementation usage are **adopted**. Governance review is 
 | `surfaces/homepage-topology-studio.tsx` | `studio` | `ui/topology/Topology.tsx` | Depends on scenes helper; migrate topology module/fixtures before individual surface review. |
 | `surfaces/homepage-topology-tasks.tsx` | `tasks` | `ui/topology/Topology.tsx` | Depends on scenes helper; migrate topology module/fixtures before individual surface review. |
 | `surfaces/mcp-hub.tsx` | `empty`, `failed`, `ready` | `ui/mcp/McpHub.tsx` | Reviewed. Composes modules/mcp-service. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
-| `surfaces/pets-settings.tsx` | `library` | `ui/pets/PetsPage.tsx` | Composes modules/pets; declared captures remain with the surface. Module is Reviewed. Remaining gaps are listed below. |
+| `surfaces/pets-settings.tsx` | `library` | `ui/pets/PetsPage.tsx` | Reviewed. Composes modules/pets. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/platforms.tsx` | `connected`, `empty` | `ui/components/PlatformsPage.tsx` | Reviewed. Composes modules/source-activity and connectors; full-region captures remain with this surface. Runtime fidelity gaps are listed below. |
 | `surfaces/quota-overview.tsx` | `empty`, `overview` | `ui/subscriptions/UsageHistory.tsx` | Uses modules/quota/QuotaBar and fixtures/quota. Overview composition and runtime fidelity await surface review. |
 | `surfaces/relay-hosting.tsx` | `empty` | `ui/components/RelaySettings.tsx` | Composes modules/relay-hosting; declared captures remain with the surface. Module is Reviewed. Remaining gaps are listed below. |
