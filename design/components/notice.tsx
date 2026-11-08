@@ -1,13 +1,8 @@
 import { Frame, Icon } from "sdg";
 import { Button } from "./button";
+import { noticeExample } from "../fixtures/feedback";
+
 const example = {
-  title: "命令未能启动",
-  detail: "确认命令已安装，并且位于 ARC 的搜索路径中。",
-  diagnostic: [
-    "MCP_COMMAND_NOT_FOUND: index-mcp was not found on ARC's",
-    "Agent search path",
-  ],
-  copy: "复制修复提示词",
   request: "待处理请求 · 1",
   summary: "Read README.md",
   open: "打开",
@@ -29,11 +24,14 @@ export function Notice({
 }) {
   const paint = {
     danger:
-      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-danger before:opacity-10 text-danger",
+      `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
+      before:bg-danger before:opacity-10 text-danger`,
     warning:
-      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-warning before:opacity-10 text-warning",
+      `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
+      before:bg-warning before:opacity-10 text-warning`,
     success:
-      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-success before:opacity-10 text-success",
+      `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
+      before:bg-success before:opacity-10 text-success`,
   };
   return (
     <div
@@ -84,14 +82,14 @@ export function ReviewUnavailable({
   );
 }
 export default () => [
-  <Frame name="danger" width={560}>
+  <Frame name="notice-danger" width={560}>
     <Notice
-      title={example.title}
-      action={<Button icon="copy">{example.copy}</Button>}
+      title={noticeExample.title}
+      action={<Button icon="copy">{noticeExample.copy}</Button>}
     >
-      <p class="text-text">{example.detail}</p>
+      <p class="text-text">{noticeExample.detail}</p>
       <div class="mt-[2px] font-mono text-caption leading-4 text-text-secondary">
-        {example.diagnostic.map((line) => (
+        {noticeExample.diagnostic.map((line) => (
           <div>{line}</div>
         ))}
       </div>

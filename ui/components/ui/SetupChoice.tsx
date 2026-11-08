@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Button, Icon, Tile } from "./index";
 
-/** The navigation instance of setup-choice/row; it does not select a radio value. */
+/** The navigation instance of setup-choice/setup-choice-row; it does not select a radio value. */
 export function SetupAction({ icon, label, description, badge, ...props }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   icon: LucideIcon; label: string; description?: string; badge?: string;
 }) {

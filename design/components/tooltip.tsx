@@ -1,5 +1,6 @@
 import { Frame } from "sdg";
-const example = "权限与就绪";
+import { tooltipExample } from "../fixtures/feedback";
+
 export function Tooltip({
   text,
   children,
@@ -18,6 +19,6 @@ export function Tooltip({
 }
 export default () => (
   <Frame name="default">
-    <Tooltip>{example}</Tooltip>
+    <Tooltip>{tooltipExample}</Tooltip>
   </Frame>
 );
