@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Icon } from './index';
 import './TaskRow.css';
 
-/** The task-bubble row and row-attention forms. */
+/** Task rows from design/modules/task-presentation.tsx. */
 export function TaskRow({ title, meta, tile, tone, attention = false, disabled, ...props }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'title' | 'children'> & {
   title: string; meta: ReactNode; tile: ReactNode; tone: string; attention?: boolean;
 }) {

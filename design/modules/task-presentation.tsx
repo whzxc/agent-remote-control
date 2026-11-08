@@ -3,73 +3,15 @@ import { Tile, type TileTone } from "../components/tile";
 import type { Brand } from "../components/agent-icon";
 import { Tag } from "../components/tag";
 import { DispatchSpec } from "./model-configuration";
-const spec = {
-  model: "GPT-6.1 Sol",
-  effort: "高推理强度",
-  position: { count: 4, index: 2 },
-  tier: "快速",
-  fast: true,
-};
+import {
+  taskDispatch, bubbleForms, stateForms, messageForms, messageExample, taskRowExample, bubbleMeta,
+} from "../fixtures/task-presentation";
 const trail = [
-  "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-phase-thinking before:opacity-55",
-  "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-phase-command before:opacity-55",
+  "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+    "before:bg-phase-thinking before:opacity-55",
+  "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+    "before:bg-phase-command before:opacity-55",
   "bg-current",
-];
-const forms: {
-  name: TaskBubbleForm;
-  title: string;
-  duration?: string;
-  phase: string;
-  headline: string;
-  tone: TileTone;
-  icon: string;
-  detail?: string;
-}[] = [
-  {
-    name: "compact",
-    title: "检查项目变更",
-    duration: "1:23",
-    phase: "执行命令",
-    headline: "npm run check",
-    tone: "command",
-    icon: "terminal",
-  },
-  {
-    name: "standard",
-    title: "更新配置文件",
-    duration: "1:06:05",
-    phase: "处理文件",
-    headline: "config.json",
-    tone: "file",
-    icon: "paperclip",
-  },
-  {
-    name: "detailed",
-    title: "确认 API 契约",
-    duration: "12:40",
-    phase: "思考中",
-    headline: "对比 guide 与 catalog 的…",
-    detail: "上一步：读取 docs/reference/tool…",
-    tone: "thinking",
-    icon: "brain",
-  },
-  {
-    name: "row",
-    title: "检查项目变更",
-    duration: "21:54",
-    phase: "执行命令",
-    headline: "npm run check",
-    tone: "command",
-    icon: "terminal",
-  },
-  {
-    name: "row-attention",
-    title: "确认项目文件访问",
-    phase: "等待输入",
-    headline: "读取 README.md",
-    tone: "warning",
-    icon: "shield-alert",
-  },
 ];
 export type TaskBubbleForm =
   "compact" | "standard" | "detailed" | "row" | "row-attention";
@@ -127,10 +69,20 @@ export function TaskBubble({
     accent: "text-accent",
     danger: "text-danger",
   };
+  const spacing = row ? "w-[380px] gap-3 px-3 pt-[14px] pb-3" : "w-[264px] gap-[10px] px-[11px]";
+  const padding = form === "compact" ? "py-[11px]"
+    : form === "standard" ? "pt-3 pb-[7px]"
+    : form === "detailed" ? "pt-[14px] pb-[9px]" : "";
+  const background = form === "row-attention"
+    ? "relative isolate before:absolute before:inset-0 before:-z-10 " +
+      "before:rounded-[inherit] before:bg-warning before:opacity-10"
+    : row ? "bg-surface-subtle" : "bg-surface shadow-md";
+  const phaseWidth = phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : "";
+  const headlineFont = headlineMono || tone === "command" || tone === "file" ? "font-mono" : "";
   return (
     <div
       style={width ? { width } : undefined}
-      class={`flex items-start rounded-card ${row ? "w-[380px] gap-3 px-3 pt-[14px] pb-3" : "w-[264px] gap-[10px] px-[11px]"} ${form === "compact" ? "py-[11px]" : form === "standard" ? "pt-3 pb-[7px]" : form === "detailed" ? "pt-[14px] pb-[9px]" : ""} ${form === "row-attention" ? "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-warning before:opacity-10" : row ? "bg-surface-subtle" : "bg-surface shadow-md"} ${paint[tone]}`}
+      class={`flex items-start rounded-card ${spacing} ${padding} ${background} ${paint[tone]}`}
     >
       <Tile icon={icon} form="phase" tone={tone} source={source} sourceBrand={sourceBrand} />
       <div class="flex min-w-0 flex-1 flex-col">
@@ -148,9 +100,11 @@ export function TaskBubble({
           style={{ "--activity-gap": `${activityGap}px` }}
           class="mt-[5px] flex items-center gap-(--activity-gap) text-meta leading-[14px]"
         >
-          <span class={`shrink-0 font-medium ${neutralPhase ? "text-text-secondary" : ""} ${phaseColumn === "latin" ? "w-[65px]" : phaseColumn === "cjk" ? "w-12" : ""}`}>{phase}</span>
+          <span class={`shrink-0 font-medium ${neutralPhase ? "text-text-secondary" : ""} ${phaseWidth}`}>
+            {phase}
+          </span>
           <span
-            class={`${truncateHeadline ? "min-w-0 truncate" : "shrink-0 whitespace-nowrap"} text-text ${headlineMono || tone === "command" || tone === "file" ? "font-mono" : ""}`}
+            class={`${truncateHeadline ? "min-w-0 truncate" : "shrink-0 whitespace-nowrap"} text-text ${headlineFont}`}
           >
             {headline}
           </span>
@@ -188,37 +142,129 @@ export function TaskRow({
   title,
   meta,
   tile,
-  tone,
   attention = false,
+  compact = false,
+  children,
+  trailing,
 }: {
   title: string;
-  meta: unknown;
+  meta?: unknown;
   tile: unknown;
-  tone?: string;
   attention?: boolean;
+  compact?: boolean;
+  children?: unknown;
+  trailing?: unknown;
 }) {
+  const background = attention
+    ? compact
+      ? "bg-warning/10"
+      : "relative isolate before:absolute before:inset-0 before:-z-10 " +
+        "before:rounded-[inherit] before:bg-warning before:opacity-10"
+    : "bg-surface-subtle";
   return (
-    <div
-      class={`flex items-center gap-3 rounded-card p-3 ${attention ? "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-warning before:opacity-10" : "bg-surface-subtle"}`}
-    >
+    <div class={`flex gap-3 rounded-card p-3 ${compact ? "h-16 items-start" : "items-center"} ${background}`}>
       {tile}
-      <div class="flex min-w-0 flex-1 flex-col gap-1">
-        <strong class="text-small text-text">{title}</strong>
-        <div class="text-meta text-text-secondary">{meta}</div>
-      </div>
-      <Icon name="chevron-right" size={16} class="text-text-secondary" />
+      {children ?? (
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <strong class="text-small text-text">{title}</strong>
+          <div class="text-meta text-text-secondary">{meta}</div>
+        </div>
+      )}
+      {trailing === undefined
+        ? <Icon name="chevron-right" size={16} class="text-text-secondary" />
+        : trailing}
     </div>
   );
 }
-export default () =>
-  forms.map(({ name, ...props }) => (
+
+export type TaskState = "running" | "waiting" | "done" | "failed" | "stopped";
+export function StatePill({
+  state,
+  children,
+  class: extra = "",
+}: {
+  state: TaskState;
+  children?: unknown;
+  class?: string;
+}) {
+  const paint = {
+    running:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-accent-text before:opacity-15 text-accent-text",
+    waiting:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-warning before:opacity-15 text-warning",
+    done: "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-success before:opacity-15 text-success",
+    failed:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-danger before:opacity-15 text-danger",
+    stopped:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-text-tertiary before:opacity-12 text-text-tertiary",
+  };
+  return (
+    <span
+      class={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-field text-meta font-semibold ${paint[state]} ${extra}`}
+    >
+      <span class="size-[6px] rounded-[3px] bg-current" />
+      {children}
+    </span>
+  );
+}
+
+export function TaskMessage({
+  text,
+  children,
+  queued = false,
+  status,
+  class: extra = "",
+}: {
+  text?: string;
+  children?: unknown;
+  queued?: boolean;
+  status?: string;
+  class?: string;
+}) {
+  return (
+    <div
+      class={`flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text ${extra}`}
+    >
+      <p class="text-small leading-4">{text ?? children}</p>
+      {(status || queued) && (
+        <span class="self-end text-meta leading-[14px] text-text-secondary">
+          {status || "Queued"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default () => [
+  ...bubbleForms.map(({ name, ...props }) => (
     <Frame name={`task-bubble-${name}`}>
       <TaskBubble
         {...props}
         form={name}
-        dispatch={spec}
-        project={name.startsWith("row") ? "acceptance" : "ac…"}
-        date="1月1日"
+        dispatch={taskDispatch}
+        project={name.startsWith("row") ? bubbleMeta.rowProject : bubbleMeta.project}
+        date={bubbleMeta.date}
       />
     </Frame>
-  ));
+  )),
+  ...stateForms.map(({ name, text }) => (
+    <Frame name={`state-pill-${name}`}><StatePill state={name}>{text}</StatePill></Frame>
+  )),
+  ...messageForms.map(({ name, ...props }) => (
+    <Frame name={`task-message-${name}`} width={520}>
+      <TaskMessage text={messageExample} {...props} />
+    </Frame>
+  )),
+  ...[false, true].map((attention) => (
+    <Frame name={attention ? "task-row-attention" : "task-row"} width={380}>
+      <div class="w-full bg-surface-raised">
+        <TaskRow {...taskRowExample} attention={attention} tile={<Tile icon="circle" form="phase" tone="neutral" />} />
+      </div>
+    </Frame>
+  )),
+];

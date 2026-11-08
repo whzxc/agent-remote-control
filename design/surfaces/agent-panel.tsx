@@ -5,41 +5,10 @@ import { IconButton } from "../components/icon-button";
 import { QuotaSummary } from "../modules/quota";
 import { TaskBubble } from "../modules/task-presentation";
 import { Tile } from "../components/tile";
-import { Tag } from "../components/tag";
-
+import { AgentTaskHistory } from "../modules/agent-activity";
+import { active, agentHistory, agentTaskMeta } from "../fixtures/agent-activity";
+import { taskDispatch } from "../fixtures/task-presentation";
 import { agentQuotas as quotas } from "../fixtures/quota";
-const active = [
-  {
-    heading: "需要你处理 · 1",
-    title: "Confirm access to project files",
-    phase: "等待输入",
-    headline: "Read README.md",
-    tone: "warning",
-    icon: "shield-alert",
-    form: "row-attention",
-  },
-  {
-    heading: "运行中 · 1",
-    title: "Verify project changes",
-    phase: "执行命令",
-    headline: "npm run check",
-    duration: "21:54",
-    tone: "command",
-    icon: "terminal",
-    form: "row",
-  },
-] as const;
-const history = [
-  { heading: "今天 · 3", tasks: [1, 2, 3], date: "1月1日" },
-  { heading: "昨天 · 1", tasks: [4], date: "2025年12月31日" },
-];
-const spec = {
-  model: "GPT-6.1 Sol",
-  effort: "高推理强度",
-  position: { count: 4, index: 2 },
-  fast: true,
-  tier: "快速",
-};
 function AgentPanel({ empty = false }: { empty?: boolean }) {
   return (
     <PanelShell width={420} height={empty ? 320 : 840} class="px-5 pt-4 pb-3">
@@ -91,35 +60,13 @@ function AgentPanel({ empty = false }: { empty?: boolean }) {
               </h3>
               <TaskBubble
                 {...task}
-                project="acceptance"
-                date="1月1日"
-                dispatch={spec}
+                project={agentTaskMeta.project}
+                date={agentTaskMeta.date}
+                dispatch={taskDispatch}
               />
             </section>
           ))}
-          {history.map((group) => (
-            <section class="flex flex-col gap-2">
-              <h3 class="text-meta leading-4 font-semibold text-text-secondary">
-                {group.heading}
-              </h3>
-              {group.tasks.map((n) => (
-                <div class="flex h-16 items-start gap-3 rounded-card bg-surface-subtle p-3">
-                  <Tile icon="circle" form="phase" tone="neutral" />
-                  <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
-                    <strong class="text-small leading-[18px] font-[650]">
-                      Review project change {n}
-                    </strong>
-                    <div class="flex items-center justify-between">
-                      <Tag>acceptance</Tag>
-                      <span class="text-caption text-text-tertiary">
-                        {group.date}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </section>
-          ))}
+          <AgentTaskHistory groups={agentHistory} />
         </div>
       )}
     </PanelShell>

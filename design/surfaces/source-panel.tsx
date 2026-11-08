@@ -1,82 +1,9 @@
-import { Frame, Icon } from "sdg";
+import { Frame } from "sdg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
 import SourceArt from "../art/source.svg";
-import { Tile, type TileTone } from "../components/tile";
-const dispatches = [
-  {
-    title: "需要你处理",
-    rows: [
-      [
-        "Review the example change",
-        "codex · 等待输入",
-        "warning",
-        "shield-alert",
-      ],
-    ],
-  },
-  {
-    title: "运行中",
-    rows: [
-      ["Update example documentation", "codex · 运行中", "thinking", "brain"],
-      ["Review example tests", "claude · 运行中", "thinking", "brain"],
-    ],
-  },
-];
-const history = [
-  {
-    title: "Needs your attention",
-    rows: [
-      [
-        "Submission awaiting-approval",
-        "codex · Awaiting dispatch approval",
-        "warning",
-        "shield-alert",
-      ],
-    ],
-  },
-  {
-    title: "Running",
-    rows: [["Current running dispatch", "codex · Running", "file", "pencil"]],
-  },
-  {
-    title: "Unread",
-    rows: [
-      ["Completed dispatch", "codex · Done", "success", "check"],
-      ["Failed execution", "codex · Failed", "danger", "circle-alert"],
-      [
-        "Interrupted execution",
-        "codex · Interrupted",
-        "neutral",
-        "circle-pause",
-      ],
-    ],
-  },
-  {
-    title: "Today",
-    rows: [
-      ["Submission reserved", "codex · Submitting", "neutral", "circle"],
-      ["Submission not-executed", "codex · Not executed", "neutral", "circle"],
-      [
-        "Submission unconfirmed",
-        "codex · Submission unconfirmed",
-        "warning",
-        "circle",
-      ],
-      [
-        "Submission failed",
-        "codex · Submission failed",
-        "danger",
-        "circle-alert",
-      ],
-    ],
-  },
-  {
-    title: "Yesterday",
-    rows: [["Earlier completed dispatch", "codex · Done", "success", "check"]],
-  },
-];
+import { SourceTaskGroups } from "../modules/source-activity";
 const facts = [
   [
     { label: "产品", value: "Ranoat" },
@@ -137,44 +64,8 @@ function SourcePanel({
           ))}
         </article>
       ) : (
-        <div class="mt-7 flex flex-col gap-4">
-          {(form === "history" ? history : dispatches).map(
-            (group, groupIndex) => (
-              <section class="flex flex-col gap-2">
-                <h3
-                  class={`flex gap-[10px] text-meta leading-4 font-semibold ${group.title === "需要你处理" || group.title === "Needs your attention" ? "text-warning" : "text-text-secondary"}`}
-                >
-                  {group.title}
-                  <span class="text-text-tertiary">{group.rows.length}</span>
-                </h3>
-                {group.rows.map(([title, meta, tone, icon]) => (
-                  <article
-                    class={`flex h-16 items-start gap-3 rounded-card p-3 ${groupIndex === 0 ? "bg-warning/10" : "bg-surface-subtle"}`}
-                  >
-                    <Tile form="phase" tone={tone as TileTone} icon={icon} />
-                    <div class="flex flex-1 flex-col gap-[3px]">
-                      <strong class="text-small leading-4 font-[650]">
-                        {title}
-                      </strong>
-                      <span
-                        class={`text-meta leading-4 font-medium ${{ warning: "text-warning", thinking: "text-phase-thinking", file: "text-phase-file", success: "text-success", danger: "text-danger", neutral: "text-text-tertiary" }[tone]}`}
-                      >
-                        {meta}
-                      </span>
-                    </div>
-                    {(form === "dispatches" ||
-                      !title.startsWith("Submission")) && (
-                      <Icon
-                        name="chevron-right"
-                        size={16}
-                        class="self-center text-text-tertiary"
-                      />
-                    )}
-                  </article>
-                ))}
-              </section>
-            ),
-          )}
+        <div class="mt-7">
+          <SourceTaskGroups history={form === "history"} />
         </div>
       )}
     </PanelShell>

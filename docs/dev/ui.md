@@ -135,7 +135,7 @@ Related tooltips remain mounted and move/resize continuously between triggers. H
 
 ## Functional pages
 
-Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and the `task-bubble-row` and `task-bubble-row-attention` frames of [task presentation](../../design/modules/task-presentation.tsx) define task rows. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
+Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and [task presentation](../../design/modules/task-presentation.tsx) defines TaskBubble and TaskRow. [Agent activity](../../design/modules/agent-activity.tsx) and [source activity](../../design/modules/source-activity.tsx) own their grouping, metadata and disclosure policy. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
 
 Request logs remain available through native management interfaces; there is no standalone Records page.
 
