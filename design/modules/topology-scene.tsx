@@ -2,7 +2,7 @@ import { example } from "../fixtures/topology-scene";
 import { Frame } from "sdg";
 import { BoardHeader } from "./board-header";
 
-export type SceneItem = { x: number; y: number; content: unknown };
+export type SceneItem = { x: number; y: number; anchor?: "right"; content: unknown };
 export type SceneLink = {
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -68,8 +68,8 @@ export function TopologyScene({
           ))}
         </svg>
       )}
-      {items.map(({ x, y, content }) => (
-        <div class="absolute" style={{ left: x, top: y }}>
+      {items.map(({ x, y, anchor, content }) => (
+        <div class="absolute" style={anchor === "right" ? { right: width - x, top: y } : { left: x, top: y }}>
           {content}
         </div>
       ))}

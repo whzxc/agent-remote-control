@@ -2,7 +2,7 @@ import type { TopologyNodeProps } from "../modules/topology-node";
 import type { TaskBubbleProps } from "../modules/task-presentation";
 import type { ScenePath } from "../modules/topology-scene";
 import type { TopologyGroupProps } from "../modules/topology-group";
-import { idleAgents, idleCodexAccounts, idleSources } from "./topology-group";
+import { idleAgents, idleCodexAccounts, idleSources, portraitAccountGroups } from "./topology-group";
 
 // Fixture geometry extracted from the approved topology sheets. Runtime solving stays in ui/topology/solve.ts.
 export const nodes: readonly TopologyNodeProps[] = [
@@ -86,12 +86,14 @@ export const nodes: readonly TopologyNodeProps[] = [
     brand: "codex",
     readings: [{ id: "display", label: "Display", value: 81.0, color: "var(--success)", elapsed: 0.5714285714285714 }],
   },
+  { label: "Codex", brand: "codex", layout: "agent", width: 140 },
 ];
 
 export const groups: readonly TopologyGroupProps[] = [
   { label: "8 idle accounts", members: idleCodexAccounts },
   { label: "4 idle Agents", members: idleAgents },
   { label: "3 idle", members: idleSources, layout: "source" },
+  ...portraitAccountGroups,
 ];
 export const tasks: readonly TaskBubbleProps[] = [
   {
@@ -1579,6 +1581,8 @@ export const links: readonly ScenePath[] = [
       "L 916.4 470.6 L 914.4 470.6 L 912.4 470.5 L 910.3 470.5 L 908.2 470.4 L 906.0 470.4 Z",
     class: "fill-role-agent/55",
   },
+  { d: "M118 192H154", "stroke-width": "1", class: "fill-none stroke-role-source/52" },
+  { d: "M444 526H480 M444 718H480", "stroke-width": "1", class: "fill-none stroke-role-agent/52" },
 ];
 
 const accountSources = {
@@ -1713,6 +1717,27 @@ export const scenes = {
     links: [36, 37, 38, 39, 40, 41, 42],
     chrome: [
       { kind: "board", x: 200, y: 27, date: "January 1 · Thu", time: "08:00", title: "1 running" },
+      { kind: "nav", x: 24, y: 932, active: "" },
+    ],
+    mark: { x: 282, y: 406, size: 76, sourceAction: false, agentAction: false },
+  },
+  "portrait-accounts-folded": {
+    nodes: [
+      [4, 78, 1],
+      [4, 166, 2],
+      [4, 254, 3],
+      [4, 342, 4],
+      [456, 500, 27],
+      [456, 604, 9],
+      [456, 692, 6],
+      [456, 780, 11],
+      [456, 868, 12],
+    ],
+    groups: [[154, 178, 3], [444, 512, 4, "right"], [444, 704, 5, "right"]],
+    tasks: [],
+    links: [36, 37, 38, 39, 40, 115, 116],
+    chrome: [
+      { kind: "board", x: 200, y: 27, date: "January 1 · Thu", time: "08:00", title: "Board" },
       { kind: "nav", x: 24, y: 932, active: "" },
     ],
     mark: { x: 282, y: 406, size: 76, sourceAction: false, agentAction: false },

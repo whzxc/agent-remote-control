@@ -22,10 +22,33 @@ export const idleSources: readonly TopologyGroupMember[] = [
   { brand: "xai" },
 ];
 
+export const portraitAccountGroups = [
+  {
+    label: "Anthropic · 2 idle accounts",
+    members: [{ brand: "anthropic", quota: "unknown" }, { brand: "anthropic", quota: "unknown" }],
+    layout: "account-branch",
+  },
+  {
+    label: "Codex · 11 idle accounts",
+    members: [
+      { brand: "codex", quota: "out" },
+      ...Array.from({ length: 10 }, () => ({ brand: "codex", quota: "ok" }) as const),
+    ],
+    layout: "account-branch",
+  },
+  {
+    label: "Claude Code · 2 idle accounts",
+    members: [{ brand: "claude-code", quota: "low" }, { brand: "claude-code", quota: "ok" }],
+    layout: "account-branch",
+  },
+] as const satisfies readonly TopologyGroupProps[];
+
 export const forms: readonly (TopologyGroupProps & { name: string })[] = [
   { name: "pool", label: "8 idle accounts", members: idleCodexAccounts },
   { name: "mixed", label: "4 idle Agents", members: idleAgents },
   { name: "rail-source", label: "3 idle", members: idleSources, layout: "source" },
   { name: "rail-agent", label: "4 idle", members: idleAgents, layout: "agent" },
   { name: "unlabeled", label: "4 idle Agents", members: idleAgents, hideLabel: true },
+  { name: "account-branch-pair", ...portraitAccountGroups[2] },
+  { name: "account-branch-pool", ...portraitAccountGroups[1] },
 ];

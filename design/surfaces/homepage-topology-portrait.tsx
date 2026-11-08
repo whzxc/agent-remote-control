@@ -74,6 +74,12 @@ const frames = [
       "viewport": "640x1000"
     },
     "scene": "portrait-expanded-single-task"
+  },
+  {
+    "name": "accounts-folded",
+    "width": 640,
+    "height": 1000,
+    "scene": "portrait-accounts-folded"
   }
 ] as const;
 

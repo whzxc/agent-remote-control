@@ -10,7 +10,7 @@ import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { nodes, groups, tasks, links, scenes, dispatch } from "../fixtures/topology";
 
-type Placement = readonly [number, number, number];
+type Placement = readonly [x: number, y: number, item: number];
 type Chrome =
   | { kind: "board"; x: number; y: number; date: string; time: string; title: string }
   | { kind: "nav"; x: number; y: number; active: string }
@@ -18,7 +18,7 @@ type Chrome =
   | { kind: "icon"; x: number; y: number; icon: string };
 export type Scene = {
   nodes: readonly Placement[];
-  groups?: readonly Placement[];
+  groups?: readonly (readonly [x: number, y: number, group: number, anchor?: "right"])[];
   tasks: readonly Placement[];
   links: readonly number[];
   mark: Parameters<typeof TopologyMark>[0] & { x: number; y: number };
@@ -28,7 +28,7 @@ export type Scene = {
 export function TopologyScreen({ width, height, scene }: { width: number; height: number; scene: Scene }) {
   const items = [
     ...scene.nodes.map(([x, y, node]) => ({ x, y, content: <TopologyNode {...nodes[node]} /> })),
-    ...(scene.groups ?? []).map(([x, y, group]) => ({ x, y, content: <TopologyGroup {...groups[group]} /> })),
+    ...(scene.groups ?? []).map(([x, y, group, anchor]) => ({ x, y, anchor, content: <TopologyGroup {...groups[group]} /> })),
     ...scene.tasks.map(([x, y, task]) => ({ x, y, content: <TaskBubble {...tasks[task]} dispatch={dispatch} /> })),
     { x: scene.mark.x, y: scene.mark.y, content: <TopologyMark {...scene.mark} /> },
   ];
