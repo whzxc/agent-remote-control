@@ -31,6 +31,18 @@
   ],
   "viewports": [
     {
+      "width": 320,
+      "height": 844
+    },
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 520,
+      "height": 844
+    },
+    {
       "width": 640,
       "height": 800
     }

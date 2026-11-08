@@ -43,3 +43,7 @@
   line-height: 20px;
   white-space: normal;
 }
+
+@media (max-width: 520px) {
+  .board-header { top: 16px; left: 50%; }
+}

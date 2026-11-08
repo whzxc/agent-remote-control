@@ -1,0 +1,38 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "sourceProducts": [
+    "openai",
+    "anthropic",
+    "google",
+    "xai"
+  ],
+  "agents": [
+    "codex",
+    "claude",
+    "opencode"
+  ],
+  "quota": true,
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Inspect the dispatch queue",
+      "headline": "Reading queue state",
+      "direct": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Verify account attribution",
+      "headline": "Checking the workspace",
+      "direct": true
+    }
+  ],
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    }
+  ]
+}

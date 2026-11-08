@@ -17,6 +17,10 @@ export async function verifyPortraitTopology(page, fixture, messages, out, key, 
   };
   const center = (topology, target) => {
     const { sourceTop, agentBottom } = topology.primitives.portrait;
+    if (topology.size.vw <= 520) {
+      if (sourceTop !== 64) throw new Error('Mobile composition did not keep its top inset');
+      return;
+    }
     const positions = topology.tasks.filter(task => task.position?.op > 0.99).map(task => task.position);
     const anchor = target === 'tasks'
       ? (Math.min(...positions.map(task => task.y - task.height / 2)) + Math.max(...positions.map(task => task.y + task.height / 2))) / 2
@@ -25,6 +29,42 @@ export async function verifyPortraitTopology(page, fixture, messages, out, key, 
   };
 
   const open = await read(sourceCount, agentCount, taskCount);
+  if (page.viewportSize().width <= 520) {
+    // Regression: mobile node titles reserved outer columns and squeezed task content; the date/time header drifted left.
+    const checkMobile = async () => {
+      const issues = await page.evaluate(() => {
+        const width = innerWidth, problems = [];
+        const labels = [...document.querySelectorAll('.topology-node .graph-node-name')];
+        if (labels.some(label => label.getClientRects().length)) problems.push('Mobile node titles still occupy space');
+        const nodes = [...document.querySelectorAll('.topology-node .graph-node')].filter(node => !node.closest('[inert]'));
+        if (nodes.some(node => !node.getAttribute('aria-label'))) problems.push('Mobile node lost its accessible name');
+        const header = document.querySelector('.board-header').getBoundingClientRect();
+        if (Math.abs(header.x + header.width / 2 - width / 2) > 1) problems.push('Mobile date/time header is not centered');
+        const topology = window.__ARC_VIEW_MODEL__().topology;
+        for (const task of topology.tasks.filter(task => task.position?.op > 0.99)) {
+          const p = task.position;
+          if (p.x - p.width < 0 || p.x > width) problems.push('Mobile task leaves the viewport');
+          if (p.width < width - 120) problems.push('Mobile task still loses width to the outer label column');
+        }
+        if (document.documentElement.scrollWidth > width) problems.push('Mobile page scrolls horizontally');
+        return problems;
+      });
+      if (issues.length) throw new Error(issues.join('; '));
+    };
+    await checkMobile();
+    const initial = page.viewportSize();
+    await page.setViewportSize({ width: 640, height: 1000 });
+    await page.waitForFunction(() => {
+      const topology = window.__ARC_VIEW_MODEL__().topology;
+      return topology?.size.vw === 640 && !topology.orientationPending
+        && [...document.querySelectorAll('.topology-node .graph-node-name')].some(label => label.getClientRects().length);
+    });
+    await read(sourceCount, agentCount, taskCount);
+    await page.setViewportSize(initial);
+    await page.waitForFunction(width => window.__ARC_VIEW_MODEL__().topology?.size.vw === width, initial.width);
+    await read(sourceCount, agentCount, taskCount);
+    await checkMobile();
+  }
   if (open.nodes.some(node => node.side === 1 && node.stacked)
     || open.nodes.some(node => node.side === -1 && node.stacked) !== (taskCount === 4)) {
     throw new Error('Portrait did not compact the upper wing first under height pressure');

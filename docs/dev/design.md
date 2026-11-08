@@ -27,6 +27,8 @@ Keep the forms declared by each source's default export. Form names retain their
 
 Task bubbles retain compact, standard, detailed, row and attention-row forms. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded forms. The shared board-header component retains active and idle forms, used by the existing homepage frames. Setup retains standalone and nested connection flows; method and ready have distinct controls. The task-relationships component's detail-header examples are parts of its family form, not separate surface frames.
 
+`homepage-topology-mobile/narrow-two-tasks` defines the approved 390×844 mobile form. Portrait viewports at most 520 CSS pixels wide omit visible node labels; node names remain available as accessible labels. The rails reserve room for the node graphics and quota rings, giving task bubbles the remaining inward width. Wider portrait forms retain their existing labels. The mobile date/time header stays centered in the viewport.
+
 ## AX Board
 
 `surfaces/coordination-ax.tsx` declares open, closed and detail forms for the Board's AX tab. The tab shares the existing panel header. Open includes open, triaged and candidate records. Closed includes closed and merged records with their disposition. Detail replaces the list in the same panel and exposes the symptom, expected behavior, occurrence metadata, evidence, disposition, fixing commit and history. The frames map to `coordination-ax-light`, using synthetic Chinese owner metadata. A detail can exceed the panel's scroll viewport; its full-content frame retains the processing history below the fold.

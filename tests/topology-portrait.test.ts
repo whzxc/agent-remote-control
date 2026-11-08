@@ -54,9 +54,9 @@ const labels: PortraitLabels = {
     ['account/a', measured(90)], ['account/b', measured(170)]]),
 };
 
-test('portrait rail insets contain measured platform and account labels at every supported width', () => {
+test('wide portrait rail insets contain measured platform and account labels', () => {
   // Regression: portrait platform labels clipped at 900 and 1080, and account/platform labels escaped the 420 viewport.
-  for (const vw of [320, 420, 600, 900, 1080]) {
+  for (const vw of [600, 900, 1080]) {
     const scene = { vw, vh: 1600, left, right };
     const layout = solvePortrait(scene, DEFAULTS, null, labels), p = layout.portrait!;
     for (const wing of layout.wings) for (const node of wing.nodes) {
@@ -73,6 +73,16 @@ test('portrait rail insets contain measured platform and account labels at every
     const bubbles = layout.wings[1].tasks;
     assert.ok(bubbles.every(t => t.x - t.width > 0 && t.x < vw));
   }
+});
+
+test('narrow portrait label growth leaves node and task geometry unchanged', () => {
+  // Property: hidden node labels consume no layout space regardless of their measured names.
+  const scene = { vw: 390, vh: 844, left, right };
+  const wider: PortraitLabels = {
+    left: new Map([...labels.left].map(([id]) => [id, measured(600)])),
+    right: new Map([...labels.right].map(([id]) => [id, measured(600)])),
+  };
+  assert.deepEqual(solvePortrait(scene, DEFAULTS, null, wider), solvePortrait(scene, DEFAULTS, null, labels));
 });
 
 test('wider measured labels move the rail and its complete inward hierarchy together', () => {

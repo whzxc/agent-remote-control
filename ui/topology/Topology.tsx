@@ -6,7 +6,7 @@ import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
-import { solvePortrait, portraitPanelRect } from "./portrait";
+import { solvePortrait, portraitPanelRect, portraitLabelBreakpoint } from "./portrait";
 import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
 import { compactRoots, compactLayout, type CompactPlan } from './compact';
 import { t } from '../i18n';
@@ -299,6 +299,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (!h || !root) return;
     const portrait = orientation.current === 'portrait';
     root.dataset.orientation = orientation.current;
+    root.dataset.labelsHidden = String(portrait && (layout.current?.vw ?? 0) <= portraitLabelBreakpoint);
     const blend = Math.max(0, Math.min(1, a.values('orientation')?.portrait ?? 0));
     for (const [element, opacity, active] of [[svg.current, 1 - blend, !portrait], [portraitSvg.current, blend, portrait]] as const) {
       if (!element) continue;
@@ -476,8 +477,12 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     let solved: Layout;
     if (orientation.current !== 'portrait') solved = solve(sc, params);
     else {
-      if (graph.current) graph.current.dataset.orientation = 'portrait';
-      const labels = measurePortraitLabels(latest.current.nodes, n => elements.current.get(nodeKey(n.side, n.id)));
+      const hideLabels = sc.vw <= portraitLabelBreakpoint;
+      if (graph.current) {
+        graph.current.dataset.orientation = 'portrait';
+        graph.current.dataset.labelsHidden = String(hideLabels);
+      }
+      const labels = hideLabels ? undefined : measurePortraitLabels(latest.current.nodes, n => elements.current.get(nodeKey(n.side, n.id)));
       solved = solvePortrait(sc, params, null, labels);
       const measured = compactRoots(left, right, sc, 'portrait', params, solved);
       const same = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every(id => b.has(id));

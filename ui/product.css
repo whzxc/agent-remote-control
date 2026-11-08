@@ -1050,6 +1050,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-scene[data-orientation="portrait"] .agents:not(.topology-account) .agent-auto-compact {
   top: calc(50% + 16px); left: calc(100% + 12px); transform: none;
 }
+.topology-scene[data-labels-hidden="true"] :is(.graph-node-name, .agent-auto-compact) { display: none; }
 .portrait-wires .portrait-rail { fill: none; stroke: var(--wire-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .portrait-wires .portrait-task { --task-color: var(--topology-agent); fill: none; stroke: var(--task-color); stroke-width: 2; stroke-linecap: round; }
 .portrait-wires .portrait-task[data-state="done"] { --task-color: var(--success); }

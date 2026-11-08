@@ -1,5 +1,5 @@
 import { solve, type Entity, type Layout, type Params, type Scene, type Side, type Task, type Wing } from './solve.ts';
-import { portraitInset, solvePortrait } from './portrait.ts';
+import { portraitInset, portraitLabelBreakpoint, solvePortrait } from './portrait.ts';
 import type { Orientation } from './orientation.ts';
 
 export interface ActivityEntity extends Entity {
@@ -91,7 +91,8 @@ export function compactLayout(layout: Layout, plan: CompactPlan, expanded: Reado
       const last = Math.max(...tasks.map(t => t.y + t.height / 2));
       anchor = agentOffset + (first + last) / 2;
     }
-    p.sourceTop = Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor); p.sourceBottom = p.sourceTop + left.H;
+    p.sourceTop = result.vw <= portraitLabelBreakpoint ? 64 : Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor);
+    p.sourceBottom = p.sourceTop + left.H;
     result.hub.y = p.sourceBottom + sourceClearance;
     p.agentTop = p.sourceTop + agentOffset; p.agentBottom = p.agentTop + right.H;
     shift(left, p.sourceTop); shift(right, p.agentTop);

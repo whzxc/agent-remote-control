@@ -21,9 +21,10 @@ export type TopologyNodeProps = {
   width?: number;
   layout?: "vertical" | "source" | "agent";
   stacked?: boolean;
+  hideLabel?: boolean;
 };
 export function TopologyNode({
-  label, brand, readings, used, width = 110, layout = "vertical", stacked = false,
+  label, brand, readings, used, width = 110, layout = "vertical", stacked = false, hideLabel = false,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
   const graphic = <span class={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
@@ -31,8 +32,8 @@ export function TopologyNode({
     <span class="col-start-1 row-start-1 flex"><AgentIcon brand={brand} readings={readings} used={used} /></span>
   </span>;
   return (
-    <div style={{ width }} class={`flex h-[76px] text-text ${horizontal ? "items-start pt-[2px] gap-[5px]" : "flex-col items-center gap-[2px] pt-[2px]"}`}>
-      {layout === "source" ? <>
+    <div aria-label={hideLabel ? label : undefined} style={{ width: hideLabel ? 48 : width }} class={`flex text-text ${hideLabel ? "h-12 items-center justify-center" : horizontal ? "h-[76px] items-start pt-[2px] gap-[5px]" : "h-[76px] flex-col items-center gap-[2px] pt-[2px]"}`}>
+      {hideLabel ? graphic : layout === "source" ? <>
         <span class="flex w-[85px] shrink-0 justify-end items-center h-12 text-meta">{label}</span>
         {graphic}
       </> : <>
