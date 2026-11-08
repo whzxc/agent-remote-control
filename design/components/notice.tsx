@@ -1,14 +1,7 @@
-import { Frame, Icon } from "sdg";
+import { Frame } from "sdg";
 import { Button } from "./button";
 import { noticeExample } from "../fixtures/feedback";
 
-const example = {
-  request: "待处理请求 · 1",
-  summary: "Read README.md",
-  open: "打开",
-  unavailable: "暂时无法读取审阅信息。",
-  retry: "重试",
-};
 export function Notice({
   children,
   title,
@@ -45,44 +38,8 @@ export function Notice({
     </div>
   );
 }
-export function RequestEntry({
-  title,
-  summary,
-  action,
-}: {
-  title: string;
-  summary?: string;
-  action: string;
-}) {
-  return (
-    <div class="flex w-full items-center gap-[10px] rounded-card relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-warning before:opacity-10 p-4">
-      <Icon name="shield-alert" size={18} class="self-start text-warning" />
-      <div class="flex flex-1 flex-col gap-[10px]">
-        <strong class="text-meta leading-4 text-warning">{title}</strong>
-        {summary && (
-          <span class="text-small leading-[18px] text-text">{summary}</span>
-        )}
-      </div>
-      <Button>{action}</Button>
-    </div>
-  );
-}
-export function ReviewUnavailable({
-  children,
-  action,
-}: {
-  children?: unknown;
-  action?: unknown;
-}) {
-  return (
-    <div class="flex w-full items-center justify-between gap-4 rounded-card bg-surface-subtle px-4 py-[18px] text-small text-text-secondary">
-      <span>{children}</span>
-      {action}
-    </div>
-  );
-}
 export default () => [
-  <Frame name="notice-danger" width={560}>
+  <Frame name="danger" width={560}>
     <Notice
       title={noticeExample.title}
       action={<Button icon="copy">{noticeExample.copy}</Button>}
@@ -94,19 +51,5 @@ export default () => [
         ))}
       </div>
     </Notice>
-  </Frame>,
-  <Frame name="request-entry" width={560}>
-    <RequestEntry
-      title={example.request}
-      summary={example.summary}
-      action={example.open}
-    />
-  </Frame>,
-  <Frame name="review-unavailable" width={560}>
-    <ReviewUnavailable
-      action={<Button variant="ghost">{example.retry}</Button>}
-    >
-      {example.unavailable}
-    </ReviewUnavailable>
   </Frame>,
 ];

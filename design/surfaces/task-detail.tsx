@@ -5,7 +5,7 @@ import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { StatePill, TaskMessage } from "../modules/task-presentation";
 import { DispatchSpec } from "../modules/model-configuration";
-import { PermissionCard } from "../components/card";
+import { InlineRequest } from "../modules/request";
 import SourceArt from "../art/source.svg";
 import { Tile } from "../components/tile";
 const task = {
@@ -302,15 +302,7 @@ function TaskDetail({ form }: { form: string }) {
         )}
       </div>
       {waiting && (
-        <section class="mt-8 flex flex-col gap-4">
-          <div class="flex flex-col gap-[6px]">
-            <h3 class="text-body leading-4 font-semibold">待处理请求</h3>
-            <p class="text-meta leading-4 text-text-tertiary">
-              将在控制源下次检查时处理
-            </p>
-          </div>
-          <PermissionCard />
-        </section>
+        <InlineRequest class="mt-8" />
       )}
     </PanelShell>
   );
