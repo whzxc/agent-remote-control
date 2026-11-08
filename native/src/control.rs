@@ -150,7 +150,7 @@ impl Control {
             if self.profile_rpc_running(profile, &cached.rpc).await {
                 return Err(json!({"code":"CODEX_PROFILE_PARITY_BUSY","message":"Shared Codex configuration changed while this profile has active tasks. Finish or interrupt those tasks, then retry dispatch so ARC can restart the profile with current configuration.","next":{"via":"query","op":"guide","args":{"op":"accounts"}}}).to_string());
             }
-            cached.rpc.close().await;
+            cached.rpc.stop().await;
         }
         rpcs.remove(profile);
         let parity = crate::accounts::codex::shared_configuration(profile)?;
@@ -166,15 +166,23 @@ impl Control {
             .to_owned();
         if profile == "codex-home" {
             return Ok(ProfileRpc {
-                rpc: Rpc::start(&self.rpc_binary()?, self.events.clone(), &self.session).await?,
+                rpc: Rpc::attach(
+                    &self.rpc_binary()?,
+                    self.events.clone(),
+                    &self.session,
+                    None,
+                    &fingerprint,
+                )
+                .await?,
                 fingerprint,
             });
         }
-        let rpc = Rpc::start_profile(
+        let rpc = Rpc::attach(
             &self.rpc_binary()?,
             self.events.clone(),
             &self.session,
             Some(profile),
+            &fingerprint,
         )
         .await?;
         {
@@ -182,9 +190,16 @@ impl Control {
                 crate::accounts::codex::tokens(profile, None, &self.rpc_binary()?).await?;
             login["type"] = json!("chatgptAuthTokens");
             if let Err(error) = rpc.call("account/login/start", login, 10000).await {
-                rpc.close().await;
+                if rpc.adopted() {
+                    rpc.close().await;
+                } else {
+                    rpc.stop().await;
+                }
                 return Err(error);
             }
+        }
+        if rpc.adopted() {
+            rpc.resubscribe().await;
         }
         Ok(ProfileRpc { rpc, fingerprint })
     }
@@ -231,8 +246,13 @@ impl Control {
             .await
             .get(profile)
             .map(|cached| cached.rpc.clone());
-        let Some(rpc) = rpc.filter(|r| r.alive()) else {
-            return false;
+        let rpc = match rpc.filter(|r| r.alive()) {
+            Some(rpc) => rpc,
+            None if crate::codex_host::running(profile) => match self.profile_rpc(profile).await {
+                Ok(rpc) => rpc,
+                Err(_) => return true,
+            },
+            None => return false,
         };
         self.profile_rpc_running(profile, &rpc).await
     }
@@ -275,12 +295,26 @@ impl Control {
         }
         false
     }
+    /// Reattach recorded servers before exposing Core to callers.
+    pub async fn reattach(&self) {
+        for profile in crate::codex_host::running_profiles() {
+            if let Err(error) = self.profile_rpc(&profile).await {
+                crate::logs::record(
+                    "WARN",
+                    &format!("Codex app-server {profile} could not be reattached: {error}"),
+                    None,
+                );
+            }
+        }
+    }
     pub(crate) async fn close_profile(&self, profile: &str) {
         if let Some(rpc) = self.auth_rpcs.lock().await.remove(profile) {
             rpc.close().await;
         }
         if let Some(cached) = self.profile_rpcs.lock().await.remove(profile) {
-            cached.rpc.close().await;
+            cached.rpc.stop().await;
+        } else if let Err(error) = crate::codex_host::stop(profile).await {
+            crate::logs::record("WARN", &error, None);
         }
     }
     pub(crate) async fn profile_account_rate_limits(&self, profile: &str) -> Result<Value> {
@@ -376,8 +410,14 @@ impl Control {
         for (_, rpc) in self.auth_rpcs.lock().await.drain() {
             rpc.close().await;
         }
-        for (_, cached) in self.profile_rpcs.lock().await.drain() {
-            cached.rpc.close().await;
+        for (profile, cached) in self.profile_rpcs.lock().await.drain() {
+            if cached.rpc.detached()
+                && (!cached.rpc.alive() || self.profile_rpc_running(&profile, &cached.rpc).await)
+            {
+                cached.rpc.close().await;
+            } else {
+                cached.rpc.stop().await;
+            }
         }
         self.stop_waits();
         let jobs: Vec<_> = self.jobs.lock().await.drain().collect();

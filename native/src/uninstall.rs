@@ -136,6 +136,8 @@ pub async fn run(purge: bool) -> Result<Value> {
         }
     }
     crate::headless::stop().await?;
+    // Detached Codex app-servers outlive Core by design; removal ends them.
+    crate::codex_host::stop_all().await?;
 
     #[cfg(target_os = "macos")]
     if let Some(app) = &app {

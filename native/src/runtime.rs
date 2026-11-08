@@ -518,6 +518,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
                     crate::logs::record("WARN", &format!("MCP hub startup failed: {error}"), None);
                 }
             },
+            startup_service.control.reattach(),
         );
     });
     let monitor_service = Arc::downgrade(&service);

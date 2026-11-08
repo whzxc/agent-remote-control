@@ -8,7 +8,7 @@ The frontend uses the official `@tauri-apps/plugin-updater` `Update` resource. T
 
 After download, the panel shows **Update and restart**. Clicking it closes Core, calls `Update.install()`, and invokes the official process plugin's `relaunch()`. Normal startup restores connection intent from `desktop-session.json`. If installation fails, the Core lifecycle hook restores access and the error stays in the panel.
 
-ARC-owned running tasks are interrupted by shutdown. Users resume eligible interrupted tasks through the ordinary task controls. Installation never waits for tasks, schedules a countdown or submits a continuation.
+Codex tasks on ARC App Server keep running through shutdown because the app-server is detached from Core; the restarted Core reattaches to them. Pi/ACP tasks are interrupted by shutdown. Users resume eligible interrupted tasks through the ordinary task controls. Installation never waits for tasks, schedules a countdown or submits a continuation.
 
 ## Ownership
 
