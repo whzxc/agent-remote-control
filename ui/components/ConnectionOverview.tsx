@@ -376,7 +376,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     else reorderAgents(orderedSubset(agents.map(a => ({ id: a.agent })), ids).map(a => a.id));
   };
   return (
-    <>
+    <div style={{ display: 'contents' }} onPointerDownCapture={event => {
+      if (!event.currentTarget.contains(event.target as Node)) topology.current?.memberLayerPointer(event.nativeEvent);
+    }}>
       <section ref={core} inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
         <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
           onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
@@ -416,6 +418,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
       {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}
-    </>
+    </div>
   );
 }

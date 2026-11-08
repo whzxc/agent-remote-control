@@ -14,3 +14,7 @@
 .topology-group[data-layout="source"], .topology-group[data-layout="agent"] { height: 48px; flex-direction: row; align-items: center; gap: 8px; }
 .topology-group[data-layout="source"] .topology-group-label { position: absolute; right: calc(100% + 5px); padding: 0; }
 .topology-group[data-layout="agent"] .topology-group-label { padding: 0; }
+.topology-group-dots .quota-ok { background: var(--success); }
+.topology-group-dots .quota-low { background: var(--warning); }
+.topology-group-dots .quota-out { background: var(--danger); }
+.topology-group-dots .quota-unknown { background: var(--border-strong); }

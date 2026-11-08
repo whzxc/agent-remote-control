@@ -27,7 +27,8 @@ export class TopologyPainter {
   private sequence = 0;
   private guides: SVGGElement | null = null;
   constructor(readonly svg: SVGSVGElement, readonly prefix: string,
-    readonly onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void) {}
+    readonly onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void,
+    readonly onPointerDown?: (event: PointerEvent, target: { side: Side; id: string; task?: boolean }) => void) {}
   contact(key: string, fraction: number) {
     const path = this.groups.get(key)?.hit;
     if (!path?.getAttribute('d')) return undefined;
@@ -45,6 +46,7 @@ export class TopologyPainter {
     const hit = element("path", group, { class: "topology-path-hit" }), arcHit = element("path", group, { class: "topology-path-hit" });
     const [kind, side, id] = JSON.parse(key) as [string, Side, string];
     for (const target of [hit, arcHit]) {
+      target.onpointerdown = event => this.onPointerDown?.(event, { side, id, task: kind === "task" });
       target.onpointerenter = () => this.onHover?.({ side, id, task: kind === "task" });
       target.onpointerleave = target.onpointercancel = () => this.onHover?.(null);
     }

@@ -74,7 +74,8 @@ export class PortraitPainter {
     return length > 0 ? path.getPointAtLength(length * Math.max(0, Math.min(1, fraction))) : undefined;
   }
   constructor(private svg: SVGSVGElement, prefix: string,
-    private onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void) {
+    private onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void,
+    private onPointerDown?: (event: PointerEvent, target: { side: Side; id: string; task?: boolean; rail?: boolean }) => void) {
     const defs = document.createElementNS(ns, 'defs'), gradient = document.createElementNS(ns, 'linearGradient');
     gradient.id = `${prefix}-portrait-ear`;
     gradient.setAttribute("gradientUnits", "userSpaceOnUse");
@@ -84,11 +85,12 @@ export class PortraitPainter {
     defs.append(gradient); svg.append(defs); this.gradient = gradient;
   }
   private gradient: SVGLinearGradientElement;
-  private path(key: string, d: string, className: string, opacity = 1, attrs: Record<string, string | number> = {}, hover?: { side: Side; id: string; task?: boolean }) {
+  private path(key: string, d: string, className: string, opacity = 1, attrs: Record<string, string | number> = {}, hover?: { side: Side; id: string; task?: boolean }, owner: { side: Side; id: string; rail?: boolean; task?: boolean } | undefined = hover) {
     this.keep.add(key);
     let path = this.paths.get(key);
     if (!path) { path = document.createElementNS(ns, 'path'); this.paths.set(key, path); this.svg.append(path); }
     for (const [k, v] of Object.entries({ d, class: className, opacity, ...attrs })) path.setAttribute(k, String(v));
+    path.onpointerdown = owner ? event => this.onPointerDown?.(event, owner) : null;
     path.onpointerenter = hover ? () => this.onHover?.(hover) : null;
     path.onpointerleave = path.onpointercancel = hover ? () => this.onHover?.(null) : null;
   }
@@ -105,7 +107,7 @@ export class PortraitPainter {
       const earX = h.x + side * p.earOffset;
       if (wing.length) {
         const edge = side === -1 ? Math.min(...wing.map(v => v!.y), y) : Math.max(...wing.map(v => v!.y), y);
-        this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45);
+        this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45, {}, undefined, { side, id: '', rail: true });
       }
       this.path(`ear${side}`, railPath([point(earX, y), point(earX + side * p.earHalf, y)]), `topology-ear ${side === -1 ? 'left' : 'right'}`, 1,
         { 'stroke-width': 14 * h.Re / 130, ...(side === 1 ? { style: `stroke:url(#${this.gradient.id})` } : {}) });

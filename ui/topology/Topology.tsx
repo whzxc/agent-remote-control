@@ -8,13 +8,14 @@ import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
 import { solvePortrait, portraitPanelRect, portraitLabelBreakpoint } from "./portrait";
 import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
-import { compactRoots, compactLayout, compactTree, topologyGroups, topologyPinned, type TopologyGroupPlan, type CompactPlan } from './compact';
+import { compactRoots, compactLayout, compactTree, topologyGroups, topologyPinned, retainOpenGroup, type TopologyGroupPlan, type CompactPlan } from './compact';
 import { t } from '../i18n';
 import { TopologyGroup } from '../components/ui/TopologyGroup';
 import { BrandMark } from '../components/ui';
 import SourceIcon from '../components/SourceIcon';
 import { icons } from '../state/agents';
 import type { ProviderSnapshot } from '../subscriptions/types';
+import { panelLayers } from '../state/panels';
 import { topologyCollapsed } from './accountState';
 import { highlightedPaths, type PathTask } from './accounts';
 import { observeTopology } from "../acceptance";
@@ -37,7 +38,7 @@ export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; 
   sourceProduct?: string; sourceProductLabel?: string;
 }
 type PositionedTask = TaskView & { parent: string; side: Side };
-export interface TopologyHandle { panelFrame: (rect: SurfaceRect | null) => void }
+export interface TopologyHandle { memberLayerPointer: (event: Event) => void; panelFrame: (rect: SurfaceRect | null) => void }
 export interface PanelLayout { key?: string; width: number; expanded: boolean; rect?: SurfaceRect }
 
 export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onPanelLayout, onCollapseSide, onMarkRead, onReorderNodes, onReorderTasks, ref }: {
@@ -90,31 +91,27 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       if (rect) origin.current = { x: rect.x, y: rect.y };
     }
   }, [closedWing, boundary]);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
-  const groupAreas = useRef(new Map<string, HTMLDivElement>());
-  const groupOrigins = useRef(new Map<string, Rect>());
-  const groupTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const [openedGroup, setOpenedGroup] = useState<TopologyGroupPlan | null>(null);
+  const expandedGroups = useMemo(() => new Set(openedGroup ? [openedGroup.id] : []), [openedGroup]);
+  const insidePointers = useRef(new WeakSet<Event>());
   const focusGroup = useRef<{ id: string; member: boolean } | null>(null);
   const pendingGroupFocus = useRef<string | null>(null);
-  const openGroup = (id: string, focusMember = false) => {
-    clearTimeout(groupTimers.current.get(id));
-    if (focusMember) focusGroup.current = { id, member: true };
-    setExpandedGroups(old => old.has(id) && !focusMember ? old : new Set([...old, id]));
-  };
-  const closeGroup = (id: string) => {
-    clearTimeout(groupTimers.current.get(id));
-    groupTimers.current.set(id, setTimeout(() => {
-      if (latest.current.nodes.some(n => n.groupMember === id && elements.current.get(nodeKey(n.side, n.id))?.contains(document.activeElement))) return;
-      setExpandedGroups(old => { const next = new Set(old); next.delete(id); return next; });
-    }, 450));
+  const openGroup = (group: TopologyGroupPlan) => {
+    focusGroup.current = { id: group.id, member: true };
+    setOpenedGroup({ ...group, members: [...group.members] });
   };
   const foldGroup = (id: string) => {
-    clearTimeout(groupTimers.current.get(id));
     focusGroup.current = { id, member: false };
     setHover(null); setFocus(null);
-    setExpandedGroups(old => { const next = new Set(old); next.delete(id); return next; });
+    setOpenedGroup(null);
   };
-  useEffect(() => () => { groupTimers.current.forEach(clearTimeout); }, []);
+  const markGroupPointer = useCallback((event: Event, target: { side: Side; id: string; task?: boolean; rail?: boolean }) => {
+    const current = latest.current;
+    if (target.rail && current.groups.some(g => g.side === target.side && !g.parent && current.expandedGroups.has(g.id))) insidePointers.current.add(event);
+    const owner = target.task ? current.tasks.find(t => t.side === target.side && t.id === target.id)?.parent : target.id;
+    const node = current.allNodes.find(n => n.side === target.side && n.id === owner);
+    if (node && (current.expandedGroups.has(node.groupMember ?? '') || current.expandedGroups.has(node.id))) insidePointers.current.add(event);
+  }, []);
   const [hover, setHover] = useState<{ side: Side; id: string; task?: boolean } | null>(null);
   const [focus, setFocus] = useState<typeof hover>(null);
   const [hubInteraction, setHubInteraction] = useState<Scene["hubInteraction"]>();
@@ -146,7 +143,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     actionPointer.current = null; pointerActionOwner.current = null;
     setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
     pendingGroupFocus.current = null;
-    groupTimers.current.forEach(clearTimeout); setExpandedGroups(old => old.size ? new Set() : old);
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
   }, []);
@@ -175,8 +171,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   });
   const prunedLeft = closedWing === -1 ? [] : prune(inputLeft, -1), prunedRight = closedWing === 1 ? [] : prune(inputRight, 1);
   const [portraitPlan, setPortraitPlan] = useState<CompactPlan>(() => ({ left: new Set(), right: new Set() }));
+  const portraitPlanRef = useRef(portraitPlan); portraitPlanRef.current = portraitPlan;
   const landscapePlan = useMemo(() => viewport.vw > 0 && viewport.orientation === 'landscape' ? compactRoots(prunedLeft, prunedRight, viewport, 'landscape', params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
-  const compacted = viewport.orientation === 'portrait' ? portraitPlan : landscapePlan;
+  const basePlan = viewport.orientation === 'portrait' ? portraitPlan : landscapePlan;
+  const compacted = useMemo(() => retainOpenGroup(basePlan, prunedLeft, prunedRight, openedGroup), [basePlan, inputLeft, inputRight, collapsed, openedGroup]);
   const groups = [...topologyGroups(prunedLeft, compacted.left, -1), ...topologyGroups(prunedRight, compacted.right, 1)];
   const mark = (list: NodeView[], side: Side, inherited?: string): NodeView[] => list.map(n => {
     const member = inherited ?? groups.find(g => g.side === side && g.members.includes(n.id))?.id;
@@ -191,8 +189,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         mark: group.side === 1 ? <BrandMark markup={icons[n.platform ?? n.id]} size={28} /> : <SourceIcon platform={n.platform ?? n.id} panelVisual /> }))}
       layout={portrait ? group.side === -1 ? 'source' : 'agent' : 'vertical'} hideLabel={portrait && viewport.vw <= portraitLabelBreakpoint}
       aria-expanded={expandedGroups.has(group.id)}
-      onPointerDown={event => { event.stopPropagation(); if (event.pointerType === 'touch') { event.preventDefault(); openGroup(group.id); } }}
-      onClick={() => openGroup(group.id, true)} /> };
+      onClick={() => openGroup(group)} /> };
   };
   const groupedLeft = compactTree(left, compacted.left, -1, expandedGroups, groupNode);
   const groupedRight = compactTree(right, compacted.right, 1, expandedGroups, groupNode);
@@ -216,6 +213,24 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const allTasks = [...new Map([...retained, ...tasks].map(t => [taskKey(t.side, t.id), t])).values()];
   const latest = useRef({ nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
   latest.current = { nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
+  useEffect(() => {
+    if (!openedGroup) return;
+    const outside = (event: globalThis.PointerEvent) => {
+      queueMicrotask(() => {
+        if (!insidePointers.current.has(event) && latest.current.expandedGroups.has(openedGroup.id)) {
+          pendingGroupFocus.current = null;
+          setOpenedGroup(current => current?.id === openedGroup.id ? null : current);
+        }
+      });
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || latest.current.panelKey || panelLayers.get().length) return;
+      event.preventDefault(); foldGroup(openedGroup.id);
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape); };
+  }, [openedGroup]);
   useEffect(() => observeTopology(() => ({
     orientation: orientation.current, source: orientationSource.current, orientationPending: orientationPending.current,
     origin: origin.current, size: size.current, panel: panel.current,
@@ -385,13 +400,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     for (const n of latest.current.allNodes) {
       const key = nodeKey(n.side, n.id), v = a.values(key), el = elements.current.get(key);
-      // Hover may unfold a keyboard-focused capsule. Keep that focus anchor
-      // interactive until activation or Tab moves focus to another control.
-      const focusedCapsule = n.group && latest.current.expandedGroups.has(n.id) && el?.contains(document.activeElement);
-      if (focusedCapsule && el) {
-        el.inert = false;
-        el.style.opacity = '1';
-      } else if (v && el) {
+      if (v && el) {
         el.style.transform = `translate(${v.x - NODE_R}px, ${v.y - NODE_R}px) scale(${v.scale * v.size / (n.group ? 42 : NODE_R * 2)})`;
         el.style.opacity = String(v.op);
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));
@@ -434,22 +443,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         pendingGroupFocus.current = null;
         element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
       }
-    }
-    for (const group of latest.current.groups) {
-      const area = groupAreas.current.get(group.id);
-      if (!area) continue;
-      const points = latest.current.nodes.filter(n => n.groupMember === group.id || n.id === group.id)
-        .map(n => a.values(nodeKey(group.side, n.id))).filter(v => v && v.op > .02);
-      area.style.display = points.length ? '' : 'none';
-      if (!points.length) continue;
-      let x = Math.min(...points.map(v => v!.x - 36)), y = Math.min(...points.map(v => v!.y - 36));
-      let right = Math.max(...points.map(v => v!.x + 150)), bottom = Math.max(...points.map(v => v!.y + 64));
-      if (!latest.current.expandedGroups.has(group.id)) groupOrigins.current.set(group.id, { x, y, width: right - x, height: bottom - y });
-      else {
-        const origin = groupOrigins.current.get(group.id);
-        if (origin) { x = Math.min(x, origin.x); y = Math.min(y, origin.y); right = Math.max(right, origin.x + origin.width); bottom = Math.max(bottom, origin.y + origin.height); }
-      }
-      Object.assign(area.style, { left: `${x}px`, top: `${y}px`, width: `${right - x}px`, height: `${bottom - y}px` });
     }
     for (const t of latest.current.allTasks) {
       const key = taskKey(t.side, t.id), v = a.values(key), el = elements.current.get(key);
@@ -539,7 +532,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const solved = solvePortrait(sc, params, null, labels);
       const measured = compactRoots(left, right, sc, 'portrait', params, solved, labels);
       const same = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every(id => b.has(id));
-      if (!same(measured.left, plan.left) || !same(measured.right, plan.right)) setPortraitPlan(measured);
+      if (!same(measured.left, portraitPlanRef.current.left) || !same(measured.right, portraitPlanRef.current.right)) setPortraitPlan(measured);
     }
     const result = compactLayout(sc, plan, expandedGroups, params, orientation.current, measuredLabels);
     // Folded branches and unread source leaves retain an actionable outer arc.
@@ -687,7 +680,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const suppressClick = (event: MouseEvent, key: string) => {
     if (event.detail !== 0 && suppressedClick.current === key) { event.preventDefault(); event.stopPropagation(); }
   };
-  useImperativeHandle(ref, () => ({ panelFrame(rect) {
+  useImperativeHandle(ref, () => ({ memberLayerPointer(event) {
+    const selected = latest.current.nodes.find(n => n.selected && n.groupMember && latest.current.expandedGroups.has(n.groupMember));
+    if (selected) insidePointers.current.add(event);
+  }, panelFrame(rect) {
     // DOMRect dimensions are prototype accessors, not enumerable own properties.
     panel.current = rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
     paint();
@@ -716,8 +712,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   // whole commit so the painter and viewport observer always mount together.
   useEffect(() => {
     if (!svg.current || !boundary.current || !graph.current) return;
-    portraitPainter.current = new PortraitPainter(portraitSvg.current!, prefix, changeHover);
-    painter.current = new TopologyPainter(svg.current, prefix, changeHover);
+    portraitPainter.current = new PortraitPainter(portraitSvg.current!, prefix, changeHover, markGroupPointer);
+    painter.current = new TopologyPainter(svg.current, prefix, changeHover, markGroupPointer);
     const container = boundary.current;
     const measure = () => {
       const env = envOverrides();
@@ -792,7 +788,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         onCollapse={() => {
           if (!closed) onCollapseSide?.(side);
           topologyCollapsed.set(old => ({ ...old, [`wing:${side}`]: !closed, [`wing:${-side}`]: false }));
-          clearInteraction();
+          setOpenedGroup(null); clearInteraction();
         }} />;
     })}
     {accountsEnabled && allNodes.filter(node => !node.group).map(node => {
@@ -801,33 +797,28 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const unread = unreadUnder(full), canCollapse = !!full.children?.length || !!full.tasks.length;
       if (!canCollapse && !unread.length) return null;
       const key = nodeKey(node.side, node.id), closed = collapsed[key] === true;
-      return <ArcActions key={key} side={node.side} label={node.label ?? node.id} open={revealed === key} collapsed={closed} canCollapse
+      return <ArcActions key={key} onPointerDownCapture={event => markGroupPointer(event.nativeEvent, node)} side={node.side} label={node.label ?? node.id} open={revealed === key} collapsed={closed} canCollapse
         ref={control => { if (control) arcControls.current.set(key, control); else arcControls.current.delete(key); }}
         onOpen={open => { revealActions(open ? key : null); if (open) setHover({ side: node.side, id: node.id }); }} onDismiss={() => restoreNodeFocus(key)}
         unread={!!unread.length} onRead={onMarkRead ? () => onMarkRead(unread) : undefined}
         onCollapse={canCollapse ? () => topologyCollapsed.set(old => ({ ...old, [key]: !closed })) : undefined} />;
     })}
-    {groups.map(group => <div key={group.id} className="topology-group-area" aria-hidden="true"
-      ref={el => { if (el) groupAreas.current.set(group.id, el); else groupAreas.current.delete(group.id); }}
-      onPointerEnter={() => openGroup(group.id)} onPointerLeave={() => closeGroup(group.id)} />)}
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
       data-agent-node={!n.group && n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={!n.group && n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
       data-agent-platform={n.side === 1 && !n.account ? n.platform : undefined}
       data-source-platform={n.side === -1 ? n.platform : undefined}
       data-account-id={n.accountId} data-topology-group={n.group?.id}
       className={`topology-node ${n.group ? "topology-group-node" : ""} ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
-      onPointerEnter={() => { changeHover({ side: n.side, id: n.id }); if (n.groupMember || n.group) openGroup(n.groupMember ?? n.id); }} onPointerLeave={() => { changeHover(null); if (n.groupMember || n.group) closeGroup(n.groupMember ?? n.id); }} onPointerCancel={() => changeHover(null)}
-      onFocusCapture={() => { setFocus({ side: n.side, id: n.id }); if (n.groupMember) clearTimeout(groupTimers.current.get(n.groupMember)); }} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); if (n.groupMember || n.group) closeGroup(n.groupMember ?? n.id); } }}
+      onPointerEnter={() => changeHover({ side: n.side, id: n.id })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
+      onFocusCapture={() => setFocus({ side: n.side, id: n.id })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); } }}
       onKeyDownCapture={event => {
-        if (event.key === 'Escape' && (n.groupMember || n.group) && expandedGroups.has(n.groupMember ?? n.id)) {
-          event.preventDefault(); event.stopPropagation(); foldGroup(n.groupMember ?? n.id); return;
-        }
         if (!accountsEnabled || !n.reorderable || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
         const peers = nodes.filter(p => p.side === n.side && p.parent === n.parent && p.reorderable && !!p.account === !!n.account && (!n.account || p.account && p.platform === n.platform));
         const index = peers.findIndex(p => p.id === n.id), next = index + (event.key === 'ArrowUp' ? -1 : 1);
         if (next >= 0 && next < peers.length) { const ids = peers.map(p => p.id); [ids[index], ids[next]] = [ids[next], ids[index]]; onReorderNodes(n.side, ids); }
         event.preventDefault(); event.stopPropagation();
       }}
+      onPointerDownCapture={event => markGroupPointer(event.nativeEvent, n)}
       onPointerDown={n.reorderable ? event => startDrag(event, "node", n.side, n.id) : undefined}
       onClickCapture={event => suppressClick(event, nodeKey(n.side, n.id))}>{n.content}{accountsEnabled && !n.group && (() => {
         const full = fullNodes.find(p => p.side === n.side && p.id === n.id);
@@ -847,9 +838,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       className="activity-slot" data-highlighted={t.selected || undefined} data-reorderable={t.reorderable || undefined} data-activity-queue={t.activityQueue}
       onPointerEnter={() => changeHover({ side: t.side, id: t.id, task: true })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
       onFocusCapture={() => setFocus({ side: t.side, id: t.id, task: true })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) changeHover(null); }}
-      onPointerDownCapture={t.reorderable ? event => {
-        if ((event.target as Element).closest("[data-topology-control]")) startDrag(event, "task", t.side, t.id, t.parent, true);
-      } : undefined}
+      onPointerDownCapture={event => {
+        markGroupPointer(event.nativeEvent, { ...t, task: true });
+        if (t.reorderable && (event.target as Element).closest("[data-topology-control]")) startDrag(event, "task", t.side, t.id, t.parent, true);
+      }}
       onPointerDown={t.reorderable ? event => startDrag(event, "task", t.side, t.id, t.parent) : undefined}
       onClickCapture={event => suppressClick(event, taskKey(t.side, t.id))}>{t.content}</div>)}
   </div>;

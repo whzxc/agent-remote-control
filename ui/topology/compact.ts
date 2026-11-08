@@ -136,3 +136,22 @@ export function compactRoots(left: readonly ActivityEntity[], right: readonly Ac
   clean(left, plan.left); clean(right, plan.right);
   return plan;
 }
+
+// An explicitly opened group keeps its original siblings until dismissal.
+// The fresh plan takes over again when the user closes it.
+export function retainOpenGroup(plan: CompactPlan, left: readonly Entity[], right: readonly Entity[], opened: TopologyGroupPlan | null): CompactPlan {
+  if (!opened) return plan;
+  const list = opened.side === -1 ? left : right;
+  let siblings: readonly Entity[] = list;
+  const ancestors: string[] = [];
+  const find = (nodes: readonly Entity[], path: string[]): boolean => nodes.some(node => {
+    if (node.id === opened.parent) { siblings = node.children ?? []; ancestors.push(...path, node.id); return true; }
+    return find(node.children ?? [], [...path, node.id]);
+  });
+  if (opened.parent && !find(list, [])) return plan;
+  const hidden = new Set(opened.side === -1 ? plan.left : plan.right);
+  for (const node of siblings) hidden.delete(node.id);
+  for (const id of ancestors) hidden.delete(id);
+  for (const id of opened.members) if (siblings.some(n => n.id === id)) hidden.add(id);
+  return { ...plan, [opened.side === -1 ? 'left' : 'right']: hidden };
+}

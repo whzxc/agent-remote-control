@@ -2,9 +2,16 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { t } from '../../i18n';
 import { useNow } from '../../state/hooks';
 import { iconWindows } from '../../subscriptions/AgentQuotaIcon';
-import { quotaColor } from '../../subscriptions/presentation';
+import { readingStatus } from '../../subscriptions/presentation';
 import type { ProviderSnapshot } from '../../subscriptions/types';
 import './TopologyGroup.css';
+
+export function groupQuotaState(provider: ProviderSnapshot | undefined, now: number): 'ok' | 'low' | 'out' | 'unknown' {
+  const primary = provider && iconWindows(provider, now, true)[0];
+  if (!provider || provider.state !== 'ready' || provider.error || !primary) return 'unknown';
+  const { rank } = readingStatus(primary, provider, now);
+  return rank === 4 ? 'out' : rank >= 2 ? 'low' : rank === 1 ? 'ok' : 'unknown';
+}
 
 export interface TopologyGroupMember { brand: string; mark: ReactNode; quota?: ProviderSnapshot }
 export function TopologyGroup({ label, members, layout = 'vertical', hideLabel = false, ...props }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
@@ -17,10 +24,7 @@ export function TopologyGroup({ label, members, layout = 'vertical', hideLabel =
       <span className={pool ? 'topology-group-mark' : 'topology-group-brands'} aria-hidden="true">
         {brands.slice(0, pool ? 1 : 3).map(member => <span key={member.brand}>{member.mark}</span>)}
       </span>
-      {pool && <span className="topology-group-dots" aria-hidden="true">{members.slice(0, 12).map((member, index) => {
-        const primary = member.quota && iconWindows(member.quota, now, true)[0];
-        return <span key={index} style={{ background: primary && member.quota?.state === 'ready' && !member.quota.error ? quotaColor(primary, member.quota, now) : 'var(--border-strong)' }} />;
-      })}</span>}
+      {pool && <span className="topology-group-dots" aria-hidden="true">{members.slice(0, 12).map((member, index) => <span key={index} className={`quota-${groupQuotaState(member.quota, now)}`} />)}</span>}
       <span className="topology-group-count" aria-hidden="true">{members.length}</span>
     </button>
     {!hideLabel && <span className="topology-group-label" aria-hidden="true">{label}</span>}
