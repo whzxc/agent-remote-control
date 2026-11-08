@@ -78,11 +78,25 @@ export function Agents() {
     </Panel>
   );
 }
+import { nativeCopy } from '../fixtures/agent-settings';
+
+export function NativeAgentInfo({ class: extra = 'mt-7' }: {class?:string}) {return (
+<div class={`flex items-start gap-2 rounded-card bg-surface-subtle px-4 py-[14px] ${extra}`}>
+          <p class="flex-1 text-small leading-5 text-text-secondary">{nativeCopy.text1}<br />{nativeCopy.text2}</p>
+          <div class="-mt-[7px] flex gap-1">
+            <IconButton compact icon="refresh-cw" label={nativeCopy.text3} />
+            <IconButton compact icon="settings" label={nativeCopy.text4} />
+          </div>
+        </div>);}
+
 export default () => [
   <Frame name="agent-inventory-card" width={672}>
     <div class="w-full bg-surface-raised"><AgentInventoryCard  /></div>
   </Frame>,
   <Frame name="agent-dispatch-settings" width={672}>
     <div class="w-full bg-surface-raised"><AgentDispatchSettings  /></div>
+  </Frame>,
+  <Frame name="native-agent-info" width={440}>
+    <div class="w-full bg-surface-raised"><NativeAgentInfo class="" /></div>
   </Frame>,
 ];

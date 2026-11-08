@@ -6,7 +6,7 @@
 
 Review and adoption are separate. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Awaiting user** means the current proposal requires gallery approval. **Reviewed** requires Claude's approval; visual differences outside the structural crop criteria or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
 
-The active scope is **Source connector summary**. Its declared parts are Reviewed. Previously reviewed families retain their current status. Codex owns structural proposals, implementation, comparisons and releases; the user reviews new visual direction. Missing states and needed visual fixes are Known gaps; they are not new proposals.
+The active scope is **Native Agent information**. Its declared parts are Reviewed. Previously reviewed families retain their current status. Codex owns structural proposals, implementation, comparisons and releases; the user reviews new visual direction. Missing states and needed visual fixes are Known gaps; they are not new proposals.
 
 Queued scopes: MCP service, connectors, general settings, Agent settings, display settings, experimental, pets and updates before composed surfaces. Finish with the topology module/fixtures and each homepage surface. Each family owns its importers, captures, fixture extraction and mapping updates. Review composed setup forms in rounds.
 
@@ -138,6 +138,7 @@ Generic sources live in `components/`; feature sources live in `modules/`. The o
 | `modules/updates.tsx` / Updates | `UpdateAboutContent` | `update-about-content` | `surfaces/updates` | `ui/components/AppUpdate.tsx` | Reviewed. Adopted. Static declared presentation; runtime owns native data, interaction, validation and recovery. Remaining coverage and fidelity gaps are listed below. |
 | `modules/relay-hosting.tsx` / Relay hosting | `RelayHostingContent` | Contained in module/surface compositions | `surfaces/relay-hosting` | `ui/components/RelaySettings.tsx` | Reviewed. Adopted. Static declared presentation; runtime owns native data, interaction, validation and recovery. Remaining coverage and fidelity gaps are listed below. |
 | `modules/connectors.tsx` / Source connector summary | `SourceConnectorSummary` | `source-connector-summary` | `surfaces/source-panel` | `ui/components/SourcePlatformView.tsx` | Reviewed. Adopted. Static declared presentation; runtime owns native data, interaction, validation and recovery. Remaining coverage and fidelity gaps are listed below. |
+| `modules/agent-settings.tsx` / Native Agent information | `NativeAgentInfo` | `native-agent-info` | `surfaces/agent-platform` | `ui/components/AgentPlatformView.tsx` | Reviewed. Adopted. Static declared presentation; runtime owns native data, interaction, validation and recovery. Remaining coverage and fidelity gaps are listed below. |
 
 ### Button family support
 
@@ -212,7 +213,7 @@ Surfaces with mapped implementation usage are **adopted**. Governance review is 
 | Source | Declared frames | Implementation owner | Remaining gap / capture notes |
 | --- | --- | --- | --- |
 | `surfaces/agent-panel.tsx` | `empty`, `overview` | `ui/components/AgentPanel.tsx` | History rows compose modules/agent-activity and TaskRow; live groups retain TaskBubble. Full-content overview and runtime panel geometry await surface review. |
-| `surfaces/agent-platform.tsx` | `accounts`, `native` | `ui/components/AgentPlatformView.tsx` | `native` is an active proposal without a reachable fixture; user decision pending. Accounts width follows topology geometry. |
+| `surfaces/agent-platform.tsx` | `accounts`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed. Composes Agent information and quota assets. Native remains unreachable through the current fixture route; runtime geometry follows topology. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Composes modules/connection-management; retains its overview capture. Cards and list are Reviewed. Runtime editing, leave/delete confirmation and relay settings are not declared design forms. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Composes modules/ax and retains open/closed/detail captures. AX is Reviewed. Detail keeps full scroll content and synthetic owner metadata. |

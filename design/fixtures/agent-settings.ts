@@ -23,3 +23,11 @@ export const samples = {
     "Agent default"
   ]
 };
+
+export const nativeCopy = {
+  "text1": "This native Agent is ready. It does not require",
+  "text2": "a provider account in ARC.",
+  "text3": "Refresh",
+  "text4": "Settings"
+};
+export const nativeCopySamples = {};

@@ -1,3 +1,4 @@
+import { NativeAgentInfo } from "../modules/agent-settings";
 import { Frame } from "sdg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
@@ -18,16 +19,7 @@ function Platform({ native = false }: { native?: boolean }) {
         </div>
       </header>
       {native ? (
-        <div class="mt-7 flex items-start gap-2 rounded-card bg-surface-subtle px-4 py-[14px]">
-          <p class="flex-1 text-small leading-5 text-text-secondary">
-            This native Agent is ready. It does not require
-            <br />a provider account in ARC.
-          </p>
-          <div class="-mt-[7px] flex gap-1">
-            <IconButton compact icon="refresh-cw" label="Refresh" />
-            <IconButton compact icon="settings" label="Settings" />
-          </div>
-        </div>
+        <NativeAgentInfo />
       ) : (
         <div class="mt-8 flex flex-col gap-7">
           {accounts.map((account) => (
