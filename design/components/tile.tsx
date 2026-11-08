@@ -1,10 +1,8 @@
 import { Frame, Icon } from "sdg";
 import { BrandMark, type Brand } from "./agent-icon";
 import SourceArt from "../art/source.svg";
-const forms = [
-  { name: "card", icon: "globe" },
-  { name: "phase", icon: "terminal" },
-] as const;
+import { forms } from "../fixtures/tiles";
+
 export type TileTone =
   "agent" | "command" | "file" | "thinking" | "warning" | "success" | "accent" | "neutral" | "danger";
 export function Tile({
@@ -38,13 +36,14 @@ export function Tile({
       <span
         class={`col-start-1 row-start-1 size-full rounded-[inherit] bg-current ${form === "phase" ? "opacity-17" : "opacity-16"}`}
       />
-      <Icon
-        name={icon}
-        size={form === "phase" ? 16 : 18}
-        class="col-start-1 row-start-1"
-      />
+      <Icon name={icon} size={form === "phase" ? 16 : 18} class="col-start-1 row-start-1" />
       {(source || sourceBrand) && (
-        <span class="col-start-1 row-start-1 self-end justify-self-end -mb-px -mr-px grid size-[13px] place-items-center rounded-[7px] bg-surface text-role-source">
+        <span
+          class={
+            "col-start-1 row-start-1 self-end justify-self-end -mb-px -mr-px grid size-[13px] " +
+            "place-items-center rounded-[7px] bg-surface text-role-source"
+          }
+        >
           {sourceBrand ? <BrandMark brand={sourceBrand} size={9} /> : <SourceArt data-brand width={9} height={9} />}
         </span>
       )}

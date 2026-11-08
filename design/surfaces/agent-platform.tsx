@@ -10,9 +10,7 @@ function Platform({ native = false }: { native?: boolean }) {
     <PanelShell width={480} height={590} class="p-5">
       <header class="flex h-9 items-center gap-4">
         <BrandMark brand={native ? "antigravity" : "claude-code"} size={36} />
-        <h2 class="flex-1 text-title font-[650]">
-          {native ? "Antigravity" : "Claude Code"}
-        </h2>
+        <h2 class="flex-1 text-title font-[650]">{native ? "Antigravity" : "Claude Code"}</h2>
         <div class="flex gap-[6px]">
           <IconButton icon="maximize-2" label="Expand" />
           <IconButton icon="x" label="Close" />
@@ -48,13 +46,19 @@ export default () => [
       selector: ".dialog:has(.agent-platform-view)",
       viewport: "1280x800",
     }}
-    note="Prepared in the adapter. The implementation follows topology panel geometry; its width is not fixed to the drawing's 480px."
+    note={
+      "Prepared in the adapter. The implementation follows topology panel geometry; its width is not " +
+      "fixed to the drawing's 480px."
+    }
   >
     <Platform />
   </Frame>,
   <Frame
     name="native"
-    note="Unavailable: zero-account platforms open Agent history. antigravity-platform has no linked accounts, so the native empty card cannot be reached through that route."
+    note={
+      "Unavailable: zero-account platforms open Agent history. antigravity-platform has no linked " +
+      "accounts, so the native empty card cannot be reached through that route."
+    }
   >
     <Platform native />
   </Frame>,

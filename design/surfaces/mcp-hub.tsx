@@ -6,7 +6,10 @@ export default () =>
       name={name}
       fixture={`mcp-hub-${name}-dark`}
       capture={{ region: "MCP 中枢", viewport: "1280x1200" }}
-      note="The implementation uses full workspace height. Its shell follows the viewport; the older content-fit heights (662, 912 and 432px) are not capture-size requirements."
+      note={
+        "The implementation uses full workspace height. Its shell follows the viewport; the older " +
+        "content-fit heights (662, 912 and 432px) are not capture-size requirements."
+      }
     >
       <McpHub form={name} />
     </Frame>
