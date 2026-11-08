@@ -4,7 +4,7 @@ import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { StatePill } from "../components/state-pill";
-import { DispatchSpec } from "../components/dispatch-spec";
+import { DispatchSpec } from "../modules/model-configuration";
 import { TaskMessage } from "../components/task-message";
 import { PermissionCard } from "../components/card";
 import SourceArt from "../art/source.svg";

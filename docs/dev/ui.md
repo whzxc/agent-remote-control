@@ -135,7 +135,7 @@ Related tooltips remain mounted and move/resize continuously between triggers. H
 
 ## Functional pages
 
-Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and the `row` and `row-attention` forms of [task-bubble](../../design/components/task-bubble.tsx) define task rows. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
+Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and the `task-bubble-row` and `task-bubble-row-attention` frames of [task presentation](../../design/modules/task-presentation.tsx) define task rows. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
 
 Request logs remain available through native management interfaces; there is no standalone Records page.
 
@@ -163,11 +163,11 @@ Check light/dark, narrow windows, long Chinese/English text, keyboard traversal,
 
 ## Execution specifications
 
-Task bubbles, Agent conversations, task headers, and model and effort picker triggers share the [dispatch spec](../../design/components/dispatch-spec.tsx). The [effort gauge](../../design/components/effort-gauge.tsx) uses the matching model's ordered levels and points to the recorded or previewed level. A value outside that model's available catalog stays readable as text. Fast reflects the recorded service tier. Editable defaults retain the stepped slider and preview the selected level with the same gauge.
+Task bubbles, Agent conversations, task headers, and model and effort picker triggers share the [dispatch spec](../../design/modules/model-configuration.tsx). The [effort gauge](../../design/modules/model-configuration.tsx) uses the matching model's ordered levels and points to the recorded or previewed level. A value outside that model's available catalog stays readable as text. Fast reflects the recorded service tier. Editable defaults retain the stepped slider and preview the selected level with the same gauge.
 
 ## Task detail projection
 
-Task detail presentation follows [task-detail.tsx](../../design/surfaces/task-detail.tsx); request sheets and task model selection follow [approval.tsx](../../design/surfaces/approval.tsx). Shared question choices, effort selection and actionable routing follow [single-choice.tsx](../../design/components/single-choice.tsx), [effort-slider.tsx](../../design/components/effort-slider.tsx) and [request-routing.tsx](../../design/components/request-routing.tsx).
+Task detail presentation follows [task-detail.tsx](../../design/surfaces/task-detail.tsx); request sheets follow [approval.tsx](../../design/surfaces/approval.tsx), and task model selection follows [model configuration](../../design/modules/model-configuration.tsx). Shared question choices, effort selection and actionable routing follow [single-choice.tsx](../../design/components/single-choice.tsx), [effort slider](../../design/modules/model-configuration.tsx) and [request-routing.tsx](../../design/components/request-routing.tsx).
 
 Successful turns fold their process; failed and interrupted turns start expanded and honor subsequent disclosure choices. Previous turns start collapsed. Expanded previous turns omit the duplicate final-reply preview and put the process disclosure beside the turn metadata. Process summaries omit duration and facts already shown by the turn header. Tool disclosures remain independent keyboard targets when grouped on one line. Running commands retain their live log behind the run disclosure and keep a separate command-details control. The latest thinking summary belongs with the latest narrative; a thinking-only turn keeps it independently. A plan label and its step share a row. A failed turn shows its failure evidence once in the outcome, with the failed tool disclosure beside the outcome title. Changed-file summaries join the count and filename when one file is recorded; longer lists show the first three and disclose the rest. Added and deleted files carry native operation evidence; later edits retain a recorded creation marker.
 

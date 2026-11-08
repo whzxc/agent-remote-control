@@ -3,7 +3,7 @@ import { PanelShell } from "../components/panel";
 import { AgentIcon } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
 import { QuotaSummary } from "../components/quota-card";
-import { TaskBubble } from "../components/task-bubble";
+import { TaskBubble } from "../modules/task-presentation";
 import { Tile } from "../components/tile";
 import { Tag } from "../components/tag";
 

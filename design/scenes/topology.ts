@@ -1,5 +1,5 @@
 import type { TopologyNodeProps } from "../components/topology-node";
-import type { TaskBubbleProps } from "../components/task-bubble";
+import type { TaskBubbleProps } from "../modules/task-presentation";
 import type { ScenePath } from "../components/topology-scene";
 
 // Fixture geometry extracted from the approved topology sheets. Runtime solving stays in ui/topology/solve.ts.

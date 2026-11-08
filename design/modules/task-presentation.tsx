@@ -1,8 +1,8 @@
 import { Frame, Icon } from "sdg";
-import { Tile, type TileTone } from "./tile";
-import type { Brand } from "./agent-icon";
-import { Tag } from "./tag";
-import { DispatchSpec } from "./dispatch-spec";
+import { Tile, type TileTone } from "../components/tile";
+import type { Brand } from "../components/agent-icon";
+import { Tag } from "../components/tag";
+import { DispatchSpec } from "./model-configuration";
 const spec = {
   model: "GPT-6.1 Sol",
   effort: "高推理强度",
@@ -212,7 +212,7 @@ export function TaskRow({
 }
 export default () =>
   forms.map(({ name, ...props }) => (
-    <Frame name={name}>
+    <Frame name={`task-bubble-${name}`}>
       <TaskBubble
         {...props}
         form={name}

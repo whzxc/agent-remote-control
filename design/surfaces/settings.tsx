@@ -8,7 +8,7 @@ import { Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { BrandMark } from "../components/agent-icon";
-import { TaskBubble } from "../components/task-bubble";
+import { TaskBubble } from "../modules/task-presentation";
 const behavior = [
   {
     title: "Wake control sources",

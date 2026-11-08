@@ -1,7 +1,7 @@
 import { TopologyScene } from "../components/topology-scene";
 import { TopologyNode } from "../components/topology-node";
 import { TopologyMark } from "../components/topology-mark";
-import { TaskBubble } from "../components/task-bubble";
+import { TaskBubble } from "../modules/task-presentation";
 import { BoardHeader } from "../components/board-header";
 import { NavCapsule } from "../components/nav-capsule";
 import { Button } from "../components/button";
