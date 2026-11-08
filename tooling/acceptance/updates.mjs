@@ -23,6 +23,38 @@ const stateDir = path.join(temporary, 'state');
 const target = path.join(temporary, 'ARC Update Acceptance.app');
 const candidate = path.join(temporary, 'Candidate.app');
 const environment = {...process.env, ARC_STATE_DIR:stateDir};
+const agent = 'update-fixture';
+const releaseTask = path.join(temporary, 'release-task');
+let taskId;
+await mkdir(path.join(stateDir, 'agents'), {recursive:true});
+const agentScript = path.join(temporary, 'agent.mjs');
+await writeFile(agentScript, `
+import {createInterface} from 'node:readline';
+import {existsSync} from 'node:fs';
+const emit = value => process.stdout.write(JSON.stringify(value)+'\\n');
+const update = value => emit({method:'session/update',params:{sessionId:'update-session',update:value}});
+let timer;
+const input=createInterface({input:process.stdin});
+input.on('close',()=>{clearInterval(timer);process.exit(0);});
+input.on('line',line=>{
+ const request=JSON.parse(line);
+ if(request.method==='initialize') emit({id:request.id,result:{protocolVersion:1,agentCapabilities:{loadSession:true}}});
+ if(request.method==='session/new'||request.method==='session/load') emit({id:request.id,result:{sessionId:'update-session'}});
+ if(request.method==='session/prompt') {
+  update({sessionUpdate:'tool_call',toolCallId:'held-tool',title:'Fixture tool',kind:'other',status:'in_progress'});
+  timer=setInterval(()=>{
+   if(!existsSync(${JSON.stringify(releaseTask)})) return;
+   clearInterval(timer);
+   update({sessionUpdate:'tool_call_update',toolCallId:'held-tool',status:'completed'});
+   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'UPDATE_TASK_COMPLETED'}});
+   emit({id:request.id,result:{stopReason:'end_turn'}});
+  },100);
+ }
+ if(request.method==='session/cancel') {clearInterval(timer);process.exit(0);}
+});
+`);
+await writeFile(path.join(stateDir,'agents/manifests.json'),JSON.stringify([{id:agent,command:process.execPath,args:[agentScript],versionArgs:[],protocol:'acp-v1'}]));
+await writeFile(path.join(stateDir,'task-settings.json'),JSON.stringify({autoOpenCodex:false}));
 const manifest = { version: '0.0.1', notes: 'Direct update acceptance', platforms: {} };
 const name = 'acceptance.app.tar.gz';
 let payload;
@@ -98,6 +130,16 @@ async function cli(...args) {
   if(!value.ok) throw new Error(JSON.stringify(value.error));
   return value.result;
 }
+async function control(op,args) {
+  const endpoint=JSON.parse(await readFile(path.join(stateDir,'app/native.json'),'utf8'));
+  const response=await fetch(`http://127.0.0.1:${endpoint.port}/api/cli/control`,{
+    method:'POST',headers:{authorization:`Bearer ${endpoint.token}`,'content-type':'application/json'},body:JSON.stringify({op,args}),
+  });
+  const value=await response.json();
+  if(value.isError)throw new Error(JSON.stringify(value.structuredContent));
+  return value.structuredContent?.result ?? value;
+}
+async function task() { return control('agent_read',{agent,taskId,view:'full'}); }
 async function until(read, accept, timeout=90_000) {
   const deadline=Date.now()+timeout;let last;
   while(Date.now()<deadline) {if(report.runtimeErrors?.length)throw new Error(report.runtimeErrors.join('\n'));try {last=await read();} catch(error){last=String(error);await sleep(150);continue;}if(accept(last))return last;await sleep(150);}
@@ -166,6 +208,12 @@ try {
   });
   await regression('downloaded update installs and restarts directly with the feed offline', async()=>{
     // Regression: a ready update was routed through settling, countdown and task recovery instead of installing immediately.
+    const created=await control('agent_create',{agent,cwd:temporary,prompt:'Hold the fixture tool across update.',approval:'approved',purpose:'self-test',notify:null,requestId:crypto.randomUUID(),waitMs:1});
+    taskId=created.taskId;
+    assert.ok(taskId,JSON.stringify(created));
+    const active=await until(task,value=>value.status==='running' && value.taskHost?.hostPid);
+    assert.equal(active.taskHost.hostProtocol,1);
+    await until(()=>control('agent_events',{agent,taskId}),value=>value.events?.some(row=>row.method==='session/update' && row.params?.params?.update?.toolCallId==='held-tool'));
     const before = await cli('app','status'), oldCore = await cli('call','health');
     const endpoint = JSON.parse(await readFile(path.join(stateDir, 'app/native.json'), 'utf8'));
     const lease = await fetch(`http://127.0.0.1:${endpoint.port}/api/runtime/lease`, {
@@ -181,12 +229,21 @@ try {
     assert.notEqual(running.pid,before.pid);
     assert.notEqual(core.pid,oldCore.pid);
     assert.equal(running.executable,path.join(target,'Contents/MacOS/agent-remote-control-desktop'));
+    const restored=await until(task,value=>value.status==='running' && value.taskHost?.hostPid===active.taskHost.hostPid);
+    assert.equal(restored.taskHost.hostStart,active.taskHost.hostStart);
+    assert.equal(restored.taskHost.agentPid,active.taskHost.agentPid);
+    await writeFile(releaseTask,'finish');
+    const finished=await until(task,value=>value.status==='completed');
+    assert.equal(finished.finalResponse,'UPDATE_TASK_COMPLETED');
+    assert.ok(finished.taskHost.ackedOffset>active.taskHost.ackedOffset);
     report.install = {desktop:running, core, elapsedMs:Date.now()-started};
+    report.task={taskId,hostPid:restored.taskHost.hostPid,hostStart:restored.taskHost.hostStart,agentPid:restored.taskHost.agentPid,status:finished.status,finalResponse:finished.finalResponse};
   });
   report.ok=true;
 } catch(error) {report.ok=false;report.error=String(error);throw error;}
 finally {
   report.transfers=transfers;
+  if(taskId){try{await writeFile(releaseTask,'finish');await until(task,value=>['completed','failed','cancelled'].includes(value.status),5000);}catch{}}
   if(child){try{await quit();}catch{}}
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n');

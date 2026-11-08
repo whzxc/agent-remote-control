@@ -125,7 +125,7 @@ pub fn systemd() -> Result<Value> {
     let config = dirs::config_dir().ok_or("XDG config directory unavailable")?;
     let path = config.join("systemd/user/agent-remote-control.service");
     let binary = crate::runtime::binary()?;
-    let mut unit = format!("[Unit]\nDescription=Agent Remote Control (headless)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nKillMode=mixed\nUMask=0077\nEnvironment={}\n",
+    let mut unit = format!("[Unit]\nDescription=Agent Remote Control (headless)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nKillMode=process\nUMask=0077\nEnvironment={}\n",
         quote(binary.to_str().ok_or("Invalid binary path")?, true)?,
         quote(&format!("ARC_STATE_DIR={}", root().display()), false)?);
     for key in [

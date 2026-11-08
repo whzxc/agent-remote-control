@@ -36,7 +36,7 @@ Check that notify uses channel "claude-session" and target names your Claude Cod
 
 ## Can I close the window or leave the computer?
 
-Closing the ARC window keeps its menu-bar/tray process running. Keep the computer awake and connected. Sleep or loss of network interrupts remote access. Quitting the final Core client stops its background Agents, except Codex tasks that are still running in the background; they finish and ARC reconnects to them on the next start. Updating or restarting ARC does not interrupt those Codex tasks. Codex Desktop-owned tasks follow Desktop's lifecycle.
+Closing the ARC window keeps its menu-bar/tray process running. Keep the computer awake and connected. Sleep or loss of network interrupts remote access. Quitting the final Core client keeps running Codex and Pi/ACP tasks alive. They finish in detached processes, and ARC reconnects on the next start, including pending approvals. Updating, restarting or a Core crash does not interrupt those tasks. Idle task processes close and can resume later. A task-host exits after its turn has ended and no Core has connected for 30 minutes. If logs report a direct stdio fallback, that process follows Core lifetime. Codex Desktop-owned tasks follow Desktop's lifecycle.
 
 ## Why is quota information missing or stale?
 

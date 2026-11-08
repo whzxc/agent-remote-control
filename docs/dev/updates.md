@@ -8,7 +8,7 @@ The frontend uses the official `@tauri-apps/plugin-updater` `Update` resource. T
 
 After download, the panel shows **Update and restart**. Clicking it closes Core, calls `Update.install()`, and invokes the official process plugin's `relaunch()`. Normal startup restores connection intent from `desktop-session.json`. If installation fails, the Core lifecycle hook restores access and the error stays in the panel.
 
-Codex tasks on ARC App Server keep running through shutdown because the app-server is detached from Core; the restarted Core reattaches to them. Pi/ACP tasks are interrupted by shutdown. Users resume eligible interrupted tasks through the ordinary task controls. Installation never waits for tasks, schedules a countdown or submits a continuation.
+Updates and restarts MUST preserve running Agent tasks. Codex execution stays in detached profile App Servers; Pi/ACP execution stays in detached task-host processes. Core disconnects from running turns and pending interactions, closes idle transports, and reattaches on startup. Quitting the final Core client uses the same policy. Task-host executables live in content-addressed state directories so installers can replace the application executable on Windows. Installation never waits for tasks, schedules a countdown or submits a continuation. A logged direct-stdio fallback lacks this continuity; see [transport limits](architecture.md#task-host-protocol-v1).
 
 ## Ownership
 
@@ -20,4 +20,4 @@ The panel contains Release notes, official download progress, skip-version and t
 
 ## Validation
 
-Run `npm test` for the direct install-button regression and frozen tool schemas. Use `npm run accept:ui` with the `updates-*` fixtures for layout and states. `npm run accept:updates` builds two signed versions with a hidden local fixture WebView with a loopback feed. That fixture imports the production frontend controller and exercises the real official plugin commands, retryable errors, cached installation with the feed offline, Core shutdown and matching Desktop/Core fingerprints after restart. It never replaces the installed production app.
+Run `npm test` for the direct install-button regression and frozen tool schemas. Use `npm run accept:ui` with the `updates-*` fixtures for layout and states. `npm run accept:updates` builds two signed versions with a hidden local fixture WebView with a loopback feed. That fixture imports the production frontend controller and exercises the real official plugin commands, retryable errors, cached installation with the feed offline, Core shutdown and matching Desktop/Core fingerprints after restart. A synthetic ACP task holds a tool call across installation; the runner checks the same host PID, process creation token and Agent PID after restart, then releases the fixture and requires completion. It never replaces the installed production app.

@@ -48,7 +48,7 @@ arc cli ingress doctor <id>
 arc cli onboarding
 ```
 
-Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection; `arc stop` stops Core and its owned Agents, refusing shutdown while another leased client is active. A Codex app-server with an active turn or pending request keeps running after Core stops; the next Core reattaches to it. Under systemd it runs in a transient `arc-codex-*` user scope, so `systemctl --user restart` does not end its turns.
+Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection. `arc stop` stops Core, refusing shutdown while another leased client is active. Running Codex App Servers and Pi/ACP task-hosts remain alive; idle transports close. The next Core reattaches and restores pending interactions. Under systemd, detached hosts use transient user scopes. The generated service uses `KillMode=process` so direct detached fallback also survives service restart. Existing installations must regenerate the unit with `arc systemd install` and reload the user manager to adopt that setting. A task-host closes its Agent once the turn has ended and no Core has connected for 30 minutes. A WARN about direct stdio fallback indicates that process follows Core lifetime.
 
 ## systemd user service
 
@@ -75,7 +75,7 @@ The optional `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment
 
 ## Update and remove
 
-Stop the service or detached daemon, run the installer for the chosen release, then start it again. To remove a user service, disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary and its adjacent skills/arc-setup directory if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
+Stop the service or detached daemon, run the installer for the chosen release, then start it again. Use `arc cli uninstall` to stop indexed hosts and remove ARC. For manual service removal, finish or explicitly interrupt running tasks first, then disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary and its adjacent skills/arc-setup directory if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
 
 ## Limits
 
