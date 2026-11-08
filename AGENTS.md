@@ -32,13 +32,11 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 
 ## UI design
 
-- TSX design sources in `design/` are the visual source of truth for components, panels, dialogs and pages. See [Design sources](docs/dev/design.md).
-- Visual changes MUST start in the source. Write or update the TSX frame, render it, and get the user's approval before implementing it. Behavior-only changes do not need a source change.
-- Each source contains only the presentation forms the user declares. Do not generate combinations of theme, width, locale or interaction state.
-- `design/tokens.css` is the token source. Sources style with Tailwind classes generated from it. Literal colors are allowed only in brand artwork marked `data-brand`.
-- Implementations MUST match their approved frames. When they disagree, the source wins until the user approves a change to it.
-- Use the global `sdg` CLI (>=0.4.3) for the toolkit and viewer. Run `sdg check` after editing sources. It MUST pass before committing.
-- A surface without an approved source keeps its current implementation. Its next visual change starts by writing its source.
+- TSX sources in `design/` are the visual source of truth. [Design sources](docs/dev/design.md) owns ARC's direction and review procedure; [Asset mapping and status](docs/dev/design-assets.md) owns per-part implementation mappings, adoption, review status, exceptions and remaining gaps.
+- Follow the [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md) for ownership, layering, frame names, fixtures and lifecycle. They take precedence over conflicting local design guidance. The [toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns source syntax and checks.
+- Visual changes MUST start in the owning TSX source. Codex proposes and implements each batch; the control source (Claude) reviews. Claude approves structural-only batches whose affected frames are pixel-identical in both themes. Any visual difference or open decision requires user gallery approval before implementation. Behavior-only changes do not need a source change.
+- Use the global `sdg` CLI >=0.5.0. `sdg check` MUST pass before committing. Render affected frames in both themes and inspect them. Keep current mappings and status with each owning batch.
+- `design/tokens.css` owns design tokens. Implementations MUST match approved frames; a surface without an approved source keeps its current implementation until its source is reviewed.
 
 ## UI implementation
 

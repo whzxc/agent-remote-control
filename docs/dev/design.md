@@ -1,40 +1,36 @@
 # Design sources
 
-[UI conventions](ui.md) · [Acceptance](acceptance.md) · [Development](development.md)
+[UI conventions](ui.md) · [Asset mapping and status](design-assets.md) · [Acceptance](acceptance.md)
 
-TSX sources in `design/` define how ARC looks. Each default export declares static `Frame` presentations. React implementations follow them. [UI conventions](ui.md) owns behavior, data projection and layout logic.
+TSX sources in `design/` define ARC's visual direction. React implementations follow approved sources. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-ARC uses the global `@whzxc/svg-design-gallery` CLI, version 0.4.3 or later. The [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) owns the [format](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#sources), [checks](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#check), [workflow](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#workflow), [layout review](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#layout-review), [commands and viewer](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#commands), and [limits](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#limits).
-
-## Layout
-
-- `design/tokens.css` is ARC's token source. `ui/tokens.css` is the runtime sheet.
-- `design/components/<name>.tsx` exports typed, static component functions. Each default export returns only the declared forms. `design/surfaces/` composes named imports into ARC panels, dialogs and pages.
-- `design/art/` contains imported SVG brand artwork. Mark artwork instances with `data-brand`. Keep component structure in TSX.
-- `design/tsconfig.json` resolves the global toolkit declarations in the ignored `design/.sdg/` directory.
-- `sdg.config.mjs` declares the required toolkit version, paths and browser fixture adapter. Generated output goes to the ignored `output/design/` directory.
-- Author controls with flex/grid, padding and gaps. Sizes follow content; control heights use tokens. Use whole pixels outside free-form geometry. `style` outside `data-free` sets only dimensions or custom properties.
-- `TopologyScene` accepts fixture coordinates and links inside `data-free`; runtime geometry remains owned by `solve.ts`. Agent rings and effort gauges compute their geometry from readings and steps.
-- Named imports use runtime presentation prop names where available. Icons are Lucide name strings; `BrandMark` and `AgentIcon` accept an imported-art `brand` key. Static sources omit callbacks and state hooks. Width-bearing frames need a full-width shell; a frame width does not stretch its child.
-- Use `SingleChoice` for pills, dropdowns, navigation, tabs, option cards and setup choices. Compose cards and panels through `children`; use `TaskRelation` and `TaskParentLink` in detail headers.
-- Run `sdg check components/<name>` and `sdg render components/<name>` for an individual component.
-- The homepage preserves the ARC mark, earcup connections and topology. Portrait forms use a 640×800 viewport, except expanded-single-task at 640×1000; landscape forms use 1280×800.
-- Tile geometry has a neutral shell with a separate state tint. Phase labels keep shared text typography and apply their semantic color to a span.
+The [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md) govern asset placement, ownership, naming, fixture separation and lifecycle. The [toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global SDG CLI **>=0.5.0**, as required by `sdg.config.mjs`; ARC does not depend on the toolkit at runtime.
 
 ## Presentation forms
 
-Keep the forms declared by each source's default export. Form names retain their existing `data-form` names. Themes use the same geometry, and each source uses one representative language. Repeated fixtures are data rendered with `map`; a component function may be reused without adding a presentation frame. Each surface frame identifies its corresponding fixture; the adapter sets its language and fixed clock.
+ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
 
-Task bubbles retain compact, standard, detailed, row and attention-row forms. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded forms. The shared board-header component retains active and idle forms, used by the existing homepage frames. Setup retains standalone and nested connection flows; method and ready have distinct controls. The task-relationships component's detail-header examples are parts of its family form, not separate surface frames.
+The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language; English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape homepage forms use 1280×800, portrait forms use 640×800, expanded-single-task uses 640×1000, and `homepage-topology-mobile/narrow-two-tasks` uses 390×844. Portrait viewports at most 520 CSS pixels wide omit visible node labels and retain accessible names. Wider portrait forms retain labels. Rails reserve node and quota-ring space; the date/time header stays centered.
 
-`homepage-topology-mobile/narrow-two-tasks` defines the approved 390×844 mobile form. Portrait viewports at most 520 CSS pixels wide omit visible node labels; node names remain available as accessible labels. The rails reserve room for the node graphics and quota rings, giving task bubbles the remaining inward width. Wider portrait forms retain their existing labels. The mobile date/time header stays centered in the viewport.
+The default exports declare the maintained presentations. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
 
-## AX Board
+## Ownership and project configuration
 
-`surfaces/coordination-ax.tsx` declares open, closed and detail forms for the Board's AX tab. The tab shares the existing panel header. Open includes open, triaged and candidate records. Closed includes closed and merged records with their disposition. Detail replaces the list in the same panel and exposes the symptom, expected behavior, occurrence metadata, evidence, disposition, fixing commit and history. The frames map to `coordination-ax-light`, using synthetic Chinese owner metadata. A detail can exceed the panel's scroll viewport; its full-content frame retains the processing history below the fold.
+The configured production order is `components` → `modules` → `surfaces`, using SDG default discovery. Generic controls belong to `components`; feature ownership and remaining migrations are listed in the [mapping](design-assets.md). `modules/` has no sources yet. `fixtures/` owns extracted representative data. `art/` owns artwork and content images, with dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
+
+`scenes/topology-screen.tsx` and `scenes/topology.ts` remain outside the source graph and await the topology module/fixture migration. This is the current placement exception; review its helper and type-only dependencies in that scope.
+
+`design/tsconfig.json` resolves generated declarations in ignored `design/.sdg/`. `sdg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`.
+
+## Review and adoption
+
+Codex proposes and implements each batch. The control source (Claude) reviews ownership, mappings and both-theme renders. The user approves visual changes in the gallery. Claude approves a structural-only batch when every affected frame is pixel-identical before and after in both themes. Any visual difference or open decision goes to the user's gallery review. Record current review/adoption status and remaining gaps in the mapping; keep batch history, check results and decision logs outside repository documentation.
+
+Work on one cohesive family, feature module or composed surface at a time. The active scope and queued responsibilities are in the mapping. Before editing, render affected frames from the batch base commit in a disposable copy outside the checkout and report its path. After editing, run `sdg check`, render and inspect every affected frame in both themes, and compare each with its baseline. Token edits include all dependent frames. A structural comparison uses decoded pixel equality, including dimensions. Implementation comparison uses the fixture/capture adapter described in the mapping.
+
+Commit the scoped changes with a single-line Conventional Commits subject and inspect `git show --stat HEAD` for unrelated files. For visual differences or open decisions, open `sdg open <lane>/design --port=<free-port>` and provide the gallery URL; do not use port 4310. Keep review evidence in ignored output or an external disposable directory. Update current mapping/status at each batch boundary. Implementation edits and runtime acceptance require their own assigned scope.
 
 ## Implementation checklist
-
 
 - Size shared controls through their size variables, such as `--icon-button-size`. A width or height override leaves the control's minimum size in place and distorts its shape.
 - Make each surface rule win over generic panel rules, such as `.elastic-panel .dialog-header h2`. A text width difference in `compare` usually means a font rule lost.
@@ -49,49 +45,3 @@ Task bubbles retain compact, standard, detailed, row and attention-row forms. Po
 - A surface without an approved source keeps its current implementation. Its next visual change starts by writing its source.
 - `ui/tokens.css` is the runtime token sheet. Migrating a surface aligns the tokens it uses with `design/tokens.css`.
 - Migrating a surface deletes its visual statements from [UI conventions](ui.md) and keeps its behavior statements.
-
-## Frames
-
-Each surface frame declares `fixture` and `capture` in its TSX source. A `fixture` names an `accept:ui` scenario or a prepared compare fixture in `sdg.config.mjs`. The `capture` declares a region/dialog name, a selector, or a page with origin; a viewport; and ordered clicks when needed. Selectors identify the intended shell when nested dialogs or popovers hide its accessible name. A viewport is the browser size, not a forced element size.
-
-Prepared fixtures run their steps in the adapter before the frame's clicks. sdg resolves visible controls by exact accessible name across buttons, radios, tabs, checkboxes, switches, menu items, options and links. Frames without a reachable state have no fixture, and their notes name the reason.
-
-```sh
-sdg compare --all
-sdg compare surfaces/task-detail --frame=needs-you
-```
-
-Command flags override a frame's capture.
-
-The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and uses the scenario's theme and language with clock `2026-01-01T00:00:00Z`. Portrait fixtures use `timezone: 'Asia/Shanghai'`, matching `accept:ui`. Compare and browser acceptance run in the main checkout. The viewer opens independently with `sdg design`.
-
-[A] Prepared fixtures use existing scenario data and public UI controls:
-
-| Compare fixture | Scenario | Preparation |
-| --- | --- | --- |
-| `approval-permission` | `approval` | Enter on `阅读项目说明 · 打开执行时间线`; wait for task detail. |
-| `approval-question` | `task-states` | Enter on `Waiting for input · 打开执行时间线` inside `.agent-overview-layer`; wait for task detail. |
-| `task-detail-failed` | `task-states` | Enter on `Failed task · 打开执行时间线` inside `.agent-overview-layer`; wait for task detail. |
-| `agent-platform-accounts` | `brand-accounts-light` | Enter on `Claude Code` inside `[data-agent-platform="claude"]`; wait for `.agent-platform-view`. |
-| `quota-overview` | `agent-panel` | Escape and wait for the Agent panel to close. This panel has no Close button. |
-| `board-unavailable` | `coordination-unavailable` | Open Board and wait for `SCENARIO_BOARD_UNAVAILABLE`, without retrying, as in `tooling/acceptance/coordination.mjs`. |
-| `portrait-topology-sources-folded` | `portrait-topology-0` | Enter on `Collapse control sources`; wait for zero positioned source roots and settled portrait orientation, then clear focus. |
-| `portrait-topology-agents-folded` | `portrait-topology-0` | Enter on `Collapse Agents`; wait for zero positioned Agent roots and settled portrait orientation, then clear focus. |
-
-Task selection follows [AgentConversations](../../ui/components/AgentConversations.tsx) and [TaskNeedsYou](../../ui/components/TaskNeedsYou.tsx). Scoping avoids the identically named topology bubble beneath the panel. Portrait preparation follows [portrait acceptance](../../tooling/acceptance/portrait-topology.mjs); pointer clicks can hit the arc overlay instead of the keyboard control.
-
-[B] `agent-platform/native` has no reachable state in the current scenarios. `antigravity-platform` has zero linked accounts. [selectAgentPanel](../../ui/state/overviewPanels.ts) converts platforms with at most one account into Agent history, and [AgentPanel](../../ui/components/AgentPanel.tsx) enforces the same rule. The native empty card in `AgentPlatformView` cannot be reached through that route. Do not substitute the Antigravity history panel.
-
-[C] [TaskDispatchDialog](../../ui/components/AgentDispatchDefaults.tsx) owns the model dialog. [ModelEffortPicker](../../ui/components/ModelEffortPicker.tsx) portals its picker and nested modal menu, which makes the underlying dialog aria-hidden. sdg reads an explicitly selected target inside hidden ancestors, so keep the dialog selector. The portal menu lies outside the dialog capture and is reviewed on the overlay only; its text is outside the captured target.
-
-[D] `updates/settings` has no standalone shell in any current scenario. `updates-settings` renders [AppUpdate](../../ui/components/AppUpdate.tsx) inside `SettingsPage`: `.settings-about` is the inner content, while its `.page-sheet` ancestor contains every settings group. Neither matches the frame's 720×258 standalone About panel. Review the embedded content with `updates-settings` during browser acceptance; do not treat that content crop as this frame.
-
-[E] [AddConnection](../../ui/components/AddConnection.tsx) and [SetupDialog](../../ui/components/SetupDialog.tsx) render `.setup-return` only for nested connection flows. The seven `p3-stacked-*` scenarios seed both source and connection setup; the selector identifies the child shell independently of the parent dialog's accessible visibility. The own-address form uses a taller viewport for its complete fields and footer. The implementation scales the nested width to 680px × .92 (626px when rounded), while all seven frames declare 680px. Keep these mappings and track the width difference as layout drift. Zero extracted texts in these nested dialogs are an ARC accessibility defect; the mapping remains the child shell.
-
-[F] The request sheet is limited to its host width minus 16px. A wider host switches to the inline request, making the frame's 360px sheet unreachable. Use the reachable permission capture at 510×844 (332×292) and question capture at 525×844 (330×406), and track their sheet widths as implementation drift. Permission has no `打开` control at 525×844; keep the two viewports distinct.
-
-The MCP hub uses the full workspace height ([UI conventions](ui.md#experimental-mcp-hub)); a taller viewport exposes its service list. Its current shell height follows the viewport, so the older content-fit sizes (662, 912 and 432px) are not current capture-size requirements. Agent platform and task-detail shells likewise follow [topology panel geometry](../../ui/topology/Topology.tsx); their width is not fixed to the frame's 480 or 640px. Compare these differences as layout findings rather than selecting another panel or resizing the DOM.
-
-Full-content frames in `agent-panel/overview`, `coordination/current`, `settings/about`, `settings/display` and `source-panel/history` can exceed the scroll viewport. The explicit heights provide room for their content; inspect remaining scroll content during browser acceptance. sdg waits for stable target text after clicks and reports `settled`; this does not guarantee that an asynchronous domain state has arrived. The `board-unavailable` preparation explicitly waits for its error before capture, following [coordination acceptance](../../tooling/acceptance/coordination.mjs).
-
-Pet preview atlas labels are decorative image content inside `aria-hidden` previews; review them as shapes in the overlay.

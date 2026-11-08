@@ -55,15 +55,15 @@ The workspace shares root Cargo.lock and target. The compilation-cache budget is
 
 ## Design sources
 
-Use the globally installed `sdg` CLI, version 0.4.3 or later:
+Use the globally installed `sdg` CLI, version 0.5.0 or later:
 
 ```sh
 sdg check
 sdg render
-sdg design
+sdg open design --port=4311
 ```
 
-`sdg design` opens the shared viewer independently of desktop development. Visual changes start in `design/`. [Design sources](design.md) records ARC's decisions and fixture mappings; the [SDG toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) defines the format, commands, checks and workflow.
+Choose an unused viewer port other than 4310. The viewer opens independently of desktop development. Visual changes start in `design/`. [Design sources](design.md) owns ARC's governance and visual direction; [Asset mapping and status](design-assets.md) owns implementation and fixture mappings. Follow the [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md) and [toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md).
 
 ## Desktop artifacts
 

@@ -1,6 +1,6 @@
 /* Design token source for TSX frames and shared artwork. */
 :root {
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", Inter, "WenQuanYi Zen Hei", sans-serif;
+  --font-ui: -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Segoe UI","Microsoft YaHei",Inter,"WenQuanYi Zen Hei",sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;
   --text-display: 28px;
   --text-title: 18px;
@@ -14,6 +14,9 @@
   --radius-card: 18px;
   --radius-panel: 24px;
   --control-height: 34px;
+  --control-height-compact: 30px;
+  --control-gap: 6px;
+  --control-icon-size: 16px;
   --field-height: 40px;
 
   --canvas: #f3eee7;

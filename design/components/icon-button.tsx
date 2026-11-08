@@ -1,13 +1,11 @@
 import { Frame, Icon } from "sdg";
-const forms = [
-  { name: "regular", compact: false, icon: "rotate-cw" },
-  { name: "compact", compact: true, icon: "trash-2" },
-];
+import { iconButtonForms } from "../fixtures/buttons";
+
 export function IconButton({
   icon,
   label,
   busy = false,
-  size = 16,
+  size,
   compact = false,
   active = false,
   disabled = false,
@@ -26,15 +24,22 @@ export function IconButton({
     <button
       aria-label={label}
       disabled={disabled || busy}
-      class={`flex shrink-0 items-center justify-center rounded-control text-text ${compact ? "size-[30px]" : "size-(--control-height)"} ${active ? "bg-surface-sunken" : ""}`}
+      class={`flex shrink-0 items-center justify-center rounded-control text-text
+        ${compact ? "size-(--control-height-compact)" : "size-(--control-height)"} ${active ? "bg-surface-sunken" : ""}`}
     >
-      <span class={agent ? "grid size-5 place-items-center rounded-full bg-role-agent text-canvas" : "flex"}><Icon name={busy ? "loader-circle" : icon} size={size} /></span>
+      <span class={agent ? "grid size-5 place-items-center rounded-full bg-role-agent text-canvas" : "flex"}>
+        <Icon
+          name={busy ? "loader-circle" : icon}
+          size={size}
+          class={size === undefined ? "size-(--control-icon-size)" : ""}
+        />
+      </span>
     </button>
   );
 }
 export default () =>
-  forms.map(({ name, compact, icon }) => (
+  iconButtonForms.map(({ name, ...props }) => (
     <Frame name={name}>
-      <IconButton icon={icon} label={icon} compact={compact} />
+      <IconButton {...props} />
     </Frame>
   ));
