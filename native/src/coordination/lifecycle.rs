@@ -54,7 +54,7 @@ struct Report {
     #[serde(rename = "toolingOrigin")]
     _tooling_origin: Option<String>,
 }
-fn alive(pid: u32) -> Result<bool> {
+pub(crate) fn alive(pid: u32) -> Result<bool> {
     if pid == 0 || pid > i32::MAX as u32 {
         return Err("INVALID_ARGUMENT: process ID".into());
     }

@@ -48,7 +48,7 @@ arc cli ingress doctor <id>
 arc cli onboarding
 ```
 
-Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection; `arc stop` stops Core and its owned Agents, refusing shutdown while another leased client is active.
+Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection; `arc stop` stops Core and its owned Agents, refusing shutdown while another leased client is active. A Codex app-server with an active turn or pending request keeps running after Core stops; the next Core reattaches to it. Under systemd it runs in a transient `arc-codex-*` user scope, so `systemctl --user restart` does not end its turns.
 
 ## systemd user service
 

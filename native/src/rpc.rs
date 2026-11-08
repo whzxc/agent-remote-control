@@ -1,9 +1,67 @@
 use crate::*;
+use futures_util::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use std::{collections::HashMap, process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    process::{ChildStdin, ChildStdout},
     sync::oneshot,
 };
+use tokio_tungstenite::{
+    tungstenite::{protocol::WebSocketConfig, Message},
+    WebSocketStream,
+};
+const FRAME_LIMIT: usize = 32 * 1024 * 1024;
+type Bridge = WebSocketStream<tokio::io::Join<ChildStdout, ChildStdin>>;
+/// Core-owned stdio app-server, or a detached server reached through `app-server proxy`.
+enum Writer {
+    Stdio(ChildStdin),
+    Socket(SplitSink<Bridge, Message>),
+}
+enum Frames {
+    Lines(BufReader<ChildStdout>),
+    Socket(SplitStream<Bridge>),
+}
+impl Frames {
+    async fn next(&mut self) -> Option<Vec<u8>> {
+        match self {
+            Frames::Lines(reader) => match crate::line(reader, FRAME_LIMIT).await {
+                Ok(bytes) if !bytes.is_empty() => Some(bytes),
+                _ => None,
+            },
+            Frames::Socket(stream) => loop {
+                match stream.next().await? {
+                    Ok(Message::Text(text)) => return Some(text.as_bytes().to_vec()),
+                    Ok(Message::Binary(bytes)) => return Some(bytes.to_vec()),
+                    Ok(Message::Close(_)) | Err(_) => return None,
+                    Ok(_) => continue,
+                }
+            },
+        }
+    }
+}
+/// Arguments that select an isolated profile's file credential store.
+pub(crate) fn profile_arguments(profile: Option<&str>) -> Vec<&'static str> {
+    if profile.is_some() && !cfg!(feature = "test-fixture") {
+        vec!["-c", "cli_auth_credentials_store=\"file\""]
+    } else {
+        vec![]
+    }
+}
+pub(crate) fn profile_environment(
+    command: &mut std::process::Command,
+    profile: Option<&str>,
+) -> Result<()> {
+    if let Some(profile) = profile {
+        command.env("CODEX_HOME", crate::accounts::codex::home(profile)?);
+        for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
+            command.env_remove(key);
+        }
+    }
+    Ok(())
+}
 type Pending = Arc<std::sync::Mutex<HashMap<String, oneshot::Sender<Result<Value>>>>>;
 struct PendingCall {
     pending: Pending,
@@ -15,8 +73,10 @@ impl Drop for PendingCall {
     }
 }
 pub struct Rpc {
-    input: Mutex<Option<tokio::process::ChildStdin>>,
+    input: Mutex<Option<Writer>>,
+    /// The stdio app-server, or the disposable proxy of a detached host.
     child: Mutex<tokio::process::Child>,
+    host: Option<crate::codex_host::Host>,
     pending: Pending,
     pub events: SharedEvents,
     pub session: String,
@@ -36,14 +96,8 @@ impl Rpc {
         profile: Option<&str>,
     ) -> Result<Arc<Self>> {
         let mut command = command(binary);
-        if let Some(profile) = profile {
-            command.env("CODEX_HOME", crate::accounts::codex::home(profile)?);
-            #[cfg(not(feature = "test-fixture"))]
-            command.args(["-c", "cli_auth_credentials_store=\"file\""]);
-            for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
-                command.env_remove(key);
-            }
-        }
+        command.args(profile_arguments(profile));
+        profile_environment(command.as_std_mut(), profile)?;
         #[cfg(feature = "test-fixture")]
         command.arg(std::env::var("ARC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
         #[cfg(not(feature = "test-fixture"))]
@@ -65,34 +119,251 @@ impl Rpc {
         let started_at = now();
         let input = child.stdin.take().ok_or("missing stdin")?;
         let stdout = child.stdout.take().ok_or("missing stdout")?;
-        let mut stderr = child.stderr.take().ok_or("missing stderr")?;
-        tokio::spawn(async move {
-            let mut bytes = [0; 4096];
-            let mut window = std::time::Instant::now();
-            let mut count = 0;
-            while let Ok(n) = stderr.read(&mut bytes).await {
-                if n == 0 {
-                    break;
-                }
-                if window.elapsed().as_secs() >= 1 {
-                    window = std::time::Instant::now();
-                    count = 0;
-                }
-                if count < 8 {
-                    crate::logs::record(
-                        "WARN",
-                        &format!("app-server: {}", String::from_utf8_lossy(&bytes[..n])),
-                        None,
-                    );
-                    count += 1;
-                }
+        let stderr = child.stderr.take().ok_or("missing stderr")?;
+        forward_stderr(stderr);
+        Self::run(
+            child,
+            Writer::Stdio(input),
+            Frames::Lines(BufReader::new(stdout)),
+            None,
+            events,
+            session,
+            profile,
+            pid,
+            started_at,
+            inherited_nofile,
+        )
+        .await
+    }
+    /// Connect to this profile's detached app-server, starting it when needed.
+    /// Falls back to a Core-owned stdio server when detachment is unavailable.
+    pub(crate) async fn attach(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+    ) -> Result<Arc<Self>> {
+        if cfg!(feature = "test-fixture") {
+            return Self::start_profile(binary, events, session, profile).await;
+        }
+        // Boxing keeps the detached connection out of every caller's future layout.
+        match Box::pin(Self::connect_host(binary, &events, session, profile)).await {
+            Ok(rpc) => Ok(rpc),
+            Err(error) => {
+                crate::logs::record(
+                    "WARN",
+                    &format!("Detached Codex app-server unavailable; using a Core-owned app-server: {error}"),
+                    None,
+                );
+                Self::start_profile(binary, events, session, profile).await
             }
-        });
+        }
+    }
+    async fn connect_host(
+        binary: &Path,
+        events: &SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+    ) -> Result<Arc<Self>> {
+        let key = profile.unwrap_or("codex-home");
+        let mut failure = String::new();
+        for _ in 0..3 {
+            let host = crate::codex_host::attach(binary, key).await?;
+            let mut attempt = 0;
+            let rpc = loop {
+                attempt += 1;
+                match Self::bridge(binary, events.clone(), session, profile, host.clone()).await {
+                    Ok(rpc) => break Some(rpc),
+                    Err(error) if attempt < 3 => {
+                        failure = error;
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                    }
+                    Err(error) => {
+                        failure = error;
+                        break None;
+                    }
+                }
+            };
+            let Some(rpc) = rpc else {
+                // An unreachable server cannot report or finish observable work.
+                crate::codex_host::stop(key).await?;
+                continue;
+            };
+            if host.adopted {
+                if host.outdated && !rpc.active().await {
+                    // Replace an idle server that predates the current Codex executable.
+                    rpc.stop().await;
+                    continue;
+                }
+                rpc.resubscribe().await;
+            }
+            return Ok(rpc);
+        }
+        Err(failure)
+    }
+    async fn bridge(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+        host: crate::codex_host::Host,
+    ) -> Result<Arc<Self>> {
+        let mut command = command(binary);
+        profile_environment(command.as_std_mut(), profile)?;
+        command
+            .args(["app-server", "proxy", "--sock"])
+            .arg(&host.socket);
+        #[cfg(unix)]
+        command.process_group(0);
+        let mut child = command
+            .kill_on_drop(true)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        let input = child.stdin.take().ok_or("missing stdin")?;
+        let stdout = child.stdout.take().ok_or("missing stdout")?;
+        forward_stderr(child.stderr.take().ok_or("missing stderr")?);
+        let config = WebSocketConfig::default()
+            .max_message_size(Some(FRAME_LIMIT))
+            .max_frame_size(Some(FRAME_LIMIT));
+        let (socket, _) = tokio::time::timeout(
+            Duration::from_secs(10),
+            tokio_tungstenite::client_async_with_config(
+                "ws://localhost/",
+                tokio::io::join(stdout, input),
+                Some(config),
+            ),
+        )
+        .await
+        .map_err(|_| "CODEX_HOST_HANDSHAKE_TIMEOUT".to_owned())?
+        .map_err(|e| format!("CODEX_HOST_HANDSHAKE_FAILED: {e}"))?;
+        let (sink, stream) = socket.split();
+        let pid = Some(host.pid);
+        let started_at = host.started_at.clone();
+        let inherited_nofile = host.inherited_nofile.clone();
+        Self::run(
+            child,
+            Writer::Socket(sink),
+            Frames::Socket(stream),
+            Some(host),
+            events,
+            session,
+            profile,
+            pid,
+            started_at,
+            inherited_nofile,
+        )
+        .await
+    }
+    /// Subscribe this connection to turns that kept running while no Core was
+    /// attached. Codex re-sends their pending server requests on resume.
+    async fn resubscribe(&self) {
+        for thread in self.active_threads().await {
+            if let Err(error) = self
+                .call(
+                    "thread/resume",
+                    json!({"threadId":thread,"excludeTurns":true}),
+                    30000,
+                )
+                .await
+            {
+                crate::logs::record(
+                    "WARN",
+                    &format!("Adopted Codex thread {thread} could not be resubscribed: {error}"),
+                    None,
+                );
+            }
+        }
+    }
+    async fn active_threads(&self) -> Vec<String> {
+        let Ok(loaded) = self.call("thread/loaded/list", json!({}), 5000).await else {
+            return vec![];
+        };
+        let mut active = vec![];
+        for thread in loaded["data"].as_array().into_iter().flatten() {
+            let Some(thread) = thread.as_str() else {
+                continue;
+            };
+            let status = self
+                .call(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    5000,
+                )
+                .await
+                .map(|v| v["thread"]["status"]["type"].clone());
+            if !matches!(
+                status.as_ref().ok().and_then(Value::as_str),
+                Some("idle" | "notLoaded")
+            ) {
+                active.push(thread.to_owned());
+            }
+        }
+        active
+    }
+    /// Whether any loaded thread is not idle. Failures count as active.
+    pub(crate) async fn active(&self) -> bool {
+        let Ok(loaded) = self.call("thread/loaded/list", json!({}), 3000).await else {
+            return true;
+        };
+        let Some(ids) = loaded["data"].as_array() else {
+            return true;
+        };
+        for id in ids {
+            match self
+                .call(
+                    "thread/read",
+                    json!({"threadId":id,"includeTurns":false}),
+                    3000,
+                )
+                .await
+            {
+                Ok(v)
+                    if matches!(
+                        v["thread"]["status"]["type"].as_str(),
+                        Some("idle" | "notLoaded")
+                    ) => {}
+                _ => return true,
+            }
+        }
+        false
+    }
+    pub(crate) fn detached(&self) -> bool {
+        self.host.is_some()
+    }
+    pub(crate) fn adopted(&self) -> bool {
+        self.host.as_ref().is_some_and(|h| h.adopted)
+    }
+    /// End the server and its native turns. A stdio server ends with its connection.
+    pub(crate) async fn stop(&self) {
+        self.close().await;
+        if let Some(host) = &self.host {
+            if let Err(error) = crate::codex_host::stop(&host.profile).await {
+                crate::logs::record("WARN", &error, None);
+            }
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    async fn run(
+        child: tokio::process::Child,
+        input: Writer,
+        mut frames: Frames,
+        host: Option<crate::codex_host::Host>,
+        events: SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+        pid: Option<u32>,
+        started_at: String,
+        inherited_nofile: Value,
+    ) -> Result<Arc<Self>> {
         let pending: Pending = Default::default();
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let rpc = Arc::new(Self {
             input: Mutex::new(Some(input)),
             child: Mutex::new(child),
+            host,
             pending: pending.clone(),
             events: events.clone(),
             session: session.into(),
@@ -105,12 +376,7 @@ impl Rpc {
         let profile = profile.map(str::to_owned);
         let response_input = Arc::downgrade(&rpc);
         tokio::spawn(async move {
-            let mut reader = BufReader::new(stdout);
-            loop {
-                let bytes = match crate::line(&mut reader, 32 * 1024 * 1024).await {
-                    Ok(bytes) if !bytes.is_empty() => bytes,
-                    _ => break,
-                };
+            while let Some(bytes) = frames.next().await {
                 let Ok(mut msg) = serde_json::from_slice::<Value>(&bytes) else {
                     continue;
                 };
@@ -227,6 +493,17 @@ impl Rpc {
         self.alive.load(std::sync::atomic::Ordering::SeqCst)
     }
     pub async fn health(&self) -> Value {
+        if let Some(host) = &self.host {
+            // A detached server may belong to an earlier Core, so it is not this
+            // process's child. Its PID is verified by creation time on every read.
+            let running = crate::codex_host::running(&host.profile);
+            let resources = crate::resources::child_status(
+                running.then_some(host.pid),
+                Some(&self.inherited_nofile),
+                "process exited or could not be checked",
+            );
+            return json!({"state":if self.alive(){"ready"}else{"stopped"},"pid":host.pid,"startedAt":self.started_at,"observedAt":now(),"evidence":"native-connector","stale":false,"resources":resources,"detached":true,"adopted":host.adopted});
+        }
         // Hold the owned Child while sampling, and check for exit on both sides.
         // Never sample an old PID after it has been reaped/reused.
         let child = self.child.lock().await;
@@ -256,12 +533,16 @@ impl Rpc {
     }
     pub async fn write(&self, v: Value) -> Result<()> {
         let mut input = self.input.lock().await;
-        input
-            .as_mut()
-            .ok_or("TRANSPORT_CLOSED")?
-            .write_all(format!("{v}\n").as_bytes())
-            .await
-            .map_err(|e| e.to_string())
+        match input.as_mut().ok_or("TRANSPORT_CLOSED")? {
+            Writer::Stdio(stdin) => stdin
+                .write_all(format!("{v}\n").as_bytes())
+                .await
+                .map_err(|e| e.to_string()),
+            Writer::Socket(sink) => sink
+                .send(Message::Text(v.to_string().into()))
+                .await
+                .map_err(|e| e.to_string()),
+        }
     }
     pub async fn call(&self, method: &str, params: Value, timeout: u64) -> Result<Value> {
         if !self.alive() {
@@ -306,7 +587,14 @@ impl Rpc {
         }
         result.map_err(|e| submission_error(method, e))
     }
+    /// Close this connection. A detached server keeps running; only its proxy ends.
     pub async fn close(&self) {
+        if self.host.is_some() {
+            self.input.lock().await.take();
+            let _ = self.child.lock().await.kill().await;
+            self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
+            return;
+        }
         // Dropping the pipe sends EOF. AsyncWrite::shutdown alone leaves the
         // child stdin handle open and makes cooperative processes hit the 5s kill deadline.
         self.input.lock().await.take();
@@ -331,6 +619,31 @@ impl Rpc {
         }
         self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
     }
+}
+
+fn forward_stderr(mut stderr: tokio::process::ChildStderr) {
+    tokio::spawn(async move {
+        let mut bytes = [0; 4096];
+        let mut window = std::time::Instant::now();
+        let mut count = 0;
+        while let Ok(n) = stderr.read(&mut bytes).await {
+            if n == 0 {
+                break;
+            }
+            if window.elapsed().as_secs() >= 1 {
+                window = std::time::Instant::now();
+                count = 0;
+            }
+            if count < 8 {
+                crate::logs::record(
+                    "WARN",
+                    &format!("app-server: {}", String::from_utf8_lossy(&bytes[..n])),
+                    None,
+                );
+                count += 1;
+            }
+        }
+    });
 }
 
 // Only transport failures after a mutating request was submitted leave its result unknown.

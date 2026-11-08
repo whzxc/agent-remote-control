@@ -113,7 +113,15 @@ impl Control {
     pub async fn utility(&self) -> Result<Arc<Rpc>> {
         let mut rpc = self.rpc.lock().await;
         if rpc.as_ref().is_none_or(|r| !r.alive()) {
-            *rpc = Some(Rpc::start(&self.rpc_binary()?, self.events.clone(), &self.session).await?)
+            *rpc = Some(
+                Rpc::attach(
+                    &self.rpc_binary()?,
+                    self.events.clone(),
+                    &self.session,
+                    None,
+                )
+                .await?,
+            )
         }
         Ok(rpc.as_ref().unwrap().clone())
     }
@@ -126,7 +134,7 @@ impl Control {
             return Ok(rpc.clone());
         }
         let config = crate::accounts::codex::profile(profile)?;
-        let rpc = Rpc::start_profile(
+        let rpc = Rpc::attach(
             &self.rpc_binary()?,
             self.events.clone(),
             &self.session,
@@ -137,7 +145,12 @@ impl Control {
             let mut login = crate::accounts::codex::tokens(profile, None).await?;
             login["type"] = json!("chatgptAuthTokens");
             if let Err(error) = rpc.call("account/login/start", login, 10000).await {
-                rpc.close().await;
+                // An adopted server may still run turns started before this Core.
+                if rpc.adopted() {
+                    rpc.close().await;
+                } else {
+                    rpc.stop().await;
+                }
                 return Err(error);
             }
         }
@@ -145,51 +158,70 @@ impl Control {
         Ok(rpc)
     }
     pub(crate) async fn profile_running(&self, profile: &str) -> bool {
-        let rpc = self.profile_rpcs.lock().await.get(profile).cloned();
-        let Some(rpc) = rpc.filter(|r| r.alive()) else {
-            return false;
+        let connected = self
+            .profile_rpcs
+            .lock()
+            .await
+            .get(profile)
+            .cloned()
+            .filter(|r| r.alive());
+        let rpc = match connected {
+            Some(rpc) => rpc,
+            // A detached server from an earlier Core may still run this profile's turns.
+            None if crate::codex_host::running(profile) => match self.profile_rpc(profile).await {
+                Ok(rpc) => rpc,
+                Err(_) => return true,
+            },
+            None => return false,
         };
-        if self
-            .events
+        self.connector_pending(Some(profile)).await || rpc.active().await
+    }
+    async fn connector_pending(&self, profile: Option<&str>) -> bool {
+        self.events
             .lock()
             .await
             .pending
             .values()
-            .any(|r| r["agentProfileId"] == profile)
+            .any(|r| r["owner"] == "connector-app-server" && r["agentProfileId"] == json!(profile))
+    }
+    /// Stop an idle server; detach from one that still runs turns or waits for input.
+    /// A detached server whose connection already failed cannot prove it is idle.
+    async fn release(&self, rpc: &Rpc, profile: Option<&str>) {
+        if rpc.detached()
+            && (!rpc.alive() || self.connector_pending(profile).await || rpc.active().await)
         {
-            return true;
+            rpc.close().await;
+        } else {
+            rpc.stop().await;
         }
-        let Ok(loaded) = rpc.call("thread/loaded/list", json!({}), 3000).await else {
-            return true;
-        };
-        let Some(ids) = loaded["data"].as_array() else {
-            return true;
-        };
-        for id in ids {
-            match rpc
-                .call(
-                    "thread/read",
-                    json!({"threadId":id,"includeTurns":false}),
-                    3000,
-                )
-                .await
-            {
-                Ok(v)
-                    if matches!(
-                        v["thread"]["status"]["type"].as_str(),
-                        Some("idle" | "notLoaded")
-                    ) =>
-                {
-                    ()
-                }
-                _ => return true,
+    }
+    /// Reconnect to detached servers kept by an earlier Core so their pending
+    /// requests and live events reach this Core without waiting for a read.
+    pub async fn reattach(&self) {
+        for profile in crate::codex_host::running_profiles() {
+            let result = if profile == "codex-home" {
+                self.utility().await.map(|_| ())
+            } else {
+                self.profile_rpc(&profile).await.map(|_| ())
+            };
+            if let Err(error) = result {
+                crate::logs::record(
+                    "WARN",
+                    &format!("Codex app-server {profile} could not be reattached: {error}"),
+                    None,
+                );
             }
         }
-        false
     }
     pub(crate) async fn close_profile(&self, profile: &str) {
-        if let Some(rpc) = self.profile_rpcs.lock().await.remove(profile) {
-            rpc.close().await;
+        let rpc = self.profile_rpcs.lock().await.remove(profile);
+        match rpc {
+            Some(rpc) => rpc.stop().await,
+            None => {
+                if let Err(error) = crate::codex_host::stop(profile).await {
+                    crate::logs::record("WARN", &error, None);
+                }
+            }
         }
     }
     pub(crate) async fn profile_account_rate_limits(&self, profile: &str) -> Result<Value> {
@@ -277,8 +309,9 @@ impl Control {
         self.shutdown.send_modify(|v| *v = v.wrapping_add(1));
     }
     pub async fn close(&self) {
-        for (_, rpc) in self.profile_rpcs.lock().await.drain() {
-            rpc.close().await;
+        let profiles: Vec<_> = self.profile_rpcs.lock().await.drain().collect();
+        for (profile, rpc) in profiles {
+            self.release(&rpc, Some(&profile)).await;
         }
         self.stop_waits();
         let jobs: Vec<_> = self.jobs.lock().await.drain().collect();
@@ -297,8 +330,9 @@ impl Control {
             }
         }
         self.monitor.lock().await.take();
-        if let Some(rpc) = self.rpc.lock().await.take() {
-            rpc.close().await;
+        let rpc = self.rpc.lock().await.take();
+        if let Some(rpc) = rpc {
+            self.release(&rpc, None).await;
         }
     }
     pub fn auto_open_codex(&self) -> Result<bool> {
