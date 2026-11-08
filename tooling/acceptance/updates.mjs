@@ -139,7 +139,7 @@ async function control(op,args) {
   if(value.isError)throw new Error(JSON.stringify(value.structuredContent));
   return value.structuredContent?.result ?? value;
 }
-async function task() { return control('agent_read',{agent,taskId,view:'full'}); }
+async function task() { return control('agent_read',{agent,taskId}); }
 async function until(read, accept, timeout=90_000) {
   const deadline=Date.now()+timeout;let last;
   while(Date.now()<deadline) {if(report.runtimeErrors?.length)throw new Error(report.runtimeErrors.join('\n'));try {last=await read();} catch(error){last=String(error);await sleep(150);continue;}if(accept(last))return last;await sleep(150);}
