@@ -1,6 +1,6 @@
 ---
 name: arc-local-code
-description: Use ARC from Codex or Claude Code on the ARC host to select Agents through the live dispatch policy, dispatch work or independent reviews, wait for results, and record ARC friction through AX.
+description: Use ARC from Codex or Claude Code on the ARC host to select Agents through the live dispatch policy, dispatch authorized work or independent reviews, wait for results, and record ARC friction through AX.
 ---
 
 # ARC from local Codex and Claude Code
@@ -8,6 +8,13 @@ description: Use ARC from Codex or Claude Code on the ARC host to select Agents 
 Use this flow only when this session can run the CLI on the ARC execution host.
 Use the built-in local CLI source for this flow.
 Use your own shell, files and Git for host work.
+
+## Claude Code CLI authorization
+
+Dispatch to Claude Code CLI only with the user's explicit authorization for the task or a clearly defined scope.
+This includes direct CLI invocation, ARC, indirect delegation, new tasks, follow-up prompts, reviews and resuming paused work.
+A general task request, agent-use permission, a Claude reviewer role, a skill or MAP workflow, dispatch criteria and risk-based review exceptions do not provide this authorization.
+Without it, continue with the current authorized agent and report any review gap instead of launching Claude Code CLI.
 
 ## Discover and select
 
@@ -71,7 +78,8 @@ For other Agents, use the live `agent_create` and `agent_wait` schemas with thei
 Summary results exclude inbox data and retain only the selected task's outcome.
 Follow `completeEvidence` when the message or changed paths are truncated, or evidence is unavailable.
 Inspect the actual local diff and relevant validation evidence before recording a verdict.
-For an independent cross-model assessment, dispatch another review task through the current policy.
+For an independent cross-model assessment, use the current policy within the user's authorization.
+Selecting Claude Code CLI requires the explicit authorization above.
 `codex_review` and `agent_review` record verdicts; they do not launch a reviewing model.
 Read the review schema and record `pass` or `rework` for the exact terminal turn.
 Keep unknown change attribution explicit rather than treating it as no changes.
