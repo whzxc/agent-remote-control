@@ -7,7 +7,7 @@ export type TopologyGroupMember = { brand: Brand; quota?: TopologyGroupQuota };
 export type TopologyGroupProps = {
   label: string;
   members: readonly TopologyGroupMember[];
-  layout?: "vertical" | "source" | "agent" | "account-branch";
+  layout?: "vertical" | "source" | "agent";
   hideLabel?: boolean;
 };
 
@@ -19,24 +19,22 @@ const dot: Record<TopologyGroupQuota, string> = {
 };
 
 /**
- * A folded group of sibling nodes. An account branch relies on its parent
- * node for brand identity.
+ * A folded group of sibling nodes. The first mark is centered 24px from the
+ * group's leading edge, on the same axis as a regular node's icon.
  */
 export function TopologyGroup({ label, members, layout = "vertical", hideLabel = false }: TopologyGroupProps) {
   const brands = [...new Set(members.map((m) => m.brand))];
   const pool = brands.length === 1;
-  const accountBranch = layout === "account-branch";
   const quotas = pool ? members.flatMap((m) => (m.quota ? [m.quota] : [])).slice(0, 12) : [];
   const capsule = (
     <span
-      role={accountBranch ? "img" : undefined}
-      aria-label={hideLabel || accountBranch ? label : undefined}
+      aria-label={hideLabel ? label : undefined}
       class={
-        "flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface shadow-sm " +
-        String(accountBranch ? "h-7 px-2" : pool ? "h-10 pl-[9px] pr-3" : "h-10 pl-2 pr-3")
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface pr-3 shadow-sm " +
+        String(pool ? "pl-[9px]" : "pl-[8px]")
       }
     >
-      {accountBranch ? null : pool ? (
+      {pool ? (
         <BrandMark brand={brands[0]} size={28} />
       ) : (
         <span class="flex">
@@ -53,16 +51,16 @@ export function TopologyGroup({ label, members, layout = "vertical", hideLabel =
         </span>
       )}
       {quotas.length > 0 && (
-        <span class={"grid grid-flow-col gap-1 " + (accountBranch && quotas.length <= 6 ? "grid-rows-1" : "grid-rows-2")}>
+        <span class="grid grid-flow-col grid-rows-2 gap-[4px]">
           {quotas.map((q) => (
-            <span class={(accountBranch ? "size-[5px]" : "size-[6px]") + " rounded-full " + dot[q]} />
+            <span class={"size-[6px] rounded-full " + dot[q]} />
           ))}
         </span>
       )}
       <span class="text-meta font-semibold tabular-nums text-text-secondary">{members.length}</span>
     </span>
   );
-  if (hideLabel || accountBranch) return capsule;
+  if (hideLabel) return capsule;
   if (layout === "source")
     return (
       <div class="flex h-12 items-center gap-[5px] text-text">

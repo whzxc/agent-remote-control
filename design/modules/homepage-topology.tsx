@@ -25,10 +25,16 @@ export type Scene = {
   chrome: readonly Chrome[];
 };
 
-export function TopologyScreen({ width, height, scene }: { width: number; height: number; scene: Scene }) {
+export function TopologyScreen({
+  width, height, scene, hideNodeLabels = false,
+}: { width: number; height: number; scene: Scene; hideNodeLabels?: boolean }) {
   const items = [
-    ...scene.nodes.map(([x, y, node]) => ({ x, y, content: <TopologyNode {...nodes[node]} /> })),
-    ...(scene.groups ?? []).map(([x, y, group, anchor]) => ({ x, y, anchor, content: <TopologyGroup {...groups[group]} /> })),
+    ...scene.nodes.map(([x, y, node]) => ({
+      x, y, content: <TopologyNode {...nodes[node]} hideLabel={hideNodeLabels || nodes[node].hideLabel} />,
+    })),
+    ...(scene.groups ?? []).map(([x, y, group, anchor]) => ({
+      x, y, anchor, content: <TopologyGroup {...groups[group]} hideLabel={hideNodeLabels || groups[group].hideLabel} />,
+    })),
     ...scene.tasks.map(([x, y, task]) => ({ x, y, content: <TaskBubble {...tasks[task]} dispatch={dispatch} /> })),
     { x: scene.mark.x, y: scene.mark.y, content: <TopologyMark {...scene.mark} /> },
   ];

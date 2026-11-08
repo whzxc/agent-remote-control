@@ -76,13 +76,13 @@ const frames = [
     "scene": "portrait-expanded-single-task"
   },
   {
-    "name": "accounts-folded",
+    "name": "tasks-and-accounts",
     "width": 640,
     "height": 1000,
-    "scene": "portrait-accounts-folded"
+    "scene": "portrait-tasks-and-accounts"
   }
 ] as const;
 
 export default () => frames.map(({ scene, ...frame }) => (
-  <Frame {...frame}><TopologyScreen width={frame.width} height={frame.height} scene={scenes[scene]} /></Frame>
+  <Frame {...frame}><TopologyScreen width={frame.width} height={frame.height} scene={scenes[scene]} hideNodeLabels /></Frame>
 ));
