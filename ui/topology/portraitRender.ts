@@ -3,50 +3,8 @@ import type { Point, Side } from './solve';
 import { TopologyAnimator, nodeKey, taskKey } from './animate';
 import type { PaintNode, PaintTask } from './render';
 import type { SurfaceRect } from '../motion/surface';
-import { portraitSourcePanelRoute, type PortraitLabel, type PortraitLabels } from './portrait';
+import { portraitSourcePanelRoute } from './portrait';
 import type { TopologyGroupPlan } from './compact';
-
-const labelMeasurements = new WeakMap<HTMLElement, { signature: string; label: PortraitLabel }>();
-// Measure intrinsic CSS dimensions, not the animated node transform or the
-// previous viewport's clipped label. The temporary styles never reach a frame.
-function measureLabel(element: HTMLElement): PortraitLabel {
-  const style = getComputedStyle(element);
-  const signature = [element.textContent, style.font, style.letterSpacing, style.padding].join('|');
-  const cached = labelMeasurements.get(element);
-  if (cached?.signature === signature) return cached.label;
-  const original = element.style.cssText;
-  element.style.width = 'max-content'; element.style.maxWidth = 'none'; element.style.whiteSpace = 'nowrap';
-  const width = element.offsetWidth + 1, height = element.offsetHeight;
-  const lineHeight = parseFloat(style.lineHeight) || height;
-  const verticalPadding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) || 0;
-  element.style.whiteSpace = 'normal';
-  let lo = Math.ceil(width / 2), hi = width;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    element.style.maxWidth = `${mid}px`;
-    if (element.offsetHeight <= 2 * lineHeight + verticalPadding) hi = mid;
-    else lo = mid + 1;
-  }
-  element.style.cssText = original;
-  const label = { width, twoLineWidth: lo, height };
-  labelMeasurements.set(element, { signature, label });
-  return label;
-}
-export function measurePortraitLabels(nodes: PaintNode[], element: (node: PaintNode) => HTMLElement | undefined): PortraitLabels {
-  const left = new Map<string, PortraitLabel>(), right = new Map<string, PortraitLabel>();
-  for (const node of nodes) {
-    const host = element(node);
-    const name = host?.querySelector<HTMLElement>('.graph-node-name, .topology-group-label');
-    if (!name) continue;
-    const label = measureLabel(name), chip = host?.querySelector<HTMLElement>('.agent-auto-compact');
-    const sub = chip && measureLabel(chip);
-    (node.side === -1 ? left : right).set(node.id, {
-      width: Math.max(label.width, sub?.width ?? 0), twoLineWidth: Math.max(label.twoLineWidth, sub?.twoLineWidth ?? 0),
-      height: label.height + (sub ? sub.height + 5 : 0),
-    });
-  }
-  return { left, right };
-}
 
 // Rounded orthogonal polyline. Corners clamp to their adjacent segments, so
 // short stubs and temporarily coincident animated points remain finite.

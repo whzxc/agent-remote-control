@@ -1,5 +1,5 @@
 import { solve, distribute, type Entity, type Layout, type Params, type Scene, type Side, type Task } from './solve.ts';
-import { portraitInset, portraitLabelBreakpoint, solvePortrait, type PortraitLabels } from './portrait.ts';
+import { portraitInset, portraitMobileBreakpoint, solvePortrait } from './portrait.ts';
 import type { Orientation } from './orientation.ts';
 
 export interface ActivityEntity extends Entity {
@@ -38,11 +38,11 @@ export function compactTree<T extends Entity>(list: readonly T[], hidden: Readon
   return [...kept, ...(expanded.has(id) ? members.map(n => ({ ...n })) : [group({ id, parent, side, members: members.map(n => n.id) }, members)])];
 }
 
-export function compactLayout(scene: Scene, plan: CompactPlan, expanded: ReadonlySet<string>, params: Params, orientation: Orientation, labels?: PortraitLabels): Layout {
+export function compactLayout(scene: Scene, plan: CompactPlan, expanded: ReadonlySet<string>, params: Params, orientation: Orientation): Layout {
   const group = (g: TopologyGroupPlan): Entity => ({ id: g.id, tasks: [] });
   const sc = { ...scene, left: compactTree(scene.left, plan.left, -1, expanded, group), right: compactTree(scene.right, plan.right, 1, expanded, group) };
   const groups = [...topologyGroups(scene.left, plan.left, -1), ...topologyGroups(scene.right, plan.right, 1)];
-  const result = orientation === 'portrait' ? solvePortrait(sc, params, null, labels) : solve(sc, params);
+  const result = orientation === 'portrait' ? solvePortrait(sc, params) : solve(sc, params);
   for (const wing of result.wings) for (const node of wing.nodes) {
     if (groups.some(g => g.side === wing.side && g.id === node.id)) { node.dim = false; node.opacity = 1; }
   }
@@ -81,7 +81,7 @@ export function compactLayout(scene: Scene, plan: CompactPlan, expanded: Readonl
   const tasks = right.tasks.filter(t => !t.hidden);
   const focusTasks = left.nodes.length > 0 && right.nodes.length > 0 && (plan.left.size > 0 || plan.right.size > 0) && tasks.length > 0;
   const anchor = focusTasks ? agentOffset + (Math.min(...tasks.map(t => t.y - t.height / 2)) + Math.max(...tasks.map(t => t.y + t.height / 2))) / 2 - p.agentTop : (agentOffset + right.H) / 2;
-  const sourceTop = result.vw <= portraitLabelBreakpoint ? 64 : Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor);
+  const sourceTop = result.vw <= portraitMobileBreakpoint ? 64 : Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor);
   const dy = sourceTop - p.sourceTop;
   p.sourceTop += dy; p.sourceBottom += dy; p.agentTop += dy; p.agentBottom += dy;
   result.hub.y = p.sourceBottom + sourceClearance;
@@ -90,11 +90,11 @@ export function compactLayout(scene: Scene, plan: CompactPlan, expanded: Readonl
   return result;
 }
 
-export function compactRoots(left: readonly ActivityEntity[], right: readonly ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params, solved?: Layout, labels?: PortraitLabels): CompactPlan {
+export function compactRoots(left: readonly ActivityEntity[], right: readonly ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params, solved?: Layout): CompactPlan {
   const scene = { ...viewport, left, right }, plan: CompactPlan = { left: new Set(), right: new Set() };
-  const initial = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params, null, labels) : solve(scene, params));
+  const initial = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params) : solve(scene, params));
   const budget = initial.portrait ? viewport.vh - 2 * portraitInset - (initial.portrait.agentTop - initial.portrait.sourceBottom) : viewport.vh - 140;
-  let heights = compactLayout(scene, plan, new Set(), params, orientation, labels).wings.map(w => w.H);
+  let heights = compactLayout(scene, plan, new Set(), params, orientation).wings.map(w => w.H);
   const candidates: { side: Side; parent?: string; depth: number; phase: number; ids: string[]; idle: string[] }[] = [];
   const visit = (list: readonly ActivityEntity[], side: Side, depth: number, parent?: string) => {
     for (const node of list) visit(node.children ?? [], side, depth + 1, node.id);
@@ -121,7 +121,7 @@ export function compactRoots(left: readonly ActivityEntity[], right: readonly Ac
       if (!remaining.length) continue;
       remaining.forEach(id => hidden.add(id)); memberCount += remaining.length;
       if (memberCount < 2) continue;
-      const measured = compactLayout(scene, plan, new Set(), params, orientation, labels);
+      const measured = compactLayout(scene, plan, new Set(), params, orientation);
       const next = measured.wings.map(w => w.H);
       if (next[index] < heights[index] - .001) heights = next;
       else { hidden.clear(); before.forEach(id => hidden.add(id)); break; }

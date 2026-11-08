@@ -12,8 +12,8 @@
 .topology-group-count { font-size: var(--text-meta); font-weight: 600; font-variant-numeric: tabular-nums; }
 .topology-group-label { padding-left: 6px; color: var(--text-secondary); font-size: var(--text-meta); line-height: 20px; white-space: nowrap; }
 .topology-group[data-layout="source"], .topology-group[data-layout="agent"] { height: 48px; flex-direction: row; align-items: center; gap: 8px; }
-.topology-group[data-layout="source"] .topology-group-label { position: absolute; right: calc(100% + 5px); padding: 0; }
-.topology-group[data-layout="agent"] .topology-group-label { padding: 0; }
+.topology-group[data-layout="agent"] .topology-group-capsule { flex-direction: row-reverse; padding-inline: 12px 9px; }
+.topology-group[data-layout="agent"] .topology-group-brands { margin-left: 0; margin-right: -1px; }
 .topology-group-dots .quota-ok { background: var(--success); }
 .topology-group-dots .quota-low { background: var(--warning); }
 .topology-group-dots .quota-out { background: var(--danger); }

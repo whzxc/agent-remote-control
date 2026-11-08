@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { solvePortrait, portraitPanelRect, portraitSourcePanelRoute, type PortraitLabels } from '../ui/topology/portrait.ts';
-import { DEFAULTS, NODE_R, solve, type Entity, type Point } from '../ui/topology/solve.ts';
+import { solvePortrait, portraitPanelRect, portraitSourcePanelRoute } from '../ui/topology/portrait.ts';
+import { DEFAULTS, solve, type Entity, type Point } from '../ui/topology/solve.ts';
 import { TopologyAnimator, nodeKey, taskKey } from '../ui/topology/animate.ts';
 import { bubbleWidths } from '../ui/state/activityModel.ts';
 import { hubControlGeometry } from '../ui/topology/geometry.ts';
@@ -12,7 +12,6 @@ const left: Entity[] = [{ id: 'source', tasks: [], children: [{ id: 'source/a', 
 const right: Entity[] = [{ id: 'idle/a', tasks: [] }, { id: 'agent', tasks: [], children: [
   { id: 'account/a', tasks: tasks('a', 5) }, { id: 'account/b', tasks: tasks('b', 2) },
 ] }, { id: 'single', tasks: tasks('single', 1) }, { id: 'idle/b', tasks: [] }];
-const measured = (width: number) => ({ width, twoLineWidth: Math.ceil(width * 0.6), height: 14 });
 test('portrait tasks leave the revealed hub power control reachable through compaction', () => {
   // Regression: studio-connections at 640x800 placed the first task across the revealed hub power control.
   const left = [{ id: 'source', tasks: [], children: [{ id: 'connection', tasks: [] }] }];
@@ -48,64 +47,6 @@ test('task families keep their ancestry and separate rows in either orientation'
     for (const row of rows) for (const value of Object.values(animator.values(taskKey(1, row.id)) ?? {})) assert.ok(Number.isFinite(value));
   }
 });
-const labels: PortraitLabels = {
-  left: new Map([['source', measured(74)], ['source/a', measured(84)], ['source/b', measured(110)]]),
-  right: new Map([['agent', measured(108)], ['single', measured(150)], ['idle/a', measured(140)], ['idle/b', measured(100)],
-    ['account/a', measured(90)], ['account/b', measured(170)]]),
-};
-
-test('wide portrait rail insets contain measured platform and account labels', () => {
-  // Regression: portrait platform labels clipped at 900 and 1080, and account/platform labels escaped the 420 viewport.
-  for (const vw of [600, 900, 1080]) {
-    const scene = { vw, vh: 1600, left, right };
-    const layout = solvePortrait(scene, DEFAULTS, null, labels), p = layout.portrait!;
-    for (const wing of layout.wings) for (const node of wing.nodes) {
-      const metric = labels[node.side === -1 ? 'left' : 'right'].get(node.id)!;
-      const scale = node.size * node.scale / (NODE_R * 2), offset = (NODE_R + 12) * scale;
-      const budget = node.side === -1 ? node.parent ? p.sourceAccountLabelWidth : p.sourceLabelWidth
-        : node.parent ? p.agentAccountLabelWidth : p.agentLabelWidth;
-      assert.ok(budget >= metric.twoLineWidth * scale);
-      const width = Math.min(metric.width * scale, budget);
-      const x = node.parent ? node.x - width / 2
-        : node.side === -1 && !node.parent ? node.x - offset - width : node.x + offset;
-      assert.ok(x > 0 && x + width < vw);
-    }
-    const bubbles = layout.wings[1].tasks;
-    assert.ok(bubbles.every(t => t.x - t.width > 0 && t.x < vw));
-  }
-});
-
-test('narrow portrait label growth leaves node and task geometry unchanged', () => {
-  // Property: hidden node labels consume no layout space regardless of their measured names.
-  const scene = { vw: 390, vh: 844, left, right };
-  const wider: PortraitLabels = {
-    left: new Map([...labels.left].map(([id]) => [id, measured(600)])),
-    right: new Map([...labels.right].map(([id]) => [id, measured(600)])),
-  };
-  assert.deepEqual(solvePortrait(scene, DEFAULTS, null, wider), solvePortrait(scene, DEFAULTS, null, labels));
-});
-
-test('wider measured labels move the rail and its complete inward hierarchy together', () => {
-  // Property: outer-label growth consumes bubble space without changing hierarchy offsets or source order.
-  const scene = { vw: 600, vh: 1100, left, right };
-  const before = solvePortrait(scene, DEFAULTS, null, labels);
-  const wider: PortraitLabels = { left: new Map(labels.left).set('source', measured(110)), right: new Map(labels.right).set('single', measured(180)) };
-  const after = solvePortrait(scene, DEFAULTS, null, wider);
-  assert.ok(after.portrait!.sourceX > before.portrait!.sourceX);
-  const shift = after.portrait!.agentX - before.portrait!.agentX;
-  assert.ok(shift < 0);
-  for (const [i, node] of after.wings[1].nodes.entries()) {
-    const old = before.wings[1].nodes[i];
-    assert.ok(Math.abs(node.x - old.x - shift) < 1e-6);
-    assert.ok(Math.abs(node.childBusX! - old.childBusX! - shift) < 1e-6);
-    assert.ok(Math.abs(node.taskBusX! - old.taskBusX! - shift) < 1e-6);
-  }
-  for (const [i, task] of after.wings[1].tasks.entries()) {
-    assert.ok(task.width < before.wings[1].tasks[i].width);
-    assert.ok(Math.abs(task.x - before.wings[1].tasks[i].x - shift) < 1e-6);
-  }
-});
-
 test('portrait places every task within its own row and the horizontal viewport', () => {
   // Property: inward hierarchy preserves identity, input order and nonoverlapping task stacks without horizontal overflow.
   for (const vw of [320, 600, 900, 1400]) {
@@ -162,9 +103,9 @@ test('portrait source panels open inward without moving the topology', () => {
   // Property: source panel selection preserves node geometry and opens to the right within the viewport.
   for (const vw of [600, 900, 1080]) {
     const scene = { vw, vh: 1200, left, right };
-    const closed = solvePortrait(scene, DEFAULTS, null, labels);
+    const closed = solvePortrait(scene);
     for (const selected of ['source', 'source/a', 'source/b']) {
-      const open = solvePortrait({ ...scene, panel: { side: -1, selected, edge: 0 } }, DEFAULTS, null, labels);
+      const open = solvePortrait({ ...scene, panel: { side: -1, selected, edge: 0 } });
       assert.deepEqual(open.hub, closed.hub);
       for (const [i, wing] of open.wings.entries()) {
         assert.deepEqual(wing.nodes.map(n => [n.id, n.x, n.y]), closed.wings[i].nodes.map(n => [n.id, n.x, n.y]));
@@ -179,14 +120,14 @@ test('portrait source panels open inward without moving the topology', () => {
   }
 });
 
-test('source panel routes reach the inward panel edge without intersecting nodes or labels', () => {
-  // Regression: the Personal source connector crossed Personal, Studio and Unidentified labels on its way to the panel.
+test('source panel routes reach the inward panel edge without intersecting nodes', () => {
+  // Property: the inward source route avoids visible node extents.
   const scene = { vw: 900, vh: 1600, left, right };
   const intersects = (a: Point, b: Point, box: { x: number; y: number; width: number; height: number }) =>
     a.x === b.x ? a.x > box.x && a.x < box.x + box.width && Math.max(a.y, b.y) > box.y && Math.min(a.y, b.y) < box.y + box.height
       : a.y > box.y && a.y < box.y + box.height && Math.max(a.x, b.x) > box.x && Math.min(a.x, b.x) < box.x + box.width;
   for (const selected of ['source', 'source/a', 'source/b']) {
-    const layout = solvePortrait({ ...scene, panel: { side: -1, selected, edge: 0 } }, DEFAULTS, null, labels);
+    const layout = solvePortrait({ ...scene, panel: { side: -1, selected, edge: 0 } });
     const nodes = layout.wings[0].nodes, node = nodes.find(n => n.id === selected)!;
     const panel = portraitPanelRect(layout, node);
     const route = portraitSourcePanelRoute(node, panel);
@@ -198,10 +139,6 @@ test('source panel routes reach the inward panel edge without intersecting nodes
       for (const sibling of nodes.filter(n => n.opacity > 0)) {
         const radius = sibling.size * sibling.scale / 2;
         assert.equal(intersects(a, b, { x: sibling.x - radius, y: sibling.y - radius, width: radius * 2, height: radius * 2 }), false);
-        const metric = labels.left.get(sibling.id)!, scale = radius / NODE_R, width = metric.width * scale;
-        const x = sibling.parent ? sibling.x - width / 2 : sibling.x - (NODE_R + 12) * scale - width;
-        const y = sibling.parent ? sibling.y + radius + 4 * scale : sibling.y - metric.height * scale / 2;
-        assert.equal(intersects(a, b, { x, y, width, height: metric.height * scale }), false);
       }
     }
   }

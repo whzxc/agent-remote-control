@@ -108,6 +108,8 @@ readback runs only in Chromium's isolated context with clipboard permissions.
 
 The `brand-agents-*`, `brand-products-*`, and `brand-accounts-*` fixtures cover Agent and provider artwork in both themes, the shared product picker, and second-level account nodes. `maxVisibleAgents` selects a supported homepage count of 4, 6, 8 or 10 before compaction. Folded root members count toward fixture Agent coverage; `topologyAccounts` installs the shared multi-account fixture.
 
+`portrait-topology-accounts` covers a Codex account with two running tasks, folded sibling accounts and capsules on both rails at 640×1000 and 390×844. It checks hidden visual labels, accessible names, pointer and keyboard expansion, and focus restoration.
+
 The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc and tentacle-area hover, compact opaque theme-colored action glyphs, account-scoped bulk reads, hidden overflow completions and retained active tasks. Fold a profile before marking it read to cover hidden descendants. Reload the same scenario to check that acknowledged completions stay dismissed.
 
 The `topology-tuning-dark` and `topology-tuning-light` fixtures enable the capsule entry for homepage topology controls. Open it to inspect parameter editing, JSON import, internal scrolling, dismissal and focus restoration while the topology remains visible. Experimental settings retain only the enable switch.

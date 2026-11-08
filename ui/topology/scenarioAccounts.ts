@@ -41,10 +41,22 @@ export function installTopologyAccounts(status: Status, activity: AgentActivityS
   return accounts;
 }
 
-export function installDenseTopologyAccounts(status: Status, activity: AgentActivitySnapshot): ProviderAccount[] {
-  const sources = installTopologyAccounts(status, activity).map(account => ({ ...account, agentProfiles: [] }));
+export function installDenseTopologyAccounts(status: Status, activity: AgentActivitySnapshot, portrait = false): ProviderAccount[] {
+  const ingress = status.ingresses[0];
+  const original = ingress.sources!;
+  const accounts = installTopologyAccounts(status, activity);
+  if (portrait) {
+    ingress.sources = [
+      ...ingress.sources!.filter(source => source.product === 'chatgpt' || source.id.startsWith('example-source-')),
+      ...original.filter(source => source.product === 'google' || source.product === 'xai'),
+    ];
+  }
+  const sources = accounts.map(account => ({ ...account,
+    sources: account.sources.filter(id => ingress.sources!.some(source => source.id === id)),
+    agentProfiles: portrait ? account.agentProfiles.filter(profile => profile.agent === 'claude') : [],
+  }));
   const observedAt = activity.observedAt;
-  const used = [27, 62, 19, 27, 18, 62, 35, 100, 22, 73, undefined];
+  const used = portrait ? [27, 100, ...Array<number>(10).fill(18)] : [27, 62, 19, 27, 18, 62, 35, 100, 22, 73, undefined];
   const codex = used.map((usedPercent, index): ProviderAccount => ({
     id: `example-codex-${String(index).padStart(2, '0')}`, provider: 'openai', identityKey: `example-codex-${index}`,
     alias: index === 0 ? 'Pro 200' : `Codex Pro ${String(index).padStart(2, '0')}`,

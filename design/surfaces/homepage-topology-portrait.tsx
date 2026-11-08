@@ -79,6 +79,8 @@ const frames = [
     "name": "tasks-and-accounts",
     "width": 640,
     "height": 1000,
+    "fixture": "portrait-topology-accounts",
+    "capture": { "page": true, "origin": "0 0", "viewport": "640x1000" },
     "scene": "portrait-tasks-and-accounts"
   }
 ] as const;

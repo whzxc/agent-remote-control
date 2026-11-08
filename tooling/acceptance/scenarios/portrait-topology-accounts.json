@@ -1,0 +1,15 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "sourceProducts": ["openai", "anthropic", "google", "xai"],
+  "expandedSources": ["anthropic"],
+  "agents": ["codex", "dsh", "claude", "cursor", "opencode"],
+  "maxVisibleAgents": 6,
+  "topologyAccounts": "dense",
+  "quota": true,
+  "tasks": [
+    { "agent": "codex", "phase": "command", "title": "Check configuration", "headline": "npm run check" },
+    { "agent": "codex", "phase": "thinking", "title": "Review changes", "headline": "Read the project changes", "elapsedSeconds": 136 }
+  ],
+  "viewports": [{ "width": 640, "height": 1000 }, { "width": 390, "height": 844 }]
+}

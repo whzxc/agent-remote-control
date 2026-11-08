@@ -1030,27 +1030,13 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .source-account-header > .actions { margin-left: auto; }
 .source-panel-content { padding: 0 20px 20px; gap: 16px; }
 
-/* Portrait geometry is solver-owned; only label placement belongs to CSS. */
+/* Portrait geometry is solver-owned. */
 .topology-hub .graph-brand { transform: rotate(var(--hub-rotation, 0deg)); }
 .hub-source { left: var(--source-dot-x, calc(14 / 92 * 100%)); top: var(--source-dot-y, 50%); }
 .hub-agent { left: var(--agent-dot-x, calc(78 / 92 * 100%)); top: var(--agent-dot-y, 50%); }
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node,
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
-.topology-scene[data-orientation="portrait"] :is(.graph-node-name, .agent-auto-compact) {
-  display: block; width: max-content; max-width: var(--portrait-label-width); white-space: normal; overflow: visible; overflow-wrap: anywhere; text-overflow: clip;
-}
-.topology-scene[data-orientation="portrait"] .topology-unidentified-label > span { display: inline; overflow: visible; }
-.topology-scene[data-orientation="portrait"] .sources:not(.topology-account) .graph-node-name {
-  top: 50%; left: auto; right: calc(100% + 12px); transform: translateY(-50%); text-align: right;
-}
-.topology-scene[data-orientation="portrait"] .topology-account .graph-node-name { text-align: center; }
-.topology-scene[data-orientation="portrait"] .agents:not(.topology-account) .graph-node-name {
-  top: 50%; left: calc(100% + 12px); transform: translateY(-50%);
-}
-.topology-scene[data-orientation="portrait"] .agents:not(.topology-account) .agent-auto-compact {
-  top: calc(50% + 16px); left: calc(100% + 12px); transform: none;
-}
-.topology-scene[data-labels-hidden="true"] :is(.graph-node-name, .agent-auto-compact) { display: none; }
+.topology-scene[data-orientation="portrait"] :is(.graph-node-name, .agent-auto-compact) { display: none; }
 .portrait-wires .portrait-rail { fill: none; stroke: var(--wire-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .portrait-wires .portrait-task { --task-color: var(--topology-agent); fill: none; stroke: var(--task-color); stroke-width: 2; stroke-linecap: round; }
 .portrait-wires .portrait-task[data-state="done"] { --task-color: var(--success); }
@@ -1098,6 +1084,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 /* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */
 .topology-group-node > .topology-group { margin-left: -2px; margin-top: 2px; }
 .topology-scene[data-orientation="portrait"] .topology-group-node > .topology-group { margin-top: -2px; }
+.topology-scene[data-orientation="portrait"] .topology-group-node.agents > .topology-group { position: absolute; top: -2px; right: -2px; margin: 0; }
 .topology-node .topology-group .source-icon > span { width: 100%; height: 100%; }
 .topology-node .topology-group .source-icon svg { width: 100%; height: 100%; }
 

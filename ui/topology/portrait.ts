@@ -1,4 +1,4 @@
-import { DEFAULTS, NODE_R, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
+import { DEFAULTS, hubDots, MIN_HUB_RATIO, type Drag, type Entity, type Layout, type NodeGeometry, type Params, type Scene, type Side, type TaskGeometry, type Wing } from './solve.ts';
 import { bubbleWidths } from '../state/activityModel.ts';
 import { taskHierarchy } from '../state/taskHierarchy.ts';
 import { hubControlGeometry } from './geometry.ts';
@@ -7,25 +7,22 @@ export interface PortraitGeometry {
   sourceX: number; agentX: number; sourceTop: number; sourceBottom: number; agentTop: number; agentBottom: number;
   rowGap: number;
   earOffset: number; earHalf: number;
-  sourceLabelWidth: number; agentLabelWidth: number; sourceAccountLabelWidth: number; agentAccountLabelWidth: number;
 }
-export interface PortraitLabel { width: number; twoLineWidth: number; height: number }
-export interface PortraitLabels { left: ReadonlyMap<string, PortraitLabel>; right: ReadonlyMap<string, PortraitLabel> }
 export const portraitInset = 74;
-export const portraitLabelBreakpoint = 520;
+export const portraitMobileBreakpoint = 520;
 
 // Portrait owns rows and inward columns. Queue selection and account identity
 // remain upstream, so switching orientation never rewrites either ordering.
-export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null, labels?: PortraitLabels): Layout {
+export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null): Layout {
   const { vw, vh } = sc;
-  const hideLabels = vw <= portraitLabelBreakpoint;
-  const graphicInset = p.nodeSize / 2 + 3;
-  const column = Math.min(88, Math.max(56, vw * 88 / 900));
+  const mobile = vw <= portraitMobileBreakpoint;
+  const railInset = (mobile ? 16 : 24) + p.nodeSize / 2 + 3;
+  const column = Math.min(96, Math.max(56, p.nodeSize + 12, mobile ? 0 : vw * 0.15));
   const busGap = Math.min(62, Math.max(30, vw * 62 / 900));
   const finalStub = Math.min(24, Math.max(12, vw * 24 / 900));
-  const preferredRe = (hideLabels ? 106 * 130 / 240 : Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * 0.6) * p.ringScale;
+  const preferredRe = (mobile ? 106 * 130 / 240 : Math.min(112, vw * 0.16, Math.max(56, vh * 0.08)) * 0.6) * p.ringScale;
   const Re = Math.max(preferredRe * MIN_HUB_RATIO, Math.min(preferredRe, (vw - 32) * 130 / 240));
-  const hubClearance = Re * (hideLabels ? 0.4 : 0.6);
+  const hubClearance = Re * (mobile ? 0.4 : 0.6);
   const taskInset = 10;
   const earOffset = Re, earHalf = Re * 72 / 112;
   const hasTasks = (e: Entity): boolean => !e.collapsed && (e.tasks.length > 0 || !!e.children?.some(hasTasks));
@@ -34,29 +31,8 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const right = [...sc.right.filter(hasTasks), ...sc.right.filter(e => !hasTasks(e))];
   const children = (e: Entity) => e.collapsed ? [] : e.children ?? [];
   const tasks = (e: Entity) => e.collapsed ? [] : e.tasks;
-  const scale = () => p.nodeSize / (NODE_R * 2);
-  const label = (e: Entity, side: Side) => labels?.[side === -1 ? 'left' : 'right'].get(e.id);
-  const extents = (list: readonly Entity[], side: Side) => ({
-    width: Math.max(0, ...list.map(e => (label(e, side)?.width ?? 0) * scale())),
-    twoLineWidth: Math.max(0, ...list.map(e => (label(e, side)?.twoLineWidth ?? 0) * scale())),
-    offset: list.length ? (NODE_R + 12) * scale() : 0,
-  });
-  const sourceLabels = extents(sc.left, -1), agentLabels = extents(right, 1);
-  const sourceAccounts = extents(sc.left.flatMap(children), -1);
-  const agentAccounts = extents(right.flatMap(children), 1);
+  const sourceX = railInset, agentX = vw - railInset;
   const hierarchy = (right.some(e => children(e).length) ? column : 0) + busGap + finalStub;
-  // Keep complete single-line labels until the narrow bubble floor no longer fits.
-  // Two-line measurements are the lower bound; bubbles absorb any remaining squeeze.
-  const agentLabelWidth = hideLabels ? 0 : Math.max(agentLabels.twoLineWidth, Math.min(agentLabels.width, vw - 32 - hierarchy - bubbleWidths.narrow - agentLabels.offset));
-  const agentX = vw - 16 - (hideLabels ? graphicInset : agentLabels.offset + agentLabelWidth);
-  const sourceHierarchy = sc.left.some(e => children(e).length) ? column : 0;
-  const sourceAvailable = vw - 32 - sourceLabels.offset - sourceHierarchy;
-  const sourceLabelWidth = hideLabels ? 0 : Math.max(sourceLabels.twoLineWidth, Math.min(sourceLabels.width, sourceAvailable - sourceAccounts.twoLineWidth / 2));
-  const sourceX = 16 + (hideLabels ? graphicInset : sourceLabels.offset + sourceLabelWidth);
-  const sourceAccountX = sourceX + column;
-  const sourceAccountLabelWidth = hideLabels ? 0 : Math.min(sourceAccounts.width, 2 * Math.max(1, Math.min(sourceAccountX - 16, vw - 16 - sourceAccountX)));
-  const accountX = agentX - column;
-  const agentAccountLabelWidth = hideLabels ? 0 : Math.min(agentAccounts.width, 2 * Math.max(1, Math.min(accountX - 16, vw - 16 - accountX)));
   const taskRight = agentX - hierarchy;
   const stackHeight = (e: Entity) => tasks(e).reduce((h, t) => h + t.height, 0) + Math.max(0, tasks(e).length - 1) * p.taskGap;
   const rowHeight = (e: Entity, side: Side, account = false): number => {
@@ -64,11 +40,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
     const rootRow = side === -1 ? p.sourceRow - DEFAULTS.sourceRow : p.idleRow - DEFAULTS.idleRow;
     const base = account ? p.nodeSize + 24 : Math.max(p.nodeSize, side === 1 && busy && !hasTasks(e) ? p.minIdleRow : p.nodeSize + rootRow);
     const subtree = nested.reduce((h, child) => h + rowHeight(child, side, true), 0) + Math.max(0, nested.length - 1) * (side === -1 ? 0 : p.rowGap);
-    const measured = label(e, side), s = scale();
-    const labelWidth = side === -1 ? account ? sourceAccountLabelWidth : sourceLabelWidth : account ? agentAccountLabelWidth : agentLabelWidth;
-    const labelHeight = (measured?.height ?? 0) * s * (measured && measured.width * s > labelWidth ? 2 : 1);
-    const labelRow = hideLabels ? 0 : account ? 2 * (p.nodeSize / 2 + 4 * s + labelHeight) : labelHeight + 16;
-    return Math.max(base, labelRow, own + (own ? 2 * taskInset : 0) + subtree + (own && subtree ? p.rowGap : 0));
+    return Math.max(base, own + (own ? 2 * taskInset : 0) + subtree + (own && subtree ? p.rowGap : 0));
   };
   const sourceCount = sc.left.length, agentCount = right.length;
   const gaps = Math.max(0, sourceCount - 1) + Math.max(0, agentCount - 1);
@@ -79,7 +51,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const sourceHubWeight = sourceCount ? 0.75 : 0;
   const agentHubWeight = agentCount ? (busy ? 0.4 : 0.75) : 0;
   const slots = gaps + sourceHubWeight + agentHubWeight;
-  const extra = slots ? Math.min(hideLabels ? 6 : 34, Math.max(0, (vh - 500) * 0.075), spare / slots) : 0;
+  const extra = slots ? Math.min(mobile ? 6 : 34, Math.max(0, (vh - 500) * 0.075), spare / slots) : 0;
   const rowGap = p.rowGap + extra;
   const sourceClearance = hubClearance + extra * sourceHubWeight;
   const agentClearance = agentHubClearance + extra * agentHubWeight;
@@ -130,8 +102,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
     for (const task of wing.tasks) { task.hidden = true; task.x += 12; }
   }
   return { vw, vh, sceneH: Math.max(vh, agentBottom + portraitInset), hub, wings: [left, agents],
-    portrait: { sourceX, agentX, sourceTop, sourceBottom, agentTop, agentBottom, rowGap, earOffset, earHalf,
-      sourceLabelWidth, agentLabelWidth, sourceAccountLabelWidth, agentAccountLabelWidth },
+    portrait: { sourceX, agentX, sourceTop, sourceBottom, agentTop, agentBottom, rowGap, earOffset, earHalf },
     balance: [{ core: sourceX, full: vw / 2, squeeze: 1 }, { core: vw - agentX, full: vw / 2, squeeze: 1 }] };
 }
 
@@ -145,11 +116,9 @@ export function portraitSourcePanelRoute(node: Pick<NodeGeometry, 'x' | 'y' | 's
 // Coordinates are scene-local. The host converts them into viewport coordinates;
 // vertical scrolling never feeds a panel's animated dimensions back into solve.
 export function portraitPanelRect(layout: Layout, selected: NodeGeometry): PortraitPanelRect {
-  const p = layout.portrait!;
   if (selected.side === -1) {
     const sources = layout.wings[0].nodes.filter(node => node.opacity > 0);
-    const edge = Math.max(...sources.map(node => node.x + Math.max(node.size * node.scale / 2,
-      node.parent ? p.sourceAccountLabelWidth / 2 : 0)));
+    const edge = Math.max(...sources.map(node => node.x + node.size * node.scale / 2));
     const x = Math.min(layout.vw - 17, edge + 24);
     return { x, y: 16, width: Math.max(1, layout.vw - 16 - x), height: Math.max(1, layout.vh - 112) };
   }

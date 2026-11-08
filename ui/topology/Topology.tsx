@@ -6,8 +6,8 @@ import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
-import { solvePortrait, portraitPanelRect, portraitLabelBreakpoint } from "./portrait";
-import { PortraitPainter, measurePortraitLabels } from "./portraitRender";
+import { solvePortrait, portraitPanelRect } from "./portrait";
+import { PortraitPainter } from "./portraitRender";
 import { compactRoots, compactLayout, compactTree, topologyGroups, topologyPinned, retainOpenGroup, type TopologyGroupPlan, type CompactPlan } from './compact';
 import { t } from '../i18n';
 import { TopologyGroup } from '../components/ui/TopologyGroup';
@@ -187,7 +187,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     return { id: group.id, group, label, state: 'normal', attention: false, selected: false, tasks: [], content: <TopologyGroup label={label}
       members={members.map(n => ({ brand: n.platform ?? n.id, quota: n.quota,
         mark: group.side === 1 ? <BrandMark markup={icons[n.platform ?? n.id]} size={28} /> : <SourceIcon platform={n.platform ?? n.id} panelVisual /> }))}
-      layout={portrait ? group.side === -1 ? 'source' : 'agent' : 'vertical'} hideLabel={portrait && viewport.vw <= portraitLabelBreakpoint}
+      layout={portrait ? group.side === -1 ? 'source' : 'agent' : 'vertical'}
       aria-expanded={expandedGroups.has(group.id)}
       onClick={() => openGroup(group)} /> };
   };
@@ -256,7 +256,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const radius = v.size * v.scale / 2;
       const icon = { x: v.x - radius, y: v.y - radius, width: radius * 2, height: radius * 2 };
       const parts = [icon];
-      // Labels can be below or outside the rail and wrap in portrait layouts.
       for (const label of elements.current.get(key)?.querySelectorAll<HTMLElement>('.graph-node-name, .agent-auto-compact') ?? []) {
         if (n.group) continue;
         const r = label.getBoundingClientRect();
@@ -354,7 +353,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (!h || !root) return;
     const portrait = orientation.current === 'portrait';
     root.dataset.orientation = orientation.current;
-    root.dataset.labelsHidden = String(portrait && (layout.current?.vw ?? 0) <= portraitLabelBreakpoint);
     const blend = Math.max(0, Math.min(1, a.values('orientation')?.portrait ?? 0));
     for (const [element, opacity, active] of [[svg.current, 1 - blend, !portrait], [portraitSvg.current, blend, portrait]] as const) {
       if (!element) continue;
@@ -405,13 +403,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
         el.style.opacity = String(v.op);
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));
         el.inert = !a.live.get(key)?.alive || v.op < 0.02;
-        const scale = v.scale * v.size / (NODE_R * 2);
-        const columns = layout.current?.portrait;
-        if (portrait && columns) {
-          const width = n.side === -1 ? n.parent ? columns.sourceAccountLabelWidth : columns.sourceLabelWidth
-            : n.parent ? columns.agentAccountLabelWidth : columns.agentLabelWidth;
-          el.style.setProperty('--portrait-label-width', `${width / scale}px`);
-        }
       } else if (el) {
         el.style.opacity = '0'; el.inert = true;
       }
@@ -524,20 +515,13 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const sc = scene();
     const { params, left, right, expandedGroups } = latest.current;
     const plan = latest.current.compacted;
-    let measuredLabels: ReturnType<typeof measurePortraitLabels> | undefined;
     if (orientation.current === 'portrait') {
-      const hideLabels = sc.vw <= portraitLabelBreakpoint;
-      if (graph.current) {
-        graph.current.dataset.orientation = 'portrait';
-        graph.current.dataset.labelsHidden = String(hideLabels);
-      }
-      const labels = measuredLabels = hideLabels ? undefined : measurePortraitLabels(latest.current.allNodes, n => elements.current.get(nodeKey(n.side, n.id)));
-      const solved = solvePortrait(sc, params, null, labels);
-      const measured = compactRoots(left, right, sc, 'portrait', params, solved, labels);
+      const solved = solvePortrait(sc, params);
+      const measured = compactRoots(left, right, sc, 'portrait', params, solved);
       const same = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every(id => b.has(id));
       if (!same(measured.left, portraitPlanRef.current.left) || !same(measured.right, portraitPlanRef.current.right)) setPortraitPlan(measured);
     }
-    const result = compactLayout(sc, plan, expandedGroups, params, orientation.current, measuredLabels);
+    const result = compactLayout(sc, plan, expandedGroups, params, orientation.current);
     // Folded branches and unread source leaves retain an actionable outer arc.
     for (const wing of result.wings) for (const node of wing.nodes) {
       if (node.arc) continue;
@@ -811,7 +795,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       data-agent-platform={n.side === 1 && !n.account ? n.platform : undefined}
       data-source-platform={n.side === -1 ? n.platform : undefined}
       data-account-id={n.accountId} data-topology-group={n.group?.id}
-      className={`topology-node ${n.group ? "topology-group-node" : ""} ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
+      className={`topology-node ${n.group ? "topology-group-node" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       onPointerEnter={() => changeHover({ side: n.side, id: n.id })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
       onFocusCapture={() => setFocus({ side: n.side, id: n.id })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); } }}
       onKeyDownCapture={event => {
