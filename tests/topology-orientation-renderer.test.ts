@@ -6,7 +6,7 @@ import { act, createElement as h, useRef, useState } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 import { assertNodeIdentity } from './helpers/dom-assert.ts';
 
-async function withTopology(run: (context: any) => Promise<void>) {
+async function withTopology(run: (context: any) => Promise<void>, reduced = true) {
   const previousFetch = globalThis.fetch, window = new Window({ url: 'http://localhost' });
   const frames = new Map<number, FrameRequestCallback>(); let sequence = 0;
   class Observer { observe() {} disconnect() {} }
@@ -15,7 +15,7 @@ async function withTopology(run: (context: any) => Promise<void>) {
     HTMLElement: window.HTMLElement, Element: window.Element, Node: window.Node,
     CustomEvent: window.CustomEvent, MutationObserver: window.MutationObserver, NodeFilter: window.NodeFilter,
     Event: window.Event, HTMLInputElement: window.HTMLInputElement, getComputedStyle: window.getComputedStyle.bind(window), ResizeObserver: Observer, devicePixelRatio: 1,
-    matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
+    matchMedia: () => ({ matches: reduced, addEventListener() {}, removeEventListener() {} }),
     innerWidth: 1280, innerHeight: 800, IS_REACT_ACT_ENVIRONMENT: true,
     requestAnimationFrame: (callback: FrameRequestCallback) => { frames.set(++sequence, callback); return sequence; },
     cancelAnimationFrame: (id: number) => frames.delete(id),
@@ -28,7 +28,11 @@ async function withTopology(run: (context: any) => Promise<void>) {
   const server = await createServer({ configFile: false, server: { middlewareMode: true, watch: null, ws: false } });
   const { createRoot } = await import('react-dom/client');
   const { Dialog: D, Popover: P } = await import('radix-ui');
-  const mount = document.createElement('div'); document.body.append(mount); const root = createRoot(mount);
+  const mount = document.createElement('div'); document.body.append(mount); let captureCheckpoint = () => {};
+  // Native browser events can run microtasks between capture listeners. Happy DOM's
+  // synchronous dispatch otherwise hides a document-capture dismissal race.
+  mount.addEventListener('pointerdown', () => captureCheckpoint(), true);
+  const root = createRoot(mount);
   try {
     const { default: Topology } = await server.ssrLoadModule('/ui/topology/Topology.tsx');
     const { appEnvironment } = await server.ssrLoadModule('/ui/state/appEnvironment.ts');
@@ -44,11 +48,18 @@ async function withTopology(run: (context: any) => Promise<void>) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
       await flushFrames();
     };
+    const browserPointerDown = (element: Element) => act(async () => {
+      const original = globalThis.queueMicrotask, microtasks: VoidFunction[] = [];
+      captureCheckpoint = () => { while (microtasks.length) microtasks.shift()!(); };
+      globalThis.queueMicrotask = callback => { microtasks.push(callback); };
+      try { fireEvent.pointerDown(element, { button: 0, pointerType: 'mouse' }); }
+      finally { captureCheckpoint(); captureCheckpoint = () => {}; globalThis.queueMicrotask = original; }
+    });
     const dimensions = (width: number, height: number) => {
       const now = Date.now();
       appEnvironment.set({ active: true, expiresAt: now + 60_000, realNowMs: now, overrides: { windowWidth: width, windowHeight: height, reducedMotion: true }, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } });
     };
-    await run({ Topology, D, P, appEnvironment, topologyLayout, viewModel, t, root, mount, settle, flushFrames, dimensions });
+    await run({ Topology, D, P, appEnvironment, topologyLayout, viewModel, t, root, mount, settle, flushFrames, browserPointerDown, dimensions });
   } finally {
     await act(async () => root.unmount()); await server.close(); await window.happyDOM.abort();
     globalThis.fetch = previousFetch;
@@ -188,4 +199,45 @@ test('member portals and panels are inside the group and consume Escape first', 
     assert.equal(viewModel().topology.groups[0].folded, true);
     assert.ok(capsule.matches(':focus'));
   });
+});
+
+test('native member clicks keep the group open through panel selection and layered Escape', async () => {
+  // Regression: document-capture microtasks folded members before their pointer handlers ran, and transition blur cancelled capsule focus restoration.
+  await withTopology(async ({ Topology, D, topologyLayout, viewModel, t, root, mount, settle, flushFrames, browserPointerDown }) => {
+    function Harness() {
+      const boundary = useRef<HTMLElement>(null), handle = useRef<any>(null);
+      const [panel, setPanel] = useState(false);
+      const children = Array.from({ length: 8 }, (_, i) => ({ id: `member-${i}`, label: `Member ${i}`, platform: 'codex', state: 'normal', attention: false,
+        selected: panel && i === 0, tasks: [], content: h('button', { onClick: () => setPanel(true) }, `Member ${i}`) }));
+      const right = [{ id: 'codex', state: 'normal', attention: false, selected: false,
+        tasks: [{ id: 'busy', state: 'running', width: 264, height: 400, content: h('button', null, 'Busy work') }], children, content: h('button', null, 'Codex') }];
+      return h('section', { ref: boundary, onPointerDownCapture: (event: any) => {
+        if (!event.currentTarget.contains(event.target)) handle.current?.memberLayerPointer(event.nativeEvent);
+      } }, h(Topology, { left: [], right, boundary, ref: handle, panelKey: panel ? 'agent:member-0' : undefined,
+        brand: h('span', null, 'ARC'), onReorderNodes() {}, onReorderTasks() {} }),
+        h(D.Root, { open: panel, onOpenChange: setPanel }, h(D.Portal, null, h(D.Content, { 'aria-describedby': undefined }, h(D.Title, null, 'Member panel'), h('button', null, 'Panel action')))));
+    }
+    await act(async () => { topologyLayout.set('landscape'); root.render(h(Harness)); }); await settle();
+    const capsule = within(mount).getByRole('button', { name: `${t('topology.idleAccounts', { count: 8 })} · ${t('topology.expand')}` });
+    await act(async () => fireEvent.click(capsule)); await settle();
+    const member = within(mount).getByRole('button', { name: 'Member 0', exact: true });
+    await browserPointerDown(member);
+    await act(async () => fireEvent.click(member)); await settle();
+    assert.ok(within(document.body).getByRole('dialog', { name: 'Member panel' }));
+    assert.equal(viewModel().topology.groups[0].folded, false);
+    const panelAction = within(document.body).getByRole('button', { name: 'Panel action', exact: true });
+    await browserPointerDown(panelAction); await flushFrames();
+    assert.equal(viewModel().topology.groups[0].folded, false);
+    await act(async () => fireEvent.keyDown(panelAction, { key: 'Escape' })); await settle();
+    assert.equal(within(document.body).queryByRole('dialog', { name: 'Member panel' }), null);
+    assert.equal(viewModel().topology.groups[0].folded, false);
+    await browserPointerDown(within(mount).getByLabelText('Member 1 connection')); await flushFrames();
+    assert.equal(viewModel().topology.groups[0].folded, false);
+    await act(async () => member.focus());
+    await act(async () => fireEvent.keyDown(member, { key: 'Escape' }));
+    // Browsers blur a focused member as its departing wrapper becomes inert.
+    await act(async () => member.blur()); await settle();
+    assert.equal(viewModel().topology.groups[0].folded, true);
+    assert.ok(capsule.matches(':focus'));
+  }, false);
 });

@@ -139,17 +139,18 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     pointerActionOwner.current = owner;
     revealActions(owner);
   }, [revealActions]);
+  // Transition blur clears highlights while its requested focus restoration waits.
   const clearInteraction = useCallback(() => {
     actionPointer.current = null; pointerActionOwner.current = null;
     setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
-    pendingGroupFocus.current = null;
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
   }, []);
   useEffect(() => {
-    window.addEventListener('blur', clearInteraction);
+    const blur = () => { pendingGroupFocus.current = null; clearInteraction(); };
+    window.addEventListener('blur', blur);
     return () => {
-      window.removeEventListener('blur', clearInteraction);
+      window.removeEventListener('blur', blur);
       if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     };
   }, [clearInteraction]);
@@ -174,7 +175,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const portraitPlanRef = useRef(portraitPlan); portraitPlanRef.current = portraitPlan;
   const landscapePlan = useMemo(() => viewport.vw > 0 && viewport.orientation === 'landscape' ? compactRoots(prunedLeft, prunedRight, viewport, 'landscape', params) : { left: new Set<string>(), right: new Set<string>() }, [inputLeft, inputRight, collapsed, accountsEnabled, viewport, params]);
   const basePlan = viewport.orientation === 'portrait' ? portraitPlan : landscapePlan;
-  const compacted = useMemo(() => retainOpenGroup(basePlan, prunedLeft, prunedRight, openedGroup), [basePlan, inputLeft, inputRight, collapsed, openedGroup]);
+  const compacted = useMemo(() => retainOpenGroup(basePlan, prunedLeft, prunedRight, openedGroup), [basePlan, prunedLeft, prunedRight, openedGroup]);
   const groups = [...topologyGroups(prunedLeft, compacted.left, -1), ...topologyGroups(prunedRight, compacted.right, 1)];
   const mark = (list: NodeView[], side: Side, inherited?: string): NodeView[] => list.map(n => {
     const member = inherited ?? groups.find(g => g.side === side && g.members.includes(n.id))?.id;
@@ -215,21 +216,21 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   latest.current = { nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
   useEffect(() => {
     if (!openedGroup) return;
+    // Decide after React capture and SVG target handlers have classified the
+    // event. A capture-listener microtask can run before those handlers.
     const outside = (event: globalThis.PointerEvent) => {
-      queueMicrotask(() => {
-        if (!insidePointers.current.has(event) && latest.current.expandedGroups.has(openedGroup.id)) {
-          pendingGroupFocus.current = null;
-          setOpenedGroup(current => current?.id === openedGroup.id ? null : current);
-        }
-      });
+      if (!insidePointers.current.has(event) && latest.current.expandedGroups.has(openedGroup.id)) {
+        pendingGroupFocus.current = null;
+        setOpenedGroup(current => current?.id === openedGroup.id ? null : current);
+      }
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || latest.current.panelKey || panelLayers.get().length) return;
       event.preventDefault(); foldGroup(openedGroup.id);
     };
-    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape); };
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
   }, [openedGroup]);
   useEffect(() => observeTopology(() => ({
     orientation: orientation.current, source: orientationSource.current, orientationPending: orientationPending.current,
