@@ -90,10 +90,72 @@ impl Drop for ReplyGuard {
     }
 }
 
-/// One owned stdio process per task. ACP and Pi share framing, not protocol semantics.
+enum Frames {
+    Direct(BufReader<tokio::process::ChildStdout>),
+    Hosted {
+        client: Arc<crate::task_host::Client>,
+        offset: u64,
+        queued: std::collections::VecDeque<Value>,
+        journal: crate::task_host::JournalReader,
+    },
+}
+impl Frames {
+    async fn next(&mut self) -> Result<Vec<u8>> {
+        match self {
+            Self::Direct(reader) => crate::line(reader, 32 * 1024 * 1024).await,
+            Self::Hosted {
+                client,
+                offset,
+                queued,
+                journal,
+            } => loop {
+                if let Some(row) = queued.pop_front() {
+                    *offset = row["offset"].as_u64().ok_or("TASK_HOST_JOURNAL_INVALID")?;
+                    return serde_json::to_vec(&row).map_err(|e| e.to_string());
+                }
+                let status = client.status().await;
+                let exited = client.exit();
+                if !client.alive() && exited.is_none() {
+                    return Err(
+                        "TASK_HOST_LOST: no exit record; reconcile the task before resuming".into(),
+                    );
+                }
+                // Host heartbeats are independent of Core's current turn waiter.
+                if let Err(error) = &status {
+                    if exited.is_none() {
+                        return Err(error.clone());
+                    }
+                }
+                let next = status
+                    .as_ref()
+                    .ok()
+                    .or(exited.as_ref())
+                    .and_then(|s| s["nextOffset"].as_u64());
+                if next.is_none_or(|next| next > *offset + 1) {
+                    *queued = journal
+                        .read(Path::new(string(&client.index, "journalPath")), *offset)?
+                        .into();
+                }
+                if !queued.is_empty() {
+                    continue;
+                }
+                if let Some(exit) = exited {
+                    if let Some(error) = exit["error"].as_str() {
+                        return Err(error.into());
+                    }
+                    return Ok(vec![]);
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            },
+        }
+    }
+}
+
+/// Core indexes a task-host; direct stdio is a degraded fallback.
 pub struct Process {
     input: Mutex<Option<tokio::process::ChildStdin>>,
-    child: Mutex<tokio::process::Child>,
+    child: Mutex<Option<tokio::process::Child>>,
+    host: Option<Arc<crate::task_host::Client>>,
     replies: Replies,
     pub events: SharedEvents,
     pub state: Arc<Mutex<Value>>,
@@ -103,6 +165,7 @@ pub struct Process {
     pub capabilities: Mutex<Value>,
     pub dispatch: Mutex<()>,
     reader: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    detach: Arc<tokio::sync::Notify>,
 }
 impl Process {
     pub async fn start(
@@ -115,6 +178,7 @@ impl Process {
         wake: Arc<tokio::sync::Notify>,
     ) -> Result<Arc<Self>> {
         state["processSession"] = json!(id());
+        super::save_task(&state)?;
         let mut cmd = launch_command(binary, args)?;
         if state["agent"] == "claude" {
             if let Some(profile) = state["agentProfileId"].as_str() {
@@ -132,10 +196,27 @@ impl Process {
             .env_remove("NODE_OPTIONS")
             .env_remove("BUN_OPTIONS");
         }
+        cmd.current_dir(cwd);
+        if !cfg!(test) && !cfg!(feature = "test-fixture") {
+            match crate::task_host::launch(&cmd, &state).await {
+                Ok(client) => {
+                    state["taskHost"] = client.index.clone();
+                    super::save_task(&state)?;
+                    return Self::from_host(client, state, pi, antigravity, wake).await;
+                }
+                Err(error) => crate::logs::record(
+                    "WARN",
+                    &format!(
+                        "Detached task-host unavailable; using a Core-owned Agent process: {error}"
+                    ),
+                    None,
+                ),
+            }
+        }
+        state.as_object_mut().unwrap().remove("taskHost");
         #[cfg(unix)]
         cmd.process_group(0);
         let mut child = cmd
-            .current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -143,40 +224,151 @@ impl Process {
             .map_err(|e| e.to_string())?;
         let input = child.stdin.take().ok_or("MISSING_STDIN")?;
         let stdout = child.stdout.take().ok_or("MISSING_STDOUT")?;
+        Self::observe(
+            Some(child),
+            Some(input),
+            None,
+            Frames::Direct(BufReader::new(stdout)),
+            state,
+            pi,
+            antigravity,
+            wake,
+        )
+        .await
+    }
+    pub(crate) async fn reattach(
+        state: Value,
+        wake: Arc<tokio::sync::Notify>,
+    ) -> Result<Arc<Self>> {
+        let pi = state["agent"] == "pi";
+        let antigravity = state["agent"] == "antigravity";
+        let client = crate::task_host::Client::from_index(state["taskHost"].clone());
+        Self::from_host(client, state, pi, antigravity, wake).await
+    }
+    async fn from_host(
+        client: crate::task_host::Client,
+        mut state: Value,
+        pi: bool,
+        antigravity: bool,
+        wake: Arc<tokio::sync::Notify>,
+    ) -> Result<Arc<Self>> {
+        if !client.alive() && client.exit().is_none() {
+            return Err("TASK_HOST_LOST: reconcile the task before resuming".into());
+        }
+        let status = client
+            .status()
+            .await
+            .or_else(|error| client.exit().ok_or(error))?;
+        state["taskHost"]["drainOnly"] =
+            json!(client.index["hostProtocol"] != crate::task_host::PROTOCOL);
+        let received = status["receivedSequence"].as_u64().unwrap_or(0);
+        state["taskHost"]["receivedSequence"] = json!(received);
+        let intent = &state["taskHost"]["unconfirmedWrite"];
+        if intent["sequence"]
+            .as_u64()
+            .is_some_and(|seq| seq <= received)
+        {
+            state["dispatch"]["submission"] = json!("accepted");
+        }
+        let exited = !client.alive();
+        state["processState"] = json!(if exited { "recovering" } else { "running" });
+        let replay_until = status["nextOffset"].as_u64().unwrap_or(1).saturating_sub(1);
+        let offset = state["taskHost"]["ackedOffset"].as_u64().unwrap_or(0);
+        let client = Arc::new(client);
+        let frames = Frames::Hosted {
+            client: client.clone(),
+            offset,
+            queued: Default::default(),
+            journal: Default::default(),
+        };
+        let process = Self::observe(
+            None,
+            None,
+            Some(client),
+            frames,
+            state,
+            pi,
+            antigravity,
+            wake,
+        )
+        .await?;
+        // Publish the restored process only after its initial journal has rebuilt
+        // pending interactions and any terminal result left by the old Core.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let state = process.state.lock().await;
+                let caught_up =
+                    state["taskHost"]["ackedOffset"].as_u64().unwrap_or(0) >= replay_until;
+                if (caught_up && (!exited || state["processState"] == "exited"))
+                    || !process.alive.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    break;
+                }
+                drop(state);
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .map_err(|_| {
+            "TASK_HOST_REPLAY_TIMEOUT: retry reattachment before dispatching".to_owned()
+        })?;
+        Ok(process)
+    }
+    #[allow(clippy::too_many_arguments)]
+    async fn observe(
+        child: Option<tokio::process::Child>,
+        input: Option<tokio::process::ChildStdin>,
+        host: Option<Arc<crate::task_host::Client>>,
+        mut frames: Frames,
+        state: Value,
+        pi: bool,
+        antigravity: bool,
+        wake: Arc<tokio::sync::Notify>,
+    ) -> Result<Arc<Self>> {
         let mut tracking: crate::task_tracking::Timeline =
             serde_json::from_value(state["tracking"].clone()).unwrap_or_default();
         tracking.info = json!({"id":state["taskId"],"project":state["cwd"]});
+        let capabilities = state["hostCapabilities"].clone();
         let process = Arc::new(Self {
-            input: Mutex::new(Some(input)),
+            input: Mutex::new(input),
+            host,
             child: Mutex::new(child),
             replies: Default::default(),
             events: Arc::new(Mutex::new(Events {
                 timelines: HashMap::from([(string(&state, "taskId").to_owned(), tracking)]),
                 durable: true,
+                pending: state["pendingInteractions"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|r| (r["id"].to_string(), r.clone()))
+                    .collect(),
                 ..Events::default()
             })),
             state: Arc::new(Mutex::new(state)),
             pi,
             antigravity,
             alive: true.into(),
-            capabilities: Mutex::new(Value::Null),
+            capabilities: Mutex::new(capabilities),
             dispatch: Mutex::new(()),
             reader: Mutex::new(None),
+            detach: Default::default(),
         });
         process.events.lock().await.wake = wake;
         let weak = Arc::downgrade(&process);
+        let detach = process.detach.clone();
         let reader_job = tokio::spawn(async move {
-            let mut reader = BufReader::new(stdout);
             let mut deadline = None;
             let mut read_error = None;
             loop {
                 // Keep the same read future across timer ticks: line() consumes partial
                 // frames and must not be cancelled by the persistence deadline.
-                let read = crate::line(&mut reader, 32 * 1024 * 1024);
+                let read = frames.next();
                 tokio::pin!(read);
                 let frame = loop {
                     tokio::select! {
                         biased;
+                        _ = detach.notified() => return,
                         _ = async {
                             match deadline {
                                 Some(at) => tokio::time::sleep_until(at).await,
@@ -199,10 +391,31 @@ impl Process {
                     }
                 };
                 let Some(p) = weak.upgrade() else { break };
+                let mut offset = None;
+                let frame = if p.host.is_some() {
+                    let row: Value = match serde_json::from_slice(&frame) {
+                        Ok(row) => row,
+                        Err(_) => {
+                            read_error = Some("TASK_HOST_JOURNAL_INVALID".into());
+                            break;
+                        }
+                    };
+                    offset = row["offset"].as_u64();
+                    if row["kind"] == "write" {
+                        p.replayed_write(&row["frame"], offset).await;
+                        continue;
+                    }
+                    string(&row, "frame").as_bytes().to_vec()
+                } else {
+                    frame
+                };
                 let mut msg: Value = match serde_json::from_slice(&frame) {
                     Ok(v) => v,
                     Err(_) => {
                         let mut state = p.state.lock().await;
+                        if let Some(offset) = offset {
+                            state["taskHost"]["ackedOffset"] = json!(offset);
+                        }
                         state["stdoutDiagnostics"] =
                             stdout_diagnostics(&state["stdoutDiagnostics"], &frame);
                         state["updatedAt"] = json!(now());
@@ -219,6 +432,7 @@ impl Process {
                     msg.get("method").is_none() && msg.get("id").is_some()
                 };
                 if response {
+                    p.replayed_response(&msg, offset).await;
                     if let Some(tx) = p.replies.lock().await.remove(&msg["id"].to_string()) {
                         let result = if msg.get("error").is_some() || (pi && msg["success"] != true)
                         {
@@ -248,6 +462,9 @@ impl Process {
                     continue;
                 }
                 let mut state = p.state.lock().await;
+                if let Some(offset) = offset {
+                    state["taskHost"]["ackedOffset"] = json!(offset);
+                }
                 let terminal = terminal_status(string(&state, "status"));
                 let task = string(&state, "taskId").to_owned();
                 if antigravity {
@@ -396,8 +613,31 @@ impl Process {
             }
             if let Some(p) = weak.upgrade() {
                 p.alive.store(false, std::sync::atomic::Ordering::SeqCst);
-                let exit_status = p.child.lock().await.try_wait().ok().flatten();
+                let exit_status = p
+                    .child
+                    .lock()
+                    .await
+                    .as_mut()
+                    .and_then(|child| child.try_wait().ok().flatten());
+                let host_exit = p.host.as_ref().and_then(|host| host.exit());
                 let mut s = p.state.lock().await;
+                if let Some(exit) = &host_exit {
+                    s["exitCode"] = exit["exitCode"].clone();
+                    if !terminal_status(string(&s, "status")) && read_error.is_none() {
+                        s["status"] = json!(if exit["exitCode"] == 0 {
+                            "completed"
+                        } else {
+                            "failed"
+                        });
+                        crate::event(
+                            &p.events,
+                            string(&s, "taskId"),
+                            "arc/settled",
+                            json!({"status":s["status"]}),
+                        )
+                        .await;
+                    }
+                }
                 let abnormal = !terminal_status(string(&s, "status"))
                     || exit_status.as_ref().is_some_and(|status| !status.success());
                 let error = read_error.or_else(|| abnormal.then(|| {
@@ -429,21 +669,25 @@ impl Process {
                 {
                     let mut events = p.events.lock().await;
                     if let Some(t) = events.timelines.get_mut(string(&s, "taskId")) {
-                        t.finish("unknown", &now());
+                        t.finish(string(&s, "status"), &now());
                     }
                 }
-                p.persist(&mut s).await;
                 {
                     let mut events = p.events.lock().await;
-                    events.pending.clear();
+                    if host_exit.is_some() || p.host.is_none() {
+                        events.pending.clear();
+                    }
                     events.wake.notify_waiters();
                 }
+                p.persist(&mut s).await;
+                p.recover_receipt(&s);
             }
         });
         *process.reader.lock().await = Some(reader_job);
         Ok(process)
     }
     async fn persist(&self, state: &mut Value) {
+        state["hostCapabilities"] = self.capabilities.lock().await.clone();
         self.snapshot_tracking(state).await;
         if let Err(error) = super::save_task(state) {
             state["storageError"] = json!(error);
@@ -451,18 +695,15 @@ impl Process {
     }
     pub async fn remember_configuration(&self) {
         let mut state = self.state.lock().await;
+        self.persist(&mut state).await;
         if let Err(error) = super::remember_task_configuration(&state) {
             state["storageError"] = json!(error);
         }
     }
     pub async fn snapshot_tracking(&self, state: &mut Value) {
-        if let Some(timeline) = self
-            .events
-            .lock()
-            .await
-            .timelines
-            .get_mut(string(state, "taskId"))
-        {
+        let mut events = self.events.lock().await;
+        state["pendingInteractions"] = json!(events.pending.values().collect::<Vec<_>>());
+        if let Some(timeline) = events.timelines.get_mut(string(state, "taskId")) {
             if !timeline.turn.is_empty() {
                 if let Some(summary) = super::activity::agent_summary(state) {
                     timeline
@@ -474,20 +715,28 @@ impl Process {
         }
     }
     pub async fn check_alive(&self) -> Result<()> {
-        if !self.alive.load(std::sync::atomic::Ordering::SeqCst)
-            || self
-                .child
+        let stopped = if let Some(host) = &self.host {
+            !host.alive()
+        } else {
+            self.child
                 .lock()
                 .await
-                .try_wait()
+                .as_mut()
+                .map(|child| child.try_wait())
+                .transpose()
                 .map_err(|e| e.to_string())?
+                .flatten()
                 .is_some()
-        {
+        };
+        if !self.alive.load(std::sync::atomic::Ordering::SeqCst) || stopped {
             return Err("process-exit-unconfirmed".into());
         }
         Ok(())
     }
     pub async fn write(&self, value: Value) -> Result<()> {
+        if let Some(host) = &self.host {
+            return host.write(value, &self.state).await;
+        }
         let mut input = self.input.lock().await;
         let input = input.as_mut().ok_or("PROCESS_NOT_RUNNING")?;
         input
@@ -495,6 +744,131 @@ impl Process {
             .await
             .map_err(|e| e.to_string())?;
         input.flush().await.map_err(|e| e.to_string())
+    }
+    async fn replayed_write(&self, frame: &Value, offset: Option<u64>) {
+        let value = &frame["value"];
+        let mut state = self.state.lock().await;
+        if let Some(offset) = offset {
+            state["taskHost"]["ackedOffset"] = json!(offset);
+        }
+        state["taskHost"]["receivedSequence"] = json!(state["taskHost"]["receivedSequence"]
+            .as_u64()
+            .unwrap_or(0)
+            .max(frame["sequence"].as_u64().unwrap_or(0)));
+        if frame["sequence"] == state["taskHost"]["unconfirmedWrite"]["sequence"] {
+            state["taskHost"]["unconfirmedWrite"] = Value::Null;
+        }
+        if value["method"] == "session/prompt" || value["type"] == "prompt" {
+            state["taskHost"]["promptId"] = value["id"].clone();
+            state["dispatch"]["submission"] = json!("accepted");
+            state["taskHost"]["promptSequence"] = frame["sequence"].clone();
+            state["taskHost"]["promptResponded"] = json!(false);
+        }
+        if value.get("id").is_some()
+            && (value.get("result").is_some()
+                || value.get("error").is_some()
+                || value["type"] == "extension_ui_response")
+        {
+            let mut events = self.events.lock().await;
+            events.pending.remove(&value["id"].to_string());
+            if events.pending.is_empty() && state["status"] == "waiting-permission" {
+                state["status"] = json!("running");
+            }
+        }
+        self.persist(&mut state).await;
+        self.recover_receipt(&state);
+    }
+    fn recover_receipt(&self, state: &Value) {
+        let Some(request) = state["taskHost"]["requestId"].as_str() else {
+            return;
+        };
+        let Ok(path) = super::RECEIPTS.path(request) else {
+            return;
+        };
+        let Ok(mut receipt) = load(&path) else {
+            return;
+        };
+        if !matches!(string(&receipt, "state"), "pending" | "unconfirmed") {
+            return;
+        }
+        let received = state["taskHost"]["receivedSequence"].as_u64().unwrap_or(0);
+        let Some(prompt) = state["taskHost"]["promptSequence"].as_u64() else {
+            return;
+        };
+        if prompt > received {
+            return;
+        }
+        if (self.pi && state["taskHost"]["promptResponded"] == true)
+            || terminal_status(string(state, "status"))
+        {
+            receipt["state"] = json!("completed");
+            receipt["result"] = state.clone();
+            receipt["error"] = Value::Null;
+            if let Err(error) = super::RECEIPTS.checkpoint(&mut receipt) {
+                crate::logs::record("WARN", &error, None);
+            }
+        }
+    }
+    async fn replayed_response(&self, msg: &Value, offset: Option<u64>) {
+        if self.host.is_none() {
+            return;
+        }
+        let mut state = self.state.lock().await;
+        if let Some(offset) = offset {
+            state["taskHost"]["ackedOffset"] = json!(offset);
+        }
+        if msg["id"] == state["taskHost"]["promptId"] && !msg["id"].is_null() {
+            state["taskHost"]["promptResponded"] = json!(true);
+            let failed = msg.get("error").is_some() || (self.pi && msg["success"] != true);
+            if !self.pi || failed {
+                state["status"] = json!(if failed {
+                    "failed"
+                } else if msg["result"]["stopReason"] == "cancelled" {
+                    "cancelled"
+                } else {
+                    "completed"
+                });
+                state["stopReason"] = msg["result"]["stopReason"].clone();
+                state["error"] = msg["error"].clone();
+                state["dispatch"]["submission"] =
+                    json!(if failed { "rejected" } else { "accepted" });
+                crate::event(
+                    &self.events,
+                    string(&state, "taskId"),
+                    "arc/settled",
+                    json!({"status":state["status"],"error":state["error"]}),
+                )
+                .await;
+            }
+        }
+        self.persist(&mut state).await;
+        self.recover_receipt(&state);
+    }
+    pub fn drain_only(&self) -> bool {
+        self.host
+            .as_ref()
+            .is_some_and(|host| host.index["hostProtocol"] != crate::task_host::PROTOCOL)
+    }
+    pub fn hosted(&self) -> bool {
+        self.host.is_some()
+    }
+    pub async fn release(&self) {
+        let state = self.state.lock().await.clone();
+        let busy = !matches!(
+            string(&state, "status"),
+            "idle" | "completed" | "cancelled" | "failed"
+        ) || !self.events.lock().await.pending.is_empty();
+        let uncertain = !self.alive.load(std::sync::atomic::Ordering::SeqCst)
+            && self.host.as_ref().is_some_and(|host| host.alive());
+        if self.host.is_some() && (busy || uncertain) {
+            if let Some(reader) = self.reader.lock().await.take() {
+                self.detach.notify_one();
+                let _ = reader.await;
+            }
+            self.persist(&mut *self.state.lock().await).await;
+        } else {
+            self.close().await;
+        }
     }
     pub async fn call(&self, method: &str, params: Value, timeout: u64) -> Result<Value> {
         if !self.alive.load(std::sync::atomic::Ordering::SeqCst) {
@@ -619,8 +993,14 @@ impl Process {
         }
     }
     pub async fn interrupt(&self) -> Result<()> {
+        if let Some(host) = &self.host {
+            return host.signal(false).await;
+        }
         let child = self.child.lock().await;
-        let pid = child.id().ok_or("PROCESS_NOT_RUNNING")?;
+        let pid = child
+            .as_ref()
+            .and_then(|child| child.id())
+            .ok_or("PROCESS_NOT_RUNNING")?;
         #[cfg(unix)]
         let result = unsafe { libc::kill(-(pid as i32), libc::SIGINT) };
         #[cfg(unix)]
@@ -633,17 +1013,37 @@ impl Process {
         self.child
             .lock()
             .await
+            .as_mut()
+            .ok_or("PROCESS_NOT_RUNNING")?
             .start_kill()
             .map_err(|error| error.to_string())?;
         Ok(())
     }
     pub async fn close(&self) {
+        if let Some(host) = &self.host {
+            let _ = host.close().await;
+            if let Some(mut reader) = self.reader.lock().await.take() {
+                if tokio::time::timeout(Duration::from_secs(8), &mut reader)
+                    .await
+                    .is_err()
+                {
+                    reader.abort();
+                    let _ = reader.await;
+                }
+            }
+            self.persist(&mut *self.state.lock().await).await;
+            self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
+            return;
+        }
         if let Some(mut input) = self.input.lock().await.take() {
             let _ = input.shutdown().await;
             // ChildStdin::shutdown alone does not close the pipe. Drop its writer
             // so cooperative Agents can emit their final stdout before exiting.
         }
-        let mut child = self.child.lock().await;
+        let mut owned_child = self.child.lock().await;
+        let Some(child) = owned_child.as_mut() else {
+            return;
+        };
         let pid = child.id();
         if tokio::time::timeout(Duration::from_secs(2), child.wait())
             .await
@@ -663,7 +1063,7 @@ impl Process {
         }
         // The reader owns the final snapshot, including buffered stdout. Release
         // the child lock before joining it so exit-code collection cannot deadlock.
-        drop(child);
+        drop(owned_child);
         if let Some(reader) = self.reader.lock().await.take() {
             let _ = reader.await;
         }
@@ -910,6 +1310,57 @@ mod stream_stability_tests {
         })
         .await
         .expect("task observation timed out")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn detached_journal_rebuilds_pending_and_settles_without_original_waiter() {
+        // Regression: Core restart lost ACP prompt waiters, pending approvals and their final result.
+        if !isolated("detached_journal_rebuilds_pending_and_settles_without_original_waiter") {
+            return;
+        }
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let host = super::super::AgentHost::new().unwrap();
+            let task = id();
+            let directory = std::env::temp_dir().join(format!("arc-journal-replay-{}", id()));
+            std::fs::create_dir_all(&directory).unwrap();
+            let journal = directory.join("journal.jsonl");
+            let request = json!({"id":"approval","method":"session/request_permission","params":{"options":[{"optionId":"allow","kind":"allow_once","name":"Allow"}]}});
+            let rows = [json!({"offset":1,"kind":"stdout","frame":format!("{request}\n")})];
+            std::fs::write(&journal, format!("{}\n",rows[0])).unwrap();
+            let state = json!({"taskId":task,"agent":"dsh","status":"running","turnId":"turn","output":"","metadata":{},
+                "taskHost":{"hostPid":std::process::id(),"hostStart":crate::codex_host::process_start(std::process::id()),"hostProtocol":2,
+                    "socket":"unused","journalPath":journal,"ackedOffset":0,"promptId":"prompt"}});
+            let process = Process::reattach(state,host.wake.clone()).await.unwrap();
+            host.processes.lock().await.insert(task.clone(),process.clone());
+            let state = observed(&host,&task,|s|s["status"]=="waiting-permission").await;
+            assert_eq!(state["pendingInteractions"][0]["id"],"approval");
+            assert!(process.write(json!({"method":"session/prompt"})).await.unwrap_err().starts_with("TASK_HOST_DRAIN_ONLY:"));
+            process.release().await;
+            // Resume from an acknowledged snapshot after the host has exited.
+            let mut state = host.context_task("dsh", &task).await.unwrap();
+            state["taskHost"]["hostPid"] = json!(0);
+            state["taskHost"]["hostStart"] = json!("exited");
+            state["taskHost"]["hostProtocol"] = json!(1);
+            let next = [
+                json!({"offset":2,"kind":"write","frame":{"sequence":1,"value":{"id":"approval","result":{"outcome":{"outcome":"selected","optionId":"allow"}}}}}),
+                json!({"offset":3,"kind":"stdout","frame":format!("{}\n",json!({"method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"finished"}}}}))}),
+                json!({"offset":4,"kind":"stdout","frame":format!("{}\n",json!({"id":"prompt","result":{"stopReason":"end_turn"}}))}),
+            ];
+            use std::io::Write;
+            let mut file=std::fs::OpenOptions::new().append(true).open(&journal).unwrap();
+            for row in next { writeln!(file,"{row}").unwrap(); }
+            save(&directory.join("exit.json"),&json!({"exitCode":0,"receivedSequence":1,"nextOffset":5,"error":null})).unwrap();
+            let recovered = Process::reattach(state,host.wake.clone()).await.unwrap();
+            host.processes.lock().await.insert(task.clone(),recovered.clone());
+            let state=observed(&host,&task,|s|s["processState"]=="exited" && s["taskHost"]["ackedOffset"]==4).await;
+            assert_eq!(state["status"],"completed");
+            assert_eq!(state["output"],"finished");
+            assert_eq!(state["pendingInteractions"],json!([]));
+            assert_eq!(state["exitCode"],0);
+            recovered.release().await;
+            std::fs::remove_dir_all(directory).unwrap();
+        });
     }
 
     #[cfg(unix)]

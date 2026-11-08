@@ -23,6 +23,7 @@ async fn run() -> Result<()> {
         ["package-check", path] => {
             arc_core::output::line(arc_core::package::check(std::path::Path::new(path)).await?)
         }
+        ["task-host"] => arc_core::task_host::run().await,
         ["context-provider-stdio"] => arc_core::context_provider::stdio().await,
         ["stdio"] => arc_core::transport::stdio().await,
         ["serve"] => runtime::serve().await,

@@ -52,7 +52,7 @@ fn task_path(task: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(task).map_err(|_| "INVALID_TASK_ID")?;
     Ok(root().join("agents/tasks").join(format!("{task}.json")))
 }
-fn save_task(task: &Value) -> Result<()> {
+pub(crate) fn save_task(task: &Value) -> Result<()> {
     crate::coordination::observers::save_owner(
         &task_path(string(task, "taskId"))?,
         task,
@@ -813,6 +813,46 @@ impl AgentHost {
         self.processes.lock().await.insert(task.into(), p.clone());
         Ok(p)
     }
+    /// Recover detached transports before dispatch or task reads can resume work.
+    pub async fn reattach(&self) {
+        let _guard = self.lifecycle.lock().await;
+        for index in crate::task_host::indexes() {
+            let task = string(&index, "taskId");
+            if self.processes.lock().await.contains_key(task) {
+                continue;
+            }
+            let Ok(path) = task_path(task) else {
+                continue;
+            };
+            let Ok(mut state) = load(&path) else {
+                continue;
+            };
+            // The launch identity is saved before spawn, including the window
+            // where Core exits before copying the host index into the task state.
+            if state["processSession"] != index["processSession"] {
+                continue;
+            }
+            if state["taskHost"]["hostStart"] != index["hostStart"]
+                || state["taskHost"]["hostPid"] != index["hostPid"]
+            {
+                state["taskHost"] = index;
+            }
+            let task = string(&state, "taskId").to_owned();
+            match Process::reattach(state, self.wake.clone()).await {
+                Ok(process) => {
+                    self.processes.lock().await.insert(task, process);
+                }
+                Err(error) => crate::logs::record(
+                    "WARN",
+                    &format!("Task {task} could not reattach: {error}"),
+                    None,
+                ),
+            }
+        }
+        if let Err(error) = crate::task_host::gc() {
+            crate::logs::record("WARN", &error, None);
+        }
+    }
     pub async fn close(&self) {
         if let Some(job) = self.adapter_job.lock().await.take() {
             job.abort();
@@ -841,7 +881,7 @@ impl AgentHost {
             .collect::<Vec<_>>();
         self.wake.notify_waiters();
         for p in processes {
-            p.close().await;
+            p.release().await;
         }
     }
     pub async fn receipt(self: &Arc<Self>, args: Value) -> Result<Option<Value>> {

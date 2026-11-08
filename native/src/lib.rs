@@ -76,6 +76,7 @@ pub mod setup;
 pub mod skills;
 mod sources;
 pub mod subscriptions;
+pub mod task_host;
 pub mod transport;
 pub mod waiter;
 pub mod writer;

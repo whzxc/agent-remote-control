@@ -246,6 +246,9 @@ impl AgentDriver {
             let interrupted = t["status"] == "cancelled";
             t["status"] = json!("running");
             t["turnId"] = json!(id());
+            if p.hosted() {
+                t["taskHost"]["requestId"] = args["requestId"].clone();
+            }
             t["origin"] = crate::kernel::origin::current_origin();
             if crate::changes::record(string(&t, "taskId"), string(&t, "turnId"), &baseline)
                 .is_err()
@@ -344,7 +347,7 @@ impl AgentDriver {
             }
             _ => {}
         }
-        if (!p.pi && !p.antigravity) || result.is_err() {
+        if (!p.pi && !p.antigravity && !p.hosted()) || result.is_err() {
             crate::event(
                 &p.events,
                 string(&t, "taskId"),
@@ -379,6 +382,10 @@ impl AgentDriver {
         result.map(|_| t.clone())
     }
     pub async fn interrupt(&self, p: &Arc<Process>) -> Result<Value> {
+        if p.drain_only() {
+            p.interrupt().await?;
+            return Ok(p.state.lock().await.clone());
+        }
         let requests = p
             .events
             .lock()
@@ -426,12 +433,13 @@ impl AgentDriver {
             return Err("INTERACTION_RESPONSE_UNSUPPORTED: Antigravity stream-json has no permission-response input".into());
         }
         let key = a["interactionId"].to_string();
-        let mut pending = p.events.lock().await;
+        let pending = p.events.lock().await;
         let req = pending
             .pending
             .get(&key)
             .cloned()
             .ok_or("INTERACTION_NOT_PENDING")?;
+        drop(pending);
         let response = if p.pi {
             let mut v = json!({"type":"extension_ui_response","id":req["id"]});
             if a["cancelled"] == true {
@@ -477,6 +485,7 @@ impl AgentDriver {
         p.write(response)
             .await
             .map_err(|e| format!("SUBMISSION_UNCONFIRMED: {e}"))?;
+        let mut pending = p.events.lock().await;
         if let Some(timeline) = pending.timelines.values_mut().next() {
             let request = json!({"id":a["interactionId"],"method":req["method"],"params":{"turnId":timeline.turn}});
             let result = if a["value"].is_string() {
