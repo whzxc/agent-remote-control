@@ -3,7 +3,7 @@ import { coordinationScenario, type CoordinationFixture } from './scenarioCoordi
 import { resetBoardObservation, centerView, boardOpen } from './coordination/state';
 import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
-import { installTopologyAccounts } from './topology/scenarioAccounts';
+import { installTopologyAccounts, installDenseTopologyAccounts } from './topology/scenarioAccounts';
 import { nodeKey } from './topology/animate';
 import { sourcePlatformNodeId } from './topology/accounts';
 import { accountScenario } from "./scenarioAccounts";
@@ -184,6 +184,7 @@ export async function installScenario(name: string) {
     Object.assign(preferences, { 'arc.topology-mode': JSON.stringify(fixture.expandedSources ? 'tree' : 'flat'),
       'arc.topology-collapsed': JSON.stringify(Object.fromEntries(collapsed)), 'arc.source-order': JSON.stringify(base.sources.map(source => source.id)) });
   }
+  if (name === 'topology-accounts-dense') Object.assign(preferences, { 'arc.topology-mode': JSON.stringify('tree'), 'arc.topology-collapsed': '{}', 'arc.topology-account-order': '{}' });
   acceptPreferences(preferences);
   if (fixture.remoteLink) {
     const base = status.ingresses[0];
@@ -217,7 +218,8 @@ export async function installScenario(name: string) {
       ...(task.interaction ? { interaction: task.interaction } : {}),
     });
   });
-  const topologyAccounts = (fixture.topologyAccounts || name === 'topology-accounts') ? installTopologyAccounts(status, activity) : [];
+  const topologyAccounts = name === 'topology-accounts-dense' ? installDenseTopologyAccounts(status, activity)
+    : (fixture.topologyAccounts || name === 'topology-accounts') ? installTopologyAccounts(status, activity) : [];
   if (topologyAccounts.length) sources.splice(0, sources.length, ...status.ingresses.flatMap(i => i.sources ?? []));
   const timelines: Record<string, AgentTimeline> = {};
   fixture.tasks.forEach((task, taskIndex) => {

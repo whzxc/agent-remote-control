@@ -1,146 +1,136 @@
-import { solve, type Entity, type Layout, type Params, type Scene, type Side, type Task, type Wing } from './solve.ts';
-import { portraitInset, portraitLabelBreakpoint, solvePortrait } from './portrait.ts';
+import { solve, distribute, type Entity, type Layout, type Params, type Scene, type Side, type Task } from './solve.ts';
+import { portraitInset, portraitLabelBreakpoint, solvePortrait, type PortraitLabels } from './portrait.ts';
 import type { Orientation } from './orientation.ts';
 
 export interface ActivityEntity extends Entity {
   tasks: readonly (Task & { state?: string; pending?: boolean; selected?: boolean })[];
-  activityAt?: number; activityLevel?: number; selected?: boolean; attention?: boolean;
+  activityAt?: number; activityLevel?: number; selected?: boolean; attention?: boolean; pinned?: boolean;
   children?: ActivityEntity[];
 }
 export interface CompactPlan { left: Set<string>; right: Set<string> }
+export interface TopologyGroupPlan { id: string; parent?: string; side: Side; members: string[] }
+export const topologyGroupId = (parent: string | undefined, side: Side) => JSON.stringify(['group', side, parent ?? null]);
 function priority(node: ActivityEntity): { level: number; at: number; pinned: boolean } {
   const children = (node.children ?? []).map(priority);
   return {
     level: Math.max(node.activityLevel ?? 0, ...node.tasks.map(t => t.pending || t.state === 'needsYou' ? 3 : t.state === 'running' ? 2 : 0), ...children.map(c => c.level)),
     at: Math.max(node.activityAt ?? 0, ...children.map(c => c.at)),
-    pinned: !!node.selected || !!node.attention || node.tasks.some(t => t.selected || t.pending || t.state === 'needsYou') || children.some(c => c.pinned),
+    pinned: !!node.pinned || !!node.selected || !!node.attention || node.tasks.some(t => t.selected || t.pending || t.state === 'needsYou' || t.state === 'running') || children.some(c => c.pinned),
   };
 }
-function branches(wing: Wing) {
-  return wing.nodes.filter(n => !n.parent).map(root => {
-    const ids = new Set([root.id]);
-    for (const node of wing.nodes) if (node.parent && ids.has(node.parent)) ids.add(node.id);
-    const nodes = wing.nodes.filter(n => ids.has(n.id)), tasks = wing.tasks.filter(t => ids.has(t.parent));
-    if (root.rowHeight !== undefined) return { root, nodes, tasks, top: root.y - root.rowHeight / 2, height: root.rowHeight };
-    const top = Math.min(...nodes.map(n => n.y - n.size * n.scale / 2 - 12), ...tasks.map(t => t.y - t.height / 2 - 10));
-    const bottom = Math.max(...nodes.map(n => n.y + n.size * n.scale / 2 + 24), ...tasks.map(t => t.y + t.height / 2 + 10));
-    return { root, nodes, tasks, top, height: bottom - top };
-  });
+export const topologyPinned = (node: ActivityEntity) => priority(node).pinned;
+const rank = (list: readonly ActivityEntity[]) => list.map(node => ({ id: node.id, ...priority(node) }))
+  .sort((a, b) => b.level - a.level || b.at - a.at || a.id.localeCompare(b.id));
+
+export function topologyGroups(list: readonly Entity[], hidden: ReadonlySet<string>, side: Side, parent?: string): TopologyGroupPlan[] {
+  const members = list.filter(n => hidden.has(n.id)).map(n => n.id);
+  return [...list.filter(n => !hidden.has(n.id)).flatMap(n => topologyGroups(n.children ?? [], hidden, side, n.id)),
+    ...(members.length >= 2 ? [{ id: topologyGroupId(parent, side), parent, side, members }] : [])];
 }
-// Solve the entire tree first, then compact each depth onto its existing axis.
-// Identity, parent edges and input order survive both folding and unfolding.
-function foldWing(wing: Wing, hidden: ReadonlySet<string>, gap: number, portrait: boolean) {
-  const groups = branches(wing), kept = groups.filter(g => !hidden.has(g.root.id)), folded = groups.filter(g => hidden.has(g.root.id));
-  let y = 0;
-  for (const group of kept) {
-    const delta = y - group.top;
-    for (const n of group.nodes) n.y += delta;
-    for (const t of group.tasks) t.y += delta;
-    y += group.height + gap;
+
+// Replace sibling subtrees before solving: a capsule owns exactly one incoming
+// branch, and folded members never enter the node/task/port layout.
+export function compactTree<T extends Entity>(list: readonly T[], hidden: ReadonlySet<string>, side: Side, expanded: ReadonlySet<string>, group: (plan: TopologyGroupPlan, members: T[]) => T, parent?: string): T[] {
+  const members = list.filter(n => hidden.has(n.id));
+  if (members.length < 2) return list.map(n => ({ ...n, children: compactTree((n.children ?? []) as T[], hidden, side, expanded, group, n.id) }));
+  const id = topologyGroupId(parent, side);
+  const kept = list.filter(n => !hidden.has(n.id)).map(n => ({ ...n, children: compactTree((n.children ?? []) as T[], hidden, side, expanded, group, n.id) }));
+  return [...kept, ...(expanded.has(id) ? members.map(n => ({ ...n })) : [group({ id, parent, side, members: members.map(n => n.id) }, members)])];
+}
+
+export function compactLayout(scene: Scene, plan: CompactPlan, expanded: ReadonlySet<string>, params: Params, orientation: Orientation, labels?: PortraitLabels): Layout {
+  const group = (g: TopologyGroupPlan): Entity => ({ id: g.id, tasks: [] });
+  const sc = { ...scene, left: compactTree(scene.left, plan.left, -1, expanded, group), right: compactTree(scene.right, plan.right, 1, expanded, group) };
+  const groups = [...topologyGroups(scene.left, plan.left, -1), ...topologyGroups(scene.right, plan.right, 1)];
+  const result = orientation === 'portrait' ? solvePortrait(sc, params, null, labels) : solve(sc, params);
+  for (const wing of result.wings) for (const node of wing.nodes) {
+    if (groups.some(g => g.side === wing.side && g.id === node.id)) { node.dim = false; node.opacity = 1; }
   }
-  if (folded.length) {
-    if (portrait && kept.length) y -= gap * 2 / 3;
-    const step = portrait ? 7 : 10;
-    const levels = new Map<number, Wing['nodes']>();
-    for (const group of folded) {
-      const depths = new Map<string, number>();
-      for (const node of group.nodes) {
-        const depth = node.parent ? (depths.get(node.parent) ?? 0) + 1 : 0;
-        depths.set(node.id, depth);
-        levels.set(depth, [...(levels.get(depth) ?? []), node]);
+  if (!result.portrait) {
+    // Landscape budgets reserve the complete visible branch, including labels,
+    // as before. Solver row compression must not erase that clearance.
+    for (const wing of result.wings) {
+      let y = 0;
+      for (const root of wing.nodes.filter(n => !n.parent)) {
+        const ids = new Set([root.id]);
+        const collect = (parent: string) => { for (const n of wing.nodes.filter(n => n.parent === parent)) { ids.add(n.id); collect(n.id); } };
+        collect(root.id);
+        const nodes = wing.nodes.filter(n => ids.has(n.id)), tasks = wing.tasks.filter(t => ids.has(t.parent));
+        const top = Math.min(...nodes.map(n => n.y - n.size * n.scale / 2 - 12), ...tasks.map(t => t.y - t.height / 2 - 10));
+        const bottom = Math.max(...nodes.map(n => n.y + n.size * n.scale / 2 + 24), ...tasks.map(t => t.y + t.height / 2 + 10));
+        const dy = y - top;
+        nodes.forEach(n => n.y += dy); tasks.forEach(t => t.y += dy);
+        y += bottom - top + params.rowGap;
       }
-      for (const t of group.tasks) t.hidden = true;
+      wing.H = Math.max(0, y - params.rowGap);
     }
-    let height = 0;
-    for (const nodes of levels.values()) {
-      const x = nodes[0].x, size = Math.max(...nodes.map(n => n.size * n.scale));
-      const span = size + (nodes.length - 1) * step + (portrait ? 0 : 24);
-      height = Math.max(height, span);
-      nodes.forEach((n, i) => {
-        const dx = x - n.x;
-        if (n.taskBusX !== undefined) n.taskBusX += dx;
-        if (n.childBusX !== undefined) n.childBusX += dx;
-        n.x = x; n.y = y + size / 2 + i * step; n.opacity = 1; n.dim = false;
-      });
-    }
-    y += height + gap;
-  }
-  wing.H = Math.max(0, y - gap);
-  return kept.flatMap(group => group.tasks);
-}
-const noRoots = new Set<string>();
-const heightEpsilon = 0.001;
-const copyWing = (wing: Wing): Wing => ({ ...wing, nodes: wing.nodes.map(n => ({ ...n })), tasks: wing.tasks.map(t => ({ ...t })) });
-export function compactLayout(layout: Layout, plan: CompactPlan, expanded: ReadonlySet<Side>, gap: number): Layout {
-  const result: Layout = { ...layout, hub: { ...layout.hub }, portrait: layout.portrait && { ...layout.portrait },
-    wings: layout.wings.map(copyWing) };
-  const [left, right] = result.wings;
-  const p = result.portrait;
-  const leftRoots = expanded.has(-1) ? noRoots : plan.left, rightRoots = expanded.has(1) ? noRoots : plan.right;
-  foldWing(left, leftRoots, p?.rowGap ?? gap, !!p);
-  const tasks = foldWing(right, rightRoots, p?.rowGap ?? gap, !!p);
-  const shift = (wing: Wing, dy: number) => { wing.nodes.forEach(n => n.y += dy); wing.tasks.forEach(t => t.y += dy); };
-  if (p) {
-    const sourceClearance = result.hub.y - p.sourceBottom;
-    const agentOffset = left.H + p.agentTop - p.sourceBottom;
-    const height = agentOffset + right.H;
-    let anchor = height / 2;
-    const focusTasks = left.nodes.length > 0 && right.nodes.length > 0 && (leftRoots.size > 0 || rightRoots.size > 0) && tasks.length > 0;
-    if (focusTasks) {
-      const first = Math.min(...tasks.map(t => t.y - t.height / 2));
-      const last = Math.max(...tasks.map(t => t.y + t.height / 2));
-      anchor = agentOffset + (first + last) / 2;
-    }
-    p.sourceTop = result.vw <= portraitLabelBreakpoint ? 64 : Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor);
-    p.sourceBottom = p.sourceTop + left.H;
-    result.hub.y = p.sourceBottom + sourceClearance;
-    p.agentTop = p.sourceTop + agentOffset; p.agentBottom = p.agentTop + right.H;
-    shift(left, p.sourceTop); shift(right, p.agentTop);
-    const sceneBottom = p.agentBottom + portraitInset;
-    result.sceneH = sceneBottom > result.vh + heightEpsilon ? sceneBottom : result.vh;
-  } else {
-    result.sceneH = Math.max(result.vh, left.H + 140, right.H + 140);
+    result.sceneH = Math.max(result.vh, ...result.wings.map(w => w.H + 140));
     result.hub.y = result.sceneH / 2;
-    for (const wing of result.wings) shift(wing, result.hub.y - wing.H / 2);
+    for (const wing of result.wings) {
+      const dy = result.hub.y - wing.H / 2;
+      wing.nodes.forEach(n => n.y += dy); wing.tasks.forEach(t => t.y += dy);
+      const roots = wing.nodes.filter(n => !n.parent);
+      const angles = distribute(roots.map(n => Math.atan2(n.y - result.hub.y, Math.abs(n.x - result.hub.x)) * 180 / Math.PI), params.earFollow, params.earSep, params.earMax);
+      roots.forEach((n, i) => n.port = angles[i]);
+      wing.ear = { lo: Math.min(-params.earMin, (angles[0] ?? 0) - params.earPad), hi: Math.max(params.earMin, (angles.at(-1) ?? 0) + params.earPad) };
+    }
+    return result;
   }
+  const [left, right] = result.wings, p = result.portrait;
+  const sourceClearance = result.hub.y - p.sourceBottom, agentOffset = left.H + p.agentTop - p.sourceBottom;
+  const tasks = right.tasks.filter(t => !t.hidden);
+  const focusTasks = left.nodes.length > 0 && right.nodes.length > 0 && (plan.left.size > 0 || plan.right.size > 0) && tasks.length > 0;
+  const anchor = focusTasks ? agentOffset + (Math.min(...tasks.map(t => t.y - t.height / 2)) + Math.max(...tasks.map(t => t.y + t.height / 2))) / 2 - p.agentTop : (agentOffset + right.H) / 2;
+  const sourceTop = result.vw <= portraitLabelBreakpoint ? 64 : Math.max(focusTasks ? 16 : portraitInset, result.vh / 2 - anchor);
+  const dy = sourceTop - p.sourceTop;
+  p.sourceTop += dy; p.sourceBottom += dy; p.agentTop += dy; p.agentBottom += dy;
+  result.hub.y = p.sourceBottom + sourceClearance;
+  for (const wing of result.wings) { wing.nodes.forEach(n => n.y += dy); wing.tasks.forEach(t => t.y += dy); }
+  result.sceneH = Math.max(result.vh, p.agentBottom + portraitInset);
   return result;
 }
-export function compactRoots(left: readonly ActivityEntity[], right: readonly ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params, solved?: Layout): CompactPlan {
-  const scene = { ...viewport, left, right };
-  const layout = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params) : solve(scene, params));
-  const plan: CompactPlan = { left: new Set(), right: new Set() };
-  const portrait = !!layout.portrait;
-  const budget = layout.portrait ? viewport.vh - 2 * portraitInset - (layout.portrait.agentTop - layout.portrait.sourceBottom) : viewport.vh - 140;
-  const heights = layout.wings.map(wing => {
-    if (portrait) return wing.H;
-    const copy = copyWing(wing);
-    foldWing(copy, noRoots, params.rowGap, portrait);
-    return copy.H;
-  });
-  for (const [index, list] of [left, right].entries()) {
-    const height = () => portrait ? heights[0] + heights[1] : heights[index];
-    if (height() <= budget + heightEpsilon) continue;
-    const ranked = list.map(node => ({ id: node.id, ...priority(node) }))
-      .sort((a, b) => b.level - a.level || b.at - a.at || a.id.localeCompare(b.id));
-    const hidden = index === 0 ? plan.left : plan.right;
-    let bestHeight = heights[index], best = new Set<string>();
-    for (const node of ranked.slice(1).reverse()) {
-      if (height() <= budget + heightEpsilon) break;
-      if (node.pinned) continue;
-      hidden.add(node.id);
-      const copy = copyWing(layout.wings[index]);
-      foldWing(copy, hidden, params.rowGap, portrait);
-      heights[index] = copy.H;
-      if (portrait && copy.H < bestHeight) {
-        bestHeight = copy.H;
-        best = new Set(hidden);
-      }
-    }
-    if (portrait) {
-      heights[index] = bestHeight;
-      if (index === 0) plan.left = best;
-      else plan.right = best;
+
+export function compactRoots(left: readonly ActivityEntity[], right: readonly ActivityEntity[], viewport: Pick<Scene, 'vw' | 'vh'>, orientation: Orientation, params: Params, solved?: Layout, labels?: PortraitLabels): CompactPlan {
+  const scene = { ...viewport, left, right }, plan: CompactPlan = { left: new Set(), right: new Set() };
+  const initial = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params, null, labels) : solve(scene, params));
+  const budget = initial.portrait ? viewport.vh - 2 * portraitInset - (initial.portrait.agentTop - initial.portrait.sourceBottom) : viewport.vh - 140;
+  let heights = compactLayout(scene, plan, new Set(), params, orientation, labels).wings.map(w => w.H);
+  const candidates: { side: Side; parent?: string; depth: number; phase: number; ids: string[] }[] = [];
+  const visit = (list: readonly ActivityEntity[], side: Side, depth: number, parent?: string) => {
+    for (const node of list) visit(node.children ?? [], side, depth + 1, node.id);
+    const ranked = rank(list), top = parent === undefined ? ranked[0]?.id : undefined;
+    const ids = ranked.filter(n => !n.pinned && n.id !== top).reverse().map(n => n.id);
+    const idle = ids.filter(id => {
+      const hasWork = (n: ActivityEntity): boolean => !!n.tasks.length || !!n.children?.some(hasWork);
+      return !hasWork(list.find(n => n.id === id)!);
+    });
+    if (parent !== undefined && idle.length >= 2) candidates.push({ side, parent, depth, phase: 0, ids: idle });
+    if (ids.length >= 2) candidates.push({ side, parent, depth, phase: parent === undefined ? 1 : 2, ids });
+  };
+  visit(left, -1, 0); visit(right, 1, 0);
+  candidates.sort((a, b) => a.phase - b.phase || b.depth - a.depth || a.side - b.side || (a.parent ?? '').localeCompare(b.parent ?? ''));
+  for (const candidate of candidates) {
+    const index = candidate.side === -1 ? 0 : 1, hidden = index === 0 ? plan.left : plan.right;
+    const height = () => orientation === 'portrait' ? heights[0] + heights[1] : heights[index];
+    if (height() <= budget + .001) continue;
+    const before = new Set(hidden);
+    const remaining = candidate.ids.filter(id => !hidden.has(id));
+    let memberCount = candidate.ids.length - remaining.length;
+    for (const id of remaining) {
+      hidden.add(id); memberCount++;
+      if (memberCount < 2) continue;
+      const measured = compactLayout(scene, plan, new Set(), params, orientation, labels);
+      const next = measured.wings.map(w => w.H);
+      if (next[index] < heights[index] - .001) heights = next;
+      else { hidden.clear(); before.forEach(id => hidden.add(id)); break; }
+      if (height() <= budget + .001) break;
+      before.clear(); hidden.forEach(id => before.add(id));
     }
   }
+  // Descendant plans covered by a folded ancestor are no longer independent groups.
+  const clean = (list: readonly Entity[], hidden: Set<string>, covered = false) => {
+    for (const n of list) { const folded = hidden.has(n.id); if (covered) hidden.delete(n.id); clean(n.children ?? [], hidden, covered || folded); }
+  };
+  clean(left, plan.left); clean(right, plan.right);
   return plan;
 }

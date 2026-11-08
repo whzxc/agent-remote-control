@@ -316,7 +316,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}
       </GraphNode>,
       tasks: [
-        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session) ?? session.agentAccountId, origin: origin(session),
+        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), activityAt: Math.max(Date.parse(session.phaseSince ?? '') || 0, Date.parse(session.turnStartedAt ?? session.startedAt ?? '') || 0), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session) ?? session.agentAccountId, origin: origin(session),
           state: (() => {
             const execution = taskExecution(agent.agent, session.id);
             return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);

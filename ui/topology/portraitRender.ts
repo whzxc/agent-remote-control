@@ -35,7 +35,7 @@ export function measurePortraitLabels(nodes: PaintNode[], element: (node: PaintN
   const left = new Map<string, PortraitLabel>(), right = new Map<string, PortraitLabel>();
   for (const node of nodes) {
     const host = element(node);
-    const name = host?.querySelector<HTMLElement>('.graph-node-name');
+    const name = host?.querySelector<HTMLElement>('.graph-node-name, .topology-group-label');
     if (!name) continue;
     const label = measureLabel(name), chip = host?.querySelector<HTMLElement>('.agent-auto-compact');
     const sub = chip && measureLabel(chip);

@@ -40,3 +40,28 @@ export function installTopologyAccounts(status: Status, activity: AgentActivityS
   });
   return accounts;
 }
+
+export function installDenseTopologyAccounts(status: Status, activity: AgentActivitySnapshot): ProviderAccount[] {
+  const sources = installTopologyAccounts(status, activity).map(account => ({ ...account, agentProfiles: [] }));
+  const observedAt = activity.observedAt;
+  const used = [27, 62, 19, 27, 18, 62, 35, 100, 22, 73, undefined];
+  const codex = used.map((usedPercent, index): ProviderAccount => ({
+    id: `example-codex-${String(index).padStart(2, '0')}`, provider: 'openai', identityKey: `example-codex-${index}`,
+    alias: index === 0 ? 'Pro 200' : `Codex Pro ${String(index).padStart(2, '0')}`,
+    sources: [], agentProfiles: [{ agent: 'codex', profileId: `example-codex-profile-${index}`, kind: 'codex-home', state: 'signed-in', default: index === 0 }],
+    createdAt: observedAt, observedAt, notifications: { state: 'n/a', reachable: false, sessions: [] }, health: { state: 'ready' },
+    quota: usedPercent === undefined ? { state: 'unavailable', windows: [] } : { state: 'ready', observedAt,
+      windows: [{ id: 'weekly', poolId: 'main', label: 'weekly', usedPercent,
+        resetsAt: new Date(Date.parse(observedAt) + 3 * 86400000).toISOString() }] },
+  }));
+  const origin = sources.find(account => account.provider === 'openai')!;
+  activity.agents.codex.sessions.forEach((session, index) => {
+    session.agentAccountId = codex[index < 2 ? 0 : index - 1].id;
+    session.origin = { accountId: origin.id, sourceId: origin.sources[0], ingressId: status.ingresses[0].id };
+    if (session.dispatchSummary) {
+      session.dispatchSummary.agentAccountId = session.agentAccountId;
+      session.dispatchSummary.controlSource = { id: origin.sources[0], kind: 'chatgpt', label: 'ChatGPT' };
+    }
+  });
+  return [...sources, ...codex];
+}

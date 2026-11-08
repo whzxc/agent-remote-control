@@ -25,7 +25,7 @@ test('portrait tasks leave the revealed hub power control reachable through comp
     const scene = { vw: 640, vh, left, right }, params = { ...DEFAULTS, ringScale };
     const full = solvePortrait(scene, params);
     const plan = compactRoots(left, right, scene, 'portrait', params, full);
-    for (const layout of [full, compactLayout(full, plan, new Set(), params.rowGap)]) {
+    for (const layout of [full, compactLayout(scene, plan, new Set(), params, 'portrait')]) {
       const bottom = layout.hub.y + hubControlGeometry(layout.hub.Re).powerBottom;
       const visible = layout.wings[1].tasks.filter(task => !task.hidden);
       assert.ok(visible.length > 0);

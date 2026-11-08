@@ -83,7 +83,7 @@ export function Tile({ icon, className = "" }: { icon: LucideIcon; className?: s
   return <span className={`tile ${className}`} aria-hidden="true"><Icon icon={icon} size={18} /></span>;
 }
 /** Bundled brand artwork with no control or quota decoration. */
-export function BrandMark({ markup, size = 40 }: { markup?: string; size?: 24 | 40 }) {
+export function BrandMark({ markup, size = 40 }: { markup?: string; size?: number }) {
   return <span className="brand-mark" style={{ width: size, height: size }} aria-hidden="true">
     {markup ? <span dangerouslySetInnerHTML={{ __html: markup }} /> : <Icon icon={Bot} size={20} />}
   </span>;

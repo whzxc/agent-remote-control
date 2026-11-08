@@ -8,7 +8,7 @@ import { quotaColor } from "./presentation";
 import { quotaElapsed } from "./quotaTiming";
 import type { ProviderSnapshot, QuotaWindow } from "./types";
 
-function iconWindows(provider: ProviderSnapshot, now: number, summary: boolean) {
+export function iconWindows(provider: ProviderSnapshot, now: number, summary: boolean) {
   if (provider.state !== "ready" && provider.state !== "stale") return [];
   const windows = provider.windows.filter(window =>
     Number.isFinite(window.usedPercent) && (!window.resetsAt || Date.parse(window.resetsAt) > now));

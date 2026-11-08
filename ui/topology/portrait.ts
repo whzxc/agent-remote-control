@@ -74,7 +74,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const gaps = Math.max(0, sourceCount - 1) + Math.max(0, agentCount - 1);
   const minimum = sc.left.reduce((h, root) => h + rowHeight(root, -1), 0)
     + right.reduce((h, root) => h + rowHeight(root, 1), 0) + gaps * p.rowGap;
-  // Spend spare height on the rails before any root needs to be stacked.
+  // Spend spare height on the rails before sibling groups need to fold.
   const spare = Math.max(0, vh - 2 * portraitInset - hubClearance - agentHubClearance - minimum);
   const sourceHubWeight = sourceCount ? 0.75 : 0;
   const agentHubWeight = agentCount ? (busy ? 0.4 : 0.75) : 0;

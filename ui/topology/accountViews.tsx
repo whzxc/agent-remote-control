@@ -47,9 +47,10 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
       const provider = account.quota ? accountQuotaProvider(platform, account.quota) : undefined;
       const icon = <AgentQuotaIcon agent={platform} provider={provider} summary={platform !== 'claude'} />;
-      return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, selected, account: true, label: nodeLabel, icon,
+      const accountTasks = tasks.filter(t => t.agentAccountId === account.id);
+      return { ...first, activityLevel: 0, activityAt: Math.max(0, ...accountTasks.map(t => t.activityAt ?? 0)), id: accountNodeId(platform, account.id), accountId: account.id, quota: provider, selected, account: true, label: nodeLabel, icon,
         attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
-        tasks: tasks.filter(t => t.agentAccountId === account.id),
+        tasks: accountTasks,
         unread: members.flatMap(view => view.unread ?? []).filter(task => task.agentAccountId === account.id),
         content: <GraphNode label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
           {icon}<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>

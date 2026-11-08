@@ -1096,11 +1096,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }
 
 /* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */
-.topology-stack-area { position: absolute; z-index: 1; }
-.topology-node[data-stacked] .graph-node { border-radius: 50%; background: var(--canvas); box-shadow: 0 0 0 1px var(--border); }
-.topology-node[data-stacked] .graph-node-name,
-.topology-node[data-stacked] .agent-auto-compact,
-.topology-node[data-stacked] .agent-task-count { visibility: hidden; }
+.topology-group-area { position: absolute; z-index: 1; }
+.topology-group-node > .topology-group { margin-left: -2px; margin-top: 2px; }
+.topology-scene[data-orientation="portrait"] .topology-group-node > .topology-group { margin-top: -2px; }
+.topology-node .topology-group .source-icon > span { width: 100%; height: 100%; }
+.topology-node .topology-group .source-icon svg { width: 100%; height: 100%; }
 
 /* Approved source, platform and account surfaces. */
 .dialog.elastic-panel:has(.source-account-header, .agent-platform-view) { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); box-shadow: var(--shadow-lg); }

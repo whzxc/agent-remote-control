@@ -26,7 +26,8 @@ export class TopologyAnimator {
     }
     return s;
   }
-  setTargets(layout: Layout, drag: Drag | null = null) {
+  setTargets(layout: Layout, drag: Drag | null = null, groupMembership: ReadonlyMap<string, string> = new Map()) {
+    const groupPositions = new Map([...groupMembership].map(([key, group]) => [key, this.values(group)]));
     const nextOrientation = layout.portrait ? 1 : 0;
     const previousOrientation = this.live.get('orientation')?.fields.portrait?.t;
     if (previousOrientation !== undefined && previousOrientation !== nextOrientation) this.orientationRemaining = 0.36;
@@ -42,9 +43,10 @@ export class TopologyAnimator {
       this.spring(`ear${w.side}`, w.ear);
       for (const n of w.nodes) {
         const parent = n.parent ? this.values(nodeKey(w.side, n.parent)) : undefined;
+        const origin = groupPositions.get(nodeKey(w.side, n.id));
         const s = this.spring(nodeKey(w.side, n.id), { x: n.x, y: n.y, size: n.size, scale: n.scale, op: n.opacity, port: n.port,
           taskBusX: n.taskBusX ?? n.x, childBusX: n.childBusX ?? n.x, radius: n.arc?.R ?? n.size / 2 * n.scale + this.params.arcGap, alo: n.arc?.lo ?? 0, ahi: n.arc?.hi ?? 0, aop: n.arc ? 1 : 0, presence: n.opacity === 0 ? 0 : 1, wireOpacity: n.dim ? 0.3 : 0.78, availability: 1, emphasis: 0 },
-        { aop: 0, alo: 0, ahi: 0, ...(parent ? { x: parent.x + (layout.portrait ? -w.side : w.side) * parent.radius, y: parent.y, op: 0, presence: 0, scale: 0.6 } : {}) });
+        { aop: 0, alo: 0, ahi: 0, ...(origin ? { x: origin.x, y: origin.y, op: 0, presence: 0, scale: 0.6 } : parent ? { x: parent.x + (layout.portrait ? -w.side : w.side) * parent.radius, y: parent.y, op: 0, presence: 0, scale: 0.6 } : {}) });
         s.side = w.side; s.parent = n.parent ? nodeKey(w.side, n.parent) : undefined;
         if (drag?.kind === "node" && drag.side === w.side && drag.id === n.id) {
           s.fields.x.pin = drag.x; s.fields.y.pin = drag.y;
@@ -62,6 +64,8 @@ export class TopologyAnimator {
     }
     for (const [key, s] of this.live) {
       if (s.alive) continue;
+      const group = groupMembership.get(key);
+      if (group && this.live.get(group)?.alive) s.parent = group;
       if (!s.parent) { this.live.delete(key); continue; }
       s.fields.op.t = 0; s.fields.port.t = 0;
       if (s.fields.presence) s.fields.presence.t = 0;
