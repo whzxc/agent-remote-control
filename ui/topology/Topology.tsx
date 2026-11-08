@@ -94,9 +94,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const groupAreas = useRef(new Map<string, HTMLDivElement>());
   const groupOrigins = useRef(new Map<string, Rect>());
   const groupTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const suppressGroupFocus = useRef(false);
   const focusGroup = useRef<string | null>(null);
-  const pendingGroupFocus = useRef<{ key: string; capsule: boolean } | null>(null);
+  const pendingGroupFocus = useRef<string | null>(null);
   const openGroup = (id: string) => {
     clearTimeout(groupTimers.current.get(id));
     setExpandedGroups(old => old.has(id) ? old : new Set([...old, id]));
@@ -203,14 +202,14 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (focusGroup.current) {
       const group = groups.find(g => g.id === focusGroup.current);
       focusGroup.current = null;
-      if (group) pendingGroupFocus.current = { key: nodeKey(group.side, group.id), capsule: true };
+      if (group) pendingGroupFocus.current = nodeKey(group.side, group.id);
       return;
     }
     const active = document.activeElement;
     const opened = dormantGroups.find(g => elements.current.get(nodeKey(g.side, g.id))?.contains(active));
     if (opened) {
       const first = nodes.find(n => n.groupMember === opened.id);
-      if (first) pendingGroupFocus.current = { key: nodeKey(first.side, first.id), capsule: false };
+      if (first) pendingGroupFocus.current = nodeKey(first.side, first.id);
     }
   }, [expandedGroups, compacted]);
   const lit = accountsEnabled ? highlightedPaths(fullNodes, focus ?? hover) : null;
@@ -429,10 +428,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     const pendingFocus = pendingGroupFocus.current;
     if (pendingFocus) {
-      const element = elements.current.get(pendingFocus.key);
+      const element = elements.current.get(pendingFocus);
       if (element && !element.inert) {
         pendingGroupFocus.current = null;
-        suppressGroupFocus.current = pendingFocus.capsule;
         element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
       }
     }
@@ -818,7 +816,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       data-account-id={n.accountId} data-topology-group={n.group?.id}
       className={`topology-node ${n.group ? "topology-group-node" : ""} ${n.account && n.parent ? "topology-account" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       onPointerEnter={() => { changeHover({ side: n.side, id: n.id }); if (n.groupMember || n.group) openGroup(n.groupMember ?? n.id); }} onPointerLeave={() => { changeHover(null); if (n.groupMember || n.group) closeGroup(n.groupMember ?? n.id); }} onPointerCancel={() => changeHover(null)}
-      onFocusCapture={() => { setFocus({ side: n.side, id: n.id }); if (suppressGroupFocus.current) { suppressGroupFocus.current = false; return; } if (n.groupMember || n.group) openGroup(n.groupMember ?? n.id); }} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); if (n.groupMember || n.group) closeGroup(n.groupMember ?? n.id); } }}
+      onFocusCapture={() => { setFocus({ side: n.side, id: n.id }); if (n.groupMember) clearTimeout(groupTimers.current.get(n.groupMember)); }} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); if (n.groupMember || n.group) closeGroup(n.groupMember ?? n.id); } }}
       onKeyDownCapture={event => {
         if (event.key === 'Escape' && (n.groupMember || n.group) && expandedGroups.has(n.groupMember ?? n.id)) {
           event.preventDefault(); event.stopPropagation(); foldGroup(n.groupMember ?? n.id); return;

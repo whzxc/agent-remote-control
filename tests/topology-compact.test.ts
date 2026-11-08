@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compactRoots, compactLayout, compactTree, topologyGroups, topologyGroupId, type ActivityEntity } from '../ui/topology/compact.ts';
+import { compactRoots, compactLayout, compactTree, topologyGroups, topologyGroupId, topologyPinned, type ActivityEntity } from '../ui/topology/compact.ts';
 import { solvePortrait } from '../ui/topology/portrait.ts';
 import { DEFAULTS, type Entity } from '../ui/topology/solve.ts';
 
@@ -44,6 +44,22 @@ test('every parent has at most one nonsingleton group with stable identity', () 
       const groups = topologyGroups(tree, side === -1 ? plan.left : plan.right, side);
       assert.equal(new Set(groups.map(g => g.parent)).size, groups.length);
       for (const group of groups) { assert.ok(group.members.length >= 2); assert.equal(group.id, topologyGroupId(group.parent, side)); }
+    }
+  }
+});
+
+test('idle siblings fold as a complete eligible set at every depth', () => {
+  // Property: any folded idle sibling implies all idle non-pinned peers are folded except the highest-ranked root of a nonempty side.
+  const idle = (n: Entity): boolean => !n.tasks.length && !(n.children ?? []).some(c => !idle(c));
+  for (const orientation of ['landscape', 'portrait'] as const) for (const count of [3, 5, 8]) for (const vh of [300, 600, 900, 1200]) {
+    const roots = [{ ...node('busy', 2), tasks: [{ id: 'running', width: 264, height: 76, state: 'running' }], children: [
+      { ...node('pinned-child'), selected: true }, ...Array.from({ length: count }, (_, i) => node(`child-${i}`, i % 2, i)),
+    ] }, { ...node('pinned-root'), selected: true }, ...Array.from({ length: count }, (_, i) => node(`root-${i}`, i % 2, i))];
+    const plan = compactRoots(roots, roots, { vw: 900, vh }, orientation, DEFAULTS);
+    for (const side of [-1, 1] as const) for (const group of topologyGroups(roots, side === -1 ? plan.left : plan.right, side)) {
+      const siblings = group.parent ? flatten(roots).find(n => n.id === group.parent)!.children! : roots;
+      const eligible = siblings.filter(n => idle(n) && !topologyPinned(n as ActivityEntity));
+      if (eligible.some(n => group.members.includes(n.id))) assert.ok(eligible.every(n => group.members.includes(n.id)));
     }
   }
 });

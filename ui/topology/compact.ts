@@ -95,7 +95,7 @@ export function compactRoots(left: readonly ActivityEntity[], right: readonly Ac
   const initial = solved ?? (orientation === 'portrait' ? solvePortrait(scene, params, null, labels) : solve(scene, params));
   const budget = initial.portrait ? viewport.vh - 2 * portraitInset - (initial.portrait.agentTop - initial.portrait.sourceBottom) : viewport.vh - 140;
   let heights = compactLayout(scene, plan, new Set(), params, orientation, labels).wings.map(w => w.H);
-  const candidates: { side: Side; parent?: string; depth: number; phase: number; ids: string[] }[] = [];
+  const candidates: { side: Side; parent?: string; depth: number; phase: number; ids: string[]; idle: string[] }[] = [];
   const visit = (list: readonly ActivityEntity[], side: Side, depth: number, parent?: string) => {
     for (const node of list) visit(node.children ?? [], side, depth + 1, node.id);
     const ranked = rank(list), top = parent === undefined ? ranked[0]?.id : undefined;
@@ -104,8 +104,8 @@ export function compactRoots(left: readonly ActivityEntity[], right: readonly Ac
       const hasWork = (n: ActivityEntity): boolean => !!n.tasks.length || !!n.children?.some(hasWork);
       return !hasWork(list.find(n => n.id === id)!);
     });
-    if (parent !== undefined && idle.length >= 2) candidates.push({ side, parent, depth, phase: 0, ids: idle });
-    if (ids.length >= 2) candidates.push({ side, parent, depth, phase: parent === undefined ? 1 : 2, ids });
+    if (parent !== undefined && idle.length >= 2) candidates.push({ side, parent, depth, phase: 0, ids: idle, idle });
+    if (ids.length >= 2) candidates.push({ side, parent, depth, phase: parent === undefined ? 1 : 2, ids, idle });
   };
   visit(left, -1, 0); visit(right, 1, 0);
   candidates.sort((a, b) => a.phase - b.phase || b.depth - a.depth || a.side - b.side || (a.parent ?? '').localeCompare(b.parent ?? ''));
@@ -114,10 +114,12 @@ export function compactRoots(left: readonly ActivityEntity[], right: readonly Ac
     const height = () => orientation === 'portrait' ? heights[0] + heights[1] : heights[index];
     if (height() <= budget + .001) continue;
     const before = new Set(hidden);
-    const remaining = candidate.ids.filter(id => !hidden.has(id));
-    let memberCount = candidate.ids.length - remaining.length;
-    for (const id of remaining) {
-      hidden.add(id); memberCount++;
+    const batches = [candidate.idle, ...candidate.ids.filter(id => !candidate.idle.includes(id)).map(id => [id])];
+    let memberCount = candidate.ids.filter(id => hidden.has(id)).length;
+    for (const batch of batches) {
+      const remaining = batch.filter(id => !hidden.has(id));
+      if (!remaining.length) continue;
+      remaining.forEach(id => hidden.add(id)); memberCount += remaining.length;
       if (memberCount < 2) continue;
       const measured = compactLayout(scene, plan, new Set(), params, orientation, labels);
       const next = measured.wings.map(w => w.H);

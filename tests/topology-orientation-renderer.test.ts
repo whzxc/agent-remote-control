@@ -32,6 +32,7 @@ async function withTopology(run: (context: any) => Promise<void>) {
     const { appEnvironment } = await server.ssrLoadModule('/ui/state/appEnvironment.ts');
     const { topologyLayout } = await server.ssrLoadModule('/ui/subscriptions/displayPreferences.ts');
     const { viewModel } = await server.ssrLoadModule('/ui/acceptance.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     const settle = async () => {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
       await act(async () => {
@@ -44,7 +45,7 @@ async function withTopology(run: (context: any) => Promise<void>) {
       const now = Date.now();
       appEnvironment.set({ active: true, expiresAt: now + 60_000, realNowMs: now, overrides: { windowWidth: width, windowHeight: height, reducedMotion: true }, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } });
     };
-    await run({ Topology, appEnvironment, topologyLayout, viewModel, root, mount, settle, dimensions });
+    await run({ Topology, appEnvironment, topologyLayout, viewModel, t, root, mount, settle, dimensions });
   } finally {
     await act(async () => root.unmount()); await server.close(); await window.happyDOM.abort();
     globalThis.fetch = previousFetch;
@@ -102,5 +103,35 @@ test('task queues leave accessible navigation while their Agent panel is open an
       await act(async () => root.render(h(Harness, { selected: false }))); await settle();
       assert.ok(within(mount).getByRole('button', { name: title }));
     }
+  });
+});
+
+test('capsule focus waits for activation and Escape returns to the folded capsule', async () => {
+  // Regression: Tab into a folded account capsule expanded it immediately and skipped its expand action.
+  await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle }) => {
+    const children = Array.from({ length: 11 }, (_, i) => ({ id: `account-${i}`, platform: 'codex', state: 'normal', attention: false, selected: false,
+      tasks: i < 3 ? [{ id: `task-${i}`, width: 264, height: 76, state: 'running', content: h('button', null, `Task ${i}`) }] : [],
+      content: h('button', { type: 'button' }, `Account ${i}`) }));
+    const codex = { id: 'codex', state: 'normal', attention: false, selected: false, tasks: [], children, content: h('button', null, 'Codex') };
+    function Harness() {
+      const boundary = useRef<HTMLElement>(null);
+      return h('section', { ref: boundary }, h(Topology, { left: [], right: [codex], brand: h('span', null, 'ARC'),
+        boundary, onReorderNodes() {}, onReorderTasks() {} }));
+    }
+    await act(async () => { topologyLayout.set('landscape'); root.render(h(Harness)); }); await settle();
+    const capsuleName = `${t('topology.idleAccounts', { count: 8 })} · ${t('topology.expand')}`;
+    const capsule = within(mount).getByRole('button', { name: capsuleName });
+    const group = () => viewModel().topology.groups.find((g: any) => g.parent === codex.id);
+    await act(async () => capsule.focus()); await settle();
+    assert.ok(capsule.matches(':focus'));
+    assert.equal(group().folded, true);
+    assertNodeIdentity(within(mount).getByRole('button', { name: capsuleName }), capsule);
+    await act(async () => fireEvent.click(capsule)); await settle();
+    assert.equal(group().folded, false);
+    const first = within(mount).getByRole('button', { name: 'Account 3', exact: true });
+    assert.ok(first.matches(':focus'));
+    await act(async () => fireEvent.keyDown(first, { key: 'Escape' })); await settle();
+    assert.equal(group().folded, true);
+    assert.ok(capsule.matches(':focus'));
   });
 });

@@ -17,7 +17,7 @@ export function TopologyGroup({ label, members, layout = 'vertical', hideLabel =
       <span className={pool ? 'topology-group-mark' : 'topology-group-brands'} aria-hidden="true">
         {brands.slice(0, pool ? 1 : 3).map(member => <span key={member.brand}>{member.mark}</span>)}
       </span>
-      {pool && <span className="topology-group-dots" aria-hidden="true">{members.map((member, index) => {
+      {pool && <span className="topology-group-dots" aria-hidden="true">{members.slice(0, 12).map((member, index) => {
         const primary = member.quota && iconWindows(member.quota, now, true)[0];
         return <span key={index} style={{ background: primary && member.quota?.state === 'ready' && !member.quota.error ? quotaColor(primary, member.quota, now) : 'var(--border-strong)' }} />;
       })}</span>}

@@ -1,16 +1,19 @@
 import path from 'node:path';
+import { representedTopologyRoots } from './topology.mjs';
 
 export async function verifyPortraitTopology(page, fixture, messages, out, key, screenshots) {
   const taskCount = fixture.tasks.length, agentCount = fixture.agents.length;
   const sourceCount = fixture.sourceProducts.length;
   const read = async (sources, agents, tasks) => {
-    const handle = await page.waitForFunction(({ sources, agents, tasks }) => {
+    // Playwright polls in the browser; serialize the shared pure coverage helper.
+    const handle = await page.waitForFunction(`({ sources, agents, tasks }) => {
+      const representedTopologyRoots = ${representedTopologyRoots.toString()};
       const topology = window.__ARC_VIEW_MODEL__().topology;
       return topology?.orientation === 'portrait' && !topology.orientationPending
-        && topology.nodes.filter(node => node.side === -1 && !node.parent && node.position).length === sources
-        && topology.nodes.filter(node => node.side === 1 && !node.parent && node.position).length === agents
+        && representedTopologyRoots(topology, -1).length === sources
+        && representedTopologyRoots(topology, 1).length === agents
         && topology.tasks.filter(task => task.position?.op > 0.99).length === tasks && topology;
-    }, { sources, agents, tasks }, { timeout: 5000 });
+    }`, { sources, agents, tasks }, { timeout: 5000 });
     const topology = await handle.jsonValue();
     await handle.dispose();
     return topology;
@@ -65,8 +68,8 @@ export async function verifyPortraitTopology(page, fixture, messages, out, key, 
     await read(sourceCount, agentCount, taskCount);
     await checkMobile();
   }
-  if (open.nodes.some(node => node.side === 1 && node.stacked)
-    || open.nodes.some(node => node.side === -1 && node.stacked) !== (taskCount === 4)) {
+  if (open.groups.some(group => group.side === 1 && group.folded)
+    || open.groups.some(group => group.side === -1 && group.folded) !== (taskCount === 4)) {
     throw new Error('Portrait did not compact the upper wing first under height pressure');
   }
   center(open, taskCount === 4 ? 'tasks' : 'composition');
@@ -86,8 +89,8 @@ export async function verifyPortraitTopology(page, fixture, messages, out, key, 
     await page.setViewportSize({ ...initial, height: 800 });
     await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().topology?.size?.vh === 800);
     const shorter = await read(sourceCount, agentCount, taskCount);
-    if ([-1, 1].some(side => pitch(open, side) <= pitch(shorter, side)) || shorter.nodes.some(node => node.stacked)) {
-      throw new Error('Portrait did not use spare height for spacing before stacking');
+    if ([-1, 1].some(side => pitch(open, side) <= pitch(shorter, side)) || shorter.groups.some(group => group.folded)) {
+      throw new Error('Portrait did not use spare height for spacing before folding siblings');
     }
     await page.setViewportSize(initial);
     await page.waitForFunction(height => window.__ARC_VIEW_MODEL__().topology?.size?.vh === height, initial.height);

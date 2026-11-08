@@ -1,5 +1,6 @@
 import { verifyCoordination } from './coordination.mjs';
 import { verifyPortraitTopology } from './portrait-topology.mjs';
+import { representedTopologyRoots } from './topology.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
 import { chromium, webkit } from 'playwright';
@@ -151,7 +152,7 @@ try {
           await page.getByRole('dialog').waitFor({ state: 'hidden' });
         }
         if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');
-        const actualAgents = (model.topology?.nodes ?? []).filter(n => n.side === 1).map(n => n.id);
+        const actualAgents = representedTopologyRoots(model.topology, 1);
         if (!fixture.page && fixture.agents.some(a => !actualAgents.includes(a))) throw new Error('Fixture agents were not rendered');
         const representedTasks = model.topology?.tasks.reduce((sum, task) => sum + (task.count ?? 1), 0);
         if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
