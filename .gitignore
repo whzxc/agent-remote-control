@@ -34,3 +34,4 @@ output/mutation/
 mutants.out*/
 .stryker-tmp/
 output/
+.playwright-cli
