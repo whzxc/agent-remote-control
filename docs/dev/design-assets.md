@@ -234,7 +234,7 @@ Surfaces with mapped implementation usage are **adopted**. Governance review is 
 | `surfaces/source-panel.tsx` | `dispatches`, `history`, `platform` | `ui/components/SourcePanel.tsx`; `ui/components/SourcePlatformView.tsx` | Reviewed. Composes modules/source-activity and connectors; full-region captures remain with this surface. Runtime fidelity gaps are listed below. |
 | `surfaces/task-relationships.tsx` | `family` | `ui/topology/Topology.tsx`; `ui/components/ActivityBubbles.tsx`; `ui/components/ActivityTimeline.tsx` | Reviewed. Composes modules/task-relationships. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/task-detail.tsx` | `failed-turn`, `needs-you`, `running-multi-turn` | `ui/components/ActivityTimeline.tsx` | Reviewed. Composes modules/timeline. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
-| `surfaces/updates.tsx` | `available`, `installing`, `settings` | `ui/components/AppUpdate.tsx`; `ui/components/SettingsPage.tsx` | Composes modules/updates; declared captures remain with the surface. Module is Reviewed. Remaining gaps are listed below. |
+| `surfaces/updates.tsx` | `available`, `installing`, `settings` | `ui/components/AppUpdate.tsx`; `ui/components/SettingsPage.tsx` | Reviewed. Composes modules/updates. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 
 ## Supporting assets and exceptions
 
