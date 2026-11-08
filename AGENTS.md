@@ -37,6 +37,7 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - Visual changes MUST start in the owning TSX source. Codex proposes and implements each batch; the control source (Claude) reviews. Claude approves structural-only batches whose affected frames are pixel-identical in both themes. Any visual difference or open decision requires user gallery approval before implementation. Behavior-only changes do not need a source change.
 - Use the global `sdg` CLI >=0.5.0. `sdg check` MUST pass before committing. Render affected frames in both themes and inspect them. Keep current mappings and status with each owning batch.
 - `design/tokens.css` owns design tokens. Implementations MUST match approved frames; a surface without an approved source keeps its current implementation until its source is reviewed.
+- When an implementation and its approved frame disagree, the source wins until the user approves a change.
 
 ## UI implementation
 

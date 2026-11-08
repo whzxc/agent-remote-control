@@ -1,8 +1,6 @@
 import { Frame } from "sdg";
-const forms = [
-  { name: "on", checked: true },
-  { name: "off", checked: false },
-];
+import { switchForms } from "../fixtures/inputs";
+
 export function Switch({
   checked,
   label,
@@ -21,15 +19,16 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
-      class={`flex shrink-0 items-center w-11 h-[26px] p-[3px] rounded-[13px] ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
+      class={`flex shrink-0 items-center w-(--switch-width) h-(--switch-height)
+        p-(--control-inset) rounded-switch ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
     >
-      <span class="size-5 rounded-[10px] bg-knob shadow-sm" />
+      <span class="size-(--switch-thumb-size) rounded-full bg-knob shadow-sm" />
     </button>
   );
 }
 export default () =>
-  forms.map(({ name, checked }) => (
+  switchForms.map(({ name, ...props }) => (
     <Frame name={name}>
-      <Switch checked={checked} label={name} />
+      <Switch {...props} />
     </Frame>
   ));

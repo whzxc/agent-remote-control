@@ -18,6 +18,14 @@
   --control-gap: 6px;
   --control-icon-size: 16px;
   --field-height: 40px;
+  --field-padding-inline: 14px;
+  --field-icon-size: 14px;
+  --field-error-gap: 5px;
+  --control-inset: 3px;
+  --switch-width: 44px;
+  --switch-height: 26px;
+  --switch-thumb-size: 20px;
+  --radius-switch: 13px;
 
   --canvas: #f3eee7;
   --surface: #fffdfa;

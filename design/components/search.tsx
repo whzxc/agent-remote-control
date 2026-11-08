@@ -1,5 +1,6 @@
 import { Frame, Icon } from "sdg";
-const example = "搜索服务器和工具";
+import { searchInputExample } from "../fixtures/inputs";
+
 export function SearchInput({
   placeholder,
   value,
@@ -13,15 +14,16 @@ export function SearchInput({
     <div
       role="search"
       aria-label={placeholder}
-      class={`flex w-full items-center gap-[6px] h-(--control-height) px-3 rounded-control bg-surface-sunken text-text-tertiary text-small ${extra}`}
+      class={`flex w-full items-center gap-(--control-gap) h-(--control-height) px-3
+        rounded-control bg-surface-sunken text-text-tertiary text-small ${extra}`}
     >
-      <Icon name="search" size={14} />
+      <Icon name="search" size={14} class="size-(--field-icon-size)" />
       <span>{value || placeholder}</span>
     </div>
   );
 }
 export default () => (
   <Frame name="default" width={240}>
-    <SearchInput placeholder={example} />
+    <SearchInput {...searchInputExample} />
   </Frame>
 );
