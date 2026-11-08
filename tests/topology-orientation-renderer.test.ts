@@ -241,3 +241,27 @@ test('native member clicks keep the group open through panel selection and layer
     assert.ok(capsule.matches(':focus'));
   }, false);
 });
+
+test('portrait group rail input keeps the group open while canvas input folds it', async () => {
+  // Regression: the visible source rail between expanded Google and xAI members hit the canvas and folded their group.
+  await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle, flushFrames, browserPointerDown, dimensions }) => {
+    function Harness() {
+      const boundary = useRef<HTMLElement>(null);
+      const left = ['OpenAI', 'Anthropic', 'Google', 'xAI'].map((label, i) => ({ id: `source-${i}`, label, state: 'normal', attention: false, selected: false,
+        tasks: [], content: h('button', null, label) }));
+      const right = [{ id: 'codex', state: 'normal', attention: false, selected: false, content: h('button', null, 'Codex'),
+        tasks: [{ id: 'busy', state: 'running', width: 264, height: 500, content: h('button', null, 'Busy work') }] }];
+      return h('section', { ref: boundary, 'aria-label': 'Topology canvas' }, h(Topology, { left, right, boundary, brand: h('span', null, 'ARC'), onReorderNodes() {}, onReorderTasks() {} }));
+    }
+    await act(async () => { dimensions(640, 800); topologyLayout.set('portrait'); root.render(h(Harness)); }); await settle();
+    const capsule = within(mount).getByRole('button', { name: `${t('topology.idle', { count: 3 })} · ${t('topology.expand')}` });
+    await act(async () => fireEvent.click(capsule)); await flushFrames();
+    const group = () => viewModel().topology.groups.find((g: any) => g.side === -1);
+    const railName = `${t('topology.idle', { count: 3 })} connection`;
+    await browserPointerDown(within(mount).getByLabelText(railName)); await flushFrames();
+    assert.equal(group().folded, false);
+    await browserPointerDown(within(mount).getByRole('region', { name: 'Topology canvas' })); await flushFrames();
+    assert.equal(group().folded, true);
+    assert.equal(within(mount).queryByLabelText(railName), null);
+  });
+});

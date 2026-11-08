@@ -105,9 +105,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     setHover(null); setFocus(null);
     setOpenedGroup(null);
   };
-  const markGroupPointer = useCallback((event: Event, target: { side: Side; id: string; task?: boolean; rail?: boolean }) => {
+  const markGroupPointer = useCallback((event: Event, target: { side: Side; id: string; task?: boolean }) => {
     const current = latest.current;
-    if (target.rail && current.groups.some(g => g.side === target.side && !g.parent && current.expandedGroups.has(g.id))) insidePointers.current.add(event);
     const owner = target.task ? current.tasks.find(t => t.side === target.side && t.id === target.id)?.parent : target.id;
     const node = current.allNodes.find(n => n.side === target.side && n.id === owner);
     if (node && (current.expandedGroups.has(node.groupMember ?? '') || current.expandedGroups.has(node.id))) insidePointers.current.add(event);
@@ -464,7 +463,10 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const rect = panel.current ? { ...panel.current, x: panel.current.x - origin.current.x, y: panel.current.y - origin.current.y } : null;
     svg.current?.style.setProperty("--topology-time-scale", latest.current.slow ? "4" : "1");
     portraitSvg.current?.style.setProperty("--topology-time-scale", latest.current.slow ? "4" : "1");
-    if (blend > 0.001) portraitPainter.current?.paint(a, latest.current.nodes, latest.current.tasks, rect);
+    if (blend > 0.001) {
+      const open = latest.current.allNodes.find(n => n.group && latest.current.expandedGroups.has(n.id));
+      portraitPainter.current?.paint(a, latest.current.nodes, latest.current.tasks, rect, open ? { ...open.group!, label: open.label } : undefined);
+    }
     if (blend < 0.999) painter.current?.paint(a, latest.current.nodes, latest.current.tasks, rect,
       latest.current.guides ? layout.current : null);
     updateActionPointer();

@@ -4,6 +4,7 @@ import { TopologyAnimator, nodeKey, taskKey } from './animate';
 import type { PaintNode, PaintTask } from './render';
 import type { SurfaceRect } from '../motion/surface';
 import { portraitSourcePanelRoute, type PortraitLabel, type PortraitLabels } from './portrait';
+import type { TopologyGroupPlan } from './compact';
 
 const labelMeasurements = new WeakMap<HTMLElement, { signature: string; label: PortraitLabel }>();
 // Measure intrinsic CSS dimensions, not the animated node transform or the
@@ -75,7 +76,7 @@ export class PortraitPainter {
   }
   constructor(private svg: SVGSVGElement, prefix: string,
     private onHover?: (target: { side: Side; id: string; task?: boolean } | null) => void,
-    private onPointerDown?: (event: PointerEvent, target: { side: Side; id: string; task?: boolean; rail?: boolean }) => void) {
+    private onPointerDown?: (event: PointerEvent, target: { side: Side; id: string; task?: boolean }) => void) {
     const defs = document.createElementNS(ns, 'defs'), gradient = document.createElementNS(ns, 'linearGradient');
     gradient.id = `${prefix}-portrait-ear`;
     gradient.setAttribute("gradientUnits", "userSpaceOnUse");
@@ -85,7 +86,7 @@ export class PortraitPainter {
     defs.append(gradient); svg.append(defs); this.gradient = gradient;
   }
   private gradient: SVGLinearGradientElement;
-  private path(key: string, d: string, className: string, opacity = 1, attrs: Record<string, string | number> = {}, hover?: { side: Side; id: string; task?: boolean }, owner: { side: Side; id: string; rail?: boolean; task?: boolean } | undefined = hover) {
+  private path(key: string, d: string, className: string, opacity = 1, attrs: Record<string, string | number> = {}, hover?: { side: Side; id: string; task?: boolean }, owner: { side: Side; id: string; task?: boolean } | undefined = hover) {
     this.keep.add(key);
     let path = this.paths.get(key);
     if (!path) { path = document.createElementNS(ns, 'path'); this.paths.set(key, path); this.svg.append(path); }
@@ -94,7 +95,7 @@ export class PortraitPainter {
     path.onpointerenter = hover ? () => this.onHover?.(hover) : null;
     path.onpointerleave = path.onpointercancel = hover ? () => this.onHover?.(null) : null;
   }
-  paint(a: TopologyAnimator, nodes: PaintNode[], tasks: PaintTask[], panel: SurfaceRect | null) {
+  paint(a: TopologyAnimator, nodes: PaintNode[], tasks: PaintTask[], panel: SurfaceRect | null, openGroup?: TopologyGroupPlan & { label?: string }) {
     const h = a.values('hub'), p = a.values('portrait');
     if (!h || !p) return;
     this.keep.clear();
@@ -107,7 +108,19 @@ export class PortraitPainter {
       const earX = h.x + side * p.earOffset;
       if (wing.length) {
         const edge = side === -1 ? Math.min(...wing.map(v => v!.y), y) : Math.max(...wing.map(v => v!.y), y);
-        this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45, {}, undefined, { side, id: '', rail: true });
+        this.path(`rail${side}`, railPath([point(earX, y), point(x, y), point(x, edge)], 26), `portrait-rail ${side === -1 ? 'left' : 'right'}`, 0.45);
+        if (openGroup?.side === side && !openGroup.parent) {
+          const members = nodes.filter(n => n.side === side && !n.parent && openGroup.members.includes(n.id))
+            .map(n => a.live.get(nodeKey(side, n.id))?.alive ? a.values(nodeKey(side, n.id)) : undefined).filter(v => v && v.presence >= 0.02);
+          if (members.length) {
+            const end = side === -1 ? Math.min(...members.map(v => v!.y), y) : Math.max(...members.map(v => v!.y), y);
+            // Only the open group's connection to the hub is interactive; the
+            // remaining shared rail stays canvas. Reuse its visible bend.
+            const radius = Math.min(26, Math.abs(earX - x) / 2, Math.abs(edge - y) / 2);
+            this.path(`${openGroup.id}:rail-hit`, railPath([point(earX, y), point(x, y), point(x, end)], radius), 'topology-path-hit', 1,
+              { 'aria-label': `${openGroup.label ?? openGroup.id} connection` }, undefined, { side, id: openGroup.id });
+          }
+        }
       }
       this.path(`ear${side}`, railPath([point(earX, y), point(earX + side * p.earHalf, y)]), `topology-ear ${side === -1 ? 'left' : 'right'}`, 1,
         { 'stroke-width': 14 * h.Re / 130, ...(side === 1 ? { style: `stroke:url(#${this.gradient.id})` } : {}) });
