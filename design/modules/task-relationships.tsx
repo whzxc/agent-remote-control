@@ -1,63 +1,10 @@
 import { Frame, Icon } from "sdg";
-import { Tile, type TileTone } from "./tile";
-import { TopologyScene } from "./topology-scene";
-const parentTitle = "更新设计工作流";
-const family: RelationTask[] = [
-  {
-    title: parentTitle,
-    duration: "11:16",
-    phase: "调用工具",
-    headline: "exec",
-    tone: "command",
-    icon: "terminal",
-  },
-  {
-    title: parentTitle,
-    duration: "1:02",
-    phase: "已完成",
-    headline: "exec",
-    tone: "success",
-    icon: "check",
-    kind: "side-chat",
-  },
-  {
-    title: "检查设计资产",
-    duration: "0:39",
-    phase: "思考中",
-    headline: "规划中",
-    tone: "thinking",
-    icon: "ellipsis",
-    kind: "subagent",
-  },
-  {
-    title: "验证组件布局",
-    duration: "2:16",
-    phase: "已完成",
-    headline: "exec",
-    tone: "success",
-    icon: "check",
-    kind: "subagent",
-  },
-  {
-    title: "验证构建结果",
-    duration: "5:31",
-    phase: "已完成",
-    headline: "exec",
-    tone: "success",
-    icon: "check",
-  },
-];
-const positions = [
-  { x: 160, y: 50 },
-  { x: 208, y: 130 },
-  { x: 208, y: 202 },
-  { x: 208, y: 274 },
-  { x: 160, y: 420 },
-];
-const headers = [
-  { index: 1, y: 50, note: "Detail header · Side chat" },
-  { index: 2, y: 286, note: "Detail header · Subagent" },
-];
+import { Tile, type TileTone } from "../components/tile";
+import { TopologyScene } from "../components/topology-scene";
+import {
+  parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds,
+} from "../fixtures/task-relationships";
+
 export type RelationKind = "side-chat" | "subagent";
 export type RelationTask = {
   title: string;
@@ -162,12 +109,12 @@ export function TaskDetailHeader({
     </section>
   );
 }
-export default () => (
-  <Frame name="family">
+export function TaskFamily() {
+  return (
     <TopologyScene
       width={1140}
       height={520}
-      links={[50, 420].map((y) => ({
+      links={linkRows.map((y) => ({
         from: { x: 101, y: 230 },
         to: { x: 160, y: y + 30 },
         controls: [
@@ -185,10 +132,12 @@ export default () => (
           y: 201,
           content: (
             <div class="flex flex-col items-center gap-2">
-              <div class="grid size-[58px] place-items-center rounded-[29px] border-2 border-role-agent bg-surface text-role-agent">
+              <div
+                class="grid size-[58px] place-items-center rounded-[29px] border-2 border-role-agent bg-surface text-role-agent"
+              >
                 <Icon name="terminal" size={24} />
               </div>
-              <strong class="text-body text-text">Codex</strong>
+              <strong class="text-body text-text">{familyExample.agent}</strong>
             </div>
           ),
         },
@@ -196,9 +145,11 @@ export default () => (
           x: 208,
           y: 346,
           content: (
-            <div class="flex items-center gap-[10px] w-[194px] h-9 px-3 rounded-control bg-surface-subtle text-meta text-text-secondary">
+            <div
+              class="flex items-center gap-[10px] w-[194px] h-9 px-3 rounded-control bg-surface-subtle text-meta text-text-secondary"
+            >
               <Icon name="chevron-down" size={14} />
-              展开其余 4 项
+              {familyExample.moreLabel}
             </div>
           ),
         },
@@ -217,7 +168,7 @@ export default () => (
             y,
             content: (
               <TaskDetailHeader
-                agent="Codex"
+                agent={familyExample.agent}
                 {...family[index]}
                 kind={family[index].kind!}
                 parentTitle={parentTitle}
@@ -237,10 +188,34 @@ export default () => (
         stroke-linecap="round"
       >
         <path d="M182 110V352Q182 364 194 364H208" />
-        {[160, 232, 304].map((y) => (
+        {branchRows.map((y) => (
           <path d={`M182 ${y}H208`} />
         ))}
       </svg>
     </TopologyScene>
-  </Frame>
-);
+  );
+}
+
+export default () => [
+  ...relationKinds.map((kind, i) => (
+    <Frame name={`task-relation-${kind}`} width={i === 0 ? 83 : 84}>
+      <div class="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>
+    </Frame>
+  )),
+  <Frame name="task-parent-link" width={392}>
+    <div class="w-full bg-surface-raised"><TaskParentLink title={parentTitle} /></div>
+  </Frame>,
+  <Frame name="relation-task-card" width={400}>
+    <RelationTaskCard {...family[0]} />
+  </Frame>,
+  ...headers.map(({ index }) => (
+    <Frame name={`task-detail-header-${family[index].kind}`} width={424}>
+      <TaskDetailHeader
+        agent={familyExample.agent}
+        {...family[index]}
+        kind={family[index].kind!}
+        parentTitle={parentTitle}
+      />
+    </Frame>
+  )),
+];
