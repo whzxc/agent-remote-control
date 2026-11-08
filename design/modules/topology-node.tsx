@@ -9,7 +9,6 @@ export type TopologyNodeProps = {
   used?: boolean;
   width?: number;
   layout?: "vertical" | "source" | "agent";
-  stacked?: boolean;
   hideLabel?: boolean;
 };
 export function TopologyNode({
@@ -19,7 +18,6 @@ export function TopologyNode({
   used,
   width = 110,
   layout = "vertical",
-  stacked = false,
   hideLabel = false,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
@@ -29,9 +27,7 @@ export function TopologyNode({
         <span
           class={
             "col-start-1 row-start-1 rounded-full bg-canvas " +
-            String(readings?.length ? "size-[46px]" : "size-[42px]") +
-            " " +
-            String(stacked ? "border border-border" : "")
+            String(readings?.length ? "size-[46px]" : "size-[42px]")
           }
         />
       )}

@@ -14,6 +14,12 @@ const frames = [
       "viewport": "1280x800"
     },
     "scene": "accounts-accounts"
+  },
+  {
+    "name": "dense",
+    "width": 1280,
+    "height": 800,
+    "scene": "accounts-dense"
   }
 ] as const;
 
