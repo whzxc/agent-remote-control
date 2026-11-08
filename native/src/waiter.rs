@@ -449,7 +449,7 @@ async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSourc
     let thread = string(args, "threadId");
     let background = control.effective_background(thread).await?;
     let owner = if background {
-        CodexOwner::Background(control.utility().await?)
+        CodexOwner::Background(control.thread_rpc(string(args, "threadId")).await?)
     } else {
         CodexOwner::Desktop(control.ipc().await?)
     };
@@ -497,7 +497,7 @@ pub(crate) async fn codex_notification_observe(
         return codex_observe_with_path(control, args).await;
     }
     let mut source = CodexSource {
-        owner: CodexOwner::Background(control.utility().await?),
+        owner: CodexOwner::Background(control.thread_rpc(string(args, "threadId")).await?),
         thread: string(args, "threadId").into(),
         turn: args["turnId"].as_str().map(str::to_owned),
         desktop_owner: None,

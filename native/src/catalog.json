@@ -6719,7 +6719,7 @@
     },
     {
       "name": "account_add",
-      "description": "Start official login or detect native authentication. Returns loginId, state and loginUrl when available. Only sign-in requires the user. Read accounts to poll progress.",
+      "description": "Start official login or detect native authentication. Codex OAuth creates an isolated home and retains the system login and existing defaults. Returns loginId, state and loginUrl when available. Read accounts to poll progress.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6763,6 +6763,85 @@
       },
       "example": {
         "kind": "claude"
+      }
+    },
+    {
+      "name": "account_import",
+      "description": "Import native Codex auth.json credentials into an isolated profile. Choose refreshOwner codex to delegate refresh to the native CLI, none for access-only credentials, or external with a local executable refresh hook. Import preserves Agent defaults and existing task bindings. Reimporting the same provider account reuses its profile; active profiles reject replacement. External hooks are configured through local authority only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "auth": {
+            "type": "object",
+            "description": "Native auth.json object. Credential values are write-only and are never returned.",
+            "writeOnly": true
+          },
+          "refreshOwner": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "none",
+              "external"
+            ]
+          },
+          "refreshCommand": {
+            "type": "object",
+            "properties": {
+              "program": {
+                "type": "string",
+                "minLength": 1
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "program"
+            ],
+            "additionalProperties": false
+          },
+          "alias": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "auth",
+          "refreshOwner"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {
+        "auth": {
+          "tokens": {
+            "access_token": "<access-token>",
+            "account_id": "<provider-account-id>"
+          }
+        },
+        "refreshOwner": "none"
       }
     },
     {
@@ -10793,6 +10872,17 @@
         ],
         "tier": "default",
         "conditional": true
+      },
+      "account_import": {
+        "group": "accounts",
+        "presets": [
+          "common"
+        ],
+        "requires": [
+          "accounts"
+        ],
+        "tier": "default",
+        "conditional": false
       }
     }
   },

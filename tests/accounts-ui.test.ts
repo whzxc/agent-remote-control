@@ -63,7 +63,11 @@ test('account management retains native login evidence and notification targets'
     const codex = await accountsApi.add({ kind: 'codex' });
     await assert.rejects(accountsApi.login({ loginId: codex.loginId, action: 'code', code: 'example-code' }), /ACCOUNT_LOGIN_CODE_UNSUPPORTED/);
     for (let i = 0; i < 4; i++) await accountsApi.list();
-    assert.equal((await accountsApi.list()).login.accountId, 'account-openai');
+    const signedIn = await accountsApi.list();
+    assert.equal(signedIn.login.state, 'completed');
+    assert.notEqual(signedIn.login.accountId, 'account-openai');
+    assert.ok(signedIn.accounts.find((a: any) => a.id === signedIn.login.accountId).agentProfiles.some((p: any) => p.agent === 'codex' && p.state === 'signed-in' && !p.default));
+    assert.ok((await accountsApi.get('account-openai')).agentProfiles.some((p: any) => p.agent === 'codex' && p.default));
 
     const key = await accountsApi.add({ kind: 'api-key' });
     assert.equal(key.state, 'unfinished');

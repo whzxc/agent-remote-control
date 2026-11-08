@@ -82,3 +82,97 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
     assert.equal((await fixture.call('accounts')).accounts.some((a: any) => a.id === account.id), false);
   } finally { await fixture.close(); }
 });
+
+test('Isolated Codex credentials retain task accounts and explicit refresh ownership', async () => {
+  // Regression: adding a Codex account replaced the system login and sends could select a different task account.
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const hooks = await mkdtemp(path.join(tmpdir(), 'arc-refresh-'));
+  const hook = path.join(hooks, 'refresh.mjs');
+  await writeFile(hook, `import fs from 'node:fs'; const request=JSON.parse(fs.readFileSync(0,'utf8')); console.log(JSON.stringify({accessToken:process.argv[2],chatgptAccountId:request.previousAccountId,chatgptPlanType:'prolite'}));`);
+  const script = `import {createInterface} from 'node:readline';
+import {randomUUID} from 'node:crypto';
+import fs from 'node:fs'; import path from 'node:path';
+const home=process.env.CODEX_HOME; let account=fs.existsSync(path.join(home,'auth.json'))?JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8')).tokens.access_token:'native-default';
+fs.mkdirSync(path.join(home,'sessions'),{recursive:true});
+const file=path.join(home,'fixture-tasks.json');
+const tasks=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{};
+const save=rows=>fs.writeFileSync(file,JSON.stringify(rows));
+const reply=(id,result)=>console.log(JSON.stringify({id,result}));
+let refreshTurn;
+for await(const line of createInterface({input:process.stdin})) {
+ const {id,method,params,result:response}=JSON.parse(line);
+ if(!method) {if(id==='refresh'&&refreshTurn){account=response.accessToken; reply(refreshTurn.id,{turn:refreshTurn.turn});refreshTurn=null;} continue;}
+ if(id===undefined)continue;
+ let result={};const rows=tasks(); const row=rows[params?.threadId];
+ if(method==='account/read') result={account:{type:'chatgpt',accountId:'workspace-'+account,email:account+'@example.test',planType:'pro'}};
+ if(method==='account/login/start') {
+  if(params.type==='chatgpt') {account='oauth';fs.writeFileSync(path.join(home,'auth.json'),JSON.stringify({tokens:{access_token:account,refresh_token:'native-owned',account_id:'workspace-oauth'}}));result={type:'chatgpt',loginId:'oauth-login'};setTimeout(()=>console.log(JSON.stringify({method:'account/login/completed',params:{loginId:'oauth-login',success:true}})),10);}
+  else {account=params.accessToken; result={type:params.type};}
+ }
+ if(method==='account/rateLimits/read')result={rateLimits:{primary:{usedPercent:0,windowDurationMins:10080}}};
+ if(method==='model/list')result={data:[{id:'fixture-model',model:'fixture-model',supportedReasoningEfforts:[{reasoningEffort:'low'}],defaultReasoningEffort:'low'}]};
+ if(method==='thread/start'){const row={id:randomUUID(),cwd:params.cwd??home,updatedAt:Date.now(),status:{type:'idle'},turns:[]};rows[row.id]=row;save(rows);result={thread:row};}
+ if(method==='thread/read'){if(!row){console.log(JSON.stringify({id,error:{code:-32000,message:'wrong profile'}}));continue;}result={thread:row};}
+ if(method==='thread/loaded/list')result={data:Object.keys(rows)};
+ if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
+ if(method==='thread/list')result={data:Object.values(rows).filter(r=>!!r.archived===!!params.archived).sort((a,b)=>b.updatedAt-a.updatedAt),nextCursor:null};
+ if(method==='turn/start'){const turn={id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:account}]};row.turns.push(turn);save(rows);result={turn};if(params.input?.some(i=>i.text==='refresh')){refreshTurn={id,turn};console.log(JSON.stringify({id:'refresh',method:'account/chatgptAuthTokens/refresh',params:{reason:'unauthorized',previousAccountId:'workspace-'+account}}));continue;}}
+ if(method==='thread/archive'){row.archived=true;save(rows);}
+ reply(id,result);
+}`;
+  const fixture = await nativeControl(script);
+  try {
+    const initial = (await fixture.call('accounts', { agent: 'codex' })).accounts[0];
+    const inputs = ['alpha', 'beta'].map(id => ({ auth: { tokens: { access_token: id, account_id: `workspace-${id}`, refresh_token: 'manager-owned-secret' } }, refreshOwner: 'external', refreshCommand: { program: process.execPath, args: [hook, id] } }));
+    const imported = [];
+    for (const input of inputs) {
+      const result = await fixture.call('account_import', input);
+      assert.equal(result.state, 'completed', JSON.stringify(result));
+      assert.ok(!JSON.stringify(result).includes('manager-owned-secret'));
+      imported.push(result);
+    }
+    assert.equal((await fixture.call('account_import', inputs[0])).profileId, imported[0].profileId);
+    const accounts = (await fixture.call('accounts', { agent: 'codex' })).accounts;
+    assert.equal(accounts.length, 3);
+    assert.equal(accounts.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
+    const created = [];
+    for (const account of imported) {
+      const r = await fixture.completed('codex_create', { account: account.accountId, prompt: 'profile task', model: 'fixture-model', effort: 'low', title: 'Profile task' });
+      assert.equal(r.state, 'completed', JSON.stringify(r));
+      assert.equal(r.executionOwner, 'connector');
+      assert.equal(r.agentAccountId, account.accountId);
+      created.push(r);
+    }
+    const thread = created[0].threadId;
+    const waited = await fixture.call('codex_wait', { threadId: thread, turnId: created[0].turnId, until: 'terminal', timeoutMs: 1000 });
+    assert.equal(waited.conditionMet, true, JSON.stringify(waited));
+    assert.equal(waited.state, 'completed');
+    const sent = await fixture.completed('codex_send', { threadId: thread, prompt: 'refresh', model: 'fixture-model', effort: 'low' });
+    assert.equal(sent.state, 'completed', JSON.stringify(sent));
+    assert.equal(sent.agentAccountId, imported[0].accountId);
+    const mismatch = await fixture.call('codex_send', { threadId: thread, account: imported[1].accountId, prompt: 'must not switch' });
+    assert.equal(mismatch.error.code, 'CODEX_THREAD_ACCOUNT_MISMATCH', JSON.stringify(mismatch));
+    await fixture.restart();
+    const resumed = await fixture.completed('codex_send', { threadId: thread, prompt: 'continue', model: 'fixture-model', effort: 'low' });
+    assert.equal(resumed.state, 'completed', JSON.stringify(resumed));
+    assert.equal(resumed.agentAccountId, imported[0].accountId);
+    const page = await fixture.call('codex_tasks', { enrich: false });
+    assert.ok(created.every(r => page.tasks.some((t: any) => t.threadId === r.threadId)));
+    assert.equal((await fixture.call('account_reauth', { id: imported[0].accountId, agent: 'codex' })).refreshOwner, 'external');
+    const native = await fixture.call('account_import', { auth: { tokens: { access_token: 'gamma', refresh_token: 'native-owned', account_id: 'workspace-gamma' } }, refreshOwner: 'codex' });
+    assert.equal(native.refreshOwner, 'codex');
+    const accessOnly = await fixture.call('account_import', { auth: { tokens: { access_token: 'delta', account_id: 'workspace-delta' } }, refreshOwner: 'none' });
+    assert.equal(accessOnly.refreshOwner, 'none');
+    const oauth = await fixture.call('account_add', { kind: 'codex', browserId: 'fixture-unused' });
+    assert.equal(oauth.state, 'waiting');
+    let login;
+    for(let i=0;i<20;i++) {login=(await fixture.call('accounts')).login;if(login?.state==='completed')break;await new Promise(r=>setTimeout(r,20));}
+    assert.equal(login?.state, 'completed');
+    assert.notEqual(login.accountId, initial.id);
+    const current = (await fixture.call('accounts', { agent: 'codex' })).accounts;
+    assert.equal(current.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
+    assert.equal((await fixture.completed('codex_archive', { threadId: thread })).state, 'completed');
+  } finally { await fixture.close(); await rm(hooks, { recursive: true, force: true }); }
+});

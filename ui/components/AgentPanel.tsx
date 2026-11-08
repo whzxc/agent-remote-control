@@ -3,9 +3,9 @@ import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { useReducedMotion } from "../state/appEnvironment";
 import { agentPanel, selectAgentPanel, agentPanelId } from "../state/overviewPanels";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw, Plus } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { useAccounts, refreshAccounts } from "../state/accounts";
@@ -18,6 +18,7 @@ import { connector } from "../state/connector";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { errorLabels } from "../subscriptions/presentation";
 import { Button, Dialog, IconButton, Notice } from "./ui";
+import AgentAccountAdd from "./AgentAccountAdd";
 import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations from "./AgentConversations";
 import ActivityTimeline from "./ActivityTimeline";
@@ -25,9 +26,9 @@ import type { SurfaceRect } from "../motion/surface";
 import type { ProviderAccount } from "../types";
 import { accountOwns } from "../accountPresentation";
 
-function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, platformAvailable, resizable = true }: {
+function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, platformAvailable, onAddAccount, resizable = true }: {
   agent: Agent; active: boolean; platformAvailable: boolean; resizable?: boolean; account?: ProviderAccount; accountId?: string;
-  onSettings: () => void; expanded: boolean; onToggleWidth: () => void;
+  onAddAccount?: () => void; onSettings: () => void; expanded: boolean; onToggleWidth: () => void;
 }) {
   const { snapshot } = subscriptions.use(), { status } = connector.use();
   const activity = agentActivity.use().snapshot;
@@ -63,6 +64,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
         <span className="activity-panel-meta" title={agent.version || undefined}>{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span>
       </div>
       <div className="actions">
+        {onAddAccount && <IconButton icon={Plus} label={t("accountAdd.title")} data-add-codex-account onClick={onAddAccount} />}
         {provider && !readOnlyBrowser && <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={quotaBusy}
           disabled={!provider.eligible} onClick={() => void refresh()} />}
         <PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />
@@ -87,6 +89,9 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
 }) {
   const selected = agentPanel.use()!, { error } = agentActivity.use();
   const accountState = useAccounts();
+  const [addingAccount, setAddingAccount] = useState(false);
+  const closeAddAccount = useCallback(() => setAddingAccount(false), []);
+  const onAddAccount = agent.agent === "codex" && !readOnlyBrowser ? () => setAddingAccount(true) : undefined;
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
   const account = accountState.items.find(account => accountOwns(account, selected.accountId)) ?? (linkedAccounts.length === 1 ? linkedAccounts[0] : undefined);
   // A single-account platform opens its Agent history, including native rows without ownership metadata.
@@ -109,7 +114,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     previous.current = selected;
   }, [selected]);
   const panelId = agentPanelId(selected);
-  return <Dialog contentFit={!selected.platform} className={selected.platform ? undefined : `agent-history-panel ${!session && !expanded && !dockRect ? "agent-history-fit" : ""}`} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <><Dialog contentFit={!selected.platform} className={selected.platform ? undefined : `agent-history-panel ${!session && !expanded && !dockRect ? "agent-history-fit" : ""}`} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}
@@ -118,13 +123,13 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     <div ref={content} className="agent-panel-view">
       <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-        {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
-          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
+        {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} onAddAccount={onAddAccount} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView onAddAccount={onAddAccount} platformAvailable={linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
         initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>
         <ActivityTimeline resizable={!dockRect} titleId={taskTitleId} agent={agent.agent} session={session} expanded={expanded} onToggleWidth={onToggleWidth} onBack={() => selectAgentPanel({ type: "back" })} />
       </motion.div>}
     </div>
-  </Dialog>;
+  </Dialog>{addingAccount && <AgentAccountAdd onClose={closeAddAccount} />}</>;
 }

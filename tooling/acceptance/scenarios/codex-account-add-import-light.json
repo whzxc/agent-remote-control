@@ -1,0 +1,14 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "quota": true,
+  "accountAdd": "import"
+}

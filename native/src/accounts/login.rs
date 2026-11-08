@@ -30,7 +30,9 @@ impl Manager {
                         return Err("ACCOUNT_LOGIN_CODE_UNSUPPORTED: Codex completes authorization through loginUrl; use cancel to stop".into());
                     }
                     control
-                        .request(
+                        .profile_rpc(login["profileId"].as_str().unwrap_or("codex-home"))
+                        .await?
+                        .call(
                             "account/login/cancel",
                             json!({"loginId":args["loginId"]}),
                             15000,
@@ -65,6 +67,24 @@ impl Manager {
             if agent == "claude" {
                 body["accountId"] = p["profileId"].clone();
             }
+            if agent == "codex" {
+                body["profileId"] = p["profileId"].clone();
+            }
+            if agent == "codex" && p["profileId"] != "codex-home" {
+                let profile = string(p, "profileId");
+                if control.profile_running(profile).await {
+                    return Err("CODEX_PROFILE_IN_USE: Finish this profile's active tasks before reauthentication".into());
+                }
+                let config = super::codex::profile(profile)?;
+                if config.refresh_owner != "codex" {
+                    super::codex::tokens(profile,Some(&json!({"reason":"reauthenticate","previousAccountId":config.account_id}))).await?;
+                    control.close_profile(profile).await;
+                    return Ok(
+                        json!({"loginId":id(),"kind":"codex","state":"completed","accountId":row["id"],"refreshOwner":config.refresh_owner}),
+                    );
+                }
+                body["profileId"] = p["profileId"].clone();
+            }
             agent.to_owned()
         } else {
             string(&args, "kind").to_owned()
@@ -87,9 +107,17 @@ impl Manager {
                     "ACCOUNT_LOGIN_IN_PROGRESS: Complete or cancel the active login".into(),
                 );
             }
+            let profile = if let Some(profile) = body["profileId"].as_str() {
+                profile.to_owned()
+            } else {
+                super::codex::new_login()?.id
+            };
             let mut result = control
-                .request("account/login/start", json!({"type":"chatgpt"}), 15000)
+                .profile_rpc(&profile)
+                .await?
+                .call("account/login/start", json!({"type":"chatgpt"}), 15000)
                 .await?;
+            result["profileId"] = json!(profile);
             result["kind"] = json!("codex");
             result["state"] = json!("waiting");
             result["loginUrl"] = result["authUrl"].clone();
@@ -155,34 +183,17 @@ impl Manager {
         if let Some(completed) = completed {
             login["loginUrl"] = Value::Null;
             if completed["success"] == true {
+                let profile = login["profileId"].as_str().unwrap_or("codex-home");
                 let result = control
-                    .request("account/read", json!({"refreshToken":false}), 5000)
+                    .profile_rpc(profile)
+                    .await?
+                    .call("account/read", json!({"refreshToken":false}), 5000)
                     .await?;
                 let facts = &result["account"];
                 if !facts.is_object() {
                     return Err("ACCOUNT_LOGIN_UNCONFIRMED: Native login completed without an account; read accounts again".into());
                 }
-                let account = change(|rows| {
-                    // An explicit new login reattaches the single native home without reviving a tombstone.
-                    for a in rows.iter_mut().filter(|a| !live(a)) {
-                        a["agentProfiles"]
-                            .as_array_mut()
-                            .unwrap()
-                            .retain(|p| p["profileId"] != "codex-home");
-                    }
-                    let account = observe(
-                        rows,
-                        "openai",
-                        facts,
-                        "codex-home",
-                        Some(
-                            json!({"agent":"codex","profileId":"codex-home","kind":"codex-home","state":"signed-in","default":false}),
-                        ),
-                        None,
-                    );
-                    defaults(rows);
-                    Ok(account)
-                })?;
+                let account = super::codex::observe_profile(profile, facts, "signed-in")?;
                 login["state"] = json!("completed");
                 login["accountId"] = json!(account);
             } else {

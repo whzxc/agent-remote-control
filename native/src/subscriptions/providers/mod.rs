@@ -325,7 +325,7 @@ pub(crate) async fn account_read(
     profile: &str,
 ) -> std::result::Result<Reading, Failure> {
     match agent {
-        "codex" => codex::read(control).await,
+        "codex" => codex::read_profile(control, profile).await,
         "claude" => claude::read_profile(profile).await,
         _ => Err("provider-not-integrated".into()),
     }

@@ -345,7 +345,7 @@ export async function installScenario(name: string) {
   responses.statusUnavailable = fixture.statusUnavailable;
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
-  accountResponse = ['accounts', 'source-panel'].includes(name) ? accountScenario(status, sources) : undefined;
+  accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('codex-account-add-')) ? accountScenario(status, sources) : undefined;
   updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });

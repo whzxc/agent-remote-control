@@ -12,12 +12,24 @@ The platform UI uses Platform → Connector instance → Activity. Local Agents 
 - Account: one provider identity, independent of side.
   - `id` (stable ARC ID), `provider` (provider family, including `anthropic`, `openai`, `deepseek`, `google`, `xai`, or another known platform), `identityKey` (provider account ID when known, else a hash of normalized email + organization), `alias` (user-editable; defaults to the organization name or `Personal`), optional `email`, `orgName`, `plan`, plus `createdAt` and `observedAt`.
   - `sources`: control-source IDs authorized as this account. Several connections or devices of one account may share one `accountId`; each source remains a separate connector instance in the platform UI.
-  - `agentProfiles`: list of `{ agent, profileId, kind, state, default }` with kind `cli-profile`, `codex-home` or `api-key` and state `signed-in`, `signed-out`, `unfinished` or `invalid`. The isolated Claude CLI profiles in `native/src/claude_accounts` become `claude` profiles. Codex's current login is one `codex-home` profile. Key-based Agents expose one `api-key` profile.
+  - `agentProfiles`: list of `{ agent, profileId, kind, state, default }` with kind `cli-profile`, `codex-home` or `api-key` and state `signed-in`, `signed-out`, `unfinished` or `invalid`. The isolated Claude CLI profiles in `native/src/claude_accounts` become `claude` profiles. Codex retains the system `codex-home` profile and supports isolated native or imported Codex homes. Key-based Agents expose one `api-key` profile.
   - `notifications`: Claude routes and bound cloud sessions move under the account. ChatGPT accounts report MCP Events reachability. Agent-only accounts report `n/a`.
   - `quota`: subscription windows belong to the account. An account with both sources and agent profiles shows one shared quota. Optional `quotaProviderId` selects an existing shared SubscriptionService provider; otherwise detail reads use the native account profile.
   - `identityAliases` retains identities explicitly confirmed to share ownership. `mergedAccountIds` lists previous ARC account IDs; retained tombstones point to the current owner with `mergedInto`.
 - Same identity: an account with both `sources` and `agentProfiles`. This includes a ChatGPT account and the Codex login of the same ChatGPT identity.
 - Default account: at most one default profile per Agent; dispatch without an explicit account uses it.
+
+## Isolated Codex profiles
+
+`account_add({kind:"codex"})` starts official CLI OAuth in a new private `CODEX_HOME`. It never changes the system login or the existing default. `account_import` accepts native `auth.json` credentials and explicit `refreshOwner`: `codex`, `none`, or `external`. Imports use the same isolated execution model. Reimporting a known provider account reuses its profile. Active profiles reject credential replacement and reauthentication.
+
+With `codex`, the native CLI owns refresh and uses the profile's private file credential store. With `none`, ARC retains only access credentials and requests reimport after authentication expires. With `external`, a configured local executable owns upstream authentication. ARC sends one JSON request on stdin, invokes no shell, and reads one JSON response from stdout. The request carries the native refresh reason and `previousAccountId`; the response contains `accessToken`, `chatgptAccountId`, and optional `chatgptPlanType`. A response must retain the profile's provider account ID. Errors and timeouts fail the selected profile without falling back to the system login. Only local CLI/panel authority can configure an executable hook. External managers and their credentials live outside the product.
+
+The `none` and `external` modes use native experimental `chatgptAuthTokens`. Their imported refresh tokens are discarded. A change from native refresh ownership removes the isolated native credential file. ARC never exchanges provider refresh tokens in those modes. The native external-token interface requires a Codex binary that exposes it.
+
+New isolated tasks execute in ARC App Server. Their execution mapping persists the account and profile. Send, resume, interrupt, approval responses, writer diagnosis, history and archive use that mapping across Core restarts. Send without an account retains the task's original account. An explicit different account returns `CODEX_THREAD_ACCOUNT_MISMATCH` before submission. Tasks without an isolated mapping retain the system home and existing Desktop behavior. Isolated tasks stay in ARC; opening them in the system Codex Desktop is unsupported.
+
+Task listings merge each native home's pages with independent upstream cursors. Activity discovery includes isolated transcripts. Quota reads use each profile's native account. Native OAuth reauthentication reuses its isolated home; external reauthentication invokes the configured manager. Neither path starts a system-account login.
 
 ## Built-in local authority
 
@@ -62,6 +74,7 @@ Actions:
 - `account_update({ id, alias?, defaultFor?, default? })`: rename; `defaultFor` names an Agent whose default becomes this account's profile. `default:false` with `defaultFor` clears only this account's default without selecting a replacement. `default` requires `defaultFor`; omission means true. Clearing survives refresh/restart. The first profile of a previously unconfigured Agent is initially default.
 - `account_merge({ into, ids, alias?, quotaProviderId? })`: merge explicitly confirmed active accounts into `into`. All references are checked before saving. Replay resolves previous IDs without duplicating memberships. A null `quotaProviderId` returns to native quota; omission retains the existing association.
 - `account_add({ kind, browserId? })` with kind `claude`, `codex`, `api-key` or `detect`: starts a login and returns `{ loginId, state, loginUrl? }`. Agents run the whole flow; only the sign-in itself needs the user.
+- `account_import({ auth, refreshOwner, refreshCommand?, alias? })` imports an isolated Codex profile with explicit refresh ownership. External ownership requires a local executable hook.
 - `account_login({ loginId, action, code? })` with action `code` or `cancel`.
 - `account_reauth({ id, agent })` restarts login for one profile.
 - `account_remove({ id, running })` with running `finish` or `cancel`.

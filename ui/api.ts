@@ -51,6 +51,7 @@ export const accountsApi = {
   update: (args: { id: string; alias?: string; defaultFor?: string; default?: boolean }) => api<import('./types').ProviderAccount>('accounts/update', 'POST', args),
   merge: (args: { into: string; ids: string[]; alias?: string; quotaProviderId?: string | null }) => api<import('./types').ProviderAccount>('accounts/merge', 'POST', args),
   add: (args: { kind: 'claude' | 'codex' | 'api-key' | 'detect'; browserId?: string }) => api<import('./types').AccountLogin>('accounts/add', 'POST', args),
+  importCodex: (args: import('./types').CodexAccountImport) => api<import('./types').CodexAccountImportResult>('accounts/import', 'POST', args),
   login: (args: { loginId: string; action: 'code' | 'cancel'; code?: string }) => api<import('./types').AccountLogin | { submitted: boolean }>('accounts/login', 'POST', args),
   reauth: (args: { id: string; agent: string }) => api<import('./types').AccountLogin>('accounts/reauth', 'POST', args),
   remove: (args: { id: string; running: 'finish' | 'cancel' }) => api<import('./types').ProviderAccount>('accounts/remove', 'POST', args),

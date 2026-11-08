@@ -44,6 +44,13 @@ export default {
       await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);
+      if (scenario.startsWith('codex-account-add-')) {
+        await page.getByRole('button', { name: '添加 Codex 账号', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: '添加 Codex 账号', exact: true });
+        await dialog.waitFor();
+        if (!scenario.includes('-oauth-')) await dialog.getByRole('radio', { name: '导入凭据', exact: true }).click();
+        if (scenario.includes('-external-')) await dialog.getByRole('radio', { name: '外部托管', exact: true }).click();
+      }
       if (preparation?.task) {
         // Scope panel rows so an identically named topology bubble cannot win.
         const host = scenario === 'approval' ? page : page.locator('.agent-overview-layer');

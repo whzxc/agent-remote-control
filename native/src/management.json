@@ -3978,6 +3978,69 @@
         "properties": {},
         "additionalProperties": false
       }
+    },
+    {
+      "name": "accounts.import",
+      "method": "POST",
+      "route": "accounts/import",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "type": "object",
+                "description": "Native auth.json object. Credential values are write-only and are never returned.",
+                "writeOnly": true
+              },
+              "refreshOwner": {
+                "type": "string",
+                "enum": [
+                  "codex",
+                  "none",
+                  "external"
+                ]
+              },
+              "refreshCommand": {
+                "type": "object",
+                "properties": {
+                  "program": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "program"
+                ],
+                "additionalProperties": false
+              },
+              "alias": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "auth",
+              "refreshOwner"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Import isolated Codex credentials with explicit refresh ownership.",
+      "localOnly": true
     }
   ]
 }

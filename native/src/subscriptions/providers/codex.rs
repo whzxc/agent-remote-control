@@ -1,7 +1,13 @@
 use super::*;
 pub async fn read(control: &Control) -> std::result::Result<Reading, Failure> {
+    read_profile(control, "codex-home").await
+}
+pub(super) async fn read_profile(
+    control: &Control,
+    profile: &str,
+) -> std::result::Result<Reading, Failure> {
     let v = control
-        .account_rate_limits()
+        .profile_account_rate_limits(profile)
         .await
         .map_err(|message| Failure {
             code: "request-failed",

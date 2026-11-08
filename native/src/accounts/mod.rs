@@ -3,6 +3,7 @@ use crate::kernel::file_cache::load;
 use crate::*;
 #[path = "../claude_accounts/mod.rs"]
 pub mod claude;
+pub(crate) mod codex;
 mod identity;
 mod login;
 mod merge;
@@ -528,6 +529,17 @@ pub(crate) fn select(agent: &str, reference: Option<&str>) -> Result<Value> {
         .ok_or("ACCOUNT_AGENT_MISSING: Select an account with this Agent profile")?;
     Ok(json!({"agentAccountId":row["id"],"agentProfileId":p["profileId"]}))
 }
+pub(crate) fn select_codex_thread(thread: &str, reference: Option<&str>) -> Result<Value> {
+    let profile = codex::thread_profile(thread)?;
+    let account = profile_account(&profile)?;
+    let selected = select("codex", Some(string(&account, "id")))?;
+    if let Some(reference) = reference {
+        if select("codex", Some(reference))?["agentAccountId"] != selected["agentAccountId"] {
+            return Err(json!({"code":"CODEX_THREAD_ACCOUNT_MISMATCH","message":"Continue this thread with its original account; create a new task to use another account","next":{"via":"query","op":"accounts","args":{"agent":"codex"}}}).to_string());
+        }
+    }
+    Ok(json!({"agentAccountId":account["id"],"agentProfileId":profile}))
+}
 pub(crate) fn attach(args: &mut Value, selection: &Value) {
     for key in ["agentAccountId", "agentProfileId"] {
         args[key] = selection[key].clone();
@@ -760,6 +772,10 @@ impl Manager {
         name: &str,
         args: Value,
     ) -> Result<Value> {
+        if name == "account_import" {
+            self.refresh(control, agents).await?;
+            return codex::import(control, &args).await;
+        }
         self.refresh(control, agents).await?;
         self.observe_login(control).await?;
         if name == "accounts" && args["id"].is_string() {
@@ -914,7 +930,15 @@ impl Manager {
         if let Some(op) = route.strip_prefix("accounts/").filter(|op| {
             matches!(
                 *op,
-                "query" | "whoami" | "add" | "login" | "reauth" | "update" | "remove" | "merge"
+                "query"
+                    | "whoami"
+                    | "add"
+                    | "login"
+                    | "reauth"
+                    | "update"
+                    | "remove"
+                    | "merge"
+                    | "import"
             )
         }) {
             if method == "POST" || op == "whoami" && method == "GET" {
@@ -923,7 +947,9 @@ impl Manager {
                     "whoami" => "whoami".into(),
                     _ => format!("account_{op}"),
                 };
-                if op == "whoami" && crate::kernel::origin::current_origin()["sourceId"].is_null() {
+                if matches!(op, "whoami" | "import")
+                    && crate::kernel::origin::current_origin()["sourceId"].is_null()
+                {
                     return crate::kernel::origin::ORIGIN
                         .scope(
                             crate::sources::panel_origin().await?,

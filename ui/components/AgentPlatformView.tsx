@@ -1,7 +1,7 @@
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { useState, type ReactNode } from 'react';
-import { RefreshCw, Settings, X } from 'lucide-react';
+import { RefreshCw, Settings, X, Plus } from 'lucide-react';
 import { t } from '../i18n';
 import { useAccounts } from '../state/accounts';
 import { name, refreshAgents, type Agent } from '../state/agents';
@@ -13,7 +13,7 @@ import { AgentAccountCard } from './AccountCards';
 import { DialogClose, IconButton, Notice } from './ui';
 import { Card } from './ui/card';
 
-export default function AgentPlatformView({ agent, onSettings, widthControl }: { agent: Agent; onSettings: () => void; widthControl?: ReactNode }) {
+export default function AgentPlatformView({ agent, onSettings, widthControl, onAddAccount }: { agent: Agent; onSettings: () => void; widthControl?: ReactNode; onAddAccount?: () => void }) {
   const [refreshing, setRefreshing] = useState(false);
   const state = useAccounts(), orders = topologyAccountOrder.use();
   const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
@@ -21,7 +21,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
     <header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
-      <div className="actions"><PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
+      <div className="actions">{onAddAccount && <IconButton icon={Plus} label={t("accountAdd.title")} data-add-codex-account onClick={onAddAccount} />}<PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
     </header>
     <div className="agent-view-scroll">
       {state.error && <Notice>{state.error}</Notice>}

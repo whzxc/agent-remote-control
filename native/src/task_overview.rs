@@ -94,7 +94,8 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
     if let Some(p) = args["project"].as_str() {
         params["cwd"] = json!([crate::projects::resolve(c, p).await?["root"]]);
     }
-    let indexed = if args["archived"] == true
+    let indexed = if crate::accounts::codex::profiles()?.is_empty()
+        && args["archived"] == true
         && !enrich
         && args["cursor"]
             .as_str()
@@ -109,7 +110,7 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
     };
     let page = match indexed {
         Some(page) => page,
-        None => c.request("thread/list", params, 60000).await?,
+        None => c.profile_task_page(params).await?,
     };
     let rows = page["data"].as_array().ok_or("NATIVE_TASKS_MISSING")?;
     if !enrich {
@@ -142,7 +143,7 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
             // History has no ownership side effects. Keep its latest turn even
             // when the Desktop owner probe cannot finish within the page budget.
             let recorded=timeout_at(deadline,async {
-                let rpc=c.utility().await?;
+                let rpc=c.thread_rpc(id).await?;
                 rpc.call("thread/turns/list",json!({"threadId":id,"limit":1,"sortDirection":"desc","itemsView":"notLoaded"}),3000).await
             }).await.ok().and_then(Result::ok).and_then(|p|p["data"].as_array().and_then(|a|a.first()).cloned()).unwrap_or(Value::Null);
             let read=timeout_at(deadline, async {

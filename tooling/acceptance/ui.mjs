@@ -67,6 +67,14 @@ try {
       try {
         await page.goto(`http://127.0.0.1:${port}/${fixture.browser ? 'browser.html' : ''}?scenario=${encodeURIComponent(name)}${fixture.browser ? '&key=arc_fixture_browser_key' : ''}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
+        if (fixture.accountAdd) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('button', { name: messages['accountAdd.title'], exact: true }).click();
+          const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
+          await dialog.waitFor();
+          if (fixture.accountAdd !== 'oauth') await dialog.getByRole('radio', { name: messages['accountAdd.credentials'], exact: true }).click();
+          if (fixture.accountAdd === 'external') await dialog.getByRole('radio', { name: messages['accountAdd.external'], exact: true }).click();
+        }
         if (name.startsWith('agent-settings-')) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
@@ -513,6 +521,27 @@ try {
               } else row.baseline = 'dimensions-changed';
             }
           }
+        }
+        if (fixture.accountAdd && width === 1280) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
+          if (fixture.accountAdd === 'oauth') {
+            await dialog.getByRole('button', { name: messages['accountAdd.login'], exact: true }).click();
+            await dialog.getByRole('status').waitFor();
+            await dialog.waitFor({ state: 'hidden', timeout: 10000 });
+          } else {
+            await dialog.getByRole('button', { name: messages['accountAdd.import'], exact: true }).click();
+            const credentials = dialog.getByRole('textbox', { name: messages['accountAdd.auth'], exact: true });
+            await page.waitForFunction(node => document.activeElement === node && node.getAttribute('aria-invalid') === 'true', await credentials.elementHandle());
+            await credentials.fill(JSON.stringify({ tokens: { access_token: 'fixture-access', account_id: 'fixture-imported' } }));
+            if (fixture.accountAdd === 'external') {
+              await dialog.getByRole('textbox', { name: messages['accountAdd.program'], exact: true }).fill('/usr/bin/credential-manager');
+              await dialog.getByRole('textbox', { name: messages['accountAdd.args'], exact: true }).fill('["--account","fixture"]');
+            }
+            await dialog.getByRole('button', { name: messages['accountAdd.import'], exact: true }).click();
+            await dialog.waitFor({ state: 'hidden' });
+          }
+          await page.getByRole('button', { name: messages['accountAdd.title'], exact: true }).waitFor();
         }
         if (width >= 1280 && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.

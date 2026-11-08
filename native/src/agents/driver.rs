@@ -19,6 +19,13 @@ impl AgentDriver {
         }
     }
     pub fn navigation(&self, task: &str) -> Option<Value> {
+        if matches!(self, Self::CodexNative)
+            && crate::accounts::codex::thread_profile(task)
+                .ok()
+                .is_some_and(|p| p != "codex-home")
+        {
+            return None;
+        }
         self.deep_link(task)?;
         match self {
             Self::CodexNative
@@ -30,6 +37,11 @@ impl AgentDriver {
         }
     }
     pub async fn open_task(&self, task: &str) -> Result<Value> {
+        if matches!(self, Self::CodexNative)
+            && crate::accounts::codex::thread_profile(task)? != "codex-home"
+        {
+            return Err("CODEX_PROFILE_DESKTOP_UNSUPPORTED: Read and continue this account's task in ARC; the Codex Desktop uses the system account".into());
+        }
         let url = self
             .deep_link(task)
             .ok_or("AGENT_TASK_OPEN_UNSUPPORTED_OR_INVALID_ID")?;

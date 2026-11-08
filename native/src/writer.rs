@@ -21,10 +21,7 @@ pub fn probe_path(path: &Path) -> Value {
 }
 pub(crate) fn lock_path(thread: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
-    let home = std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|h| h.join(".codex")))
-        .ok_or("CODEX_HOME_UNAVAILABLE")?;
+    let home = crate::accounts::codex::thread_home(thread)?;
     Ok(home
         .join("thread-writer-locks")
         .join(format!("{thread}.lock")))

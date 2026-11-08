@@ -23,12 +23,17 @@ Use `notify_control({action:"bind",target,accountId?})` (or `route` followed by 
 | `account_merge` | `{into,ids,alias?,quotaProviderId?}` | Full canonical account; all active members validated before saving |
 | `account_update` | `{id,alias?,defaultFor?,default?}` | Full updated account |
 | `account_add` | `{kind:"claude"|"codex"|"api-key"|"detect",browserId?}` | `{loginId,kind,state,loginUrl?,accountId?,error?,browserError?}` |
+| `account_import` | `{auth,refreshOwner:"codex"|"none"|"external",refreshCommand?:{program,args?},alias?}` | `{state,accountId,profileId,refreshOwner}` |
 | `account_login` | `{loginId,action:"code"|"cancel",code?}` | Login progress or `{submitted:true}` |
 | `account_reauth` | `{id,agent}` | New login progress |
 | `account_remove` | `{id,running:"finish"|"cancel"}` | Retained account with `removedAt`, `health.state:"removed"`, and `displayName` |
 | `account_notify` | `{id,action:"send"|"test"|"bind",target,message?}` | Binding or delivery result |
 
 `account_update({id,defaultFor:"claude"})` selects the account for that Agent (`default:true` is equivalent). `{id,defaultFor:"claude",default:false}` clears only that account's default; it leaves another account's default unchanged. `default` requires `defaultFor`. Clearing persists across refresh and restart without an automatic replacement. Dispatch without `account` then reports `ACCOUNT_DEFAULT_MISSING` until a default is selected. The first profile of a previously unconfigured Agent is initially default.
+
+Use `account_add({kind:"codex"})` for official OAuth in a new isolated home. Use `account_import` for native `auth.json` credentials. Choose `refreshOwner:"codex"` to let the native CLI use the imported refresh token, `none` for access credentials without renewal, or `external` with a local executable refresh hook. External hooks accept JSON on stdin and return `{accessToken,chatgptAccountId,chatgptPlanType?}` on stdout. The request contains the native `reason` and `previousAccountId`. Configure executable hooks through local CLI/panel authority. ARC discards imported refresh tokens for `none` and `external`; these modes use the native experimental external-token interface.
+
+Both flows preserve the existing default and system credentials. Imported tasks execute in ARC and retain their account on subsequent sends and after restart. An explicit account change on an existing thread returns `CODEX_THREAD_ACCOUNT_MISMATCH`. Quota comes from each native profile.
 
 Poll `accounts` for login progress. `account_browsers` returns `{browsers:[{id,name}]}`; omit `browserId` for the system browser. Claude code submission uses the official CLI's stdin. Codex completes its browser callback; a pasted code returns `ACCOUNT_LOGIN_CODE_UNSUPPORTED`. `detect` reads native authentication and imports the system Claude profile. Key-based Agents expose one native `api-key` profile each. Their generic login protocol and provider identity are not standardized: `account_add({kind:"api-key"})` returns `unfinished` with a native-authentication instruction, and unknown profile auth remains `unfinished`. It does not claim a successful sign-in or accept/store an inference key. Native-specific login remains required for those Agents.
 

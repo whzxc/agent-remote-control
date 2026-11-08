@@ -230,7 +230,7 @@ impl AgentHost {
             if let Some(cursor) = args.get("cursor") {
                 params["cursor"] = cursor.clone();
             }
-            let page = control.request("thread/list", params, 15000).await?;
+            let page = control.profile_task_page(params).await?;
             let projects = crate::projects::catalog(control).await.unwrap_or_default();
             let rows = page["data"]
                 .as_array()
@@ -261,7 +261,7 @@ impl AgentHost {
                 let title = crate::task_tracking::codex_title(row).unwrap_or_else(|| string(row, "preview"));
                 let mut item = json!({"id":row["id"],"title":title.chars().take(240).collect::<String>(),
                     "project":row["cwd"],"projectName":crate::projects::display_name(&projects, string(row,"cwd"), row["projectId"].as_str()),
-                    "createdAt":timestamp(&row["createdAt"]),"source":"codex-thread"});
+                    "createdAt":timestamp(&row["createdAt"]),"source":"codex-thread","agentAccountId":row["agentAccountId"]});
                 item["dispatchSummary"] = metadata["dispatchSummary"].clone();
                 item["turnCount"] = metadata["turnCount"].clone();
                 let native_status = row["status"].as_str().or_else(|| row["status"]["type"].as_str());

@@ -1,5 +1,7 @@
 # Design asset mapping and status
 
+`modules/agent-account-add.tsx` owns the approved Codex add-account dialog: `oauth`, `import`, and `external`. It reuses Panel, Field, Input, SingleChoice and Button. Content lives in `fixtures/agent-account-add.ts`. Runtime implementation: `ui/components/AgentAccountAdd.tsx`; entry points: `AgentPanel` and `AgentPlatformView`. The `codex-account-add-*` browser fixtures cover the declared forms.
+
 [Governance and direction](design.md) · [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md#adopting-an-existing-project)
 
 ## Status conventions and scope

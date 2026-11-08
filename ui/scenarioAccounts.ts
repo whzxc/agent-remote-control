@@ -1,4 +1,4 @@
-import type { ProviderAccount, AccountLogin, AccountsResult } from './types';
+import type { ProviderAccount, AccountLogin, AccountsResult, CodexAccountImport } from './types';
 import type { Status, ControlSource } from './state/types';
 // In-memory implementation of the native management routes in docs/reference/tools.md.
 export function accountScenario(status: Status, sources: ControlSource[]) {
@@ -74,11 +74,26 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
       target.observedAt = now;
       return target;
     }
+    if (route === 'accounts/import' && method === 'POST') {
+      const request = raw as CodexAccountImport;
+      const tokens = request.auth.tokens as { account_id?: string; access_token?: string } | undefined;
+      if (!tokens?.access_token) throw new Error('CODEX_AUTH_INVALID');
+      const id = `imported-${++sequence}`, profileId = `profile-${id}`;
+      accounts.push({ id, provider: 'openai', identityKey: `openai:id:${tokens.account_id ?? id}`, alias: request.alias ?? 'Personal', createdAt: now, observedAt: now,
+        sources: [], health: { state: 'ready' }, agentProfiles: [{ agent: 'codex', profileId, kind: 'codex-home', state: 'signed-in', default: false, refreshOwner: request.refreshOwner }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
+      return { state: 'completed', accountId: id, profileId, refreshOwner: request.refreshOwner };
+    }
     if (['accounts/add', 'accounts/reauth'].includes(route) && method === 'POST') {
       const kind = (body.kind ?? body.agent) as AccountLogin['kind'];
       if (!['claude', 'codex', 'detect', 'api-key'].includes(kind)) throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
       if (body.id) { const account = requireAccount(body.id); if (account.removedAt) throw new Error('ACCOUNT_REMOVED'); if (!account.agentProfiles.some(p => p.agent === body.agent)) throw new Error('ACCOUNT_AGENT_MISSING'); }
       polls = 0; loginAccount = body.id;
+      if (kind === 'codex' && !body.id) {
+        const id = `oauth-${++sequence}`;
+        accounts.push({ id, provider: 'openai', identityKey: `openai:id:${id}`, alias: 'Personal', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' },
+          agentProfiles: [{ agent: 'codex', profileId: `profile-${id}`, kind: 'codex-home', state: 'unfinished', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
+        loginAccount = id;
+      }
       login = { loginId: `example-login-${++sequence}`, kind, state: 'waiting', browserId: body.browserId, loginUrl: 'https://login.example.com/authorize' };
       if (kind === 'api-key') login = { loginId: login.loginId, kind, state: 'unfinished', errors: [], next: { message: "Configure the key using the Agent's native authentication, then call account_add with kind detect. ARC never stores an inference key in an account record." } };
       if (kind === 'detect') login = { loginId: login.loginId, kind, state: 'completed', errors: [] };

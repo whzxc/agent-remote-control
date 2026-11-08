@@ -205,6 +205,7 @@ export interface AccountAgentProfile {
   kind: "cli-profile" | "codex-home" | "api-key";
   state: "signed-in" | "signed-out" | "unfinished" | "invalid";
   default: boolean;
+  refreshOwner?: "codex" | "none" | "external";
 }
 export interface AccountNotifications {
   reachable?: boolean;
@@ -260,6 +261,13 @@ export interface ProviderAccount {
   quotaProviderId?: string | null;
   displayName?: string;
 }
+export interface CodexAccountImport {
+  auth: Record<string, unknown>;
+  refreshOwner: 'codex' | 'none' | 'external';
+  refreshCommand?: { program: string; args?: string[] };
+  alias?: string;
+}
+export interface CodexAccountImportResult { state: 'completed'; accountId: string; profileId: string; refreshOwner: CodexAccountImport['refreshOwner'] }
 export interface AccountLogin {
   loginId: string;
   kind: "claude" | "codex" | "api-key" | "detect";

@@ -111,6 +111,7 @@ impl Execution {
                 | "account_update"
                 | "account_merge"
                 | "account_add"
+                | "account_import"
                 | "account_login"
                 | "account_reauth"
                 | "account_remove"

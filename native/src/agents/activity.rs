@@ -244,6 +244,11 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
         .collect();
     if selected.iter().any(|agent| agent == "codex") {
         roots.push(("codex".to_owned(), codex_home.join("sessions")));
+        for profile in crate::accounts::codex::profiles().unwrap_or_default() {
+            if let Ok(home) = crate::accounts::codex::home(&profile.id) {
+                roots.push(("codex".to_owned(), home.join("sessions")));
+            }
+        }
     }
     let index = codex_home.join("session_index.jsonl");
     if cache.discovery.as_ref().is_none_or(|d| d.roots != roots) {
@@ -291,6 +296,15 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
                 .and_then(|(_, account)| account.as_ref())
             {
                 external.session["agentAccountId"] = json!(account);
+            }
+        }
+        if external.agent == "codex" {
+            if let Ok(profile) =
+                crate::accounts::codex::thread_profile(string(&external.session, "id"))
+            {
+                if let Ok(account) = crate::accounts::profile_account(&profile) {
+                    external.session["agentAccountId"] = account["id"].clone();
+                }
             }
         }
     }

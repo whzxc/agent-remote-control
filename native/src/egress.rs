@@ -151,6 +151,7 @@ pub fn failure(e: &str) -> Value {
                     | "ACCOUNT_SELECTION_REQUIRED"
                     | "ACCOUNT_DEFAULT_MISSING"
                     | "ACCOUNT_DEFAULT_AGENT_REQUIRED"
+                    | "CODEX_THREAD_ACCOUNT_MISMATCH"
                     | "ACCOUNT_ROUTE_CHANGED"
                     | "HANDSHAKE_INVALID_OR_EXPIRED"
                     | "DESKTOP_STEER_UNAVAILABLE"

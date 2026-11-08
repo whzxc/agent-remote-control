@@ -27,7 +27,23 @@ pub struct Rpc {
 }
 impl Rpc {
     pub async fn start(binary: &Path, events: SharedEvents, session: &str) -> Result<Arc<Self>> {
+        Self::start_profile(binary, events, session, None).await
+    }
+    pub(crate) async fn start_profile(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+    ) -> Result<Arc<Self>> {
         let mut command = command(binary);
+        if let Some(profile) = profile {
+            command.env("CODEX_HOME", crate::accounts::codex::home(profile)?);
+            #[cfg(not(feature = "test-fixture"))]
+            command.args(["-c", "cli_auth_credentials_store=\"file\""]);
+            for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
+                command.env_remove(key);
+            }
+        }
         #[cfg(feature = "test-fixture")]
         command.arg(std::env::var("ARC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
         #[cfg(not(feature = "test-fixture"))]
@@ -86,6 +102,8 @@ impl Rpc {
             inherited_nofile,
         });
         let session = session.to_owned();
+        let profile = profile.map(str::to_owned);
+        let response_input = Arc::downgrade(&rpc);
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
             loop {
@@ -93,12 +111,65 @@ impl Rpc {
                     Ok(bytes) if !bytes.is_empty() => bytes,
                     _ => break,
                 };
-                let Ok(msg) = serde_json::from_slice::<Value>(&bytes) else {
+                let Ok(mut msg) = serde_json::from_slice::<Value>(&bytes) else {
                     continue;
                 };
+                if let Some(profile) = profile.as_deref() {
+                    if msg["method"] == "thread/started" {
+                        if let Some(thread) = msg["params"]["thread"]["id"]
+                            .as_str()
+                            .filter(|s| uuid::Uuid::parse_str(s).is_ok())
+                        {
+                            let account = crate::accounts::profile_account(profile).ok();
+                            if let Err(error) = save(
+                                &root().join("execution").join(format!("{thread}.json")),
+                                &json!({"owner":"connector","agentProfileId":profile,"agentAccountId":account.map(|a|a["id"].clone())}),
+                            ) {
+                                crate::logs::record("WARN", &error, None);
+                            }
+                        }
+                    }
+                    if msg["method"] == "account/chatgptAuthTokens/refresh"
+                        && msg.get("id").is_some()
+                    {
+                        let Some(rpc) = response_input.upgrade() else {
+                            break;
+                        };
+                        let profile = profile.to_owned();
+                        tokio::spawn(async move {
+                            let response = match crate::accounts::codex::tokens(
+                                &profile,
+                                Some(&msg["params"]),
+                            )
+                            .await
+                            {
+                                Ok(tokens) => json!({"id":msg["id"],"result":tokens}),
+                                Err(error) => {
+                                    json!({"id":msg["id"],"error":{"code":-32000,"message":error}})
+                                }
+                            };
+                            let _ = rpc.write(response).await;
+                        });
+                        continue;
+                    }
+                    if msg.get("method").is_some() {
+                        if let Some(key) = msg.get("id").cloned() {
+                            msg["nativeResponseId"] = key.clone();
+                            msg["id"] = json!(format!("{profile}:{}", key));
+                        }
+                        if msg["method"] == "serverRequest/resolved" {
+                            msg["params"]["requestId"] =
+                                json!(format!("{profile}:{}", msg["params"]["requestId"]));
+                        }
+                    }
+                }
                 if msg.get("method").is_some() {
                     if let Some(key) = msg.get("id") {
                         let mut request = json!({"id":key,"responseId":key.to_string(),"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":"connector-app-server","canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":key.to_string(),"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
+                        request["agentProfileId"] = json!(profile);
+                        if msg.get("nativeResponseId").is_some() {
+                            request["nativeResponseId"] = msg["nativeResponseId"].clone();
+                        }
                         let task = string(&request["params"], "threadId").to_owned();
                         if let Err(error) =
                             crate::claude_notify::routing::observe("codex", &task, &mut request)
@@ -137,9 +208,14 @@ impl Rpc {
                 let _ = tx.send(Err("TRANSPORT_CLOSED: execution state unknown".into()));
             }
             let mut events = events.lock().await;
-            events.pending.retain(|_, r| r["owner"] == "desktop");
-            for timeline in events.timelines.values_mut() {
-                if timeline.info["runtimeSource"] == "connector-app-server" {
+            events
+                .pending
+                .retain(|_, r| r["owner"] == "desktop" || r["agentProfileId"] != json!(profile));
+            for (thread, timeline) in events.timelines.iter_mut() {
+                let owner = crate::accounts::codex::thread_profile(thread).ok();
+                if timeline.info["runtimeSource"] == "connector-app-server"
+                    && owner.as_deref() == Some(profile.as_deref().unwrap_or("codex-home"))
+                {
                     timeline.lose_observation();
                 }
             }

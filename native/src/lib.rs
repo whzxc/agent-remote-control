@@ -29,6 +29,7 @@ pub mod cli;
 pub mod context;
 pub mod context_provider;
 pub mod control;
+mod control_codex_profiles;
 mod control_metrics;
 mod control_profiles;
 pub mod control_sources;
