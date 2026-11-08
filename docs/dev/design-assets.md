@@ -216,7 +216,7 @@ Surfaces with mapped implementation usage are **adopted**. Governance review is 
 | `surfaces/agent-platform.tsx` | `accounts`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed. Composes Agent information and quota assets. Native remains unreachable through the current fixture route; runtime geometry follows topology. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
-| `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Composes modules/ax and retains open/closed/detail captures. AX is Reviewed. Detail keeps full scroll content and synthetic owner metadata. |
+| `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination.tsx` | `current`, `empty`, `gap`, `unavailable` | `ui/coordination/CoordinationCenter.tsx` | Reviewed. Composes modules/board. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/homepage-topology-accounts.tsx` | `accounts` | `ui/topology/Topology.tsx` | Depends on scenes helper; migrate topology module/fixtures before individual surface review. |
 | `surfaces/homepage-topology-empty.tsx` | `empty` | `ui/topology/Topology.tsx` | Depends on scenes helper; migrate topology module/fixtures before individual surface review. |
