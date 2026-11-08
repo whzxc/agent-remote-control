@@ -242,13 +242,19 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
         .iter()
         .map(|(path, _)| ("claude".to_owned(), path.clone()))
         .collect();
+    let mut codex_roots = Vec::new();
     if selected.iter().any(|agent| agent == "codex") {
-        roots.push(("codex".to_owned(), codex_home.join("sessions")));
+        codex_roots.push(("codex-home".to_owned(), codex_home.join("sessions")));
         for profile in crate::accounts::codex::profiles().unwrap_or_default() {
             if let Ok(home) = crate::accounts::codex::home(&profile.id) {
-                roots.push(("codex".to_owned(), home.join("sessions")));
+                codex_roots.push((profile.id, home.join("sessions")));
             }
         }
+        roots.extend(
+            codex_roots
+                .iter()
+                .map(|(_, home)| ("codex".to_owned(), home.clone())),
+        );
     }
     let index = codex_home.join("session_index.jsonl");
     if cache.discovery.as_ref().is_none_or(|d| d.roots != roots) {
@@ -299,10 +305,17 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
             }
         }
         if external.agent == "codex" {
-            if let Ok(profile) =
-                crate::accounts::codex::thread_profile(string(&external.session, "id"))
+            if let Some((profile, _)) = codex_roots
+                .iter()
+                .find(|(_, home)| external.path.starts_with(home))
             {
-                if let Ok(account) = crate::accounts::profile_account(&profile) {
+                if let Err(error) =
+                    crate::accounts::codex::observe_thread(profile, string(&external.session, "id"))
+                {
+                    crate::logs::record("WARN", &error, None);
+                    continue;
+                }
+                if let Ok(account) = crate::accounts::profile_account(profile) {
                     external.session["agentAccountId"] = account["id"].clone();
                 }
             }

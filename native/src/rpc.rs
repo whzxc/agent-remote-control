@@ -120,11 +120,9 @@ impl Rpc {
                             .as_str()
                             .filter(|s| uuid::Uuid::parse_str(s).is_ok())
                         {
-                            let account = crate::accounts::profile_account(profile).ok();
-                            if let Err(error) = save(
-                                &root().join("execution").join(format!("{thread}.json")),
-                                &json!({"owner":"connector","agentProfileId":profile,"agentAccountId":account.map(|a|a["id"].clone())}),
-                            ) {
+                            if let Err(error) =
+                                crate::accounts::codex::observe_thread(profile, thread)
+                            {
                                 crate::logs::record("WARN", &error, None);
                             }
                         }

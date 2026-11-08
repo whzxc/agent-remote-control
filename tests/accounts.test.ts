@@ -84,7 +84,7 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
 });
 
 test('Isolated Codex credentials retain task accounts and explicit refresh ownership', async () => {
-  // Regression: adding a Codex account replaced the system login and sends could select a different task account.
+  // Regression: adding a Codex account replaced the system login; native subagents without thread/started also fell back to the default account.
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
@@ -118,7 +118,22 @@ for await(const line of createInterface({input:process.stdin})) {
  if(method==='thread/loaded/list')result={data:Object.keys(rows)};
  if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
  if(method==='thread/list')result={data:Object.values(rows).filter(r=>!!r.archived===!!params.archived).sort((a,b)=>b.updatedAt-a.updatedAt),nextCursor:null};
- if(method==='turn/start'){const turn={id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:account}]};row.turns.push(turn);save(rows);result={turn};if(params.input?.some(i=>i.text==='refresh')){refreshTurn={id,turn};console.log(JSON.stringify({id:'refresh',method:'account/chatgptAuthTokens/refresh',params:{reason:'unauthorized',previousAccountId:'workspace-'+account}}));continue;}}
+ if(method==='turn/start'){
+  const turn={id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:account}]};
+  if(params.input?.some(i=>i.text==='spawn')) {
+   const childId=randomUUID(),childTurn=randomUUID(),at=new Date().toISOString();
+   const records=[
+    {type:'session_meta',timestamp:at,payload:{id:childId,cwd:row.cwd,agent_nickname:'Fixture subagent',source:{subagent:{thread_spawn:{parent_thread_id:row.id}}}}},
+    {type:'event_msg',timestamp:at,payload:{type:'task_started',turn_id:childTurn}},
+    {type:'response_item',timestamp:at,payload:{type:'function_call',call_id:randomUUID(),name:'exec_command',arguments:'{}'}}
+   ];
+   fs.writeFileSync(path.join(home,'sessions','rollout-'+childId+'.jsonl'),records.map(r=>JSON.stringify(r)).join('\\n')+'\\n');
+   rows[childId]={id:childId,cwd:row.cwd,updatedAt:Date.now(),status:{type:'active'},turns:[{id:childTurn,status:'inProgress',items:[]}]};
+   turn.items[0].text=childId;
+  }
+  row.turns.push(turn);save(rows);result={turn};
+  if(params.input?.some(i=>i.text==='refresh')){refreshTurn={id,turn};console.log(JSON.stringify({id:'refresh',method:'account/chatgptAuthTokens/refresh',params:{reason:'unauthorized',previousAccountId:'workspace-'+account}}));continue;}
+ }
  if(method==='thread/archive'){row.archived=true;save(rows);}
  reply(id,result);
 }`;
@@ -173,6 +188,33 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.notEqual(login.accountId, initial.id);
     const current = (await fixture.call('accounts', { agent: 'codex' })).accounts;
     assert.equal(current.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
+    const children: Array<{ id: string; parentId: string; accountId: string }> = [];
+    for (const [index, parent] of created.entries()) {
+      await fixture.completed('codex_send', { threadId: parent.threadId, prompt: 'spawn', model: 'fixture-model', effort: 'low' });
+      const read = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: parent.threadId, includeTurns: true } });
+      children.push({ id: read.thread.turns.at(-1).items[0].text, parentId: parent.threadId, accountId: imported[index].accountId });
+    }
+    const deadline = Date.now() + 6000;
+    let activity;
+    do {
+      activity = await fixture.api('agents/activity');
+      if (children.every(child => activity.agents.codex?.sessions.some((s: any) => s.id === child.id))) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } while (Date.now() < deadline);
+    for (const child of children) {
+      const session = activity.agents.codex?.sessions.find((s: any) => s.id === child.id);
+      assert.ok(session, JSON.stringify(activity));
+      assert.equal(session.agentAccountId, child.accountId);
+      assert.equal(session.parentSessionId, child.parentId);
+      assert.equal(session.relationKind, 'subagent');
+      const native = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: child.id, includeTurns: false } });
+      assert.equal(native.thread.id, child.id, JSON.stringify(native));
+    }
+    await fixture.restart();
+    for (const child of children) {
+      const native = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: child.id, includeTurns: false } });
+      assert.equal(native.thread.id, child.id, JSON.stringify(native));
+    }
     assert.equal((await fixture.completed('codex_archive', { threadId: thread })).state, 'completed');
   } finally { await fixture.close(); await rm(hooks, { recursive: true, force: true }); }
 });

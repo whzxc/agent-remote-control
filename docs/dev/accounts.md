@@ -29,7 +29,7 @@ The `none` and `external` modes use native experimental `chatgptAuthTokens`. The
 
 New isolated tasks execute in ARC App Server. Their execution mapping persists the account and profile. Send, resume, interrupt, approval responses, writer diagnosis, history and archive use that mapping across Core restarts. Send without an account retains the task's original account. An explicit different account returns `CODEX_THREAD_ACCOUNT_MISMATCH` before submission. Tasks without an isolated mapping retain the system home and existing Desktop behavior. Isolated tasks stay in ARC; opening them in the system Codex Desktop is unsupported.
 
-Task listings merge each native home's pages with independent upstream cursors. Activity discovery includes isolated transcripts. Quota reads use each profile's native account. Native OAuth reauthentication reuses its isolated home; external reauthentication invokes the configured manager. Neither path starts a system-account login.
+Task listings merge each native home's pages with independent upstream cursors. Activity discovery includes isolated transcripts. Both paths bind discovered threads to their native home, including subagents that emit no `thread/started` notification. Their native parent relationship and account remain available across Core restarts. Quota reads use each profile's native account. Native OAuth reauthentication reuses its isolated home; external reauthentication invokes the configured manager. Neither path starts a system-account login.
 
 ## Built-in local authority
 

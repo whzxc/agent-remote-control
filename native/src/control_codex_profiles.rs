@@ -102,6 +102,7 @@ impl control::Control {
             };
             let source = &mut sources[next];
             let mut row = source["rows"].as_array_mut().unwrap().remove(0);
+            accounts::codex::observe_thread(string(source, "profileId"), string(&row, "id"))?;
             if let Ok(account) = accounts::profile_account(string(source, "profileId")) {
                 row["agentAccountId"] = account["id"].clone();
             }

@@ -74,6 +74,37 @@ pub(crate) fn thread_profile(thread: &str) -> Result<String> {
 pub(crate) fn thread_home(thread: &str) -> Result<PathBuf> {
     home(&thread_profile(thread)?)
 }
+/// Native child threads can be discovered without a thread/started notification.
+pub(crate) fn observe_thread(profile: &str, thread: &str) -> Result<()> {
+    if profile == "codex-home" {
+        return Ok(());
+    }
+    uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
+    let account = super::read()?
+        .into_iter()
+        .find(|a| super::profiles(a).any(|p| p["profileId"] == profile))
+        .ok_or("ACCOUNT_PROFILE_NOT_FOUND")?;
+    let path = root().join("execution").join(format!("{thread}.json"));
+    let previous = if path.exists() {
+        load(&path)?
+    } else {
+        json!({})
+    };
+    if previous["agentProfileId"]
+        .as_str()
+        .is_some_and(|p| p != profile)
+    {
+        return Err("CODEX_THREAD_PROFILE_MISMATCH: Inspect this thread's native home before changing its account binding".into());
+    }
+    let mut binding = previous.clone();
+    binding["owner"] = json!("connector");
+    binding["agentProfileId"] = json!(profile);
+    binding["agentAccountId"] = account["id"].clone();
+    if binding != previous {
+        save(&path, &binding)?;
+    }
+    Ok(())
+}
 fn persist(profile: &Profile) -> Result<()> {
     private_dir(&home(&profile.id)?)?;
     save(&profile_path(&profile.id)?, &json!(profile))
