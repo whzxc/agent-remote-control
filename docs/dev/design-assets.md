@@ -6,7 +6,7 @@
 
 Review and adoption are separate. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Awaiting user** means the current proposal requires gallery approval. **Reviewed** requires Claude's approval; visual differences outside the structural crop criteria or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
 
-The active scope is **Native Agent information**. Its declared parts are Reviewed. Previously reviewed families retain their current status. Codex owns structural proposals, implementation, comparisons and releases; the user reviews new visual direction. Missing states and needed visual fixes are Known gaps; they are not new proposals.
+The active scope is **composed regions**. Declared source compositions are Reviewed as their dependencies are completed. Release follows the assigned review authority. Runtime adoption/fidelity and missing forms remain Known gaps.
 
 Queued scopes: MCP service, connectors, general settings, Agent settings, display settings, experimental, pets and updates before composed surfaces. Finish with the topology module/fixtures and each homepage surface. Each family owns its importers, captures, fixture extraction and mapping updates. Review composed setup forms in rounds.
 
@@ -208,11 +208,11 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 ## Surface mappings and declared frames
 
-Surfaces with mapped implementation usage are **adopted**. Governance review is **pending** unless a row explicitly marks it Reviewed. The implementation column names its current owner. TSX `fixture` and `capture` props own exact scenario names, viewports, selectors and preparation clicks; the adapter details follow this table. A mapped capture remains unverified until its assigned implementation review. The two unreachable forms stay active proposals for their owning review; their other forms remain adopted.
+Surfaces with mapped implementation usage are **adopted**. Governance review is **pending** unless a row explicitly marks it Reviewed. The implementation column names its current owner. TSX `fixture` and `capture` props own exact scenario names, viewports, selectors and preparation clicks; the adapter details follow this table. A mapped capture remains unverified until its assigned implementation review. The two unreachable legacy forms are retained exceptions under Known gaps; their other forms remain adopted.
 
 | Source | Declared frames | Implementation owner | Remaining gap / capture notes |
 | --- | --- | --- | --- |
-| `surfaces/agent-panel.tsx` | `empty`, `overview` | `ui/components/AgentPanel.tsx` | History rows compose modules/agent-activity and TaskRow; live groups retain TaskBubble. Full-content overview and runtime panel geometry await surface review. |
+| `surfaces/agent-panel.tsx` | `empty`, `overview` | `ui/components/AgentPanel.tsx` | Reviewed. Composes modules/agent-activity, modules/quota, modules/task-presentation. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/agent-platform.tsx` | `accounts`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed. Composes Agent information and quota assets. Native remains unreachable through the current fixture route; runtime geometry follows topology. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Composes modules/connection-management; retains its overview capture. Cards and list are Reviewed. Runtime editing, leave/delete confirmation and relay settings are not declared design forms. |
