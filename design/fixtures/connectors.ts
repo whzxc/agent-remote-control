@@ -29,3 +29,23 @@ export const copy = {
   "text7": "Add control source",
   "text8": "No connectors connected."
 };
+
+export const sourceFacts = [
+  [
+    { label: "产品", value: "Ranoat" },
+    { label: "连接", value: "Ranoat" },
+    { label: "添加时间", value: "nrresnor nrrnrrnr" },
+  ],
+  [
+    { label: "授权时间", value: "htaathro ooshsoor" },
+    { label: "最近活动", value: "htaathro ooshsoor" },
+  ],
+];
+
+export const sourceConnectorCopy = {
+  "text1": "Claude",
+  "text2": "· 已连接",
+  "text3": "Edit Claude",
+  "text4": "Delete Claude"
+};
+export const sourceConnectorCopySamples = {};

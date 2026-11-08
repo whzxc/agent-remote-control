@@ -1,20 +1,11 @@
+import { SourceConnectorSummary } from "../modules/connectors";
 import { Frame } from "sdg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import SourceArt from "../art/source.svg";
+
 import { SourceTaskGroups } from "../modules/source-activity";
-const facts = [
-  [
-    { label: "产品", value: "Ranoat" },
-    { label: "连接", value: "Ranoat" },
-    { label: "添加时间", value: "nrresnor nrrnrrnr" },
-  ],
-  [
-    { label: "授权时间", value: "htaathro ooshsoor" },
-    { label: "最近活动", value: "htaathro ooshsoor" },
-  ],
-];
+
 function SourcePanel({
   form,
 }: {
@@ -34,35 +25,7 @@ function SourcePanel({
         </div>
       </header>
       {platform ? (
-        <article class="mt-7 flex flex-col gap-3 rounded-card bg-surface-subtle p-4">
-          <header class="flex items-center gap-4">
-            <SourceArt
-              data-brand
-              width={24}
-              height={24}
-              class="text-role-source"
-            />
-            <strong class="text-body leading-5 font-[650]">Claude</strong>
-            <span class="-ml-2 text-meta text-success">· 已连接</span>
-            <span class="ml-auto flex gap-3">
-              <IconButton compact icon="pencil" label="Edit Claude" />
-              <IconButton compact icon="trash-2" label="Delete Claude" />
-            </span>
-          </header>
-          {facts.map((row) => (
-            <div class="flex items-center gap-2 text-meta leading-4 text-text-secondary">
-              {row.map((fact, i) => (
-                <>
-                  <span>
-                    {i > 0 ? "· " : ""}
-                    {fact.label}
-                  </span>
-                  <span class="blur-[3px]">{fact.value}</span>
-                </>
-              ))}
-            </div>
-          ))}
-        </article>
+        <SourceConnectorSummary />
       ) : (
         <div class="mt-7">
           <SourceTaskGroups history={form === "history"} />

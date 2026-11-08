@@ -68,8 +68,45 @@ export function ConnectorContent({ frame }: { frame: typeof frames[number] }) {
         </div>);
 }
 
+import { sourceConnectorCopy } from '../fixtures/connectors';
+
+import SourceArt from '../art/source.svg';
+import { sourceFacts } from '../fixtures/connectors';
+export function SourceConnectorSummary({ class: extra = 'mt-7' }: {class?:string}) {return (<article class={`flex flex-col gap-3 rounded-card bg-surface-subtle p-4 ${extra}`}>
+          <header class="flex items-center gap-4">
+            <SourceArt
+              data-brand
+              width={24}
+              height={24}
+              class="text-role-source"
+            />
+            <strong class="text-body leading-5 font-[650]">{sourceConnectorCopy.text1}</strong>
+            <span class="-ml-2 text-meta text-success">{sourceConnectorCopy.text2}</span>
+            <span class="ml-auto flex gap-3">
+              <IconButton compact icon="pencil" label={sourceConnectorCopy.text3} />
+              <IconButton compact icon="trash-2" label={sourceConnectorCopy.text4} />
+            </span>
+          </header>
+          {sourceFacts.map((row) => (
+            <div class="flex items-center gap-2 text-meta leading-4 text-text-secondary">
+              {row.map((fact, i) => (
+                <>
+                  <span>
+                    {i > 0 ? "· " : ""}
+                    {fact.label}
+                  </span>
+                  <span class="blur-[3px]">{fact.value}</span>
+                </>
+              ))}
+            </div>
+          ))}
+        </article>);}
+
 export default () => [
   <Frame name="connector-card" width={672}><div class="w-full bg-surface-raised"><ConnectorCard  /></div></Frame>,
   <Frame name="connector-content-connected" width={912}><div class="w-full bg-surface-raised"><ConnectorContent frame={frames[0]} /></div></Frame>,
   <Frame name="connector-content-empty" width={912}><div class="w-full bg-surface-raised"><ConnectorContent frame={frames[1]} /></div></Frame>,
+  <Frame name="source-connector-summary" width={440}>
+    <div class="w-full bg-surface-raised"><SourceConnectorSummary class="" /></div>
+  </Frame>,
 ];
