@@ -16,6 +16,8 @@ import ClaudeArt from "../art/claude.svg";
 import DeepseekArt from "../art/deepseek.svg";
 import PiArt from "../art/pi.svg";
 import AntigravityArt from "../art/antigravity.svg";
+import { agentIconForms, iconExampleBrand } from "../fixtures/agent-icons";
+
 const brands = {
   antigravity: AntigravityArt,
   claude: ClaudeArt,
@@ -47,66 +49,6 @@ const arcs = {
     [248, 352],
   ],
 };
-const forms = [
-  { name: "no-ring", readings: [] },
-  {
-    name: "single-ring",
-    readings: [
-      {
-        id: "display",
-        label: "Week",
-        value: 73,
-        color: "var(--success)",
-        elapsed: 4 / 7,
-      },
-    ],
-  },
-  {
-    name: "two-part-ring",
-    readings: [
-      {
-        id: "session",
-        label: "Session",
-        value: 27,
-        color: "var(--warning)",
-        elapsed: 0.6,
-      },
-      {
-        id: "week",
-        label: "Week",
-        value: 32,
-        color: "var(--warning)",
-        elapsed: 4 / 7,
-      },
-    ],
-  },
-  {
-    name: "three-part-ring",
-    readings: [
-      {
-        id: "session",
-        label: "Session",
-        value: 32,
-        color: "var(--warning)",
-        elapsed: 0.54,
-      },
-      {
-        id: "week",
-        label: "Week",
-        value: 68,
-        color: "var(--accent)",
-        elapsed: 0.4,
-      },
-      {
-        id: "month",
-        label: "Month",
-        value: 85,
-        color: "var(--accent)",
-        elapsed: 0.73,
-      },
-    ],
-  },
-];
 export type Brand = keyof typeof brands;
 export type AgentIconReading = {
   id: string;
@@ -209,9 +151,13 @@ export function AgentIcon({
     </span>
   );
 }
-export default () =>
-  forms.map(({ name, readings }) => (
-    <Frame name={name}>
-      <AgentIcon brand="claude-code" readings={readings} />
+export default () => [
+  <Frame name="brand-mark">
+    <BrandMark brand={iconExampleBrand} size={38} />
+  </Frame>,
+  ...agentIconForms.map(({ name, readings }) => (
+    <Frame name={`agent-icon-${name}`}>
+      <AgentIcon brand={iconExampleBrand} readings={readings} />
     </Frame>
-  ));
+  )),
+];

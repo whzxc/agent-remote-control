@@ -6,9 +6,9 @@
 
 Review and adoption are separate. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Reviewed** requires Claude's approval; visual differences or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
 
-The active scope is **generic feedback: Notice, Tooltip, Prompt, their fixtures and mapped consumers**. The feedback family awaits Claude's structural review. Button, input, panel/card and choice families are Reviewed. Other assets remain pending their owning batch. Codex owns proposals, edits, mappings and self-inspection; Claude owns control-source review; the user owns gallery approval of visual differences and open decisions. Implementation work is outside this scope.
+The active scope is **brand icons, artwork display dimensions and file budgets, plus the Grok Bot raster proposal**. The feedback and brand icon families await Claude's structural review. Button, input, panel/card and choice families are Reviewed. Other assets remain pending their owning batch. Codex owns proposals, edits, mappings and self-inspection; Claude owns control-source review; the user owns gallery approval of visual differences and open decisions. Implementation work is outside this scope.
 
-Queued scopes: brand icons; then one feature module at a time (model configuration, quota, task presentation, task relationships, request, timeline). Continue with onboarding and individual business modules before composed surfaces. Finish with the topology module/fixtures and each homepage surface. Each family owns its importers, captures, fixture extraction and mapping updates. Review composed setup forms in rounds.
+Queued scopes: one feature module at a time (model configuration, quota, task presentation, task relationships, request, timeline). Continue with onboarding and individual business modules before composed surfaces. Finish with the topology module/fixtures and each homepage surface. Each family owns its importers, captures, fixture extraction and mapping updates. Review composed setup forms in rounds.
 
 ## Owners, parts and consumers
 
@@ -18,8 +18,8 @@ All sources below currently live in `components/`. The owner column assigns the 
 
 | Source / owner | Part | Current frames | Direct design consumer / adoption | Implementation counterpart | Review / remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| `components/agent-icon.tsx` / Brand icons | `BrandMark` | `no-ring`, `single-ring`, `three-part-ring`, `two-part-ring` | `components/quota-card`, `components/setup-choice`, `components/single-choice`, `components/tile`, `surfaces/agent-platform`, `surfaces/platforms`, `surfaces/quota-overview`, `surfaces/settings`, `surfaces/source-panel`, `surfaces/task-detail` | `ui/components/ui/index.tsx#BrandMark` | Pending. No dedicated part frame. |
-| `components/agent-icon.tsx` / Brand icons | `AgentIcon` | `no-ring`, `single-ring`, `three-part-ring`, `two-part-ring` | `components/topology-node`, `surfaces/agent-panel` | `ui/components/ui/agent-icon.tsx#AgentIcon` | Pending. Review placement, fixture separation and fidelity in owning scope. |
+| `components/agent-icon.tsx` / Brand icons | `BrandMark` | `brand-mark` | `components/quota-card`, `components/setup-choice`, `components/single-choice`, `components/tile`, `surfaces/agent-platform`, `surfaces/platforms`, `surfaces/quota-overview`, `surfaces/settings`, `surfaces/source-panel`, `surfaces/task-detail` | `ui/components/ui/index.tsx#BrandMark` | Awaiting Claude. Adopted by choices, tiles, quotas and composed surfaces. Part frame crops the existing 38px mark from AgentIcon no-ring. Runtime BrandMark accepts markup and 24/40px sizes; design resolves a brand key and caller size. |
+| `components/agent-icon.tsx` / Brand icons | `AgentIcon` | `agent-icon-no-ring`, `agent-icon-single-ring`, `agent-icon-two-part-ring`, `agent-icon-three-part-ring` | `components/topology-node`, `surfaces/agent-panel` | `ui/components/ui/agent-icon.tsx#AgentIcon` | Awaiting Claude. Adopted by topology-node and agent-panel, with transitive homepage use. Runtime AgentQuotaIcon supplies markup/readings; design uses a brand key and fixed specimen readings. Runtime omits zero-value fill paths; source draws a zero-length dash. |
 | `components/board-header.tsx` / Homepage topology | `BoardHeader` | `active`, `idle` | `components/topology-scene`, `scenes/topology-screen`, `surfaces/homepage-topology-mobile` | `ui/components/ui/board-header.tsx#BoardHeader` | Pending. Review placement, fixture separation and fidelity in owning scope. |
 | `components/button.tsx` / Button family | `Button` | `danger`, `ghost`, `pending`, `primary`, `secondary` | `components/card`, `components/notice`, `components/prompt`, `components/request-routing`, `scenes/topology-screen`, `surfaces/approval`, `surfaces/connections`, `surfaces/coordination-ax`, `surfaces/coordination`, `surfaces/mcp-hub`, `surfaces/pets-settings`, `surfaces/platforms`, `surfaces/quota-overview`, `surfaces/relay-hosting`, `surfaces/settings`, `surfaces/setup`, `surfaces/task-detail`, `surfaces/updates` | `ui/components/ui/index.tsx#Button`; `ui/style.css` | Reviewed. Adopted. No direct implementation capture; surface captures cover use. Runtime uses 18px line-height and wrapping; source uses 16px and nowrap. Disabled opacity and link geometry need owning implementation review. |
 | `components/card.tsx` / Card family | `Card` | `card`, `card-reply` | `surfaces/approval`, `surfaces/coordination-ax`, `surfaces/pets-settings`, `surfaces/platforms`, `surfaces/settings`, `surfaces/updates` | `ui/components/ui/card.tsx#Card` | Reviewed. Adopted by composed surfaces. Runtime card defaults match the generic ownership; fidelity remains pending implementation review. |
@@ -112,6 +112,12 @@ The feedback sources have no external design consumers. Runtime usage establishe
 | `Tooltip` | `ui/components/ActivityInteraction.tsx`, `ui/components/AppUpdate.tsx`, `ui/components/PermissionsPage.tsx`, `ui/components/ToolPolicyField.tsx`, `ui/topology/Hub.tsx` |
 | `Prompt` | `ui/mcp/McpHub.tsx` |
 
+### Brand icon family support
+
+`fixtures/agent-icons.ts` owns the representative brand and four quota-reading states. BrandMark and AgentIcon remain in `components/agent-icon.tsx`. Frame names carry the owning part prefix; the BrandMark frame is the 38×38 mark contained in AgentIcon's 48×48 no-ring presentation. BrandMark's default 40px size and AgentIcon's default 48px size remain unchanged. Registry artwork imports and computed arc geometry stay with the presentation source. Surface captures and import paths remain stable.
+
+Runtime BrandMark is consumed by `ui/components/AgentsSettings.tsx`. Runtime AgentIcon is consumed by `ui/subscriptions/AgentQuotaIcon.tsx`, which supplies quota readings to the product's Agent presentation. Rendering fidelity and provider-data edge states remain in implementation scope. Artwork budgets and raster proposal status follow below.
+
 ### Runtime token alignment
 
 `ui/tokens.css` imports `design/tokens.css`, so design tokens are available to runtime CSS without duplicate declarations. Design entries without a corresponding runtime presentation usage remain pending runtime alignment. The shared Button/input dimensions requiring consumer alignment include `--control-height-compact`, `--control-gap`, `--control-icon-size`, `--field-padding-inline`, `--field-icon-size`, `--field-error-gap`, `--control-inset`, `--switch-width`, `--switch-height`, `--switch-thumb-size` and `--radius-switch`. Runtime component styles still use local dimensions for these roles. Alignment belongs to implementation scope.
@@ -155,6 +161,7 @@ Surfaces with mapped implementation usage are **adopted** and **pending** govern
 | `fixtures/panels.ts` | Panel/card family; support data; Reviewed | PermissionCard sample content stays in its owning request scope. |
 | `fixtures/choices.ts` | Choice family; support data; Reviewed | Setup-specific state records stay in the onboarding scope. |
 | `fixtures/feedback.ts` | Generic feedback; support data; Awaiting Claude | RequestEntry and ReviewUnavailable content stays in request scope. |
+| `fixtures/agent-icons.ts` | Brand icon family; support data; Awaiting Claude | Runtime provider readings stay outside design fixtures. |
 | `scenes/topology-screen.tsx#TopologyScreen` | Homepage topology; unlisted composition, no own frame; Pending | Move to a topology module with its declared frame. Consumers: homepage accounts, empty, portrait, studio and tasks. |
 | `scenes/topology.ts` | Homepage topology; embedded coordinates, links and content; Pending | Move data to fixtures and resolve type-only ownership. Consumers include TopologyScreen, mobile topology and task relationships. |
 
@@ -166,11 +173,51 @@ Budgets apply per file in `art/`. Owners downscale raster images before importin
 
 | Class / owner | Files | Display dimensions (CSS px) | Per-file budget | Current gap |
 | --- | --- | --- | --- | --- |
-| Brand icons / brand icon family | All SVGs except `arc-mark.svg`, `setup-arc.svg` and `pet-*.svg` | Product catalog graphics 24×24. BrandMark defaults to 40×40 with caller size overrides; AgentIcon scales its mark to 28/48 or 38/48 of its outer size. | 12 KiB SVG | Reconcile declarations and fixture content in the brand family. |
-| Homepage ARC / topology | `arc-mark.svg` | Internal 240×240 artwork; TopologyMark defaults to 240×240 and scales with caller size; hover chrome can extend height to 248. | 2 KiB SVG | Review with topology module. |
+| Brand registry / brand icon family | Registry SVGs listed below | BrandMark: 40×40 default; callers use 9, 20, 22, 24, 28, 36 and 38px squares. AgentIcon: 48×48 default; inner mark is round(outer size × 28/48) with rings or × 38/48 without rings. | 12 KiB SVG | Runtime markup mapping and provider states remain in implementation scope. |
+| Catalog logos / onboarding | Gemini, Grok, Microsoft Copilot, GitHub Copilot and Qwen Code SVGs | 24×24 | 12 KiB SVG | Onboarding owns their surrounding presentation. |
+| Source badge / task presentation | `source.svg` | 9×9 inside a 13×13 badge | 2 KiB SVG | Review the badge with task presentation. |
+| Homepage ARC / topology | `arc-mark.svg` | 240×240 default drawing in TopologyMark, scaled by its size; hover chrome extends the outer height to 248 at default size | 2 KiB SVG | Review with topology module. |
 | Setup ARC / welcome | `setup-arc.svg` | 64×64 | 2 KiB SVG | Review with welcome module. |
-| Pet previews / pets | `pet-clawd.svg`, `pet-codex.svg`, `pet-synthetic1.svg`, `pet-synthetic2.svg`, `pet-synthetic3.svg` | 72×72; internal viewBox 192×192 | 4 KiB SVG | Review with pets module. |
-| Grok Bot / connection onboarding | `grok-bot.png` | 24×24; target raster 48×48 for 2× density | 8 KiB PNG | Current 256×256 / 45,494 bytes exceeds budget; downscale and inspect in the owning batch. |
+| Pet previews / pets | `pet-clawd.svg`, `pet-codex.svg`, `pet-synthetic1.svg`, `pet-synthetic2.svg`, `pet-synthetic3.svg` | 72×72; intrinsic viewBox 192×192 | 4 KiB SVG | Review with pets module. |
+| Grok Bot / connection onboarding | `grok-bot.png` | 24×24; proposed raster 48×48 for 2× density | 8 KiB PNG | Committed raster: 256×256 / 45,494 bytes, above budget. Proposed raster: 48×48 / 3,996 bytes; Awaiting user gallery approval. Keep the PNG proposal uncommitted until approval. |
+
+### Artwork inventory
+
+Each file inherits its display rule and per-file budget from its class above. Intrinsic dimensions below are SVG viewBox coordinates or raster pixel dimensions, not display dimensions. The Grok Bot entry records the committed source; its proposed replacement is tracked separately in the class table.
+
+| File in `art/` | Class | Committed bytes | Intrinsic viewBox / raster |
+| --- | --- | --- | --- |
+| `alibaba.svg` | Brand registry | 1,352 | `0 0 24 24` |
+| `anthropic.svg` | Brand registry | 271 | `0 0 24 24` |
+| `antigravity.svg` | Brand registry | 8,282 | `0 0 24 24` |
+| `arc-mark.svg` | Homepage ARC | 571 | `4 4 92 92` |
+| `claude-code.svg` | Brand registry | 380 | `0 0 24 24` |
+| `claude.svg` | Brand registry | 1,643 | `0 0 24 24` |
+| `codex.svg` | Brand registry | 1,754 | `0 0 24 24` |
+| `cursor.svg` | Brand registry | 453 | `0 0 24 24` |
+| `deepseek.svg` | Brand registry | 2,111 | `0 0 24 24` |
+| `gemini.svg` | Catalog logos | 2,842 | `0 0 24 24` |
+| `github-copilot.svg` | Catalog logos | 1,933 | `0 0 24 24` |
+| `google.svg` | Brand registry | 866 | `0 0 24 24` |
+| `grok-bot.png` | Grok Bot | 45,494 | `256×256` |
+| `grok.svg` | Catalog logos | 679 | `0 0 24 24` |
+| `microsoft-copilot.svg` | Catalog logos | 3,731 | `0 0 24 24` |
+| `microsoft.svg` | Brand registry | 346 | `0 0 24 24` |
+| `notion.svg` | Brand registry | 1,045 | `0 0 24 24` |
+| `openai.svg` | Brand registry | 1,593 | `0 0 24 24` |
+| `opencode.svg` | Brand registry | 139 | `0 0 24 24` |
+| `pet-clawd.svg` | Pet previews | 1,465 | `0 0 192 192` |
+| `pet-codex.svg` | Pet previews | 2,499 | `0 0 192 192` |
+| `pet-synthetic1.svg` | Pet previews | 213 | `0 0 192 192` |
+| `pet-synthetic2.svg` | Pet previews | 360 | `0 0 192 192` |
+| `pet-synthetic3.svg` | Pet previews | 360 | `0 0 192 192` |
+| `pi.svg` | Brand registry | 234 | `0 0 24 24` |
+| `qwen-code.svg` | Catalog logos | 2,035 | `0 0 24 24` |
+| `raycast.svg` | Brand registry | 528 | `0 0 24 24` |
+| `setup-arc.svg` | Setup ARC | 698 | `4 4 92 92` |
+| `slack.svg` | Brand registry | 1,295 | `0 0 128 128` |
+| `source.svg` | Source badge | 1,599 | `0 0 24 24` |
+| `xai.svg` | Brand registry | 280 | `0 0 24 24` |
 
 ## Capture adapter and implementation gaps
 
