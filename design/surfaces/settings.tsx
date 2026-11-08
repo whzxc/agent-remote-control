@@ -1,3 +1,6 @@
+import { Agents, AgentDetail } from "../modules/agent-settings";
+
+
 import { GeneralSettings } from "../modules/general-settings";
 import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";
 import { Frame } from "sdg";
@@ -9,7 +12,7 @@ import { Switch } from "../components/switch";
 
 import { IconButton } from "../components/icon-button";
 
-import { BrandMark } from "../components/agent-icon";
+
 import { TaskBubble } from "../modules/task-presentation";
 
 const experiments = [
@@ -64,70 +67,8 @@ const experiments = [
 ];
 
 
-function Agents() {
-  return (
-    <Panel
-      width={720}
-      title="Agents"
-      actions={<IconButton icon="refresh-cw" label="Refresh" />}
-    >
-      <div class="flex flex-col gap-[11px]">
-        <div class="flex h-[33px] items-center gap-[6px]">
-          <h3 class="mr-[13px] text-small font-[650] text-text-secondary">
-            Installed
-          </h3>
-          <IconButton icon="gauge" label="Quota" />
-          <IconButton icon="settings" label="Agent settings" />
-        </div>
-        <Card padded>
-          <div class="flex items-center gap-4 py-2">
-            <BrandMark brand="codex" size={40} />
-            <div class="flex flex-col gap-[6px]">
-              <strong class="text-body leading-4 font-[650]">Codex</strong>
-              <span class="text-meta leading-4 text-text-secondary">
-                fixture · Ready
-              </span>
-            </div>
-            <div class="ml-auto">
-              <Switch checked label="Codex" />
-            </div>
-          </div>
-        </Card>
-      </div>
-    </Panel>
-  );
-}
-function AgentDetail() {
-  return (
-    <Panel width={720} headerless>
-      <header class="flex h-[46px] items-start justify-between gap-4">
-        <div class="flex items-start gap-3 pt-[3px]">
-          <BrandMark brand="codex" size={40} />
-          <div class="flex flex-col gap-1 pt-[2px]">
-            <h2 class="text-title leading-6 font-[650]">Codex</h2>
-            <div class="flex gap-4 text-meta leading-4 font-normal">
-              <span class="text-text-secondary">fixture</span>
-              <span class="text-small text-accent-text">Official setup</span>
-            </div>
-          </div>
-        </div>
-        <IconButton icon="x" label="Close" />
-      </header>
-      <div class="pt-4">
-        <Group title="Codex dispatch defaults">
-          <SettingLine title="Model and effort" class="py-[6px]! min-h-[54px]!">
-            <Choices
-              label="Model and effort"
-              options={["Agent default"]}
-              width={360}
-              dropdown
-            />
-          </SettingLine>
-        </Group>
-      </div>
-    </Panel>
-  );
-}
+
+
 function Display() {
   return (
     <Panel width={720} title="Agent settings">
