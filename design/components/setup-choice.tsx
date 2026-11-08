@@ -68,18 +68,9 @@ export function SetupChoice({
     </div>
   );
 }
-export function SetupAction(props: {
-  icon: string;
-  label: string;
-  description?: string;
-  badge?: string;
-  catalog?: boolean;
-}) {
-  return <SetupChoice {...props} />;
-}
 export default () =>
   setupChoiceForms.map(({ form, ...props }) => (
-    <Frame name={`setup-choice-${form}`} width={form === "row" ? 680 : 204}>
+    <Frame name={form} width={form === "row" ? 680 : 204}>
       <SetupChoice {...props} form={form} />
     </Frame>
   ));
