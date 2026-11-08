@@ -196,11 +196,22 @@ async fn connect(index: &Value) -> Result<Socket> {
     }
     #[cfg(windows)]
     {
-        Ok(Box::new(
-            tokio::net::windows::named_pipe::ClientOptions::new()
+        loop {
+            match tokio::net::windows::named_pipe::ClientOptions::new()
                 .open(string(index, "socket"))
-                .map_err(io_error)?,
-        ))
+            {
+                Ok(stream) => return Ok(Box::new(stream)),
+                // The listener replaces the connected instance before serving it.
+                // Concurrent readers can arrive in that short handover window.
+                Err(error)
+                    if error.raw_os_error()
+                        == Some(windows_sys::Win32::Foundation::ERROR_PIPE_BUSY as i32) =>
+                {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                Err(error) => return Err(io_error(error)),
+            }
+        }
     }
 }
 async fn request(index: &Value, value: Value) -> Result<Value> {
