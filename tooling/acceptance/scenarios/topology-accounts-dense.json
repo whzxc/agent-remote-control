@@ -2,7 +2,7 @@
   "theme": "light",
   "language": "en",
   "agents": ["codex", "claude", "opencode", "dsh", "cursor"],
-  "maxVisibleAgents": 5,
+  "maxVisibleAgents": 6,
   "tasks": [
     { "agent": "codex", "phase": "command", "title": "Check configuration", "headline": "npm run check" },
     { "agent": "codex", "phase": "thinking", "title": "Review changes", "headline": "Read the project changes" },

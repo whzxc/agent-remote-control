@@ -123,8 +123,10 @@ test('every input node is visible or belongs to exactly one folded subtree', () 
 });
 
 test('the dense fixture represents every configured Agent after compaction', () => {
-  // Regression: topology-accounts-dense lost its fifth Agent before compaction because maxVisibleAgents 5 silently fell back to 4.
+  // Regression: the dense fixture used unsupported limit 5 and hid an Agent; its supported limit now keeps all five Agents.
   const { fixture, roots, scene } = denseTopologyScene();
+  const unsupported = denseTopologyScene(5);
+  assert.deepEqual(unsupported.scene.right.map(n => n.id), fixture.agents.slice(0, 4));
   const plan = compactRoots(scene.left, scene.right, scene, 'landscape', DEFAULTS);
   const groups = topologyGroups(scene.right, plan.right, 1);
   const layout = compactLayout(scene, plan, new Set(), DEFAULTS, 'landscape');

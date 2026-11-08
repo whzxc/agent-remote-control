@@ -22,7 +22,7 @@ function snapshot(scene: Scene, orientation: Orientation) {
 
 const position = { presence: 1 };
 test('acceptance counts the real dense fixture including grouped roots', () => {
-  // Regression: the dense check missed the fifth Agent after homepage selection dropped it before folding.
+  // Regression: an unsupported dense fixture limit hid an Agent; supported fixture data must represent all five Agents, including grouped roots.
   const { fixture, scene } = denseTopologyScene();
   const topology = snapshot(scene, 'landscape');
   assert.deepEqual(representedTopologyRoots(topology, 1), fixture.agents);
