@@ -6,7 +6,7 @@
 
 Review and adoption are separate. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Awaiting user** means the current proposal requires gallery approval. **Reviewed** requires Claude's approval; visual differences or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
 
-The active scope is **quota cards, readings, bars, summaries and detail actions, with per-part frames, fixtures and consumer mappings**. Model configuration and quota await Claude's review. QuotaBar and QuotaSummary crop presentations also await user gallery approval. Button, input, panel/card, choice, generic feedback and brand icon families are Reviewed. The Grok Bot raster proposal remains Awaiting user. Other assets remain pending their owning batch. Codex owns proposals, edits, mappings and self-inspection; Claude owns control-source review; the user owns gallery approval of visual differences and open decisions. Implementation work is outside this scope.
+The active scope is **quota cards, readings, bars, summaries and detail actions, with per-part frames, fixtures and consumer mappings**. Model configuration and quota await Claude's review. QuotaBar and QuotaSummary crop presentations also await user gallery approval. Button, input, panel/card, choice, generic feedback and brand icon families are Reviewed. The Grok Bot artwork is Reviewed and User-approved. Other assets remain pending their owning batch. Codex owns proposals, edits, mappings and self-inspection; Claude owns control-source review; the user owns gallery approval of visual differences and open decisions. Implementation work is outside this scope.
 
 Queued scopes: one feature module at a time (task presentation, task relationships, request, timeline). Continue with onboarding and individual business modules before composed surfaces. Finish with the topology module/fixtures and each homepage surface. Each family owns its importers, captures, fixture extraction and mapping updates. Review composed setup forms in rounds.
 
@@ -120,7 +120,7 @@ The feedback sources have no external design consumers. Runtime usage establishe
 
 `fixtures/agent-icons.ts` owns the representative brand and four quota-reading states. BrandMark and AgentIcon remain in `components/agent-icon.tsx`. Frame names carry the owning part prefix; the BrandMark frame is the 38×38 mark contained in AgentIcon's 48×48 no-ring presentation. BrandMark's default 40px size and AgentIcon's default 48px size remain unchanged. Registry artwork imports and computed arc geometry stay with the presentation source. Surface captures and import paths remain stable.
 
-Runtime BrandMark is consumed by `ui/components/AgentsSettings.tsx`. Runtime AgentIcon is consumed by `ui/subscriptions/AgentQuotaIcon.tsx`, which supplies quota readings to the product's Agent presentation. Rendering fidelity and provider-data edge states remain in implementation scope. Artwork budgets and raster proposal status follow below.
+Runtime BrandMark is consumed by `ui/components/AgentsSettings.tsx`. Runtime AgentIcon is consumed by `ui/subscriptions/AgentQuotaIcon.tsx`, which supplies quota readings to the product's Agent presentation. Rendering fidelity and provider-data edge states remain in implementation scope. Artwork budgets and approval status follow below.
 
 ### Runtime token alignment
 
@@ -150,7 +150,7 @@ Surfaces with mapped implementation usage are **adopted** and **pending** govern
 | `surfaces/quota-overview.tsx` | `empty`, `overview` | `ui/subscriptions/UsageHistory.tsx` | Uses modules/quota/QuotaBar and fixtures/quota. Overview composition and runtime fidelity await surface review. |
 | `surfaces/relay-hosting.tsx` | `empty` | `ui/components/RelaySettings.tsx` | Extract hosting composition in its business scope. |
 | `surfaces/settings.tsx` | `about`, `agent-detail`, `agents`, `display`, `experimental` | `ui/components/SettingsPage.tsx`; `ui/components/AgentsSettings.tsx`; `ui/components/AgentDisplaySettings.tsx`; `ui/components/ExperimentalSettings.tsx` | Separate general/Agent/display/experimental ownership; tokenize theme swatches; about/display have full scroll content. |
-| `surfaces/setup.tsx` | `method`, `ready`, `relay-login`, `source-address`, `source-approval`, `source-connection`, `source-empty`, `source-local`, `source-product`, `source-success`, `stacked-join`, `stacked-local`, `stacked-method`, `stacked-own`, `stacked-ready`, `stacked-relay`, `stacked-secure`, `welcome` | `ui/components/SetupDialog.tsx`; `ui/components/AddConnection.tsx`; `ui/components/AddControlSource.tsx`; `ui/components/Onboarding.tsx` | Separate welcome/source/connection modules and fixtures. Nested width and accessible text gaps; downscale Grok Bot. |
+| `surfaces/setup.tsx` | `method`, `ready`, `relay-login`, `source-address`, `source-approval`, `source-connection`, `source-empty`, `source-local`, `source-product`, `source-success`, `stacked-join`, `stacked-local`, `stacked-method`, `stacked-own`, `stacked-ready`, `stacked-relay`, `stacked-secure`, `welcome` | `ui/components/SetupDialog.tsx`; `ui/components/AddConnection.tsx`; `ui/components/AddControlSource.tsx`; `ui/components/Onboarding.tsx` | Separate welcome/source/connection modules and fixtures. Nested width and accessible text gaps remain. Grok Bot artwork meets its display and file budget. |
 | `surfaces/source-panel.tsx` | `dispatches`, `history`, `platform` | `ui/components/SourcePanel.tsx`; `ui/components/SourcePlatformView.tsx` | Extract source activity rows and reconcile TaskRow; history has full scroll content. |
 | `surfaces/task-detail.tsx` | `failed-turn`, `needs-you`, `running-multi-turn` | `ui/components/ActivityTimeline.tsx` | Extract timeline using request/task parts; runtime panel width follows topology geometry. |
 | `surfaces/updates.tsx` | `available`, `installing`, `settings` | `ui/components/AppUpdate.tsx`; `ui/components/SettingsPage.tsx` | `settings` is an active proposal with no standalone runtime shell; user decision pending. |
@@ -185,11 +185,11 @@ Budgets apply per file in `art/`. Owners downscale raster images before importin
 | Homepage ARC / topology | `arc-mark.svg` | 240×240 default drawing in TopologyMark, scaled by its size; hover chrome extends the outer height to 248 at default size | 2 KiB SVG | Review with topology module. |
 | Setup ARC / welcome | `setup-arc.svg` | 64×64 | 2 KiB SVG | Review with welcome module. |
 | Pet previews / pets | `pet-clawd.svg`, `pet-codex.svg`, `pet-synthetic1.svg`, `pet-synthetic2.svg`, `pet-synthetic3.svg` | 72×72; intrinsic viewBox 192×192 | 4 KiB SVG | Review with pets module. |
-| Grok Bot / connection onboarding | `grok-bot.png` | 24×24; proposed raster 48×48 for 2× density | 8 KiB PNG | Committed raster: 256×256 / 45,494 bytes, above budget. Proposed raster: 48×48 / 3,996 bytes; Awaiting user gallery approval. Keep the PNG proposal uncommitted until approval. |
+| Grok Bot / connection onboarding | `grok-bot.png` | 24×24; raster 48×48 for 2× density | 8 KiB PNG | Reviewed and User-approved. 3,996 bytes; within budget. |
 
 ### Artwork inventory
 
-Each file inherits its display rule and per-file budget from its class above. Intrinsic dimensions below are SVG viewBox coordinates or raster pixel dimensions, not display dimensions. The Grok Bot entry records the committed source; its proposed replacement is tracked separately in the class table.
+Each file inherits its display rule and per-file budget from its class above. Intrinsic dimensions below are SVG viewBox coordinates or raster pixel dimensions, not display dimensions. Review status is tracked in the class table.
 
 | File in `art/` | Class | Committed bytes | Intrinsic viewBox / raster |
 | --- | --- | --- | --- |
@@ -205,7 +205,7 @@ Each file inherits its display rule and per-file budget from its class above. In
 | `gemini.svg` | Catalog logos | 2,842 | `0 0 24 24` |
 | `github-copilot.svg` | Catalog logos | 1,933 | `0 0 24 24` |
 | `google.svg` | Brand registry | 866 | `0 0 24 24` |
-| `grok-bot.png` | Grok Bot | 45,494 | `256×256` |
+| `grok-bot.png` | Grok Bot | 3,996 | `48×48` |
 | `grok.svg` | Catalog logos | 679 | `0 0 24 24` |
 | `microsoft-copilot.svg` | Catalog logos | 3,731 | `0 0 24 24` |
 | `microsoft.svg` | Brand registry | 346 | `0 0 24 24` |
