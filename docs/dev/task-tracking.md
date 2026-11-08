@@ -48,6 +48,8 @@ Activity retains the two-second scan cadence, mtime/size/identity reuse, and at 
 
 Externally held Codex writers, including parent-owned subagents without a Desktop follower, expose read-only timelines from their native rollout. A utility metadata read locates the rollout without acquiring the writer. The reader validates the first session ID and projects complete records through the shared transcript converter. The native `subagent_history_start_ordinal` excludes inherited parent records from activity, turn metadata, and timeline projection while retaining the child's own session metadata. Explicit `task_complete` and `turn_aborted` records settle the matching turn; utility turn snapshots do not establish completion. Writer checks still protect mutations. Injected `external_codex_apps_open_page` records do not become user prompts or activity titles.
 
+Codex account attribution follows the thread's bound native execution profile. Native retry dispatches retain that account when recorded. Reads resolve missing account fields in persisted native retries without rewriting records. When the execution profile cannot be resolved, attribution follows `retryOf` and then retains the last confirmed thread account. Missing configuration confirmation does not clear account attribution. Native task pages retain their profile account during live enrichment. Topology resolves each explicit task family before account grouping and visibility limits; all descendants inherit the root task's account, including an unresolved account, without detaching their parent edges.
+
 ### Activity snapshots
 
 ```json

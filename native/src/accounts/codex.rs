@@ -112,6 +112,19 @@ pub(crate) fn thread_profile(thread: &str) -> Result<String> {
 pub(crate) fn thread_home(thread: &str) -> Result<PathBuf> {
     home(&thread_profile(thread)?)
 }
+/// Read only an explicit binding; an absent binding does not prove codex-home.
+pub(crate) fn bound_account(thread: &str) -> Value {
+    if uuid::Uuid::parse_str(thread).is_err() {
+        return Value::Null;
+    }
+    let binding =
+        load(&root().join("execution").join(format!("{thread}.json"))).unwrap_or(Value::Null);
+    binding["agentProfileId"]
+        .as_str()
+        .and_then(|profile| super::profile_account(profile).ok())
+        .map(|account| account["id"].clone())
+        .unwrap_or_else(|| binding["agentAccountId"].clone())
+}
 /// Native child threads can be discovered without a thread/started notification.
 pub(crate) fn observe_thread(profile: &str, thread: &str) -> Result<()> {
     if profile == "codex-home" {

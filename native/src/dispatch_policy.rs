@@ -796,7 +796,22 @@ fn directory(thread: &str) -> Result<PathBuf> {
 }
 pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
-    read_records(thread)
+    let rows = read_records(thread)?;
+    let account = crate::accounts::codex::bound_account(thread);
+    Ok(rows
+        .iter()
+        .map(|row| {
+            let mut row = row.clone();
+            if row["dispatchSource"] == "native-retry" && row["agentAccountId"].as_str().is_none() {
+                row["agentAccountId"] = json!(crate::accounts::codex_dispatch_account(
+                    &rows,
+                    row["turnId"].as_str(),
+                    &account,
+                ));
+            }
+            row
+        })
+        .collect())
 }
 fn read_records(thread: &str) -> Result<Vec<Value>> {
     read_rows(&directory(thread)?)
@@ -887,6 +902,7 @@ pub(crate) fn record_native_retry(thread: &str, previous: &str, retry: &Value) -
         .unwrap_or("native-persisted-turn-context");
     let row = json!({
         "agent":"codex","taskId":thread,"options":{},"requestId":turn,"threadId":thread,"turnId":turn,"dispatchMode":"new-turn",
+        "agentAccountId":crate::accounts::codex_dispatch_account(&rows, Some(previous), &crate::accounts::codex::bound_account(thread)),
         "origin":parent["origin"],"dispatchSource":"native-retry","retryOf":previous,"nativeTrigger":retry["trigger"],
         "model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],
         "source":{"model":evidence,"effort":evidence,"serviceTier":evidence},

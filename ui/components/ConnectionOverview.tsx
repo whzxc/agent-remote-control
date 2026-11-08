@@ -18,7 +18,7 @@ import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectS
 import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
 import { markActivitiesRead } from "../state/activityBubbles";
-import { orderActivity, visibleActivity, activityHierarchy, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
+import { orderActivity, visibleActivity, activityHierarchy, activityFamilyAccounts, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
 import { taskOrder, reorderTasks } from "../state/taskOrder";
 import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
 import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
@@ -287,9 +287,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const accountGroup = (id: string | null | undefined) => agentAccounts.find(account => accountOwns(account, id))?.id;
     const family = activityHierarchy(sessions);
     const parents = new Map(family.map(row => [row.task.id, row.parentTaskId]));
-    const familyAccounts = new Map<string, string | undefined>();
-    for (const { task, parentTaskId } of family) familyAccounts.set(task.id, task.agentAccountId ? accountGroup(task.agentAccountId) : parentTaskId ? familyAccounts.get(parentTaskId) : undefined);
-    for (const [id, parent] of parents) if (parent && familyAccounts.get(id) !== familyAccounts.get(parent)) parents.delete(id);
+    const familyAccounts = activityFamilyAccounts(sessions, accountGroup);
     const sessionAccount = (session: typeof sessions[number] | undefined) => session && familyAccounts.get(session.id);
     const origin = (session: typeof sessions[number]) => session.origin && { ...session.origin,
       accountId: accounts.find(account => accountOwns(account, session.origin?.accountId))?.id ?? session.origin.accountId };
@@ -305,7 +303,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon,
       selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: !readOnlyBrowser && agent.enabled && !panelOpen,
       unread: sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined)
-        .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) ?? session.agentAccountId })),
+        .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) })),
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
@@ -315,7 +313,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}
       </GraphNode>,
       tasks: [
-        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), activityAt: Math.max(Date.parse(session.phaseSince ?? '') || 0, Date.parse(session.turnStartedAt ?? session.startedAt ?? '') || 0), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session) ?? session.agentAccountId, origin: origin(session),
+        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), activityAt: Math.max(Date.parse(session.phaseSince ?? '') || 0, Date.parse(session.turnStartedAt ?? session.startedAt ?? '') || 0), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session), origin: origin(session),
           state: (() => {
             const execution = taskExecution(agent.agent, session.id);
             return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);
@@ -333,7 +331,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           id: JSON.stringify([agent.agent, null, sessionAccount(group.group[0]), hidden.parentId ?? null]), activityQueue: queueKey(group.group),
           parentTaskId: hidden.parentId ? JSON.stringify([agent.agent, hidden.parentId]) : undefined,
           petTaskIds: hidden.sessions.map(s => s.id),
-          members: hidden.sessions.map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s) ?? s.agentAccountId, pending: !!s.interaction })),
+          members: hidden.sessions.map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s), pending: !!s.interaction })),
           agentAccountId: accountIds.length > 1 ? sessionAccount(group.group[0]) : undefined, count: hidden.sessions.length,
           pending: hidden.sessions.some(s => !!s.interaction), width, height: hidden.parentId ? 36 : bubbleHeights.compact, state: "summary" as const, selected: false,
           content: <button type="button" className={`activity-bubble activity-summary ${hidden.parentId ? "activity-family-summary" : ""}`} data-overflow-key={JSON.stringify([queueKey(group.group), hidden.parentId ?? null])} aria-expanded={false} onClick={event => {

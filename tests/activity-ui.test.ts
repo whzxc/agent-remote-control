@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, reorderActivity, orderActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../ui/types.ts";
 import { taskHierarchy } from '../ui/state/taskHierarchy.ts';
+import { activityFamilyAccounts } from '../ui/state/activityModel.ts';
 const permission: AgentInteraction = { kind: "permission", summary: "Run example command", respond: { via: "act", op: "agent_respond", args: { agent: "claude", taskId: "task-example", interactionId: 1 } }, options: [{ kind: "allow_once", optionId: "yes" }, { kind: "reject_once", optionId: "no" }] };
 function session(id: string, interaction?: AgentInteraction): AgentActivitySession {
   return { id, source: "arc-task", phase: interaction ? "interaction" : "command", phaseSince: "2026-01-01T00:00:00Z", headline: "printf example", timeline: true, interaction };
@@ -23,6 +24,19 @@ test('nested activity keeps ancestors visible and preserves session identity', (
   assert.equal(shown.sessions.find(s => s.id === 'parent'), parent);
   assert.equal(shown.sessions.find(s => s.id === 'child'), child);
   assert.equal(shown.hidden + shown.sessions.length, 9);
+});
+test('parent tasks and descendants always resolve to the same account', () => {
+  // Property: every descendant resolves to its root's account regardless of its own attribution, depth, or input order.
+  for (const rootAccount of ['account-a', null, undefined]) for (const count of [1, 3, 8]) {
+    const root = { ...session('root'), nativeSessionId: 'native-root', agentAccountId: rootAccount, orderAt: 0 };
+    const children = Array.from({ length: count }, (_, i) => ({ ...session(`child-${i}`),
+      parentSessionId: i ? `child-${i - 1}` : 'native-root', agentAccountId: i % 2 ? null : 'account-b', orderAt: i + 1 }));
+    for (const sessions of [[root, ...children], [...children.slice().reverse(), root]]) {
+      const accounts = activityFamilyAccounts(sessions, id => id ?? undefined);
+      assert.equal(accounts.get('root'), rootAccount ?? undefined);
+      for (const child of children) assert.equal(accounts.get(child.id), accounts.get('root'));
+    }
+  }
 });
 test('task ancestry terminates for cycles and never invents missing parents', () => {
   // Property: every input task appears exactly once and each emitted parent precedes its child.

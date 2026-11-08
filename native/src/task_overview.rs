@@ -242,10 +242,11 @@ fn compact(
     out["origin"] = crate::sources::task_origin(string(row, "id"), None);
     out["srcConversation"] =
         crate::src_conversations::task_ref("codex", string(row, "id")).unwrap_or(Value::Null);
-    out["agentAccountId"] = crate::dispatch_policy::records(string(row, "id"))
-        .ok()
-        .and_then(|rows| rows.last().and_then(|r| r.get("agentAccountId")).cloned())
-        .unwrap_or(Value::Null);
+    out["agentAccountId"] = json!(crate::accounts::codex_dispatch_account(
+        &crate::dispatch_policy::records(string(row, "id")).unwrap_or_default(),
+        turn["id"].as_str(),
+        &row["agentAccountId"],
+    ));
     out["project"] = t["cwd"].clone();
     out["status"] = json!(status);
     out["updatedAt"] = t.get("updatedAt").unwrap_or(&row["updatedAt"]).clone();

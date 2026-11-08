@@ -125,6 +125,14 @@ export function activityHierarchy(sessions: readonly TrackedActivity[]) {
   const ids = new Map(sessions.flatMap(session => [[session.id, session.id], ...(session.nativeSessionId ? [[session.nativeSessionId, session.id]] : [])] as [string, string][]));
   return taskHierarchy(sessions.map(session => ({ ...session, parentTaskId: session.parentSessionId ? ids.get(session.parentSessionId) : undefined })));
 }
+// Resolve the complete family before account grouping or visibility limits.
+export function activityFamilyAccounts(sessions: readonly TrackedActivity[], accountGroup: (id: string | null | undefined) => string | undefined) {
+  const accounts = new Map<string, string | undefined>();
+  for (const { task, parentTaskId } of activityHierarchy(sessions)) {
+    accounts.set(task.id, parentTaskId ? accounts.get(parentTaskId) : accountGroup(task.agentAccountId ?? task.dispatchSummary?.agentAccountId));
+  }
+  return accounts;
+}
 export function interactionKey(agent: string, session: AgentActivitySession) {
   return JSON.stringify([agent, session.id, session.phaseSince, session.interaction?.respond]);
 }

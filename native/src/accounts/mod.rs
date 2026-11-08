@@ -1,6 +1,7 @@
 //! Provider identities own sources, execution profiles and notification routes.
 use crate::kernel::file_cache::load;
 use crate::*;
+use std::collections::HashSet;
 #[path = "../claude_accounts/mod.rs"]
 pub mod claude;
 pub(crate) mod codex;
@@ -476,6 +477,76 @@ pub(crate) fn profile_account(profile: &str) -> Result<Value> {
         .find(|a| live(a) && profiles(a).any(|p| p["profileId"] == profile))
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND".into())
 }
+/// Execution profile evidence wins. Otherwise follow the retried turn, retaining
+/// the last confirmed thread attribution when execution evidence is unavailable.
+pub fn codex_dispatch_account(
+    records: &[Value],
+    turn: Option<&str>,
+    native_account: &Value,
+) -> Option<String> {
+    let account = |value: &Value| value.as_str().filter(|s| !s.is_empty()).map(str::to_owned);
+    if let Some(id) = account(native_account) {
+        return Some(id);
+    }
+    let mut row = turn
+        .and_then(|turn| records.iter().rev().find(|r| r["turnId"] == turn))
+        .or_else(|| records.last());
+    let mut seen = HashSet::new();
+    while let Some(current) = row {
+        if let Some(id) = account(&current["agentAccountId"]) {
+            return Some(id);
+        }
+        let previous = current["retryOf"].as_str().filter(|id| seen.insert(*id));
+        row = previous.and_then(|id| records.iter().rev().find(|r| r["turnId"] == id));
+    }
+    records
+        .iter()
+        .rev()
+        .find_map(|r| account(&r["agentAccountId"]))
+}
+#[cfg(test)]
+mod codex_attribution_tests {
+    use super::*;
+
+    #[test]
+    fn native_retry_without_account_keeps_retried_turn_attribution() {
+        // Regression: native interrupted-task successors without account fields cleared the thread's confirmed account after host restarts.
+        let records = vec![
+            json!({"turnId":"original","agentAccountId":"account-a"}),
+            json!({"turnId":"retry-1","dispatchSource":"native-retry","retryOf":"original","configurationEvidence":"inherited-dispatch-not-confirmed"}),
+            json!({"turnId":"retry-2","dispatchSource":"native-retry","retryOf":"retry-1","agentAccountId":null}),
+        ];
+        for native in [Value::Null, json!("account-a")] {
+            assert_eq!(
+                codex_dispatch_account(&records, Some("retry-2"), &native),
+                Some("account-a".into())
+            );
+            assert_eq!(
+                codex_dispatch_account(&records, None, &native),
+                Some("account-a".into())
+            );
+        }
+        let mut missing_evidence = records.clone();
+        missing_evidence[2]["retryOf"] = Value::Null;
+        assert_eq!(
+            codex_dispatch_account(&missing_evidence, None, &Value::Null),
+            Some("account-a".into())
+        );
+    }
+
+    #[test]
+    fn native_profile_account_is_authoritative_over_dispatch_history() {
+        // Property: a known execution profile determines attribution independently of missing or conflicting dispatch accounts.
+        for recorded in [Value::Null, json!("account-a"), json!("account-b")] {
+            let records = vec![json!({"turnId":"turn","agentAccountId":recorded})];
+            assert_eq!(
+                codex_dispatch_account(&records, None, &json!("native-account")),
+                Some("native-account".into())
+            );
+        }
+    }
+}
+
 /// Resolve native Claude login metadata without selecting today's default profile.
 pub fn claude_transcript_account(rows: &[Value], oauth_account: &Value) -> Option<String> {
     let uuid_key = identity_key(
