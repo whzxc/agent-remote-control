@@ -8,12 +8,16 @@ export function Notice({
   tone = "danger",
   action,
   actionBelow = false,
+  layout = "inline",
+  class: extra = "",
 }: {
   children?: unknown;
   title?: unknown;
   tone?: "danger" | "warning" | "success";
   action?: unknown;
   actionBelow?: boolean;
+  layout?: "inline" | "stacked";
+  class?: string;
 }) {
   const paint = {
     danger:
@@ -26,6 +30,15 @@ export function Notice({
       `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
       before:bg-success before:opacity-10 text-success`,
   };
+  if (layout === "stacked") {
+    const background = { danger: "bg-danger/10", warning: "bg-warning/10", success: "bg-success/10" };
+    const ink = { danger: "text-danger", warning: "text-warning", success: "text-success" };
+    return <div class={`flex flex-col gap-1 rounded-[14px] ${background[tone]} p-4 ${extra}`}>
+      {title && <strong class={`text-small leading-4 ${ink[tone]}`}>{title}</strong>}
+      {children}
+      {action && <div class="mt-2">{action}</div>}
+    </div>;
+  }
   return (
     <div
       class={`flex w-full gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${actionBelow ? "flex-col" : "items-start"}`}
