@@ -753,9 +753,7 @@ fn native_profile(from: &str) -> Result<Vec<(String, Candidate)>> {
             .map_err(|_| format!("MCP_IMPORT_NOT_FOUND: {} is not readable", path.display()))
     };
     if from == "codex" {
-        let dir = std::env::var_os("CODEX_HOME")
-            .map(PathBuf::from)
-            .unwrap_or(home.join(".codex"));
+        let dir = crate::accounts::codex::default_home()?;
         let config: toml::Table = toml::from_str(&read(dir.join("config.toml"))?)
             .map_err(|_| "MCP_IMPORT_INVALID: config.toml is not valid TOML")?;
         let servers = config

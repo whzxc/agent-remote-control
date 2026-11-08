@@ -106,6 +106,34 @@ of parsed heap usage.
 retention diagnostics. Instrumentation uses a fixed set of aggregate counters;
 it does not retain per-request samples. See [Runtime diagnostics](../reference/cli.md#runtime-diagnostics).
 
+## Shared Agent configuration
+
+`accounts/parity.rs` owns projection, freshness checks and publication of complete account homes. Each Agent policy supplies entry classification, generated files, shared subdirectories and external configuration dependencies. Codex is the first implementation in `accounts/codex_parity.rs`. Other Agents retain their existing behavior until they adopt a policy.
+
+The Codex primary home is the explicit external `CODEX_HOME`, or the user's `.codex` directory. An inherited ARC-managed profile home cannot become the primary home. ARC also sets the resolved primary home on utility processes. All primary-home entries pass through an allowlist with a rationale:
+
+| Entry | Classification | Reason |
+| --- | --- | --- |
+| `config.toml`, `*.config.toml` | Generated | Share settings and named profiles while excluding account identity and runtime locations |
+| `AGENTS.md`, `AGENTS.override.md` | Shared | Global instructions |
+| `hooks.json`, `rules/` | Shared | Hooks and execution policy |
+| `skills/`, `agents/`, `prompts/` | Shared | Skills, role definitions and reusable instructions |
+| `themes/`, `keybindings.json` | Shared | User configuration |
+| `plugins/cache/` | Shared | Installed plugin assets; marketplace selection and enablement come from shared TOML |
+| Other `plugins/` entries | Per account | Plugin data, process state and installation staging |
+| `auth.json`, `.credentials.json`, other credential files, `installation_id` | Per account | Account and installation identity |
+| Sessions, archived sessions, history, session indexes | Per account | Conversation state |
+| SQLite files and sidecars, logs, caches, locks, temporary files, shell snapshots | Per account | Runtime state |
+| Every other entry, including backups and new upstream extensions | Per account | Safe default prevents unknown identity or runtime data crossing account boundaries |
+
+Shared entries use symlinks. Windows falls back to generated copies when symlink privileges are unavailable. Copy verification compares content. A shared directory's descendants inherit its classification; the mixed `plugins/` directory has an explicit shared `cache/` part. Unknown root entries are never copied into a profile.
+
+Generated TOML takes the complete primary settings as its input. It removes `forced_chatgpt_workspace_id`, `sqlite_home` and `log_dir`, including inside inline configuration profiles. It selects private file stores for native and MCP OAuth credentials. It preserves approval and sandbox policies, reasoning defaults, features, agents, plugins, marketplaces, MCP servers, hooks, project trust and other shared settings. Relative instruction, model catalog, role, skill and local marketplace paths resolve against the primary home. Hook trust retains the original entries and adds the isolated filename for the same linked hook file. The primary file remains unchanged.
+
+Synchronization runs before profile login/import use, during Core startup and before each ARC-owned dispatch, send, steer or resume. The first migration atomically replaces manual profile TOML and removes profile-local shared entries absent from the source. It preserves identity and runtime files. Later syncs remove deleted shared entries. A completion record beside the home is published after all generated files and links pass verification. Interrupted syncs remain stale and are retried. Malformed or unreadable shared input fails closed with `CODEX_PROFILE_PARITY_FAILED` and a guide continuation.
+
+Configuration bytes and shared-tree metadata identify each projection. Fingerprints also cover referenced instruction, model catalog and agent-role files. Runtime and credential changes do not invalidate parity. Read-time checks expose `agentProfiles.parity` through accounts and dispatch-policy reads, with `primary`, `synced`, `stale` or `error`, the last successful sync time and a fingerprint when available. Stale/error states set account health to attention. The read describes disk parity; dispatch separately checks the App Server revision. An idle ARC App Server reloads changed settings. An active one keeps its connection for reads and interrupts and rejects further dispatch with `CODEX_PROFILE_PARITY_BUSY` until it can reload. Codex Desktop owns configuration reloads for Desktop-owned tasks.
+
 ## Claude login profiles
 
 Core owns Claude login profiles through the local-only `claude.accounts.*` management operations. Settings exposes a browser selector, official login, identity refresh, re-login, and removal. Browser discovery runs on the Core host. The default choice uses the system URL handler; explicit choices resolve installed applications without accepting arbitrary executable paths from the renderer.

@@ -10,14 +10,18 @@ pub struct Control {
     pub events: SharedEvents,
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
     binary: PathBuf,
-    rpc: Mutex<Option<Arc<Rpc>>>,
-    profile_rpcs: Mutex<HashMap<String, Arc<Rpc>>>,
+    profile_rpcs: Mutex<HashMap<String, ProfileRpc>>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
     requests: crate::kernel::receipts::RequestLocks,
     pub(crate) projects: Mutex<Option<(std::time::Instant, Vec<Value>)>>,
     task_records: Mutex<TaskRecords>,
+}
+#[derive(Clone)]
+struct ProfileRpc {
+    rpc: Arc<Rpc>,
+    fingerprint: String,
 }
 #[derive(Default)]
 struct TaskRecords {
@@ -80,7 +84,6 @@ impl Control {
             events: Default::default(),
             shutdown: tokio::sync::watch::channel(0).0,
             binary,
-            rpc: Mutex::new(None),
             monitor: Mutex::new(None),
             jobs: Default::default(),
             schemas: Mutex::new(None),
@@ -111,19 +114,59 @@ impl Control {
         result
     }
     pub async fn utility(&self) -> Result<Arc<Rpc>> {
-        let mut rpc = self.rpc.lock().await;
-        if rpc.as_ref().is_none_or(|r| !r.alive()) {
-            *rpc = Some(Rpc::start(&self.rpc_binary()?, self.events.clone(), &self.session).await?)
-        }
-        Ok(rpc.as_ref().unwrap().clone())
+        self.profile_rpc("codex-home").await
     }
     pub(crate) async fn profile_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
-        if profile == "codex-home" {
-            return self.utility().await;
-        }
         let mut rpcs = self.profile_rpcs.lock().await;
-        if let Some(rpc) = rpcs.get(profile).filter(|r| r.alive()) {
-            return Ok(rpc.clone());
+        if let Some(cached) = rpcs.get(profile).filter(|cached| cached.rpc.alive()) {
+            return Ok(cached.rpc.clone());
+        }
+        let parity = crate::accounts::codex::sync_profile(profile)?;
+        let cached = self.start_profile_rpc(profile, &parity).await?;
+        let rpc = cached.rpc.clone();
+        rpcs.insert(profile.into(), cached);
+        Ok(rpc)
+    }
+    /// Dispatches require both a complete home and an app-server that loaded it.
+    /// Reads and interrupts keep the old connection available while a task finishes.
+    async fn profile_dispatch_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
+        let mut rpcs = self.profile_rpcs.lock().await;
+        let parity = if profile == "codex-home" {
+            crate::accounts::codex::sync_profile(profile)?
+        } else {
+            crate::accounts::codex::inspect_profile(profile)
+        };
+        if let Some(error) = parity["error"].as_str() {
+            return Err(error.into());
+        }
+        if let Some(cached) = rpcs.get(profile).filter(|cached| cached.rpc.alive()) {
+            if matches!(parity["state"].as_str(), Some("synced" | "primary"))
+                && parity["fingerprint"].as_str() == Some(cached.fingerprint.as_str())
+            {
+                return Ok(cached.rpc.clone());
+            }
+            if self.profile_rpc_running(profile, &cached.rpc).await {
+                return Err(json!({"code":"CODEX_PROFILE_PARITY_BUSY","message":"Shared Codex configuration changed while this profile has active tasks. Finish or interrupt those tasks, then retry dispatch so ARC can restart the profile with current configuration.","next":{"via":"query","op":"guide","args":{"op":"accounts"}}}).to_string());
+            }
+            cached.rpc.close().await;
+        }
+        rpcs.remove(profile);
+        let parity = crate::accounts::codex::sync_profile(profile)?;
+        let cached = self.start_profile_rpc(profile, &parity).await?;
+        let rpc = cached.rpc.clone();
+        rpcs.insert(profile.into(), cached);
+        Ok(rpc)
+    }
+    async fn start_profile_rpc(&self, profile: &str, parity: &Value) -> Result<ProfileRpc> {
+        let fingerprint = parity["fingerprint"]
+            .as_str()
+            .ok_or("CODEX_PROFILE_PARITY_FAILED: Read query guide op accounts for the current parity contract")?
+            .to_owned();
+        if profile == "codex-home" {
+            return Ok(ProfileRpc {
+                rpc: Rpc::start(&self.rpc_binary()?, self.events.clone(), &self.session).await?,
+                fingerprint,
+            });
         }
         let config = crate::accounts::codex::profile(profile)?;
         let rpc = Rpc::start_profile(
@@ -141,21 +184,28 @@ impl Control {
                 return Err(error);
             }
         }
-        rpcs.insert(profile.into(), rpc.clone());
-        Ok(rpc)
+        Ok(ProfileRpc { rpc, fingerprint })
     }
     pub(crate) async fn profile_running(&self, profile: &str) -> bool {
-        let rpc = self.profile_rpcs.lock().await.get(profile).cloned();
+        let rpc = self
+            .profile_rpcs
+            .lock()
+            .await
+            .get(profile)
+            .map(|cached| cached.rpc.clone());
         let Some(rpc) = rpc.filter(|r| r.alive()) else {
             return false;
         };
+        self.profile_rpc_running(profile, &rpc).await
+    }
+    async fn profile_rpc_running(&self, profile: &str, rpc: &Rpc) -> bool {
         if self
             .events
             .lock()
             .await
             .pending
             .values()
-            .any(|r| r["agentProfileId"] == profile)
+            .any(|r| r["agentProfileId"].as_str().unwrap_or("codex-home") == profile)
         {
             return true;
         }
@@ -188,8 +238,8 @@ impl Control {
         false
     }
     pub(crate) async fn close_profile(&self, profile: &str) {
-        if let Some(rpc) = self.profile_rpcs.lock().await.remove(profile) {
-            rpc.close().await;
+        if let Some(cached) = self.profile_rpcs.lock().await.remove(profile) {
+            cached.rpc.close().await;
         }
     }
     pub(crate) async fn profile_account_rate_limits(&self, profile: &str) -> Result<Value> {
@@ -233,11 +283,11 @@ impl Control {
         &self,
         threads: &[String],
     ) -> Vec<(String, String, String)> {
-        let rpc = self.rpc.lock().await.clone();
         let monitor = self.monitor.lock().await.clone();
         let profiles = self.profile_rpcs.lock().await.clone();
+        let rpc = profiles.get("codex-home");
         let connected = (rpc.is_some() || monitor.is_some())
-            && rpc.as_ref().is_none_or(|r| r.alive())
+            && rpc.is_none_or(|cached| cached.rpc.alive())
             && monitor.as_ref().is_none_or(|m| m.alive());
         let events = self.events.lock().await;
         threads
@@ -246,7 +296,7 @@ impl Control {
                 let connected = crate::accounts::codex::thread_profile(thread)
                     .ok()
                     .filter(|p| p != "codex-home")
-                    .map(|p| profiles.get(&p).is_some_and(|r| r.alive()))
+                    .map(|p| profiles.get(&p).is_some_and(|cached| cached.rpc.alive()))
                     .unwrap_or(connected);
                 events.timelines.get(thread).map(|t| {
                     (
@@ -264,7 +314,12 @@ impl Control {
     }
     pub async fn health(&self) -> Value {
         // Reading diagnostics never calls utility(), which can start app-server.
-        let rpc = self.rpc.lock().await.clone();
+        let rpc = self
+            .profile_rpcs
+            .lock()
+            .await
+            .get("codex-home")
+            .map(|cached| cached.rpc.clone());
         let app_server = match rpc {
             Some(rpc) => rpc.health().await,
             None => {
@@ -277,8 +332,8 @@ impl Control {
         self.shutdown.send_modify(|v| *v = v.wrapping_add(1));
     }
     pub async fn close(&self) {
-        for (_, rpc) in self.profile_rpcs.lock().await.drain() {
-            rpc.close().await;
+        for (_, cached) in self.profile_rpcs.lock().await.drain() {
+            cached.rpc.close().await;
         }
         self.stop_waits();
         let jobs: Vec<_> = self.jobs.lock().await.drain().collect();
@@ -297,9 +352,6 @@ impl Control {
             }
         }
         self.monitor.lock().await.take();
-        if let Some(rpc) = self.rpc.lock().await.take() {
-            rpc.close().await;
-        }
     }
     pub fn auto_open_codex(&self) -> Result<bool> {
         if cfg!(target_os = "linux") {
@@ -364,7 +416,7 @@ impl Control {
             .as_deref()
             .and_then(|r| r["agentProfileId"].as_str())
             .unwrap_or("codex-home");
-        let rpc = self.profile_rpc(profile).await?;
+        let rpc = self.profile_dispatch_rpc(profile).await?;
         let selection = receipt.as_deref().map(|r|json!({"owner":"connector","agentProfileId":r["agentProfileId"],"agentAccountId":r["agentAccountId"]})).unwrap_or(json!({"owner":"connector"}));
         let mut args = args;
         args["ephemeral"] = json!(false);
@@ -398,7 +450,14 @@ impl Control {
         mut args: Value,
         timeout: u64,
     ) -> Result<Value> {
-        let rpc = self.thread_rpc(string(&args, "threadId")).await?;
+        let rpc = if matches!(method, "turn/start" | "turn/steer" | "thread/resume") {
+            self.profile_dispatch_rpc(&crate::accounts::codex::thread_profile(string(
+                &args, "threadId",
+            ))?)
+            .await?
+        } else {
+            self.thread_rpc(string(&args, "threadId")).await?
+        };
         if method == "thread/resume" && args.get("excludeTurns").is_none() {
             args["excludeTurns"] = json!(true);
         }
@@ -1059,7 +1118,12 @@ impl Control {
         #[cfg(feature = "test-fixture")]
         {
             if std::env::var_os("ARC_FIXTURE_DESKTOP").is_none() {
-                return self.utility().await?.call(method, args, timeout).await;
+                let rpc = if matches!(method, "turn/start" | "turn/steer" | "thread/resume") {
+                    self.profile_dispatch_rpc("codex-home").await?
+                } else {
+                    self.utility().await?
+                };
+                return rpc.call(method, args, timeout).await;
             }
         }
         #[allow(unreachable_code)]
@@ -1740,19 +1804,22 @@ impl Control {
             }
             if !desktop {
                 if state["status"]["type"] == "notLoaded" {
-                    self.thread_rpc(thread)
-                        .await?
-                        .call(
-                            "thread/resume",
-                            json!({"threadId":thread,"excludeTurns":true}),
-                            10000,
-                        )
-                        .await?;
+                    self.background_request(
+                        "thread/resume",
+                        json!({"threadId":thread,"excludeTurns":true}),
+                        10000,
+                    )
+                    .await?;
                 }
-                save(
-                    &root().join("execution").join(format!("{thread}.json")),
-                    &json!({"owner":"connector","reason":"explicit-interrupted-resume"}),
-                )?;
+                let path = root().join("execution").join(format!("{thread}.json"));
+                let mut binding = if path.exists() {
+                    load(&path)?
+                } else {
+                    json!({})
+                };
+                binding["owner"] = json!("connector");
+                binding["reason"] = json!("explicit-interrupted-resume");
+                save(&path, &binding)?;
             }
             r["state"] = json!("submitting");
             self.checkpoint(r)?;

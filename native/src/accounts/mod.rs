@@ -4,9 +4,11 @@ use crate::*;
 #[path = "../claude_accounts/mod.rs"]
 pub mod claude;
 pub(crate) mod codex;
+mod codex_parity;
 mod identity;
 mod login;
 mod merge;
+mod parity;
 pub use identity::link_source_identity;
 pub use merge::merge_accounts;
 static STORE: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -686,6 +688,7 @@ impl Manager {
             })
             .collect::<Result<std::collections::BTreeMap<_, _>>>()?;
         for row in &mut rows {
+            project_parity(row);
             row["mergedAccountIds"] = json!(canonical
                 .iter()
                 .filter_map(|(id, owner)| {
@@ -735,7 +738,7 @@ impl Manager {
                 "n/a"
             };
             row["notifications"] = json!({"state":state,"reachable":sessions.iter().any(|s| s["verified"]==true || s["reachable"]==true),"sessions":sessions,"historicalSessions":historical_sessions});
-            row["health"] = json!({"state":if !live(row) {"removed"} else if identity::has_conflict(row) || profiles(row).any(|p| p["state"] != "signed-in") {"attention"} else {"ready"}});
+            row["health"] = json!({"state":if !live(row) {"removed"} else if identity::has_conflict(row) || profiles(row).any(|p| p["state"] != "signed-in" || parity_attention(p)) {"attention"} else {"ready"}});
             if !live(row) {
                 row["displayName"] = json!(format!("Removed account · {}", string(row, "alias")));
             }
@@ -1127,10 +1130,29 @@ mod tests {
     }
 }
 
+fn project_parity(account: &mut Value) {
+    for profile in account["agentProfiles"]
+        .as_array_mut()
+        .into_iter()
+        .flatten()
+    {
+        if profile["agent"] == "codex" {
+            profile["parity"] = codex::inspect_profile(string(profile, "profileId"));
+        }
+    }
+}
+fn parity_attention(profile: &Value) -> bool {
+    profile["agent"] == "codex"
+        && !matches!(
+            profile["parity"]["state"].as_str(),
+            Some("synced" | "primary")
+        )
+}
+
 pub(crate) fn dispatch_accounts(agent: &str) -> Result<Value> {
-    Ok(json!(read()?.into_iter().filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
+    Ok(json!(read()?.into_iter().map(|mut account| { project_parity(&mut account); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
         let profiles: Vec<_> = profiles(&a).filter(|p| p["agent"] == agent).cloned().collect();
-        json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in") {"ready"} else {"attention"}},"agentProfiles":profiles,"quota":a["quota"]})
+        json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quota":a["quota"]})
     }).collect::<Vec<_>>()))
 }
 

@@ -218,3 +218,99 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.equal((await fixture.completed('codex_archive', { threadId: thread })).state, 'completed');
   } finally { await fixture.close(); await rm(hooks, { recursive: true, force: true }); }
 });
+
+test('Codex profiles inherit approval policy and reload shared setup before dispatch', async () => {
+  // Regression: spare Codex homes requested approval on every command and missed shared setup; interrupted resume erased the profile binding.
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const primary = await mkdtemp(path.join(tmpdir(), 'arc-codex-primary-'));
+  const config = (effort: string) => `approval_policy = "never"\nsandbox_mode = "danger-full-access"\nmodel_reasoning_effort = "${effort}"\n[mcp_servers.example]\nurl = "https://example.test/mcp"\n[features]\nmulti_agent = true\n`;
+  await writeFile(path.join(primary, 'config.toml'), config('low'));
+  await writeFile(path.join(primary, 'AGENTS.md'), 'Shared instruction fixture');
+  await mkdir(path.join(primary, 'skills', 'example-skill'), { recursive: true });
+  await writeFile(path.join(primary, 'skills', 'example-skill', 'SKILL.md'), 'Example shared skill');
+  const script = `import {createInterface} from 'node:readline';
+import {randomUUID} from 'node:crypto'; import fs from 'node:fs'; import path from 'node:path';
+const home=process.env.CODEX_HOME; fs.mkdirSync(home,{recursive:true});
+const config=fs.existsSync(path.join(home,'config.toml'))?fs.readFileSync(path.join(home,'config.toml'),'utf8'):'';
+const policy=/^approval_policy\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
+const effort=/^model_reasoning_effort\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
+const setup={policy,effort,instructions:fs.existsSync(path.join(home,'AGENTS.md'))?fs.readFileSync(path.join(home,'AGENTS.md'),'utf8'):null,skills:fs.existsSync(path.join(home,'skills'))?fs.readdirSync(path.join(home,'skills')).filter(name=>name==='example-skill'):[],mcp:config.includes('[mcp_servers.example]')};
+const auth=fs.existsSync(path.join(home,'auth.json'))?JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8')):null;
+const account=auth?.tokens?.account_id??'primary'; const file=path.join(home,'fixture-tasks.json');
+const tasks=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{}; const save=rows=>fs.writeFileSync(file,JSON.stringify(rows));
+for await(const line of createInterface({input:process.stdin})) {
+ const {id,method,params}=JSON.parse(line);if(id===undefined)continue;let result={};const rows=tasks();const row=rows[params?.threadId];
+ if(method==='account/read')result={account:{type:'chatgpt',accountId:account,email:account+'@example.test',planType:'pro'}};
+ if(method==='account/rateLimits/read')result={rateLimits:{primary:{usedPercent:0,windowDurationMins:300}}};
+ if(method==='model/list')result={data:[{id:'fixture-model',model:'fixture-model',supportedReasoningEfforts:[{reasoningEffort:'low'}],defaultReasoningEffort:'low'}]};
+ if(method==='thread/start'){const created={id:randomUUID(),cwd:home,updatedAt:Date.now(),status:{type:'idle'},turns:[]};rows[created.id]=created;save(rows);result={thread:created};}
+ if(method==='thread/read')result={thread:row};
+ if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
+ if(method==='thread/loaded/list')result={data:Object.keys(rows)};
+ if(method==='thread/list')result={data:Object.values(rows),nextCursor:null};
+ if(method==='turn/start'){
+  if(policy!=='never'){console.log(JSON.stringify({id,error:{code:-32000,message:'Command approval required by missing shared policy'}}));continue;}
+  const active=params.input?.some(i=>i.text==='hold'); const turn={id:randomUUID(),status:active?'inProgress':'completed',items:[{id:randomUUID(),type:'agentMessage',text:JSON.stringify(setup)}]};
+  row.status={type:active?'active':'idle'};row.turns.push(turn);save(rows);result={turn};
+ }
+ if(method==='turn/interrupt'){row.status={type:'idle'};row.turns.at(-1).status='interrupted';save(rows);}
+ console.log(JSON.stringify({id,result}));
+}`;
+  const fixture = await nativeControl(script, { CODEX_HOME: primary });
+  try {
+    const primaryAccount = (await fixture.call('accounts', { agent: 'codex' })).accounts.find((account: any) => account.agentProfiles.some((profile: any) => profile.profileId === 'codex-home'));
+    const imported = [];
+    for (const name of ['alpha', 'beta']) {
+      const result = await fixture.call('account_import', { auth: { tokens: { access_token: name, refresh_token: 'fixture-refresh', account_id: name } }, refreshOwner: 'codex' });
+      assert.equal(result.state, 'completed', JSON.stringify(result));
+      imported.push(result);
+    }
+    const dispatch = async (account: any, prompt = 'inspect') => {
+      const receipt = await fixture.completed('codex_create', { account: account.accountId, prompt, model: 'fixture-model' });
+      assert.equal(receipt.state, 'completed', JSON.stringify(receipt));
+      const read = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: receipt.threadId, includeTurns: true } });
+      return { receipt, setup: JSON.parse(read.thread.turns.at(-1).items[0].text) };
+    };
+    for (const account of imported) {
+      assert.deepEqual((await dispatch(account)).setup, { policy: 'never', effort: 'low', instructions: 'Shared instruction fixture', skills: ['example-skill'], mcp: true });
+      const detail = await fixture.call('accounts', { id: account.accountId });
+      const parity = detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity;
+      assert.equal(parity.state, 'synced');
+      assert.ok(parity.lastSyncAt);
+    }
+    const allAccounts = [{ accountId: primaryAccount.id }, ...imported];
+    assert.equal((await dispatch(allAccounts[0])).setup.effort, 'low');
+    await writeFile(path.join(primary, 'config.toml'), config('medium'));
+    for (const account of allAccounts) assert.equal((await dispatch(account)).setup.effort, 'medium');
+    const held = await dispatch(imported[0], 'hold');
+    await writeFile(path.join(primary, 'config.toml'), config('high'));
+    const blocked = await fixture.completed('codex_create', { account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
+    assert.equal(blocked.error.code, 'CODEX_PROFILE_PARITY_BUSY', JSON.stringify(blocked));
+    assert.equal((await fixture.completed('codex_interrupt', { threadId: held.receipt.threadId, turnId: held.receipt.turnId })).state, 'completed');
+    const resumed = await fixture.completed('codex_resume', { threadId: held.receipt.threadId, turnId: held.receipt.turnId });
+    assert.equal(resumed.state, 'completed', JSON.stringify(resumed));
+    const resumedThread = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: true } });
+    assert.equal(JSON.parse(resumedThread.thread.turns.at(-1).items[0].text).effort, 'high');
+    const continuation = await fixture.completed('codex_send', { threadId: held.receipt.threadId, account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
+    assert.equal(continuation.state, 'completed', JSON.stringify(continuation));
+    assert.equal(continuation.agentAccountId, imported[0].accountId);
+    assert.equal((await dispatch(imported[0])).setup.effort, 'high');
+    await fixture.restart(async state => {
+      for (const account of imported) await writeFile(path.join(state, 'accounts/codex/profiles', account.profileId, 'home/config.toml'), 'approval_policy = "on-request"\n');
+    });
+    for (const account of imported) {
+      const detail = await fixture.call('accounts', { id: account.accountId });
+      assert.equal(detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity.state, 'synced');
+      assert.equal((await dispatch(account)).setup.policy, 'never');
+    }
+    await writeFile(path.join(primary, 'config.toml'), 'approval_policy = "fixture-secret-without-closing-quote\n');
+    const failed = await fixture.completed('codex_create', { account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
+    assert.equal(failed.error.code, 'CODEX_PROFILE_PARITY_FAILED', JSON.stringify(failed));
+    assert.equal(failed.threadId, undefined);
+    assert.equal(failed.next.op, 'guide');
+    assert.deepEqual(failed.next.args, { op: 'accounts' });
+    assert.ok(!JSON.stringify(failed).includes('fixture-secret-without-closing-quote'));
+  } finally { await fixture.close(); await rm(primary, { recursive: true, force: true }); }
+});

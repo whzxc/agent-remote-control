@@ -36,6 +36,7 @@ impl Rpc {
         profile: Option<&str>,
     ) -> Result<Arc<Self>> {
         let mut command = command(binary);
+        command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
         if let Some(profile) = profile {
             command.env("CODEX_HOME", crate::accounts::codex::home(profile)?);
             #[cfg(not(feature = "test-fixture"))]

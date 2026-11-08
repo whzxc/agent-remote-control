@@ -145,10 +145,7 @@ pub(crate) fn local_path(path: &str, thread: &str, cwd: &str) -> Result<PathBuf>
         )?;
         return Ok(actual);
     }
-    let home = std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|h| h.join(".codex")))
-        .ok_or("CODEX_HOME_UNAVAILABLE")?;
+    let home = crate::accounts::codex::thread_home(thread)?;
     let visuals = home
         .join("visualizations")
         .canonicalize()

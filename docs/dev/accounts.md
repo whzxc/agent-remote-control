@@ -31,6 +31,12 @@ New isolated tasks execute in ARC App Server. Their execution mapping persists t
 
 Task listings merge each native home's pages with independent upstream cursors. Activity discovery includes isolated transcripts. Both paths bind discovered threads to their native home, including subagents that emit no `thread/started` notification. Their native parent relationship and account remain available across Core restarts. Quota reads use each profile's native account. Native OAuth reauthentication reuses its isolated home; external reauthentication invokes the configured manager. Neither path starts a system-account login.
 
+## Shared Agent configuration
+
+Codex account homes project the primary home's shared setup while retaining private identity and runtime state. Edit the primary configuration instead of generated profile configs. Creation, import, Core startup and dispatch synchronize the projection. The first successful projection replaces previous hand-written profile settings. Configuration changes reload idle ARC App Servers. An active App Server with older settings blocks further dispatch until its work finishes. Reads and interrupts remain available.
+
+`accounts` and `dispatch_policy` expose each Codex profile's `parity` with `state`, `fingerprint` and `lastSyncAt`. The primary profile reports `primary`; isolated profiles report `synced`, `stale` or `error`. This is home parity at read time. Dispatch additionally validates the App Server's loaded revision. Stale/error homes set account health to attention. See [Architecture](architecture.md#shared-agent-configuration) for the classification and generated configuration rules.
+
 ## Built-in local authority
 
 Local CLI (`ingressId:local-cli`, credential type `local`) and the local panel share one durable local source identity. The panel records `ingressId:local-ui` in its origin. They are built-in authority on this computer, not external control sources or provider accounts. Their source ID remains available for task and receipt attribution; new local origins have no account ID. Local `whoami` reports `authority:local`, a null account `id`, and `identityResolution.state:not-applicable`.

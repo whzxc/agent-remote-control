@@ -154,9 +154,7 @@ impl Ipc {
         #[cfg(unix)]
         let socket = {
             use std::os::unix::fs::{FileTypeExt, MetadataExt};
-            let home = std::env::var_os("CODEX_HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| dirs::home_dir().unwrap().join(".codex"));
+            let home = crate::accounts::codex::default_home()?;
             let socket = home.join("ipc/ipc.sock");
             let stat = std::fs::symlink_metadata(&socket).map_err(|e| e.to_string())?;
             if !stat.file_type().is_socket() || stat.uid() != unsafe { libc::geteuid() } {

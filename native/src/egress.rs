@@ -129,6 +129,9 @@ pub(crate) fn minimal_text(response: &mut Value) {
 }
 
 pub fn failure(e: &str) -> Value {
+    if let Some(message) = e.strip_prefix("CODEX_PROFILE_PARITY_FAILED: ") {
+        return json!({"code":"CODEX_PROFILE_PARITY_FAILED","message":message,"retryable":false,"next":{"via":"query","op":"guide","args":{"op":"accounts"}}});
+    }
     if let Some(code) = crate::src_conversations::error_code(e) {
         return json!({"code":code,"message":e,"retryable":false});
     }
@@ -152,6 +155,8 @@ pub fn failure(e: &str) -> Value {
                     | "ACCOUNT_DEFAULT_MISSING"
                     | "ACCOUNT_DEFAULT_AGENT_REQUIRED"
                     | "CODEX_THREAD_ACCOUNT_MISMATCH"
+                    | "CODEX_PROFILE_PARITY_BUSY"
+                    | "CODEX_PROFILE_PARITY_FAILED"
                     | "ACCOUNT_ROUTE_CHANGED"
                     | "HANDSHAKE_INVALID_OR_EXPIRED"
                     | "DESKTOP_STEER_UNAVAILABLE"

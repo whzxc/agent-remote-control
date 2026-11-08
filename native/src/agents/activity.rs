@@ -227,12 +227,9 @@ impl ScanCache {
 }
 fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
     let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Activity);
-    let Some(home) = dirs::home_dir() else {
+    let Ok(codex_home) = crate::accounts::codex::default_home() else {
         return Vec::new();
     };
-    let codex_home = std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| home.join(".codex"));
     let claude_roots = if selected.iter().any(|agent| agent == "claude") {
         crate::accounts::claude::transcript_roots()
     } else {

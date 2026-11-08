@@ -1,4 +1,5 @@
 //! Isolated native Codex accounts and provider-neutral imported credentials.
+pub(crate) use super::codex_parity::{inspect_profile, sync_profile};
 use super::*;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
@@ -28,11 +29,48 @@ fn profile_path(id: &str) -> Result<PathBuf> {
         .map_err(|_| "CODEX_PROFILE_INVALID: Read accounts for a valid profile")?;
     Ok(directory().join(id).join("profile.json"))
 }
+/// ARC child tasks inherit their profile's CODEX_HOME. That runtime override
+/// must never become the Agent's shared source when the child starts Core.
+pub fn primary_home(
+    configured: Option<&Path>,
+    profiles: &Path,
+    user_home: Option<&Path>,
+) -> Option<PathBuf> {
+    let managed = configured
+        .and_then(|home| {
+            let container = home.parent()?.parent()?;
+            let managed_container = container == profiles
+                || container.ends_with(Path::new("accounts").join("codex").join("profiles"));
+            managed_container
+                .then(|| home.strip_prefix(container).ok())
+                .flatten()
+        })
+        .is_some_and(|relative| {
+            let mut components = relative.components();
+            let profile = components.next().and_then(|part| part.as_os_str().to_str());
+            profile.is_some_and(|profile| uuid::Uuid::parse_str(profile).is_ok())
+                && components
+                    .next()
+                    .is_some_and(|part| part.as_os_str() == "home")
+                && components.next().is_none()
+        });
+    configured
+        .filter(|_| !managed)
+        .map(Path::to_path_buf)
+        .or_else(|| user_home.map(|home| home.join(".codex")))
+}
 pub(crate) fn default_home() -> Result<PathBuf> {
-    std::env::var_os("CODEX_HOME")
+    let configured = std::env::var_os("CODEX_HOME")
         .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|p| p.join(".codex")))
-        .ok_or_else(|| "CODEX_HOME_UNAVAILABLE".into())
+        .map(|path| path.canonicalize().unwrap_or(path));
+    let profiles = directory();
+    let profiles = profiles.canonicalize().unwrap_or(profiles);
+    primary_home(
+        configured.as_deref(),
+        &profiles,
+        dirs::home_dir().as_deref(),
+    )
+    .ok_or_else(|| "CODEX_HOME_UNAVAILABLE".into())
 }
 pub(crate) fn home(id: &str) -> Result<PathBuf> {
     if id == "codex-home" {
@@ -117,6 +155,7 @@ pub(crate) fn new_login() -> Result<Profile> {
         refresh_command: None,
     };
     persist(&p)?;
+    sync_profile(&p.id)?;
     Ok(p)
 }
 fn claims(token: &Value) -> Value {
@@ -233,6 +272,7 @@ pub(super) async fn import(control: &control::Control, args: &Value) -> Result<V
     };
     control.close_profile(&p.id).await;
     persist(&p)?;
+    sync_profile(&p.id)?;
     if owner == "codex" {
         save(&home(&p.id)?.join("auth.json"), &auth)?;
         let access_path = profile_path(&p.id)?.parent().unwrap().join("access.json");
@@ -330,4 +370,37 @@ pub(crate) async fn tokens(profile_id: &str, request: Option<&Value>) -> Result<
         save(&path, &safe)?;
     }
     Ok(safe)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inherited_managed_home_never_becomes_primary_configuration() {
+        // Regression: ARC launched from a spare Codex task inherited its CODEX_HOME and treated that account as the shared source.
+        let profiles = Path::new("/state/accounts/codex/profiles");
+        let managed = profiles.join("00000000-0000-4000-8000-000000000001/home");
+        let user = Path::new("/user");
+        assert_eq!(
+            primary_home(Some(&managed), profiles, Some(user)),
+            Some(user.join(".codex"))
+        );
+        let other_instance = Path::new(
+            "/other-state/accounts/codex/profiles/00000000-0000-4000-8000-000000000002/home",
+        );
+        assert_eq!(
+            primary_home(Some(other_instance), profiles, Some(user)),
+            Some(user.join(".codex"))
+        );
+        let custom = Path::new("/custom-codex");
+        assert_eq!(
+            primary_home(Some(custom), profiles, Some(user)),
+            Some(custom.to_path_buf())
+        );
+        assert_eq!(
+            primary_home(None, profiles, Some(user)),
+            Some(user.join(".codex"))
+        );
+    }
 }
