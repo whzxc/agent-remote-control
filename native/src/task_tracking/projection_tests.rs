@@ -2,6 +2,35 @@ use super::*;
 
 const AT: &str = "2026-01-01T00:00:00Z";
 const LATER: &str = "2026-01-01T00:00:01Z";
+
+#[test]
+fn codex_subagent_metadata_prefers_nickname_over_thread_name() {
+    // Regression: subagent activity and detail titles lost native nicknames while normal threads retained their names.
+    let nickname = "Kepler";
+    let snapshot = json!({"id":"child","title":"Generated thread title","agentNickname":nickname});
+    let thread = crate::control::thread(&snapshot, false).unwrap();
+    let source_thread = crate::control::thread(
+        &json!({"id":"child","title":"Generated thread title","source":{"subAgent":{"thread_spawn":{"agent_nickname":nickname}}}}),
+        false,
+    ).unwrap();
+    for (thread, expected) in [
+        (thread, nickname),
+        (source_thread, nickname),
+        (
+            json!({"id":"root","agentNickname":null,"name":"Root task"}),
+            "Root task",
+        ),
+    ] {
+        assert_eq!(crate::control::summary(&thread)["title"], expected);
+        let mut timeline = Timeline::default();
+        timeline.backfill_codex(&thread, 0, 0, AT);
+        assert_eq!(
+            timeline.session("child", &timeline.info, "codex-thread", None)["title"],
+            expected
+        );
+    }
+}
+
 fn acp(t: &mut Timeline, update: Value) {
     t.agent("session/update", &json!({"params":{"update":update}}), AT);
 }

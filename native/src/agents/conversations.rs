@@ -258,7 +258,7 @@ impl AgentHost {
             cache.clocks = clocks;
             drop(cache);
             let data: Vec<_> = rows.iter().zip(metadata).map(|(row, metadata)| {
-                let title = row["name"].as_str().filter(|s| !s.is_empty()).unwrap_or_else(|| string(row, "preview"));
+                let title = crate::task_tracking::codex_title(row).unwrap_or_else(|| string(row, "preview"));
                 let mut item = json!({"id":row["id"],"title":title.chars().take(240).collect::<String>(),
                     "project":row["cwd"],"projectName":crate::projects::display_name(&projects, string(row,"cwd"), row["projectId"].as_str()),
                     "createdAt":timestamp(&row["createdAt"]),"source":"codex-thread"});

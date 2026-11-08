@@ -16,6 +16,19 @@ const MAX_BYTES: usize = 8 * 1024 * 1024;
 const MAX_TEXT: usize = 256 * 1024;
 const SUMMARY: usize = 1024;
 
+pub(crate) fn codex_title(thread: &Value) -> Option<&str> {
+    [
+        thread.get("agentNickname"),
+        thread.pointer("/source/subAgent/thread_spawn/agent_nickname"),
+        thread.get("name"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(Value::as_str)
+    .map(str::trim)
+    .find(|name| !name.is_empty())
+}
+
 pub(crate) fn file_change(change: &Value) -> Value {
     let mut row = json!({"path":cut(&redact(string(change,"path")),SUMMARY).0,
         "operation":match string(&change["kind"],"type") {"add"=>Some("create"),"update"=>Some("edit"),"delete"=>Some("delete"),_=>None}});
@@ -1185,7 +1198,8 @@ impl Timeline {
             .sort_by_key(|row| row["position"].as_u64().unwrap_or(u64::MAX));
         self.bytes = self.entries.iter().map(|r| r.to_string().len()).sum();
         if self.info.is_null() {
-            self.info = json!({"id":thread["id"],"title":thread["name"],"project":thread["cwd"]});
+            self.info =
+                json!({"id":thread["id"],"title":codex_title(thread),"project":thread["cwd"]});
         }
         for row in &self.entries {
             if row["status"] == "running" && matches!(string(row, "type"), "text" | "thinking") {

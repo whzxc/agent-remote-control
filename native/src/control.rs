@@ -859,7 +859,7 @@ impl Control {
                 let unseen_history = !events.timelines.contains_key(thread) && !turns.is_empty();
                 let timeline = events.timelines.entry(thread.into()).or_default();
                 timeline.partial |= unseen_history;
-                timeline.info = json!({"runtimeSource":info["thread"]["runtimeSource"],"id":thread,"title":info["thread"]["name"].as_str().unwrap_or("Codex task"),"project":info["thread"]["cwd"],"startedAt":timeline.info.get("startedAt").cloned().unwrap_or(json!(now()))});
+                timeline.info = json!({"runtimeSource":info["thread"]["runtimeSource"],"id":thread,"title":crate::task_tracking::codex_title(&info["thread"]).unwrap_or("Codex task"),"project":info["thread"]["cwd"],"startedAt":timeline.info.get("startedAt").cloned().unwrap_or(json!(now()))});
                 timeline.status = "running".into();
             }
             let result = self.request_native(method, args.clone(), timeout).await;
@@ -2858,7 +2858,7 @@ fn configured(args: &Value, cwd: &str) -> Result<Value> {
     Ok(p)
 }
 pub(crate) fn thread(s: &Value, complete: bool) -> Result<Value> {
-    let mut t = json!({"id":s["id"],"name":s["title"],"cwd":s["cwd"],"path":s["rolloutPath"],"createdAt":s["createdAt"].as_u64().unwrap_or(0)/1000,"updatedAt":s["updatedAt"].as_u64().unwrap_or(0)/1000,"model":s["latestModel"],"reasoningEffort":s["latestReasoningEffort"],"status":s["threadRuntimeStatus"],"runtimeSource":"codex-desktop-owner"});
+    let mut t = json!({"id":s["id"],"name":s["title"],"agentNickname":s["agentNickname"],"source":s["source"],"cwd":s["cwd"],"path":s["rolloutPath"],"createdAt":s["createdAt"].as_u64().unwrap_or(0)/1000,"updatedAt":s["updatedAt"].as_u64().unwrap_or(0)/1000,"model":s["latestModel"],"reasoningEffort":s["latestReasoningEffort"],"status":s["threadRuntimeStatus"],"runtimeSource":"codex-desktop-owner"});
     let settings = &s["latestThreadSettings"];
     if let Some(model) = settings.get("model") {
         t["model"] = model.clone();
@@ -2914,7 +2914,7 @@ pub(crate) fn summary(t: &Value) -> Value {
             _ => None,
         })
     });
-    let mut summary = json!({"archived":archived,"threadId":t["id"],"project":t["cwd"],"title":t["name"],"preview":t["preview"],"cwd":t["cwd"],"runtimeStatus":state,"runtimeSource":if state=="unknown"{json!("persisted-history-only")}else{t["runtimeSource"].clone()},"configuration":{"scope":"thread-defaults","source":"thread/read-or-list","model":t.get("model").unwrap_or(&json!("unknown")),"effort":t.get("reasoningEffort").unwrap_or(&json!("unknown")),"modelProvider":t.get("modelProvider").unwrap_or(&json!("unknown")),"turnEffective":"unknown"},"actions":{"read":true,"send":if state=="idle"{"new-turn"}else if state=="active"{"steer"}else{"requires-native-ownership-check"},"interrupt":"native-ownership-check","configurationChange":if state=="idle"{"new-turn-and-subsequent"}else{"requires-idle"}},"activeFlags":t["status"].get("activeFlags").unwrap_or(&json!([])),"updatedAt":t["updatedAt"],"observedAt":now(),"businessDelivery":"not-assessed"});
+    let mut summary = json!({"archived":archived,"threadId":t["id"],"project":t["cwd"],"title":crate::task_tracking::codex_title(t),"preview":t["preview"],"cwd":t["cwd"],"runtimeStatus":state,"runtimeSource":if state=="unknown"{json!("persisted-history-only")}else{t["runtimeSource"].clone()},"configuration":{"scope":"thread-defaults","source":"thread/read-or-list","model":t.get("model").unwrap_or(&json!("unknown")),"effort":t.get("reasoningEffort").unwrap_or(&json!("unknown")),"modelProvider":t.get("modelProvider").unwrap_or(&json!("unknown")),"turnEffective":"unknown"},"actions":{"read":true,"send":if state=="idle"{"new-turn"}else if state=="active"{"steer"}else{"requires-native-ownership-check"},"interrupt":"native-ownership-check","configurationChange":if state=="idle"{"new-turn-and-subsequent"}else{"requires-idle"}},"activeFlags":t["status"].get("activeFlags").unwrap_or(&json!([])),"updatedAt":t["updatedAt"],"observedAt":now(),"businessDelivery":"not-assessed"});
     if !cfg!(target_os = "linux") && t["runtimeSource"] != "connector-app-server" {
         summary["desktopUrl"] = json!(format!("codex://threads/{}", string(t, "id")));
     }

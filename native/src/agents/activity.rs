@@ -33,6 +33,7 @@ pub(super) struct TurnClock {
     turn_configuration: Value,
     session_id: Option<String>,
     title: String,
+    nickname: Option<String>,
     native_title: crate::task_tracking::TranscriptTitle,
     project: Option<String>,
     created_at: Value,
@@ -409,6 +410,15 @@ fn scan_paths(
             }
         }
     }
+    for session in &mut active {
+        if let Some(nickname) = cache
+            .tails
+            .get(&session.path)
+            .and_then(|tail| tail.clock.nickname.as_deref())
+        {
+            session.session["title"] = json!(nickname);
+        }
+    }
     cache.tails.retain(|path, _| recent.contains(path));
     active
 }
@@ -499,6 +509,11 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     if agent == "codex" && record["type"] == "session_meta" {
         let payload = &record["payload"];
         clock.session_id = payload["id"].as_str().map(str::to_owned);
+        clock.nickname = payload["agent_nickname"]
+            .as_str()
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(|name| name.chars().take(240).collect());
         let (parent, kind) = if payload["attached_thread"] == true {
             (&payload["forked_from_id"], "side-chat")
         } else {
@@ -819,6 +834,49 @@ mod tests {
                 json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call","call_id":call,"name":"exec_command","arguments":"{\"cmd\":\"cat src/example.rs\"}"}}),
             ]
         }
+    }
+
+    #[test]
+    fn codex_subagent_nickname_survives_missing_prompt_and_tail_sampling() {
+        // Regression: native subagent tasks arrived as agent_message records and displayed an empty title.
+        let (directory, path, now, at) = fixture();
+        let id = "00000000-0000-4000-8000-000000000001";
+        let nickname = "Kepler";
+        append(
+            &path,
+            &[json!({"type":"session_meta","timestamp":at,"payload":{
+                "id":id,"agent_nickname":nickname,"subagent_history_start_ordinal":3,
+                "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread"}}}
+            }})],
+        );
+        append(
+            &path,
+            &prompt("codex", "parent-turn", "Inherited request", &at),
+        );
+        append(
+            &path,
+            &[
+                json!({"type":"event_msg","timestamp":at,"payload":{"type":"task_started","turn_id":"child-turn"}}),
+                json!({"type":"response_item","timestamp":at,"payload":{"type":"agent_message","author":"/root","recipient":"/root/review","content":[{"type":"input_text","text":"Message Type: NEW_TASK"}]}}),
+            ],
+        );
+        append(&path, &tool_call("codex", "read-first", &at));
+        append(&path, &large_tool_output("codex", "read-first", &at));
+        append(&path, &tool_call("codex", "read-tail", &at));
+        append(
+            &directory.0.join("index.jsonl"),
+            &[json!({"id":id,"thread_name":"Generated thread title"})],
+        );
+        let mut cache = ScanCache::default();
+        let row = snapshot(&directory, "codex", now, &mut cache);
+        assert_eq!(row["title"], nickname);
+        assert_eq!(row["parentSessionId"], "parent-thread");
+        assert_eq!(row["turnCount"], 1);
+        append(&path, &tool_call("codex", "read-next", &at));
+        assert_eq!(
+            snapshot(&directory, "codex", now, &mut cache)["title"],
+            nickname
+        );
     }
 
     #[test]
