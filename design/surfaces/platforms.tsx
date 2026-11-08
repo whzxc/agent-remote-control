@@ -5,20 +5,7 @@ import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { SingleChoice } from "../components/single-choice";
 import { BrandMark, type Brand } from "../components/agent-icon";
-const platforms = [
-  ["openai", "OpenAI"],
-  ["anthropic", "Anthropic"],
-  ["google", "Google"],
-  ["xai", "xAI"],
-  ["microsoft", "Microsoft"],
-  ["notion", "Notion"],
-  ["slack", "Slack"],
-  ["raycast", "Raycast"],
-  ["cursor", "Cursor"],
-  ["opencode", "OpenCode"],
-  ["alibaba", "Alibaba"],
-  ["other", "Other"],
-];
+import { platformChoices as platforms } from "../fixtures/choices";
 const details = [
   [
     ["Product", "RrrhATA"],

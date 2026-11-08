@@ -1,26 +1,11 @@
 import { Frame, Icon } from "sdg";
 import { BrandMark, type Brand } from "./agent-icon";
 import { SetupChoice } from "./setup-choice";
-const themeOptions = [
-  { value: "system", label: "跟随系统" },
-  { value: "light", label: "亮色" },
-  { value: "dark", label: "暗色" },
-];
-const platforms = [
-  ["openai", "OpenAI"],
-  ["anthropic", "Anthropic"],
-  ["google", "Google"],
-  ["xai", "xAI"],
-  ["microsoft", "Microsoft"],
-  ["notion", "Notion"],
-  ["slack", "Slack"],
-  ["raycast", "Raycast"],
-  ["cursor", "Cursor"],
-  ["opencode", "OpenCode"],
-  ["alibaba", "Alibaba"],
-  ["other", "Other"],
-];
-const navigationOptions = platforms.map(([value, label]) => ({
+import {
+  themeOptions, platformChoices, tabsOptions, cardOptions, choiceExamples,
+} from "../fixtures/choices";
+
+const navigationOptions = platformChoices.map(([value, label]) => ({
   value,
   label,
   graphic:
@@ -30,11 +15,6 @@ const navigationOptions = platforms.map(([value, label]) => ({
       <BrandMark brand={value as Brand} size={22} />
     ),
 }));
-const tabsOptions = [
-  { value: "current", label: "Current" },
-  { value: "activity", label: "Activity" },
-];
-const cardOptions = [{ value: "alpha", label: "Alpha" }];
 export type Choice = {
   value: string;
   label: string;
@@ -104,7 +84,9 @@ export function SingleChoice({
       <button
         aria-label={label}
         disabled={disabled}
-        class={`inline-flex h-(--control-height) items-center gap-[6px] px-4 rounded-control bg-surface-sunken text-text text-small whitespace-nowrap ${fill ? "w-full justify-between" : ""} ${extra}`}
+        class={`inline-flex h-(--control-height) items-center gap-(--control-gap) px-4
+          rounded-control bg-surface-sunken text-text text-small whitespace-nowrap
+          ${fill ? "w-full justify-between" : ""} ${extra}`}
       >
         <span>{options.find((option) => option.value === value)?.label}</span>
         <Icon name={dropdownIcon} size={14} class="text-text-secondary" />
@@ -120,12 +102,19 @@ export function SingleChoice({
           : optionCards
             ? "flex w-full flex-col gap-2"
             : tabs
-              ? "inline-flex gap-[3px]"
-              : `inline-grid grid-flow-col auto-cols-fr rounded-control bg-surface-sunken p-[3px] ${fill ? "w-full" : ""}`
+              ? "inline-flex gap-(--control-inset)"
+              : `inline-grid grid-flow-col auto-cols-fr rounded-control bg-surface-sunken p-(--control-inset) ${fill ? "w-full" : ""}`
       }`}
     >
       {options.map((option, index) => {
         const selected = option.value === value;
+        const shape = navigation
+          ? "gap-3 h-10 px-3 rounded-[14px] text-body"
+          : optionCards
+            ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken"
+            : tabs
+              ? "h-(--control-height) px-3 text-body"
+              : `h-7 ${compact ? "px-0" : "px-4"} rounded-[14px] justify-center text-small whitespace-nowrap`;
         const content = (
           <>
             {option.graphic ||
@@ -140,7 +129,9 @@ export function SingleChoice({
             role="radio"
             aria-checked={selected}
             disabled={disabled || option.disabled}
-            class={`flex items-center ${navigation ? "gap-3 h-10 px-3 rounded-[14px] text-body" : optionCards ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken" : tabs ? "h-(--control-height) px-3 text-body" : `h-7 ${compact ? "px-0" : "px-4"} rounded-[14px] justify-center text-small whitespace-nowrap`} ${selected ? `text-text ${!optionCards ? "font-[650]" : ""} ${!tabs && !optionCards ? "bg-surface-raised shadow-sm" : ""}` : "text-text-secondary"}`}
+            class={`flex items-center ${shape} ${selected
+              ? `text-text ${!optionCards ? "font-[650]" : ""} ${!tabs && !optionCards ? "bg-surface-raised shadow-sm" : ""}`
+              : "text-text-secondary"}`}
           >
             {optionCards && (
               <span class="font-mono text-meta text-text-tertiary">
@@ -164,32 +155,29 @@ export function SingleChoice({
 }
 export default () => [
   <Frame name="pills">
-    <SingleChoice value="system" options={themeOptions} label="Theme" />
+    <SingleChoice {...choiceExamples.theme} options={themeOptions} />
   </Frame>,
   <Frame name="dropdown">
     <SingleChoice
-      value="system"
+      {...choiceExamples.theme}
       options={themeOptions}
-      label="Theme"
       dropdown
     />
   </Frame>,
   <Frame name="navigation" width={216}>
     <SingleChoice
-      value="openai"
+      {...choiceExamples.navigation}
       options={navigationOptions}
-      label="Platform"
       navigation
     />
   </Frame>,
   <Frame name="tabs">
-    <SingleChoice value="current" options={tabsOptions} label="Board" tabs />
+    <SingleChoice {...choiceExamples.tabs} options={tabsOptions} tabs />
   </Frame>,
   <Frame name="option-card" width={394}>
     <SingleChoice
-      value="alpha"
+      {...choiceExamples.optionCard}
       options={cardOptions}
-      label="Option"
       optionCards
     />
   </Frame>,

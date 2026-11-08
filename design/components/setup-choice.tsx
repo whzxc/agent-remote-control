@@ -1,13 +1,7 @@
 import { Frame, Icon } from "sdg";
 import { BrandMark, type Brand } from "./agent-icon";
-const forms = [
-  {
-    name: "row",
-    label: "创建我的中继",
-    description: "推荐 · 部署到你的 Cloudflare 免费账号",
-  },
-  { name: "product", label: "Claude Code", description: "仅本机客户端可用" },
-] as const;
+import { setupChoiceForms } from "../fixtures/choices";
+
 export function SetupChoice({
   label,
   description,
@@ -33,7 +27,8 @@ export function SetupChoice({
 }) {
   return form === "product" ? (
     <div
-      class={`flex w-full flex-col ${disabled ? "opacity-45" : ""} gap-[10px] rounded-card bg-surface-subtle px-[14px] pt-4 ${catalog && !description ? "pb-4" : "pb-[10px]"}`}
+      class={`flex w-full flex-col ${disabled ? "opacity-45" : ""} gap-[10px]
+        rounded-card bg-surface-subtle px-[14px] pt-4 ${catalog && !description ? "pb-4" : "pb-[10px]"}`}
     >
       <div class="flex items-center gap-[10px]">
         {graphic || <BrandMark brand={brand} size={24} />}
@@ -45,7 +40,8 @@ export function SetupChoice({
     </div>
   ) : (
     <div
-      class={`flex w-full items-center gap-[13px] rounded-card bg-surface-subtle px-[15px] ${catalog && !description ? "py-[19px]" : "py-4"}`}
+      class={`flex w-full items-center gap-[13px] rounded-card bg-surface-subtle px-[15px]
+        ${catalog && !description ? "py-[19px]" : "py-4"}`}
     >
       {icon ? (
         <Icon name={icon} size={18} class="text-text" />
@@ -82,8 +78,8 @@ export function SetupAction(props: {
   return <SetupChoice {...props} />;
 }
 export default () =>
-  forms.map(({ name, ...props }) => (
-    <Frame name={name} width={name === "row" ? 680 : 204}>
-      <SetupChoice {...props} form={name} selected brand="claude-code" />
+  setupChoiceForms.map(({ form, ...props }) => (
+    <Frame name={`setup-choice-${form}`} width={form === "row" ? 680 : 204}>
+      <SetupChoice {...props} form={form} />
     </Frame>
   ));
