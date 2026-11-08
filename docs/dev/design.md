@@ -16,7 +16,7 @@ The default exports declare the maintained presentations. Apply the toolkit's si
 
 ## Ownership and project configuration
 
-The configured production order is `components` → `modules` → `surfaces`, using SDG default discovery. Generic controls belong to `components`; feature ownership and remaining migrations are listed in the [mapping](design-assets.md). `modules/model-configuration.tsx` owns model/effort presentation. `modules/task-presentation.tsx` owns TaskBubble and TaskRow, with their remaining governance work listed in the mapping. `fixtures/` owns extracted representative data. `art/` owns artwork and content images, with dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
+The configured production order is `components` → `modules` → `surfaces`, using SDG default discovery. Generic controls belong to `components`; feature ownership and remaining migrations are listed in the [mapping](design-assets.md). `modules/model-configuration.tsx` owns model/effort presentation. `modules/quota.tsx` owns quota cards and readings. `modules/task-presentation.tsx` owns TaskBubble and TaskRow, with their remaining governance work listed in the mapping. `fixtures/` owns extracted representative data. `art/` owns artwork and content images, with dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
 
 `scenes/topology-screen.tsx` and `scenes/topology.ts` remain outside the source graph and await the topology module/fixture migration. This is the current placement exception; review its helper and type-only dependencies in that scope.
 

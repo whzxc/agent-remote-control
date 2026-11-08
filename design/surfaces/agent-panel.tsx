@@ -2,25 +2,12 @@ import { Frame, Icon } from "sdg";
 import { PanelShell } from "../components/panel";
 import { AgentIcon } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import { QuotaSummary } from "../components/quota-card";
+import { QuotaSummary } from "../modules/quota";
 import { TaskBubble } from "../modules/task-presentation";
 import { Tile } from "../components/tile";
 import { Tag } from "../components/tag";
 
-const quotas = [
-  {
-    label: "5h 额度 · 2h 0m",
-    remaining: 27,
-    estimate: "≈ 1h 7m",
-    elapsed: 0.4,
-  },
-  {
-    label: "周额度 · 3d 0h",
-    remaining: 32,
-    estimate: "≈ 1d 21h",
-    elapsed: 3 / 7,
-  },
-];
+import { agentQuotas as quotas } from "../fixtures/quota";
 const active = [
   {
     heading: "需要你处理 · 1",

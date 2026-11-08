@@ -1,23 +1,8 @@
 import { Frame } from "sdg";
-import { BrandMark } from "./agent-icon";
-import { IconButton } from "./icon-button";
-const readings = [
-  {
-    label: "5h 额度",
-    reset: "2h 0m",
-    remaining: 27,
-    estimate: "≈ 1h 7m",
-    elapsed: 0.4,
-  },
-  {
-    label: "周额度",
-    reset: "3d 0h",
-    remaining: 32,
-    estimate: "≈ 1d 21h",
-    elapsed: 3 / 7,
-  },
-];
-const example = { title: "ChatGPT", updated: "2m ago" };
+import { BrandMark } from "../components/agent-icon";
+import { IconButton } from "../components/icon-button";
+import { readings, quotaExample, agentQuotas, quotaAccounts } from "../fixtures/quota";
+
 export function QuotaCard({ children }: { children?: unknown }) {
   return (
     <div class="flex w-full flex-col gap-5 rounded-card bg-surface-subtle px-4 pt-4 pb-[22px] text-text">
@@ -70,24 +55,6 @@ export function QuotaReading({
     </div>
   );
 }
-export default () => (
-  <Frame name="default" width={392}>
-    <QuotaCard>
-      <header class="flex items-center gap-[10px] h-6">
-        <BrandMark brand="codex" size={24} />
-        <strong class="flex-1 text-body font-[650]">{example.title}</strong>
-        <span class="text-meta text-text-tertiary">{example.updated}</span>
-        <IconButton icon="refresh-cw" label="Refresh" compact />
-      </header>
-      <div class="flex flex-col gap-[26px]">
-        {readings.map((reading) => (
-          <QuotaReading {...reading} />
-        ))}
-      </div>
-    </QuotaCard>
-  </Frame>
-);
-
 export function QuotaBar({
   remaining,
   elapsed,
@@ -149,3 +116,36 @@ export function QuotaSummary({
     </div>
   );
 }
+
+export default () => [
+  <Frame name="quota-card" width={392}>
+    <QuotaCard>
+      <header class="flex items-center gap-[10px] h-6">
+        <BrandMark brand="codex" size={24} />
+        <strong class="flex-1 text-body font-[650]">{quotaExample.title}</strong>
+        <span class="text-meta text-text-tertiary">{quotaExample.updated}</span>
+        <IconButton icon="refresh-cw" label="Refresh" compact />
+      </header>
+      <div class="flex flex-col gap-[26px]">
+        {readings.map((reading) => (
+          <QuotaReading {...reading} />
+        ))}
+      </div>
+    </QuotaCard>
+  </Frame>,
+  <Frame name="quota-reading" width={360}>
+    <div class="w-full bg-surface-subtle"><QuotaReading {...readings[0]} /></div>
+  </Frame>,
+  <Frame name="quota-bar" width={360}>
+    <div class="w-full bg-surface-subtle py-[2px]"><QuotaBar {...readings[0]} /></div>
+  </Frame>,
+  <Frame name="quota-summary" width={186}>
+    <div class="w-full bg-surface-raised"><QuotaSummary {...agentQuotas[0]} /></div>
+  </Frame>,
+  <Frame name="quota-summary-tall" width={216}>
+    <div class="w-full bg-surface-raised"><QuotaSummary {...quotaAccounts[0].quotas[0]} tall /></div>
+  </Frame>,
+  <Frame name="quota-detail-action">
+    <QuotaDetailAction>{quotaExample.updated}</QuotaDetailAction>
+  </Frame>,
+];

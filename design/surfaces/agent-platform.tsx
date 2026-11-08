@@ -2,45 +2,8 @@ import { Frame } from "sdg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import { QuotaSummary } from "../components/quota-card";
-const accounts = [
-  {
-    name: "Personal",
-    quotas: [
-      {
-        label: "5h quota · 2h 0m",
-        remaining: 82,
-        elapsed: 0.4,
-        tone: "accent",
-      },
-      {
-        label: "Weekly · 3d 0h",
-        remaining: 73,
-        elapsed: 3 / 7,
-        tone: "accent",
-      },
-    ],
-  },
-  {
-    name: "Studio",
-    quotas: [
-      {
-        label: "5h quota · 2h 0m",
-        remaining: 42,
-        elapsed: 0.4,
-        estimate: "~3% spare",
-        tone: "warning",
-      },
-      {
-        label: "Weekly · 3d 0h",
-        remaining: 27,
-        elapsed: 3 / 7,
-        estimate: "≈ 1d 11h",
-        tone: "accent",
-      },
-    ],
-  },
-] as const;
+import { QuotaSummary } from "../modules/quota";
+import { quotaAccounts as accounts } from "../fixtures/quota";
 function Platform({ native = false }: { native?: boolean }) {
   return (
     <PanelShell width={480} height={590} class="p-5">

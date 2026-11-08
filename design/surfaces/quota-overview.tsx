@@ -2,23 +2,10 @@ import { Frame, Icon } from "sdg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import { QuotaBar } from "../components/quota-card";
+import { QuotaBar } from "../modules/quota";
 import { Tile } from "../components/tile";
 import { Button } from "../components/button";
-const readings = [
-  {
-    title: "5h 额度 · 剩余 27%",
-    detail: "2h 0m · ≈ 1h 7m",
-    remaining: 27,
-    elapsed: 0.4,
-  },
-  {
-    title: "周额度 · 剩余 32%",
-    detail: "3d 0h · ≈ 1d 21h",
-    remaining: 32,
-    elapsed: 3 / 7,
-  },
-];
+import { overviewReadings as readings } from "../fixtures/quota";
 function QuotaOverview({ empty = false }: { empty?: boolean }) {
   return (
     <PanelShell width={440} class="px-6 pt-[13px] pb-6">
