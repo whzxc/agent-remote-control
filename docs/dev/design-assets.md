@@ -12,6 +12,8 @@ All declared component families, feature modules and composed surfaces are Revie
 
 Remaining work consists of the Known gaps below. Missing presentation forms require their own visual source review before runtime implementation changes.
 
+Quota health uses `--success` for healthy readings, bars and rings, including account summaries. `usageColors.good` maps to `var(--success)`; caution keeps `--warning`, warning and exhausted keep `--danger`, and unknown keeps `--text-tertiary`.
+
 ## Owners, parts and consumers
 
 Paths in the tables are relative to `design/`, unless prefixed with `ui/`. Implementation entries identify source counterparts; fidelity review is pending. Direct design users appear per part below. Transitive consumers follow those sources' imports into the surface table; homepage imports through `modules/homepage-topology` are included explicitly. Same-source composition and runtime usage are stated where no external design consumer exists. `GET /relationships` in the SDG viewer exposes the production graph. All production compositions participate in default discovery.

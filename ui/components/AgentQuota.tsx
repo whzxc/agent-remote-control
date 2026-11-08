@@ -3,7 +3,7 @@ import { useNow } from "../state/hooks";
 import { quotaDisplay, quotaLabel, quotaPercent, quotaValue, resetDisplay } from "../subscriptions/displayPreferences";
 import { agentQuotaWindows, windowLabel } from "../subscriptions/labels";
 import { quotaElapsed } from "../subscriptions/quotaTiming";
-import { compactReset, preciseTime, quotaColor } from "../subscriptions/presentation";
+import { compactReset, preciseTime, quotaColor, usageColors } from "../subscriptions/presentation";
 import { quotaPace } from "../subscriptions/pace";
 import type { ProviderSnapshot } from "../subscriptions/types";
 import { Button } from "./ui";
@@ -29,7 +29,7 @@ export default function AgentQuota({ provider, form = "agent" }: { provider: Pro
         const label = windowLabel(window.label), value = quotaValue(window);
         const resetText = reset === "time" && Number.isFinite(resetAt) ? preciseTime(window.resetsAt) : compactReset(window.resetsAt, now);
         const barColor = form === "account"
-          ? window.usedPercent >= 100 ? "var(--danger)" : pace[index]?.label && !pace[index]?.flame ? "var(--warning)" : "var(--accent)"
+          ? window.usedPercent >= 100 ? "var(--danger)" : pace[index]?.label && !pace[index]?.flame ? "var(--warning)" : usageColors.good
           : pace[index]?.color ?? quotaColor(window, provider, now);
         return <div className="agent-quota-card" key={window.id} data-monthly={window === monthly || undefined}>
           <div className="agent-quota-window"><span title={window.scope}>{label}</span>

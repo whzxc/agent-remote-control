@@ -62,7 +62,7 @@ export function QuotaBar({
 }: {
   remaining: number;
   elapsed?: number;
-  tone?: "warning" | "accent";
+  tone?: "warning" | "success";
 }) {
   return (
     <div
@@ -71,7 +71,7 @@ export function QuotaBar({
     >
       <div
         style={{ width: `${remaining}%` }}
-        class={`h-full rounded-[3px] ${tone === "accent" ? "bg-accent" : "bg-warning"}`}
+        class={`h-full rounded-[3px] ${tone === "success" ? "bg-success" : "bg-warning"}`}
       />
       {elapsed !== undefined && (
         <span
@@ -95,7 +95,7 @@ export function QuotaSummary({
   estimate?: string;
   elapsed?: number;
   tall?: boolean;
-  tone?: "warning" | "accent";
+  tone?: "warning" | "success";
 }) {
   return (
     <div
