@@ -19,19 +19,21 @@ const dot: Record<TopologyGroupQuota, string> = {
 };
 
 /**
- * A folded group of sibling nodes. The first mark is centered 24px from the
- * group's leading edge, on the same axis as a regular node's icon.
+ * A folded group of sibling nodes. Portrait capsules place the brand marks
+ * on the edge nearest their rail.
  */
 export function TopologyGroup({ label, members, layout = "vertical", hideLabel = false }: TopologyGroupProps) {
   const brands = [...new Set(members.map((m) => m.brand))];
   const pool = brands.length === 1;
   const quotas = pool ? members.flatMap((m) => (m.quota ? [m.quota] : [])).slice(0, 12) : [];
+  const capsuleLayout = layout === "agent"
+    ? `flex-row-reverse pl-3 ${pool ? "pr-[9px]" : "pr-2"}`
+    : `pr-3 ${pool ? "pl-[9px]" : "pl-2"}`;
   const capsule = (
     <span
       aria-label={hideLabel ? label : undefined}
       class={
-        "flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface pr-3 shadow-sm " +
-        String(pool ? "pl-[9px]" : "pl-[8px]")
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface shadow-sm " + capsuleLayout
       }
     >
       {pool ? (

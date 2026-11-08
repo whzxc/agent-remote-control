@@ -29,6 +29,7 @@ export const portraitAccountGroups = [
   },
   {
     label: "Codex · 11 idle accounts",
+    layout: "agent",
     members: [
       { brand: "codex", quota: "out" },
       ...Array.from({ length: 10 }, () => ({ brand: "codex", quota: "ok" }) as const),
@@ -36,6 +37,7 @@ export const portraitAccountGroups = [
   },
   {
     label: "Claude Code · 2 idle accounts",
+    layout: "agent",
     members: [{ brand: "claude-code", quota: "low" }, { brand: "claude-code", quota: "ok" }],
   },
 ] as const satisfies readonly TopologyGroupProps[];
