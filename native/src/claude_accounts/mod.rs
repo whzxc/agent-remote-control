@@ -68,11 +68,8 @@ pub(crate) fn transcript_roots() -> Vec<(PathBuf, Option<String>)> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
-    let custom = std::env::var_os("CLAUDE_CONFIG_DIR").filter(|value| !value.is_empty());
-    let config = custom
-        .as_ref()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| home.join(".claude"));
+    let custom = configured_native_dir();
+    let config = custom.clone().unwrap_or_else(|| home.join(".claude"));
     let metadata = if custom.is_some() {
         config.join(".claude.json")
     } else {
@@ -81,21 +78,7 @@ pub(crate) fn transcript_roots() -> Vec<(PathBuf, Option<String>)> {
     let rows = super::read().unwrap_or_default();
     let login: Value = crate::kernel::file_cache::load(&metadata).unwrap_or(Value::Null);
     let account = super::claude_transcript_account(&rows, &login["oauthAccount"]);
-    let mut roots = vec![(config.join("projects"), account)];
-    for profile in list_accounts().unwrap_or_default() {
-        let Ok(config) = config_dir(&profile.id) else {
-            continue;
-        };
-        let path = config.join("projects");
-        let account = super::profile_account(&profile.id)
-            .ok()
-            .and_then(|row| row["id"].as_str().map(str::to_owned));
-        if let Some(existing) = roots.iter_mut().find(|(root, _)| *root == path) {
-            existing.1 = account;
-        } else {
-            roots.push((path, account));
-        }
-    }
+    let roots = vec![(config.join("projects"), account)];
     roots
 }
 
@@ -244,6 +227,73 @@ async fn command_for(config: Option<&Path>) -> Result<tokio::process::Command> {
 pub(crate) fn config_dir(account_id: &str) -> Result<PathBuf> {
     read_account(account_id).map_err(|_| "CLAUDE_ACCOUNT_NOT_FOUND: The assigned profile is missing or unreadable. Select an existing accountId with notify_control action:route for this source-owned target, or edit the host assignment in Accounts; ARC will not use another account automatically".to_owned())?;
     Ok(account_dir(account_id)?.join("config"))
+}
+
+/// Credentials remain private; Claude Code stores every account's transcripts
+/// in the native projects directory. Existing data requires explicit migration.
+fn configured_native_dir() -> Option<PathBuf> {
+    std::env::var_os("CLAUDE_CONFIG_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .filter(|path| {
+            let managed = path.file_name().is_some_and(|n| n == "config")
+                && path.parent().is_some_and(|p| {
+                    p.file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+                        && p.parent()
+                            .is_some_and(|p| p.file_name().is_some_and(|n| n == "claude-accounts"))
+                });
+            !managed
+        })
+}
+fn shared_projects(config: &Path) -> Result<()> {
+    let source = configured_native_dir()
+        .unwrap_or_else(|| dirs::home_dir().expect("home directory").join(".claude"))
+        .join("projects");
+    let target = config.join("projects");
+    std::fs::create_dir_all(&source).map_err(|e| e.to_string())?;
+    private_dir(config)?;
+    let source = source.canonicalize().map_err(|e| e.to_string())?;
+    if target.canonicalize().ok().as_ref() == Some(&source) {
+        return Ok(());
+    }
+    if std::fs::symlink_metadata(&target).is_ok() {
+        if std::fs::read_dir(&target)
+            .map_err(|e| e.to_string())?
+            .next()
+            .is_some()
+        {
+            return Err(json!({"code":"CLAUDE_SESSION_MIGRATION_REQUIRED","message":"This credential profile still contains native sessions. Move them to the native Claude projects directory before using it. ARC leaves the existing data unchanged.","next":{"via":"query","op":"guide","args":{"op":"accounts"}}}).to_string());
+        }
+        std::fs::remove_dir(&target).map_err(|e| e.to_string())?;
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&source, &target).map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let result = std::process::Command::new("cmd.exe")
+            .args(["/d", "/c", "mklink", "/J"])
+            .arg(&target)
+            .arg(&source)
+            .creation_flags(0x08000000)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !result.status.success() {
+            return Err("CLAUDE_SESSION_DIRECTORY_UNAVAILABLE: Could not link the native projects directory".into());
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn session_config_dir(account_id: &str) -> Result<PathBuf> {
+    let config = config_dir(account_id)?;
+    shared_projects(&config)?;
+    Ok(config)
+}
+pub(crate) async fn session_command(account_id: &str) -> Result<tokio::process::Command> {
+    cli(&session_config_dir(account_id)?).await
 }
 
 pub(crate) async fn account_command(account_id: &str) -> Result<tokio::process::Command> {

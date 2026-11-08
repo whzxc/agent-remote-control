@@ -30,7 +30,7 @@ impl Manager {
                         return Err("ACCOUNT_LOGIN_CODE_UNSUPPORTED: Codex completes authorization through loginUrl; use cancel to stop".into());
                     }
                     control
-                        .profile_rpc(login["profileId"].as_str().unwrap_or("codex-home"))
+                        .auth_rpc(login["profileId"].as_str().unwrap_or("codex-home"))
                         .await?
                         .call(
                             "account/login/cancel",
@@ -77,7 +77,7 @@ impl Manager {
                 }
                 let config = super::codex::profile(profile)?;
                 if config.refresh_owner != "codex" {
-                    super::codex::tokens(profile,Some(&json!({"reason":"reauthenticate","previousAccountId":config.account_id}))).await?;
+                    super::codex::tokens(profile,Some(&json!({"reason":"reauthenticate","previousAccountId":config.account_id})), &control.rpc_binary()?).await?;
                     control.close_profile(profile).await;
                     return Ok(
                         json!({"loginId":id(),"kind":"codex","state":"completed","accountId":row["id"],"refreshOwner":config.refresh_owner}),
@@ -113,7 +113,7 @@ impl Manager {
                 super::codex::new_login()?.id
             };
             let mut result = control
-                .profile_rpc(&profile)
+                .auth_rpc(&profile)
                 .await?
                 .call("account/login/start", json!({"type":"chatgpt"}), 15000)
                 .await?;
@@ -185,7 +185,7 @@ impl Manager {
             if completed["success"] == true {
                 let profile = login["profileId"].as_str().unwrap_or("codex-home");
                 let result = control
-                    .profile_rpc(profile)
+                    .auth_rpc(profile)
                     .await?
                     .call("account/read", json!({"refreshToken":false}), 5000)
                     .await?;

@@ -11,6 +11,7 @@ pub struct Control {
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
     binary: PathBuf,
     profile_rpcs: Mutex<HashMap<String, ProfileRpc>>,
+    auth_rpcs: Mutex<HashMap<String, Arc<Rpc>>>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
@@ -88,12 +89,13 @@ impl Control {
             jobs: Default::default(),
             schemas: Mutex::new(None),
             profile_rpcs: Mutex::new(HashMap::new()),
+            auth_rpcs: Mutex::new(HashMap::new()),
             requests: Default::default(),
             projects: Default::default(),
             task_records: Default::default(),
         })
     }
-    fn rpc_binary(&self) -> Result<PathBuf> {
+    pub(crate) fn rpc_binary(&self) -> Result<PathBuf> {
         if cfg!(target_os = "linux") && !cfg!(feature = "test-fixture") {
             crate::agents::codex_binary().ok_or_else(|| "CODEX_NOT_FOUND: install Codex CLI and log in as this user; searched PATH, ~/.local/bin, /usr/local/bin, npm global prefixes, nvm, bun and Volta directories.".into())
         } else {
@@ -121,7 +123,7 @@ impl Control {
         if let Some(cached) = rpcs.get(profile).filter(|cached| cached.rpc.alive()) {
             return Ok(cached.rpc.clone());
         }
-        let parity = crate::accounts::codex::sync_profile(profile)?;
+        let parity = crate::accounts::codex::shared_configuration(profile)?;
         let cached = self.start_profile_rpc(profile, &parity).await?;
         let rpc = cached.rpc.clone();
         rpcs.insert(profile.into(), cached);
@@ -132,7 +134,7 @@ impl Control {
     async fn profile_dispatch_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
         let mut rpcs = self.profile_rpcs.lock().await;
         let parity = if profile == "codex-home" {
-            crate::accounts::codex::sync_profile(profile)?
+            crate::accounts::codex::shared_configuration(profile)?
         } else {
             crate::accounts::codex::inspect_profile(profile)
         };
@@ -140,7 +142,7 @@ impl Control {
             return Err(error.into());
         }
         if let Some(cached) = rpcs.get(profile).filter(|cached| cached.rpc.alive()) {
-            if matches!(parity["state"].as_str(), Some("synced" | "primary"))
+            if matches!(parity["state"].as_str(), Some("shared" | "primary"))
                 && parity["fingerprint"].as_str() == Some(cached.fingerprint.as_str())
             {
                 return Ok(cached.rpc.clone());
@@ -151,7 +153,7 @@ impl Control {
             cached.rpc.close().await;
         }
         rpcs.remove(profile);
-        let parity = crate::accounts::codex::sync_profile(profile)?;
+        let parity = crate::accounts::codex::shared_configuration(profile)?;
         let cached = self.start_profile_rpc(profile, &parity).await?;
         let rpc = cached.rpc.clone();
         rpcs.insert(profile.into(), cached);
@@ -168,7 +170,6 @@ impl Control {
                 fingerprint,
             });
         }
-        let config = crate::accounts::codex::profile(profile)?;
         let rpc = Rpc::start_profile(
             &self.rpc_binary()?,
             self.events.clone(),
@@ -176,8 +177,9 @@ impl Control {
             Some(profile),
         )
         .await?;
-        if config.refresh_owner != "codex" {
-            let mut login = crate::accounts::codex::tokens(profile, None).await?;
+        {
+            let mut login =
+                crate::accounts::codex::tokens(profile, None, &self.rpc_binary()?).await?;
             login["type"] = json!("chatgptAuthTokens");
             if let Err(error) = rpc.call("account/login/start", login, 10000).await {
                 rpc.close().await;
@@ -185,6 +187,42 @@ impl Control {
             }
         }
         Ok(ProfileRpc { rpc, fingerprint })
+    }
+    pub(crate) async fn auth_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
+        if profile == "codex-home" {
+            return self.utility().await;
+        }
+        let mut rpcs = self.auth_rpcs.lock().await;
+        if let Some(rpc) = rpcs.get(profile).filter(|r| r.alive()) {
+            return Ok(rpc.clone());
+        }
+        let rpc = Rpc::start_auth(
+            &self.rpc_binary()?,
+            self.events.clone(),
+            &self.session,
+            profile,
+        )
+        .await?;
+        rpcs.insert(profile.into(), rpc.clone());
+        Ok(rpc)
+    }
+    pub(crate) async fn observe_thread_account(&self, thread: &str) -> Result<()> {
+        if uuid::Uuid::parse_str(thread).is_ok()
+            && crate::accounts::codex::bound_account(thread).is_null()
+            && !crate::accounts::codex::profiles()?.is_empty()
+        {
+            let native = self
+                .utility()
+                .await?
+                .call(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    15000,
+                )
+                .await?;
+            crate::accounts::codex::observe_history(&native["thread"])?;
+        }
+        Ok(())
     }
     pub(crate) async fn profile_running(&self, profile: &str) -> bool {
         let rpc = self
@@ -238,6 +276,9 @@ impl Control {
         false
     }
     pub(crate) async fn close_profile(&self, profile: &str) {
+        if let Some(rpc) = self.auth_rpcs.lock().await.remove(profile) {
+            rpc.close().await;
+        }
         if let Some(cached) = self.profile_rpcs.lock().await.remove(profile) {
             cached.rpc.close().await;
         }
@@ -332,6 +373,9 @@ impl Control {
         self.shutdown.send_modify(|v| *v = v.wrapping_add(1));
     }
     pub async fn close(&self) {
+        for (_, rpc) in self.auth_rpcs.lock().await.drain() {
+            rpc.close().await;
+        }
         for (_, cached) in self.profile_rpcs.lock().await.drain() {
             cached.rpc.close().await;
         }
@@ -1274,6 +1318,8 @@ impl Control {
         }
         if matches!(operation, "create" | "send") {
             let selected = if operation == "send" {
+                self.observe_thread_account(string(&args, "threadId"))
+                    .await?;
                 crate::accounts::select_codex_thread(
                     string(&args, "threadId"),
                     args["account"].as_str(),
@@ -2105,12 +2151,6 @@ impl Control {
                 }
             }
             r["task"]["directory"] = seed.get("cwd").cloned().unwrap_or(Value::Null);
-            if args["agentProfileId"]
-                .as_str()
-                .is_some_and(|p| p != "codex-home")
-            {
-                seed.remove("projectId");
-            }
             r["state"] = json!("thread-submitting");
             self.checkpoint(r)?;
             let background = r["executionOwner"] == "connector";

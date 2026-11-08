@@ -206,6 +206,8 @@ export interface AccountAgentProfile {
   state: "signed-in" | "signed-out" | "unfinished" | "invalid";
   default: boolean;
   refreshOwner?: "codex" | "none" | "external";
+  role?: "primary" | "secondary";
+  desktopDispatch?: boolean;
 }
 export interface AccountNotifications {
   reachable?: boolean;

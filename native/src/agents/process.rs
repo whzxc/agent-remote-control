@@ -118,7 +118,7 @@ impl Process {
         let mut cmd = launch_command(binary, args)?;
         if state["agent"] == "claude" {
             if let Some(profile) = state["agentProfileId"].as_str() {
-                let config = crate::accounts::claude::config_dir(profile)?;
+                let config = crate::accounts::claude::session_config_dir(profile)?;
                 cmd.env_clear()
                     .envs(crate::accounts::claude::isolated_environment(
                         std::env::vars_os().collect(),

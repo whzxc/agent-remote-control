@@ -83,7 +83,7 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
   } finally { await fixture.close(); }
 });
 
-test('Isolated Codex credentials retain task accounts and explicit refresh ownership', async () => {
+test('Codex credentials remain independent while sessions use the native shared home', async () => {
   // Regression: adding a Codex account replaced the system login; native subagents without thread/started also fell back to the default account.
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
@@ -106,7 +106,7 @@ for await(const line of createInterface({input:process.stdin})) {
  if(!method) {if(id==='refresh'&&refreshTurn){account=response.accessToken; reply(refreshTurn.id,{turn:refreshTurn.turn});refreshTurn=null;} continue;}
  if(id===undefined)continue;
  let result={};const rows=tasks(); const row=rows[params?.threadId];
- if(method==='account/read') result={account:{type:'chatgpt',accountId:'workspace-'+account,email:account+'@example.test',planType:'pro'}};
+ if(method==='account/read'){if(params.refreshToken&&fs.existsSync(path.join(home,'auth.json'))){const auth=JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8'));auth.tokens.access_token+='-refreshed';account=auth.tokens.access_token;fs.writeFileSync(path.join(home,'auth.json'),JSON.stringify(auth));}result={account:{type:'chatgpt',accountId:'workspace-'+account,email:account+'@example.test',planType:'pro'}};}
  if(method==='account/login/start') {
   if(params.type==='chatgpt') {account='oauth';fs.writeFileSync(path.join(home,'auth.json'),JSON.stringify({tokens:{access_token:account,refresh_token:'native-owned',account_id:'workspace-oauth'}}));result={type:'chatgpt',loginId:'oauth-login'};setTimeout(()=>console.log(JSON.stringify({method:'account/login/completed',params:{loginId:'oauth-login',success:true}})),10);}
   else {account=params.accessToken; result={type:params.type};}
@@ -119,17 +119,23 @@ for await(const line of createInterface({input:process.stdin})) {
  if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
  if(method==='thread/list')result={data:Object.values(rows).filter(r=>!!r.archived===!!params.archived).sort((a,b)=>b.updatedAt-a.updatedAt),nextCursor:null};
  if(method==='turn/start'){
-  const turn={id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:account}]};
+  const turn={id:randomUUID(),status:'completed',items:[{id:randomUUID(),type:'agentMessage',text:account+'|'+home}]};
   if(params.input?.some(i=>i.text==='spawn')) {
-   const childId=randomUUID(),childTurn=randomUUID(),at=new Date().toISOString();
-   const records=[
-    {type:'session_meta',timestamp:at,payload:{id:childId,cwd:row.cwd,agent_nickname:'Fixture subagent',source:{subagent:{thread_spawn:{parent_thread_id:row.id}}}}},
-    {type:'event_msg',timestamp:at,payload:{type:'task_started',turn_id:childTurn}},
-    {type:'response_item',timestamp:at,payload:{type:'function_call',call_id:randomUUID(),name:'exec_command',arguments:'{}'}}
-   ];
-   fs.writeFileSync(path.join(home,'sessions','rollout-'+childId+'.jsonl'),records.map(r=>JSON.stringify(r)).join('\\n')+'\\n');
-   rows[childId]={id:childId,cwd:row.cwd,updatedAt:Date.now(),status:{type:'active'},turns:[{id:childTurn,status:'inProgress',items:[]}]};
+   const createChild=parentId=>{
+    const childId=randomUUID(),childTurn=randomUUID(),at=new Date().toISOString();
+    const records=[
+     {type:'session_meta',timestamp:at,payload:{id:childId,cwd:row.cwd,creator_account_id:'workspace-'+account,agent_nickname:'Fixture subagent',source:{subagent:{thread_spawn:{parent_thread_id:parentId}}}}},
+     {type:'event_msg',timestamp:at,payload:{type:'task_started',turn_id:childTurn}},
+     {type:'response_item',timestamp:at,payload:{type:'function_call',call_id:randomUUID(),name:'exec_command',arguments:'{}'}}
+    ];
+    const transcript=path.join(home,'sessions','rollout-'+childId+'.jsonl');
+    fs.writeFileSync(transcript,records.map(r=>JSON.stringify(r)).join('\\n')+'\\n');
+    rows[childId]={id:childId,path:transcript,cwd:row.cwd,updatedAt:Date.now(),status:{type:'idle'},turns:[{id:childTurn,status:'completed',items:[]}]};
+    return childId;
+   };
+   const childId=createChild(row.id),grandchild=createChild(childId);
    turn.items[0].text=childId;
+   turn.items.push({id:randomUUID(),type:'agentMessage',text:grandchild});
   }
   row.turns.push(turn);save(rows);result={turn};
   if(params.input?.some(i=>i.text==='refresh')){refreshTurn={id,turn};console.log(JSON.stringify({id:'refresh',method:'account/chatgptAuthTokens/refresh',params:{reason:'unauthorized',previousAccountId:'workspace-'+account}}));continue;}
@@ -152,15 +158,25 @@ for await(const line of createInterface({input:process.stdin})) {
     const accounts = (await fixture.call('accounts', { agent: 'codex' })).accounts;
     assert.equal(accounts.length, 3);
     assert.equal(accounts.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
+    await fixture.api('task-settings', { autoOpenCodex: true }, 'PUT');
     const created = [];
     for (const account of imported) {
       const r = await fixture.completed('codex_create', { account: account.accountId, prompt: 'profile task', model: 'fixture-model', effort: 'low', title: 'Profile task' });
       assert.equal(r.state, 'completed', JSON.stringify(r));
       assert.equal(r.executionOwner, 'connector');
       assert.equal(r.agentAccountId, account.accountId);
+      const native = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: r.threadId, includeTurns: true } });
+      const [identity, nativeHome] = native.thread.turns[0].items[0].text.split('|');
+      assert.equal(identity, account === imported[0] ? 'alpha' : 'beta');
+      if (created.length) {
+        const first = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: created[0].threadId, includeTurns: true } });
+        assert.equal(nativeHome, first.thread.turns[0].items[0].text.split('|')[1]);
+      }
       created.push(r);
     }
     const thread = created[0].threadId;
+    const blockedDesktop = await fixture.call('task_open', { agent: 'codex', id: thread });
+    assert.equal(blockedDesktop.error.code, 'CODEX_PROFILE_DESKTOP_UNSUPPORTED', JSON.stringify(blockedDesktop));
     const waited = await fixture.call('codex_wait', { threadId: thread, turnId: created[0].turnId, until: 'terminal', timeoutMs: 1000 });
     assert.equal(waited.conditionMet, true, JSON.stringify(waited));
     assert.equal(waited.state, 'completed');
@@ -178,6 +194,12 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.equal((await fixture.call('account_reauth', { id: imported[0].accountId, agent: 'codex' })).refreshOwner, 'external');
     const native = await fixture.call('account_import', { auth: { tokens: { access_token: 'gamma', refresh_token: 'native-owned', account_id: 'workspace-gamma' } }, refreshOwner: 'codex' });
     assert.equal(native.refreshOwner, 'codex');
+    const nativeTask = await fixture.completed('codex_create', { account: native.accountId, prompt: 'inspect', model: 'fixture-model', effort: 'low' });
+    assert.equal(nativeTask.state, 'completed', JSON.stringify(nativeTask));
+    assert.equal((await fixture.completed('codex_send', { threadId: nativeTask.threadId, prompt: 'refresh', model: 'fixture-model', effort: 'low' })).state, 'completed');
+    await fixture.completed('codex_send', { threadId: nativeTask.threadId, prompt: 'inspect', model: 'fixture-model', effort: 'low' });
+    const nativeRead = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: nativeTask.threadId, includeTurns: true } });
+    assert.match(nativeRead.thread.turns.at(-1).items[0].text, /^gamma-refreshed\|/);
     const accessOnly = await fixture.call('account_import', { auth: { tokens: { access_token: 'delta', account_id: 'workspace-delta' } }, refreshOwner: 'none' });
     assert.equal(accessOnly.refreshOwner, 'none');
     const oauth = await fixture.call('account_add', { kind: 'codex', browserId: 'fixture-unused' });
@@ -188,11 +210,25 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.notEqual(login.accountId, initial.id);
     const current = (await fixture.call('accounts', { agent: 'codex' })).accounts;
     assert.equal(current.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
+    await fixture.call('account_update', { id: imported[0].accountId, defaultFor: 'codex' });
+    const secondaryDefault = await fixture.call('accounts', { id: imported[0].accountId });
+    assert.equal(secondaryDefault.agentProfiles[0].role, 'secondary');
+    assert.equal(secondaryDefault.agentProfiles[0].desktopDispatch, false);
+    const implicit = await fixture.completed('codex_create', { prompt: 'Use the dispatch default', model: 'fixture-model', effort: 'low' });
+    assert.equal(implicit.agentAccountId, imported[0].accountId);
+    assert.equal(implicit.executionOwner, 'connector');
+    await fixture.call('account_update', { id: initial.id, defaultFor: 'codex' });
     const children: Array<{ id: string; parentId: string; accountId: string }> = [];
     for (const [index, parent] of created.entries()) {
       await fixture.completed('codex_send', { threadId: parent.threadId, prompt: 'spawn', model: 'fixture-model', effort: 'low' });
       const read = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: parent.threadId, includeTurns: true } });
       children.push({ id: read.thread.turns.at(-1).items[0].text, parentId: parent.threadId, accountId: imported[index].accountId });
+      children.push({ id: read.thread.turns.at(-1).items[1].text, parentId: read.thread.turns.at(-1).items[0].text, accountId: imported[index].accountId });
+      const unseenSend = await fixture.completed('codex_send', { threadId: children.at(-1)!.id, prompt: 'Continue native child before discovery', model: 'fixture-model', effort: 'low' });
+      assert.equal(unseenSend.agentAccountId, imported[index].accountId);
+      assert.equal(unseenSend.executionOwner, 'connector');
+      const openChild = await fixture.call('task_open', { agent: 'codex', id: children.at(-2)!.id });
+      assert.equal(openChild.error.code, 'CODEX_PROFILE_DESKTOP_UNSUPPORTED', JSON.stringify(openChild));
     }
     const deadline = Date.now() + 6000;
     let activity;
@@ -215,6 +251,8 @@ for await(const line of createInterface({input:process.stdin})) {
       const native = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: child.id, includeTurns: false } });
       assert.equal(native.thread.id, child.id, JSON.stringify(native));
     }
+    const afterRestart = (await fixture.call('accounts', { agent: 'codex' })).accounts;
+    assert.equal(afterRestart.find((a: any) => a.agentProfiles.some((p: any) => p.default)).id, initial.id);
     assert.equal((await fixture.completed('codex_archive', { threadId: thread })).state, 'completed');
   } finally { await fixture.close(); await rm(hooks, { recursive: true, force: true }); }
 });
@@ -242,11 +280,12 @@ const policy=/^approval_policy\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
 const effort=/^model_reasoning_effort\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
 const setup={policy,effort,instructions:fs.existsSync(path.join(home,'AGENTS.md'))?fs.readFileSync(path.join(home,'AGENTS.md'),'utf8'):null,skills:fs.existsSync(path.join(home,'skills'))?fs.readdirSync(path.join(home,'skills')).filter(name=>name==='example-skill'):[],mcp:config.includes('[mcp_servers.example]')};
 const auth=fs.existsSync(path.join(home,'auth.json'))?JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8')):null;
-const account=auth?.tokens?.account_id??'primary'; const file=path.join(home,'fixture-tasks.json');
+let account=auth?.tokens?.account_id??'primary'; const file=path.join(home,'fixture-tasks.json');
 const tasks=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{}; const save=rows=>fs.writeFileSync(file,JSON.stringify(rows));
 const activeThreads=new Set();
 for await(const line of createInterface({input:process.stdin})) {
  const {id,method,params}=JSON.parse(line);if(id===undefined)continue;let result={};const rows=tasks();const row=rows[params?.threadId];
+ if(method==='account/login/start') {account=params.accessToken;result={type:params.type};}
  if(method==='account/read')result={account:{type:'chatgpt',accountId:account,email:account+'@example.test',planType:'pro'}};
  if(method==='account/rateLimits/read')result={rateLimits:{primary:{usedPercent:0,windowDurationMins:300}}};
  if(method==='model/list')result={data:[{id:'fixture-model',model:'fixture-model',supportedReasoningEfforts:[{reasoningEffort:'low'}],defaultReasoningEffort:'low'}]};
@@ -283,8 +322,8 @@ for await(const line of createInterface({input:process.stdin})) {
       assert.deepEqual((await dispatch(account)).setup, { policy: 'never', effort: 'low', instructions: 'Shared instruction fixture', skills: ['example-skill'], mcp: true });
       const detail = await fixture.call('accounts', { id: account.accountId });
       const parity = detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity;
-      assert.equal(parity.state, 'synced');
-      assert.ok(parity.lastSyncAt);
+      assert.equal(parity.state, 'shared');
+      assert.equal(detail.agentProfiles.find((p: any) => p.profileId === account.profileId).role, 'secondary');
     }
     const allAccounts = [{ accountId: primaryAccount.id }, ...imported];
     assert.equal((await dispatch(allAccounts[0])).setup.effort, 'low');
@@ -295,7 +334,7 @@ for await(const line of createInterface({input:process.stdin})) {
     await mkdir(pluginDirectory, { recursive: true });
     await writeFile(path.join(pluginDirectory, 'plugin.txt'), pluginContents);
     const unchanged = await fixture.call('accounts', { id: imported[0].accountId });
-    assert.equal(unchanged.agentProfiles.find((profile: any) => profile.profileId === imported[0].profileId).parity.state, 'synced');
+    assert.equal(unchanged.agentProfiles.find((profile: any) => profile.profileId === imported[0].profileId).parity.state, 'shared');
     assert.equal((await dispatch(imported[0])).setup.effort, 'medium');
     const stillActive = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: false } });
     assert.equal(stillActive.thread.status.type, 'active');
@@ -311,12 +350,10 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.equal(continuation.state, 'completed', JSON.stringify(continuation));
     assert.equal(continuation.agentAccountId, imported[0].accountId);
     assert.equal((await dispatch(imported[0])).setup.effort, 'high');
-    await fixture.restart(async state => {
-      for (const account of imported) await writeFile(path.join(state, 'accounts/codex/profiles', account.profileId, 'home/config.toml'), 'approval_policy = "on-request"\n');
-    });
+    await fixture.restart();
     for (const account of imported) {
       const detail = await fixture.call('accounts', { id: account.accountId });
-      assert.equal(detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity.state, 'synced');
+      assert.equal(detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity.state, 'shared');
       assert.equal((await dispatch(account)).setup.policy, 'never');
     }
     await writeFile(path.join(primary, 'config.toml'), 'approval_policy = "fixture-secret-without-closing-quote\n');
@@ -327,4 +364,62 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.deepEqual(failed.next.args, { op: 'accounts' });
     assert.ok(!JSON.stringify(failed).includes('fixture-secret-without-closing-quote'));
   } finally { await fixture.close(); await rm(primary, { recursive: true, force: true }); }
+});
+
+test('Claude credential profiles share native transcripts and retain legacy data for explicit migration', { skip: process.platform === 'win32' }, async () => {
+  // Regression: credential profiles kept separate Claude projects trees inside ARC state.
+  const { mkdtemp, mkdir, writeFile, readFile, realpath, unlink, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const directory = await mkdtemp(path.join(tmpdir(), 'arc-native-claude-'));
+  const projects = path.join(directory, '.claude', 'projects');
+  await mkdir(projects, { recursive: true });
+  const retained = path.join(projects, 'retained.jsonl');
+  await writeFile(retained, 'Native session data');
+  const observed = path.join(directory, 'observed.jsonl');
+  const cli = path.join(directory, 'claude');
+  await writeFile(cli, `#!${process.execPath}
+const fs=require('node:fs'),path=require('node:path'),args=process.argv.slice(2),config=process.env.CLAUDE_CONFIG_DIR;
+if(args[0]==='auth'&&args[1]==='login')process.exitCode=0;
+else if(args[0]==='auth'&&args[1]==='status')console.log(JSON.stringify({loggedIn:true,authMethod:'claude.ai',accountId:path.basename(path.dirname(config)),email:path.basename(path.dirname(config))+'@example.test',orgName:'Fixture'}));
+else if(args[0]==='-p'){fs.appendFileSync(${JSON.stringify(observed)},JSON.stringify({profile:path.basename(path.dirname(config)),projects:fs.realpathSync(path.join(config,'projects'))})+'\\n');console.log(JSON.stringify({ok:true,session_id:args[3]}));}
+else throw Error('Unexpected native fixture operation');
+`, { mode: 0o755 });
+  const fixture = await nativeControl(server, { HOME: directory, USERPROFILE: directory, PATH: directory + path.delimiter + process.env.PATH });
+  try {
+    const accounts = [];
+    for (let i = 0; i < 2; i++) {
+      await fixture.call('account_add', { kind: 'claude' });
+      const deadline = Date.now() + 5000;
+      let progress;
+      do {
+        progress = await fixture.call('accounts', { agent: 'claude' });
+        if (progress.login?.state === 'completed') break;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      } while (Date.now() < deadline);
+      assert.equal(progress.login?.state, 'completed', JSON.stringify(progress));
+      const account = await fixture.call('accounts', { id: progress.login.accountId });
+      const sent = await fixture.call('account_notify', { id: account.id, action: 'send', target: 'session_01000000000000000000002' + (i + 1), message: 'Native session fixture' });
+      assert.equal(sent.deliveryStatus, 'delivered', JSON.stringify(sent));
+      accounts.push(account);
+    }
+    assert.notEqual(accounts[0].id, accounts[1].id);
+    const observations = (await readFile(observed, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    const nativeProjects = await realpath(projects);
+    for (const account of accounts) assert.equal(observations.find(row => row.profile === account.agentProfiles[0].profileId).projects, nativeProjects);
+    assert.equal(await readFile(retained, 'utf8'), 'Native session data');
+    let legacy = '';
+    await fixture.restart(async state => {
+      const projects = path.join(state, 'claude-accounts', accounts[0].agentProfiles[0].profileId, 'config', 'projects');
+      await unlink(projects);
+      await mkdir(projects);
+      legacy = path.join(projects, 'legacy.jsonl');
+      await writeFile(legacy, 'Unmigrated native session');
+    });
+    assert.equal((await fixture.call('accounts', { id: accounts[0].id })).orgName, 'Fixture');
+    const blocked = await fixture.call('account_notify', { id: accounts[0].id, action: 'send', target: 'session_010000000000000000000021', message: 'Must retain legacy history' });
+    assert.equal(blocked.error.code, 'CLAUDE_SESSION_MIGRATION_REQUIRED', JSON.stringify(blocked));
+    assert.equal(await readFile(legacy, 'utf8'), 'Unmigrated native session');
+    assert.equal(await readFile(retained, 'utf8'), 'Native session data');
+  } finally { await fixture.close(); await rm(directory, { recursive: true, force: true }); }
 });

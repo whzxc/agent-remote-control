@@ -38,6 +38,7 @@ pub(super) struct TurnClock {
     project: Option<String>,
     created_at: Value,
     parent_session_id: Option<String>,
+    creator_account_id: Option<String>,
     relation_kind: Option<&'static str>,
 }
 #[derive(Clone)]
@@ -239,19 +240,8 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
         .iter()
         .map(|(path, _)| ("claude".to_owned(), path.clone()))
         .collect();
-    let mut codex_roots = Vec::new();
     if selected.iter().any(|agent| agent == "codex") {
-        codex_roots.push(("codex-home".to_owned(), codex_home.join("sessions")));
-        for profile in crate::accounts::codex::profiles().unwrap_or_default() {
-            if let Ok(home) = crate::accounts::codex::home(&profile.id) {
-                codex_roots.push((profile.id, home.join("sessions")));
-            }
-        }
-        roots.extend(
-            codex_roots
-                .iter()
-                .map(|(_, home)| ("codex".to_owned(), home.clone())),
-        );
+        roots.push(("codex".to_owned(), codex_home.join("sessions")));
     }
     let index = codex_home.join("session_index.jsonl");
     if cache.discovery.as_ref().is_none_or(|d| d.roots != roots) {
@@ -302,19 +292,13 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
             }
         }
         if external.agent == "codex" {
-            if let Some((profile, _)) = codex_roots
-                .iter()
-                .find(|(_, home)| external.path.starts_with(home))
-            {
-                if let Err(error) =
-                    crate::accounts::codex::observe_thread(profile, string(&external.session, "id"))
-                {
-                    crate::logs::record("WARN", &error, None);
-                    continue;
-                }
-                if let Ok(account) = crate::accounts::profile_account(profile) {
-                    external.session["agentAccountId"] = account["id"].clone();
-                }
+            match crate::accounts::codex::observe_native_thread(
+                string(&external.session, "id"),
+                external.session["creatorAccountId"].as_str(),
+                external.session["parentSessionId"].as_str(),
+            ) {
+                Ok(account) => external.session["agentAccountId"] = account,
+                Err(error) => crate::logs::record("WARN", &error, None),
             }
         }
     }
@@ -410,6 +394,7 @@ fn scan_paths(
                 session["parentSessionId"] = json!(parent);
                 session["relationKind"] = json!(clock.relation_kind);
             }
+            session["creatorAccountId"] = json!(clock.creator_account_id);
             session["turnCount"] = json!(clock.turns.len());
             if !clock.turn_id.is_empty() {
                 session["turnId"] = json!(clock.turn_id)
@@ -533,6 +518,7 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     if agent == "codex" && record["type"] == "session_meta" {
         let payload = &record["payload"];
         clock.session_id = payload["id"].as_str().map(str::to_owned);
+        clock.creator_account_id = payload["creator_account_id"].as_str().map(str::to_owned);
         clock.nickname = payload["agent_nickname"]
             .as_str()
             .map(str::trim)

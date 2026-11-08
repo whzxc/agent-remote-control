@@ -1,5 +1,5 @@
-//! Isolated native Codex accounts and provider-neutral imported credentials.
-pub(crate) use super::codex_parity::{inspect_profile, sync_profile};
+//! Independent Codex credentials with shared native session storage.
+pub(crate) use super::codex_config::{inspect_profile, shared_configuration};
 use super::*;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
@@ -29,8 +29,8 @@ fn profile_path(id: &str) -> Result<PathBuf> {
         .map_err(|_| "CODEX_PROFILE_INVALID: Read accounts for a valid profile")?;
     Ok(directory().join(id).join("profile.json"))
 }
-/// ARC child tasks inherit their profile's CODEX_HOME. That runtime override
-/// must never become the Agent's shared source when the child starts Core.
+/// Credential helpers have a private CODEX_HOME; inheriting it must never
+/// redirect a Core or execution process away from native session storage.
 pub fn primary_home(
     configured: Option<&Path>,
     profiles: &Path,
@@ -72,7 +72,7 @@ pub(crate) fn default_home() -> Result<PathBuf> {
     )
     .ok_or_else(|| "CODEX_HOME_UNAVAILABLE".into())
 }
-pub(crate) fn home(id: &str) -> Result<PathBuf> {
+pub(crate) fn credential_home(id: &str) -> Result<PathBuf> {
     if id == "codex-home" {
         return default_home();
     }
@@ -110,7 +110,8 @@ pub(crate) fn thread_profile(thread: &str) -> Result<String> {
         .to_owned())
 }
 pub(crate) fn thread_home(thread: &str) -> Result<PathBuf> {
-    home(&thread_profile(thread)?)
+    let _ = thread_profile(thread)?;
+    default_home()
 }
 /// Read only an explicit binding; an absent binding does not prove codex-home.
 pub(crate) fn bound_account(thread: &str) -> Value {
@@ -124,6 +125,76 @@ pub(crate) fn bound_account(thread: &str) -> Value {
         .and_then(|profile| super::profile_account(profile).ok())
         .map(|account| account["id"].clone())
         .unwrap_or_else(|| binding["agentAccountId"].clone())
+}
+pub(crate) fn observe_native_thread(
+    thread: &str,
+    creator: Option<&str>,
+    parent: Option<&str>,
+) -> Result<Value> {
+    let bound = bound_account(thread);
+    if !bound.is_null() {
+        return Ok(bound);
+    }
+    let selected = if let Some(creator) = creator {
+        profiles()?
+            .into_iter()
+            .find(|p| p.account_id.as_deref() == Some(creator))
+            .map(|p| p.id)
+    } else {
+        None
+    }
+    .or_else(|| {
+        parent.and_then(|id| {
+            load(&root().join("execution").join(format!("{id}.json"))).ok()?["agentProfileId"]
+                .as_str()
+                .map(str::to_owned)
+        })
+    });
+    if let Some(profile) = selected {
+        observe_thread(&profile, thread)?;
+        return Ok(if profile == "codex-home" {
+            super::profile_account(&profile)
+                .map(|a| a["id"].clone())
+                .unwrap_or(Value::Null)
+        } else {
+            bound_account(thread)
+        });
+    }
+    if parent.is_some() {
+        return Ok(Value::Null);
+    }
+    Ok(super::profile_account("codex-home")
+        .map(|a| a["id"].clone())
+        .unwrap_or(Value::Null))
+}
+pub(crate) fn observe_history(thread: &Value) -> Result<Value> {
+    let bound = bound_account(string(thread, "id"));
+    if !bound.is_null() {
+        return Ok(bound);
+    }
+    if !profiles()?.is_empty() {
+        use std::io::{BufRead, Read};
+        if let Ok(file) = crate::control::open_persisted_history(thread) {
+            let mut header = String::new();
+            let _ = std::io::BufReader::new(file.take(65536)).read_line(&mut header);
+            if let Ok(meta) = serde_json::from_str::<Value>(&header) {
+                let payload = &meta["payload"];
+                let parent = payload["source"]["subagent"]["thread_spawn"]["parent_thread_id"]
+                    .as_str()
+                    .or_else(|| {
+                        (payload["attached_thread"] == true)
+                            .then(|| payload["forked_from_id"].as_str())
+                            .flatten()
+                    });
+                return observe_native_thread(
+                    string(thread, "id"),
+                    payload["creator_account_id"].as_str(),
+                    parent,
+                );
+            }
+        }
+    }
+    observe_native_thread(string(thread, "id"), None, None)
 }
 /// Native child threads can be discovered without a thread/started notification.
 pub(crate) fn observe_thread(profile: &str, thread: &str) -> Result<()> {
@@ -157,7 +228,7 @@ pub(crate) fn observe_thread(profile: &str, thread: &str) -> Result<()> {
     Ok(())
 }
 fn persist(profile: &Profile) -> Result<()> {
-    private_dir(&home(&profile.id)?)?;
+    private_dir(&credential_home(&profile.id)?)?;
     save(&profile_path(&profile.id)?, &json!(profile))
 }
 pub(crate) fn new_login() -> Result<Profile> {
@@ -168,7 +239,6 @@ pub(crate) fn new_login() -> Result<Profile> {
         refresh_command: None,
     };
     persist(&p)?;
-    sync_profile(&p.id)?;
     Ok(p)
 }
 fn claims(token: &Value) -> Value {
@@ -193,7 +263,7 @@ pub(crate) fn observe_profile(profile: &str, facts: &Value, state: &str) -> Resu
     } else {
         Some(super::codex::profile(profile)?)
     };
-    let mut combined = load(&home(profile)?.join("auth.json"))
+    let mut combined = load(&credential_home(profile)?.join("auth.json"))
         .map(|auth| credential_facts(&auth))
         .unwrap_or(json!({}));
     for (key, value) in facts.as_object().into_iter().flatten() {
@@ -221,7 +291,7 @@ pub(crate) fn observe_profile(profile: &str, facts: &Value, state: &str) -> Resu
             ),
             None,
         );
-        // Existing Agent defaults are preserved. An isolated profile never replaces codex-home.
+        // Dispatch defaults are preserved. Secondary credentials never replace codex-home.
         Ok(account)
     })
 }
@@ -285,9 +355,8 @@ pub(super) async fn import(control: &control::Control, args: &Value) -> Result<V
     };
     control.close_profile(&p.id).await;
     persist(&p)?;
-    sync_profile(&p.id)?;
     if owner == "codex" {
-        save(&home(&p.id)?.join("auth.json"), &auth)?;
+        save(&credential_home(&p.id)?.join("auth.json"), &auth)?;
         let access_path = profile_path(&p.id)?.parent().unwrap().join("access.json");
         if access_path.exists() {
             std::fs::remove_file(access_path).map_err(|e| e.to_string())?;
@@ -298,7 +367,7 @@ pub(super) async fn import(control: &control::Control, args: &Value) -> Result<V
             &profile_path(&p.id)?.parent().unwrap().join("access.json"),
             &tokens,
         )?;
-        let auth_path = home(&p.id)?.join("auth.json");
+        let auth_path = credential_home(&p.id)?.join("auth.json");
         if auth_path.exists() {
             std::fs::remove_file(auth_path).map_err(|e| e.to_string())?;
         }
@@ -359,30 +428,55 @@ async fn refresh_command(p: &Profile, request: &Value) -> Result<Value> {
     }
     serde_json::from_slice(&result.stdout).map_err(|_|"CODEX_REFRESH_RESPONSE_INVALID: Return accessToken, chatgptAccountId and optional chatgptPlanType as JSON".into())
 }
-pub(crate) async fn tokens(profile_id: &str, request: Option<&Value>) -> Result<Value> {
-    let p = profile(profile_id)?;
-    let path = profile_path(profile_id)?
-        .parent()
-        .unwrap()
-        .join("access.json");
-    let tokens = if let Some(request) = request {
-        if p.refresh_owner != "external" {
-            return Err("CODEX_REAUTH_REQUIRED: Reimport this account's credentials; ARC does not own token refresh".into());
+pub(crate) fn tokens<'a>(
+    profile_id: &'a str,
+    request: Option<&'a Value>,
+    binary: &'a Path,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value>> + Send + 'a>> {
+    Box::pin(async move {
+        let p = profile(profile_id)?;
+        let path = profile_path(profile_id)?
+            .parent()
+            .unwrap()
+            .join("access.json");
+        let tokens = if p.refresh_owner == "codex" {
+            if request.is_some() {
+                static REFRESH: std::sync::LazyLock<crate::kernel::receipts::RequestLocks> =
+                    std::sync::LazyLock::new(Default::default);
+                let _guard = REFRESH.lock(profile_id).await;
+                // Only the native credential process owns refresh tokens. Execution
+                // processes receive access tokens and share the primary session home.
+                let rpc =
+                    crate::rpc::Rpc::start_auth(binary, Default::default(), &id(), profile_id)
+                        .await?;
+                let refreshed = rpc
+                    .call("account/read", json!({"refreshToken":true}), 15000)
+                    .await;
+                rpc.close().await;
+                refreshed?;
+            }
+            let auth = load(&credential_home(profile_id)?.join("auth.json"))?;
+            let facts = credential_facts(&auth);
+            json!({"accessToken":auth["tokens"]["access_token"],"chatgptAccountId":facts["accountId"],"chatgptPlanType":facts["planType"]})
+        } else if let Some(request) = request {
+            if p.refresh_owner != "external" {
+                return Err("CODEX_REAUTH_REQUIRED: Reimport this account's credentials; ARC does not own token refresh".into());
+            }
+            refresh_command(&p, request).await?
+        } else {
+            load(&path)?
+        };
+        if tokens["chatgptAccountId"].as_str() != p.account_id.as_deref()
+            || string(&tokens, "accessToken").is_empty()
+        {
+            return Err("CODEX_REFRESH_IDENTITY_MISMATCH: The external refresh response must retain this profile's account".into());
         }
-        refresh_command(&p, request).await?
-    } else {
-        load(&path)?
-    };
-    if tokens["chatgptAccountId"].as_str() != p.account_id.as_deref()
-        || string(&tokens, "accessToken").is_empty()
-    {
-        return Err("CODEX_REFRESH_IDENTITY_MISMATCH: The external refresh response must retain this profile's account".into());
-    }
-    let safe = json!({"accessToken":tokens["accessToken"],"chatgptAccountId":tokens["chatgptAccountId"],"chatgptPlanType":tokens["chatgptPlanType"]});
-    if request.is_some() {
-        save(&path, &safe)?;
-    }
-    Ok(safe)
+        let safe = json!({"accessToken":tokens["accessToken"],"chatgptAccountId":tokens["chatgptAccountId"],"chatgptPlanType":tokens["chatgptPlanType"]});
+        if request.is_some() && p.refresh_owner == "external" {
+            save(&path, &safe)?;
+        }
+        Ok(safe)
+    })
 }
 
 #[cfg(test)]

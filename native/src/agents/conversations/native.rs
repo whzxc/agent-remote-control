@@ -46,7 +46,6 @@ pub(super) fn roots() -> Vec<(String, PathBuf, Option<String>)> {
             roots.push(("pi".into(), expand(path), None));
         }
     }
-    roots.push(("pi".into(), root().join("agents/pi-sessions"), None));
     roots
 }
 

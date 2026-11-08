@@ -35,12 +35,52 @@ impl Rpc {
         session: &str,
         profile: Option<&str>,
     ) -> Result<Arc<Self>> {
+        Self::start_in_home(
+            binary,
+            events,
+            session,
+            profile,
+            crate::accounts::codex::default_home()?,
+            false,
+        )
+        .await
+    }
+    pub(crate) async fn start_auth(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        profile: &str,
+    ) -> Result<Arc<Self>> {
+        Self::start_in_home(
+            binary,
+            events,
+            session,
+            Some(profile),
+            crate::accounts::codex::credential_home(profile)?,
+            true,
+        )
+        .await
+    }
+    async fn start_in_home(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        profile: Option<&str>,
+        home: PathBuf,
+        auth_only: bool,
+    ) -> Result<Arc<Self>> {
         let mut command = command(binary);
-        command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
-        if let Some(profile) = profile {
-            command.env("CODEX_HOME", crate::accounts::codex::home(profile)?);
+        command.env("CODEX_HOME", home);
+        if profile.is_some() {
             #[cfg(not(feature = "test-fixture"))]
-            command.args(["-c", "cli_auth_credentials_store=\"file\""]);
+            command.args([
+                "-c",
+                if auth_only {
+                    "cli_auth_credentials_store=\"file\""
+                } else {
+                    "cli_auth_credentials_store=\"ephemeral\""
+                },
+            ]);
             for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
                 command.env_remove(key);
             }
@@ -104,6 +144,7 @@ impl Rpc {
         });
         let session = session.to_owned();
         let profile = profile.map(str::to_owned);
+        let native_binary = binary.to_path_buf();
         let response_input = Arc::downgrade(&rpc);
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
@@ -135,10 +176,12 @@ impl Rpc {
                             break;
                         };
                         let profile = profile.to_owned();
+                        let native_binary = native_binary.clone();
                         tokio::spawn(async move {
                             let response = match crate::accounts::codex::tokens(
                                 &profile,
                                 Some(&msg["params"]),
+                                &native_binary,
                             )
                             .await
                             {
@@ -205,6 +248,9 @@ impl Rpc {
             alive.store(false, std::sync::atomic::Ordering::SeqCst);
             for (_, tx) in pending.lock().unwrap().drain() {
                 let _ = tx.send(Err("TRANSPORT_CLOSED: execution state unknown".into()));
+            }
+            if auth_only {
+                return;
             }
             let mut events = events.lock().await;
             events

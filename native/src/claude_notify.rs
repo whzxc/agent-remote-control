@@ -870,7 +870,7 @@ impl Executor for Cli {
             .clone()
             .map(Ok)
             .unwrap_or_else(|| source_account(source_id, target))?;
-        let mut cmd = crate::accounts::claude::account_command(&account_id).await?;
+        let mut cmd = crate::accounts::claude::session_command(&account_id).await?;
         let output = tokio::time::timeout(
             Duration::from_secs(30),
             cmd.args(args).stdin(std::process::Stdio::null()).output(),

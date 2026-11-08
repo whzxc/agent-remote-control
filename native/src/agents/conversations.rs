@@ -25,6 +25,8 @@ pub(super) struct Cache {
 struct TaskMetadata {
     task_id: String,
     agent: String,
+    #[serde(default)]
+    agent_account_id: Value,
     title: Option<String>,
     cwd: Option<String>,
     created_at: String,
@@ -90,7 +92,7 @@ fn stored() -> Result<Vec<Value>> {
         turns.insert(&tracking.turn);
         turns.remove("");
         rows.push(
-            json!({"agent":task.agent,"id":task.task_id,"title":task.title,"project":task.cwd,
+            json!({"agent":task.agent,"agentAccountId":task.agent_account_id,"id":task.task_id,"title":task.title,"project":task.cwd,
             "createdAt":task.created_at,"updatedAt":task.updated_at.as_ref().unwrap_or(&task.created_at),"nativeSessionId":task.session_id,"source":"arc-task","status":task.status,"dispatchSummary":summary,"turnCount":turns.len()}),
         );
     }
@@ -121,13 +123,7 @@ pub(super) fn merge(mut tasks: Vec<Value>, sessions: &[Value]) -> Vec<Value> {
             if !claimed.insert(key.clone()) {
                 return false;
             }
-            for field in [
-                "updatedAt",
-                "preview",
-                "messageCount",
-                "metadataPartial",
-                "agentAccountId",
-            ] {
+            for field in ["updatedAt", "preview", "messageCount", "metadataPartial"] {
                 if let Some(value) = row.get(field) {
                     task[field] = value.clone()
                 }

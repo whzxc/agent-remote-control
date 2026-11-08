@@ -5,11 +5,10 @@ use std::collections::HashSet;
 #[path = "../claude_accounts/mod.rs"]
 pub mod claude;
 pub(crate) mod codex;
-mod codex_parity;
+mod codex_config;
 mod identity;
 mod login;
 mod merge;
-mod parity;
 pub use identity::link_source_identity;
 pub use merge::merge_accounts;
 static STORE: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -1209,6 +1208,12 @@ fn project_parity(account: &mut Value) {
     {
         if profile["agent"] == "codex" {
             profile["parity"] = codex::inspect_profile(string(profile, "profileId"));
+            profile["role"] = json!(if profile["profileId"] == "codex-home" {
+                "primary"
+            } else {
+                "secondary"
+            });
+            profile["desktopDispatch"] = json!(profile["profileId"] == "codex-home");
         }
     }
 }
@@ -1216,7 +1221,7 @@ fn parity_attention(profile: &Value) -> bool {
     profile["agent"] == "codex"
         && !matches!(
             profile["parity"]["state"].as_str(),
-            Some("synced" | "primary")
+            Some("shared" | "primary")
         )
 }
 

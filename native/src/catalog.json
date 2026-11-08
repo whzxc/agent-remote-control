@@ -6719,7 +6719,7 @@
     },
     {
       "name": "account_add",
-      "description": "Start official login or detect native authentication. Codex OAuth creates an isolated home and retains the system login and existing defaults. ARC synchronizes shared configuration from the primary Codex home at startup, creation/import and before dispatch. Read accounts agentProfiles.parity for state and lastSyncAt. CODEX_PROFILE_PARITY_FAILED blocks incomplete homes. CODEX_PROFILE_PARITY_BUSY requires finishing active work before retrying with changed shared settings. Returns loginId, state and loginUrl when available. Read accounts to poll progress.",
+      "description": "Start official login or detect native authentication. Codex stores credentials separately and all execution processes use the native primary home for sessions and settings. The Desktop login is primary; other credentials are secondary and cannot dispatch to Desktop. Selecting a default account changes dispatch selection only. Read accounts to poll login progress. agentProfiles.parity reports the current shared configuration revision. CODEX_PROFILE_PARITY_BUSY requires finishing active work before reloading changed settings.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6767,7 +6767,7 @@
     },
     {
       "name": "account_import",
-      "description": "Import native Codex auth.json credentials into an isolated profile. Choose refreshOwner codex to delegate refresh to the native CLI, none for access-only credentials, or external with a local executable refresh hook. Import preserves Agent defaults and existing task bindings. Reimporting the same provider account reuses its profile; active profiles reject replacement. External hooks are configured through local authority only.",
+      "description": "Import native Codex auth.json credentials into an independent credential profile. All accounts share native Codex session storage. Choose refreshOwner codex for native credential refresh, none for access-only credentials, or external with a local executable refresh hook. Imports preserve dispatch defaults and task-account bindings. Secondary tasks use their own App Server and cannot dispatch to Desktop. Reimporting a known provider account reuses its profile; active profiles reject replacement. External hooks require local authority.",
       "inputSchema": {
         "type": "object",
         "properties": {

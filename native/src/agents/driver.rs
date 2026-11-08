@@ -40,7 +40,7 @@ impl AgentDriver {
         if matches!(self, Self::CodexNative)
             && crate::accounts::codex::thread_profile(task)? != "codex-home"
         {
-            return Err("CODEX_PROFILE_DESKTOP_UNSUPPORTED: Read and continue this account's task in ARC; the Codex Desktop uses the system account".into());
+            return Err(json!({"code":"CODEX_PROFILE_DESKTOP_UNSUPPORTED","message":"Secondary Codex tasks run in their account's App Server. Codex Desktop uses the primary login.","next":{"via":"query","op":"guide","args":{"op":"codex_send"}}}).to_string());
         }
         let url = self
             .deep_link(task)
@@ -150,15 +150,7 @@ impl AgentDriver {
         let cwd = PathBuf::from(string(&task, "cwd"));
         let args = match self {
             Self::Pi => {
-                let mut args = vec![
-                    "--mode".into(),
-                    "rpc".into(),
-                    "--session-dir".into(),
-                    root()
-                        .join("agents/pi-sessions")
-                        .to_string_lossy()
-                        .into_owned(),
-                ];
+                let mut args = vec!["--mode".into(), "rpc".into()];
                 if resume {
                     let path = string(&task["metadata"], "sessionFile");
                     if path.is_empty() {

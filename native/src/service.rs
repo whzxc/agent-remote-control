@@ -213,24 +213,6 @@ impl Service {
                 None,
             );
         }
-        // Reconcile shared account configuration before any profile app-server can start.
-        // A failed profile remains inspectable; its next dispatch retries and fails closed.
-        match crate::accounts::codex::profiles() {
-            Ok(profiles) => {
-                for profile in profiles {
-                    if let Err(error) = crate::accounts::codex::sync_profile(&profile.id) {
-                        crate::logs::record(
-                            "ERROR",
-                            &format!("Codex profile parity: {error}"),
-                            None,
-                        );
-                    }
-                }
-            }
-            Err(error) => {
-                crate::logs::record("ERROR", &format!("Codex profile inventory: {error}"), None)
-            }
-        }
         let control =
             Control::new(crate::agents::codex_binary().unwrap_or_else(|| PathBuf::from("codex")));
         let agents = crate::agents::AgentHost::new()?;
@@ -1492,9 +1474,11 @@ impl Service {
                     Ok(json!({"records":records}))
                 }
                 ("POST", "tasks/open") => {
-                    self.agents
-                        .open_task(string(&body, "agent"), string(&body, "taskId"))
-                        .await
+                    let task = string(&body, "taskId");
+                    if body["agent"] == "codex" {
+                        self.control.observe_thread_account(task).await?;
+                    }
+                    self.agents.open_task(string(&body, "agent"), task).await
                 }
                 ("GET", route) if route.starts_with("tasks/runtime/") => {
                     self.control.task_runtime(&route[14..]).await
