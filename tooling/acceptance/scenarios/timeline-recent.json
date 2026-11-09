@@ -1,0 +1,19 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": ["codex"],
+  "panel": { "kind": "agent", "id": "codex" },
+  "detailTask": 0,
+  "timeline": "multi-turn",
+  "viewports": [{ "width": 1280, "height": 800 }],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Review a finished task with older turns",
+      "headline": "Verification complete",
+      "completed": true,
+      "finalAnswer": "The configuration review is complete.\n\nThe project entry point uses the current settings.\n\nThe development command resolves its dependencies.\n\nThe default profile applies to the requested workspace.\n\nThe configuration loads successfully.\n\nThe command reports a successful exit.\n\nThe existing project checks still pass.\n\nThe smoke check opens the expected view.\n\nThe request is recorded in the project history.\n\nThe follow-up evidence is available for review.\n\nThe output includes a list of verified files.\n\nThe status is ready for handoff.\n\nThe work is complete."
+    }
+  ]
+}

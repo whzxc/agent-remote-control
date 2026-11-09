@@ -61,6 +61,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const validId = isTaskId(session.id);
   const loading = validId && session.timeline && !timeline && !error;
   const viewport = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null);
+  const requestEarlier = useRef<(() => void) | undefined>(undefined);
+  const prependAnchor = useRef<{ height: number; top: number } | undefined>(undefined);
   const following = useRef(true), initial = useRef(true), previousRunning = useRef(true), previousTop = useRef(0);
   const manualDisclosure = useRef(false);
   const live = snapshot?.agents[agent]?.sessions.find(s => s.id === session.id && (!session.selectedTurnId || s.turnId === session.selectedTurnId));
@@ -118,12 +120,25 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   useEffect(() => {
     if (!validId || !session.timeline) return;
     let stopped = false, timer: ReturnType<typeof setTimeout>, current: AgentTimeline | undefined;
+    let first = true, reading = false, fullRequested = false;
+    requestEarlier.current = () => {
+      if (!current?.preview || fullRequested) return;
+      fullRequested = true;
+      clearTimeout(timer);
+      void read();
+    };
     async function read() {
+      if (reading || stopped) return;
+      reading = true;
+      const preview = !fullRequested && (first || current?.preview) && agent === "codex" && !external && !session.selectedTurnId;
+      first = false;
       try {
-        const read = (after?: number) => session.conversation
-          ? api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id: session.id, ...(after === undefined ? {} : { after }) })
-          : api<AgentTimeline>(`agents/timeline/${encodeURIComponent(session.id)}${after === undefined ? "" : `?after=${after}`}`);
-        const next = external || current?.readOnly ? await read() : await refreshTimeline(current, read);
+        const read = (after?: number, recent = false) => session.conversation
+          ? api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id: session.id, ...(after === undefined ? {} : { after }), ...(recent ? { recent } : {}) })
+          : api<AgentTimeline>(`agents/timeline/${encodeURIComponent(session.id)}${recent ? "?recent=1" : after === undefined ? "" : `?after=${after}`}`);
+        const next = preview
+          ? await read(undefined, true)
+          : external || current?.readOnly || current?.preview ? await read() : await refreshTimeline(current, read);
         if (stopped) return;
         if (manualDisclosure.current && (next.cursor !== current?.cursor || next.status !== current?.status
           || JSON.stringify(next.entries) !== JSON.stringify(current?.entries))) {
@@ -135,16 +150,36 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           }
           manualDisclosure.current = false;
         }
-        current = next; setTimeline(next); acceptTaskExecution(agent, session.id, next); setError("");
+        if (current?.preview && !next.preview && !following.current && viewport.current) {
+          prependAnchor.current = { height: viewport.current.scrollHeight, top: viewport.current.scrollTop };
+        }
+        current = next; setTimeline(next);
+        if (!next.preview) acceptTaskExecution(agent, session.id, next);
+        setError("");
       } catch (error) { if (!stopped) setError(String(error)); }
-      if (!stopped) timer = setTimeout(read, external || current?.readOnly ? 5000 : 1000);
+      finally {
+        reading = false;
+        if (!stopped) {
+          const delay = fullRequested && current?.preview ? (preview ? 0 : 1000)
+            : current?.preview || current?.readOnly || external ? 5000 : 1000;
+          timer = setTimeout(read, delay);
+        }
+      }
     }
     void read();
-    return () => { stopped = true; clearTimeout(timer); };
-  }, [agent, session.id, session.timeline, session.conversation, external, validId]);
+    return () => { stopped = true; clearTimeout(timer); requestEarlier.current = undefined; };
+  }, [agent, session.id, session.timeline, session.conversation, session.selectedTurnId, external, validId]);
   useLayoutEffect(() => {
     const node = viewport.current;
-    if (!node || !timeline || manualDisclosure.current) return;
+    if (!node || !timeline) return;
+    const anchor = prependAnchor.current;
+    if (anchor) {
+      prependAnchor.current = undefined;
+      node.scrollTop = anchor.top + Math.max(0, node.scrollHeight - anchor.height);
+      previousTop.current = node.scrollTop;
+    }
+    if (timeline.preview && (running || node.scrollHeight <= node.clientHeight)) requestEarlier.current?.();
+    if (manualDisclosure.current) return;
     const target = timelineScrollTarget(following.current, running || previousRunning.current, initial.current, node.scrollHeight);
     if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
     if (target !== undefined) setAtLatest(true);
@@ -282,14 +317,24 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           if (manualDisclosure.current) following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
           manualDisclosure.current = false;
           userScroll.current = true;
-          if (event.deltaY < 0) following.current = false;
+          if (event.deltaY < 0) {
+            following.current = false;
+            if (node.scrollTop <= 32) requestEarlier.current?.();
+          }
         }}
         onPointerDown={event => { if (event.target === event.currentTarget) userScroll.current = true; }}
         onTouchMove={() => { userScroll.current = true; }}
-        onKeyDown={event => { if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) userScroll.current = true; }}
+        onKeyDown={event => {
+          if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) userScroll.current = true;
+          if (timeline?.preview && (event.key === "Home" || (["ArrowUp", "PageUp"].includes(event.key) && event.currentTarget.scrollTop <= 32))) {
+            following.current = false;
+            requestEarlier.current?.();
+          }
+        }}
         onScroll={event => {
           if (!userScroll.current) return;
           const node = event.currentTarget;
+          if (node.scrollTop <= 32 && node.scrollTop < previousTop.current) requestEarlier.current?.();
           following.current = followsTimeline(node.scrollTop, node.clientHeight, node.scrollHeight, previousTop.current);
           if (!following.current) manualDisclosure.current = false;
           previousTop.current = node.scrollTop;
@@ -300,7 +345,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
           {(!validId || error || openError) && <p className="timeline-error" role="alert">{!validId ? t("detail.taskUnavailable") : taskErrorText(openError || error)}</p>}
-          {timeline?.coverage.state === "partial" && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
+          {timeline?.coverage.state === "partial" && !timeline.preview && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
           {!session.timeline && <section className="activity-session-summary">
             {executionPhase(nativeSession.phase, state) && <span className="timeline-meta">{t(`activity.phase.${nativeSession.phase}`)}</span>}
             {(nativeSession.recentContent?.length ? nativeSession.recentContent : [activityHeadline(nativeSession, t("timeline.title")).text])

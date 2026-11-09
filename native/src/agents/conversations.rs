@@ -337,13 +337,23 @@ impl AgentHost {
                     .await?
                     .iter()
                     .any(|r| r["threadId"] == session || r["task"]["threadId"] == session);
-            let mut timeline = if known {
+            let preview = if args["recent"] == true && args["after"].is_null() {
+                control
+                    .recent_timeline(session, known)
+                    .await
+                    .unwrap_or(None)
+            } else {
+                None
+            };
+            let mut timeline = if let Some(preview) = preview {
+                preview
+            } else if known {
                 control
                     .timeline(session, num(args, "after", 0) as u64)
-                    .await
+                    .await?
             } else {
-                control.external_timeline(session).await
-            }?;
+                control.external_timeline(session).await?
+            };
             timeline["srcConversation"] = crate::src_conversations::task_ref(agent, session)?;
             return Ok(timeline);
         }

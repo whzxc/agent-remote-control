@@ -65,7 +65,7 @@ test("invalid task identities stay local and valid identities recover detail req
     assert.ok(page.getByRole("heading", { name: "Recovered task" }));
     assert.ok(page.getByText("Recovered queued input"));
     assert.equal(page.queryByRole("alert"), null);
-    assert.ok(requests.some(request => request.route === `agents/timeline/${id}`));
+    assert.ok(requests.some(request => request.route.split("?")[0] === `agents/timeline/${id}`));
     assert.ok(requests.some(request => request.body.op === "codex_queue" && request.body.args.threadId === id));
     assert.ok(requests.some(request => request.route === "tasks/presence" && request.body.taskId === id));
     assert.ok(requests.some(request => request.route === "tasks/reviews" && request.body.id === id));

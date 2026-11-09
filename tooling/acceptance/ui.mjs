@@ -361,6 +361,19 @@ try {
         }
         if (fixture.detailTask !== undefined) {
           const task = fixture.tasks[fixture.detailTask];
+          if (name === 'timeline-recent') {
+            // Regression: a long finished task could not show its latest reply before older turns loaded.
+            const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+            const reply = task.finalAnswer.split('\n')[0];
+            const detail = page.getByRole('dialog', { name: task.title, exact: true });
+            const latest = detail.getByRole('paragraph').filter({ hasText: new RegExp(`^${escapeRegex(reply)}$`) });
+            await latest.waitFor();
+            const older = detail.getByRole('button', { name: new RegExp(escapeRegex(reply)) });
+            if (await older.count()) throw new Error('Older turns loaded before the recent reply was shown');
+            await detail.getByLabel(messages['timeline.title'], { exact: true }).press('Home');
+            await older.waitFor();
+            await latest.waitFor();
+          }
           if (task.parent !== undefined) {
             // Regression: a detail scenario exposed faded queue buttons behind its panel instead of limiting interaction to the panel.
             const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));

@@ -1,6 +1,6 @@
 import { createStore } from "./store";
 import { api } from "../api";
-import { notifyNative } from "../platform";
+import { isDesktop, notifyNative } from "../platform";
 import { t } from "../i18n";
 import type { TaskOwnership } from "../types";
 export interface TaskRecord {
@@ -46,13 +46,35 @@ export const tasks = createStore<{
   error: string;
   loading: boolean;
 }>({ records: [], error: "", loading: true });
-let refreshing: Promise<void> | undefined, seen: Set<string> | undefined;
+let refreshing: Promise<void> | undefined, seen: Set<string> | undefined, revision: string | undefined;
+type TaskFeed = { records?: TaskRecord[]; revision?: string; removed?: string[] };
+
+function compareTasks(a: TaskRecord, b: TaskRecord) {
+  if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt ? -1 : 1;
+  return a.requestId < b.requestId ? -1 : a.requestId > b.requestId ? 1 : 0;
+}
+
 export function refreshTasks() {
   if (refreshing) return refreshing;
-  refreshing = api<{ records: TaskRecord[] }>("tasks")
+  refreshing = (isDesktop
+    ? api<TaskFeed>("tasks/snapshot", "POST", revision ? { revision } : {})
+    : api<TaskFeed>("tasks"))
     .then((data) => {
+      revision = data.revision;
+      const current = tasks.get();
+      if (!data.records || data.records === current.records) {
+        if (current.error) tasks.set({ ...current, error: "" });
+        return;
+      }
+      let records = data.records;
+      if (data.removed) {
+        const next = new Map(current.records.map(row => [row.requestId, row]));
+        for (const id of data.removed) next.delete(id);
+        for (const row of data.records) next.set(row.requestId, row);
+        records = [...next.values()].sort(compareTasks);
+      }
       const ids = new Set(
-        data.records
+        records
           .filter((r) => r.state === "awaiting-approval")
           .map((r) => r.requestId),
       );
@@ -62,7 +84,7 @@ export function refreshTasks() {
           t("confirmInConnectorOrChatgptOrExecuteDirectly"),
         ).catch(() => {});
       seen = ids;
-      tasks.set({ records: data.records, error: "", loading: false });
+      tasks.set({ records, error: "", loading: false });
     })
     .catch((e) =>
       tasks.set((old) => ({ ...old, error: String(e), loading: false })),

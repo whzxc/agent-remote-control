@@ -297,15 +297,9 @@ async fn local_request(
     } else {
         None
     };
-    let timeline_after = if path.starts_with("/api/agents/timeline/") {
-        request
-            .uri()
-            .query()
-            .and_then(|q| q.split('&').find_map(|p| p.strip_prefix("after=")))
-            .map(str::to_owned)
-    } else {
-        None
-    };
+    let timeline_query = path
+        .starts_with("/api/agents/timeline/")
+        .then(|| request.uri().query().unwrap_or_default().to_owned());
     let parsed = tokio::time::timeout(Duration::from_secs(5), async {
         let bytes = Limited::new(
             request.into_body(),
@@ -331,10 +325,16 @@ async fn local_request(
         Ok(Err(e)) => return local_reply(400, json!({"error":e})),
         Err(_) => return local_reply(408, json!({"error":"request timeout"})),
     };
-    if let Some(after) = timeline_after {
-        match after.parse::<u64>() {
-            Ok(after) => body["after"] = json!(after),
-            Err(_) => return local_reply(400, json!({"error":"INVALID_TIMELINE_CURSOR"})),
+    if let Some(query) = timeline_query {
+        for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+            match key.as_ref() {
+                "after" => match value.parse::<u64>() {
+                    Ok(after) => body["after"] = json!(after),
+                    Err(_) => return local_reply(400, json!({"error":"INVALID_TIMELINE_CURSOR"})),
+                },
+                "recent" if value == "1" => body["recent"] = json!(true),
+                _ => {}
+            }
         }
     }
     if method == "GET"

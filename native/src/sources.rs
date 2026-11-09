@@ -852,6 +852,22 @@ pub async fn panel_origin() -> Result<Value> {
     Ok(origin)
 }
 /// Labels are read from the current store, including retained revoked sources.
+pub(crate) fn labels() -> Vec<Value> {
+    cache()
+        .ok()
+        .and_then(|cache| {
+            let cache = cache.read().ok()?;
+            Some(
+                cache.current["sources"]
+                    .as_array()?
+                    .iter()
+                    .map(|row| json!({"id":row["id"],"label":row["label"]}))
+                    .collect(),
+            )
+        })
+        .unwrap_or_default()
+}
+
 pub fn decorate(value: &mut Value) {
     let Ok(cache) = cache().and_then(|cache| cache.read().map_err(|e| e.to_string())) else {
         return;

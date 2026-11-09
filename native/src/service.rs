@@ -36,6 +36,7 @@ pub struct Service {
     configuration: Mutex<()>,
     pub(crate) relay: crate::relay::Manager,
     accounts: Arc<crate::accounts::Manager>,
+    task_feed: Mutex<crate::task_overview::Feed>,
     closing: std::sync::atomic::AtomicBool,
 }
 use crate::ingress::config::{defaults, secrets};
@@ -267,6 +268,7 @@ impl Service {
             configuration: Mutex::new(()),
             relay: Default::default(),
             accounts,
+            task_feed: Default::default(),
             closing: std::sync::atomic::AtomicBool::new(false),
         }))
     }
@@ -505,6 +507,13 @@ impl Service {
         method: &str,
         body: Value,
     ) -> Result<Value> {
+        if route == "tasks/snapshot" && method == "POST" {
+            crate::management::resolve("tasks.snapshot", &json!({"body":body}))?;
+            let mut feed = self.task_feed.lock().await;
+            let codex = self.control.task_display_records().await?;
+            let agents = self.agents.task_records()?;
+            return Ok(feed.read(codex, agents, &self.agents, body["revision"].as_str()));
+        }
         if route == "preferences" && method == "PUT" {
             let current = crate::preferences::read();
             if body["values"].as_object().is_some_and(|fields| {
@@ -941,6 +950,17 @@ impl Service {
             .strip_prefix("agents/timeline/")
             .filter(|_| method == "GET")
         {
+            if body["recent"] == true && body["after"].is_null() {
+                return self
+                    .agents
+                    .conversation_timeline(
+                        &self.control,
+                        &json!({
+                            "agent":"codex","id":session,"recent":true
+                        }),
+                    )
+                    .await;
+            }
             let after = match body.get("after") {
                 None => 0,
                 Some(v) => v.as_u64().ok_or("INVALID_TIMELINE_CURSOR")?,
@@ -1469,20 +1489,9 @@ impl Service {
                         .await
                 }
                 ("GET", "tasks") => {
-                    let mut records = self.control.task_display_records().await?.as_ref().clone();
-                    records.extend(self.agents.task_records()?.iter().cloned());
-                    for record in &mut records {
-                        let agent = record["agent"].as_str().unwrap_or("codex");
-                        let task = record["taskId"]
-                            .as_str()
-                            .or(record["threadId"].as_str())
-                            .or(record["task"]["threadId"].as_str())
-                            .unwrap_or("");
-                        if let Some(open) = self.agents.task_navigation(agent, task) {
-                            record["open"] = open;
-                        }
-                    }
-                    records.sort_by(|a, b| string(b, "createdAt").cmp(string(a, "createdAt")));
+                    let codex = self.control.task_display_records().await?;
+                    let agents = self.agents.task_records()?;
+                    let records = crate::task_overview::list_records(&codex, &agents, &self.agents);
                     Ok(json!({"records":records}))
                 }
                 ("POST", "tasks/open") => {

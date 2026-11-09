@@ -63,6 +63,25 @@
       "localOnly": true
     },
     {
+      "name": "tasks.snapshot",
+      "method": "POST",
+      "route": "tasks/snapshot",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": { "revision": { "type": "string", "format": "uuid" } },
+            "additionalProperties": false
+          }
+        },
+        "required": ["body"],
+        "additionalProperties": false
+      },
+      "description": "Read task list metadata. Return the revision alone when unchanged, upserts and removed request IDs when the previous revision is available, or the full records otherwise.",
+      "localOnly": true
+    },
+    {
       "name": "tasks.settings.get",
       "method": "GET",
       "route": "task-settings",
@@ -1722,6 +1741,10 @@
               "after": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "recent": {
+                "type": "boolean",
+                "description": "Allow a bounded Codex preview before reading the complete timeline. When preview is true in the response, omit after and recent to read the full timeline."
               }
             },
             "required": [

@@ -1090,7 +1090,22 @@ impl Timeline {
     }
     /// Project history first, then overlay observations made while the read was in flight.
     pub fn backfill_codex(&mut self, thread: &Value, baseline: u64, observed: u64, at: &str) {
-        let persisted = crate::control::persisted_turns(thread);
+        self.backfill_codex_with_metadata(
+            thread,
+            crate::control::persisted_turns(thread),
+            baseline,
+            observed,
+            at,
+        );
+    }
+    pub fn backfill_codex_with_metadata(
+        &mut self,
+        thread: &Value,
+        persisted: crate::control::PersistedTurns,
+        baseline: u64,
+        observed: u64,
+        at: &str,
+    ) {
         for (turn, timing) in persisted.timings {
             let current = self.turn_timings.entry(turn).or_insert(json!({}));
             for field in ["startedAt", "endedAt"] {
@@ -1132,8 +1147,9 @@ impl Timeline {
             }
         }
         let live = self.entries.clone();
+        let live_by_id: HashMap<_, _> = live.iter().map(|row| (string(row, "id"), row)).collect();
         for row in &mut history.entries {
-            if let Some(old) = live.iter().find(|old| old["id"] == row["id"]) {
+            if let Some(&old) = live_by_id.get(string(row, "id")) {
                 if old["cursor"].as_u64().unwrap_or(0) > baseline {
                     *row = old.clone();
                 } else {

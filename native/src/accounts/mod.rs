@@ -1280,8 +1280,12 @@ pub(crate) fn notification_accounts() -> Result<Vec<Value>> {
 }
 
 /// Read-time labels preserve the recorded ID, including after account removal or merge.
+pub(crate) fn label_snapshot() -> Option<Arc<Value>> {
+    crate::kernel::file_cache::shared_load(&path()).ok()
+}
+
 pub(crate) fn decorate(value: &mut Value) {
-    let Ok(snapshot) = crate::kernel::file_cache::shared_load(&path()) else {
+    let Some(snapshot) = label_snapshot() else {
         return;
     };
     let Some(rows) = snapshot.as_array() else {

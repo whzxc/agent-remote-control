@@ -316,15 +316,24 @@ pub(crate) async fn handle(
         };
         let mut target = format!("http://127.0.0.1:{port}/api/{target_route}");
         if route.starts_with("agents/timeline/") {
-            if let Some(after) =
+            let mut params = Vec::new();
+            for (key, value) in
                 url::form_urlencoded::parse(query.as_deref().unwrap_or("").as_bytes())
-                    .find(|(name, _)| name == "after")
-                    .map(|(_, value)| value.into_owned())
             {
-                let Ok(after) = after.parse::<u64>() else {
-                    return empty(400);
-                };
-                target.push_str(&format!("?after={after}"));
+                match key.as_ref() {
+                    "after" => {
+                        let Ok(after) = value.parse::<u64>() else {
+                            return empty(400);
+                        };
+                        params.push(format!("after={after}"));
+                    }
+                    "recent" if value == "1" => params.push("recent=1".into()),
+                    _ => {}
+                }
+            }
+            if !params.is_empty() {
+                target.push('?');
+                target.push_str(&params.join("&"));
             }
         }
         let mut upstream = client

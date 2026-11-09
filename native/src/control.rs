@@ -928,6 +928,81 @@ impl Control {
         history["thread"]["turns"] = json!(turns);
         Ok(history)
     }
+    pub(crate) async fn recent_timeline(&self, thread: &str, known: bool) -> Result<Option<Value>> {
+        if self
+            .events
+            .lock()
+            .await
+            .timelines
+            .get(thread)
+            .is_some_and(|timeline| timeline.history_loaded && !timeline.observation_lost)
+        {
+            return Ok(None);
+        }
+        let ownership = self.observe_ownership(thread).await?;
+        if ownership["owner"] == "external" || ownership["runtimeStatus"] == "active" {
+            return Ok(None);
+        }
+        let turns = self
+            .request(
+                "thread/turns/list",
+                json!({
+                    "threadId":thread,"limit":1,"sortDirection":"desc","itemsView":"notLoaded"
+                }),
+                3000,
+            )
+            .await?;
+        let Some(mut turn) = turns["data"].get(0).cloned() else {
+            return Ok(None);
+        };
+        // Live and failed turns use the complete projection for interactions and retry evidence.
+        if turn["status"] != "completed" || !turn["id"].is_string() {
+            return Ok(None);
+        }
+        let items = self
+            .request(
+                "thread/items/list",
+                json!({
+                    "threadId":thread,"turnId":turn["id"],"limit":48,"sortDirection":"desc"
+                }),
+                3000,
+            )
+            .await?;
+        let Some(rows) = items["data"].as_array().filter(|rows| !rows.is_empty()) else {
+            return Ok(None);
+        };
+        if turns["nextCursor"].is_null() && items["nextCursor"].is_null() {
+            return Ok(None);
+        }
+        turn["items"] = json!(rows
+            .iter()
+            .rev()
+            .map(|row| &row["item"])
+            .collect::<Vec<_>>());
+        // This preview never opens the rollout or becomes the live timeline's cursor baseline.
+        let mut timeline = crate::task_tracking::Timeline::default();
+        timeline.backfill_codex_with_metadata(
+            &json!({"id":thread,"turns":[turn]}),
+            Default::default(),
+            0,
+            0,
+            &now(),
+        );
+        crate::interaction_responses::project(&mut timeline, thread)?;
+        let mut result = timeline.response(thread, 0);
+        if result["entries"].as_array().is_none_or(Vec::is_empty) {
+            return Ok(None);
+        }
+        result["preview"] = json!(true);
+        result["coverage"]["state"] = json!("partial");
+        result["coverage"]["reason"] = json!("recent-preview");
+        result["executionEvidence"] = json!("partial");
+        result["ownership"] = ownership;
+        if !known {
+            result["readOnly"] = json!(true);
+        }
+        Ok(Some(result))
+    }
     pub(crate) async fn external_timeline(&self, thread: &str) -> Result<Value> {
         let ownership = self.observe_ownership(thread).await?;
         self.external_timeline_snapshot(thread, ownership).await
@@ -956,10 +1031,15 @@ impl Control {
                 .map_err(|e| e.to_string())??;
             (native, timeline)
         } else {
-            let history = self.timeline_history(thread).await?;
-            let mut timeline = crate::task_tracking::Timeline::default();
-            timeline.backfill_codex(&history["thread"], 0, 0, &now());
-            (history["thread"].clone(), timeline)
+            let mut history = self.timeline_history(thread).await?;
+            let native = history["thread"].take();
+            tokio::task::spawn_blocking(move || {
+                let mut timeline = crate::task_tracking::Timeline::default();
+                timeline.backfill_codex(&native, 0, 0, &now());
+                (native, timeline)
+            })
+            .await
+            .map_err(|e| e.to_string())?
         };
         crate::interaction_responses::project(&mut timeline, thread)?;
         let mut result = timeline.response(thread, 0);
@@ -1021,13 +1101,17 @@ impl Control {
         if !self.effective_background(thread).await? && !cfg!(target_os = "linux") {
             let _ = self.follow(thread).await;
         }
-        let history = self.timeline_history(thread).await;
+        let mut history = self.timeline_history(thread).await?;
+        let native = history["thread"].take();
+        let (native, metadata) = tokio::task::spawn_blocking(move || {
+            let metadata = persisted_turns(&native);
+            (native, metadata)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
         let mut events = self.events.lock().await;
         let timeline = events.timelines.entry(thread.into()).or_default();
-        match history {
-            Ok(result) => timeline.backfill_codex(&result["thread"], baseline, observed, &now()),
-            Err(error) => return Err(error),
-        }
+        timeline.backfill_codex_with_metadata(&native, metadata, baseline, observed, &now());
         crate::interaction_responses::project(timeline, thread)?;
         if after > timeline.revision {
             return Err("TIMELINE_CURSOR_EXPIRED: fetch again without after".into());

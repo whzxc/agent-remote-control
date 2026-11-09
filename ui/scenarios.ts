@@ -45,6 +45,16 @@ let accountResponse: ReturnType<typeof accountScenario> | undefined;
 let coordinationResponse = coordinationScenario();
 let taskResponse: ReturnType<typeof taskScenario> | undefined;
 let srcConversationResponse = srcConversationsScenario();
+function readTimeline(timeline: AgentTimeline, recent: boolean) {
+  if (!recent || !responses.timelineRecent) return structuredClone(timeline);
+  const latest = timeline.entries.at(-1)?.turnId;
+  return structuredClone({
+    ...timeline,
+    preview: true,
+    coverage: { state: 'partial', truncated: false, reason: 'recent-preview' },
+    entries: timeline.entries.filter(entry => entry.turnId === latest),
+  });
+}
 export function scenarioResponse(path: string, method: string, body?: unknown): unknown {
   try { return respondToScenario(path, method, body); }
   catch (error) {
@@ -120,8 +130,9 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     return { agent, ...(responses[`dispatch-defaults/${agent}`] = values) };
   }
   if (path === 'agents/conversations/timeline' && method === 'POST') {
-    const timeline = responses[`agents/timeline/${(body as { id: string }).id}`];
-    if (timeline) return structuredClone(timeline);
+    const { id, recent } = body as { id: string; recent?: boolean };
+    const timeline = responses[`agents/timeline/${id}`] as AgentTimeline | undefined;
+    if (timeline) return readTimeline(timeline, recent === true);
     throw new Error('SCENARIO_TIMELINE_UNAVAILABLE');
   }
   if (path === 'agents/conversations' && method === 'POST') {
@@ -142,6 +153,9 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     if (account) return structuredClone(account);
   }
   const route = path.split('?')[0];
+  if (route.startsWith('agents/timeline/') && responses[route]) {
+    return readTimeline(responses[route] as AgentTimeline, path.endsWith('?recent=1'));
+  }
   if (Object.hasOwn(responses, route)) return structuredClone(responses[route]);
   if (path.startsWith('tasks/runtime/')) {
     const id = path.slice('tasks/runtime/'.length);
@@ -339,6 +353,7 @@ export async function installScenario(name: string) {
     sessions: group.sessions.filter(session => { const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))]; return !task?.outcome && !task?.unconfirmed; }),
   }])) };
   responses = { dispatchModels: fixture.dispatchModels, reviewUnavailable: fixture.reviewUnavailable, ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
+  responses.timelineRecent = name === 'timeline-recent';
   if (fixture.pets) {
     responses.pets = installPetFixture(!!fixture.mascots);
     acceptPreferences({ 'arc.pets.show': 'true', 'arc.pets.assignments': JSON.stringify(fixture.mascots ? {} : {

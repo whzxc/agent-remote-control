@@ -1,6 +1,126 @@
 //! Bounded live enrichment of a native task page; never resumes tasks on reads.
 use crate::*;
+use std::collections::HashMap;
 use tokio::time::{timeout_at, Duration, Instant};
+
+pub(crate) fn list_records(
+    codex: &[Value],
+    agents: &[Value],
+    host: &crate::agents::AgentHost,
+) -> Vec<Value> {
+    let mut records = Vec::with_capacity(codex.len() + agents.len());
+    records.extend(codex.iter().chain(agents).cloned());
+    for record in &mut records {
+        let agent = record["agent"].as_str().unwrap_or("codex");
+        let task = record["taskId"]
+            .as_str()
+            .or(record["threadId"].as_str())
+            .or(record["task"]["threadId"].as_str())
+            .unwrap_or("");
+        if let Some(open) = host.task_navigation(agent, task) {
+            record["open"] = open;
+        }
+    }
+    records.sort_by(|a, b| {
+        string(b, "createdAt")
+            .cmp(string(a, "createdAt"))
+            .then_with(|| string(a, "requestId").cmp(string(b, "requestId")))
+    });
+    records
+}
+
+#[derive(Default)]
+pub(crate) struct Feed {
+    inputs: Option<FeedInputs>,
+    revision: String,
+    records: Value,
+    previous: Option<(String, Value)>,
+}
+
+struct FeedInputs {
+    codex: Arc<Vec<Value>>,
+    agents: Arc<Vec<Value>>,
+    sources: Vec<Value>,
+    accounts: Option<Arc<Value>>,
+    desktop: bool,
+}
+
+impl FeedInputs {
+    fn same(&self, next: &Self) -> bool {
+        Arc::ptr_eq(&self.codex, &next.codex)
+            && (Arc::ptr_eq(&self.agents, &next.agents)
+                || (self.agents.is_empty() && next.agents.is_empty()))
+            && self.sources == next.sources
+            && match (&self.accounts, &next.accounts) {
+                (None, None) => true,
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                _ => false,
+            }
+            && self.desktop == next.desktop
+    }
+}
+
+impl Feed {
+    pub(crate) fn read(
+        &mut self,
+        codex: Arc<Vec<Value>>,
+        agents: Arc<Vec<Value>>,
+        host: &crate::agents::AgentHost,
+        revision: Option<&str>,
+    ) -> Value {
+        let inputs = FeedInputs {
+            codex,
+            agents,
+            sources: crate::sources::labels(),
+            accounts: crate::accounts::label_snapshot(),
+            desktop: !cfg!(target_os = "linux") && crate::desktop::installation().is_some(),
+        };
+        if self.inputs.as_ref().is_none_or(|old| !old.same(&inputs)) {
+            let mut next = json!(list_records(&inputs.codex, &inputs.agents, host));
+            crate::sources::decorate_labels(&mut next, &inputs.sources);
+            if let Some(accounts) = inputs.accounts.as_deref().and_then(Value::as_array) {
+                crate::accounts::decorate_labels(&mut next, accounts);
+            }
+            if next != self.records {
+                let previous = std::mem::replace(&mut self.revision, id());
+                self.previous = self.records.as_array().and_then(|old| {
+                    let mut old: HashMap<_, _> = old
+                        .iter()
+                        .map(|row| (string(row, "requestId"), row))
+                        .collect();
+                    let records: Vec<_> = next
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|row| old.remove(string(row, "requestId")) != Some(*row))
+                        .collect();
+                    let mut removed: Vec<_> = old.into_keys().collect();
+                    removed.sort_unstable();
+                    if records.len() + removed.len() > 256 {
+                        return None;
+                    }
+                    Some((
+                        previous,
+                        json!({"revision":self.revision,"records":records,"removed":removed}),
+                    ))
+                });
+                self.records = next;
+            }
+            self.inputs = Some(inputs);
+        }
+        if revision == Some(self.revision.as_str()) {
+            return json!({"revision":self.revision});
+        }
+        if let Some((_, delta)) = self
+            .previous
+            .as_ref()
+            .filter(|(previous, _)| revision == Some(previous.as_str()))
+        {
+            return delta.clone();
+        }
+        json!({"revision":self.revision,"records":self.records})
+    }
+}
 
 /// List rows carry display metadata. Prompts, attachments and receipt evidence
 /// remain with their owners and are read through the selected task's timeline.
