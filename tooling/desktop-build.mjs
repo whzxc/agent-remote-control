@@ -30,6 +30,11 @@ args.push(...buildArgs);
 const debug = buildArgs.some(a => a === '--debug' || a === '-d');
 const profile = debug ? 'debug' : 'release';
 const env = buildEnv(!debug);
+// Local-install candidates retain incremental dev builds without shipping assertions.
+if (debug) {
+  env.CARGO_PROFILE_DEV_OPT_LEVEL = '1';
+  env.CARGO_PROFILE_DEV_DEBUG_ASSERTIONS = 'false';
+}
 if (unsigned) for (const key of Object.keys(env)) if (/^(TAURI_SIGNING_|CSC_|WIN_CSC_)/.test(key)) delete env[key];
 args.push('--config', JSON.stringify({ version: env.ARC_BUILD_VERSION }));
 for (const key of ['TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD']) {
