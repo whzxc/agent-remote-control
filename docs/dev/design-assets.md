@@ -2,6 +2,14 @@
 
 `modules/agent-account-add.tsx` owns the approved Codex add-account dialog: `oauth`, `import`, and `external`. It reuses Panel, Field, Input, SingleChoice and Button. Content lives in `fixtures/agent-account-add.ts`. Runtime implementation: `ui/components/AgentAccountAdd.tsx`; entry points: `AgentPanel` and `AgentPlatformView`. The `codex-account-add-*` browser fixtures cover the declared forms.
 
+The Agent account lifecycle proposal uses synthetic data from `fixtures/agent-account-management.ts`. Its frames await visual approval and have no runtime captures.
+
+| Source / frames | Proposed runtime owner | Coverage gap |
+|---|---|---|
+| `surfaces/agent-panel.tsx` / `account-entry` | `ui/components/AgentPanel.tsx` | Explicit management navigation is missing from Agent history and must work with zero, one or many accounts. |
+| `surfaces/agent-platform.tsx` / `manage-claude`, `manage-codex-primary`, `manage-empty` | `ui/components/AgentPlatformView.tsx`, `ui/components/AccountCards.tsx` | Account rows do not expose sign-in recovery or distinguish auth state from quota state. |
+| `modules/agent-account-add.tsx` / `claude-add`, `reauth`, `reauth-waiting`, `reauth-expired` | `ui/components/AgentAccountAdd.tsx` | Claude add and both reauth flows are unwired. Browser discovery exposes applications, not Chrome profiles. |
+
 [Governance and direction](design.md) · [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md#adopting-an-existing-project)
 
 ## Status conventions and scope

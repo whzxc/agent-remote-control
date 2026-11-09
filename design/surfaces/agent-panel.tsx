@@ -9,9 +9,11 @@ import { AgentTaskHistory } from "../modules/agent-activity";
 import { active, agentHistory, agentTaskMeta } from "../fixtures/agent-activity";
 import { taskDispatch } from "../fixtures/task-presentation";
 import { agentQuotas as quotas } from "../fixtures/quota";
-function AgentPanel({ empty = false }: { empty?: boolean }) {
+import { Button } from "../components/button";
+import { accountManagement } from "../fixtures/agent-account-management";
+function AgentPanel({ empty = false, manage = false }: { empty?: boolean; manage?: boolean }) {
   return (
-    <PanelShell width={420} height={empty ? 320 : 840} class="px-5 pt-4 pb-3">
+    <PanelShell width={manage ? 480 : 420} height={empty ? 320 : 840} class="px-5 pt-4 pb-3">
       <header class="flex items-center gap-3">
         <AgentIcon
           brand="codex"
@@ -34,6 +36,7 @@ function AgentPanel({ empty = false }: { empty?: boolean }) {
           </p>
         </div>
         <div class="flex items-center gap-1">
+          {manage && <Button icon="users">{accountManagement.title}</Button>}
           {["refresh-cw", "settings", "maximize-2"].map((icon) => (
             <IconButton icon={icon} label={icon} />
           ))}
@@ -87,5 +90,8 @@ export default () => [
     capture={{ region: "Codex", viewport: "1280x800" }}
   >
     <AgentPanel empty />
+  </Frame>,
+  <Frame name="account-entry" note="Proposed explicit account management entry in Agent history. Runtime fixture pending adoption.">
+    <AgentPanel empty manage />
   </Frame>,
 ];

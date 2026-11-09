@@ -4,10 +4,41 @@ import { Button } from '../components/button';
 import { Field, Input } from '../components/field';
 import { SingleChoice } from '../components/single-choice';
 import { accountAdd as copy } from '../fixtures/agent-account-add';
+import { accountSignIn as signIn } from '../fixtures/agent-account-management';
+import { Notice } from '../components/notice';
 
 type Method = 'oauth' | 'import';
 type Owner = 'codex' | 'none' | 'external';
-export function AgentAccountAdd({ method = 'oauth', owner = 'codex' }: { method?: Method; owner?: Owner }) {
+type Flow = 'codex-add' | 'claude-add' | 'reauth' | 'waiting' | 'expired';
+export function AgentAccountAdd({
+  method = 'oauth', owner = 'codex', flow = 'codex-add',
+}: { method?: Method; owner?: Owner; flow?: Flow }) {
+  if (flow !== 'codex-add') {
+    const title = flow === 'claude-add' ? signIn.add : signIn.reauth;
+    const waiting = flow === 'waiting', expired = flow === 'expired';
+    const footer = (
+      <div class="flex justify-end gap-3">
+        {waiting && <Button icon="copy">{signIn.copyLink}</Button>}
+        <Button variant="primary">{waiting ? signIn.submit : expired ? signIn.retry : signIn.start}</Button>
+      </div>
+    );
+    return (
+      <Panel width={480} title={title} footer={footer}>
+        {waiting ? (
+          <div class="flex flex-col gap-4">
+            <p class="text-small font-medium" role="status">{signIn.waiting} · {signIn.browsers[1].label}</p>
+            <Field label={signIn.code}><Input placeholder={signIn.codePlaceholder} /></Field>
+          </div>
+        ) : expired ? (
+          <Notice title={signIn.failure} />
+        ) : (
+          <Field label={signIn.browser}>
+            <SingleChoice label={signIn.browser} value="chrome-profile" options={signIn.browsers} dropdown fill />
+          </Field>
+        )}
+      </Panel>
+    );
+  }
   return <Panel width={560} title={copy.title} footer={<div class="flex justify-end gap-3"><Button>{copy.cancel}</Button><Button variant="primary">{method === 'oauth' ? copy.login : copy.import}</Button></div>}>
     <div class="flex flex-col gap-5">
       <SingleChoice label="添加方式" value={method} options={copy.methods} fill />
@@ -26,4 +57,14 @@ export default () => [
   <Frame name="oauth" fixture="codex-account-add-oauth-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,
   <Frame name="import" fixture="codex-account-add-import-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" /></Frame>,
   <Frame name="external" fixture="codex-account-add-external-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
+  ...([
+    ['claude-add', 'claude-add'],
+    ['reauth', 'reauth'],
+    ['reauth-waiting', 'waiting'],
+    ['reauth-expired', 'expired'],
+  ] as const).map(([name, flow]) => (
+    <Frame name={name} note="Proposed Agent sign-in flow. Runtime fixture pending adoption.">
+      <AgentAccountAdd flow={flow} />
+    </Frame>
+  )),
 ];
