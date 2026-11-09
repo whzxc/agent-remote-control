@@ -1,8 +1,12 @@
-import { markLabels, recovery } from "../fixtures/topology-mark";
-import { Frame, Icon } from "sdg";
+import { Frame } from "sdg";
 import ArcMarkArt from "../art/arc-mark.svg";
 import { Button } from "../components/button";
+import { IconButton } from "../components/icon-button";
 import { Dialog } from "../components/panel";
+import { markForms, recoveryForms, ringCopy } from "../fixtures/topology-mark";
+
+type ArcHealth = "healthy" | "unhealthy";
+type ArcSide = "remote" | "core";
 
 const geometry = {
   size: 240,
@@ -12,27 +16,33 @@ const geometry = {
   dotRadius: 3.91,
   dotGap: 15.65,
 };
+
 export function TopologyMark({
   size = geometry.size,
-  health = "healthy",
+  remote = "healthy",
+  core = "healthy",
+  revealed,
   sourceAction = true,
   agentAction = true,
 }: {
   size?: number;
-  health?: "healthy" | "unhealthy";
+  remote?: ArcHealth;
+  core?: ArcHealth;
+  revealed?: ArcSide;
   sourceAction?: boolean;
   agentAction?: boolean;
 }) {
   const g = geometry;
-  const unhealthy = health === "unhealthy";
-  return (
-    <svg data-free width={size} height={size} viewBox="0 0 240 240" role="img" aria-label={markLabels[health]}>
-      <ArcMarkArt
-        data-brand
-        width={240}
-        height={240}
-        style={unhealthy ? { "--arc-fault-color": "var(--danger)" } : undefined}
-      />
+  const fault = {
+    ...(remote === "unhealthy" ? { "--remote-arc-color": "var(--danger)", "--remote-arc-dash": "39 22 39" } : {}),
+    ...(core === "unhealthy" ? { "--core-arc-color": "var(--danger)", "--core-arc-dash": "39 22 39" } : {}),
+  };
+  const mark = (
+    <svg
+      data-free width={size} height={size} viewBox="0 0 240 240" role="img"
+      aria-label={`${ringCopy.remote.status[remote]}. ${ringCopy.core.status[core]}.`}
+    >
+      <ArcMarkArt data-brand width={240} height={240} style={fault} />
       {sourceAction && (
         <g fill="none" stroke="var(--canvas)" stroke-width={7.82} stroke-linecap="round">
           <path d={`M${g.sourceX - 9.333} ${g.centerY}h18.666M${g.sourceX} ${g.centerY - 9.333}v18.666`} />
@@ -42,47 +52,46 @@ export function TopologyMark({
         [-1, 0, 1].map((i) => (
           <circle cx={g.agentX + i * g.dotGap} cy={g.centerY} r={g.dotRadius} fill="var(--canvas)" />
         ))}
-      {unhealthy && (
-        <g aria-hidden="true">
-          <circle cx={120} cy={g.centerY} r={23} fill="var(--surface-raised)" stroke="var(--danger)" stroke-width={2} />
-          <g transform="translate(107 107)" class="text-danger">
-            <Icon name="rotate-cw" size={26} />
-          </g>
-        </g>
-      )}
     </svg>
+  );
+  if (!revealed) return mark;
+  const action = ringCopy[revealed][revealed === "remote" ? remote : core];
+  const upper = revealed === "remote";
+  return (
+    <div class={`relative flex justify-center ${upper ? "pt-4" : "pb-4"}`} style={{ width: size }}>
+      {mark}
+      <div class={`absolute left-1/2 -translate-x-1/2 ${upper ? "top-0" : "bottom-0"}`}>
+        <IconButton {...action} compact active />
+      </div>
+    </div>
   );
 }
 
-export function ArcRecovery() {
+export function ArcRecovery({ form }: { form: typeof recoveryForms[number]["form"] }) {
+  const { title, reason, impact, secondary, primary } = ringCopy.recovery[form];
   return (
-    <Dialog title={recovery.title} width={380}>
+    <Dialog title={title} width={380}>
       <div class="flex flex-col gap-2">
-        <p class="text-small leading-5">{recovery.reason}</p>
-        <p class="text-meta leading-5 text-text-secondary">{recovery.impact}</p>
+        <p class="text-small leading-5">{reason}</p>
+        {impact && <p class="text-meta leading-5 text-text-secondary">{impact}</p>}
       </div>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button>{recovery.restart}</Button>
-        <Button variant="primary">{recovery.retry}</Button>
+        {secondary && <Button>{secondary}</Button>}
+        <Button variant="primary">{primary}</Button>
       </div>
     </Dialog>
   );
 }
 
 export default () => [
-  <Frame name="topology-mark">
-    <TopologyMark />
-  </Frame>,
-  <Frame
-    name="topology-mark-unhealthy"
-    note="Both arcs report ARC runtime health. The center action opens recovery. Source and Agent nodes keep their own states."
-  >
-    <TopologyMark health="unhealthy" />
-  </Frame>,
-  <Frame
-    name="arc-recovery"
-    note="Retry rechecks ARC. Restart uses Desktop recovery when Core cannot respond. Runtime capture awaits implementation."
-  >
-    <ArcRecovery />
-  </Frame>,
+  ...markForms.map(({ name, note, ...props }) => (
+    <Frame name={name} note={note}>
+      <TopologyMark {...props} />
+    </Frame>
+  )),
+  ...recoveryForms.map(({ form, note }) => (
+    <Frame name={`arc-recovery-${form}`} note={note}>
+      <ArcRecovery form={form} />
+    </Frame>
+  )),
 ];
