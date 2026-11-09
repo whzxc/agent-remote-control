@@ -12,7 +12,6 @@ mod desktop_access;
 mod i18n;
 mod oauth_links;
 mod permissions;
-mod session;
 mod snapshot;
 #[cfg(target_os = "macos")]
 mod src_conversations;
@@ -30,6 +29,22 @@ async fn request(
 ) -> Result<Value, String> {
     if method != "GET" {
         desktop_access::check_write(app)?;
+    }
+    if matches!(
+        (route, method),
+        ("runtime/health", "GET") | ("runtime/core", "POST")
+    ) {
+        let service = app
+            .try_state::<Arc<Service>>()
+            .ok_or("Desktop is starting.")?
+            .inner()
+            .clone();
+        if method == "POST" {
+            service
+                .control_core(body["action"].as_str().unwrap_or(""))
+                .await?;
+        }
+        return service.hub_health().await;
     }
     if route == "permissions/request" && method == "POST" {
         return permissions::request(body["id"].as_str().unwrap_or("")).await;
@@ -65,23 +80,9 @@ fn show_main_window(app: &tauri::AppHandle) {
 }
 async fn connect_service(app: &tauri::AppHandle) -> Result<Arc<Service>, String> {
     let binary = arc_core::runtime::binary()?;
-    let service = Service::connect(binary, "desktop").await?;
-    let attached = async {
-        let (endpoint, listener) =
-            arc_core::transport::listen_desktop(Arc::new(desktop_access::Owner(app.clone())))
-                .await?;
-        if let Err(error) = service.attach_desktop(endpoint).await {
-            listener.abort();
-            return Err(error);
-        }
-        Ok::<_, String>(())
-    }
-    .await;
-    if let Err(error) = attached {
-        service.close().await;
-        return Err(error);
-    }
-    Ok(service)
+    let (endpoint, listener) =
+        arc_core::transport::listen_desktop(Arc::new(desktop_access::Owner(app.clone()))).await?;
+    Service::desktop(binary, endpoint).inspect_err(|_| listener.abort())
 }
 fn main() {
     if let Some(state_dir) = std::env::args()
@@ -251,27 +252,6 @@ fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             });
-            let autostart = std::env::args().any(|arg| arg == "--autostart");
-            let resume = if autostart { None } else { session::restore() };
-            if resume.is_some() || autostart {
-                tauri::async_runtime::spawn(async move {
-                    if let Some(ids) = resume {
-                        for id in ids {
-                            if let Err(error) = service
-                                .request(&format!("ingress/{id}/start"), "POST", json!({}))
-                                .await
-                            {
-                                service.log("ERROR", &error).await;
-                            }
-                        }
-                    } else if let Err(error) = service
-                        .request("ingress/start-all", "POST", json!({}))
-                        .await
-                    {
-                        service.log("ERROR", &error).await;
-                    }
-                });
-            }
             if let Some(window) = app.get_webview_window("main") {
                 // Clear the live WebView backing as well as the window configuration.
                 // On macOS this disables WKWebView's own opaque background.

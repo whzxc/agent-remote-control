@@ -69,7 +69,7 @@ fn login_command(exe: &std::path::Path) -> String {
         let trailing = value.chars().rev().take_while(|c| *c == '\\').count();
         format!("\"{}{}\"", value, "\\".repeat(trailing))
     };
-    format!("{} --autostart --state-dir {}", quote(exe), quote(&root()))
+    format!("{} --state-dir {}", quote(exe), quote(&root()))
 }
 pub async fn set(enabled: bool) -> Result<()> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -86,7 +86,7 @@ pub async fn set(enabled: bool) -> Result<()> {
                     .replace('"', "&quot;")
             };
             private_dir(path.parent().unwrap())?;
-            std::fs::write(path,format!("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.whzxc.agent-remote-control</string><key>ProgramArguments</key><array><string>{}</string><string>--autostart</string></array><key>EnvironmentVariables</key><dict><key>ARC_STATE_DIR</key><string>{}</string></dict><key>RunAtLoad</key><true/></dict></plist>",xml(&exe.to_string_lossy()),xml(&root().to_string_lossy()))).map_err(|e|e.to_string())?;
+            std::fs::write(path,format!("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.whzxc.agent-remote-control</string><key>ProgramArguments</key><array><string>{}</string></array><key>EnvironmentVariables</key><dict><key>ARC_STATE_DIR</key><string>{}</string></dict><key>RunAtLoad</key><true/></dict></plist>",xml(&exe.to_string_lossy()),xml(&root().to_string_lossy()))).map_err(|e|e.to_string())?;
             let uid = output("id", &["-u"]).await?;
             output(
                 "launchctl",

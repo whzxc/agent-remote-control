@@ -1039,37 +1039,31 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .dialog.activity-panel[data-panel-geometry="portrait"] { height: var(--panel-layout-height); max-height: var(--panel-layout-height); }
 .activity-panel[data-panel-geometry="portrait"] > .elastic-panel-content { height: calc(var(--panel-layout-height) - 2px); max-height: calc(var(--panel-layout-height) - 2px); }
 
-/* Connection motion stays screen-relative while the mark follows the topology orientation. */
-.hub-arc-motion { position: absolute; inset: 0; pointer-events: none; }
-.hub-arc-orbit { position: absolute; inset: 0; transform: rotate(var(--hub-rotation, 0deg)); pointer-events: none; }
-.hub-arc { position: absolute; width: 100%; height: var(--hub-arc-height); min-height: 28px; padding: 0; border: 0; background: transparent; color: var(--text); cursor: pointer; pointer-events: auto; }
-.hub-connections { inset: 0 0 auto; }
-.hub-power { inset: auto 0 0; }
-.hub-arc > svg { display: block; position: absolute; left: 0; width: 100%; height: 250%; overflow: visible; pointer-events: none; }
-.hub-connections > svg { top: 0; }
-.hub-power > svg { bottom: 0; }
-/* The lower arc outer edge is 86.5 in viewBox 4..96; its SVG is 250% of the hit area. */
-.hub-power-action { position: absolute; left: 50%; top: var(--hub-power-top); width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--topology-agent); color: var(--canvas); opacity: 0; transform: translate(-50%, -8px) rotate(calc(0deg - var(--hub-rotation, 0deg))) scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
-.hub-power-action::before { content: ''; position: absolute; inset: -16px -6px -6px; }
-.hub-power:is(:hover, :focus-visible) .hub-power-action { opacity: 1; transform: translate(-50%, 0) rotate(calc(0deg - var(--hub-rotation, 0deg))); pointer-events: auto; }
-:root[data-reduced-motion="true"] .hub-power-action { transition: none; }
-@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-power-action { transition: none; } }
-
-.hub-arc path { pointer-events: stroke; }
-.hub-arc:focus-visible { outline: none; }
-.hub-arc:focus-visible .hub-arc-stroke { filter: brightness(1.18); }
-.hub-arc[aria-disabled="true"] { cursor: default; }
-.hub-arc[aria-busy="true"] { cursor: progress; }
-.hub-arc-stroke { transition: opacity 160ms ease, stroke 160ms ease; }
-.hub-arc[data-state="stopped"] .hub-arc-stroke { opacity: .38; stroke-dasharray: 22 16 24 16 22; }
-.hub-arc[data-state="unknown"] .hub-arc-stroke { opacity: .45; stroke-dasharray: 4 8; }
-.hub-arc[data-state="partial"] .hub-arc-stroke { stroke: var(--warning); stroke-dasharray: 64 16 20; }
-.hub-arc[data-state="error"] .hub-arc-stroke { stroke: var(--danger); stroke-dasharray: 22 16 24 16 22; }
-.hub-arc:is([data-state="starting"], [data-state="stopping"]) .hub-arc-stroke { stroke-dasharray: 18 9; animation: hub-connection-progress 1.8s linear infinite; }
-@keyframes hub-connection-progress { to { stroke-dashoffset: -54; } }
-:root[data-reduced-motion="true"] { .hub-arc-stroke { transition: none; animation: none; } }
-@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-arc-stroke { transition: none; animation: none; } }
-.hub-connection-add { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%) rotate(calc(0deg - var(--hub-rotation, 0deg))); white-space: nowrap; pointer-events: auto; }
+/* ARC status arcs follow the mark. Their revealed buttons stay upright. */
+.hub-arc-orbit, .hub-arc, .hub-arc > svg { position: absolute; inset: 0; pointer-events: none; }
+.hub-arc-orbit { transform: rotate(var(--hub-rotation, 0deg)); }
+.hub-arc > svg { width: 100%; height: 100%; overflow: visible; }
+.hub-arc-hit { pointer-events: stroke; }
+.hub-arc[data-unhealthy] .hub-arc-stroke { stroke: var(--danger); stroke-dasharray: 39 22 39; }
+.hub-arc-bridge, .hub-arc-action { position: absolute; left: 50%; }
+.hub-arc-bridge { width: var(--control-height-compact); height: 36%; transform: translateX(-50%); }
+.hub-arc-top .hub-arc-bridge { top: -4px; }
+.hub-arc-bottom .hub-arc-bridge { bottom: -4px; }
+.hub-arc-action {
+  z-index: 1;
+  opacity: 0;
+  transform: translateX(-50%) rotate(calc(0deg - var(--hub-rotation, 0deg)));
+  transition: opacity 140ms ease, translate 160ms ease;
+}
+.hub-arc-top .hub-arc-action { bottom: calc(90% + 4px); translate: 0 5px; }
+.hub-arc-bottom .hub-arc-action { top: calc(90% + 4px); translate: 0 -5px; }
+.hub-arc:is(:hover, :focus-within) .hub-arc-bridge { pointer-events: auto; }
+.hub-arc:is(:hover, :focus-within) .hub-arc-action { opacity: 1; translate: none; pointer-events: auto; }
+:root[data-reduced-motion="true"] .hub-arc-action { transition: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-arc-action { transition: none; } }
+.hub-recovery-reason { display: flex; flex-direction: column; gap: 8px; }
+.hub-recovery-reason p { margin: 0; }
+.hub-recovery-impact { color: var(--text-secondary); font-size: var(--text-meta); }
 
 /* Fold real nodes on their topology axes; the hit area spans the unfolding gap. */
 .topology-group-node > .topology-group { margin-left: -2px; margin-top: 2px; }

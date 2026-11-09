@@ -383,10 +383,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       hub.current.querySelectorAll('[data-hub-arc="bottom"]').forEach(path => path.setAttribute('d', mark.bottom));
       hub.current.style.setProperty('--source-dot-scale', String(h.dotSource));
       hub.current.style.setProperty('--agent-dot-scale', String(h.dotAgent));
-      const { size, arcHeight, powerTop } = hubControlGeometry(h.Re);
+      const { size } = hubControlGeometry(h.Re);
       hub.current.style.width = hub.current.style.height = `${size}px`;
-      hub.current.style.setProperty('--hub-arc-height', `${arcHeight}px`);
-      hub.current.style.setProperty('--hub-power-top', `${powerTop}px`);
       hub.current.style.setProperty('--hub-rotation', `${h.rotation}deg`);
       const angle = h.rotation * Math.PI / 180;
       hub.current.style.setProperty('--source-dot-x', `${50 - Math.cos(angle) * 32 / 92 * 100}%`);

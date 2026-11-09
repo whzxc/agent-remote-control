@@ -1,3 +1,4 @@
+import { readOnlyBrowser } from './browserMode';
 import { mcpScenario, type McpFixture } from './mcp/scenario';
 import { coordinationScenario, type CoordinationFixture } from './scenarioCoordination';
 import { resetBoardObservation, centerView, boardOpen } from './coordination/state';
@@ -26,7 +27,7 @@ import { openSnapshotPanel, settledViewModel, type PanelRequest } from './accept
 import type { AccountsResult, AgentActivitySnapshot, AgentActivitySession, AgentConversation, AgentInteraction, AgentTimeline, AgentTimelineEntry, DispatchSummary } from './types';
 import type { Snapshot } from './subscriptions/types';
 import { selectAgentPanel } from './state/overviewPanels';
-import type { Status } from './state/types';
+import type { HubHealth, Status } from './state/types';
 import { controlSourcePlatform } from './controlSources';
 import config from '../native/src/ingress/config.json';
 import { acceptTaskExecution, resetTaskExecutions } from './state/taskExecution';
@@ -36,7 +37,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -68,21 +69,22 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   const coordinationResult = coordinationResponse(path, method, body);
   if (coordinationResult !== undefined) return structuredClone(coordinationResult);
   if (path === 'status' && responses.statusUnavailable) throw new Error('Connection status is unavailable in this fixture.');
-  if (['ingress/start-all', 'ingress/stop-all'].includes(path) && method === 'POST') {
-    const start = path === 'ingress/start-all', status = structuredClone(responses.status as Status);
-    const selected = status.ingresses.filter(entry => !start || entry.enabled);
-    const update = (pending: boolean) => {
-      const next = structuredClone(status);
-      next.ingresses = next.ingresses.map(entry => !selected.some(item => item.id === entry.id) ? entry : { ...entry,
-        state: pending ? start ? 'starting' : 'stopping' : start ? 'ready' : 'stopped', running: pending ? entry.running : start, error: '',
-        sources: entry.sources?.map(source => ({ ...source, state: !pending && start ? 'connected' : 'disconnected', connectedAt: !pending && start ? 1 : null })) });
-      next.ingressSummary = { total: next.ingresses.length, running: next.ingresses.filter(entry => entry.running).length, ready: next.ingresses.filter(entry => entry.state === 'ready').length };
-      responses.status = next;
-      responses.source = { sources: next.ingresses.flatMap(entry => entry.sources ?? []) };
-      connector.set(old => ({ ...old, status: next, sources: (responses.source as { sources: import('./state/types').ControlSource[] }).sources }));
-    };
-    update(true);
-    return new Promise(resolve => setTimeout(() => { update(false); resolve({ results: selected.map(entry => ({ id: entry.id, ok: true })) }); }, 450));
+  if (path === 'runtime/health' && method === 'GET') return structuredClone(responses.hubHealth);
+  if (path === 'runtime/core' && method === 'POST') {
+    const action = (body as { action: string }).action;
+    const health = responses.hubHealth as HubHealth;
+    return responses.hubHealth = { ...health, core: action === 'stop' ? 'stopped' : 'ready',
+      remoteFaults: action === 'stop' && responses.expectedRemote ? [responses.expectedRemote] : [] };
+  }
+  if (path === 'ingress/fixture-remote/restart' && method === 'POST' && responses.expectedRemote) {
+    const health = responses.hubHealth as HubHealth;
+    responses.hubHealth = { ...health, remoteFaults: [] };
+    const status = responses.status as Status;
+    const remote = status.ingresses.find(entry => entry.id === 'fixture-remote')!;
+    remote.state = 'ready';
+    remote.running = true;
+    remote.error = '';
+    return structuredClone(remote);
   }
   if (path === 'app/env' && method === 'GET') {
     const now = Date.now();
@@ -219,6 +221,14 @@ export async function installScenario(name: string) {
       state, running: ['ready', 'starting', 'stopping', 'degraded'].includes(state), error: ['error', 'degraded'].includes(state) ? 'Fixture connection failed.' : '',
       sources: index ? [] : base.sources?.map(source => ({ ...source, state: state === 'ready' ? 'connected' as const : 'disconnected' as const, connectedAt: state === 'ready' ? 1 : null })) }));
   }
+  const expectedRemote = fixture.hubRemoteFailure ? { id: 'fixture-remote', name: 'ARC HTTPS' } : undefined;
+  if (expectedRemote) {
+    const base = status.ingresses[0];
+    status.ingresses.push({ ...base, ...expectedRemote, transport: 'https', sources: [],
+      state: 'error', running: false, error: 'Fixture remote tunnel failed.' });
+  }
+  const hubHealth: HubHealth = { core: fixture.hubCore ?? 'ready',
+    remoteFaults: expectedRemote ? [expectedRemote] : [], remoteUnavailable: false };
   status.ingressSummary = { total: status.ingresses.length, running: status.ingresses.filter(entry => entry.running).length, ready: status.ingresses.filter(entry => entry.state === 'ready').length };
   const sources = status.ingresses.flatMap(i => i.sources ?? []);
   const inventory: Agent[] = fixture.agentInventory ?? fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
@@ -363,13 +373,15 @@ export async function installScenario(name: string) {
     }) });
   }
   responses.statusUnavailable = fixture.statusUnavailable;
+  responses.hubHealth = hubHealth;
+  responses.expectedRemote = expectedRemote;
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
   if (name.startsWith('agent-platform-')) setPrivacy(false);
   accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('codex-account-add-') || name.startsWith('agent-platform-')) ? accountScenario(status, sources, name) : undefined;
   updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
-  connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
+  connector.set({ status, hubHealth: readOnlyBrowser ? undefined : hubHealth, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
   resetTaskExecutions();

@@ -10,6 +10,15 @@ use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Child,
 };
+pub(crate) struct TransportStatus {
+    pub state: &'static str,
+    running: bool,
+    error: String,
+    urls: Vec<String>,
+    tunnel_health: Value,
+    control_plane: Value,
+}
+
 pub struct Ingress {
     pub id: String,
     pub meta: Mutex<Value>,
@@ -320,7 +329,7 @@ impl Ingress {
         }
         Ok(())
     }
-    pub async fn status(&self) -> Result<Value> {
+    pub(crate) async fn transport_status(&self) -> Result<TransportStatus> {
         let tunnel_running = self.tunnel.lock().await.is_some();
         let https_running = self
             .https
@@ -439,6 +448,24 @@ impl Ingress {
         } else {
             "starting"
         };
+        Ok(TransportStatus {
+            state,
+            running,
+            error,
+            urls,
+            tunnel_health,
+            control_plane,
+        })
+    }
+    pub async fn status(&self) -> Result<Value> {
+        let TransportStatus {
+            state,
+            running,
+            error,
+            urls,
+            tunnel_health,
+            control_plane,
+        } = self.transport_status().await?;
         let mut config = self.settings.lock().await.clone();
         config["configured"] = json!(configured(&config));
         for (key, flag) in secrets() {
@@ -470,7 +497,6 @@ impl Ingress {
             supervisor.abort();
             let _ = supervisor.await;
         }
-        crate::sources::connection_state(&self.id, false).await?;
         self.stopping
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let was_connected = self
@@ -526,6 +552,9 @@ impl Ingress {
         *self.tunnel_error_at.lock().await = None;
         if was_connected {
             self.log("INFO", "Connection closed").await;
+        }
+        if let Err(error) = crate::sources::connection_state(&self.id, false).await {
+            crate::logs::record("ERROR", &error, Some(&self.id));
         }
         Ok(())
     }

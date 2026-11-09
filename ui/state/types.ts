@@ -48,7 +48,14 @@ export interface Ingress {
   url: string;
   verification?: { verifiedAt?: string; challengeVerifiedAt?: string };
 }
+export type RemoteFault = { id: string; name: string };
+export type HubHealth = {
+  core: "ready" | "stopped" | "unavailable";
+  remoteFaults: RemoteFault[];
+  remoteUnavailable: boolean;
+};
 export interface Status {
+  remoteFaults?: RemoteFault[];
   diagnostics: { findings: { code: string; severity: string; scope: { kind: string; id: string }; summary: string }[] };
   ingresses: Ingress[];
   ingressSummary: { running: number; ready: number; total: number };

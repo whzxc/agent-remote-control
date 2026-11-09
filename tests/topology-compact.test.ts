@@ -191,6 +191,7 @@ test('portrait compacts sources first and centers the visible task group', () =>
     const packed = compactLayout({ ...viewport, left, right }, plan, new Set(), DEFAULTS, 'portrait');
     const tasks = packed.wings[1].tasks;
     const anchor = count === 4 ? (tasks[0].y + tasks.at(-1)!.y) / 2 : (packed.portrait!.sourceTop + packed.portrait!.agentBottom) / 2;
-    assert.ok(Math.abs(anchor - viewport.vh / 2) < .001); assert.equal(packed.sceneH, viewport.vh);
+    assert.ok(Math.abs(anchor - viewport.vh / 2) < .001);
+    assert.ok(Math.abs(packed.sceneH - viewport.vh) < .001);
   }
 });

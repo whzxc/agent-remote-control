@@ -217,14 +217,14 @@ test("control source dock preserves editing, field navigation and cross-side dis
     }
     await act(() => root.render(h(UiProvider, null, h(OverviewFixture))));
     await flush();
-    await click(button(t("connections.title")));
+    await click(button(t("hub.viewConnections")));
     assert.ok(page.getByRole("dialog", { name: t("connections.title"), exact: true }));
     await click(button(t("source.newConnection")));
     assert.ok(page.getByRole("dialog", { name: t("source.newConnection"), exact: true }));
     await escape();
     assert.ok(page.getByRole("dialog", { name: t("connections.title"), exact: true }));
     await escape();
-    assert.ok(button(t("connections.title")).matches(":focus"));
+    assert.ok(button(t("hub.viewConnections")).matches(":focus"));
     const first = () => page.getByRole("button", { name: "Source one", exact: true });
     const second = () => page.getByRole("button", { name: "Source two", exact: true });
     await click(first());

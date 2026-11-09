@@ -4,23 +4,43 @@ use crate::{control::Control, ingress::Ingress, *};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU16, Ordering};
 
+type ConnectionIntent = std::collections::BTreeSet<String>;
+
+fn connection_intent() -> Result<ConnectionIntent> {
+    let path = root().join("desktop-session.json");
+    if !path.exists() {
+        return Ok(ConnectionIntent::new());
+    }
+    serde_json::from_value(load(&path)?).map_err(|error| error.to_string())
+}
+
+pub(crate) fn expected_remote() -> Result<Vec<Value>> {
+    let mut entries = Vec::new();
+    for id in connection_intent()? {
+        valid_id(&id)?;
+        let path = root().join("ingresses").join(&id).join("config.json");
+        if !path.exists() {
+            continue;
+        }
+        let entry = load(&path)?;
+        if entry["enabled"] == true && entry["transport"] != "local" {
+            entries.push(json!({"id":id,"name":entry["name"]}));
+        }
+    }
+    Ok(entries)
+}
+
 fn remember_connection(id: &str, connected: bool) -> Result<()> {
-    // Core is the single writer. Internal shutdown and restart cleanup must not
-    // turn a transient failure into a persistent request to disconnect.
+    // Core owns intent. Runtime shutdown and source lifecycle leave it intact.
     static WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = WRITER.lock().unwrap();
-    let path = root().join("desktop-session.json");
-    let mut ids: std::collections::BTreeSet<String> = if path.exists() {
-        serde_json::from_value(load(&path)?).map_err(|error| error.to_string())?
-    } else {
-        Default::default()
-    };
+    let mut ids = connection_intent()?;
     if connected {
         ids.insert(id.to_owned());
     } else {
         ids.remove(id);
     }
-    save(&path, &json!(ids))
+    save(&root().join("desktop-session.json"), &json!(ids))
 }
 
 pub struct Service {
@@ -339,6 +359,44 @@ impl Service {
         }
         while jobs.join_next().await.is_some() {}
     }
+    pub(crate) async fn restore_remote(self: &Arc<Self>) -> Result<()> {
+        let mut jobs = tokio::task::JoinSet::new();
+        for entry in expected_remote()? {
+            let Ok(ingress) = self.ingress(string(&entry, "id")).await else {
+                continue;
+            };
+            let port = self.port.load(Ordering::SeqCst);
+            jobs.spawn(async move {
+                let _runtime = ingress.operation.lock().await;
+                if !connection_intent()?.contains(&ingress.id)
+                    || ingress.retired.load(Ordering::SeqCst)
+                    || ingress.meta.lock().await["enabled"] != true
+                {
+                    return Ok::<(), String>(());
+                }
+                ingress.port.store(port, Ordering::SeqCst);
+                if let Err(error) = ingress.start().await {
+                    crate::logs::record("ERROR", &error, Some(&ingress.id));
+                }
+                Ok(())
+            });
+        }
+        while let Some(job) = jobs.join_next().await {
+            job.map_err(|error| error.to_string())??;
+        }
+        Ok(())
+    }
+
+    async fn remote_faults(&self) -> Result<Vec<Value>> {
+        let mut faults = Vec::new();
+        for entry in expected_remote()? {
+            let ingress = self.ingress(string(&entry, "id")).await?;
+            if ingress.transport_status().await?.state != "ready" {
+                faults.push(entry);
+            }
+        }
+        Ok(faults)
+    }
     pub(crate) async fn entries(&self) -> Vec<Arc<Ingress>> {
         self.ingresses.lock().await.values().cloned().collect()
     }
@@ -397,6 +455,16 @@ impl Service {
         }
         let running = items.iter().filter(|i| i["running"] == true).count();
         let ready = items.iter().filter(|i| i["state"] == "ready").count();
+        if let Ok(expected) = expected_remote() {
+            status["remoteFaults"] = json!(expected
+                .into_iter()
+                .filter(|entry| {
+                    !items
+                        .iter()
+                        .any(|item| item["id"] == entry["id"] && item["state"] == "ready")
+                })
+                .collect::<Vec<_>>());
+        }
         status["ingresses"] = json!(items);
         status["diagnostics"] = crate::diagnostics::status(&status);
         crate::diagnostics::receipts(
@@ -678,8 +746,11 @@ impl Service {
                             .revoke(string(&current["credential"], "grantId"))
                             .await?;
                     }
-                } else if let Ok(i) = self.ingress(string(&source, "ingressId")).await {
-                    i.stop().await?;
+                } else if source["credential"]["type"] == "local" {
+                    if let Ok(i) = self.ingress(string(&source, "ingressId")).await {
+                        let _runtime = i.operation.lock().await;
+                        i.stop().await?;
+                    }
                 }
                 return crate::sources::disconnect(id).await;
             }
@@ -839,8 +910,21 @@ impl Service {
             let proof = load(&root().join("uninstall-core.json")).unwrap_or(Value::Null);
             return self.runtime.uninstall(string(&body, "token"), &proof);
         }
+        if route == "runtime/remote" && method == "GET" {
+            return Ok(json!(self.remote_faults().await?));
+        }
         if route.starts_with("runtime/") && method == "POST" {
-            return self.runtime.request(route, body);
+            let desktop = route == "runtime/lease" && body["kind"] == "desktop";
+            let result = self.runtime.request(route, body)?;
+            if desktop && self.runtime.take_remote_restore() {
+                let service = self.clone();
+                tokio::spawn(async move {
+                    if let Err(error) = service.restore_remote().await {
+                        crate::logs::record("ERROR", &error, None);
+                    }
+                });
+            }
+            return Ok(result);
         }
         if route == "app/env" && method == "GET" {
             return crate::app_env::control(&json!({"action":"read"}));

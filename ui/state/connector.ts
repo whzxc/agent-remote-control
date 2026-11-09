@@ -4,9 +4,10 @@ import { api } from "../api";
 import { isLocalSource } from "../sourcePresentation";
 import { t } from "../i18n";
 import { isDesktop, notifyNative } from "../platform";
-import type { ControlSource, Ingress, Status } from "./types";
+import type { ControlSource, HubHealth, Ingress, Status } from "./types";
 export const connector = createStore<{
   status?: Status;
+  hubHealth?: HubHealth;
   sources: ControlSource[];
   sourcesLoaded: boolean;
   busy: string;
@@ -64,6 +65,23 @@ export function refreshConnector(): Promise<void> {
     });
   return reading;
 }
+let healthRead: Promise<HubHealth> | undefined;
+let healthRevision = 0;
+export function acceptHubHealth(hubHealth: HubHealth) {
+  healthRevision++;
+  patch({ hubHealth });
+}
+export async function refreshHubHealth(fresh = false): Promise<HubHealth> {
+  if (fresh && healthRead) await healthRead.catch(() => {});
+  if (healthRead) return healthRead;
+  const revision = healthRevision;
+  healthRead = api<HubHealth>("runtime/health").then(health => {
+    if (revision === healthRevision) acceptHubHealth(health);
+    return health;
+  }).finally(() => { healthRead = undefined; });
+  return healthRead;
+}
+
 function accept(status: Status) {
   const sources = (status as Status & { sources?: ControlSource[] }).sources;
   if (sources) patch({ sources, sourcesLoaded: true });
@@ -95,7 +113,11 @@ export function startConnector() {
   let stopped = false;
   let stream: EventSource | undefined;
   const read = () => {
-    if (!stopped && !document.hidden) void refreshConnector().catch(() => {});
+    if (stopped || document.hidden) return;
+    if (isDesktop) {
+      void refreshHubHealth().catch(() => {});
+    }
+    void refreshConnector().catch(() => {});
   };
   read();
   document.addEventListener("visibilitychange", read);

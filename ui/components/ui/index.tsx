@@ -119,6 +119,7 @@ export function IconButton({
   busy = false,
   size = 16,
   compact = false,
+  filled = false,
   className = "",
   ...props
 }: Omit<Parameters<typeof Button>[0], "children" | "title"> & {
@@ -126,6 +127,7 @@ export function IconButton({
   label: string;
   size?: IconSize;
   compact?: boolean;
+  filled?: boolean;
 }) {
   return (
     <Button
@@ -133,7 +135,7 @@ export function IconButton({
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
       aria-label={label}
-      className={`icon-button ${compact ? "compact" : ""} ${className}`}
+      className={`icon-button ${compact ? "compact" : ""} ${filled ? "filled" : ""} ${className}`}
     >
       <Icon icon={busy ? LoaderCircle : icon} size={size} className={busy ? "spin" : ""} />
     </Button>

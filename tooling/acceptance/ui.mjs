@@ -133,7 +133,7 @@ try {
           await page.keyboard.press('Escape');
           await page.getByRole('dialog').waitFor({ state: 'hidden' });
           if (await page.getByRole('button', { name: messages.settings, exact: true }).count()) throw new Error('Browser exposed desktop settings');
-          const power = page.getByRole('button', { name: messages['hub.stop'], exact: true });
+          const power = page.getByRole('button', { name: messages['hub.stopCore'], exact: true });
           if (await power.count()) throw new Error('Browser exposed ingress controls');
           await page.getByRole('button', { name: messages.addControlSource, exact: true }).click();
           await page.getByRole('dialog').waitFor();
@@ -199,44 +199,60 @@ try {
           await page.keyboard.press('Escape');
           await settings.waitFor({ state: 'visible' });
         }
-        if (name === 'studio-connections' || name === 'studio-stopped') {
-          // Regression: moving ingress control into the mark must preserve both pointer and keyboard activation.
+        if (['studio-connections', 'studio-stopped', 'studio-unavailable'].includes(name)) {
+          // Regression: an unavailable local client made the remote arc partial and the mark coupled two lifecycles.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          const initiallyRunning = fixture.ingressStates.some(state => state === 'ready');
-          const action = page.getByRole('button', { name: messages[initiallyRunning ? 'hub.stop' : 'hub.start'], exact: true });
-          if (await action.getAttribute('aria-pressed') !== String(initiallyRunning)) throw new Error('Ingress control did not expose the current running state');
-          await page.mouse.move(0, 0);
-          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-power-default.png`) });
-          await action.hover();
-          const powerGlyph = action.locator('.hub-power-action');
-          await powerGlyph.hover();
-          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-power-hover.png`) });
-          await page.mouse.move(0, 0);
-          await page.keyboard.press('Tab');
-          await action.focus();
-          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-power-focus.png`) });
-          await action.press('Tab');
-          await action.hover();
-          await powerGlyph.click();
-          await action.and(page.locator('[aria-busy="true"]')).waitFor({ state: 'visible' });
-          const next = page.getByRole('button', { name: messages[initiallyRunning ? 'hub.start' : 'hub.stop'], exact: true });
-          await next.and(page.locator('[aria-busy="false"][aria-disabled="false"]')).waitFor({ state: 'visible' });
-          if (await next.getAttribute('aria-pressed') !== String(!initiallyRunning)) throw new Error('Ingress control did not settle after pointer activation');
-          await next.press('Enter');
-          await action.waitFor({ state: 'visible' });
-          await action.and(page.locator('[aria-busy="false"][aria-disabled="false"]')).waitFor({ state: 'visible' });
-          if (await action.getAttribute('aria-pressed') !== String(initiallyRunning)) throw new Error('Ingress control did not settle after keyboard activation');
-          if (await page.getByRole('dialog').count()) throw new Error('Ingress activation unexpectedly opened a connection or Agent dialog');
-          await page.reload();
-          await page.waitForFunction(name => document.documentElement.dataset.scenarioReady === name, name);
-        }
-        if (name === 'studio-unavailable') {
-          // Regression: an unavailable status must not permit an optimistic ingress toggle.
-          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          const action = page.getByRole('button', { name: messages['hub.stop'], exact: true });
-          if (await action.getAttribute('aria-disabled') !== 'true') throw new Error('Unavailable ingress control remained actionable');
-          await action.press('Enter');
-          if (await action.getAttribute('aria-disabled') !== 'true' || await action.getAttribute('aria-busy') !== 'false') throw new Error('Unavailable ingress control started an operation');
+          const button = key => page.getByRole('button', { name: messages[key], exact: true });
+          const arc = key => page.getByRole('img', { name: messages[key], exact: true });
+          const dialog = key => page.getByRole('dialog', { name: messages[key], exact: true });
+          if (name === 'studio-connections') {
+            await arc('hub.coreHealthy').waitFor();
+            await arc('hub.remoteUnavailable').waitFor();
+            const coreArcPoint = await arc('hub.coreHealthy').evaluate(svg => {
+              const point = new DOMPoint(50, 82).matrixTransform(svg.getScreenCTM());
+              return { x: point.x, y: point.y };
+            });
+            await page.mouse.click(coreArcPoint.x, coreArcPoint.y);
+            await arc('hub.coreHealthy').waitFor();
+            if (await page.getByRole('dialog').count()) throw new Error('The status arc activated an operation');
+            await button('hub.remoteRecovery').press('Enter');
+            await dialog('hub.remoteRecoveryTitle').waitFor();
+            if (screenshots) await page.screenshot({ path: path.join(out, `${key}-remote-recovery.png`) });
+            await dialog('hub.remoteRecoveryTitle').getByRole('button', { name: messages['hub.restartConnection'] }).click();
+            await dialog('hub.remoteRecoveryTitle').waitFor({ state: 'hidden' });
+            await arc('hub.remoteHealthy').waitFor();
+            await arc('hub.coreHealthy').waitFor();
+
+            await button('hub.viewConnections').press('Enter');
+            await dialog('connections.title').waitFor();
+            await page.keyboard.press('Escape');
+            await dialog('connections.title').waitFor({ state: 'hidden' });
+
+            const corePoint = await arc('hub.coreHealthy').evaluate(svg => {
+              const point = new DOMPoint(50, 82).matrixTransform(svg.getScreenCTM());
+              return { x: point.x, y: point.y };
+            });
+            await page.mouse.move(corePoint.x, corePoint.y);
+            const stopBounds = await button('hub.stopCore').boundingBox();
+            await page.mouse.move(stopBounds.x + stopBounds.width / 2, stopBounds.y + stopBounds.height / 2, { steps: 8 });
+            if (screenshots) await page.screenshot({ path: path.join(out, `${key}-core-hover.png`) });
+            await page.mouse.click(stopBounds.x + stopBounds.width / 2, stopBounds.y + stopBounds.height / 2);
+            await arc('hub.coreStopped').waitFor();
+            await arc('hub.remoteUnavailable').waitFor();
+            await button('hub.remoteRecovery').press('Enter');
+            await dialog('hub.remoteRecoveryTitle').getByRole('button', { name: messages['hub.openCoreRecovery'] }).click();
+          } else {
+            await arc('hub.remoteHealthy').waitFor();
+            await button('hub.coreRecovery').press('Enter');
+          }
+          await dialog('hub.coreRecoveryTitle').waitFor();
+          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-core-recovery.png`) });
+          await dialog('hub.coreRecoveryTitle').getByRole('button', {
+            name: messages[name === 'studio-unavailable' ? 'hub.restartCore' : 'hub.startCore'],
+          }).click();
+          await dialog('hub.coreRecoveryTitle').waitFor({ state: 'hidden' });
+          await arc('hub.coreHealthy').waitFor();
+          await arc('hub.remoteHealthy').waitFor();
         }
         if (name === 'antigravity-task') {
           // Regression: Antigravity replies and denied actions disappeared from completed task details.

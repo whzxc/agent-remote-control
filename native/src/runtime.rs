@@ -14,6 +14,7 @@ struct Lease {
     kind: String,
     seen: Instant,
     desktop: Option<Value>,
+    process_start: Option<String>,
 }
 #[derive(Default)]
 pub struct State {
@@ -22,6 +23,7 @@ pub struct State {
     pub shutdown: Notify,
     closing: std::sync::atomic::AtomicBool,
     pub daemon: std::sync::atomic::AtomicBool,
+    remote_restored: std::sync::atomic::AtomicBool,
 }
 impl State {
     pub(crate) fn with_launches(launches: Arc<crate::launches::Launches>) -> Self {
@@ -47,8 +49,18 @@ impl State {
     }
     fn active(&self) -> std::sync::MutexGuard<'_, HashMap<String, Lease>> {
         let mut leases = self.leases.lock().unwrap();
-        leases.retain(|_, lease| lease.seen.elapsed() < LEASE_TTL);
+        leases.retain(|_, lease| {
+            lease.seen.elapsed() < LEASE_TTL
+                || lease.process_start.as_ref().is_some_and(|start| {
+                    crate::codex_host::process_start(lease.pid).as_ref() == Some(start)
+                })
+        });
         leases
+    }
+    pub(crate) fn take_remote_restore(&self) -> bool {
+        !self
+            .remote_restored
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
     }
     pub fn clients(&self) -> Value {
         json!(self
@@ -90,10 +102,21 @@ impl State {
                         return Err("invalid desktop endpoint".into());
                     }
                 }
+                let pid = body["pid"].as_u64().unwrap() as u32;
+                let process_start = if kind == "desktop" {
+                    leases
+                        .get(key)
+                        .filter(|lease| lease.pid == pid)
+                        .and_then(|lease| lease.process_start.clone())
+                        .or_else(|| crate::codex_host::process_start(pid))
+                } else {
+                    None
+                };
                 leases.insert(
                     key.into(),
                     Lease {
-                        pid: body["pid"].as_u64().unwrap() as u32,
+                        pid,
+                        process_start,
                         kind: kind.into(),
                         seen: Instant::now(),
                         desktop,
@@ -107,9 +130,7 @@ impl State {
             }
             "runtime/shutdown" => {
                 if !leases.get(key).is_some_and(|lease| lease.kind == "desktop") {
-                    return Err(
-                        "Only the registered Desktop can stop Core for update installation.".into(),
-                    );
+                    return Err("Only the registered Desktop can stop Core.".into());
                 }
                 self.begin_shutdown();
                 self.shutdown.notify_one();
@@ -264,18 +285,28 @@ pub struct Client {
     heartbeat: std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 impl Client {
-    pub async fn connect(binary: PathBuf, kind: &str) -> Result<Arc<Self>> {
+    fn new(binary: PathBuf, kind: &str, desktop: Option<Value>) -> Result<Arc<Self>> {
         init_crypto();
-        let client = Arc::new(Self {
+        Ok(Arc::new(Self {
             id: id(),
             kind: kind.into(),
             build: build_id(&binary)?,
             binary,
-            desktop: Mutex::new(None),
+            desktop: Mutex::new(desktop),
             startup: Mutex::new(()),
             active: RwLock::new(true),
             heartbeat: Default::default(),
-        });
+        }))
+    }
+
+    pub fn desktop(binary: PathBuf, endpoint: Value) -> Result<Arc<Self>> {
+        let client = Self::new(binary, "desktop", Some(endpoint))?;
+        client.start_heartbeat();
+        Ok(client)
+    }
+
+    pub async fn connect(binary: PathBuf, kind: &str) -> Result<Arc<Self>> {
+        let client = Self::new(binary, kind, None)?;
         // Only a new entrypoint waits for a previous owner to finish shutting
         // down or for its lease to expire.
         // Retrying under the request gate would serialize every UI poll for 18
@@ -302,6 +333,9 @@ impl Client {
     }
     pub async fn resume(self: &Arc<Self>) {
         *self.active.write().await = true;
+        self.start_heartbeat();
+    }
+    fn start_heartbeat(self: &Arc<Self>) {
         let mut heartbeat = self.heartbeat.lock().unwrap();
         if heartbeat.is_some() {
             return;
@@ -313,9 +347,11 @@ impl Client {
                 let Some(client) = weak.upgrade() else {
                     return;
                 };
-                if let Err(error) = client.ensure().await {
-                    eprintln!("Core heartbeat: {error}");
-                };
+                if !stopped_path().exists() {
+                    if let Err(error) = client.ensure().await {
+                        eprintln!("Core heartbeat: {error}");
+                    }
+                }
             }
         });
         *heartbeat = Some(task);
@@ -330,24 +366,15 @@ impl Client {
     }
     async fn ensure_core(&self) -> Result<()> {
         let _startup = self.startup.lock().await;
+        if stopped_path().exists() {
+            return Err("CORE_STOPPED: Start Core from ARC Desktop.".into());
+        }
         let current = owner(&self.build).await?;
         if current.is_none() {
             // A timed-out health probe does not release Core ownership. Never launch
             // another process while the existing Core still owns the state.
-            match File::options()
-                .read(true)
-                .write(true)
-                .open(root().join("core.lock"))
-            {
-                Ok(lock) => match lock.try_lock() {
-                    Ok(()) => drop(lock),
-                    Err(std::fs::TryLockError::WouldBlock) => {
-                        return Err("CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists.".into());
-                    }
-                    Err(error) => return Err(error.to_string()),
-                },
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error.to_string()),
+            if !core_unlocked()? {
+                return Err("CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists.".into());
             }
             private_dir(&root())?;
             let log = std::fs::OpenOptions::new()
@@ -399,17 +426,112 @@ impl Client {
                 }
             }
         }
-        if let Err(error) = crate::transport::forward_request("runtime/lease", "POST", json!({"id":self.id,"kind":self.kind,"pid":std::process::id(),"desktop":self.desktop.lock().await.clone()})).await {
-            // The listener may disappear between the health check and lease.
+        if let Err(error) =
+            crate::transport::forward_request("runtime/lease", "POST", self.lease().await).await
+        {
             // Only startup retries this idempotent handshake, never user writes.
-            return Err(if owner(&self.build).await?.is_none() { "core shutting down".into() } else { error });
+            return Err(if owner(&self.build).await?.is_none() {
+                "core shutting down".into()
+            } else {
+                error
+            });
         }
         Ok(())
     }
-    pub async fn attach_desktop(&self, endpoint: Value) -> Result<()> {
-        *self.desktop.lock().await = Some(endpoint);
-        let _active = self.ensure().await?;
+
+    async fn lease(&self) -> Value {
+        json!({"id":self.id,"kind":self.kind,"pid":std::process::id(),"desktop":self.desktop.lock().await.clone()})
+    }
+
+    pub async fn hub_health(&self) -> Result<Value> {
+        let expected = crate::service::expected_remote();
+        let info = owner(&self.build).await;
+        let core = match &info {
+            Ok(Some(_)) => "ready",
+            Ok(None) if stopped_path().exists() && core_unlocked().unwrap_or(false) => "stopped",
+            _ => "unavailable",
+        };
+        let (faults, remote_unavailable) = match (expected, info) {
+            (Ok(expected), Ok(Some(info))) if !expected.is_empty() => {
+                match tokio::time::timeout(
+                    Duration::from_secs(5),
+                    crate::transport::forward_to(&info, "runtime/remote", "GET", json!({})),
+                )
+                .await
+                {
+                    Ok(Ok(faults)) => (faults, false),
+                    _ => (json!(expected), true),
+                }
+            }
+            (Ok(expected), _) => (json!(expected), false),
+            (Err(_), _) => (json!([]), true),
+        };
+        Ok(json!({"core":core,"remoteFaults":faults,"remoteUnavailable":remote_unavailable}))
+    }
+
+    pub async fn control_core(self: &Arc<Self>, action: &str) -> Result<()> {
+        if self.kind != "desktop" || !matches!(action, "start" | "stop" | "restart") {
+            return Err("Invalid Desktop Core action.".into());
+        }
+        let mut active = self.active.write().await;
+        if action != "start" {
+            let was_stopped = stopped_path().exists();
+            save(&stopped_path(), &json!(true))?;
+            *active = false;
+            if let Some(task) = self.heartbeat.lock().unwrap().take() {
+                task.abort();
+            }
+            if let Err(error) = self.stop_current(action == "restart").await {
+                if action == "restart" && !was_stopped {
+                    clear_stopped()?;
+                    *active = true;
+                    self.start_heartbeat();
+                }
+                return Err(error);
+            }
+        }
+        if action != "stop" {
+            clear_stopped()?;
+            *active = true;
+            self.start_heartbeat();
+            self.ensure_core().await?;
+        }
         Ok(())
+    }
+
+    async fn stop_current(&self, recover: bool) -> Result<()> {
+        if core_unlocked()? {
+            return Ok(());
+        }
+        if let Some(info) = owner(&self.build).await? {
+            let request = tokio::time::timeout(Duration::from_secs(5), async {
+                crate::transport::forward_to(&info, "runtime/lease", "POST", self.lease().await)
+                    .await?;
+                crate::transport::forward_to(
+                    &info,
+                    "runtime/shutdown",
+                    "POST",
+                    json!({"id":self.id}),
+                )
+                .await
+            })
+            .await;
+            let shutdown = match request {
+                Ok(Ok(_)) => wait_core_exit().await,
+                Ok(Err(error)) => Err(error),
+                Err(_) => Err("Core did not acknowledge shutdown.".into()),
+            };
+            if shutdown.is_ok() || !recover {
+                return shutdown;
+            }
+        }
+        if !recover {
+            return Err("Core did not respond. Use Core recovery to restart it.".into());
+        }
+        if !core_unlocked()? {
+            terminate_core(&self.build)?;
+        }
+        wait_core_exit().await
     }
     pub async fn request(&self, route: &str, method: &str, body: Value) -> Result<Value> {
         let _active = self.ensure().await?;
@@ -439,37 +561,106 @@ impl Client {
         // Wait for every in-flight request, including native panel polling, and
         // exclude all ensure/spawn paths until shutdown has been accepted.
         let mut active = self.active.write().await;
-        if !*active {
-            return Err("Core is paused for shutdown or update installation.".into());
+        if stopped_path().exists() {
+            self.stop_current(false).await?;
+        } else {
+            if !*active {
+                return Err("Core is paused for shutdown or update installation.".into());
+            }
+            self.ensure_core().await?;
+            crate::transport::forward_request("runtime/shutdown", "POST", json!({"id":self.id}))
+                .await?;
         }
-        self.ensure_core().await?;
-        let lock = File::options()
-            .read(true)
-            .write(true)
-            .open(root().join("core.lock"))
-            .map_err(|e| e.to_string())?;
-        crate::transport::forward_request("runtime/shutdown", "POST", json!({"id":self.id}))
-            .await?;
         *active = false;
         if let Some(task) = self.heartbeat.lock().unwrap().take() {
             task.abort();
         }
-        let deadline = Instant::now() + Duration::from_secs(10);
-        // A missing HTTP listener alone does not prove Core finished stopping.
-        // Core releases this lock only after service cleanup and metadata removal.
-        loop {
-            match lock.try_lock() {
-                Ok(()) => return Ok(()),
-                Err(std::fs::TryLockError::WouldBlock) => {}
-                Err(error) => return Err(error.to_string()),
-            }
-            if Instant::now() > deadline {
-                return Err("Core shutdown timed out".into());
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
+        wait_core_exit().await
     }
 }
+fn stopped_path() -> PathBuf {
+    root().join("app/core-stopped.json")
+}
+
+fn clear_stopped() -> Result<()> {
+    match std::fs::remove_file(stopped_path()) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn core_unlocked() -> Result<bool> {
+    match File::options()
+        .read(true)
+        .write(true)
+        .open(root().join("core.lock"))
+    {
+        Ok(lock) => match lock.try_lock() {
+            Ok(()) => Ok(true),
+            Err(std::fs::TryLockError::WouldBlock) => Ok(false),
+            Err(error) => Err(error.to_string()),
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+async fn wait_core_exit() -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !core_unlocked()? {
+        if Instant::now() >= deadline {
+            return Err("Core shutdown timed out".into());
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Ok(())
+}
+
+fn terminate_core(build: &str) -> Result<()> {
+    let info = load(&root().join("app/native.json"))?;
+    let pid = info["pid"]
+        .as_u64()
+        .and_then(|pid| u32::try_from(pid).ok())
+        .filter(|pid| *pid > 1);
+    let start = info["processStart"].as_str();
+    let Some(pid) = pid.filter(|pid| {
+        info["owner"] == "core"
+            && info["build"] == build
+            && start.is_some()
+            && crate::codex_host::process_start(*pid).as_deref() == start
+    }) else {
+        return Err("Could not verify the running Core process. No process was stopped.".into());
+    };
+    #[cfg(unix)]
+    {
+        // Signal only Core. Native Agents and detached App Servers own their processes.
+        if unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) } != 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::{
+            Foundation::CloseHandle,
+            System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+        };
+        unsafe {
+            let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
+            if handle.is_null() {
+                return Err(std::io::Error::last_os_error().to_string());
+            }
+            let stopped = crate::codex_host::process_start(pid).as_deref() == start
+                && TerminateProcess(handle, 1) != 0;
+            CloseHandle(handle);
+            if !stopped {
+                return Err("Could not stop the verified Core process.".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 impl Drop for Client {
     fn drop(&mut self) {
         if let Some(task) = self.heartbeat.lock().unwrap().take() {
@@ -533,6 +724,9 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
         .map_err(|e| e.to_string())?;
     if lock.try_lock().is_err() {
         return Ok(());
+    }
+    if stopped_path().exists() {
+        return Err("CORE_STOPPED: Start Core from ARC Desktop.".into());
     }
     // Only the Core lock owner may move runtime metadata or remove old state.
     let old = root().join("web");
@@ -634,6 +828,30 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn live_desktop_keeps_its_lease_after_a_delayed_heartbeat() {
+        // Regression: the Core could exit after a local bridge quit while Desktop's heartbeat was delayed.
+        let state = State::default();
+        let desktop = id();
+        let cli = id();
+        let pid = std::process::id();
+        state
+            .request(
+                "runtime/lease",
+                json!({"id":desktop,"kind":"desktop","pid":pid}),
+            )
+            .unwrap();
+        state
+            .request("runtime/lease", json!({"id":cli,"kind":"cli","pid":pid}))
+            .unwrap();
+        state.leases.lock().unwrap().get_mut(&desktop).unwrap().seen = Instant::now() - LEASE_TTL;
+        state.request("runtime/release", json!({"id":cli})).unwrap();
+        assert_eq!(
+            state.clients(),
+            json!([{"id":desktop,"kind":"desktop","pid":pid}])
+        );
+    }
+
     #[test]
     fn repeated_process_identity_reads_never_rehash_the_executable() {
         // Regression: idle GET app repeatedly allocated and hashed the entire Desktop executable.

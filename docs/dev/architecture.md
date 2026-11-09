@@ -15,7 +15,7 @@ CLI / management MCP ── authenticated local management API ─────�
                                                                    └─ AgentHost → Pi / ACP
 ```
 
-React renders in the system WebView. Desktop owns the main window, tray, native panels, permissions, and updates. arc-core provides shared business and runtime capabilities. runtime maintains one file-locked Core per state directory. Local entry points such as Desktop and CLI hold leases. Different builds cannot share an active owner. Core exits after the final lease is released. Daemon mode can remain resident independently.
+React renders in the system WebView. Desktop owns the main window, tray, native panels, permissions, and updates. arc-core provides shared business and runtime capabilities. runtime maintains one file-locked Core per state directory. Local entry points such as Desktop and CLI hold leases. A live Desktop lease keeps Core resident even if its heartbeat is delayed. Different builds cannot share an active owner. Core exits when the final owner releases its lease or is gone. Daemon mode can remain resident independently.
 
 Updater scheduling starts after Core is attached. Desktop reads effective network settings through Core's network operation, including first-launch defaults. Desktop owns one serialized updater pipeline for scheduled checks, manual checks, downloads, and installation. A successful check downloads its offered update while keeping the same operation lock. Overlapping checks join the current result; queued downloads reuse verified bytes. Frontend code never starts an automatic download. Update events and polling carry complete snapshots with increasing revision numbers. The UI rejects older snapshots. Starting a check clears the old offer and progress; check failures expose no stale version. Download failures retain only the current retryable offer and identify the failed stage. Restart discards historical offers and in-memory download readiness. Production-identity packages support updates in both release and debug profiles; the separate development identity cannot install production updates.
 
@@ -232,11 +232,12 @@ kernel::results stores immutable large-result snapshots with UTF-16 pagination. 
 ## Desktop lifecycle
 
 - Connect starts the selected ingress and provider. Agent execution connections initialize on demand.
-- Disconnect stops ingress processes and forwarding. Background task lifecycle is unchanged.
+- Stopping a remote connection tears down only its listener and provider. Disconnecting a source revokes its authority. A local source can also stop its own bridge.
 - Closing the window hides it. Tray and connections continue.
 - Core persists explicit connection start and stop intent in desktop-session.json. Runtime cleanup and failed restoration do not overwrite that intent.
 - Quit releases the Desktop lease. Other leases may keep Core alive.
-- Reopening restores requested connections, including interrupted or failed startup attempts. Explicitly disconnected, disabled, and deleted connections remain disconnected.
+- The first Desktop lease in each Core generation restores expected remote connections. Local bridges attach on demand. Connection intent survives restart and excludes explicitly stopped, disabled, or deleted connections.
+- Desktop handles Core stop and recovery through local IPC even when Core cannot respond. Explicit stop fences automatic starts across local entry points until Start Core. Recovery verifies process identity and waits for the prior Core lock to release before replacement.
 - Update verifies signatures, requires other entry points to exit, drains requests, suspends auto-start, and waits for the Core file lock before installation. Failure restores clients and connections.
 
 Tray left-click opens the main window. Right-click opens a native menu without another WebView. Platform implementations own screen capture and native windows. Linux returns explicit unsupported results.

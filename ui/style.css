@@ -145,9 +145,10 @@ pre {
   background: transparent;
 }
 .icon-button.compact {
-  --icon-button-size: 30px;
+  --icon-button-size: var(--control-height-compact);
 }
 .icon-button:hover:not(:disabled),
+.icon-button.filled,
 .icon-button:is([aria-expanded="true"], [data-state="open"]) {
   background: var(--surface-sunken);
 }

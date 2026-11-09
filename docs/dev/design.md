@@ -14,7 +14,7 @@ The desktop targets are macOS and Windows. Headless Linux has no product UI. Eac
 
 The default exports declare the maintained presentations. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
 
-### ARC health proposal
+### ARC health
 
 The upper arc shows ARC's remote connection health. The lower arc shows local Core availability. Each arc has two visual states. A healthy arc is continuous and uses its role color. An unhealthy arc uses the danger color and breaks at its midpoint. An arc is a status indicator. Hover or keyboard focus reveals a separate icon button outside that arc, and its hover region includes the space to the button. The healthy upper action opens Connections. The healthy lower action stops Core. Each unhealthy action opens recovery for its own service.
 

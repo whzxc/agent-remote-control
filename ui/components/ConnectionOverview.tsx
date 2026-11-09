@@ -31,10 +31,8 @@ import {
   useState,
   useRef,
 } from "react";
-import { connectionReadiness } from "../connectionReadiness";
 import { t } from "../i18n";
-import { api } from "../api";
-import { ingressState, connector, run, refreshConnector, orderedSources, reorderSources } from "../state/connector";
+import { ingressState, connector, notify, refreshConnector, refreshHubHealth, orderedSources, reorderSources } from "../state/connector";
 import {
   agents as agentStore,
   orderedAgents,
@@ -52,7 +50,7 @@ import Topology, { type TopologyHandle, type NodeView, type PanelLayout } from "
 import { PANEL_MIN_WIDTH } from "../topology/solve";
 import type { SurfaceRect } from "../motion/surface";
 import type { WireState } from "../topology/render";
-import { onboarding, openOnboarding, openConnectionSetup, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
+import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
 import AgentDisplaySettings from "./AgentDisplaySettings";
@@ -61,6 +59,7 @@ import AgentPanel from "./AgentPanel";
 import ChangeConnection from "./ChangeConnection";
 import { ConnectionsDialog } from "./ConnectionsContent";
 import Hub from "../topology/Hub";
+import HubRecovery, { controlHubCore } from "./HubRecovery";
 function wireState(state: string): WireState {
   if (["connected", "agentAvailable"].includes(state)) return "normal";
   if (["connectingLabel", "preparing"].includes(state)) return "connecting";
@@ -93,7 +92,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, []);
   const panelReady = panelLayout.key === panelKey;
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
-  const { status, busy, loading, error } = connector.use();
+  const { status, hubHealth, error } = connector.use();
   const inventory = agentStore.use();
   const { items: accounts } = useAccounts(), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
   const max = maxVisibleAgents.use();
@@ -127,22 +126,27 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const { snapshot } = subscriptions.use();
   const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState<string | false>(false);
   const sources = status?.ingresses ?? [];
-  const connections = sources.filter(ingress => ingress.id !== "local-cli" || ingress.transport !== "local");
   useEffect(() => {
     if (nav.connectionsOpen) { agentPanel.set(undefined); ingressPanel.set(undefined); }
   }, [nav.connectionsOpen]);
-  function manageConnections() {
-    openConnections();
-    if (!readOnlyBrowser && !connections.length) openConnectionSetup();
-  }
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
   const agents = visibleAgents(orderedAgents(), max, selection?.agent);
-  const running = sources.some((i) => i.running),
-    progressing =
-      !!busy || sources.some((i) => ["starting", "stopping"].includes(i.state));
-  const [accessAction, setAccessAction] = useState<'starting' | 'stopping'>();
-  const accessState = error || loading ? 'unknown' : accessAction ?? connectionReadiness(status?.ingresses);
-  const remoteState = error || loading ? 'unknown' : accessAction ?? connectionReadiness(status ? connections : undefined);
+  const coreState = hubHealth?.core ?? "ready";
+  const remoteFailed = !!((hubHealth?.remoteFaults ?? status?.remoteFaults)?.length || hubHealth?.remoteUnavailable);
+  const [recovery, setRecovery] = useState<"remote" | "core">();
+  const [stopping, setStopping] = useState(false);
+  async function stopCore() {
+    if (stopping) return;
+    setStopping(true);
+    try {
+      await controlHubCore("stop");
+    } catch (failure) {
+      notify(String(failure), true);
+      void refreshHubHealth().catch(() => {});
+    } finally {
+      setStopping(false);
+    }
+  }
   function edit(ingress?: Ingress, field?: string) {
     if (ingress) { selectIngressPanel(ingress, { editing: true, field }); return; }
     openOnboarding("product");
@@ -154,39 +158,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     edit(ingress, nav.ingressEdit.field);
     navigation.set((old) => ({ ...old, ingressEdit: undefined }));
   }, [nav.ingressEdit, status?.ingresses]);
-  async function toggle() {
-    if (progressing || accessAction || loading || !status || error) return;
-    if (
-      !running &&
-      (!sources.length || sources.every((i) => !i.config.configured))
-    ) {
-      edit(sources[0]);
-      return;
-    }
-    setAccessAction(running ? 'stopping' : 'starting');
-    try {
-      await run("ingress-all", async () => {
-        const result = await api<{
-          results: {
-            id: string;
-            ok: boolean;
-            error?: string;
-          }[];
-        }>(`ingress/${running ? "stop-all" : "start-all"}`, "POST");
-        await refreshConnector();
-        const errors = result.results.filter((r) => !r.ok);
-        if (errors.length)
-          throw new Error(
-            errors
-              .map(
-                (r) =>
-                  `${sources.find((i) => i.id === r.id)?.name || r.id}: ${r.error}`,
-              )
-              .join("\n"),
-          );
-      });
-    } finally { setAccessAction(undefined); }
-  }
   useEffect(() => {
     if (nav.providerId === undefined) return;
     if (nav.providerId === "") {
@@ -389,8 +360,11 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
             reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? [], taskQueues.get(ids[0]));
           }}
-          brand={<Hub readOnly={readOnlyBrowser} connectionEmpty={!connections.length} connectionState={remoteState} onConnections={manageConnections}
-            accessState={accessState} accessRunning={running} accessDisabled={progressing || !!accessAction || loading || !status || !!error} onAccess={() => void toggle()}
+          brand={<Hub
+            remote={{ unhealthy: remoteFailed, recovery: remoteFailed && !readOnlyBrowser, label: t(remoteFailed ? "hub.remoteUnavailable" : "hub.remoteHealthy"),
+              action: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : openConnections }}
+            core={{ unhealthy: coreState !== "ready", recovery: coreState !== "ready", label: t(coreState === "ready" ? "hub.coreHealthy" : coreState === "stopped" ? "hub.coreStopped" : "hub.coreUnavailable"),
+              busy: stopping, action: readOnlyBrowser || !hubHealth ? undefined : coreState !== "ready" ? () => setRecovery("core") : () => void stopCore() }}
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
@@ -400,7 +374,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
-        {error && (
+        {error && coreState === "ready" && (
           <div className="graph-error">
             <Notice
               action={
@@ -414,6 +388,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
           </div>
         )}
       </section>
+      {recovery && visible && <HubRecovery key={recovery} side={recovery} onClose={() => setRecovery(undefined)} openCore={() => setRecovery("core")} />}
       {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <ConnectionsDialog />}
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}

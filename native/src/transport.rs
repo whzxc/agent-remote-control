@@ -170,7 +170,7 @@ pub async fn listen(
     let build = crate::runtime::process_build_id()?;
     save(
         &root().join("app/native.json"),
-        &json!({"port":port,"pid":std::process::id(),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("ARC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
+        &json!({"port":port,"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("ARC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
     )?;
     Ok(tokio::spawn(async move {
         loop {
