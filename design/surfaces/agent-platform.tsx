@@ -53,7 +53,7 @@ export default () => [
   <Frame name="accounts" note="Proposed account actions in the existing Agent platform panel. Runtime capture pending.">
     <Platform agent={platformAccounts.claude} />
   </Frame>,
-  <Frame name="primary" note="Proposed first-level panel with one Desktop-owned account. Runtime capture pending.">
+  <Frame name="single-account" note="Proposed first-level panel with one account. Runtime capture pending.">
     <Platform agent={platformAccounts.codex} />
   </Frame>,
   <Frame name="empty" note="Proposed first-level panel with no accounts. Runtime capture pending.">

@@ -1,40 +1,55 @@
 import { Frame } from "sdg";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
+import { Field, Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
 import { Panel } from "../components/panel";
 import { Tag } from "../components/tag";
 import { platformAccountCopy as copy, platformAccounts } from "../fixtures/agent-accounts";
 import { QuotaCards, type QuotaWindow } from "./quota";
 
-export type AgentAccount = { name: string; default?: boolean; owner?: "desktop" } & (
+export type AgentAccount = { alias: string; email?: string; default?: boolean; removable?: boolean } & (
   | { state: "signed-in"; windows: readonly QuotaWindow[] }
   | { state: "signed-out" }
 );
 
 export function AccountCard({ account }: { account: AgentAccount }) {
-  const native = account.owner === "desktop";
   const signedIn = account.state === "signed-in";
+  const status = signedIn ? copy.quotaUnavailable : copy.signedOut;
   return (
     <Card padded variant="reply" class="gap-3! border border-border">
-      <div class="flex flex-wrap items-center justify-between gap-x-2">
-        <div class="flex min-w-0 flex-col">
+      <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-1 flex-col">
           <div class="flex items-center gap-2">
-            <h3><Button variant="link">{account.name}</Button></h3>
+            <h3 class="min-w-0"><Button variant="link" class="max-w-full">
+              <span class="truncate">{account.alias}</span>
+            </Button></h3>
             {account.default && <Tag form="meta">{copy.default}</Tag>}
           </div>
-          {native && <p class="text-meta text-text-secondary">{copy.native}</p>}
-          {!signedIn && <p class="text-meta text-danger">{copy.signedOut}</p>}
-          {signedIn && !account.windows.length && <p class="text-meta text-text-secondary">{copy.quotaUnavailable}</p>}
+          {account.email && <p class="truncate text-meta leading-4 text-text-secondary">{account.email}</p>}
         </div>
-        <div class="ml-auto flex shrink-0 items-center gap-1">
+        <div class="flex shrink-0 items-center gap-1">
+          <IconButton compact icon="pencil" label={copy.edit} />
           {signedIn && <IconButton compact icon="refresh-cw" label={copy.refresh} />}
-          <Button variant={signedIn ? "ghost" : "secondary"}>{native ? copy.openCodex : copy.reauth}</Button>
-          {!native && <IconButton compact icon="trash-2" label={copy.remove} />}
+          {account.removable !== false && <IconButton compact icon="trash-2" label={copy.remove} />}
         </div>
       </div>
-      {signedIn && account.windows.length > 0 && <QuotaCards windows={account.windows} />}
+      {signedIn && account.windows.length ? <QuotaCards windows={account.windows} /> : (
+        <div class="flex min-h-(--control-height) items-center justify-between gap-2">
+          <p class={`text-meta ${signedIn ? "text-text-secondary" : "text-danger"}`}>{status}</p>
+          {!signedIn && <Button>{copy.reauth}</Button>}
+        </div>
+      )}
     </Card>
+  );
+}
+
+export function EditAccountAlias({ account }: { account: AgentAccount }) {
+  return (
+    <Panel width={440} title={copy.edit}
+      footer={<div class="flex justify-end"><Button variant="primary">{copy.save}</Button></div>}>
+      <Field label={copy.alias}><Input value={account.alias} /></Field>
+    </Panel>
   );
 }
 
@@ -49,6 +64,9 @@ export function RemoveAccount() {
 
 export default () => [
   <Frame name="account-card" width={440}><AccountCard account={platformAccounts.claude.accounts[0]} /></Frame>,
+  <Frame name="edit-account-alias" note="Proposed alias editor for the selected Agent account. Runtime capture pending.">
+    <EditAccountAlias account={platformAccounts.claude.accounts[0]} />
+  </Frame>,
   <Frame name="remove-account" note="Proposed confirmation for removing one managed Agent account. Runtime capture pending.">
     <RemoveAccount />
   </Frame>,

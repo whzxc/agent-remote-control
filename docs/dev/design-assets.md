@@ -6,8 +6,8 @@ The Agent platform and quota proposal uses synthetic data from `fixtures/agent-a
 
 | Source / frames | Runtime owner | Remaining gap |
 |---|---|---|
-| `surfaces/agent-platform.tsx` / `accounts`, `primary`, `empty` | `ui/components/AgentPlatformView.tsx`, `ui/components/AgentPanel.tsx` | The first-level panel must retain its platform scope with zero, one or many managed accounts. Existing account history stays one level below it. |
-| `modules/agent-account.tsx` / `account-card`, `remove-account` | `ui/components/AccountCards.tsx` | Account-scoped reauth and removal are unwired. Confirm removal from ARC without removing the provider account or affecting other roles. The Codex Desktop account stays under native ownership. |
+| `surfaces/agent-platform.tsx` / `accounts`, `single-account`, `empty` | `ui/components/AgentPlatformView.tsx`, `ui/components/AgentPanel.tsx` | The first-level panel must retain its platform scope with zero, one or many managed accounts. Existing account history stays one level below it. |
+| `modules/agent-account.tsx` / `account-card`, `edit-account-alias`, `remove-account` | `ui/components/AccountCards.tsx` | Both platforms share one card with alias, privacy-aware email and a default badge. Wire the alias editor to account update. Offer reauth only for a signed-out account and route it through the owning login. Confirm removal only for removable Agent profiles without affecting other roles. |
 | `modules/agent-account-add.tsx` / `claude-add`, `reauth`, `reauth-waiting`, `reauth-expired` | `ui/components/AgentAccountAdd.tsx` | Claude add and both reauth flows are unwired. Browser discovery exposes applications, not Chrome profiles. |
 | `modules/quota.tsx` / `quota-card-healthy`, `quota-card-warning`, `quota-card-exhausted` | `ui/components/AgentQuota.tsx`, `ui/subscriptions/QuotaBubble.tsx` | Platform, account history, subscription overview and quota popovers need the same quota window card. Preserve reset and pace details, account-specific refresh and display preferences. |
 
@@ -228,7 +228,7 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | Source | Declared frames | Implementation owner | Remaining gap / capture notes |
 | --- | --- | --- | --- |
 | `surfaces/agent-panel.tsx` | `empty`, `overview` | `ui/components/AgentPanel.tsx` | Proposed quota-card revision. The existing captures reach account history; they do not yet match the common quota card. |
-| `surfaces/agent-platform.tsx` | `accounts`, `primary`, `empty`, `native` | `ui/components/AgentPlatformView.tsx` | Proposed except the unchanged native specimen. Runtime geometry follows topology. Native remains unreachable through the current fixture route. |
+| `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `native` | `ui/components/AgentPlatformView.tsx` | Proposed except the unchanged native specimen. Runtime geometry follows topology. Native remains unreachable through the current fixture route. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
