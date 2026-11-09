@@ -16,8 +16,11 @@ export function sourcePanelId(selection: IngressPanelSelection) {
   return 'platform' in selection ? sourcePlatformNodeId(selection.platform) : selection.client?.id ?? selection.ingress.id;
 }
 export const ingressPanel = createStore<IngressPanelSelection | undefined>(undefined);
+export function managesAgentAccounts(agent: string): agent is "claude" | "codex" {
+  return agent === "claude" || agent === "codex";
+}
 export function selectAgentPanel(action: AgentPanelAction) {
-  if (action.type === 'platform') {
+  if (action.type === 'platform' && !managesAgentAccounts(action.agent)) {
     const agent = action.agent;
     const linked = accounts.get().items.filter(account => account.agentProfiles.some(profile => profile.agent === agent));
     if (linked.length <= 1) action = { type: action.toggle ? 'toggle' : 'agent', agent: action.agent, accountId: linked[0]?.id };

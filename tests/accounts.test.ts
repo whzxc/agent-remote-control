@@ -83,6 +83,21 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
   } finally { await fixture.close(); }
 });
 
+test('Targeted credential import refuses a different Codex identity', async () => {
+  // Regression: replacing credentials from an account card could import a different provider identity.
+  const fixture = await nativeControl(server);
+  try {
+    const login = (id: string) => ({ auth: { tokens: { access_token: 'fixture-access', account_id: id } }, refreshOwner: 'none' });
+    const original = await fixture.api('accounts/import', login('workspace-original'));
+    assert.equal(original.state, 'completed', JSON.stringify(original));
+    const result = await fixture.api('accounts/import', { ...login('workspace-other'), accountId: original.accountId });
+    assert.match(JSON.stringify(result.error), /ACCOUNT_REAUTH_IDENTITY_MISMATCH/);
+    const accounts = (await fixture.api('accounts')).accounts;
+    assert.ok(accounts.some((row: any) => row.id === original.accountId && row.health.state === 'ready'));
+    assert.ok(!accounts.some((row: any) => row.identityKey === 'openai:id:workspace-other'));
+  } finally { await fixture.close(); }
+});
+
 test('Codex credentials remain independent while sessions use the native shared home', async () => {
   // Regression: adding a Codex account replaced the system login; native subagents without thread/started also fell back to the default account.
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');

@@ -8,6 +8,9 @@ pub(super) struct Browser {
     pub name: String,
     #[serde(skip)]
     path: PathBuf,
+    #[cfg(not(target_os = "linux"))]
+    #[serde(skip)]
+    profile: Option<String>,
 }
 
 fn browser(path: PathBuf, name: String) -> Browser {
@@ -15,6 +18,8 @@ fn browser(path: PathBuf, name: String) -> Browser {
         id: crate::hash(path.to_string_lossy().as_bytes()),
         name,
         path,
+        #[cfg(not(target_os = "linux"))]
+        profile: None,
     }
 }
 
@@ -145,9 +150,56 @@ pub(super) async fn discover() -> Result<Vec<Browser>> {
             }
         }
     }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let profiles = found.iter().flat_map(chrome_profiles).collect::<Vec<_>>();
+        found.extend(profiles);
+    }
     found.sort_by(|a, b| a.name.cmp(&b.name));
-    found.dedup_by(|a, b| a.path == b.path);
+    found.dedup_by(|a, b| a.id == b.id);
     Ok(found)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn chrome_profiles(browser: &Browser) -> Vec<Browser> {
+    #[cfg(target_os = "macos")]
+    let state = dirs::home_dir()
+        .filter(|_| {
+            browser
+                .path
+                .file_name()
+                .is_some_and(|name| name == "Google Chrome.app")
+        })
+        .map(|home| home.join("Library/Application Support/Google/Chrome/Local State"));
+    #[cfg(windows)]
+    let state = dirs::data_local_dir()
+        .filter(|_| {
+            browser
+                .path
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("chrome.exe"))
+        })
+        .map(|home| home.join("Google/Chrome/User Data/Local State"));
+    let Some(state) = state.and_then(|path| load(&path).ok()) else {
+        return Vec::new();
+    };
+    state["profile"]["info_cache"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(dir, _)| {
+            !dir.is_empty() && !matches!(dir.as_str(), "." | "..") && !dir.contains(['/', '\\'])
+        })
+        .map(|(dir, facts)| {
+            let name = facts["name"].as_str().unwrap_or(dir);
+            Browser {
+                id: crate::hash(format!("{}:{dir}", browser.id).as_bytes()),
+                name: format!("{} · {name}", browser.name),
+                path: browser.path.clone(),
+                profile: Some(dir.clone()),
+            }
+        })
+        .collect()
 }
 
 #[cfg(target_os = "macos")]
@@ -178,16 +230,25 @@ pub(super) async fn open(browser: Option<&Browser>, url: &str) -> Result<()> {
     }
     #[cfg(target_os = "macos")]
     let mut cmd = {
-        let mut cmd = command("/usr/bin/open");
-        if let Some(browser) = browser {
-            cmd.arg("-a").arg(&browser.path);
+        if let Some((browser, profile)) = browser.and_then(|b| b.profile.as_ref().map(|p| (b, p))) {
+            let mut cmd = command(browser.path.join("Contents/MacOS/Google Chrome"));
+            cmd.arg(format!("--profile-directory={profile}")).arg(url);
+            cmd
+        } else {
+            let mut cmd = command("/usr/bin/open");
+            if let Some(browser) = browser {
+                cmd.arg("-a").arg(&browser.path);
+            }
+            cmd.arg(url);
+            cmd
         }
-        cmd.arg(url);
-        cmd
     };
     #[cfg(windows)]
     let mut cmd = if let Some(browser) = browser {
         let mut cmd = command(&browser.path);
+        if let Some(profile) = &browser.profile {
+            cmd.arg(format!("--profile-directory={profile}"));
+        }
         cmd.arg(url);
         cmd
     } else {

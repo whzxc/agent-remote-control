@@ -3318,6 +3318,10 @@
           "body": {
             "type": "object",
             "properties": {
+              "browserId": {
+                "type": "string",
+                "minLength": 1
+              },
               "id": {
                 "type": "string",
                 "minLength": 1
@@ -3352,6 +3356,10 @@
           "body": {
             "type": "object",
             "properties": {
+              "agent": {
+                "type": "string",
+                "minLength": 1
+              },
               "id": {
                 "type": "string",
                 "minLength": 1
@@ -3377,6 +3385,35 @@
         "additionalProperties": false
       },
       "description": "Remove an account from future dispatches and keep a tombstone. Let running work finish or cancel it explicitly. Existing source IDs and history are retained.",
+      "localOnly": true
+    },
+    {
+      "name": "accounts.refresh-quota",
+      "method": "POST",
+      "route": "accounts/refresh-quota",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Refresh the selected account quota and return current account detail.",
       "localOnly": true
     },
     {
@@ -3989,6 +4026,10 @@
           "body": {
             "type": "object",
             "properties": {
+              "accountId": {
+                "type": "string",
+                "minLength": 1
+              },
               "auth": {
                 "type": "object",
                 "description": "Native auth.json object. Credential values are write-only and are never returned.",

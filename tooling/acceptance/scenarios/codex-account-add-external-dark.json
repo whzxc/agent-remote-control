@@ -5,10 +5,7 @@
     "codex"
   ],
   "tasks": [],
-  "panel": {
-    "kind": "agent",
-    "id": "codex"
-  },
   "quota": true,
-  "accountAdd": "external"
+  "accountAdd": "external",
+  "platformAgent": "codex"
 }

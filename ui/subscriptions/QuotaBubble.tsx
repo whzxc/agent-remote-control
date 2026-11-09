@@ -10,15 +10,10 @@ import { Button, IconButton, Icon, HoverScope } from "../components/ui";
 import {
   quotaDisplay,
   resetDisplay,
-  quotaLabel,
-  quotaPercent,
-  quotaValue,
 } from "./displayPreferences";
 import { windowLabel, subscriptionLabel } from "./labels";
 import {
-  quotaColor,
   compactAge,
-  compactReset,
   preciseTime,
   errorLabels,
 } from "./presentation";
@@ -118,7 +113,7 @@ export default function QuotaBubble({
     return null;
   }
   return (
-    <QuotaCard>
+    <section className="quota-provider">
       <UsageHistory
         detail={detail}
       >
@@ -165,7 +160,7 @@ export default function QuotaBubble({
                     <Icon icon={hasError ? CircleAlert : TriangleAlert} />
                   </span>
                 )}
-                <time className="refresh-age" title={preciseTime(provider.observedAt)}>· {ageText}</time>
+                <time className="refresh-age" title={preciseTime(provider.observedAt)}>{ageText}</time>
               </span>
               {refreshable && <IconButton
                 compact
@@ -177,68 +172,24 @@ export default function QuotaBubble({
                 onClick={() => void refresh()}
               />}
             </header>
-            {readings.map(({ w, pace }) => {
-              const key = "reading:" + w.id;
-              return (
-                <div key={w.id} className="bubble-reading">
-                  <div className="reading-title">
-                    <span>
-                      {provider.providerId === "antigravity" && w.scope
-                        ? `${w.scope} · `
-                        : ""}
-                      {windowLabel(w.label)} · {quotaLabel()} {quotaPercent(w)}
-                    </span>
-                  </div>
-                  <div
-                    title={pace?.tick != null ? t("quotaTimeTick") : undefined}
-                    className="reading-track"
-                    role="meter"
-                    aria-label={`${windowLabel(w.label)} · ${quotaLabel()}`}
-                    aria-valuenow={quotaValue(w)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      style={{
-                        width: `${quotaValue(w)}%`,
-                        background:
-                          pace?.color ?? quotaColor(w, provider, now),
-                      }}
-                    />
-                    {pace?.tick != null && (
-                      <span
-                        className="pace-tick"
-                        style={{
-                          left: `clamp(1px, ${pace.tick}%, calc(100% - 1px))`,
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div className="reading-meta">
-                    <span className="reading-reset" title={w.resetsAt && Number.isFinite(Date.parse(w.resetsAt)) ? t("quotaResetAt", { time: preciseTime(w.resetsAt) }) : t("quotaResetUnknown")} aria-label={t("quotaResetIn", { time: compactReset(w.resetsAt, now) })}>
-                      {compactReset(w.resetsAt, now)}
-                    </span>
-                    <div className="reading-pace">
-                      {pace?.label && <>
-                        <span aria-hidden="true"> · </span>
-                        <QuotaDetailAction
-                          ref={(node) => register(key, node)}
-                          onPointerEnter={(event) => event.pointerType !== "touch" && hover(key)}
-                          onPointerLeave={(event) => event.pointerType !== "touch" && hover("")}
-                          onClick={() => focus(key)}
-                          onFocus={() => focus(key)}
-                          onBlur={() => focus("")}
-                          aria-expanded={expanded && displayed === key}
-                          aria-label={`${windowLabel(w.label)} · ${pace.label}`}
-                        >
-                          {pace.flame && <Icon icon={Flame} size={12} />} {pace.label}
-                        </QuotaDetailAction>
-                      </>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            <div className="quota-window-grid">
+              {readings.map(({ w }) => {
+                const key = "reading:" + w.id;
+                return <QuotaCard key={w.id} window={w} provider={provider} now={now} detail={pace =>
+                  <QuotaDetailAction
+                    ref={node => register(key, node)}
+                    onPointerEnter={event => event.pointerType !== "touch" && hover(key)}
+                    onPointerLeave={event => event.pointerType !== "touch" && hover("")}
+                    onClick={() => focus(key)}
+                    onFocus={() => focus(key)}
+                    onBlur={() => focus("")}
+                    aria-expanded={expanded && displayed === key}
+                    aria-label={`${windowLabel(w.label)} · ${pace.label}`}>
+                    {pace.flame && <Icon icon={Flame} size={12} />} {pace.label}
+                  </QuotaDetailAction>
+                } />;
+              })}
+            </div>
             {((provider.creditBalance ?? 0) > 0 || provider.availableResetCount != null || !!provider.productUsage?.rows.length) && <HoverScope className="usage-history" activeKey={highlighted}>
               {(provider.creditBalance ?? 0) > 0 && (
                 <div className="history-period">
@@ -307,6 +258,6 @@ export default function QuotaBubble({
           </>
         )}
       </UsageHistory>
-    </QuotaCard>
+    </section>
   );
 }

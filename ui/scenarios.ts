@@ -6,6 +6,7 @@ import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts, installDenseTopologyAccounts } from './topology/scenarioAccounts';
 import { nodeKey } from './topology/animate';
 import { sourcePlatformNodeId } from './topology/accounts';
+import { setPrivacy } from './state/privacy';
 import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, checkUpdate, type UpdateView } from './state/updates';
@@ -349,7 +350,8 @@ export async function installScenario(name: string) {
   responses.statusUnavailable = fixture.statusUnavailable;
   responses['accounts'] = { accounts: topologyAccounts, login: null } satisfies AccountsResult;
   srcConversationResponse = srcConversationsScenario();
-  accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('codex-account-add-')) ? accountScenario(status, sources) : undefined;
+  if (name.startsWith('agent-platform-')) setPrivacy(false);
+  accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('codex-account-add-') || name.startsWith('agent-platform-')) ? accountScenario(status, sources, name) : undefined;
   updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });

@@ -6,7 +6,12 @@ const prepared = {
   'approval-permission': { scenario: 'approval', task: '阅读项目说明 · 打开执行时间线' },
   'approval-question': { scenario: 'task-states', task: 'Waiting for input · 打开执行时间线' },
   'task-detail-failed': { scenario: 'task-states', task: 'Failed task · 打开执行时间线' },
-  'agent-platform-accounts': { scenario: 'brand-accounts-light' },
+  'agent-account-edit': { scenario: 'agent-platform-lifecycle', accountAction: 'edit' },
+  'agent-account-remove': { scenario: 'agent-platform-lifecycle', accountAction: 'remove' },
+  'agent-account-claude-add': { scenario: 'agent-platform-lifecycle', accountAction: 'add' },
+  'agent-account-reauth': { scenario: 'agent-platform-lifecycle', accountAction: 'reauth' },
+  'agent-account-reauth-waiting': { scenario: 'agent-platform-lifecycle', accountAction: 'waiting' },
+  'agent-account-reauth-expired': { scenario: 'agent-platform-lifecycle', accountAction: 'expired' },
   'quota-overview': { scenario: 'agent-panel' },
   'board-unavailable': { scenario: 'coordination-unavailable' },
   'portrait-topology-sources-folded': { scenario: 'portrait-topology-0', side: -1 },
@@ -45,7 +50,7 @@ export default {
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);
       if (scenario.startsWith('codex-account-add-')) {
-        await page.getByRole('button', { name: '添加 Codex 账号', exact: true }).click();
+        await page.getByRole('button', { name: '添加账号', exact: true }).click();
         const dialog = page.getByRole('dialog', { name: '添加 Codex 账号', exact: true });
         await dialog.waitFor();
         if (!scenario.includes('-oauth-')) await dialog.getByRole('radio', { name: '导入凭据', exact: true }).click();
@@ -59,9 +64,26 @@ export default {
         await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().taskDetail?.timeline, undefined, { timeout: 5000 });
         if (name.startsWith('approval-')) await page.locator('.request-entry').getByRole('button', { name: '打开', exact: true }).waitFor();
       }
-      if (name === 'agent-platform-accounts') {
-        await page.locator('[data-agent-platform="claude"]').getByRole('button', { name: 'Claude Code', exact: true }).press('Enter');
-        await page.locator('.agent-platform-view').waitFor();
+      const accountAction = preparation?.accountAction;
+      if (accountAction === 'edit' || accountAction === 'remove') {
+        const card = page.getByRole('region', { name: accountAction === 'edit' ? 'Team' : 'Studio', exact: true });
+        await card.getByRole('button', { name: accountAction === 'edit' ? '编辑别名' : '移除账号', exact: true }).click();
+      } else if (accountAction) {
+        if (accountAction === 'add') await page.getByRole('button', { name: '添加账号', exact: true }).click();
+        else await page.getByRole('region', { name: 'Studio', exact: true }).getByRole('button', { name: '重新登录', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: accountAction === 'add' ? '添加 Claude Code 账号' : '重新登录 · Studio' });
+        await dialog.getByRole('combobox', { name: '登录浏览器', exact: true }).click();
+        await page.getByRole('option', { name: 'Google Chrome · Profile A', exact: true }).click();
+        if (accountAction === 'waiting' || accountAction === 'expired') {
+          await dialog.getByRole('button', { name: '开始登录', exact: true }).click();
+          const code = dialog.getByRole('textbox', { name: '授权码（浏览器显示时填写）', exact: true });
+          await code.waitFor();
+          if (accountAction === 'expired') {
+            await code.fill('fixture-expired-code');
+            await dialog.getByRole('button', { name: '提交授权码', exact: true }).click();
+            await dialog.getByText('登录链接已过期', { exact: true }).waitFor();
+          }
+        }
       }
       if (name === 'quota-overview') {
         await page.keyboard.press('Escape');

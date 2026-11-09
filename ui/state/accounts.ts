@@ -18,7 +18,8 @@ export function controlSourceAccounts(items: Account[], sources: ControlSource[]
   return items.map(account => ({ ...account, sources: account.sources.filter(id => !local.has(id)) }))
     .filter((account, index) => account.sources.length > 0 || account.agentProfiles.length > 0 || !items[index].sources.some(id => local.has(id)));
 }
-export function refreshAccounts() {
+export function refreshAccounts(afterPending = false): Promise<void> {
+  if (afterPending && pending) return pending.then(() => refreshAccounts());
   return pending ??= (async () => {
     try {
       const { accounts: rows, login } = await accountsApi.list();
@@ -27,6 +28,13 @@ export function refreshAccounts() {
     } catch (error) { accounts.set(old => ({ ...old, loading: false, error: String(error) })); }
     finally { pending = undefined; }
   })();
+}
+export async function refreshAccountQuota(id: string) {
+  const detail = await accountsApi.refreshQuota(id);
+  await pending;
+  accounts.set(old => ({ ...old, items: old.items.map(account => account.id === detail.id
+    ? { ...account, quota: detail.quota }
+    : account) }));
 }
 export function useAccounts() {
   const state = accounts.use();

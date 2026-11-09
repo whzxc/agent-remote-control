@@ -417,7 +417,7 @@ impl Service {
     }
     pub async fn stop(&self) -> Result<()> {
         self.begin_shutdown();
-        self.accounts.stop().await;
+        self.accounts.stop(&self.control).await;
         self.relay.cancel().await;
         crate::cloudflare::stop_login().await;
         let _configuration = self.configuration.lock().await;

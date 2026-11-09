@@ -25,12 +25,16 @@ impl Manager {
                 return Err("INVALID_LOGIN_ACTION: Use code or cancel".into());
             }
             if let Some(login) = current.as_mut().filter(|l| l["loginId"] == args["loginId"]) {
+                if args["action"] == "cancel" && login["state"] != "waiting" {
+                    return Ok(login.clone());
+                }
                 if login["kind"] == "codex" {
                     if args["action"] == "code" {
                         return Err("ACCOUNT_LOGIN_CODE_UNSUPPORTED: Codex completes authorization through loginUrl; use cancel to stop".into());
                     }
+                    let profile = string(login, "profileId");
                     control
-                        .auth_rpc(login["profileId"].as_str().unwrap_or("codex-home"))
+                        .auth_rpc(profile)
                         .await?
                         .call(
                             "account/login/cancel",
@@ -38,6 +42,9 @@ impl Manager {
                             15000,
                         )
                         .await?;
+                    if login["temporaryProfile"] == true {
+                        super::codex::discard_login(control, profile).await?;
+                    }
                 }
                 if args["action"] == "code" {
                     return Err("ACCOUNT_NATIVE_LOGIN_REQUIRED: Configure this Agent with its native authentication, then use account_add kind detect".into());
@@ -53,6 +60,13 @@ impl Manager {
             } else {
                 result
             });
+        }
+        if current
+            .as_ref()
+            .is_some_and(|login| login["state"] == "waiting")
+            || self.claude.login_active().await
+        {
+            return Err("ACCOUNT_LOGIN_IN_PROGRESS: Complete or cancel the active login".into());
         }
         let mut body = json!({});
         let kind = if name == "account_reauth" {
@@ -83,7 +97,7 @@ impl Manager {
                         json!({"loginId":id(),"kind":"codex","state":"completed","accountId":row["id"],"refreshOwner":config.refresh_owner}),
                     );
                 }
-                body["profileId"] = p["profileId"].clone();
+                body["reauthAccountId"] = row["id"].clone();
             }
             agent.to_owned()
         } else {
@@ -99,29 +113,41 @@ impl Manager {
             return Ok(progress(result));
         }
         if kind == "codex" {
-            if current
-                .as_ref()
-                .is_some_and(|v| v["kind"] == "codex" && v["state"] == "waiting")
-            {
-                return Err(
-                    "ACCOUNT_LOGIN_IN_PROGRESS: Complete or cancel the active login".into(),
-                );
-            }
-            let profile = if let Some(profile) = body["profileId"].as_str() {
-                profile.to_owned()
-            } else {
+            let target = body["profileId"].as_str();
+            let temporary = target != Some("codex-home");
+            let profile = if temporary {
                 super::codex::new_login()?.id
+            } else {
+                "codex-home".into()
             };
-            let mut result = control
-                .auth_rpc(&profile)
-                .await?
-                .call("account/login/start", json!({"type":"chatgpt"}), 15000)
-                .await?;
+            let start = async {
+                control
+                    .auth_rpc(&profile)
+                    .await?
+                    .call("account/login/start", json!({"type":"chatgpt"}), 15000)
+                    .await
+            }
+            .await;
+            let mut result = match start {
+                Ok(result) => result,
+                Err(error) => {
+                    if temporary {
+                        let _ = super::codex::discard_login(control, &profile).await;
+                    }
+                    return Err(error);
+                }
+            };
+            result["temporaryProfile"] = json!(temporary);
+            if let Some(id) = body["reauthAccountId"].as_str() {
+                result["reauthAccountId"] = json!(id);
+                result["reauthProfileId"] = json!(target);
+            }
             result["profileId"] = json!(profile);
             result["kind"] = json!("codex");
             result["state"] = json!("waiting");
             result["loginUrl"] = result["authUrl"].clone();
             result.as_object_mut().unwrap().remove("authUrl");
+            result["browserId"] = json!(args["browserId"].as_str().unwrap_or("default"));
             if let Some(url) = result["loginUrl"].as_str() {
                 if let Err(error) =
                     claude::open_login_url(args["browserId"].as_str().unwrap_or("default"), url)
@@ -182,23 +208,48 @@ impl Manager {
             .map(|e| e["params"].clone());
         if let Some(completed) = completed {
             login["loginUrl"] = Value::Null;
-            if completed["success"] == true {
-                let profile = login["profileId"].as_str().unwrap_or("codex-home");
-                let result = control
-                    .auth_rpc(profile)
+            let staging = login["profileId"].as_str().unwrap_or("codex-home");
+            let target = login["reauthProfileId"].as_str();
+            let result = async {
+                if completed["success"] != true {
+                    return Err(completed["error"]
+                        .as_str()
+                        .unwrap_or("CODEX_LOGIN_FAILED: Start a new login")
+                        .to_owned());
+                }
+                let native = control
+                    .auth_rpc(staging)
                     .await?
                     .call("account/read", json!({"refreshToken":false}), 5000)
                     .await?;
-                let facts = &result["account"];
+                let facts = &native["account"];
                 if !facts.is_object() {
-                    return Err("ACCOUNT_LOGIN_UNCONFIRMED: Native login completed without an account; read accounts again".into());
+                    return Err(
+                        "CODEX_LOGIN_UNCONFIRMED: Native login completed without an account".into(),
+                    );
                 }
-                let account = super::codex::observe_profile(profile, facts, "signed-in")?;
-                login["state"] = json!("completed");
-                login["accountId"] = json!(account);
-            } else {
-                login["state"] = json!("failed");
-                login["error"] = completed["error"].clone();
+                if let Some(target) = target {
+                    let expected = resolve(string(login, "reauthAccountId"))?;
+                    super::codex::finish_reauth(control, staging, target, &expected, facts).await
+                } else {
+                    super::codex::observe_profile(staging, facts, "signed-in")
+                }
+            }
+            .await;
+            if login["temporaryProfile"] == true && (target.is_some() || result.is_err()) {
+                if let Err(error) = super::codex::discard_login(control, staging).await {
+                    crate::logs::record("WARN", &error, None);
+                }
+            }
+            match result {
+                Ok(account) => {
+                    login["state"] = json!("completed");
+                    login["accountId"] = json!(account);
+                }
+                Err(error) => {
+                    login["state"] = json!("failed");
+                    login["error"] = json!(error);
+                }
             }
         }
         Ok(())

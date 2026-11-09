@@ -70,7 +70,7 @@ try {
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
         if (fixture.accountAdd) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-          await page.getByRole('button', { name: messages['accountAdd.title'], exact: true }).click();
+          await page.getByRole('button', { name: messages['accounts.addAgentAccount'], exact: true }).click();
           const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
           await dialog.waitFor();
           if (fixture.accountAdd !== 'oauth') await dialog.getByRole('radio', { name: messages['accountAdd.credentials'], exact: true }).click();
@@ -523,6 +523,69 @@ try {
             }
           }
         }
+        if (name.startsWith('agent-platform-') && width === 1280) {
+          // Regression: account management disappeared with zero or one account and quota failure looked like expired authorization.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          const button = (target, key) => target.getByRole('button', { name: messages[key], exact: true });
+          const add = button(page, 'accounts.addAgentAccount');
+          const card = name => page.getByRole('region', { name, exact: true });
+          await add.waitFor();
+          if (name === 'agent-platform-empty') await page.getByText(messages['accounts.empty'], { exact: true }).waitFor();
+          if (name === 'agent-platform-single') {
+            await button(card('Personal'), 'accounts.reauth').waitFor();
+            if (await button(card('Personal'), 'accounts.removeAction').count()) throw new Error('Native account is removable');
+          }
+          if (name === 'agent-platform-lifecycle') {
+            const team = card('Team'), personal = card('Personal'), studio = card('Studio');
+            await team.getByRole('meter').nth(1).waitFor();
+            if (await button(team, 'accounts.reauth').count() || await button(personal, 'accounts.reauth').count()) {
+              throw new Error('A signed-in account offered reauthentication');
+            }
+            await team.getByText('team@example.com', { exact: true }).waitFor();
+            await button(team, 'accounts.editAliasAction').click();
+            const edit = page.getByRole('dialog', { name: messages['accounts.editAliasAction'], exact: true });
+            await edit.getByRole('textbox', { name: messages['accounts.alias'], exact: true }).fill('Renamed Team');
+            await button(edit, 'save').click();
+            await card('Renamed Team').waitFor();
+
+            async function authorize(dialog, retryExpired = false) {
+              await dialog.getByRole('combobox', { name: messages['accountAdd.browser'], exact: true }).click();
+              await page.getByRole('option', { name: 'Google Chrome · Profile A', exact: true }).click();
+              await button(dialog, 'accountAdd.login').click();
+              await dialog.getByRole('status').filter({ hasText: 'Google Chrome · Profile A' }).waitFor();
+              const code = dialog.getByRole('textbox', { name: messages['accountAdd.authorizationCode'], exact: true });
+              if (retryExpired) {
+                await code.fill('fixture-expired-code');
+                await button(dialog, 'accountAdd.submitCode').click();
+                await dialog.getByText(messages['accountAdd.expired'], { exact: true }).waitFor();
+                await button(dialog, 'accountAdd.retry').click();
+              }
+              await code.fill('fixture-authorization-code');
+              await button(dialog, 'accountAdd.submitCode').click();
+              await dialog.waitFor({ state: 'hidden' });
+            }
+            await button(studio, 'accounts.reauth').click();
+            await authorize(page.getByRole('dialog', { name: messages['accountAdd.reauthTitle'].replace('{alias}', 'Studio'), exact: true }), true);
+            await studio.getByRole('meter').nth(1).waitFor();
+            if (await button(studio, 'accounts.reauth').count()) throw new Error('Reauthorized account still offers sign-in');
+
+            await add.click();
+            await authorize(page.getByRole('dialog', { name: messages['accountAdd.claudeTitle'], exact: true }));
+            const added = card('New Claude');
+            await added.waitFor();
+            await button(added, 'accounts.removeAction').click();
+            const remove = page.getByRole('dialog', { name: messages['accounts.removeTitle'].replace('{alias}', 'New Claude'), exact: true });
+            await button(remove, 'accounts.removeAction').click();
+            await added.waitFor({ state: 'hidden' });
+            await card('Renamed Team').waitFor();
+          }
+          const platform = name === 'agent-platform-single' ? 'Codex' : 'Claude Code';
+          const panel = page.getByRole('dialog', { name: platform, exact: true });
+          await button(panel, 'close').click();
+          await panel.waitFor({ state: 'hidden' });
+          await page.getByRole('button', { name: new RegExp(`^${escapeRegex(platform)}(?::|$)`) }).press('Enter');
+          await add.waitFor();
+        }
         if (fixture.accountAdd && width === 1280) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
@@ -542,7 +605,7 @@ try {
             await dialog.getByRole('button', { name: messages['accountAdd.import'], exact: true }).click();
             await dialog.waitFor({ state: 'hidden' });
           }
-          await page.getByRole('button', { name: messages['accountAdd.title'], exact: true }).waitFor();
+          await page.getByRole('button', { name: messages['accounts.addAgentAccount'], exact: true }).waitFor();
         }
         if (width >= 1280 && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
           // Regression: dragging a completed card left a click guard that swallowed its mark-read action.

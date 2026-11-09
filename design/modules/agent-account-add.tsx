@@ -63,7 +63,7 @@ export default () => [
     ['reauth-waiting', 'waiting'],
     ['reauth-expired', 'expired'],
   ] as const).map(([name, flow]) => (
-    <Frame name={name} note="Proposed Agent sign-in flow. Runtime fixture pending adoption.">
+    <Frame name={name} fixture={`agent-account-${name}`} capture={{ selector: ".dialog.agent-account-add", viewport: "1280x800" }}>
       <AgentAccountAdd flow={flow} />
     </Frame>
   )),

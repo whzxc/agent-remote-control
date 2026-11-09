@@ -11,4 +11,4 @@ export const quotaSpecimens = [
   { name: "exhausted", label: "5 小时额度", value: 0, mode: "剩余", reset: "35 分钟后重置", detail: "已用尽", tone: "danger" },
 ] as const satisfies readonly (QuotaWindow & { name: string })[];
 
-export const overviewProvider = { name: "ChatGPT", observed: "2 分钟前" };
+export const overviewProvider = { name: "ChatGPT", observed: "2分钟前" };

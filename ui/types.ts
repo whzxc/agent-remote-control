@@ -264,6 +264,7 @@ export interface ProviderAccount {
   displayName?: string;
 }
 export interface CodexAccountImport {
+  accountId?: string;
   auth: Record<string, unknown>;
   refreshOwner: 'codex' | 'none' | 'external';
   refreshCommand?: { program: string; args?: string[] };
@@ -277,6 +278,7 @@ export interface AccountLogin {
   accountId?: string;
   loginUrl?: string | null;
   browserId?: string;
+  browserName?: string;
   browserError?: string | null;
   error?: string | null;
   errors?: string[];

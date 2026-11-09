@@ -408,13 +408,21 @@ async fn read_login_output(reader: impl tokio::io::AsyncRead + Unpin, urls: mpsc
 }
 
 impl Manager {
+    pub(super) async fn login_active(&self) -> bool {
+        self.login
+            .lock()
+            .await
+            .as_ref()
+            .is_some_and(|login| !login.job.is_finished())
+    }
+
     pub async fn stop(&self) {
         let mut current = self.login.lock().await;
         if let Some(login) = current.as_mut() {
             if let Some(cancel) = login.cancel.take() {
                 let _ = cancel.send(());
+                let _ = (&mut login.job).await;
             }
-            let _ = (&mut login.job).await;
         }
     }
 
@@ -461,7 +469,8 @@ impl Manager {
             } else {
                 Some(browsers::discover().await?.into_iter().find(|b|b.id==browser_id).ok_or("BROWSER_NOT_FOUND: Refresh the browser list and choose an installed browser")?)
             };
-            let mut account = if let Some(id) = body["accountId"].as_str() {
+            let reauth = body["accountId"].is_string();
+            let account = if let Some(id) = body["accountId"].as_str() {
                 read_account(id)?
             } else {
                 Account {
@@ -471,16 +480,15 @@ impl Manager {
                     imported: false,
                 }
             };
-            let config = account_dir(&account.id)?.join("config");
-            private_dir(&config)?;
-            if account.imported {
-                // Official login can revoke the previous grant. Detach the imported copy first.
-                system::remove_credentials(&config).await?;
-                account.identity = json!({"loggedIn":false});
-                account.observed_at = Some(now());
-            }
-            save_account(&account)?;
+            let account_dir = account_dir(&account.id)?;
+            let destination = account_dir.join("config");
+            let config = if reauth {
+                account_dir.join(format!("reauth-{}", id()))
+            } else {
+                destination.clone()
+            };
             let mut cmd = cli(&config).await?;
+            private_dir(&config)?;
             let opened = config.join(".arc-login-url");
             let _ = std::fs::remove_file(&opened);
             cmd.args(["auth", "login", "--claudeai"])
@@ -489,9 +497,15 @@ impl Manager {
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
-            let child = cmd
-                .spawn_owned()
-                .map_err(|_| "CLAUDE_LOGIN_START_FAILED: Could not start Claude Code login")?;
+            let child = match cmd.spawn_owned() {
+                Ok(child) => child,
+                Err(_) => {
+                    let _ = std::fs::remove_dir_all(&config);
+                    return Err(
+                        "CLAUDE_LOGIN_START_FAILED: Could not start Claude Code login".into(),
+                    );
+                }
+            };
             let progress = Arc::new(Mutex::new(Progress {
                 id: id(),
                 account_id: account.id.clone(),
@@ -509,7 +523,7 @@ impl Manager {
             let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
             let view = progress.clone();
             let job = tokio::spawn(async move {
-                let result = run_login(
+                let mut result = run_login(
                     child,
                     &config,
                     &opened,
@@ -520,6 +534,25 @@ impl Manager {
                 )
                 .await;
                 let _ = std::fs::remove_file(opened);
+                if reauth {
+                    if let Ok(identity) = &result {
+                        if let Err(error) = async {
+                            let expected = super::profile_account(&account.id)?;
+                            super::confirm_reauth(&expected, "anthropic", identity)?;
+                            system::install_reauth(&destination, &config).await
+                        }
+                        .await
+                        {
+                            result = Err(error);
+                        }
+                    }
+                }
+                if reauth || result.is_err() {
+                    if let Err(error) = system::remove_credentials(&config).await {
+                        crate::logs::record("WARN", &error, None);
+                    }
+                    let _ = std::fs::remove_dir_all(&config);
+                }
                 let mut view = view.lock().await;
                 view.login_url = None;
                 match result {
@@ -587,8 +620,8 @@ impl Manager {
             }
             if let Some(cancel) = login.cancel.take() {
                 let _ = cancel.send(());
+                let _ = (&mut login.job).await;
             }
-            let _ = (&mut login.job).await;
             return Ok(json!(*login.progress.lock().await));
         }
         if let Some(tail) = route.strip_prefix("profiles/") {

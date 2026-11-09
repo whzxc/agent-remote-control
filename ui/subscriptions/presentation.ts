@@ -21,8 +21,10 @@ export const preciseTime=(value?:string)=>value?new Date(value).toLocaleString(l
 export function compactAge(value: string | undefined, now: number) {
   const minutes = Math.max(0, Math.floor((now - Date.parse(value ?? "")) / 60000));
   if (!Number.isFinite(minutes)) return "—";
-  return minutes < 1 ? "<1m ago" : minutes < 60 ? `${minutes}m ago`
-    : minutes < 1440 ? `${Math.floor(minutes / 60)}h ago` : `${Math.floor(minutes / 1440)}d ago`;
+  const format = new Intl.RelativeTimeFormat(locale.get(), { numeric: "auto" });
+  if (minutes < 60) return format.format(-minutes, "minute");
+  if (minutes < 1440) return format.format(-Math.floor(minutes / 60), "hour");
+  return format.format(-Math.floor(minutes / 1440), "day");
 }
 export const errorLabels:Record<string,string>={'credentials-missing':'usageCredentialsMissing','authentication-failed':'usageAuthenticationFailed','request-forbidden':'usageRequestForbidden','request-failed':'usageRequestFailed','credential-access-denied':'usageCredentialDenied','no-subscription':'usageNoSubscription','no-limits-reported':'usageNoLimits','rate-limited':'usageRateLimited','network-error':'usageNetworkError','invalid-response':'usageInvalidResponse','unsupported-platform':'usageUnsupported'};
 

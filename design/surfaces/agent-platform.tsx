@@ -50,13 +50,16 @@ function NativePlatform() {
 }
 
 export default () => [
-  <Frame name="accounts" note="Proposed account actions in the existing Agent platform panel. Runtime capture pending.">
+  <Frame name="accounts" fixture="agent-platform-lifecycle"
+    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} />
   </Frame>,
-  <Frame name="single-account" note="Proposed first-level panel with one account. Runtime capture pending.">
+  <Frame name="single-account" fixture="agent-platform-single"
+    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.codex} />
   </Frame>,
-  <Frame name="empty" note="Proposed first-level panel with no accounts. Runtime capture pending.">
+  <Frame name="empty" fixture="agent-platform-empty"
+    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} empty />
   </Frame>,
   <Frame name="native" note="Unavailable: zero-account native platforms currently open Agent history.">

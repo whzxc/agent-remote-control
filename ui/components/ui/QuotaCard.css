@@ -1,22 +1,28 @@
-.quota-card { display: flex; flex-direction: column; gap: 22px; padding: 16px 16px 18px; min-width: 0; color: var(--text); }
-.quota-card > header { display: flex; align-items: center; gap: 10px; min-height: 24px; line-height: 24px; font-size: var(--text-body); margin-bottom: 6px; }
-.quota-card .provider-logo { flex: none; width: 24px; height: 24px; }
-.quota-card .provider-logo svg { width: 100%; height: 100%; }
-.subscription-heading { display: flex; align-items: center; min-width: 0; gap: 12px; flex-wrap: wrap; }
+.quota-provider { display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--text); }
+.settings-dialog.elastic-panel:has(.usage-overview .quota-provider) .dialog-header { min-height: 47px; padding-bottom: 0; }
+.settings-dialog.elastic-panel:has(.usage-overview .quota-provider) .dialog-body { padding-top: 24px; }
+.quota-provider > header { display: flex; align-items: center; gap: 10px; min-height: 24px; line-height: 24px; font-size: var(--text-body); }
+.quota-provider .provider-logo { flex: none; width: 24px; height: 24px; }
+.quota-provider .provider-logo svg { width: 100%; height: 100%; }
+.subscription-heading { display: flex; align-items: center; min-width: 0; gap: 10px; flex-wrap: wrap; }
 .subscription-link, .subscription-heading > strong { font-weight: 650; color: inherit; text-decoration: none; }
 .subscription-link:hover { text-decoration: underline; }
 .provider-plan, .refresh-age { color: var(--text-tertiary); font-size: var(--text-meta); }
 .refresh-age { white-space: nowrap; }
-.quota-card > header > .icon-button { margin-left: auto; }
+.quota-provider > header > .icon-button { margin-left: auto; }
 .subscription-notice { display: inline-flex; flex: none; color: var(--warning); }
 .subscription-notice.error { color: var(--danger); }
-.bubble-reading { display: grid; gap: 8px; font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
-.reading-title { min-width: 0; }
-.reading-track { height: 6px; background: var(--surface-sunken); border-radius: 3px; position: relative; }
-.reading-track > div { height: 100%; border-radius: inherit; }
-.reading-meta { margin-top: 4px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }
-.reading-reset { white-space: nowrap; }
 .quota-detail-action { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .quota-detail-action:is(:hover, :focus-visible, [aria-expanded="true"]) { background: var(--hover); }
 .quota-detail-action .icon { flex: none; }
-.pace-tick { position: absolute; top: -2px; width: 2px; height: 10px; border-radius: 1px; transform: translateX(-50%); background: var(--text-secondary); pointer-events: none; }
+.quota-window-grid { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(min(100%, 164px), 1fr)); gap: 8px; }
+.quota-window-card { gap: 8px; min-width: 0; }
+.quota-window-card h3 { margin: 0; font-size: var(--text-meta); font-weight: 600; line-height: 16px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.quota-window-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; line-height: 28px; color: var(--text-secondary); font-size: var(--text-meta); }
+.quota-window-value strong { color: var(--text); font-size: var(--text-display); font-variant-numeric: tabular-nums; font-weight: 650; }
+.quota-window-track { height: 6px; background: var(--surface-sunken); border-radius: 3px; position: relative; }
+.quota-window-track > div { height: 100%; border-radius: inherit; }
+.quota-window-track > span { position: absolute; top: -2px; width: 2px; height: 10px; border-radius: 1px; transform: translateX(-50%); background: var(--text-secondary); }
+.quota-window-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; }
+.quota-window-warning { color: var(--warning); }
+.quota-window-exhausted { color: var(--danger); }

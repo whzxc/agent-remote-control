@@ -172,6 +172,26 @@ async fn read_credentials_at(config: Option<&Path>, storage: &Path) -> Result<Va
     Ok(json!({"claudeAiOauth":stored["claudeAiOauth"]}))
 }
 
+pub(super) async fn install_reauth(destination: &Path, staging: &Path) -> Result<()> {
+    let staged = load(&staging.join(".claude.json"))?;
+    let path = destination.join(".claude.json");
+    let mut metadata = if path.exists() {
+        load(&path)?
+    } else {
+        json!({})
+    };
+    if !staged["oauthAccount"].is_object() || !metadata.is_object() {
+        return Err(
+            "CLAUDE_LOGIN_UNCONFIRMED: Claude Code did not provide account metadata".into(),
+        );
+    }
+    let credentials = profile_credentials(staging).await?;
+    metadata["oauthAccount"] = staged["oauthAccount"].clone();
+    metadata["hasCompletedOnboarding"] = json!(true);
+    save(&path, &metadata)?;
+    write_credentials(destination, &credentials).await
+}
+
 async fn write_credentials(config: &Path, credentials: &Value) -> Result<()> {
     #[cfg(target_os = "macos")]
     {

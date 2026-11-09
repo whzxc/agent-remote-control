@@ -242,6 +242,38 @@ pub(crate) fn new_login() -> Result<Profile> {
     persist(&p)?;
     Ok(p)
 }
+pub(super) async fn discard_login(control: &control::Control, profile: &str) -> Result<()> {
+    control.close_profile(profile).await;
+    let path = profile_path(profile)?;
+    std::fs::remove_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())
+}
+
+pub(super) async fn finish_reauth(
+    control: &control::Control,
+    staging: &str,
+    target: &str,
+    account: &Value,
+    native: &Value,
+) -> Result<String> {
+    let auth = load(&credential_home(staging)?.join("auth.json"))?;
+    let mut facts = credential_facts(&auth);
+    for (key, value) in native.as_object().into_iter().flatten() {
+        if !value.is_null() {
+            facts[key] = value.clone();
+        }
+    }
+    confirm_reauth(account, "openai", &facts)?;
+    if control.profile_running(target).await {
+        return Err(
+            "CODEX_PROFILE_IN_USE: Finish this profile's active tasks before reauthentication"
+                .into(),
+        );
+    }
+    control.close_profile(target).await;
+    save(&credential_home(target)?.join("auth.json"), &auth)?;
+    observe_profile(target, &facts, "signed-in")
+}
+
 fn claims(token: &Value) -> Value {
     token
         .as_str()
@@ -338,9 +370,18 @@ pub(super) async fn import(control: &control::Control, args: &Value) -> Result<V
     if owner != "codex" && account_id.is_none() {
         return Err("CODEX_ACCOUNT_ID_REQUIRED: Supply tokens.account_id or a token with ChatGPT account claims".into());
     }
-    let existing = profiles()?
-        .into_iter()
-        .find(|p| p.account_id.is_some() && p.account_id == account_id);
+    let existing = if let Some(id) = args["accountId"].as_str() {
+        let account = resolve(id)?;
+        confirm_reauth(&account, "openai", &facts)?;
+        let target = super::profiles(&account)
+            .find(|p| p["agent"] == "codex" && p["profileId"] != "codex-home")
+            .ok_or("ACCOUNT_AGENT_MISSING: Select a managed Codex account")?;
+        Some(profile(string(target, "profileId"))?)
+    } else {
+        profiles()?.into_iter().find(|p| {
+            p.account_id.is_some() && p.account_id == account_id && profile_account(&p.id).is_ok()
+        })
+    };
     let pid = existing.as_ref().map(|p| p.id.clone()).unwrap_or_else(id);
     if existing.is_some() && control.profile_running(&pid).await {
         return Err("CODEX_PROFILE_IN_USE: Finish this profile's active tasks before replacing its credentials".into());

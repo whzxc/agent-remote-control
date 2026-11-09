@@ -60,6 +60,16 @@ pub fn identity_key(provider: &str, facts: &Value) -> Option<String> {
         hash(format!("{email}\n{org}"))
     ))
 }
+fn confirm_reauth(account: &Value, provider: &str, facts: &Value) -> Result<()> {
+    let matched = identity_key(provider, facts).is_some_and(|key| {
+        string(account, "identityKey").contains(":unidentified:")
+            || merge::matches_identity(account, &key)
+    });
+    if !live(account) || !matched {
+        return Err("ACCOUNT_REAUTH_IDENTITY_MISMATCH: Sign in to the original account or add a separate account".into());
+    }
+    Ok(())
+}
 fn provider(platform: &str) -> &str {
     match platform {
         "claude" | "anthropic" => "anthropic",
@@ -666,8 +676,18 @@ pub(crate) struct Manager {
     refresh: Mutex<Option<std::time::Instant>>,
 }
 impl Manager {
-    pub async fn stop(&self) {
+    pub async fn stop(&self, control: &control::Control) {
         self.claude.stop().await;
+        let mut current = self.login.lock().await;
+        if let Some(login) = current.take().filter(|login| {
+            login["kind"] == "codex"
+                && login["state"] == "waiting"
+                && login["temporaryProfile"] == true
+        }) {
+            if let Err(error) = codex::discard_login(control, string(&login, "profileId")).await {
+                crate::logs::record("WARN", &error, None);
+            }
+        }
     }
     pub async fn refresh(
         &self,
@@ -841,7 +861,7 @@ impl Manager {
         &self,
         control: &Arc<control::Control>,
         agents: &Arc<agents::AgentHost>,
-        subscriptions: &crate::subscriptions::SubscriptionService,
+        subscriptions: &Arc<crate::subscriptions::SubscriptionService>,
         name: &str,
         args: Value,
     ) -> Result<Value> {
@@ -851,49 +871,61 @@ impl Manager {
         }
         self.refresh(control, agents).await?;
         self.observe_login(control).await?;
-        if name == "accounts" && args["id"].is_string() {
+        let force_quota = name == "account_refresh_quota";
+        if force_quota || name == "accounts" && args["id"].is_string() {
             let account = resolve(string(&args, "id"))?;
             if live(&account) {
-                if let Some(provider) = account["quotaProviderId"].as_str() {
-                    let snapshot = subscriptions.snapshot().await;
-                    if let Some(provider) = snapshot["providers"]
+                let quota = if let Some(provider) = account["quotaProviderId"].as_str() {
+                    if force_quota {
+                        subscriptions
+                            .request(
+                                "subscriptions/refresh",
+                                "POST",
+                                json!({"providerId":provider}),
+                            )
+                            .await?;
+                    }
+                    subscriptions.snapshot().await["providers"]
                         .as_array()
                         .into_iter()
                         .flatten()
                         .find(|row| row["providerId"] == provider)
-                    {
-                        let quota = merge::shared_quota(provider);
-                        change(|rows| {
-                            if let Some(row) =
-                                rows.iter_mut().find(|row| row["id"] == account["id"])
-                            {
-                                row["quota"] = quota;
-                            }
-                            Ok(())
-                        })?;
-                    }
+                        .map(merge::shared_quota)
                 } else if let Some(p) =
                     profiles(&account).find(|p| matches!(string(p, "agent"), "claude" | "codex"))
                 {
                     let observed = account["quota"]["observedAt"]
                         .as_str()
                         .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok());
-                    if observed.is_none_or(|at| {
-                        chrono::Utc::now().signed_duration_since(at).num_seconds() >= 180
-                    }) {
-                        let quota = crate::subscriptions::account_quota(
-                            control,
-                            string(p, "agent"),
-                            string(p, "profileId"),
+                    if force_quota
+                        || observed.is_none_or(|at| {
+                            chrono::Utc::now().signed_duration_since(at).num_seconds() >= 180
+                        })
+                    {
+                        Some(
+                            crate::subscriptions::account_quota(
+                                control,
+                                string(p, "agent"),
+                                string(p, "profileId"),
+                            )
+                            .await,
                         )
-                        .await;
-                        change(|rows| {
-                            if let Some(row) = rows.iter_mut().find(|a| a["id"] == account["id"]) {
-                                row["quota"] = quota;
-                            }
-                            Ok(())
-                        })?;
+                    } else {
+                        None
                     }
+                } else {
+                    None
+                };
+                if let Some(quota) = quota {
+                    change(|rows| {
+                        if let Some(row) = rows
+                            .iter_mut()
+                            .find(|row| row["id"] == account["id"] && live(row))
+                        {
+                            row["quota"] = quota;
+                        }
+                        Ok(())
+                    })?;
                 }
             }
         }
@@ -921,7 +953,7 @@ impl Manager {
                 result["accountId"] = account["id"].clone();
                 Ok(result)
             }
-            "accounts" => self.query(&args).await,
+            "accounts" | "account_refresh_quota" => self.query(&args).await,
             "whoami" => {
                 let origin = crate::kernel::origin::current_origin();
                 let source = crate::sources::get(string(&origin, "sourceId"))?;
@@ -968,6 +1000,15 @@ impl Manager {
                 // Tombstone first: new dispatches cannot race the cancellation pass.
                 change(|rows| {
                     let account = rows.iter_mut().find(|a| a["id"] == row["id"]).unwrap();
+                    if let Some(agent) = args["agent"].as_str() {
+                        let removable = account["sources"].as_array().is_some_and(Vec::is_empty)
+                            && profiles(account).count() == 1
+                            && profiles(account)
+                                .any(|p| p["agent"] == agent && p["profileId"] != "codex-home");
+                        if !removable {
+                            return Err("ACCOUNT_PROFILE_NOT_REMOVABLE: This account has another role or is managed by Codex Desktop".into());
+                        }
+                    }
                     account["removedAt"] = json!(now());
                     for p in account["agentProfiles"].as_array_mut().unwrap() {
                         p["default"] = json!(false);
@@ -987,7 +1028,7 @@ impl Manager {
         &self,
         control: &Arc<control::Control>,
         agents: &Arc<agents::AgentHost>,
-        subscriptions: &crate::subscriptions::SubscriptionService,
+        subscriptions: &Arc<crate::subscriptions::SubscriptionService>,
         route: &str,
         method: &str,
         body: Value,
@@ -1008,6 +1049,7 @@ impl Manager {
                     | "add"
                     | "login"
                     | "reauth"
+                    | "refresh-quota"
                     | "update"
                     | "remove"
                     | "merge"
@@ -1018,6 +1060,7 @@ impl Manager {
                 let name = match op {
                     "query" => "accounts".into(),
                     "whoami" => "whoami".into(),
+                    "refresh-quota" => "account_refresh_quota".into(),
                     _ => format!("account_{op}"),
                 };
                 if matches!(op, "whoami" | "import")

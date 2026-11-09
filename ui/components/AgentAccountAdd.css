@@ -1,4 +1,7 @@
 .agent-account-add .agent-account-add-form { display: flex; flex-direction: column; gap: 20px; }
+.agent-account-add .agent-account-add-form[data-waiting] { gap: 16px; }
+.agent-account-add .account-login-status { font-size: var(--text-small); font-weight: 500; line-height: 18px; }
+.agent-account-add .account-removal { font-size: var(--text-small); line-height: 20px; }
 .agent-account-add textarea.input { min-height: 128px; resize: vertical; font-family: var(--font-mono); font-size: var(--text-small); }
 .agent-account-add [id$="-args"] { font-family: var(--font-mono); font-size: var(--text-small); }
 .agent-account-add .dialog-footer { justify-content: flex-end; }

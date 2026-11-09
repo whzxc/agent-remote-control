@@ -1,7 +1,7 @@
 import type { ProviderAccount, AccountLogin, AccountsResult, CodexAccountImport } from './types';
 import type { Status, ControlSource } from './state/types';
 // In-memory implementation of the native management routes in docs/reference/tools.md.
-export function accountScenario(status: Status, sources: ControlSource[]) {
+export function accountScenario(status: Status, sources: ControlSource[], scenario?: string) {
   const now = new Date().toISOString();
   const primary = status.ingresses[0];
   primary.url = 'https://arc.example.com/mcp';
@@ -18,6 +18,28 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
   ];
   const connectedAccount = accounts.find(account => account.sources.includes(chatgpt.id))!;
   chatgpt.authorizationFacts = { email: connectedAccount.email ?? undefined, orgName: connectedAccount.orgName ?? undefined };
+  if (scenario === 'agent-platform-lifecycle') {
+    const team = accounts.find(account => account.id === 'account-claude')!;
+    team.alias = 'Team'; team.email = 'team@example.com';
+    team.quota.windows = [
+      { id: 'five-hour', poolId: 'main', label: 'five_hour', usedPercent: 16, resetsAt: new Date(Date.now() + 3 * 3600000).toISOString() },
+      { id: 'weekly', poolId: 'main', label: 'seven_day', usedPercent: 27, resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    ];
+    const studio = accounts.find(account => account.id === 'account-review')!;
+    studio.alias = 'Studio'; studio.email = 'studio@example.com';
+    accounts.push({ ...structuredClone(team), id: 'account-no-quota', identityKey: 'anthropic:id:personal-fixture',
+      alias: 'Personal', email: 'personal@example.com', agentProfiles: [{ ...team.agentProfiles[0], profileId: 'profile-personal', default: false }],
+      quota: { state: 'unavailable', windows: [] } });
+  }
+  if (scenario === 'agent-platform-single') {
+    const primary = accounts.find(account => account.id === 'account-openai')!;
+    primary.agentProfiles[0].state = 'signed-out';
+    primary.quota = { state: 'unavailable', windows: [] };
+    primary.email = 'personal@example.com';
+  }
+  if (scenario === 'agent-platform-empty') {
+    for (const account of accounts) account.agentProfiles = account.agentProfiles.filter(profile => profile.agent !== 'claude');
+  }
   let polls = 0, sequence = 0, login: AccountLogin | null = null;
   let loginAccount: string | undefined;
   const requireAccount = (id: string): ProviderAccount => {
@@ -36,14 +58,24 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
     account.health.state = 'ready'; login = { ...login, state: 'completed', loginUrl: null, accountId: account.id };
   }
   function list(agent?: string): AccountsResult {
-    if (login?.state === 'waiting' && ++polls >= 4) completeLogin();
+    if (login?.state === 'starting') login = { ...login, state: 'waiting' };
+    else if (login?.state === 'waiting' && login.kind !== 'claude' && ++polls >= 4) completeLogin();
     return { accounts: accounts.filter(a => !a.removedAt && (!agent || a.agentProfiles.some(p => p.agent === agent))).map(({ email, orgName, ...account }) => account), login };
   }
   return (path: string, method: string, raw?: unknown): unknown => {
     const route = path.split('?')[0], body = (raw ?? {}) as Record<string, string>;
     if (route === 'accounts' && method === 'GET') return list();
     if (route === 'accounts/query' && method === 'POST') return body.id ? requireAccount(body.id) : list(body.agent);
-    if (route === 'accounts/browsers' && method === 'GET') return { browsers: [{ id: 'safari', name: 'Safari' }, { id: 'chrome', name: 'Chrome' }, { id: 'firefox', name: 'Firefox' }] };
+    if (route === 'accounts/browsers' && method === 'GET') return { browsers: [
+      { id: 'safari', name: 'Safari' }, { id: 'chrome-profile', name: 'Google Chrome · Profile A' }, { id: 'firefox', name: 'Firefox' },
+    ] };
+    if (route === 'accounts/refresh-quota' && method === 'POST') {
+      const account = requireAccount(body.id);
+      if (scenario === 'agent-platform-lifecycle' && account.id === 'account-review') {
+        account.quota = structuredClone(requireAccount('account-claude').quota);
+      }
+      return account;
+    }
     if (route === 'accounts/whoami' && ['POST', 'GET'].includes(method)) {
       const account = requireAccount('account-source');
       return { id: account.id, alias: account.alias, provider: account.provider, email: null, orgName: null, plan: null, sourceId: sources[0].id, platform: sources[0].platform, agentProfiles: account.agentProfiles, notifications: account.notifications };
@@ -88,13 +120,16 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
       if (!['claude', 'codex', 'detect', 'api-key'].includes(kind)) throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
       if (body.id) { const account = requireAccount(body.id); if (account.removedAt) throw new Error('ACCOUNT_REMOVED'); if (!account.agentProfiles.some(p => p.agent === body.agent)) throw new Error('ACCOUNT_AGENT_MISSING'); }
       polls = 0; loginAccount = body.id;
-      if (kind === 'codex' && !body.id) {
+      if ((kind === 'codex' || kind === 'claude') && !body.id) {
         const id = `oauth-${++sequence}`;
-        accounts.push({ id, provider: 'openai', identityKey: `openai:id:${id}`, alias: 'Personal', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' },
-          agentProfiles: [{ agent: 'codex', profileId: `profile-${id}`, kind: 'codex-home', state: 'unfinished', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
+        const provider = kind === 'codex' ? 'openai' : 'anthropic';
+        accounts.push({ id, provider, identityKey: `${provider}:id:${id}`, alias: kind === 'claude' ? 'New Claude' : 'Personal',
+          email: 'new@example.com', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' },
+          agentProfiles: [{ agent: kind, profileId: `profile-${id}`, kind: kind === 'codex' ? 'codex-home' : 'cli-profile', state: 'unfinished', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
         loginAccount = id;
       }
-      login = { loginId: `example-login-${++sequence}`, kind, state: 'waiting', browserId: body.browserId, loginUrl: 'https://login.example.com/authorize' };
+      login = { loginId: `example-login-${++sequence}`, kind, state: kind === 'claude' ? 'starting' : 'waiting', browserId: body.browserId,
+        browserName: body.browserId === 'chrome-profile' ? 'Google Chrome · Profile A' : undefined, loginUrl: 'https://login.example.com/authorize' };
       if (kind === 'api-key') login = { loginId: login.loginId, kind, state: 'unfinished', errors: [], next: { message: "Configure the key using the Agent's native authentication, then call account_add with kind detect. ARC never stores an inference key in an account record." } };
       if (kind === 'detect') login = { loginId: login.loginId, kind, state: 'completed', errors: [] };
       return login;
@@ -106,7 +141,10 @@ export function accountScenario(status: Status, sources: ControlSource[]) {
       if (login.kind === 'codex') throw new Error('ACCOUNT_LOGIN_CODE_UNSUPPORTED');
       if (login.kind !== 'claude') throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
       if (!body.code?.trim()) throw new Error('LOGIN_CODE_REQUIRED');
-      polls = 3; return { submitted: true };
+      if (body.code === 'fixture-expired-code') {
+        login = { ...login, state: 'failed', loginUrl: null, error: 'CLAUDE_LOGIN_TIMEOUT' };
+      } else completeLogin();
+      return { submitted: true };
     }
     if (['accounts/update', 'accounts/remove'].includes(route) && method === 'POST') {
       const account = requireAccount(body.id);

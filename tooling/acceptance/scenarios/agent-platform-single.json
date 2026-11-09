@@ -1,0 +1,19 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "platformAgent": "codex",
+  "viewports": [
+    {
+      "width": 640,
+      "height": 800
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ]
+}
