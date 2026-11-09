@@ -329,7 +329,7 @@ impl Client {
 }
 
 /// Copy the standalone Core by content identity so installers can replace their files.
-fn executable() -> Result<PathBuf> {
+pub(crate) fn executable() -> Result<PathBuf> {
     let source = crate::runtime::binary()?;
     let hash = crate::runtime::build_id(&source)?;
     let directory = root().join("task-host").join(&hash);
@@ -343,11 +343,12 @@ fn executable() -> Result<PathBuf> {
     Ok(target)
 }
 pub(crate) fn gc() -> Result<()> {
-    let active: Vec<_> = indexes()
+    let mut active: Vec<_> = indexes()
         .into_iter()
         .filter(live)
         .filter_map(|v| v["executable"].as_str().map(PathBuf::from))
         .collect();
+    active.extend(crate::codex_host::executables());
     let current = crate::runtime::binary()
         .and_then(|p| crate::runtime::build_id(&p))
         .ok();
@@ -399,7 +400,12 @@ pub(crate) fn command_spec(command: &std::process::Command, cleared: bool) -> Re
         "cwd":command.get_current_dir().map(|p|text(p.as_os_str())).transpose()?,"env":environment}))
 }
 
-pub(crate) async fn launch(command: &tokio::process::Command, state: &Value) -> Result<Client> {
+pub(crate) async fn launch(
+    command: &tokio::process::Command,
+    state: &Value,
+    launches: &crate::launches::Launches,
+) -> Result<Client> {
+    launches.check()?;
     let executable = executable()?;
     let directory = instances().join(id());
     std::fs::create_dir_all(&directory).map_err(io_error)?;
@@ -425,6 +431,9 @@ pub(crate) async fn launch(command: &tokio::process::Command, state: &Value) -> 
     spec["processSession"] = state["processSession"].clone();
     spec["agent"] = state["agent"].clone();
     spec["executable"] = json!(executable);
+    spec["startupAck"] = json!(true);
+    spec["creatorPid"] = json!(std::process::id());
+    spec["creatorStart"] = json!(crate::codex_host::process_start(std::process::id()));
     #[cfg(target_os = "linux")]
     let attempts: &[bool] = if std::env::var_os("INVOCATION_ID").is_some() {
         &[true, false]
@@ -446,7 +455,7 @@ pub(crate) async fn launch(command: &tokio::process::Command, state: &Value) -> 
         host.arg("task-host")
             .env("ARC_STATE_DIR", root())
             .stdin(Stdio::piped())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::null());
         #[cfg(unix)]
         {
@@ -461,26 +470,16 @@ pub(crate) async fn launch(command: &tokio::process::Command, state: &Value) -> 
                 });
             }
         }
-        let mut child = match crate::codex_host::detached_spawn(&mut host) {
+        let mut child = match launches.run(|| crate::codex_host::indexed_spawn(&mut host, &spec)) {
             Ok(child) => child,
             Err(error) => {
                 failure = error;
                 continue;
             }
         };
-        let sent = child
-            .stdin
-            .take()
-            .ok_or("TASK_HOST_STDIN")?
-            .write_all(format!("{spec}\n").as_bytes());
-        if let Err(error) = sent {
-            let _ = child.kill();
-            let _ = child.wait();
-            failure = io_error(error);
-            continue;
-        }
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
+            launches.check()?;
             if let Ok(index) = load(&directory.join("host.json")) {
                 if live(&index) && request(&index, json!({"op":"status"})).await.is_ok() {
                     std::thread::spawn(move || {
@@ -505,6 +504,22 @@ pub(crate) async fn launch(command: &tokio::process::Command, state: &Value) -> 
         failure = "TASK_HOST_START_FAILED: no protocol handshake".into();
     }
     Err(failure)
+}
+
+pub(crate) async fn stop_unattached(retained: &[Value]) {
+    for index in indexes() {
+        if retained.iter().any(|host| {
+            index["hostPid"] == host["hostPid"] && index["hostStart"] == host["hostStart"]
+        }) {
+            continue;
+        }
+        if index["creatorPid"] == std::process::id()
+            && index["creatorStart"].as_str()
+                == crate::codex_host::process_start(std::process::id()).as_deref()
+        {
+            stop_index(&Client::from_index(index)).await;
+        }
+    }
 }
 
 struct Runtime {
@@ -642,12 +657,12 @@ async fn serve_connection(socket: Socket, runtime: Arc<Mutex<Runtime>>) -> Resul
 }
 
 #[cfg(windows)]
-struct Job(windows_sys::Win32::Foundation::HANDLE);
+pub(crate) struct Job(windows_sys::Win32::Foundation::HANDLE);
 #[cfg(windows)]
 unsafe impl Send for Job {}
 #[cfg(windows)]
 impl Job {
-    fn own_tree() -> Result<Self> {
+    pub(crate) fn own_tree() -> Result<Self> {
         use windows_sys::Win32::System::{JobObjects::*, Threading::GetCurrentProcess};
         unsafe {
             let handle = CreateJobObjectW(std::ptr::null(), std::ptr::null());
@@ -718,8 +733,14 @@ pub async fn run() -> Result<()> {
     let journal = Journal::new(directory.join("journal.jsonl"))?;
     let index = json!({"hostPid":std::process::id(),"hostStart":crate::codex_host::process_start(std::process::id()),
         "socket":socket,"journalPath":journal.path,"ackedOffset":0,"agentPid":agent_pid,"agentStart":crate::codex_host::process_start(agent_pid),"hostProtocol":PROTOCOL,
-        "taskId":spec["taskId"],"processSession":spec["processSession"],"agent":spec["agent"],"executable":spec["executable"]});
+        "taskId":spec["taskId"],"processSession":spec["processSession"],"agent":spec["agent"],"executable":spec["executable"],"creatorPid":spec["creatorPid"],"creatorStart":spec["creatorStart"]});
     save(&directory.join("host.json"), &index)?;
+    if spec["startupAck"] == true {
+        std::io::stdout()
+            .write_all(b"indexed\n")
+            .map_err(io_error)?;
+        std::io::stdout().flush().map_err(io_error)?;
+    }
     let runtime = Arc::new(Mutex::new(Runtime {
         input: child.stdin.take(),
         journal,

@@ -1,4 +1,5 @@
 //! Clipboard transfer is local to Core: no credential enters an RPC response or argv.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
@@ -77,7 +78,7 @@ pub async fn clear() -> Result<()> {
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn()
+        .spawn_owned()
         .map_err(|_| "Cannot clear clipboard")?;
     clear
         .stdin

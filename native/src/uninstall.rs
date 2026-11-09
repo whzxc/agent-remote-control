@@ -135,7 +135,7 @@ pub async fn run(purge: bool) -> Result<Value> {
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
     }
-    crate::headless::stop().await?;
+    crate::runtime::stop_for_uninstall().await?;
     // Detached Codex app-servers outlive Core by design; removal ends them.
     crate::codex_host::stop_all().await?;
     crate::task_host::stop_all().await?;

@@ -1,4 +1,5 @@
 use crate::control::Control;
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use std::collections::BTreeSet;
 pub async fn list(c: &Control) -> Result<Vec<Value>> {
@@ -311,7 +312,7 @@ async fn git_bytes(root: &str, args: Vec<String>, identity: bool) -> Result<Vec<
     const LIMIT: u64 = 16 * 1024 * 1024;
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn_owned().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("missing Git stdout")?;
     let stderr = child.stderr.take().ok_or("missing Git stderr")?;
     let collect = async |stream: Box<dyn tokio::io::AsyncRead + Unpin + Send>| -> Result<Vec<u8>> {

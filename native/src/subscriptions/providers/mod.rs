@@ -6,6 +6,7 @@ mod grok;
 mod kimi;
 mod opencode_go;
 use super::types::*;
+use crate::owned_children::SpawnOwned;
 use crate::{control::Control, *};
 use std::time::Duration;
 pub struct Registration {
@@ -189,7 +190,7 @@ async fn native_cli(
     }
     let result = tokio::time::timeout(Duration::from_secs(45), async {
         let mut child = command
-            .spawn()
+            .spawn_owned()
             .map_err(|_| Failure::from("request-failed"))?;
         let stdout = child.stdout.take().ok_or(Failure::from("request-failed"))?;
         let stderr = child.stderr.take().ok_or(Failure::from("request-failed"))?;

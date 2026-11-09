@@ -1,6 +1,7 @@
 //! Independent Codex credentials with shared native session storage.
 pub(crate) use super::codex_config::{inspect_profile, shared_configuration};
 use super::*;
+use crate::owned_children::SpawnOwned;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
 use std::{process::Stdio, time::Duration};
@@ -408,7 +409,7 @@ async fn refresh_command(p: &Profile, request: &Value) -> Result<Value> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn()
+        .spawn_owned()
         .map_err(|_| "CODEX_REFRESH_COMMAND_FAILED: Check the configured executable")?;
     child
         .stdin

@@ -1,4 +1,5 @@
 //! Cloudflare's locally-managed setup. Provider credentials never leave Core.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use base64::Engine;
 use std::{process::Stdio, time::Duration};
@@ -84,7 +85,7 @@ pub async fn login(settings: &Value) -> Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
-        .spawn()
+        .spawn_owned()
         .map_err(|e| e.to_string())?;
     let stderr = child.stderr.take().unwrap();
     let url = Arc::new(std::sync::Mutex::new(None));

@@ -1,4 +1,5 @@
 //! MCP client sessions owned by the ARC hub: newline-delimited stdio and Streamable HTTP.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use futures_util::StreamExt;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -427,7 +428,7 @@ fn spawn(
     if let Some(cwd) = endpoint.cwd {
         command.current_dir(cwd);
     }
-    let mut child = command.spawn().map_err(|_| {
+    let mut child = command.spawn_owned().map_err(|_| {
         "MCP_START_FAILED: Check the command, arguments, environment and executable permissions"
     })?;
     let input = Arc::new(Mutex::new(child.stdin.take().ok_or("MCP_MISSING_STDIN")?));

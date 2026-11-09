@@ -1,4 +1,5 @@
 //! Optional device-owned MCP stdio context provider. One process per call.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use serde::Deserialize;
 use std::{collections::HashMap, process::Stdio, time::Duration};
@@ -85,7 +86,7 @@ pub(crate) async fn call(name: &str, args: Value, timeout: Duration) -> Result<V
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn()
+        .spawn_owned()
         .map_err(|e| format!("CONTEXT_PROVIDER_START_FAILED: {e}"))?;
     let result = tokio::time::timeout(timeout, async {
         let mut input = child.stdin.take().ok_or("CONTEXT_PROVIDER_MISSING_STDIN")?;

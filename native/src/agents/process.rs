@@ -1,3 +1,4 @@
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use std::{collections::HashMap, process::Stdio, time::Duration};
 use tokio::{
@@ -176,7 +177,9 @@ impl Process {
         antigravity: bool,
         mut state: Value,
         wake: Arc<tokio::sync::Notify>,
+        launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
+        launches.check()?;
         state["processSession"] = json!(id());
         super::save_task(&state)?;
         let mut cmd = launch_command(binary, args)?;
@@ -198,7 +201,7 @@ impl Process {
         }
         cmd.current_dir(cwd);
         if !cfg!(test) && !cfg!(feature = "test-fixture") {
-            match crate::task_host::launch(&cmd, &state).await {
+            match crate::task_host::launch(&cmd, &state, launches).await {
                 Ok(client) => {
                     state["taskHost"] = client.index.clone();
                     super::save_task(&state)?;
@@ -213,6 +216,7 @@ impl Process {
                 ),
             }
         }
+        launches.check()?;
         state.as_object_mut().unwrap().remove("taskHost");
         #[cfg(unix)]
         cmd.process_group(0);
@@ -220,7 +224,7 @@ impl Process {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .spawn()
+            .spawn_owned()
             .map_err(|e| e.to_string())?;
         let input = child.stdin.take().ok_or("MISSING_STDIN")?;
         let stdout = child.stdout.take().ok_or("MISSING_STDOUT")?;
@@ -239,10 +243,15 @@ impl Process {
     pub(crate) async fn reattach(
         state: Value,
         wake: Arc<tokio::sync::Notify>,
+        launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
         let pi = state["agent"] == "pi";
         let antigravity = state["agent"] == "antigravity";
-        let client = crate::task_host::Client::from_index(state["taskHost"].clone());
+        let client = launches.run(|| {
+            Ok(crate::task_host::Client::from_index(
+                state["taskHost"].clone(),
+            ))
+        })?;
         Self::from_host(client, state, pi, antigravity, wake).await
     }
     async fn from_host(
@@ -1283,6 +1292,7 @@ mod stream_stability_tests {
             false,
             state,
             live.wake.clone(),
+            &live.launches,
         )
         .await
         .unwrap();
@@ -1331,7 +1341,7 @@ mod stream_stability_tests {
             let state = json!({"taskId":task,"agent":"dsh","status":"running","turnId":"turn","output":"","metadata":{},
                 "taskHost":{"hostPid":std::process::id(),"hostStart":crate::codex_host::process_start(std::process::id()),"hostProtocol":2,
                     "socket":"unused","journalPath":journal,"ackedOffset":0,"promptId":"prompt"}});
-            let process = Process::reattach(state,host.wake.clone()).await.unwrap();
+            let process = Process::reattach(state,host.wake.clone(), &host.launches).await.unwrap();
             host.processes.lock().await.insert(task.clone(),process.clone());
             let state = observed(&host,&task,|s|s["status"]=="waiting-permission").await;
             assert_eq!(state["pendingInteractions"][0]["id"],"approval");
@@ -1351,7 +1361,7 @@ mod stream_stability_tests {
             let mut file=std::fs::OpenOptions::new().append(true).open(&journal).unwrap();
             for row in next { writeln!(file,"{row}").unwrap(); }
             save(&directory.join("exit.json"),&json!({"exitCode":0,"receivedSequence":1,"nextOffset":5,"error":null})).unwrap();
-            let recovered = Process::reattach(state,host.wake.clone()).await.unwrap();
+            let recovered = Process::reattach(state,host.wake.clone(), &host.launches).await.unwrap();
             host.processes.lock().await.insert(task.clone(),recovered.clone());
             let state=observed(&host,&task,|s|s["processState"]=="exited" && s["taskHost"]["ackedOffset"]==4).await;
             assert_eq!(state["status"],"completed");

@@ -6,6 +6,7 @@ use crate::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::{collections::HashMap, time::Duration};
 pub struct Control {
+    pub(crate) launches: Arc<crate::launches::Launches>,
     pub session: String,
     pub events: SharedEvents,
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
@@ -81,6 +82,7 @@ fn cleanup_result(result: Result<Value>) -> Result<Value> {
 impl Control {
     pub fn new(binary: PathBuf) -> Arc<Self> {
         Arc::new(Self {
+            launches: Default::default(),
             session: id(),
             events: Default::default(),
             shutdown: tokio::sync::watch::channel(0).0,
@@ -120,6 +122,7 @@ impl Control {
     }
     pub(crate) async fn profile_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
         let mut rpcs = self.profile_rpcs.lock().await;
+        self.launches.check()?;
         if let Some(cached) = rpcs.get(profile).filter(|cached| cached.rpc.alive()) {
             return Ok(cached.rpc.clone());
         }
@@ -127,12 +130,14 @@ impl Control {
         let cached = self.start_profile_rpc(profile, &parity).await?;
         let rpc = cached.rpc.clone();
         rpcs.insert(profile.into(), cached);
+        self.launches.check()?;
         Ok(rpc)
     }
     /// Dispatches require both a complete home and an app-server that loaded it.
     /// Reads and interrupts keep the old connection available while a task finishes.
     async fn profile_dispatch_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
         let mut rpcs = self.profile_rpcs.lock().await;
+        self.launches.check()?;
         let parity = if profile == "codex-home" {
             crate::accounts::codex::shared_configuration(profile)?
         } else {
@@ -157,6 +162,7 @@ impl Control {
         let cached = self.start_profile_rpc(profile, &parity).await?;
         let rpc = cached.rpc.clone();
         rpcs.insert(profile.into(), cached);
+        self.launches.check()?;
         Ok(rpc)
     }
     async fn start_profile_rpc(&self, profile: &str, parity: &Value) -> Result<ProfileRpc> {
@@ -172,6 +178,7 @@ impl Control {
                     &self.session,
                     None,
                     &fingerprint,
+                    &self.launches,
                 )
                 .await?,
                 fingerprint,
@@ -183,6 +190,7 @@ impl Control {
             &self.session,
             Some(profile),
             &fingerprint,
+            &self.launches,
         )
         .await?;
         {
@@ -208,6 +216,7 @@ impl Control {
             return self.utility().await;
         }
         let mut rpcs = self.auth_rpcs.lock().await;
+        self.launches.check()?;
         if let Some(rpc) = rpcs.get(profile).filter(|r| r.alive()) {
             return Ok(rpc.clone());
         }
@@ -219,6 +228,7 @@ impl Control {
         )
         .await?;
         rpcs.insert(profile.into(), rpc.clone());
+        self.launches.check()?;
         Ok(rpc)
     }
     pub(crate) async fn observe_thread_account(&self, thread: &str) -> Result<()> {
@@ -407,6 +417,8 @@ impl Control {
         self.shutdown.send_modify(|v| *v = v.wrapping_add(1));
     }
     pub async fn close(&self) {
+        self.launches.close();
+        let mut retained = Vec::new();
         for (_, rpc) in self.auth_rpcs.lock().await.drain() {
             rpc.close().await;
         }
@@ -414,11 +426,15 @@ impl Control {
             if cached.rpc.detached()
                 && (!cached.rpc.alive() || self.profile_rpc_running(&profile, &cached.rpc).await)
             {
+                if let Some(identity) = cached.rpc.host_identity() {
+                    retained.push(identity);
+                }
                 cached.rpc.close().await;
             } else {
                 cached.rpc.stop().await;
             }
         }
+        crate::codex_host::stop_unattached(&retained).await;
         self.stop_waits();
         let jobs: Vec<_> = self.jobs.lock().await.drain().collect();
         for (request, job) in jobs {

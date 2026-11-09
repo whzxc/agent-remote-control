@@ -1,4 +1,5 @@
 use super::*;
+use crate::owned_children::SpawnOwned;
 use std::{process::Stdio, time::Duration};
 use tokio::io::{AsyncBufReadExt, BufReader};
 const NODE: &str = "v24.12.0";
@@ -61,7 +62,7 @@ async fn run_command_until(
         .stderr(Stdio::piped());
     #[cfg(unix)]
     command.process_group(0);
-    let mut child = command.spawn().map_err(|_| {
+    let mut child = command.spawn_owned().map_err(|_| {
         "Cannot start the managed deployment tool; check filesystem permissions and system tar availability."
     })?;
     let mut tree = Some(ProcessTree(

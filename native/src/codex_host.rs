@@ -16,6 +16,7 @@ pub(crate) struct Host {
     pub profile: String,
     pub fingerprint: String,
     pub pid: u32,
+    pub process_start: String,
     pub socket: PathBuf,
     pub started_at: String,
     pub inherited_nofile: Value,
@@ -129,6 +130,7 @@ fn host(record: &Value, pid: u32, adopted: bool, binary: &Path) -> Host {
         profile: string(record, "profile").to_owned(),
         fingerprint: string(record, "fingerprint").to_owned(),
         pid,
+        process_start: string(record, "processStart").to_owned(),
         socket: PathBuf::from(string(record, "socket")),
         started_at: string(record, "startedAt").to_owned(),
         inherited_nofile: record["inheritedNofile"].clone(),
@@ -138,16 +140,21 @@ fn host(record: &Value, pid: u32, adopted: bool, binary: &Path) -> Host {
 }
 
 /// Reuse the recorded server for this profile or start a detached one.
-pub(crate) async fn attach(binary: &Path, profile: &str, fingerprint: &str) -> Result<Host> {
+pub(crate) async fn attach(
+    binary: &Path,
+    profile: &str,
+    fingerprint: &str,
+    launches: &crate::launches::Launches,
+) -> Result<Host> {
     let path = record_path(profile)?;
     if let Ok(record) = load(&path) {
         if let Some(pid) = owned(&record) {
-            return Ok(host(&record, pid, true, binary));
+            return launches.run(|| Ok(host(&record, pid, true, binary)));
         }
         // The recorded server exited or its PID now names another process.
         discard(profile)?;
     }
-    spawn(binary, profile, fingerprint).await
+    spawn(binary, profile, fingerprint, launches).await
 }
 
 /// Whether a detached server is recorded and still running for this profile.
@@ -185,12 +192,7 @@ fn discard(profile: &str) -> Result<()> {
     Ok(())
 }
 
-fn server_command(
-    binary: &Path,
-    profile: &str,
-    socket: &Path,
-    scoped: bool,
-) -> Result<std::process::Command> {
+fn server_command(binary: &Path, profile: &str, socket: &Path) -> Result<std::process::Command> {
     let isolated = (profile != "codex-home").then_some(profile);
     let mut words: Vec<std::ffi::OsString> = crate::rpc::profile_arguments(isolated)
         .into_iter()
@@ -198,37 +200,9 @@ fn server_command(
         .collect();
     words.extend(["app-server", "-c", "thread_unload_delay_secs=0", "--listen"].map(Into::into));
     words.push(format!("unix://{}", socket.to_str().ok_or("Invalid socket path")?).into());
-    // A systemd unit stop kills its whole cgroup; a transient user scope keeps the
-    // server outside the ARC service so a service restart leaves it running.
-    #[cfg(target_os = "linux")]
-    let scope = scoped.then(|| systemd_scope(profile)).flatten();
-    #[cfg(not(target_os = "linux"))]
-    let scope: Option<std::process::Command> = {
-        let _ = scoped;
-        None
-    };
-    let mut command = match scope {
-        Some(mut scope) => {
-            scope.arg(binary);
-            scope
-        }
-        None => std::process::Command::new(binary),
-    };
+    let mut command = std::process::Command::new(binary);
     command.args(&words);
     crate::rpc::profile_environment(&mut command, isolated)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        // SAFETY: setsid is async-signal-safe and runs before exec.
-        unsafe {
-            command.pre_exec(|| {
-                if libc::setsid() == -1 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(())
-            });
-        }
-    }
     Ok(command)
 }
 
@@ -284,6 +258,7 @@ async fn reachable(binary: &Path, socket: &Path) -> Option<Option<u32>> {
     }
     #[cfg(windows)]
     {
+        use crate::owned_children::SpawnOwned;
         let mut child = command(binary)
             .args(["app-server", "proxy", "--sock"])
             .arg(socket)
@@ -291,7 +266,7 @@ async fn reachable(binary: &Path, socket: &Path) -> Option<Option<u32>> {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true)
-            .spawn()
+            .spawn_owned()
             .ok()?;
         let io = tokio::io::join(child.stdout.take()?, child.stdin.take()?);
         let ready = tokio::time::timeout(
@@ -305,11 +280,173 @@ async fn reachable(binary: &Path, socket: &Path) -> Option<Option<u32>> {
     }
 }
 
-async fn spawn(binary: &Path, profile: &str, fingerprint: &str) -> Result<Host> {
+/// The launcher publishes its own identity before executing Codex. Core may
+/// disappear at any point without leaving an unindexed execution process.
+pub async fn run() -> Result<()> {
+    use std::io::{BufRead, Write};
+    let mut line = String::new();
+    std::io::stdin()
+        .lock()
+        .read_line(&mut line)
+        .map_err(|e| e.to_string())?;
+    let spec: Value = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+    let profile = string(&spec["record"], "profile");
+    let mut record = spec["record"].clone();
+    let pid = std::process::id();
+    #[cfg(unix)]
+    unsafe {
+        // systemd-run may fork before exec; the indexed process must lead the group.
+        if libc::getsid(0) != pid as i32 && libc::setsid() == -1 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+    }
+    record["pid"] = json!(pid);
+    record["processStart"] = json!(process_start(pid).ok_or("CODEX_HOST_IDENTITY_UNAVAILABLE")?);
+    #[cfg(windows)]
+    let _job = crate::task_host::Job::own_tree()?;
+    let mut command = server_command(
+        Path::new(string(&spec, "binary")),
+        profile,
+        Path::new(string(&record, "socket")),
+    )?;
+    command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null());
+    // The launcher already leads the detached session; exec keeps that identity.
+    save(&record_path(profile)?, &record)?;
+    std::io::stdout()
+        .write_all(b"indexed\n")
+        .map_err(|e| e.to_string())?;
+    std::io::stdout().flush().map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let error = command.exec();
+        let _ = discard(profile);
+        Err(format!("CODEX_HOST_START_FAILED: {error}"))
+    }
+    #[cfg(windows)]
+    {
+        let status = command.status().map_err(|e| e.to_string())?;
+        discard(profile)?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("CODEX_HOST_EXIT: {status}"))
+        }
+    }
+}
+
+fn launch(
+    binary: &Path,
+    profile: &str,
+    fingerprint: &str,
+    scoped: bool,
+) -> Result<std::process::Child> {
+    let executable = crate::task_host::executable()?;
+    let log = std::fs::File::create(directory().join(format!("{profile}.log")))
+        .map_err(|e| e.to_string())?;
+    let mut launcher = if scoped {
+        #[cfg(target_os = "linux")]
+        {
+            let mut c = systemd_scope(profile).ok_or("CODEX_HOST_SCOPE_UNAVAILABLE")?;
+            c.arg(&executable);
+            c
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            std::process::Command::new(&executable)
+        }
+    } else {
+        std::process::Command::new(&executable)
+    };
+    launcher
+        .arg("codex-host")
+        .env("ARC_STATE_DIR", root())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(log);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe {
+            launcher.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    Err(std::io::Error::last_os_error())
+                } else {
+                    Ok(())
+                }
+            });
+        }
+    }
+    let spec = json!({"binary":binary,"record":{
+        "profile":profile,"fingerprint":fingerprint,"socket":socket(profile)?,
+        "binary":binary_stamp(binary),"startedAt":now(),"inheritedNofile":crate::resources::before_spawn(),
+        "creatorPid":std::process::id(),"creatorStart":process_start(std::process::id()),"executable":executable
+    }});
+    let result = indexed_spawn(&mut launcher, &spec);
+    if let Err(error) = result {
+        if let Ok(record) = load(&record_path(profile)?) {
+            if let Some(pid) = owned(&record) {
+                signal(pid, true);
+            }
+        }
+        return Err(error);
+    }
+    result
+}
+
+/// A launch is not released through the shutdown barrier until its independent
+/// owner has published an index. This acknowledgement is private startup IPC.
+pub(crate) fn indexed_spawn(
+    command: &mut std::process::Command,
+    spec: &Value,
+) -> Result<std::process::Child> {
+    use std::io::{BufRead, Write};
+    let mut child = detached_spawn(command)?;
+    let result = (|| -> Result<()> {
+        child
+            .stdin
+            .take()
+            .ok_or("CODEX_HOST_STDIN")?
+            .write_all(format!("{spec}\n").as_bytes())
+            .map_err(|e| e.to_string())?;
+        let stdout = child.stdout.take().ok_or("CODEX_HOST_STDOUT")?;
+        let (send, receive) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut line = String::new();
+            let result = std::io::BufReader::new(stdout)
+                .read_line(&mut line)
+                .map(|_| line);
+            let _ = send.send(result);
+        });
+        let ack = receive
+            .recv_timeout(Duration::from_secs(10))
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
+        if ack != "indexed\n" {
+            return Err("CODEX_HOST_START_FAILED: launcher did not publish its index".into());
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        signal(child.id(), true);
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(error);
+    }
+    Ok(child)
+}
+
+async fn spawn(
+    binary: &Path,
+    profile: &str,
+    fingerprint: &str,
+    launches: &crate::launches::Launches,
+) -> Result<Host> {
     std::fs::create_dir_all(directory()).map_err(|e| e.to_string())?;
     let socket = socket(profile)?;
     discard(profile)?;
-    let log_path = directory().join(format!("{profile}.log"));
     #[cfg(target_os = "linux")]
     let attempts: &[bool] = if systemd_scope(profile).is_some() {
         &[true, false]
@@ -320,69 +457,74 @@ async fn spawn(binary: &Path, profile: &str, fingerprint: &str) -> Result<Host> 
     let attempts: &[bool] = &[false];
     let mut failure = String::new();
     for &scoped in attempts {
-        let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
-        let inherited = crate::resources::before_spawn();
-        let mut command = server_command(binary, profile, &socket, scoped)?;
-        command
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(log);
-        let mut child = match detached_spawn(&mut command) {
+        let mut child = match launches.run(|| launch(binary, profile, fingerprint, scoped)) {
             Ok(child) => child,
             Err(error) => {
+                if scoped {
+                    crate::logs::record(
+                        "WARN",
+                        &format!("Codex scope unavailable; using direct detachment: {error}"),
+                        None,
+                    );
+                }
                 failure = error;
                 continue;
             }
         };
-        let mut pid = child.id();
-        let started_at = now();
-        let deadline = Instant::now() + READY_TIMEOUT;
-        let ready = loop {
-            if let Some(peer) = reachable(binary, &socket).await {
-                pid = peer.unwrap_or(pid);
-                break true;
-            }
-            if child.try_wait().ok().flatten().is_some() || Instant::now() >= deadline {
-                break false;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        };
-        if !ready {
-            let _ = child.kill();
-            let _ = child.wait();
-            let tail = std::fs::read_to_string(&log_path).unwrap_or_default();
-            let tail: String = tail
-                .chars()
-                .rev()
-                .take(600)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
-            failure = format!("CODEX_HOST_START_FAILED: {}", tail.trim());
-            discard(profile)?;
-            continue;
-        }
-        // Reap the server while this Core lives; after Core exits it is reparented.
+        // Publication is complete before the first await and before shutdown can
+        // enter the barrier. The launcher also publishes if Core was killed.
         std::thread::spawn(move || {
             let _ = child.wait();
         });
-        let record = json!({
-            "profile":profile,"fingerprint":fingerprint,"pid":pid,"processStart":process_start(pid),
-            "socket":socket,"binary":binary_stamp(binary),"startedAt":started_at,
-            "inheritedNofile":inherited,
-        });
-        save(&record_path(profile)?, &record)?;
-        if record["processStart"].is_null() {
-            crate::logs::record(
-                "WARN",
-                "Codex app-server process identity is unavailable; the next Core will start a new server",
-                None,
-            );
+        let deadline = Instant::now() + READY_TIMEOUT;
+        loop {
+            launches.check()?;
+            if reachable(binary, &socket).await.is_some() {
+                let record = load(&record_path(profile)?)?;
+                if let Some(pid) = owned(&record) {
+                    return Ok(host(&record, pid, false, binary));
+                }
+            }
+            if !running(profile) || Instant::now() >= deadline {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        return Ok(host(&record, pid, false, binary));
+        stop(profile).await?;
+        failure = "CODEX_HOST_START_FAILED: socket did not accept a connection".into();
     }
     Err(failure)
+}
+
+pub(crate) fn executables() -> Vec<PathBuf> {
+    running_profiles()
+        .iter()
+        .filter_map(|profile| {
+            let record = load(&record_path(profile).ok()?).ok()?;
+            record["executable"].as_str().map(PathBuf::from)
+        })
+        .collect()
+}
+
+/// A cancelled startup cannot have dispatched a turn. Retain only connections
+/// that Control explicitly classified as active or uncertain during shutdown.
+pub(crate) async fn stop_unattached(retained: &[(u32, String)]) {
+    for profile in running_profiles() {
+        let Ok(record) = record_path(&profile).and_then(|p| load(&p)) else {
+            continue;
+        };
+        if retained
+            .iter()
+            .any(|(pid, start)| record["pid"] == *pid && record["processStart"] == *start)
+        {
+            continue;
+        }
+        if record["creatorPid"] == std::process::id()
+            && record["creatorStart"].as_str() == process_start(std::process::id()).as_deref()
+        {
+            let _ = stop(&profile).await;
+        }
+    }
 }
 
 pub(crate) fn detached_spawn(command: &mut std::process::Command) -> Result<std::process::Child> {

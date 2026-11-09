@@ -17,12 +17,24 @@ struct Lease {
 }
 #[derive(Default)]
 pub struct State {
+    pub(crate) launches: Arc<crate::launches::Launches>,
     leases: std::sync::Mutex<HashMap<String, Lease>>,
     pub shutdown: Notify,
     closing: std::sync::atomic::AtomicBool,
     pub daemon: std::sync::atomic::AtomicBool,
 }
 impl State {
+    pub(crate) fn with_launches(launches: Arc<crate::launches::Launches>) -> Self {
+        Self {
+            launches,
+            ..Default::default()
+        }
+    }
+    pub(crate) fn begin_shutdown(&self) {
+        self.launches.close();
+        self.closing
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
     fn close_if_idle(&self) -> bool {
         let leases = self.active();
         if !leases.is_empty() {
@@ -30,8 +42,7 @@ impl State {
         }
         // Serialize the final idle check with lease acquisition. A new Desktop
         // must retry instead of attaching to a Core that has begun teardown.
-        self.closing
-            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.begin_shutdown();
         true
     }
     fn active(&self) -> std::sync::MutexGuard<'_, HashMap<String, Lease>> {
@@ -100,13 +111,25 @@ impl State {
                         "Only the registered Desktop can stop Core for update installation.".into(),
                     );
                 }
-                self.closing
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                self.begin_shutdown();
                 self.shutdown.notify_one();
                 Ok(json!({"closing":true}))
             }
             _ => Err("UNKNOWN_ROUTE".into()),
         }
+    }
+    pub(crate) fn uninstall(&self, nonce: &str, proof: &Value) -> Result<Value> {
+        if nonce.is_empty()
+            || proof["token"] != nonce
+            || proof["pid"] != std::process::id()
+            || proof["processStart"].as_str()
+                != crate::codex_host::process_start(std::process::id()).as_deref()
+        {
+            return Err("UNINSTALL_AUTH_REQUIRED: run the local uninstall command".into());
+        }
+        self.begin_shutdown();
+        self.shutdown.notify_one();
+        Ok(json!({"closing":true}))
     }
     pub async fn desktop_request(
         &self,
@@ -455,6 +478,44 @@ impl Drop for Client {
     }
 }
 
+/// Uninstall proves local filesystem access independently of ordinary CLI leases.
+/// It never ensures/spawns a Core and targets one process creation identity.
+pub(crate) async fn stop_for_uninstall() -> Result<()> {
+    let Some(info) = owner(process_build_id()?).await? else {
+        return Ok(());
+    };
+    let pid = info["pid"].as_u64().ok_or("CORE_PID_MISSING")? as u32;
+    let start = crate::codex_host::process_start(pid).ok_or("CORE_IDENTITY_UNAVAILABLE")?;
+    let path = root().join("uninstall-core.json");
+    let token = id();
+    save(
+        &path,
+        &json!({"token":token,"pid":pid,"processStart":start}),
+    )?;
+    let result = async {
+        crate::transport::forward_to(&info, "runtime/uninstall", "POST", json!({"token":token}))
+            .await?;
+        let lock = File::options()
+            .read(true)
+            .write(true)
+            .open(root().join("core.lock"))
+            .map_err(|e| e.to_string())?;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            if lock.try_lock().is_ok() {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err("Core shutdown timed out; uninstall stopped".into());
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+    .await;
+    let _ = std::fs::remove_file(path);
+    result
+}
+
 pub async fn serve() -> Result<()> {
     serve_mode(false).await
 }
@@ -487,6 +548,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     if owner(process_build_id()?).await?.is_some() {
         return Ok(());
     }
+    crate::owned_children::recover().await?;
     tokio::task::spawn_blocking(crate::sources::initialize)
         .await
         .map_err(|e| e.to_string())??;
@@ -553,6 +615,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
             }
         }
     }
+    service.begin_shutdown();
     coordination.abort();
     let _ = coordination.await;
     startup.abort();
@@ -603,9 +666,31 @@ mod tests {
     }
 
     #[test]
-    fn explicit_update_stops_core_with_other_local_clients_attached() {
-        // Regression: a downloaded update was blocked by an unrelated local CLI lease.
+    fn local_uninstall_stops_headless_core_without_granting_cli_shutdown() {
+        // Regression: uninstall of a running daemon failed the Desktop-only update shutdown check.
         let state = State::default();
+        let cli = id();
+        state
+            .request("runtime/lease", json!({"id":cli,"kind":"cli","pid":2}))
+            .unwrap();
+        assert!(state
+            .request("runtime/shutdown", json!({"id":cli}))
+            .is_err());
+        let token = id();
+        let proof = json!({"token":token,"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id())});
+        assert!(state.uninstall("wrong", &proof).is_err());
+        assert_eq!(state.uninstall(&token, &proof).unwrap()["closing"], true);
+        assert!(state.launches.check().is_err());
+        assert!(state
+            .request("runtime/lease", json!({"id":cli,"kind":"cli","pid":2}))
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn explicit_update_stops_core_with_other_local_clients_attached() {
+        // Regression: an idle Core request could restart Codex after shutdown released the server.
+        let control = crate::control::Control::new(PathBuf::from("unused-codex"));
+        let state = State::with_launches(control.launches.clone());
         let desktop = id();
         let cli = id();
         state
@@ -626,6 +711,13 @@ mod tests {
                 .unwrap()["closing"],
             true
         );
+        assert!(control
+            .utility()
+            .await
+            .err()
+            .unwrap()
+            .starts_with("CORE_SHUTTING_DOWN:"));
+        assert!(control.profile_rpc("secondary").await.is_err());
     }
 
     #[test]

@@ -1,4 +1,6 @@
 //! macOS UI operations run under Agent Remote Control, never under Codex app-server.
+#[cfg(target_os = "macos")]
+use crate::owned_children::SpawnOwned;
 use crate::*;
 
 pub async fn call(args: Value) -> Result<Value> {
@@ -31,7 +33,7 @@ async fn invoke(args: Value) -> Result<Value> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
-        .spawn()
+        .spawn_owned()
         .map_err(|e| format!("SCREEN_HELPER_UNAVAILABLE: {e}"))?;
     let mut input = child.stdin.take().ok_or("SCREEN_HELPER_STDIN")?;
     input

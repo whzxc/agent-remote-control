@@ -48,7 +48,7 @@ arc cli ingress doctor <id>
 arc cli onboarding
 ```
 
-Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection. `arc stop` stops Core, refusing shutdown while another leased client is active. Running Codex App Servers and Pi/ACP task-hosts remain alive; idle transports close. The next Core reattaches and restores pending interactions. Under systemd, detached hosts use transient user scopes. The generated service uses `KillMode=process` so direct detached fallback also survives service restart. Existing installations must regenerate the unit with `arc systemd install` and reload the user manager to adopt that setting. A task-host closes its Agent once the turn has ended and no Core has connected for 30 minutes. A WARN about direct stdio fallback indicates that process follows Core lifetime.
+Verify from the actual remote client. `arc cli ingress stop <id>` stops one connection. Stop a systemd Core with `systemctl --user stop agent-remote-control.service`. Ordinary CLI update-shutdown requests require the registered Desktop; local uninstall has a separate authorized stop path for headless and daemon Core. Running Codex App Servers and Pi/ACP task-hosts remain alive; idle transports close. The next Core reattaches and restores pending interactions. Under systemd, detached hosts use transient user scopes. The generated service uses `KillMode=process` so direct detached fallback also survives service restart. Core records its own long-lived children by PID and creation time. Before starting any replacement provider, startup reclaims the previous Core's surviving process trees. Failed reclamation stops startup; detached Codex servers and task-hosts are adopted separately. This also applies to `arc start` daemons outside systemd. Existing installations must regenerate the unit with `arc systemd install` and reload the user manager to adopt `KillMode=process`. A task-host closes its Agent once the turn has ended and no Core has connected for 30 minutes. A WARN about direct stdio fallback indicates that process follows Core lifetime.
 
 ## systemd user service
 
@@ -75,7 +75,7 @@ The optional `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment
 
 ## Update and remove
 
-Stop the service or detached daemon, run the installer for the chosen release, then start it again. Use `arc cli uninstall` to stop indexed hosts and remove ARC. For manual service removal, finish or explicitly interrupt running tasks first, then disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary and its adjacent skills/arc-setup directory if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
+Stop the service or detached daemon, run the installer for the chosen release, then start it again. Use `arc cli uninstall` to stop a running headless Core, stop every indexed Codex server and task-host, and remove ARC. Add `--purge` only to discard ARC state. For manual service removal, finish or explicitly interrupt running tasks first, then disable/stop agent-remote-control.service, remove its generated unit, and reload the user manager. Remove the arc binary and its adjacent skills/arc-setup directory if no longer needed. Keep the state directory unless intentionally discarding it; paths are in [CLI](cli.md#state-and-environment).
 
 ## Limits
 

@@ -215,7 +215,7 @@ impl Service {
         }
         let control =
             Control::new(crate::agents::codex_binary().unwrap_or_else(|| PathBuf::from("codex")));
-        let agents = crate::agents::AgentHost::new()?;
+        let agents = crate::agents::AgentHost::with_launches(control.launches.clone())?;
         let subscriptions =
             crate::subscriptions::SubscriptionService::new(control.clone(), agents.clone())?;
         let accounts = Arc::new(crate::accounts::Manager::default());
@@ -255,7 +255,7 @@ impl Service {
             ingresses.insert(ingress.id.clone(), ingress);
         }
         Ok(Arc::new(Self {
-            runtime: Default::default(),
+            runtime: crate::runtime::State::with_launches(control.launches.clone()),
             subscriptions,
             execution,
             control,
@@ -276,6 +276,9 @@ impl Service {
         let mut service = Self::new()?;
         let service_mut = Arc::get_mut(&mut service).unwrap();
         service_mut.control = Control::new(binary);
+        service_mut.runtime.launches = service_mut.control.launches.clone();
+        service_mut.agents =
+            crate::agents::AgentHost::with_launches(service_mut.control.launches.clone())?;
         service_mut.subscriptions = crate::subscriptions::SubscriptionService::new(
             service_mut.control.clone(),
             service_mut.agents.clone(),
@@ -408,7 +411,12 @@ impl Service {
         status["core"]["registered"] = json!(running > 0);
         Ok(status)
     }
+    pub(crate) fn begin_shutdown(&self) {
+        self.closing.store(true, Ordering::SeqCst);
+        self.runtime.begin_shutdown();
+    }
     pub async fn stop(&self) -> Result<()> {
+        self.begin_shutdown();
         self.accounts.stop().await;
         self.relay.cancel().await;
         crate::cloudflare::stop_login().await;
@@ -817,6 +825,10 @@ impl Service {
         }
         if route == "runtime/clients" && method == "GET" {
             return Ok(self.runtime.clients());
+        }
+        if route == "runtime/uninstall" && method == "POST" {
+            let proof = load(&root().join("uninstall-core.json")).unwrap_or(Value::Null);
+            return self.runtime.uninstall(string(&body, "token"), &proof);
         }
         if route.starts_with("runtime/") && method == "POST" {
             return self.runtime.request(route, body);

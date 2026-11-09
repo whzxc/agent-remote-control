@@ -33,6 +33,7 @@ pub(crate) use process::launch_command;
 use process::Process;
 
 pub struct AgentHost {
+    pub(crate) launches: Arc<crate::launches::Launches>,
     activity: Mutex<activity::Monitor>,
     conversations: Mutex<conversations::Cache>,
     drivers: HashMap<String, AgentDriver>,
@@ -107,6 +108,9 @@ impl AgentHost {
         &self.session
     }
     pub fn new() -> Result<Arc<Self>> {
+        Self::with_launches(Default::default())
+    }
+    pub(crate) fn with_launches(launches: Arc<crate::launches::Launches>) -> Result<Arc<Self>> {
         if let Err(error) = adapter::prune() {
             crate::logs::record(
                 "WARN",
@@ -157,6 +161,7 @@ impl AgentHost {
             requests: Default::default(),
             session: id(),
             lifecycle: Mutex::new(()),
+            launches,
             wake: Default::default(),
         }))
     }
@@ -793,6 +798,7 @@ impl AgentHost {
     }
     async fn process(&self, agent: &str, task: &str, resume: bool) -> Result<Arc<Process>> {
         let _lock = self.lifecycle.lock().await;
+        self.launches.check()?;
         archive::ensure_unarchived(&self.task(agent, task).await?)?;
         if let Some(p) = self.processes.lock().await.get(task).cloned() {
             if p.alive.load(std::sync::atomic::Ordering::SeqCst) {
@@ -807,16 +813,20 @@ impl AgentHost {
             return Err("TASK_UNCONFIRMED_RECONCILE_BEFORE_RESUME".into());
         }
         let p = self.drivers[agent]
-            .start(state, true, self.wake.clone())
+            .start(state, true, self.wake.clone(), &self.launches)
             .await?;
         p.remember_configuration().await;
         self.processes.lock().await.insert(task.into(), p.clone());
+        self.launches.check()?;
         Ok(p)
     }
     /// Recover detached transports before dispatch or task reads can resume work.
     pub async fn reattach(&self) {
         let _guard = self.lifecycle.lock().await;
         for index in crate::task_host::indexes() {
+            if self.launches.check().is_err() {
+                break;
+            }
             let task = string(&index, "taskId");
             if self.processes.lock().await.contains_key(task) {
                 continue;
@@ -838,7 +848,7 @@ impl AgentHost {
                 state["taskHost"] = index;
             }
             let task = string(&state, "taskId").to_owned();
-            match Process::reattach(state, self.wake.clone()).await {
+            match Process::reattach(state, self.wake.clone(), &self.launches).await {
                 Ok(process) => {
                     self.processes.lock().await.insert(task, process);
                 }
@@ -854,6 +864,7 @@ impl AgentHost {
         }
     }
     pub async fn close(&self) {
+        self.launches.close();
         if let Some(job) = self.adapter_job.lock().await.take() {
             job.abort();
             let _ = job.await;
@@ -880,9 +891,12 @@ impl AgentHost {
             .map(|(_, p)| p)
             .collect::<Vec<_>>();
         self.wake.notify_waiters();
+        let mut retained = Vec::new();
         for p in processes {
+            retained.push(p.state.lock().await["taskHost"].clone());
             p.release().await;
         }
+        crate::task_host::stop_unattached(&retained).await;
     }
     pub async fn receipt(self: &Arc<Self>, args: Value) -> Result<Option<Value>> {
         if !RECEIPTS.path(string(&args, "requestId"))?.exists() {
@@ -1256,6 +1270,7 @@ impl AgentHost {
         self.ensure_enabled(agent).await?;
         let p = if name == "agent_create" {
             let _guard = self.lifecycle.lock().await;
+            self.launches.check()?;
             let configured = if agent == "antigravity" {
                 antigravity::configuration(
                     args,
@@ -1267,7 +1282,10 @@ impl AgentHost {
             };
             let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"configured":configured,"approval":args["approval"],"output":""});
             save_task(&t)?;
-            let p = match driver.start(t, false, self.wake.clone()).await {
+            let p = match driver
+                .start(t, false, self.wake.clone(), &self.launches)
+                .await
+            {
                 Ok(p) => p,
                 Err(e) => {
                     let mut t = load(&task_path(task)?)?;
@@ -1279,6 +1297,7 @@ impl AgentHost {
             };
             p.remember_configuration().await;
             self.processes.lock().await.insert(task.into(), p.clone());
+            self.launches.check()?;
             p
         } else {
             self.process(agent, task, name == "agent_send").await?

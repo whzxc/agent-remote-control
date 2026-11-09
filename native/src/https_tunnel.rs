@@ -1,4 +1,5 @@
 //! User-owned public tunnels. Binaries, credentials and processes stay on this device.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use std::{
     process::Stdio,
@@ -105,7 +106,7 @@ impl Tunnel {
                     for reader in self.error_readers.drain(..) {
                         reader.abort();
                     }
-                    match self.command.spawn() {
+                    match self.command.spawn_owned() {
                         Ok(mut child) => {
                             if let Some(stdout) = child.stdout.take() {
                                 self.error_readers.push(tokio::spawn(cloudflare_output(
@@ -504,7 +505,7 @@ async fn spawn(
         .stderr(Stdio::piped());
     drop(reservation);
     let mut child = cmd
-        .spawn()
+        .spawn_owned()
         .map_err(|e| format!("Cannot start {provider}: {e}"))?;
     let mut error_readers = Vec::new();
     let (discovery, discovered) = tokio::sync::watch::channel(None);

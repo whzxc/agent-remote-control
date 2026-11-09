@@ -1,4 +1,5 @@
 pub mod config;
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use config::{binding, configured, secrets, validate_config};
 use std::{
@@ -739,7 +740,7 @@ impl Ingress {
             cmd.process_group(0);
             self.stopping
                 .store(false, std::sync::atomic::Ordering::SeqCst);
-            let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+            let mut child = cmd.spawn_owned().map_err(|e| e.to_string())?;
             let stdout = child.stdout.take().unwrap();
             let stderr = child.stderr.take().unwrap();
             for stream in [

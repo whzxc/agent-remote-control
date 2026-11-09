@@ -142,6 +142,7 @@ impl AgentDriver {
         task: Value,
         resume: bool,
         wake: Arc<tokio::sync::Notify>,
+        launches: &crate::launches::Launches,
     ) -> Result<Arc<Process>> {
         let (binary, _, error) = self.discover().await;
         let binary = binary
@@ -177,6 +178,7 @@ impl AgentDriver {
             matches!(self, Self::Antigravity),
             task,
             wake,
+            launches,
         )
         .await?;
         let init=async {

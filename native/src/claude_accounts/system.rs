@@ -1,5 +1,7 @@
 //! Import the system CLI login once into a normal, independently stored ARC profile.
 use super::*;
+#[cfg(target_os = "macos")]
+use crate::owned_children::SpawnOwned;
 
 fn marker() -> PathBuf {
     directory().join("system-import.json")
@@ -189,7 +191,7 @@ async fn write_credentials(config: &Path, credentials: &Value) -> Result<()> {
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .spawn()
+            .spawn_owned()
             .map_err(|_| "CLAUDE_IMPORT_FAILED: Could not open Keychain")?;
         let mut stdin = child.stdin.take().ok_or("CLAUDE_IMPORT_FAILED")?;
         let result = tokio::time::timeout(Duration::from_secs(20), async {

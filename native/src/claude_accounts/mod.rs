@@ -1,4 +1,5 @@
 //! Local Claude login profiles. Claude Code owns credentials and refreshes them in place.
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::{ffi::OsString, process::Stdio, time::Duration};
@@ -489,7 +490,7 @@ impl Manager {
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
             let child = cmd
-                .spawn()
+                .spawn_owned()
                 .map_err(|_| "CLAUDE_LOGIN_START_FAILED: Could not start Claude Code login")?;
             let progress = Arc::new(Mutex::new(Progress {
                 id: id(),

@@ -1,3 +1,4 @@
+use crate::owned_children::SpawnOwned;
 use crate::*;
 use futures_util::{
     stream::{SplitSink, SplitStream},
@@ -160,7 +161,7 @@ impl Rpc {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
+            .spawn_owned()
             .map_err(|e| e.to_string())?;
         let pid = child.id();
         let started_at = now();
@@ -192,7 +193,9 @@ impl Rpc {
         session: &str,
         profile: Option<&str>,
         fingerprint: &str,
+        launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
+        launches.check()?;
         if cfg!(feature = "test-fixture") {
             return Self::start_profile(binary, events, session, profile).await;
         }
@@ -202,12 +205,14 @@ impl Rpc {
             session,
             profile,
             fingerprint,
+            launches,
         ))
         .await
         {
             Ok(rpc) => Ok(rpc),
             Err(error) if crate::codex_host::running(profile.unwrap_or("codex-home")) => Err(error),
             Err(error) => {
+                launches.check()?;
                 crate::logs::record("WARN", &format!("Detached Codex app-server unavailable; using a Core-owned app-server: {error}"), None);
                 Self::start_profile(binary, events, session, profile).await
             }
@@ -219,10 +224,11 @@ impl Rpc {
         session: &str,
         profile: Option<&str>,
         fingerprint: &str,
+        launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
         let key = profile.unwrap_or("codex-home");
         loop {
-            let host = crate::codex_host::attach(binary, key, fingerprint).await?;
+            let host = crate::codex_host::attach(binary, key, fingerprint, launches).await?;
             let mut failure = String::new();
             let mut connected = None;
             for _ in 0..3 {
@@ -276,7 +282,7 @@ impl Rpc {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
+            .spawn_owned()
             .map_err(|e| e.to_string())?;
         let input = child.stdin.take().ok_or("missing stdin")?;
         let stdout = child.stdout.take().ok_or("missing stdout")?;
@@ -387,6 +393,11 @@ impl Rpc {
             }
         }
         false
+    }
+    pub(crate) fn host_identity(&self) -> Option<(u32, String)> {
+        self.host
+            .as_ref()
+            .map(|host| (host.pid, host.process_start.clone()))
     }
     pub(crate) fn detached(&self) -> bool {
         self.host.is_some()
