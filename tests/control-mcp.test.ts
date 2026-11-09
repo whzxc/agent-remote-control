@@ -879,7 +879,7 @@ test('creation starts its first turn without legacy history reads, cleans defini
   }
   const accepted = await create('fixture-dispatch');
   const sent = await completed('codex_send', {threadId: accepted.threadId,
-    input: [{type:'text', text:'original input', text_elements:[]}], context:true, intent:'ignored', requestId:randomUUID()});
+    input: [{type:'text', text:'original input', text_elements:[]}], requestId:randomUUID()});
   assert.equal(sent.state, 'completed');
   const rows = await fixtureRows();
   assert.deepEqual(rows[accepted.threadId].turns[0].input, [{type:'text', text:'ping', text_elements:[]}]);

@@ -1468,6 +1468,7 @@ impl Control {
                 crate::accounts::select("codex", args["account"].as_str())?
             };
             crate::accounts::attach(&mut args, &selected);
+            crate::dispatch_policy::apply_pack(&mut args, "codex", &format!("codex_{operation}"))?;
         }
         let dispatch = if matches!(operation, "create" | "send") {
             if args["sendMode"] == "queue" {
@@ -2834,7 +2835,13 @@ impl Control {
                     let page = crate::review::turn_page(self, &args).await?;
                     let mut turns = Vec::new();
                     for turn in page["data"].as_array().into_iter().flatten() {
-                        turns.push(crate::review::turn(self, id, turn).await);
+                        let mut row = crate::review::turn(self, id, turn).await;
+                        if let Some(pack) =
+                            crate::dispatch_policy::turn_pack(id, string(turn, "id"))
+                        {
+                            row["pack"] = pack;
+                        }
+                        turns.push(row);
                     }
                     return Ok(
                         json!({"threadId":id,"turns":turns,"nextCursor":page["nextCursor"]}),

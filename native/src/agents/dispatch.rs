@@ -104,7 +104,9 @@ impl AgentHost {
             if configured != task["configured"] {
                 return Err("UNSUPPORTED_DISPATCH_CONFIGURATION: Antigravity launch flags are fixed for the task; create a new task for different model, effort, or mode".into());
             }
+            // Antigravity launch flags are fixed per task, so pack defaults do not apply.
             return Ok(json!({
+                "pack":crate::dispatch_policy::pack_record(args),
                 "model":configured["model"],"options":configured["options"],
                 "source":{"model":if args["model"].is_string(){"explicit"}else{"session-inherited"},"options":{}},
                 "reason":args["reason"],"submittedConfiguration":{"model":args["model"],"options":args["options"]},
@@ -118,11 +120,19 @@ impl AgentHost {
         for key in policy.options.keys() {
             sources["options"][key] = json!("policy-default");
         }
+        let packed = &args["pack"]["defaults"];
+        for (key, value) in packed["options"].as_object().into_iter().flatten() {
+            options[key] = value.clone();
+            sources["options"][key] = json!("pack-default");
+        }
         for (key, value) in args["options"].as_object().into_iter().flatten() {
             options[key] = value.clone();
             sources["options"][key] = json!("explicit");
         }
-        let model = args["model"].as_str().or(policy.model.as_deref());
+        let model = args["model"]
+            .as_str()
+            .or(packed["model"].as_str())
+            .or(policy.model.as_deref());
         if let Some(model) = model {
             if task["agent"] == "cursor" && facts["currentModel"] != model {
                 return Err("UNSUPPORTED_DISPATCH_MODEL: Cursor's native setter persists user defaults; session-only model selection is not integrated".into());
@@ -139,6 +149,8 @@ impl AgentHost {
             policy.check_model(Some(model))?;
             sources["model"] = json!(if args["model"].is_string() {
                 "explicit"
+            } else if packed["model"].is_string() {
+                "pack-default"
             } else {
                 "policy-default"
             });
@@ -226,6 +238,10 @@ impl AgentHost {
         selection["turnEvidence"] = Value::Null;
         selection["submission"] = json!("pending");
         selection["submittedAt"] = json!(now());
+        let pack = crate::dispatch_policy::pack_record(args);
+        if !pack.is_null() {
+            selection["pack"] = pack;
+        }
         Ok(selection)
     }
 

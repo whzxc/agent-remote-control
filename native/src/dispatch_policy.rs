@@ -27,11 +27,32 @@ struct Policy {
     deny_efforts: Vec<String>,
     criteria: String,
 }
+/// A user-owned bundle for one task class; the control source selects it explicitly.
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Pack {
+    summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    effort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    service_tier: Option<String>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    options: std::collections::BTreeMap<String, String>,
+    prompt: String,
+    review: String,
+}
+const MAX_PACKS: usize = 16;
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 struct Policies {
     criteria: String,
     codex: Policy,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    packs: std::collections::BTreeMap<String, Pack>,
     #[serde(flatten)]
     agents: std::collections::BTreeMap<String, AgentPolicy>,
 }
@@ -112,6 +133,7 @@ fn read_locked() -> Result<(Policies, Value)> {
     {
         return Err("INVALID_DISPATCH_POLICY: model and effort must be nonempty or null".into());
     }
+    validate_packs(&policies.packs)?;
     Ok((policies, value))
 }
 /// Serialize criteria compare-and-replace with other policy operations in Core.
@@ -163,6 +185,61 @@ pub(crate) fn update(args: &Value) -> Result<Value> {
         result["warning"] = json!(format!("Criteria for {scope} exceed {CRITERIA_ADVISORY_CHARS} characters. Keep routing rules here and move Agent execution rules into packs and long workflows into the user's knowledge base."));
     }
     Ok(result)
+}
+/// Replace or delete one pack under the same lock, backup and format as criteria updates.
+pub(crate) fn update_pack(args: &Value) -> Result<Value> {
+    let _guard = POLICY_LOCK.lock().map_err(|e| e.to_string())?;
+    let (policies, previous) = read_locked()?;
+    let name = string(args, "name");
+    if !valid_pack_name(name) {
+        return Err(crate::egress::invalid_arguments(
+            "dispatch_pack_update",
+            "/name",
+            "Pack names must match [a-z0-9-]{1,40}.",
+        ));
+    }
+    let current = policies.packs.get(name).map(pack_hash);
+    if args["expectedPackHash"].as_str() != current.as_deref() {
+        return Err(json!({
+            "code":"DISPATCH_POLICY_CONFLICT","op":"dispatch_pack_update","name":name,"currentPackHash":current,
+            "message":"Pack changed. Read dispatch_policy with view:full, review the current pack, then retry with expectedPackHash set to currentPackHash (null when the pack is absent).",
+            "next":{"via":"query","op":"dispatch_policy","args":{"view":"full"},
+                "hint":"Review the current pack before retrying with its hash."}
+        }).to_string());
+    }
+    let mut updated = previous.clone();
+    let packed = if args["pack"].is_null() {
+        if let Some(packs) = updated["packs"].as_object_mut() {
+            packs.remove(name);
+            if packs.is_empty() {
+                updated.as_object_mut().map(|u| u.remove("packs"));
+            }
+        }
+        None
+    } else {
+        let pack: Pack = serde_json::from_value(args["pack"].clone()).map_err(|e| {
+            crate::egress::invalid_arguments("dispatch_pack_update", "/pack", &e.to_string())
+        })?;
+        let mut check = policies.packs.clone();
+        check.insert(name.to_owned(), pack.clone());
+        validate_packs(&check)
+            .map_err(|e| crate::egress::invalid_arguments("dispatch_pack_update", "/pack", &e))?;
+        if !updated["packs"].is_object() {
+            updated["packs"] = json!({});
+        }
+        updated["packs"][name] = serde_json::to_value(&pack).map_err(|e| e.to_string())?;
+        Some(pack_hash(&pack))
+    };
+    let formatted = |value: &Value| -> Result<Vec<u8>> {
+        let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    };
+    let path = root().join("dispatch-policy.json");
+    let backup = root().join("dispatch-policy.json.bak");
+    save_bytes(&backup, &formatted(&previous)?)?;
+    save_bytes(&path, &formatted(&updated)?)?;
+    Ok(json!({"name":name,"packHash":packed,"policyPath":path,"backupPath":backup}))
 }
 /// Read the user-owned defaults applied when a dispatch omits model or effort.
 pub(crate) fn defaults(agent: &str) -> Result<Value> {
@@ -313,6 +390,113 @@ pub fn inherited_configuration(state: &Value, records: &[Value]) -> Value {
     result
 }
 
+fn validate_packs(packs: &std::collections::BTreeMap<String, Pack>) -> Result<()> {
+    if packs.len() > MAX_PACKS {
+        return Err(format!(
+            "INVALID_DISPATCH_POLICY: at most {MAX_PACKS} packs are allowed"
+        ));
+    }
+    for (name, pack) in packs {
+        let problem = if !valid_pack_name(name) {
+            Some("name must match [a-z0-9-]{1,40}")
+        } else if pack.summary.trim().is_empty() || pack.summary.chars().count() > 160 {
+            Some("summary is required and limited to 160 characters")
+        } else if pack.prompt.chars().count() > 4000 {
+            Some("prompt is limited to 4,000 characters")
+        } else if pack.review.chars().count() > 800 {
+            Some("review is limited to 800 characters")
+        } else if [&pack.agent, &pack.model, &pack.effort, &pack.service_tier]
+            .iter()
+            .any(|v| v.as_ref().is_some_and(|v| v.trim().is_empty()))
+        {
+            Some("agent, model, effort and serviceTier must be nonempty or null")
+        } else {
+            None
+        };
+        if let Some(problem) = problem {
+            return Err(format!("INVALID_DISPATCH_POLICY: pack {name}: {problem}"));
+        }
+    }
+    Ok(())
+}
+fn valid_pack_name(name: &str) -> bool {
+    (1..=40).contains(&name.len())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+fn pack_hash(pack: &Pack) -> String {
+    hash(serde_json::to_string(pack).unwrap_or_default())[..12].to_owned()
+}
+/// The Agent-facing block appended after the caller's prompt.
+pub(crate) fn pack_block(name: &str, hash: &str, prompt: &str) -> String {
+    format!("<arc-pack name=\"{name}\" hash=\"{hash}\">\n{prompt}\n</arc-pack>")
+}
+/// Resolve a named pack once, at acceptance, into the dispatch arguments.
+/// The frozen request digest is computed before this runs, so replays keep the original pack.
+pub(crate) fn apply_pack(args: &mut Value, agent: &str, op: &str) -> Result<()> {
+    let Some(name) = args["pack"].as_str().map(str::to_owned) else {
+        return Ok(());
+    };
+    let packs = read()?.packs;
+    let Some(pack) = packs.get(&name) else {
+        return Err(crate::egress::invalid_arguments(
+            op,
+            "/pack",
+            &format!("Unknown pack {name}. Read dispatch_policy for the current pack names."),
+        ));
+    };
+    if pack.agent.as_deref().is_some_and(|a| a != agent) {
+        return Err(crate::egress::invalid_arguments(
+            op,
+            "/pack",
+            &format!(
+                "Pack {name} targets {}; dispatch it to that Agent or choose another pack from dispatch_policy.",
+                pack.agent.as_deref().unwrap_or("")
+            ),
+        ));
+    }
+    let digest = pack_hash(pack);
+    let mut appended = 0;
+    if !pack.prompt.trim().is_empty() {
+        let block = pack_block(&name, &digest, &pack.prompt);
+        // get_mut avoids inserting a null input that would hide the prompt.
+        if let Some(input) = args.get_mut("input").and_then(Value::as_array_mut) {
+            appended = block.chars().count();
+            input.push(json!({"type":"text","text":block}));
+        } else if let Some(prompt) = args["prompt"].as_str().filter(|p| !p.is_empty()) {
+            let text = format!("{prompt}\n\n{block}");
+            appended = text.chars().count() - prompt.chars().count();
+            args["prompt"] = json!(text);
+        }
+    }
+    args["pack"] = json!({"name":name,"hash":digest,"review":pack.review,"appendedChars":appended,
+        "defaults":{"model":pack.model,"effort":pack.effort,"serviceTier":pack.service_tier,"options":pack.options}});
+    Ok(())
+}
+/// The pack checklist recorded for one turn, for review reads.
+pub(crate) fn turn_pack(task: &str, turn: &str) -> Option<Value> {
+    let rows = records(task).ok()?;
+    let row = rows
+        .iter()
+        .rev()
+        .find(|r| r["turnId"] == turn && r["pack"].is_object())?;
+    let mut pack = json!({"name":row["pack"]["name"],"review":row["pack"]["review"]});
+    if row["pack"]["inherited"] == true {
+        pack["inherited"] = json!(true);
+    }
+    Some(pack)
+}
+/// The pack facts recorded with a dispatch; defaults are already reflected in the selection.
+pub(crate) fn pack_record(args: &Value) -> Value {
+    if !args["pack"].is_object() {
+        return Value::Null;
+    }
+    let mut pack = args["pack"].clone();
+    pack.as_object_mut().map(|p| p.remove("defaults"));
+    pack
+}
+
 pub(crate) fn resolve(args: &mut Value) -> Result<Value> {
     resolve_with_inheritance(args, &Value::Null)
 }
@@ -351,9 +535,14 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
                     None
                 }
             });
+        let packed = args["pack"]["defaults"][field].as_str();
         let task = task[field].as_str();
         let inherited = inherited[field].as_str();
-        let value = explicit.or(task).or(inherited).or(default.as_deref());
+        let value = explicit
+            .or(packed)
+            .or(task)
+            .or(inherited)
+            .or(default.as_deref());
         check_known(value, allow, deny, field)?;
         selection["source"][field] = json!("native-default");
         let Some(value) = value.map(str::to_owned) else {
@@ -361,6 +550,8 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
         };
         selection["source"][field] = json!(if explicit.is_some() {
             "explicit"
+        } else if packed.is_some() {
+            "pack-default"
         } else if task.is_some() {
             "task-default"
         } else if inherited.is_some() {
@@ -385,7 +576,11 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
         .or_else(|| args["turn"]["serviceTier"].as_str())
         .or_else(|| args["serviceTier"].as_str())
         .or_else(|| args["thread"]["serviceTier"].as_str());
+    let packed = args["pack"]["defaults"]["serviceTier"]
+        .as_str()
+        .map(str::to_owned);
     let tier = explicit
+        .or(packed.as_deref())
         .or_else(|| {
             policy
                 .service_tiers
@@ -397,6 +592,8 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
     selection["serviceTier"] = json!(tier);
     selection["source"]["serviceTier"] = json!(if explicit.is_some() {
         "explicit"
+    } else if packed.is_some() {
+        "pack-default"
     } else if tier.is_some() {
         "policy-default"
     } else {
@@ -413,6 +610,10 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
                 args["thread"]["serviceTier"] = json!(tier);
             }
         }
+    }
+    let pack = pack_record(args);
+    if !pack.is_null() {
+        selection["pack"] = pack;
     }
     Ok(selection)
 }
@@ -572,8 +773,10 @@ pub(crate) async fn query(
             row["selectionSupported"] = json!(true);
         }
     }
+    let packs = packs_view(&policies, args["view"] == "full")?;
     Ok(decision::present(
-        json!({"observedAt":now(),"policyPath":root().join("dispatch-policy.json"),"criteria":policies.criteria,"agents":rows}),
+        json!({"observedAt":now(),"policyPath":root().join("dispatch-policy.json"),"criteria":policies.criteria,"packs":packs,
+            "packAgents":policies.packs.values().filter_map(|p| p.agent.clone()).collect::<Vec<_>>(),"agents":rows}),
         args,
     ))
 }
@@ -582,7 +785,7 @@ fn history(agent: &str) -> Result<Value> {
     history_view(agent, false)
 }
 
-fn history_view(agent: &str, compact: bool) -> Result<Value> {
+fn history_rows() -> Result<Vec<Value>> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut rows = Vec::new();
     for kind in ["dispatches", "reviews"] {
@@ -593,12 +796,128 @@ fn history_view(agent: &str, compact: bool) -> Result<Value> {
             }
         }
     }
+    Ok(rows)
+}
+
+fn history_view(agent: &str, compact: bool) -> Result<Value> {
     Ok(summarize_history(
-        &rows,
+        &history_rows()?,
         agent,
         compact,
         chrono::Utc::now() - chrono::Duration::days(30),
     ))
+}
+
+/// One terse 30-day outcome line per pack, across Agents and configurations.
+pub(crate) fn summarize_packs(
+    rows: &[Value],
+    cutoff: chrono::DateTime<chrono::Utc>,
+) -> std::collections::BTreeMap<String, String> {
+    let mut stats = std::collections::BTreeMap::<String, [u64; 6]>::new();
+    let mut durations = std::collections::BTreeMap::<String, Vec<u64>>::new();
+    let mut seen = std::collections::HashSet::new();
+    for row in rows {
+        let Some(name) = row["pack"]["name"].as_str() else {
+            continue;
+        };
+        if row["dispatchOrigin"] == "external"
+            || row["purpose"] == "self-test"
+            || row["dispatchMode"] != "new-turn"
+            || (row["agent"].as_str().unwrap_or("codex") != "codex"
+                && row["submission"] != "accepted")
+            || !chrono::DateTime::parse_from_rfc3339(string(row, "submittedAt"))
+                .is_ok_and(|time| time >= cutoff)
+            || !seen.insert((string(row, "threadId"), string(row, "turnId")))
+        {
+            continue;
+        }
+        // n, pass, rework, failed, interrupted, unreviewed
+        let s = stats.entry(name.to_owned()).or_default();
+        s[0] += 1;
+        match string(&row["terminal"], "state") {
+            "failed" => s[3] += 1,
+            "interrupted" | "cancelled" => s[4] += 1,
+            _ => match string(&row["review"], "verdict") {
+                "pass" => s[1] += 1,
+                "rework" => s[2] += 1,
+                _ => s[5] += 1,
+            },
+        }
+        if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
+            if !matches!(
+                string(&row["terminal"], "state"),
+                "failed" | "interrupted" | "cancelled"
+            ) {
+                durations.entry(name.to_owned()).or_default().push(ms);
+            }
+        }
+    }
+    stats
+        .into_iter()
+        .map(|(name, s)| {
+            let mut line = format!("n{}", s[0]);
+            if let Some(d) = durations.get_mut(&name).filter(|d| !d.is_empty()) {
+                d.sort_unstable();
+                let n = d.len();
+                let median = (d[(n - 1) / 2] as f64 + d[n / 2] as f64) / 2.0;
+                line.push_str(&format!(" med{:.1}m", median / 60000.0));
+            }
+            line.push_str(&format!(" pass{} rework{} unrev{}", s[1], s[2], s[5]));
+            for (count, short) in [(s[3], "fail"), (s[4], "int")] {
+                if count > 0 {
+                    line.push_str(&format!(" {short}{count}"));
+                }
+            }
+            (name, line)
+        })
+        .collect()
+}
+
+fn packs_view(policies: &Policies, full: bool) -> Result<Value> {
+    if policies.packs.is_empty() {
+        return Ok(Value::Null);
+    }
+    let history = summarize_packs(
+        &history_rows()?,
+        chrono::Utc::now() - chrono::Duration::days(30),
+    );
+    if full {
+        let mut out = serde_json::Map::new();
+        for (name, pack) in &policies.packs {
+            let mut row = serde_json::to_value(pack).map_err(|e| e.to_string())?;
+            row["hash"] = json!(pack_hash(pack));
+            if let Some(line) = history.get(name) {
+                row["history"] = json!(line);
+            }
+            out.insert(name.clone(), row);
+        }
+        return Ok(Value::Object(out));
+    }
+    Ok(json!(policies
+        .packs
+        .iter()
+        .map(|(name, pack)| {
+            let defaults = [&pack.model, &pack.effort, &pack.service_tier]
+                .iter()
+                .filter_map(|v| v.as_deref())
+                .collect::<Vec<_>>()
+                .join("/");
+            let mut target = pack.agent.clone().unwrap_or_else(|| "any".into());
+            if !defaults.is_empty() {
+                target.push(' ');
+                target.push_str(&defaults);
+            }
+            for (k, v) in &pack.options {
+                target.push_str(&format!(" {k}={v}"));
+            }
+            let mut line = format!("{name}: {} [{target}]", pack.summary);
+            if let Some(stats) = history.get(name) {
+                line.push(' ');
+                line.push_str(stats);
+            }
+            line
+        })
+        .collect::<Vec<_>>()))
 }
 
 pub(crate) fn summarize_history(
@@ -878,6 +1197,18 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
             .cloned()
             .or_else(|| previous.last().and_then(|r| r.get("purpose")).cloned())
             .unwrap_or(json!("task"));
+        // A send without a pack stays attributed to the task class it continues.
+        if row["pack"].is_null() {
+            if let Some(pack) = previous
+                .last()
+                .map(|r| &r["pack"])
+                .filter(|p| p.is_object())
+            {
+                row["pack"] = pack.clone();
+                row["pack"]["inherited"] = json!(true);
+                row["pack"]["appendedChars"] = json!(0);
+            }
+        }
         crate::coordination::observers::save_owner(
             &dir.join(format!("{}.json", string(receipt, "requestId"))),
             &row,
@@ -1626,5 +1957,61 @@ mod catalog_metadata_tests {
         for key in ["displayName", "provider", "contextWindow"] {
             assert!(absent.get(key).is_none());
         }
+    }
+}
+
+#[cfg(test)]
+mod pack_tests {
+    use super::*;
+
+    #[test]
+    fn pack_validation_rejects_unsafe_shapes_and_blocks_delimit_one_pack() {
+        // Property: invalid pack names, missing summaries, oversized text and too many packs fail as INVALID_DISPATCH_POLICY, and a block wraps exactly one prompt with its name and hash.
+        let pack = |summary: &str, prompt: &str| Pack {
+            summary: summary.into(),
+            prompt: prompt.into(),
+            ..Pack::default()
+        };
+        let one = |name: &str, p: Pack| std::collections::BTreeMap::from([(name.to_owned(), p)]);
+        assert!(validate_packs(&one("valid-name", pack("Summary", "Rule"))).is_ok());
+        for invalid in [
+            one("Bad Name", pack("Summary", "")),
+            one("valid", pack("", "")),
+            one("valid", pack("Summary", &"x".repeat(4001))),
+        ] {
+            assert!(validate_packs(&invalid)
+                .unwrap_err()
+                .starts_with("INVALID_DISPATCH_POLICY"));
+        }
+        let many = (0..=MAX_PACKS)
+            .map(|i| (format!("p{i}"), pack("Summary", "")))
+            .collect();
+        assert!(validate_packs(&many).is_err());
+        assert!(serde_json::from_value::<Pack>(json!({"summary":"s","mode":"bypass"})).is_err());
+        let block = pack_block("name", "0123456789ab", "Line one\nLine two");
+        assert!(block.starts_with("<arc-pack name=\"name\" hash=\"0123456789ab\">\n"));
+        assert!(block.ends_with("\n</arc-pack>"));
+        assert_eq!(block.matches("<arc-pack").count(), 1);
+    }
+
+    #[test]
+    fn pack_history_counts_new_turns_and_excludes_self_tests() {
+        // Property: pack outcome lines count each new-turn dispatch once by its pack and ignore self-tests, steering and other packs.
+        let now = chrono::Utc::now();
+        let row = |turn: &str, purpose: &str, mode: &str, verdict: &str| {
+            json!({"agent":"codex","threadId":"t","turnId":turn,"purpose":purpose,"dispatchMode":mode,
+                "submittedAt":now.to_rfc3339(),"pack":{"name":"class"},"review":{"verdict":verdict},
+                "terminal":{"state":"completed","observedDurationMs":60000}})
+        };
+        let rows = vec![
+            row("a", "task", "new-turn", "pass"),
+            row("a", "task", "new-turn", "pass"),
+            row("b", "task", "new-turn", "rework"),
+            row("c", "task", "new-turn", ""),
+            row("d", "self-test", "new-turn", "pass"),
+            row("e", "task", "steered", "pass"),
+        ];
+        let lines = summarize_packs(&rows, now - chrono::Duration::days(1));
+        assert_eq!(lines["class"], "n3 med1.0m pass1 rework1 unrev1");
     }
 }
