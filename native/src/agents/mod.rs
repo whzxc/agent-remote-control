@@ -185,6 +185,18 @@ impl AgentHost {
         }
         crate::dispatch_policy::update(args)
     }
+    pub(crate) fn update_dispatch_pack(&self, args: &Value) -> Result<Value> {
+        if let Some(agent) = args["pack"]["agent"].as_str() {
+            if agent != "codex" && !self.drivers.contains_key(agent) {
+                return Err(crate::egress::invalid_arguments(
+                    "dispatch_pack_update",
+                    "/pack/agent",
+                    "Use codex or a registered Agent ID from dispatch_policy with all:true.",
+                ));
+            }
+        }
+        crate::dispatch_policy::update_pack(args)
+    }
     pub(crate) fn dispatch_defaults(&self, body: &Value, write: bool) -> Result<Value> {
         let agent = string(body, "agent");
         if agent != "codex" && !self.drivers.contains_key(agent) {
@@ -1126,6 +1138,7 @@ impl AgentHost {
                 }
             }
             crate::accounts::attach(&mut args, &selected);
+            crate::dispatch_policy::apply_pack(&mut args, agent, name)?;
         }
         let task = if name == "agent_create" {
             id()

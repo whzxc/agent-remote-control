@@ -112,7 +112,7 @@ Use top-level Agent-ID sections and one top-level criteria string. Add no rule e
 
 This factory example never overwrites existing files. Preserve existing Codex settings, criteria, and tier overrides. Missing sections are empty policies without writing empty sections for every Agent. Null/omission means no native override. New sessions follow native defaults. Later turns inherit session values. Existing nonempty Codex defaults continue applying.
 
-Non-Codex model IDs are opaque. options maps native config IDs to string values. Pi uses thinkingLevel. Do not repeat model inside options. Precedence is explicit, Agent policy default, native current value. Denylists win. Empty allowlists are unrestricted. Check final values, including known native defaults. Restricted but unknown values fail explicitly rather than bypassing policy. Invalid format never falls back. mode may change permissions and is not universally effort.
+Non-Codex model IDs are opaque. options maps native config IDs to string values. Pi uses thinkingLevel. Do not repeat model inside options. Precedence is explicit, selected [pack](dispatch-policy.md#dispatch-packs) default, Agent policy default, native current value. Denylists win. Empty allowlists are unrestricted. Check final values, including known native defaults. Restricted but unknown values fail explicitly rather than bypassing policy. Invalid format never falls back. mode may change permissions and is not universally effort.
 
 ## Dispatch, records, and review
 

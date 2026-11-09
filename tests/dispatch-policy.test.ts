@@ -239,3 +239,64 @@ test('Concurrent policy replacements reject stale hashes without modifying polic
     assert.equal(await policyText(fixture,success.policyPath),policyBefore);
   }finally{await fixture.close();}
 });
+
+const packServer=`import {createInterface} from 'node:readline';
+import {randomUUID} from 'node:crypto';
+import {appendFileSync} from 'node:fs';
+const threads={};
+for await(const line of createInterface({input:process.stdin})) {
+  const {id,method,params}=JSON.parse(line);if(id===undefined)continue;
+  let result={data:[]};
+  if(method==='thread/start'){const thread={id:randomUUID(),cwd:params.cwd,turns:[],status:{type:'idle'}};threads[thread.id]=thread;result={thread};}
+  if(method==='turn/start'){appendFileSync(process.env.ARC_PACK_LOG,JSON.stringify(params)+'\\n');const turn={id:randomUUID(),status:'completed',items:[]};threads[params.threadId].turns.push(turn);result={turn};}
+  if(method==='thread/read')result={thread:{...threads[params.threadId],status:{type:'idle'}}};
+  if(method==='thread/turns/list')result={data:[...(threads[params.threadId]?.turns??[])].reverse(),nextCursor:null};
+  console.log(JSON.stringify({id,result}));
+}`;
+
+test('Pack updates use guarded hashes and appear in both dispatch_policy views',async()=>{
+  // Contract: dispatch_pack_update act envelope, null expectedPackHash for creation, DISPATCH_POLICY_CONFLICT and INVALID_ARGUMENTS codes, decision and full pack projections.
+  const fixture=await nativeControl(policyServer);
+  try {
+    const pack={summary:'Read-only acceptance.',agent:'codex',model:'fixture-pack-model',prompt:'Do not commit.',review:'Check every invariant.'};
+    const created=await fixture.call('dispatch_pack_update',{name:'acceptance',pack,expectedPackHash:null});
+    assert.equal(created.name,'acceptance');assert.equal(typeof created.packHash,'string');assert.ok(path.isAbsolute(created.backupPath));
+    const stale=await fixture.call('dispatch_pack_update',{name:'acceptance',pack:{...pack,summary:'Stale'},expectedPackHash:null});
+    assert.equal(stale.error.code,'DISPATCH_POLICY_CONFLICT');assert.equal(stale.error.currentPackHash,created.packHash);assert.equal(stale.next.op,'dispatch_policy');
+    for(const invalid of [{name:'Bad Name',pack,expectedPackHash:null},{name:'other',pack:{...pack,mode:'bypassPermissions'},expectedPackHash:null},{name:'other',pack:{...pack,agent:'unknown-agent'},expectedPackHash:null}]) {
+      assert.equal((await fixture.call('dispatch_pack_update',invalid)).error.code,'INVALID_ARGUMENTS');
+    }
+    const decision=await fixture.call('dispatch_policy',{});
+    assert.ok(decision.packs.some((line:string)=>line.startsWith('acceptance: Read-only acceptance.')));
+    const full=await fixture.call('dispatch_policy',{view:'full'});
+    assert.equal(full.packs.acceptance.hash,created.packHash);assert.equal(full.packs.acceptance.review,pack.review);
+    const removed=await fixture.call('dispatch_pack_update',{name:'acceptance',pack:null,expectedPackHash:created.packHash});
+    assert.equal(removed.packHash,null);
+    assert.equal((await fixture.call('dispatch_policy',{view:'full'})).packs,undefined);
+  }finally{await fixture.close();}
+});
+
+test('Pack dispatch appends its block once and ranks its defaults below explicit choices',async()=>{
+  // Property: a selected pack appends one delimited block after the caller prompt, supplies pack-default values only where arguments are omitted, and returns its review with the turn.
+  const directory=await mkdtemp(path.join(tmpdir(),'arc-pack-'));
+  const log=path.join(directory,'turns.jsonl');
+  const fixture=await nativeControl(packServer,{ARC_PACK_LOG:log});
+  try {
+    const pack={summary:'Fixture class.',agent:'codex',model:'fixture-pack-model',effort:'high',prompt:'Pack rule.',review:'Pack checklist.'};
+    const created=await fixture.call('dispatch_pack_update',{name:'fixture-class',pack,expectedPackHash:null});
+    const first=await fixture.completed('codex_create',{prompt:'Caller prompt',pack:'fixture-class',thread:{cwd:directory}});
+    assert.equal(first.state,'completed',JSON.stringify(first));
+    assert.equal(first.dispatch.pack.name,'fixture-class');assert.equal(first.dispatch.pack.hash,created.packHash);
+    assert.equal(first.dispatch.model,'fixture-pack-model');assert.equal(first.dispatch.source.model,'pack-default');
+    const second=await fixture.completed('codex_create',{prompt:'Caller prompt',pack:'fixture-class',model:'explicit-model',thread:{cwd:directory}});
+    assert.equal(second.dispatch.model,'explicit-model');assert.equal(second.dispatch.source.model,'explicit');assert.equal(second.dispatch.source.effort,'pack-default');
+    const turns=(await fixture.call('read',{path:log})).data.text.replace(/^\d+: /gm,'').trim().split('\n').map((row:string)=>JSON.parse(row));
+    const text=turns[0].input.map((item:any)=>item.text).join('\n');
+    assert.ok(text.startsWith('Caller prompt'));
+    assert.equal(text.split(`<arc-pack name="fixture-class" hash="${created.packHash}">`).length,2);
+    assert.ok(text.includes('Pack rule.'));
+    const summary=await fixture.call('codex_read',{threadId:first.threadId,turnId:first.turnId,view:'summary'});
+    assert.equal(summary.pack.review,'Pack checklist.');
+    assert.equal((await fixture.call('codex_create',{prompt:'x',pack:'missing-pack',thread:{cwd:directory},purpose:'self-test',notify:null})).error.code,'INVALID_ARGUMENTS');
+  }finally{await fixture.close();await rm(directory,{recursive:true,force:true});}
+});

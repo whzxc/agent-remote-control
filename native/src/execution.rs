@@ -170,7 +170,7 @@ impl Execution {
             )
             .await;
         }
-        if name == "dispatch_policy_update" {
+        if matches!(name, "dispatch_policy_update" | "dispatch_pack_update") {
             let mut args = args;
             // The frozen act request ID is transport metadata, not a policy field.
             args.as_object_mut().map(|args| args.remove("requestId"));
@@ -181,7 +181,11 @@ impl Execution {
                 .find(|op| op["name"] == name)
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
-            return self.agents.update_dispatch_policy(&args);
+            return if name == "dispatch_pack_update" {
+                self.agents.update_dispatch_pack(&args)
+            } else {
+                self.agents.update_dispatch_policy(&args)
+            };
         }
         if name == "dispatch_policy" {
             let catalog = crate::catalog();

@@ -296,6 +296,10 @@ fn accounts(row: &Value) -> Value {
 }
 
 pub(super) fn present(mut facts: Value, args: &Value) -> Value {
+    let pack_agents = facts
+        .as_object_mut()
+        .and_then(|f| f.remove("packAgents"))
+        .unwrap_or(Value::Null);
     let global = string(&facts, "criteria").to_owned();
     criteria(&mut facts, &global, "global", args);
     if args["view"] == "full" {
@@ -327,7 +331,10 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         let history = history(row);
         let no_policy = text.is_empty() && history.is_null();
         // Unconfigured, unused Agents cost a full row without informing a selection.
-        if no_policy && !configured(policy) && !args["agent"].is_string() {
+        let referenced = pack_agents
+            .as_array()
+            .is_some_and(|a| a.iter().any(|a| a == agent));
+        if no_policy && !configured(policy) && !referenced && !args["agent"].is_string() {
             let state = row["capabilities"]["unavailable"]
                 .as_str()
                 .filter(|_| status == "available")
@@ -433,7 +440,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         rows.push(out);
     }
     if rows.iter().any(|r| !r["history"].is_null()) {
-        facts["legend"] = json!("30d; no self-test; n=dispatches med=successful observed minutes unrev=unreviewed int=interrupted fail=failed ext=external reviews with own pass/rework; /tier omitted=default ?=unknown; other=mixed n<10; quota=% used");
+        facts["legend"] = json!("packs=name: summary [agent defaults] then 30d outcomes; 30d; no self-test; n=dispatches med=successful observed minutes unrev=unreviewed int=interrupted fail=failed ext=external reviews with own pass/rework; /tier omitted=default ?=unknown; other=mixed n<10; quota=% used");
     }
     facts["agents"] = json!(rows);
     if !others.is_empty() {

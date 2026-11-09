@@ -153,6 +153,14 @@ pub(crate) fn project(name: &str, args: &Value, value: &Value) -> Value {
     if !out["threadId"].is_string() && !out["taskId"].is_string() {
         return out;
     }
+    if let (Some(task), Some(turn)) = (
+        out["threadId"].as_str().or(out["taskId"].as_str()),
+        out["turnId"].as_str(),
+    ) {
+        if let Some(pack) = crate::dispatch_policy::turn_pack(task, turn) {
+            out["pack"] = pack;
+        }
+    }
     let text = value["finalResponse"]
         .as_str()
         .or_else(|| value["finalResponse"]["text"].as_str());

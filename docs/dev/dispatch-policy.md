@@ -1,6 +1,6 @@
 # Dispatch policy
 
-[Control loop](control-loop.md) · [Architecture](architecture.md) · [Terminology](terminology.md) · [Packs proposal](dispatch-packs-proposal.md)
+[Control loop](control-loop.md) · [Architecture](architecture.md) · [Terminology](terminology.md)
 
 [Multi-Agent dispatch](dispatch-agents.md) describes capability sources and Agent boundaries. This document describes the integrated Codex path and shared decision view.
 
@@ -9,6 +9,19 @@
 The control source owns decisions. ARC owns facts and constraints. The control source uses task context and user criteria to choose models and effort. ARC provides native catalogs, quota summaries, defaults, and dispatch records. Quota is advisory and never automatically downgrades or rejects work.
 
 Selection balances task quality, duration, and cost without preset task-count, value, or upgrade/downgrade preferences. ARC adds no routing model. Effort, duration, and review outcomes support comparison.
+
+## Context layering
+
+| Audience | Content | Owner | Delivery |
+| --- | --- | --- | --- |
+| Control source | Loop rules, op contracts, recovery | ARC catalog | [Profile](control-profiles.md) guide, `guide({op})`, error `next` |
+| Control source | Agent, model, effort, tier and account choice | User criteria | `dispatch_policy` |
+| Control source | Long workflows | User knowledge base | Read on demand |
+| Agent, every task | General execution conventions | Native global instructions | Loaded natively by each Agent |
+| Agent, one repository | Repository rules | Repository `AGENTS.md` or equivalent | Loaded natively |
+| Agent, one task class | Class-specific execution rules | [Dispatch pack](#dispatch-packs) | Appended to the prompt when the control source selects the pack |
+
+ARC never appends general execution conventions to every prompt. Codex reads `~/.codex/AGENTS.md` from the native home shared by every Codex execution process, so one file covers every account. Claude Code reads `~/.claude/CLAUDE.md`; other Agents use their native equivalents. Criteria keep routing rules; `dispatch_policy_update` warns above 2,000 characters per scope.
 
 ## Configuration and queries
 
@@ -33,11 +46,11 @@ On first use, state-directory dispatch-policy.json is created with two-space ind
 
 serviceTier is a nullable global default. serviceTiers maps model IDs to overrides. Factory null/empty values express no speed preference and defer to native inheritance. Example: `"serviceTiers":{"some-model":"priority"}`. Fast uses native priority and standard speed uses default. additionalSpeedTiers.fast is a label, not a dispatch parameter. Native descriptions are preserved without inferred usage multipliers.
 
-Explicit tier precedes the final model's override, then the global default. Selection repeats for every new turn, including model changes in one thread. Native turn.serviceTierForTurn precedes turn.serviceTier, top-level serviceTier, and thread.serviceTier. A one-turn override does not change thread defaults. Sources are explicit, policy-default, or native-default when unfilled.
+Explicit tier precedes a selected pack's tier, then the final model's override, then the global default. Selection repeats for every new turn, including model changes in one thread. Native turn.serviceTierForTurn precedes turn.serviceTier, top-level serviceTier, and thread.serviceTier. A one-turn override does not change thread defaults. Sources are explicit, policy-default, or native-default when unfilled.
 
 The Agent panel's settings dialog and the Agent details dialog in Agents settings edit the default model and, for Codex, the default effort. It writes through the local-only management ops `agents.dispatch_defaults.read` and `agents.dispatch_defaults.update`. Null restores native inheritance. Updates check allow/deny lists, preserve criteria, constraints and other Agents, and keep the previous file in dispatch-policy.json.bak. Explicit dispatch choices still win.
 
-Codex task details make the model pill a button that opens a per-task choice. It writes `task-dispatch/<threadId>.json` through `tasks.dispatch_defaults.read` and `tasks.dispatch_defaults.update`. It never submits a turn or changes a running turn. Omitted model or effort resolves in this order: explicit dispatch choice, task setting (`source: task-default`), thread inheritance, then Agent policy default. Agent allow/deny lists apply to task settings. Null clears a field.
+Codex task details make the model pill a button that opens a per-task choice. It writes `task-dispatch/<threadId>.json` through `tasks.dispatch_defaults.read` and `tasks.dispatch_defaults.update`. It never submits a turn or changes a running turn. Omitted model or effort resolves in this order: explicit dispatch choice, selected pack default (`source: pack-default`), task setting (`source: task-default`), thread inheritance, then Agent policy default. Agent allow/deny lists apply to task settings. Null clears a field.
 
 Empty allowlists are unrestricted. Denylists win. Constraints apply to final values, including policy defaults. Upstream validates native model/effort support. ARC does not duplicate that validation. Malformed policy fails explicitly without falling back to desktop defaults.
 
@@ -73,6 +86,37 @@ Both views retain each native Codex pool's `credits` object, including `hasCredi
 Installation or quota access does not prove inference authentication. Provider integration and model-to-quota association remain separate facts. Full view retains known authentication evidence. See [Multi-Agent dispatch](dispatch-agents.md) for non-Codex selection, records, and reviews.
 
 All control-source loop guides require this query before dispatch and a reason for Agent/model/effort selection. Dynamic catalogs and quota are not embedded in guide. Existing explicit ingress allowlists must enable dispatch_policy. Default policy includes it.
+
+## Dispatch packs
+
+A pack is a named, user-owned bundle for one task class. It lives under the top-level `packs` object of dispatch-policy.json and shares the policy lock, backup and malformed-file behavior. The control source selects a pack explicitly; ARC never classifies tasks or selects one.
+
+```json
+{
+  "packs": {
+    "example-pack": {
+      "summary": "One line shown in the decision view.",
+      "agent": "codex",
+      "model": null,
+      "effort": null,
+      "serviceTier": null,
+      "options": {},
+      "prompt": "Agent-facing execution rules for this task class.",
+      "review": "What the control source checks before pass or rework."
+    }
+  }
+}
+```
+
+Names match `[a-z0-9-]{1,40}`. `summary` is required and limited to 160 characters, `prompt` to 4,000 and `review` to 800. A policy holds at most 16 packs. `agent` is optional; an absent value allows every Agent. Unknown fields, including `mode`, `approval` and `account`, fail as `INVALID_DISPATCH_POLICY`.
+
+`codex_create`, `codex_send`, `agent_create` and `agent_send` accept optional `pack`. An unknown pack or one targeting another Agent returns `INVALID_ARGUMENTS`. ARC resolves the pack once, after the request digest and before defaults, so replays and queued sends keep the accepted pack. Its non-empty prompt is appended after the caller's prompt, or as one extra text input item, as `<arc-pack name="..." hash="...">` followed by the text and `</arc-pack>`. A send without `pack` appends nothing. Pack defaults rank after explicit arguments and before task settings; their field source is `pack-default`. Allow/deny constraints apply to them. Antigravity launch flags are fixed per task, so its pack defaults are not applied; its prompt block still is.
+
+Dispatch records and receipts carry `dispatch.pack` with name, 12-character hash, review text and appended character count. A later send without `pack` inherits the previous record's pack with `inherited:true` for attribution. `codex_read` with `view:"review"` returns each turn's `pack` checklist, and summary reads of Codex and other Agents return the selected turn's `pack`.
+
+The decision view lists packs as `name: summary [agent defaults]` followed by 30-day outcomes counted per pack. `view:"full"` returns each complete pack with its `hash` and history line. Agents referenced by a pack keep their decision row.
+
+`act({op:"dispatch_pack_update",args:{name,pack,expectedPackHash}})` replaces one complete pack, or deletes it with `pack:null`. `expectedPackHash` is the current hash from the full view, or null when the pack is absent. A mismatch returns `DISPATCH_POLICY_CONFLICT` with `currentPackHash` and a full-view `next`. Success returns name, packHash (null after deletion), policyPath and backupPath.
 
 ## Dispatch and records
 
