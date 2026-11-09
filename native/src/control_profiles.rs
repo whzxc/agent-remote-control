@@ -16,52 +16,59 @@ pub(crate) fn validate(source: &Value, profile: &Value) -> Result<()> {
                 && matches!(profile["waitMode"].as_str(), Some("push" | "poll"))
         };
     if !valid {
-        return Err("INVALID_ARGUMENT: capabilityProfile must be null (Legacy), {hostAccess:host,waitMode:background-cli} for built-in Local CLI, or {hostAccess:none|unknown,waitMode:push|poll} for MCP sources. Use cli source update <id> --stdin.".into());
+        return Err("INVALID_ARGUMENT: capabilityProfile must be null (derived from the source), {hostAccess:host,waitMode:background-cli} for built-in Local CLI, or {hostAccess:none|unknown,waitMode:push|poll} for MCP sources. Use cli source update <id> --stdin.".into());
     }
     Ok(())
 }
 
-pub(crate) fn offer(source: &Value) -> Value {
-    if crate::sources::is_local(source) {
-        json!({"recommended":{"hostAccess":"host","waitMode":"background-cli"},"choices":["legacy","local-code"]})
-    } else {
-        let push = matches!(string(source, "product"), "claude" | "chatgpt");
-        json!({"recommended":{"hostAccess":if source["product"]=="custom"{"unknown"}else{"none"},"waitMode":if push{"push"}else{"poll"}},"choices":["legacy","remote-push","remote-polling"]})
+/// The profile a source receives when it has no explicit setting.
+fn derived(source: &Value, local: bool) -> Value {
+    if local {
+        return json!({"hostAccess":"host","waitMode":"background-cli"});
     }
+    let push = matches!(string(source, "product"), "claude" | "chatgpt");
+    json!({"hostAccess":if source["product"]=="custom"{"unknown"}else{"none"},"waitMode":if push{"push"}else{"poll"}})
+}
+
+pub(crate) fn offer(source: &Value) -> Value {
+    let local = crate::sources::is_local(source);
+    let choices = if local {
+        json!(["derived", "local-code"])
+    } else {
+        json!(["derived", "remote-push", "remote-polling"])
+    };
+    json!({"recommended":derived(source, local),"choices":choices})
 }
 
 pub(crate) fn effective(origin: &Value) -> Value {
     let cli = origin["controlTransport"] == "cli";
     let source = crate::sources::authority(string(origin, "sourceId")).unwrap_or(Value::Null);
     let local = cli && crate::sources::is_local(&source);
-    let setting = &source["capabilityProfile"];
-    let name = if setting.is_null() {
-        "legacy"
-    } else if local && setting["waitMode"] == "background-cli" {
-        "local-code"
-    } else if !local && setting["waitMode"] == "push" {
-        "remote-push"
-    } else if !local && setting["waitMode"] == "poll" {
-        "remote-polling"
+    let explicit = !source["capabilityProfile"].is_null();
+    let setting = if explicit {
+        source["capabilityProfile"].clone()
     } else {
-        "legacy"
+        derived(&source, local)
+    };
+    let name = if local {
+        "local-code"
+    } else if setting["waitMode"] == "push" {
+        "remote-push"
+    } else {
+        "remote-polling"
     };
     json!({"name":name,"transport":if cli{"cli"}else{"mcp"},
         "hostAccess":if local{"host"}else if setting["hostAccess"]=="none"{"none"}else{"unknown"},
-        "waitMode":if name=="legacy"{Value::Null}else{setting["waitMode"].clone()},
-        "provenance":if name=="legacy"{"legacy-default"}else{"source-override"}})
+        "waitMode":if local{json!("background-cli")}else{setting["waitMode"].clone()},
+        "provenance":if explicit{"source-override"}else{"derived"}})
 }
 
-pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Option<Value> {
+pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
     let profile = effective(origin);
     let name = string(&profile, "name");
     let topic = args["topic"].as_str().unwrap_or("loop");
-    if (name == "legacy" && !matches!(topic, "coordination" | "src" | "context"))
-        || args["op"].is_string()
-    {
-        return None;
-    }
     let full = args["view"] == "full";
+    let maintainer = crate::preferences::maintainer_mode();
     let catalog = catalog();
     let guides = &catalog["guides"]["en"];
     let key = match topic {
@@ -75,12 +82,25 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Option<Value
         _ => name,
     };
     let mut content = format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n{}", guides[key].as_str().unwrap_or(""));
-    if topic == "loop" && name == "remote-push" {
-        content.push_str(guides["profile-notify"].as_str().unwrap_or(""));
-    }
-    if topic == "loop" && crate::preferences::maintainer_mode() {
-        content.push('\n');
-        content.push_str(guides["axMaintainer"].as_str().unwrap_or(""));
+    if topic == "loop" {
+        if name == "remote-push" {
+            content.push_str(guides["profile-notify"].as_str().unwrap_or(""));
+        }
+        if crate::context_provider::configured() {
+            content.push_str(guides["contextProvider"].as_str().unwrap_or(""));
+        }
+        if crate::mcp_hub::enabled() {
+            content.push_str(guides["mcpHub"].as_str().unwrap_or(""));
+        }
+        // Local Code keeps its character budget; users there report through the CLI.
+        if maintainer || name != "local-code" {
+            content.push('\n');
+            content.push_str(
+                guides[if maintainer { "axMaintainer" } else { "axUser" }]
+                    .as_str()
+                    .unwrap_or(""),
+            );
+        }
     }
     let preset = if topic == "loop" {
         name.to_owned()
@@ -90,18 +110,35 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Option<Value
     let index: Vec<_> = ops
         .iter()
         .filter(|op| {
-            full || catalog["toolExposure"]["tools"][string(op, "name")]["presets"]
+            let op_name = string(op, "name");
+            if full {
+                return true;
+            }
+            if topic == "loop" && maintainer && op_name.starts_with("ax_") {
+                return true;
+            }
+            catalog["toolExposure"]["tools"][op_name]["presets"]
                 .as_array()
                 .is_some_and(|p| p.iter().any(|p| p == &preset))
         })
-        .map(|op| json!({"op":op["name"],"via":crate::egress::via(op)}))
+        .map(|op| {
+            let mut entry = json!({"op":op["name"],"via":crate::egress::via(op)});
+            if topic != "loop" || full {
+                entry["signature"] = json!(crate::egress::signature(op));
+                entry["retry"] = json!({"mode":crate::egress::retry_contract(op)["mode"]});
+            }
+            entry
+        })
         .collect();
     let mut result = json!({"topic":topic,"profile":profile,"sourceId":origin["sourceId"],"content":content,
         "ops":index,"indexScope":if full{"full"}else if topic=="loop"{"common"}else{"topic"},
         "fullIndex":{"tool":"query","arguments":{"op":"guide","args":{"view":"full"}}}});
+    if topic == "loop" {
+        result["maintainerMode"] = json!(maintainer);
+    }
     if (name == "remote-push" && full || topic == "notify") && origin["controlSource"] == "chatgpt"
     {
         result["events"] = crate::claude_notify::subscriptions::guide();
     }
-    Some(result)
+    result
 }

@@ -1996,9 +1996,10 @@ test('guide progressively discloses every enabled op and caches projected conten
   const sources=(await management('source')).sources;
   const remote=sources.find((source:any)=>source.ingressId==='default');
   const local=(args:Record<string,unknown>={})=>JSON.parse(execFileSync(fixtureCommand,['cli','control','guide','--stdin'],{env:fixtureEnv,encoding:'utf8',input:JSON.stringify(args)})).result;
-  const legacy=local();
-  assert.equal(legacy.profile,undefined);
-  const localId=legacy.sourceId;assert.ok(localId);
+  const derived=local();
+  assert.equal(derived.profile.name,'local-code');assert.equal(derived.profile.provenance,'derived');
+  assert.equal(compact.profile.provenance,'derived');assert.ok(['remote-push','remote-polling'].includes(compact.profile.name));
+  const localId=derived.sourceId;assert.ok(localId);
   try {
     await management(`source/${localId}`,'PUT',{capabilityProfile:{hostAccess:'host',waitMode:'background-cli'}});
     const code=local();
@@ -2091,7 +2092,7 @@ test('control stats report byte baselines and waste candidates without call cont
   assert.equal(r.profileSequences.sessionProxy,true);
   const cohorts=r.profileSequences.cohorts;
   assert.ok(cohorts.some((c:any)=>c.profile==='local-code'&&c.transport==='cli'&&c.guideResponseBytes.median>0));
-  const remoteSequence=r.profileSequences.sequences.find((s:any)=>s.sourceId===created.origin?.sourceId) ?? r.profileSequences.sequences.find((s:any)=>s.profile==='legacy'&&s.transport==='mcp'&&s.callsBeforeFirstDispatch!==null);
+  const remoteSequence=r.profileSequences.sequences.find((s:any)=>s.sourceId===created.origin?.sourceId) ?? r.profileSequences.sequences.find((s:any)=>s.profile.startsWith('remote-')&&s.transport==='mcp'&&s.callsBeforeFirstDispatch!==null);
   assert.ok(remoteSequence);assert.equal(typeof remoteSequence.callsBeforeFirstDispatch,'number');
   assert.ok(cohorts.some((c:any)=>c.invalidArguments>0&&c.argumentErrorRetries>0));
   assert.ok(!JSON.stringify(stats).includes('private-metric-payload'));

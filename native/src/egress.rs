@@ -648,7 +648,7 @@ pub(crate) fn normalize_args(name: &str, args: &mut Value) -> Result<()> {
     Ok(())
 }
 
-fn signature(op: &Value) -> String {
+pub(crate) fn signature(op: &Value) -> String {
     let schema = &op["inputSchema"];
     let mut names: Vec<Value> = op["guideParameters"]
         .as_array()
@@ -862,96 +862,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
         let spec = &spec;
         return json!({"op":name,"via":via(spec),"description":spec["description"],"inputSchema":spec["inputSchema"],"signature":signature(spec),"example":example(spec),"retry":retry_contract(spec)});
     }
-    if let Some(result) = crate::control_profiles::guide(origin, args, &ops) {
-        return result;
-    }
-    let maintainer = crate::preferences::maintainer_mode();
-    let topic = args["topic"].as_str().unwrap_or("loop");
-    let full = args["view"] == "full";
-    let source = match string(origin, "controlSource") {
-        "claude" => "claude",
-        "chatgpt" => "chatgpt",
-        _ => "other",
-    };
-    let guides = &catalog()["guides"]["en"];
-    let body = if topic == "loop" && !full {
-        &guides["core"]
-    } else if guides[topic].is_object() {
-        &guides[topic][source]
-    } else {
-        &guides[topic]
-    };
-    let examples: Vec<_> = ops
-        .iter()
-        .filter(|op| full && topic == "loop" && string(op, "name") == "codex_create")
-        .map(|op| {
-            let mut call = example(op);
-            if source == "claude" && matches!(string(op, "name"), "codex_create" | "codex_send") {
-                call["arguments"]["args"]["notify"] =
-                    json!({"channel":"claude-session","target":"<your cloud session ID or URL>"});
-            }
-            call
-        })
-        .collect();
-    let index: Vec<_> = ops
-        .iter()
-        .filter(|op| {
-            let name = string(op, "name");
-            if !full && (name.starts_with("ax_") || name == "runtime_metrics") {
-                return topic == "loop" && maintainer;
-            }
-            full || name == "guide" || match topic {
-                "notify" => matches!(name, "request_route" | "notify_status" | "notify_control" | "notification_ack" | "inbox_wait" | "codex_create" | "codex_send" | "codex_read" | "agent_create" | "agent_send" | "agent_read"),
-                "review" => matches!(name, "codex_review" | "agent_review" | "codex_read" | "agent_read" | "codex_wait" | "agent_wait" | "agent_events" | "codex_changes" | "codex_items" | "codex_send" | "agent_send" | "receipt" | "task_reviews"),
-                "approvals" => matches!(name, "request_route" | "receipt" | "codex_pending" | "codex_interactions" | "codex_respond" | "agent_pending" | "agent_respond" | "codex_read" | "agent_read"),
-                _ => matches!(name, "mcp_tools" | "mcp_call" | "board" | "notice_post" | "coordination_session" | "message_route" | "messages" | "message_send" | "ax_report" | "ax_list" | "notify_control" | "notify_status" | "notification_ack" | "dispatch_policy" | "dispatch_policy_update" | "command" | "read" | "write" | "edit" | "fs" | "git" | "codex_create" | "codex_send" | "codex_read" | "codex_wait" | "receipt" | "agent_create" | "agent_send" | "agent_read" | "agent_wait"),
-            }
-        })
-        .map(|op| {
-            let mut entry = json!({"op":op["name"],"via":via(op),"signature":signature(op),"retry":{"mode":retry_contract(op)["mode"]}});
-            if topic != "loop" {
-                entry["description"] = json!(op["description"]
-                    .as_str()
-                    .unwrap_or("")
-                    .split(". ")
-                    .next()
-                    .unwrap_or(""));
-            }
-            entry
-        })
-        .collect();
-    let mut context = String::new();
-    if topic == "loop" && crate::context_provider::configured() {
-        context.push_str(guides["contextProvider"].as_str().unwrap_or(""));
-    }
-    if topic == "loop" && crate::mcp_hub::enabled() {
-        context.push_str(guides["mcpHub"].as_str().unwrap_or(""));
-    }
-    let mut result = json!({"topic":topic,"controlSource":source,"content":format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n\n{}\n{}{}",body.as_str().unwrap_or(""),if topic == "loop" && full {guides["common"].as_str().unwrap_or("")} else {""},context),"examples":examples,"ops":index});
-    if topic == "loop" {
-        let workflow = &guides[if maintainer { "axMaintainer" } else { "axUser" }];
-        result["content"] = json!(format!(
-            "{}\n\n{}",
-            string(&result, "content"),
-            workflow.as_str().unwrap_or("")
-        ));
-        result["maintainerMode"] = json!(maintainer);
-    }
-    result["indexScope"] = json!(if full {
-        "full"
-    } else if topic == "loop" {
-        "common"
-    } else {
-        "topic"
-    });
-    if !full {
-        result["fullIndex"] =
-            json!({"tool":"query","arguments":{"op":"guide","args":{"view":"full"}}});
-    }
-    if source == "chatgpt" && (full || topic == "notify") {
-        result["events"] = crate::claude_notify::subscriptions::guide();
-    }
-    result
+    crate::control_profiles::guide(origin, args, &ops)
 }
 
 fn source_spec(op: &Value, origin: &Value) -> Value {
@@ -1286,7 +1197,13 @@ mod tests {
                     .iter()
                     .any(|op| op["op"] == name && op["via"] == "act"));
             }
-            let content = string(&response, "content");
+            let topic = guide(
+                &json!({"controlSource":source}),
+                &json!({"topic":"coordination"}),
+                "en",
+                &ops,
+            );
+            let content = string(&topic, "content");
             assert!(content.contains("coordination_session({action:\"register\",target})"));
             assert!(regex::Regex::new(r"(?i)MUST NOT close[^.]*push")
                 .unwrap()
@@ -1476,7 +1393,7 @@ mod tests {
             assert_ne!(version, protocol_hash(&changed), "{field}");
         }
         let mut changed = original;
-        changed["guides"]["en"]["common"] = json!("changed guide text");
+        changed["guides"]["en"]["remote-push"] = json!("changed guide text");
         assert_ne!(version, protocol_hash(&changed));
     }
 

@@ -1,6 +1,6 @@
 # Context layering and dispatch packs proposal
 
-Status: proposed.
+Status: accepted. Phase 1 is implemented.
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
 [Dispatch policy](dispatch-policy.md) · [Control profiles](control-profiles.md) · [Tool surface](tool-surface.md) · [Control loop](control-loop.md)
@@ -185,7 +185,7 @@ Phase 2 adds a Property test that the decision projection omits no-policy Agents
 Phase 3 adds Property tests for resolution order and prompt composition, and Contract tests for the new op and error codes.
 Compare guide bytes and cold-start calls before and after each phase with `cli stats control`.
 
-## Open decisions
+## Decisions
 
-- Retiring Legacy is recommended over trimming `core` in place, because profiles already own budgeted Layer 1 guides and two parallel guide families keep drifting.
-- Pack defaults are proposed to outrank per-task UI defaults, because a pack is an explicit control-source choice.
+- Legacy is retired rather than trimmed in place, because profiles already own budgeted Layer 1 guides.
+- Pack defaults outrank per-task UI defaults, because a pack is an explicit control-source choice.

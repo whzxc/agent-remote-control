@@ -7,7 +7,8 @@ MAY means an option.
 ## Boundaries
 
 Profiles specialize discovery without changing execution authorization.
-Existing sources remain Legacy until explicitly changed through local management.
+Sources without a saved setting receive a derived profile: built-in Local CLI derives Local Code, Claude and ChatGPT MCP sources derive Remote push, and other MCP sources derive Remote polling.
+Local management can override the derived profile.
 Local management exposes profile recommendations without changing the ingress policy.
 The frozen boundaries are described in [Tool surface](tool-surface.md), [Tools](../reference/tools.md), and [CLI](../reference/cli.md).
 `operations.rs` retains ownership of durable management receipts and unconfirmed-write handling.
@@ -22,7 +23,6 @@ The frozen boundaries are described in [Tool surface](tool-surface.md), [Tools](
 
 | View | Host access | Wait mode | Transport |
 | --- | --- | --- | --- |
-| Legacy | No profile opt-in | Existing behavior | CLI or MCP |
 | Local Code | `host` | `background-cli` | Built-in CLI only |
 | Remote push | `none` or `unknown` | `push` | MCP |
 | Remote polling | `none` or `unknown` | `poll` | MCP |
@@ -30,13 +30,13 @@ The frozen boundaries are described in [Tool surface](tool-surface.md), [Tools](
 Local Code MUST require the authenticated built-in authority identified by `ingressId:local-cli` and `credential.type:local` through `arc cli control`.
 A product name, loopback address, local MCP connection, or OAuth client name MUST NOT establish Local Code authority.
 The `claude` OAuth source can be shared by Code, Chat and Cowork.
-An MCP request from that source MUST remain Legacy, Remote push, or Remote polling.
+An MCP request from that source MUST use Remote push or Remote polling.
 Host access refers to the ARC execution host rather than a remote controller's sandbox.
 Background session re-invocation is provided by the controller's command facility rather than ARC.
 Local CLI callers share one setting because they share one built-in authority.
 
 `capabilityProfile` stores `{hostAccess,waitMode}` on the stable source record.
-An absent or null setting means Legacy.
+An absent or null setting means the derived profile, reported with `provenance:"derived"`; a saved setting reports `source-override`.
 Local authority accepts only `host` with `background-cli`.
 MCP sources accept only `none` or `unknown` with `push` or `poll`.
 The effective guide profile reports its name, host access, wait mode, observed transport, and provenance.
@@ -70,27 +70,30 @@ SRC entries have explicit advanced exposure metadata without being added to exis
 `C` means disclosure through the relevant topic or explicit op request.
 Every cell is intersected with policy and runtime availability.
 
-| Current operations | Local Code | Remote push | Remote polling | Legacy |
-| --- | --- | --- | --- | --- |
-| `guide`, `dispatch_policy`, `codex_create`, `codex_wait`, `codex_read`, `codex_review`, `receipt` | 1 | 1 | 1 | Current |
-| `connector_verify` | D | C | C | Current |
-| `agents`, `agent_create`, `agent_wait`, `agent_read`, `agent_review` | 1 | 1 | 1 | Current |
-| `codex_send`, `codex_resume`, `codex_interrupt`, `codex_pending`, `codex_respond`, `codex_interactions` | D | D | D | Current |
-| `agent_send`, `agent_archive`, `agent_interrupt`, `agent_pending`, `agent_respond`, `agent_capabilities`, `agent_tasks`, `agent_context`, `agent_events` | D | D | D | Current |
-| `codex_tasks`, `codex_items`, `codex_changes`, `codex_queue`, `codex_queue_control`, `codex_owner`, `codex_release`, `codex_archive` | D | D | D | Current |
-| `projects`, `command` | D | 1 | 1 | Current |
-| `overview`, `tree`, `search`, `read`, `git`, `edit`, `write` | D | D | D | Current |
-| `git_write`, `fs`, `process`, `file_search` | D | D | D | Current |
-| `mcp`, `codex_thread`, `codex_account`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_call`, `codex_events` | D | D | D | Current |
-| `control_output`, `events`, `logs`, `screen` | D | D | D | Current |
-| `notify_control`, `notify_status`, `notification_ack`, `inbox_wait`, `request_route` | D | C | D | Current |
-| `whoami`, `accounts` | D | D | D | Current |
-| `account_update`, `account_merge`, `account_add`, `account_login`, `account_reauth`, `account_remove`, `account_browsers`, `account_notify` | D | D | D | Current |
-| `context_resolve`, `context_search`, `context_read`, `context_check`, `context_amend` | C | C | C | Current |
-| `board`, `coordination_session`, `notice_post`, `notice_update`, `notice_close`, `blocker_open`, `blocker_clear`, `messages`, `message_send`, `message_route` | C | C | C | Current |
-| `task_timeline`, `task_reviews`, `task_review_undo`, `task_bubble`, `task_mark_read`, `task_panel`, `task_panel_control`, `task_open`, `task_resource` | D | D | D | Current |
-| `src_conversations`, `src_chrome_profiles`, `src_conversation_open`, `src_login_import`, `src_conversation_bind`, `src_login_clear` | C | C | C | Current |
-| `ax_issue_draft`, `ax_report`, `ax_list`, `ax_candidate`, `ax_triage` | C | C | C | Current |
+| Current operations | Local Code | Remote push | Remote polling |
+| --- | --- | --- | --- |
+| `guide`, `dispatch_policy`, `codex_create`, `codex_wait`, `codex_read`, `codex_review`, `receipt` | 1 | 1 | 1 |
+| `connector_verify` | D | C | C |
+| `agents`, `agent_create`, `agent_wait`, `agent_read`, `agent_review` | 1 | 1 | 1 |
+| `codex_send`, `codex_resume`, `codex_interrupt`, `codex_pending`, `codex_respond`, `codex_interactions` | D | D | D |
+| `agent_send`, `agent_archive`, `agent_interrupt`, `agent_pending`, `agent_respond`, `agent_capabilities`, `agent_tasks`, `agent_context`, `agent_events` | D | D | D |
+| `codex_tasks`, `codex_items`, `codex_changes`, `codex_queue`, `codex_queue_control`, `codex_owner`, `codex_release`, `codex_archive` | D | D | D |
+| `projects`, `command` | D | 1 | 1 |
+| `overview`, `tree`, `search`, `read`, `git`, `edit` | D | D | D |
+| `write` | D | 1 | 1 |
+| `git_write`, `process`, `file_search` | D | D | D |
+| `fs` | D | 1 | 1 |
+| `mcp`, `codex_thread`, `codex_account`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_call`, `codex_events` | D | D | D |
+| `control_output`, `events`, `logs`, `screen` | D | D | D |
+| `notify_control`, `notify_status`, `notification_ack`, `inbox_wait`, `request_route` | D | C | D |
+| `whoami`, `accounts` | D | D | D |
+| `account_update`, `account_merge`, `account_add`, `account_login`, `account_reauth`, `account_remove`, `account_browsers`, `account_notify` | D | D | D |
+| `context_resolve`, `context_search`, `context_read`, `context_check`, `context_amend` | C | C | C |
+| `board`, `coordination_session`, `notice_post`, `messages`, `message_send`, `message_route` | C | 1 | 1 |
+| `notice_update`, `notice_close`, `blocker_open`, `blocker_clear` | C | C | C |
+| `task_timeline`, `task_reviews`, `task_review_undo`, `task_bubble`, `task_mark_read`, `task_panel`, `task_panel_control`, `task_open`, `task_resource` | D | D | D |
+| `src_conversations`, `src_chrome_profiles`, `src_conversation_open`, `src_login_import`, `src_conversation_bind`, `src_login_clear` | C | C | C |
+| `ax_issue_draft`, `ax_report`, `ax_list`, `ax_candidate`, `ax_triage` | C | C | C |
 
 
 Chat profiles lead with `command` for host shell, Git, and edits.
@@ -115,7 +118,10 @@ Layer 3 is `query({op:"guide",args:{view:"full"}})` with every enabled available
 The frozen `guide` tool MUST NOT gain a profile or view parameter.
 The query guide op additionally supports `coordination`, `src`, and `context` topics.
 Notification prose appears automatically only for Remote push.
-Coordination, SRC, and context workflow prose appears only on an explicit related topic request.
+Remote loop guides carry one coordination sentence that points to the coordination topic.
+Configured context-provider and MCP-hub lines append to every loop guide.
+Remote loop guides append the normal-mode AX reporting line; Local Code omits it to protect its budget.
+Coordination, SRC, and context workflow details appear only on an explicit related topic request.
 Maintainer guidance retains the existing Maintainer-mode gate.
 Loop guides include proactive AX reporting, candidate review and triage rules when Maintainer mode is enabled, including the Local Code profile.
 Full views retain unrelated op discoverability without expanding unrelated workflow prose.
@@ -192,5 +198,5 @@ Phase 1 includes profile selection, guide layering, summary outcomes, metrics, a
 Multi-device relay targeting and cross-source project context remain later work.
 Host access for later devices MUST be evaluated against the selected execution device.
 The relevant behavior contracts live in `tests/control-mcp.test.ts` and `tests/cli-failures.test.ts`.
-They cover frozen tool schemas, legacy defaults, profile isolation, allowlist enforcement, guide caching and budget, task summaries, pinned turns, metrics, and CLI failure recovery.
+They cover frozen tool schemas, derived defaults, profile isolation, allowlist enforcement, guide caching and budget, task summaries, pinned turns, metrics, and CLI failure recovery.
 `tests/contract/` and `tooling/test-policy-allowlist.json` remain protected by the existing ownership rules.
