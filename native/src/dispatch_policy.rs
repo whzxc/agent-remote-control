@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 mod decision;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Advisory only: criteria are never rejected or truncated.
+const CRITERIA_ADVISORY_CHARS: usize = 2000;
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -155,7 +157,12 @@ pub(crate) fn update(args: &Value) -> Result<Value> {
     let backup = root().join("dispatch-policy.json.bak");
     save_bytes(&backup, &formatted(&previous)?)?;
     save_bytes(&path, &formatted(&updated)?)?;
-    Ok(json!({"scope":scope,"criteriaHash":hash(criteria),"policyPath":path,"backupPath":backup}))
+    let mut result =
+        json!({"scope":scope,"criteriaHash":hash(criteria),"policyPath":path,"backupPath":backup});
+    if criteria.chars().count() > CRITERIA_ADVISORY_CHARS {
+        result["warning"] = json!(format!("Criteria for {scope} exceed {CRITERIA_ADVISORY_CHARS} characters. Keep routing rules here and move Agent execution rules into packs and long workflows into the user's knowledge base."));
+    }
+    Ok(result)
 }
 /// Read the user-owned defaults applied when a dispatch omits model or effort.
 pub(crate) fn defaults(agent: &str) -> Result<Value> {
@@ -699,9 +706,21 @@ pub(crate) fn summarize_history(
         }
     }
     if compact {
+        // Decision rows keep the six largest configurations; the rest merge into other.
+        let mut ranked = groups
+            .iter()
+            .filter(|(_, g)| g.dispatches >= 10)
+            .map(|(key, g)| (g.dispatches + g.external_reviews, key.clone()))
+            .collect::<Vec<_>>();
+        ranked.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        let kept = ranked
+            .into_iter()
+            .take(6)
+            .map(|(_, key)| key)
+            .collect::<std::collections::HashSet<_>>();
         let mut other = Group::default();
-        groups.retain(|_, group| {
-            if group.dispatches >= 10 {
+        groups.retain(|key, group| {
+            if kept.contains(key) {
                 return true;
             }
             other.external_reviews += group.external_reviews;
@@ -746,19 +765,7 @@ pub(crate) fn summarize_history(
             g["dispatches"].as_u64().unwrap_or(0) + g["external"]["reviews"].as_u64().unwrap_or(0),
         )
     });
-    let omitted = if compact {
-        groups.len().saturating_sub(12)
-    } else {
-        0
-    };
-    if compact {
-        groups.truncate(12);
-    }
-    let mut history = json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups});
-    if omitted > 0 {
-        history["omittedGroups"] = json!(omitted);
-    }
-    history
+    json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups})
 }
 
 /// Match the effective configuration; never substitute another model's duration.

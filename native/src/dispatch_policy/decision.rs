@@ -187,11 +187,7 @@ fn history(row: &Value) -> Value {
     if groups.is_empty() {
         return Value::Null;
     }
-    let mut value = json!({"groups":groups});
-    if let Some(n) = row["history"].get("omittedGroups") {
-        value["omittedGroups"] = n.clone();
-    }
-    value
+    json!({"groups":groups})
 }
 fn quota_summary(windows: Vec<(String, f64)>) -> String {
     windows
@@ -313,6 +309,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
     }
     let mut seen = BTreeMap::<String, String>::new();
     let mut rows = vec![];
+    let mut others = vec![];
     for row in facts["agents"].as_array().into_iter().flatten() {
         let agent = string(row, "agent");
         let available = &row["availability"];
@@ -329,6 +326,15 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         let text = string(policy, "criteria");
         let history = history(row);
         let no_policy = text.is_empty() && history.is_null();
+        // Unconfigured, unused Agents cost a full row without informing a selection.
+        if no_policy && !configured(policy) && !args["agent"].is_string() {
+            let state = row["capabilities"]["unavailable"]
+                .as_str()
+                .filter(|_| status == "available")
+                .unwrap_or(status);
+            others.push(format!("{agent}: {state}"));
+            continue;
+        }
         let mut out = json!({"agent":agent,"accounts":accounts(row),"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
         if available["discoveryError"].is_string() {
             out["error"] = available["discoveryError"].clone();
@@ -389,7 +395,27 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
             }
         }
         let mut quota = vec![];
+        // Codex pools come from the primary native login; show them on that account.
+        let primary = row["accounts"].as_array().and_then(|accounts| {
+            accounts.iter().position(|a| {
+                a["agentProfiles"]
+                    .as_array()
+                    .is_some_and(|p| p.iter().any(|p| p["role"] == "primary"))
+            })
+        });
         for (id, value) in quotas(row) {
+            if let (true, Some(index)) = (id.starts_with("codex/"), primary) {
+                let account = &mut out["accounts"][index]["quota"];
+                let mut native = value;
+                if !empty(&account["summary"]) {
+                    native.as_object_mut().map(|v| v.remove("summary"));
+                }
+                if !empty(&native) {
+                    native["id"] = json!(id);
+                    account["native"] = native;
+                }
+                continue;
+            }
             if let Some(owner) = seen.get(&id) {
                 quota.push(json!({"ref":format!("{owner}/{id}")}));
             } else {
@@ -410,8 +436,29 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
         facts["legend"] = json!("30d; no self-test; n=dispatches med=successful observed minutes unrev=unreviewed int=interrupted fail=failed ext=external reviews with own pass/rework; /tier omitted=default ?=unknown; other=mixed n<10; quota=% used");
     }
     facts["agents"] = json!(rows);
+    if !others.is_empty() {
+        facts["otherAgents"] = json!(others);
+    }
     clean(&mut facts);
     facts
+}
+
+fn configured(policy: &Value) -> bool {
+    [
+        "model",
+        "effort",
+        "options",
+        "serviceTier",
+        "serviceTiers",
+        "allowModels",
+        "denyModels",
+        "allowEfforts",
+        "denyEfforts",
+        "allowOptions",
+        "denyOptions",
+    ]
+    .iter()
+    .any(|k| !empty(&policy[*k]))
 }
 
 #[cfg(test)]
@@ -507,12 +554,88 @@ mod catalog_metadata_tests {
         assert_eq!(result["agents"][0]["authoritative"], true);
         assert_eq!(result["agents"][1]["authoritative"], false);
         assert_eq!(result["agents"][1]["omittedModels"], 2);
-        assert_eq!(result["agents"][2]["authoritative"], false);
-        assert!(result["agents"][2].get("models").is_none());
+        assert_eq!(result["agents"].as_array().unwrap().len(), 2);
+        assert!(result["otherAgents"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("pi: "));
         let full = present(facts, &json!({"view":"full"}));
         assert_eq!(full["agents"][0]["models"], json!(models));
         assert_eq!(full["agents"][1]["capabilities"]["models"], json!(models));
         assert_eq!(full["agents"][0]["authoritative"], true);
         assert_eq!(full["agents"][1]["capabilities"]["authoritative"], false);
+    }
+}
+
+#[cfg(test)]
+mod decision_budget_tests {
+    use super::*;
+
+    #[test]
+    fn decision_rows_collapse_unused_agents_and_attach_primary_pools() {
+        // Property: unconfigured Agents without history collapse to one line while configured Agents and primary-pool credit facts stay visible.
+        let facts = json!({"agents":[
+            {"agent":"codex","availability":{"installed":true,"enabled":true,"available":true},
+             "policy":{"criteria":"Route by evidence."},
+             "accounts":[
+                {"id":"primary","alias":"P","health":{"state":"ready"},"agentProfiles":[{"role":"primary"}],
+                 "quota":{"windows":[{"id":"weekly","usedPercent":40}]}},
+                {"id":"secondary","alias":"S","health":{"state":"ready"},"agentProfiles":[{"role":"secondary"}]}],
+             "quota":{"ordinaryUsageAllowed":false,"pools":[{"id":"codex","credits":{"hasCredits":true,"balance":"1.5"},
+                "primary":{"usedPercent":40,"windowDurationMins":10080}}]}},
+            {"agent":"idle","availability":{"installed":true,"enabled":true,"available":true},"policy":{}},
+            {"agent":"constrained","availability":{"installed":true,"enabled":true,"available":true},"policy":{"denyModels":["x"]}}
+        ]});
+        let result = present(facts, &json!({}));
+        let agents = result["agents"].as_array().unwrap();
+        assert_eq!(
+            agents
+                .iter()
+                .map(|a| string(a, "agent"))
+                .collect::<Vec<_>>(),
+            ["codex", "constrained"]
+        );
+        assert_eq!(result["otherAgents"], json!(["idle: available"]));
+        let native = &agents[0]["accounts"][0]["quota"]["native"];
+        assert_eq!(native["credits"]["balance"], "1.5");
+        assert_eq!(native["ordinaryUsageAllowed"], false);
+        assert!(native.get("summary").is_none());
+        assert!(agents[0].get("quota").is_none());
+    }
+
+    #[test]
+    fn compact_history_keeps_six_configurations_and_merges_the_rest() {
+        // Property: compact history never exceeds six configuration groups plus other and preserves total dispatch counts.
+        let now = chrono::Utc::now();
+        let mut rows = vec![];
+        for model in 0..9 {
+            for turn in 0..(10 + model) {
+                rows.push(json!({"agent":"codex","threadId":format!("t{model}"),"turnId":format!("u{turn}"),
+                    "model":format!("m{model}"),"effort":"high","dispatchMode":"new-turn","submittedAt":now.to_rfc3339()}));
+            }
+        }
+        let total = rows.len() as u64;
+        let compact = crate::dispatch_policy::summarize_history(
+            &rows,
+            "codex",
+            true,
+            now - chrono::Duration::days(1),
+        );
+        let groups = compact["groups"].as_array().unwrap();
+        assert!(groups.iter().filter(|g| g["model"] != "other").count() <= 6);
+        assert_eq!(
+            groups
+                .iter()
+                .map(|g| g["dispatches"].as_u64().unwrap())
+                .sum::<u64>(),
+            total
+        );
+        let full = crate::dispatch_policy::summarize_history(
+            &rows,
+            "codex",
+            false,
+            now - chrono::Duration::days(1),
+        );
+        assert_eq!(full["groups"].as_array().unwrap().len(), 9);
     }
 }

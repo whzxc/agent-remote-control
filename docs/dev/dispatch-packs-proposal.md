@@ -1,6 +1,6 @@
 # Context layering and dispatch packs proposal
 
-Status: accepted. Phase 1 is implemented.
+Status: accepted. Phases 1 and 2 are implemented.
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
 [Dispatch policy](dispatch-policy.md) · [Control profiles](control-profiles.md) · [Tool surface](tool-surface.md) · [Control loop](control-loop.md)
