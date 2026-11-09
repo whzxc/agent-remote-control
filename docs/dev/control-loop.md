@@ -102,7 +102,7 @@ Potential future event ops include file changes, process exits, commits, ingress
 
 ### 6.1 Guide
 
-Guide is always available. topic is loop (default), notify, review, or approvals. op takes precedence and returns full schema/description/example. Cached clients use query({op:"guide",args:{topic?,op?}}) without changing frozen tools. Default content includes orchestration, examples, and enabled op signatures. Source comes from the ingress as Claude, ChatGPT, or other.
+Guide is always available. topic is loop (default), notify, review, or approvals. op takes precedence and returns full schema/description/example. Cached clients use query({op:"guide",args:{topic?,op?}}) without changing frozen tools. Content comes from the source's effective [control profile](control-profiles.md), which is derived from the source product and transport unless local management overrides it.
 
 All guide text is English only. MUST/SHOULD/MAY definitions appear once at the top. Follow [terminology](terminology.md) and one rule per sentence. Keep topics concise without a fixed line budget that would force compound rules. Schemas, signatures, and indexes are disclosed separately.
 

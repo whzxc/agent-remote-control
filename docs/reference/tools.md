@@ -979,8 +979,8 @@ state. Existing explicit op allowlists require local adoption of these new ops.
 ## Capability profiles and task summaries
 
 Profiles change initial guide discovery only; execution retains the existing op policy and runtime availability.
-Existing sources remain Legacy until changed through authenticated local source management.
-MCP sources can select Legacy, Remote push, or Remote polling.
+Sources without a saved setting receive a derived profile: built-in Local CLI derives Local Code, Claude and ChatGPT MCP sources derive Remote push, and other MCP sources derive Remote polling.
+Authenticated local source management can override it; MCP sources can select Remote push or Remote polling.
 Local Code applies only to built-in `arc cli control`, never to the shared `claude` MCP source.
 Use `guide({op})` for complete schemas and `query({op:"guide",args:{view:"full"}})` for all enabled operations.
 The query guide op supports `coordination`, `src`, and `context` topics without changing the frozen guide tool parameters.

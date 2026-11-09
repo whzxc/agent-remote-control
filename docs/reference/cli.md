@@ -759,11 +759,11 @@ printf '%s' '{"capabilityProfile":{"hostAccess":"host","waitMode":"background-cl
 arc cli control guide
 ```
 
-This setting affects all built-in CLI callers and does not change execution permissions.
-Set `capabilityProfile:null` to restore Legacy.
+Built-in CLI callers already derive Local Code without a saved setting; an explicit setting affects all of them and does not change execution permissions.
+Set `capabilityProfile:null` to return to the derived profile.
 MCP sources instead accept `{hostAccess:"none"|"unknown",waitMode:"push"|"poll"}`.
 A `claude` MCP connector can serve Code, Chat and Cowork, so it cannot select Local Code.
-New sources offer a selection through `capabilityProfileOffer` and source setup; existing sources remain Legacy until explicitly changed.
+New sources offer a selection through `capabilityProfileOffer` and source setup; without one they use the derived profile.
 Source preferences follow the stable source ID across connection switches.
 
 Read `cli control dispatch_policy` and `cli control guide codex_create` before dispatch.

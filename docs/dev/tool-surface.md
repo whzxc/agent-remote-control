@@ -32,7 +32,7 @@ All tool results include arcVersion: the first 12 SHA-256 characters of the embe
 
 ## Guide content
 
-The default loop response includes core rules and common enabled ops. The query guide op accepts view:full for the complete source-specific workflow, examples, and enabled index. Existing notify/review/approvals topics retain detailed workflows. The compact guide points to these discovery paths. Full Claude examples include notify. Event contracts appear in the full view and notify topic.
+Every guide response is a [profile](control-profiles.md) projection. The default loop response includes the profile's rules and its initial ops. The query guide op accepts view:full for every enabled op with signatures and retry modes. The notify, review and approvals topics use their profile topic texts. The compact guide points to these discovery paths. Event contracts appear in the Remote push full view and notify topic for ChatGPT.
 
 Index signatures contain parameter names rather than duplicate orchestration examples. Required names are bare and optional names end in `?`. Limits come from the current schema. catalog.guideParameters chooses display order and important optional fields such as project, notify, latest, turnId, and expectedHash. Generation validates parameter existence and includes all required fields to prevent drift.
 
@@ -61,7 +61,7 @@ Use the existing validator rather than a second defensive layer. Existing tests 
 
 [Control profiles](control-profiles.md) specialize initial discovery through `toolExposure` preset metadata.
 Profile selection never changes execution allowlists or runtime availability.
-Existing sources remain Legacy until explicitly changed.
+Sources without a saved setting receive a derived profile: built-in Local CLI derives Local Code, Claude and ChatGPT MCP sources derive Remote push, and other MCP sources derive Remote polling.
 Local Code is restricted to built-in CLI authority; MCP sources use remote profiles.
 Local Code Layer 1 targets 2,500 serialized-result Unicode characters including index and hashes.
 The full view still exposes all policy-enabled operations.
