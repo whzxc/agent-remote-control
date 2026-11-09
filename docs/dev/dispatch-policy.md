@@ -1,6 +1,6 @@
 # Dispatch policy
 
-[Control loop](control-loop.md) · [Architecture](architecture.md) · [Terminology](terminology.md)
+[Control loop](control-loop.md) · [Architecture](architecture.md) · [Terminology](terminology.md) · [Packs proposal](dispatch-packs-proposal.md)
 
 [Multi-Agent dispatch](dispatch-agents.md) describes capability sources and Agent boundaries. This document describes the integrated Codex path and shared decision view.
 
