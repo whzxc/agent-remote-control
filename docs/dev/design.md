@@ -14,6 +14,14 @@ The desktop targets are macOS and Windows. Headless Linux has no product UI. Eac
 
 The default exports declare the maintained presentations. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
 
+### ARC health proposal
+
+Both arcs show the same binary health of the ARC runtime. Healthy uses the existing artwork. Unhealthy changes both arc strokes and exposes a center action that opens ARC recovery. The upper arc keeps the Connections shortcut. Connection start and stop controls belong in Connections. The two side buttons and topology nodes retain their existing roles.
+
+Desktop derives the mark from an authenticated check of its ARC Core and management listener. The check has a bounded startup window and reports an actionable reason for a failed check. Its result is independent of status reads for control sources, ingress providers, Agents, accounts, and tasks. Those surfaces report their own failures. A client attaching, leaving, or losing its lease cannot stop Core while Desktop owns it.
+
+Retry repeats the runtime check. Restart uses a local Desktop action that remains reachable when Core is unresponsive. It verifies ownership before stopping Core and checks the replacement's health before reporting success. Recovery keeps the fault treatment while the action is in flight. Each new Core restores ARC-managed remote ingress intent from the last explicit start or stop, including when Desktop stayed open. Local client bridges connect on demand. Connection restoration reports its own failures in Connections.
+
 ## Ownership and project configuration
 
 SDG discovers `components`, `modules` and `surfaces` in that order. The [mapping](design-assets.md) owns per-part feature responsibility, implementation counterparts, review/adoption status and retained exceptions. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
