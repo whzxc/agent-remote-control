@@ -22,7 +22,8 @@ test('Codex dispatch policy retains credit balance alongside exhausted subscript
   `);
   try {
     const decision = await fixture.call('dispatch_policy', { agent: 'codex', all: true });
-    const quota = decision.agents[0].quota.find((q: any) => q.id === 'codex/codex');
+    const row = decision.agents[0];
+    const quota = [...(row.quota ?? []), ...(row.accounts ?? []).map((a: any) => a.quota?.native)].find((q: any) => q?.id === 'codex/codex');
     assert.deepEqual(quota.credits, credits);
     assert.equal(quota.ordinaryUsageAllowed, false);
     assert.equal(quota.rateLimitReachedType, 'rate_limit_reached');
