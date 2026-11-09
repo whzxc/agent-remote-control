@@ -68,6 +68,17 @@ test('Antigravity local access accepts an empty configuration and preserves othe
     assert.equal(before.antigravityInstalled, false);
     const installed = await f.api('local-access/install', { target: 'antigravity' });
     assert.equal(installed.installed, true, JSON.stringify(installed));
+    const sourceForIngress = (rows: any[]) => rows.find(row => row.ingressId === 'local-antigravity');
+    const assertService = (source: any) => {
+      assert.ok(source);
+      assert.equal(source.product, 'gemini');
+      assert.equal(source.platform, 'google');
+      assert.equal(source.label, 'Antigravity');
+    };
+    const fresh = sourceForIngress((await f.api('ingress/local-antigravity')).sources);
+    assertService(fresh);
+    await f.api(`source/${fresh.id}`, { product: 'custom', label: 'Legacy source' }, 'PUT');
+    assert.equal(sourceForIngress((await f.api('source')).sources).product, 'custom');
     const config = JSON.parse(await readFile(f.config, 'utf8'));
     assert.deepEqual(config.mcpServers['agent-remote-control'].args, ['cli', 'local-mcp', 'local-antigravity']);
     assert.ok(config.mcpServers['agent-remote-control'].command);
@@ -79,7 +90,9 @@ test('Antigravity local access accepts an empty configuration and preserves othe
     assert.deepEqual(JSON.parse(await readFile(f.config, 'utf8')), config);
     assert.equal((await f.api('local-access/status')).antigravityInstalled, true);
     const ingress = await f.api('ingress/local-antigravity');
-    assert.equal(ingress.controlSource, 'antigravity');
+    assert.equal(ingress.controlSource, 'gemini');
+    assertService(sourceForIngress(ingress.sources));
+    assertService(sourceForIngress((await f.api('source')).sources));
     assert.equal(ingress.enabled, true);
     assert.equal(ingress.running, true);
     const guide = await f.sourceCall('local-antigravity', 'guide', {}, 'query');

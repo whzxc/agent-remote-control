@@ -26,10 +26,7 @@ fn derived(source: &Value, local: bool) -> Value {
     if local {
         return json!({"hostAccess":"host","waitMode":"background-cli"});
     }
-    let push = matches!(
-        string(source, "product"),
-        "claude" | "chatgpt" | "antigravity"
-    );
+    let push = matches!(string(source, "product"), "claude" | "chatgpt" | "gemini");
     json!({"hostAccess":if source["product"]=="custom"{"unknown"}else{"none"},"waitMode":if push{"push"}else{"poll"}})
 }
 

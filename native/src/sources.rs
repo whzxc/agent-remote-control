@@ -276,6 +276,9 @@ fn normalized(id: &str) -> &str {
 }
 pub fn match_product(name: &str) -> String {
     let name = name.to_lowercase();
+    if name.contains("antigravity") {
+        return "gemini".into();
+    }
     // Product inference is a correctable default, never an identity match.
     for p in crate::control_sources::presets().iter().rev() {
         if p["id"] == "custom" || p["id"] == "local-cli" {

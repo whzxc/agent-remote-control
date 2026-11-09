@@ -78,7 +78,7 @@ pub(crate) fn request<'a>(
                 "codeAvailable":code.is_some(), "desktopAvailable":desktop.is_some(),
                 "codeInstalled":installed(code_config(), &server_config("local-claude-code")?) && service.ingress("local-claude-code").await.is_ok(),
                 "antigravityAvailable":antigravity_available(),
-                "antigravityInstalled":antigravity_config().and_then(|p| read_json(&p).ok()).is_some_and(|v| v["mcpServers"][SERVER].is_object()) && service.request("ingress", "GET", json!({})).await?.as_array().is_some_and(|rows| rows.iter().any(|row| row["transport"] == "local" && (row["id"] == "local-antigravity" || row["name"] == "local-antigravity" || row["controlSource"] == "antigravity"))),
+                "antigravityInstalled":installed(antigravity_config(), &server_config("local-antigravity")?) && service.request("ingress", "GET", json!({})).await?.as_array().is_some_and(|rows| rows.iter().any(|row| row["transport"] == "local" && (row["id"] == "local-antigravity" || row["name"] == "local-antigravity" || (row["controlSource"] == "gemini" && row["name"] == "Antigravity")))),
                 "desktopInstalled":installed(desktop, &server_config("local-claude-desktop")?) && service.ingress("local-claude-desktop").await.is_ok()
             }));
         }
@@ -164,7 +164,7 @@ pub(crate) fn request<'a>(
             return Err("LOCAL_INSTALL_NOT_CONFIRMED".into());
         }
         if target == "antigravity" {
-            let body = json!({"id":id,"name":name,"controlSource":"antigravity","transport":"local","auth":"none","enabled":true,"config":{"autoStart":true}});
+            let body = json!({"id":id,"name":name,"controlSource":"gemini","transport":"local","auth":"none","enabled":true,"config":{"autoStart":true}});
             if service.ingress(id).await.is_ok() {
                 service
                     .request(&format!("ingress/{id}"), "PUT", body)
@@ -178,6 +178,19 @@ pub(crate) fn request<'a>(
         service
             .request(&format!("ingress/{id}/start"), "POST", json!({}))
             .await?;
+        if target == "antigravity" {
+            for source in crate::sources::list()? {
+                if source["ingressId"] == id
+                    && (source["product"] != "gemini" || source["label"] != "Antigravity")
+                {
+                    crate::sources::update(
+                        string(&source, "id"),
+                        &json!({"product":"gemini","label":"Antigravity"}),
+                    )
+                    .await?;
+                }
+            }
+        }
         Ok(json!({"installed":true,"ingressId":id}))
     })
 }

@@ -607,36 +607,6 @@
     "docs": []
   },
   {
-    "id": "antigravity",
-    "displayName": "Antigravity",
-    "shortName": "Antigravity",
-    "platform": "google",
-    "icon": "antigravity",
-    "curated": false,
-    "recommendedTransport": "https",
-    "recommendedAuth": "bearer",
-    "httpsAuth": "bearer",
-    "supportedAuth": [
-      "bearer",
-      "oauth",
-      "none"
-    ],
-    "status": "conditional",
-    "remoteMcp": "unknown",
-    "clientAuth": [],
-    "customHeaders": "",
-    "capability": "Local MCP through ARC CLI",
-    "caveat": {
-      "en": "Configure the client transport and authentication.",
-      "zh-CN": "配置客户端传输与认证。"
-    },
-    "badge": {
-      "en": "",
-      "zh-CN": ""
-    },
-    "docs": []
-  },
-  {
     "id": "custom",
     "displayName": "Custom",
     "shortName": "Custom",
