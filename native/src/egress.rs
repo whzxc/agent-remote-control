@@ -157,7 +157,6 @@ pub fn failure(e: &str) -> Value {
                     | "CODEX_THREAD_ACCOUNT_MISMATCH"
                     | "CODEX_PROFILE_DESKTOP_UNSUPPORTED"
                     | "CLAUDE_SESSION_MIGRATION_REQUIRED"
-                    | "CODEX_PROFILE_PARITY_BUSY"
                     | "CODEX_PROFILE_PARITY_FAILED"
                     | "ACCOUNT_ROUTE_CHANGED"
                     | "HANDSHAKE_INVALID_OR_EXPIRED"

@@ -272,8 +272,7 @@ for await(const line of createInterface({input:process.stdin})) {
   } finally { await fixture.close(); await rm(hooks, { recursive: true, force: true }); }
 });
 
-test('Codex profiles inherit approval policy and reload shared setup before dispatch', async () => {
-  // Regression: spare Codex homes missed shared setup, resume erased their binding, and identical plugin re-extraction marked active profiles stale.
+async function sharedCodexFixture() {
   const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
@@ -290,10 +289,12 @@ test('Codex profiles inherit approval policy and reload shared setup before disp
   const script = `import {createInterface} from 'node:readline';
 import {randomUUID} from 'node:crypto'; import fs from 'node:fs'; import path from 'node:path';
 const home=process.env.CODEX_HOME; fs.mkdirSync(home,{recursive:true});
+const loadSetup=()=>{
 const config=fs.existsSync(path.join(home,'config.toml'))?fs.readFileSync(path.join(home,'config.toml'),'utf8'):'';
 const policy=/^approval_policy\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
 const effort=/^model_reasoning_effort\\s*=\\s*"([^"]+)"/m.exec(config)?.[1];
-const setup={policy,effort,instructions:fs.existsSync(path.join(home,'AGENTS.md'))?fs.readFileSync(path.join(home,'AGENTS.md'),'utf8'):null,skills:fs.existsSync(path.join(home,'skills'))?fs.readdirSync(path.join(home,'skills')).filter(name=>name==='example-skill'):[],mcp:config.includes('[mcp_servers.example]')};
+return {policy,effort,instructions:fs.existsSync(path.join(home,'AGENTS.md'))?fs.readFileSync(path.join(home,'AGENTS.md'),'utf8'):null,skills:fs.existsSync(path.join(home,'skills'))?fs.readdirSync(path.join(home,'skills')).filter(name=>name==='example-skill'):[],mcp:config.includes('[mcp_servers.example]')};
+};
 const auth=fs.existsSync(path.join(home,'auth.json'))?JSON.parse(fs.readFileSync(path.join(home,'auth.json'),'utf8')):null;
 let account=auth?.tokens?.account_id??'primary'; const file=path.join(home,'fixture-tasks.json');
 const tasks=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{}; const save=rows=>fs.writeFileSync(file,JSON.stringify(rows));
@@ -304,21 +305,29 @@ for await(const line of createInterface({input:process.stdin})) {
  if(method==='account/read')result={account:{type:'chatgpt',accountId:account,email:account+'@example.test',planType:'pro'}};
  if(method==='account/rateLimits/read')result={rateLimits:{primary:{usedPercent:0,windowDurationMins:300}}};
  if(method==='model/list')result={data:[{id:'fixture-model',model:'fixture-model',supportedReasoningEfforts:[{reasoningEffort:'low'}],defaultReasoningEffort:'low'}]};
- if(method==='thread/start'){const created={id:randomUUID(),cwd:home,updatedAt:Date.now(),status:{type:'idle'},turns:[]};rows[created.id]=created;save(rows);result={thread:created};}
+ if(method==='thread/start'){const created={id:randomUUID(),cwd:home,updatedAt:Date.now(),status:{type:'idle'},turns:[],setup:loadSetup()};rows[created.id]=created;save(rows);result={thread:created};}
  if(method==='thread/read')result={thread:{...row,status:row.status.type==='active'&&!activeThreads.has(row.id)?{type:'notLoaded'}:row.status}};
  if(method==='thread/turns/list')result={data:[...row.turns].reverse(),nextCursor:null};
  if(method==='thread/loaded/list')result={data:Object.keys(rows)};
  if(method==='thread/list')result={data:Object.values(rows),nextCursor:null};
  if(method==='turn/start'){
-  if(policy!=='never'){console.log(JSON.stringify({id,error:{code:-32000,message:'Command approval required by missing shared policy'}}));continue;}
-  const active=params.input?.some(i=>i.text==='hold'); const turn={id:randomUUID(),status:active?'inProgress':'completed',items:[{id:randomUUID(),type:'agentMessage',text:JSON.stringify(setup)}]};
+  if(row.setup.policy!=='never'){console.log(JSON.stringify({id,error:{code:-32000,message:'Command approval required by missing shared policy'}}));continue;}
+  const active=params.input?.some(i=>i.text==='hold'); const turn={id:randomUUID(),status:active?'inProgress':'completed',items:[{id:randomUUID(),type:'agentMessage',text:JSON.stringify(row.setup)}]};
   if(active)activeThreads.add(row.id);else activeThreads.delete(row.id);
   row.status={type:active?'active':'idle'};row.turns.push(turn);save(rows);result={turn};
  }
+ if(method==='turn/steer')result={turnId:row.turns.at(-1).id};
  if(method==='turn/interrupt'){activeThreads.delete(row.id);row.status={type:'idle'};row.turns.at(-1).status='interrupted';save(rows);}
  console.log(JSON.stringify({id,result}));
 }`;
   const fixture = await nativeControl(script, { CODEX_HOME: primary });
+  return { fixture, primary, config, pluginDirectory, pluginContents, writeFile, mkdir, rm };
+}
+
+test('Codex dispatch picks up shared configuration while an existing task stays active', async () => {
+  // Regression: shared config change blocks dispatch while a task is active.
+  const { fixture, primary, config, pluginDirectory, pluginContents, writeFile, mkdir, rm } = await sharedCodexFixture();
+  const path = await import('node:path');
   try {
     const primaryAccount = (await fixture.call('accounts', { agent: 'codex' })).accounts.find((account: any) => account.agentProfiles.some((profile: any) => profile.profileId === 'codex-home'));
     const imported = [];
@@ -354,13 +363,21 @@ for await(const line of createInterface({input:process.stdin})) {
     const stillActive = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: false } });
     assert.equal(stillActive.thread.status.type, 'active');
     await writeFile(path.join(primary, 'config.toml'), config('high'));
-    const blocked = await fixture.completed('codex_create', { account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
-    assert.equal(blocked.error.code, 'CODEX_PROFILE_PARITY_BUSY', JSON.stringify(blocked));
+    await writeFile(path.join(primary, 'AGENTS.md'), 'Updated shared instruction fixture');
+    await rm(path.join(primary, 'skills', 'example-skill'), { recursive: true });
+    const current = await dispatch(imported[0]);
+    assert.deepEqual(current.setup, { policy: 'never', effort: 'high', instructions: 'Updated shared instruction fixture', skills: [], mcp: true });
+    const active = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: true } });
+    assert.equal(active.thread.status.type, 'active');
+    assert.equal(active.thread.turns.at(-1).id, held.receipt.turnId);
+    assert.equal(active.thread.turns.at(-1).status, 'inProgress');
+    const steered = await fixture.completed('codex_send', { threadId: held.receipt.threadId, sendMode: 'steer', prompt: 'Continue the held task' });
+    assert.equal(steered.state, 'completed', JSON.stringify(steered));
     assert.equal((await fixture.completed('codex_interrupt', { threadId: held.receipt.threadId, turnId: held.receipt.turnId })).state, 'completed');
     const resumed = await fixture.completed('codex_resume', { threadId: held.receipt.threadId, turnId: held.receipt.turnId });
     assert.equal(resumed.state, 'completed', JSON.stringify(resumed));
     const resumedThread = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.receipt.threadId, includeTurns: true } });
-    assert.equal(JSON.parse(resumedThread.thread.turns.at(-1).items[0].text).effort, 'high');
+    assert.equal(resumedThread.thread.id, held.receipt.threadId);
     const continuation = await fixture.completed('codex_send', { threadId: held.receipt.threadId, account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
     assert.equal(continuation.state, 'completed', JSON.stringify(continuation));
     assert.equal(continuation.agentAccountId, imported[0].accountId);
@@ -371,13 +388,34 @@ for await(const line of createInterface({input:process.stdin})) {
       assert.equal(detail.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity.state, 'shared');
       assert.equal((await dispatch(account)).setup.policy, 'never');
     }
-    await writeFile(path.join(primary, 'config.toml'), 'approval_policy = "fixture-secret-without-closing-quote\n');
-    const failed = await fixture.completed('codex_create', { account: imported[0].accountId, prompt: 'inspect', model: 'fixture-model' });
-    assert.equal(failed.error.code, 'CODEX_PROFILE_PARITY_FAILED', JSON.stringify(failed));
-    assert.equal(failed.threadId, undefined);
-    assert.equal(failed.next.op, 'guide');
-    assert.deepEqual(failed.next.args, { op: 'accounts' });
-    assert.ok(!JSON.stringify(failed).includes('fixture-secret-without-closing-quote'));
+  } finally { await fixture.close(); await rm(primary, { recursive: true, force: true }); }
+});
+
+test('Codex account and quota reads remain available after shared configuration changes', async () => {
+  // Regression: shared config changes made active-account quota unavailable in dispatch_policy.
+  const { fixture, primary, config, writeFile, rm } = await sharedCodexFixture();
+  const path = await import('node:path');
+  try {
+    const account = await fixture.call('account_import', { auth: { tokens: { access_token: 'quota', account_id: 'quota' } }, refreshOwner: 'none' });
+    assert.equal(account.state, 'completed', JSON.stringify(account));
+    const held = await fixture.completed('codex_create', { account: account.accountId, prompt: 'hold', model: 'fixture-model' });
+    assert.equal(held.state, 'completed', JSON.stringify(held));
+    await writeFile(path.join(primary, 'config.toml'), config('high'));
+    const refreshed = await fixture.api('accounts/refresh-quota', { id: account.accountId });
+    assert.equal(refreshed.quota.windows[0].usedPercent, 0, JSON.stringify(refreshed.quota));
+    const detail = await fixture.call('accounts', { id: account.accountId });
+    assert.equal(detail.quota.windows[0].usedPercent, 0, JSON.stringify(detail.quota));
+    const policy = await fixture.call('dispatch_policy', { agent: 'codex', view: 'full' });
+    const selected = policy.agents.find((row: any) => row.agent === 'codex').accounts.find((row: any) => row.id === account.accountId);
+    assert.equal(selected.quota.windows[0].usedPercent, 0, JSON.stringify(selected));
+    const active = await fixture.call('codex_query', { method: 'thread/read', params: { threadId: held.threadId, includeTurns: false } });
+    assert.equal(active.thread.status.type, 'active');
+    // Fingerprint inspection can fail independently of the native account reader.
+    await writeFile(path.join(primary, 'config.toml'), 'invalid = "unterminated\n');
+    await fixture.restart();
+    const afterRestart = await fixture.api('accounts/refresh-quota', { id: account.accountId });
+    assert.equal(afterRestart.agentProfiles.find((profile: any) => profile.profileId === account.profileId).parity.state, 'error');
+    assert.equal(afterRestart.quota.windows[0].usedPercent, 0, JSON.stringify(afterRestart.quota));
   } finally { await fixture.close(); await rm(primary, { recursive: true, force: true }); }
 });
 

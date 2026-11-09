@@ -14,7 +14,6 @@ const STOP_GRACE: Duration = Duration::from_secs(5);
 #[derive(Clone, Debug)]
 pub(crate) struct Host {
     pub profile: String,
-    pub fingerprint: String,
     pub pid: u32,
     pub process_start: String,
     pub socket: PathBuf,
@@ -128,7 +127,6 @@ fn owned(record: &Value) -> Option<u32> {
 fn host(record: &Value, pid: u32, adopted: bool, binary: &Path) -> Host {
     Host {
         profile: string(record, "profile").to_owned(),
-        fingerprint: string(record, "fingerprint").to_owned(),
         pid,
         process_start: string(record, "processStart").to_owned(),
         socket: PathBuf::from(string(record, "socket")),
@@ -143,7 +141,6 @@ fn host(record: &Value, pid: u32, adopted: bool, binary: &Path) -> Host {
 pub(crate) async fn attach(
     binary: &Path,
     profile: &str,
-    fingerprint: &str,
     launches: &crate::launches::Launches,
 ) -> Result<Host> {
     let path = record_path(profile)?;
@@ -154,7 +151,7 @@ pub(crate) async fn attach(
         // The recorded server exited or its PID now names another process.
         discard(profile)?;
     }
-    spawn(binary, profile, fingerprint, launches).await
+    spawn(binary, profile, launches).await
 }
 
 /// Whether a detached server is recorded and still running for this profile.
@@ -337,12 +334,7 @@ pub async fn run() -> Result<()> {
     }
 }
 
-fn launch(
-    binary: &Path,
-    profile: &str,
-    fingerprint: &str,
-    scoped: bool,
-) -> Result<std::process::Child> {
+fn launch(binary: &Path, profile: &str, scoped: bool) -> Result<std::process::Child> {
     let executable = crate::task_host::executable()?;
     let log = std::fs::File::create(directory().join(format!("{profile}.log")))
         .map_err(|e| e.to_string())?;
@@ -380,7 +372,7 @@ fn launch(
         }
     }
     let spec = json!({"binary":binary,"record":{
-        "profile":profile,"fingerprint":fingerprint,"socket":socket(profile)?,
+        "profile":profile,"socket":socket(profile)?,
         "binary":binary_stamp(binary),"startedAt":now(),"inheritedNofile":crate::resources::before_spawn(),
         "creatorPid":std::process::id(),"creatorStart":process_start(std::process::id()),"executable":executable
     }});
@@ -438,12 +430,7 @@ pub(crate) fn indexed_spawn(
     Ok(child)
 }
 
-async fn spawn(
-    binary: &Path,
-    profile: &str,
-    fingerprint: &str,
-    launches: &crate::launches::Launches,
-) -> Result<Host> {
+async fn spawn(binary: &Path, profile: &str, launches: &crate::launches::Launches) -> Result<Host> {
     std::fs::create_dir_all(directory()).map_err(|e| e.to_string())?;
     let socket = socket(profile)?;
     discard(profile)?;
@@ -457,7 +444,7 @@ async fn spawn(
     let attempts: &[bool] = &[false];
     let mut failure = String::new();
     for &scoped in attempts {
-        let mut child = match launches.run(|| launch(binary, profile, fingerprint, scoped)) {
+        let mut child = match launches.run(|| launch(binary, profile, scoped)) {
             Ok(child) => child,
             Err(error) => {
                 if scoped {

@@ -6689,7 +6689,7 @@
     },
     {
       "name": "accounts",
-      "description": "List provider accounts, sources, Agent profiles, health, defaults, notification reachability and quota. Codex agentProfiles.parity reports primary, synced, stale or error, fingerprint and lastSyncAt; stale/error requires attention. id returns full detail; list omits email and orgName. Removed IDs return tombstones.",
+      "description": "List provider accounts, sources, Agent profiles, health, defaults, notification reachability and quota. Codex agentProfiles.parity reports primary, shared or error, fingerprint and lastSyncAt. It is diagnostic and does not gate operations or quota reads. id returns full detail; list omits email and orgName. Removed IDs return tombstones.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6847,7 +6847,7 @@
     },
     {
       "name": "account_add",
-      "description": "Start official login or detect native authentication. Codex stores credentials separately and all execution processes use the native primary home for sessions and settings. The Desktop login is primary; other credentials are secondary and cannot dispatch to Desktop. Selecting a default account changes dispatch selection only. Read accounts to poll login progress. agentProfiles.parity reports the current shared configuration revision. CODEX_PROFILE_PARITY_BUSY requires finishing active work before reloading changed settings.",
+      "description": "Start official login or detect native authentication. Codex stores credentials separately and all execution processes use the native primary home for sessions and settings. The Desktop login is primary; other credentials are secondary and cannot dispatch to Desktop. Selecting a default account changes dispatch selection only. Read accounts to poll login progress. agentProfiles.parity reports the current shared configuration revision. Shared configuration changes do not restart active servers or block work; Codex loads current settings for new threads.",
       "inputSchema": {
         "type": "object",
         "properties": {

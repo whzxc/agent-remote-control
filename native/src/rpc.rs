@@ -192,7 +192,6 @@ impl Rpc {
         events: SharedEvents,
         session: &str,
         profile: Option<&str>,
-        fingerprint: &str,
         launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
         launches.check()?;
@@ -200,12 +199,7 @@ impl Rpc {
             return Self::start_profile(binary, events, session, profile).await;
         }
         match Box::pin(Self::connect_host(
-            binary,
-            &events,
-            session,
-            profile,
-            fingerprint,
-            launches,
+            binary, &events, session, profile, launches,
         ))
         .await
         {
@@ -223,12 +217,11 @@ impl Rpc {
         events: &SharedEvents,
         session: &str,
         profile: Option<&str>,
-        fingerprint: &str,
         launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
         let key = profile.unwrap_or("codex-home");
         loop {
-            let host = crate::codex_host::attach(binary, key, fingerprint, launches).await?;
+            let host = crate::codex_host::attach(binary, key, launches).await?;
             let mut failure = String::new();
             let mut connected = None;
             for _ in 0..3 {
@@ -245,16 +238,9 @@ impl Rpc {
             }
             let rpc = connected.ok_or(failure)?;
             if host.adopted {
-                let mismatch = host.fingerprint != fingerprint;
-                if mismatch || host.outdated {
-                    if !rpc.active().await {
-                        rpc.stop().await;
-                        continue;
-                    }
-                    if mismatch {
-                        rpc.close().await;
-                        return Err(json!({"code":"CODEX_PROFILE_PARITY_BUSY","message":"Shared Codex configuration changed while this profile has active tasks. Finish or interrupt those tasks, then retry dispatch.","next":{"via":"query","op":"guide","args":{"op":"accounts"}}}).to_string());
-                    }
+                if host.outdated && !rpc.active().await {
+                    rpc.stop().await;
+                    continue;
                 }
                 if profile.is_none() {
                     rpc.resubscribe().await;

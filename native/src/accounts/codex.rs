@@ -1,5 +1,5 @@
 //! Independent Codex credentials with shared native session storage.
-pub(crate) use super::codex_config::{inspect_profile, shared_configuration};
+pub(crate) use super::codex_config::inspect_profile;
 use super::*;
 use crate::owned_children::SpawnOwned;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
