@@ -1,151 +1,54 @@
 import { Frame } from "sdg";
-import { BrandMark } from "../components/agent-icon";
-import { IconButton } from "../components/icon-button";
-import { readings, quotaExample, agentQuotas, quotaAccounts } from "../fixtures/quota";
+import { Card } from "../components/card";
+import { quotaSpecimens } from "../fixtures/quota";
 
-export function QuotaCard({ children }: { children?: unknown }) {
-  return (
-    <div class="flex w-full flex-col gap-5 rounded-card bg-surface-subtle px-4 pt-4 pb-[22px] text-text">
-      {children}
-    </div>
-  );
-}
-export function QuotaDetailAction({ children }: { children?: unknown }) {
-  return <span class="text-meta text-text-secondary">{children}</span>;
-}
-export function QuotaReading({
-  label,
-  reset,
-  remaining,
-  estimate,
-  elapsed,
-  used = false,
-}: {
+export type QuotaWindow = {
   label: string;
+  value: number;
+  mode: string;
   reset: string;
-  remaining: number;
-  estimate: string;
-  elapsed: number;
-  used?: boolean;
-}) {
+  elapsed?: number;
+  tone: "success" | "warning" | "danger";
+  detail?: string;
+};
+
+export function QuotaCard({ label, value, mode, reset, elapsed, tone, detail }: QuotaWindow) {
+  const bar = { success: "bg-success", warning: "bg-warning", danger: "bg-danger" };
+  const ink = { success: "text-text-secondary", warning: "text-warning", danger: "text-danger" };
   return (
-    <div class="flex flex-col gap-2 text-meta leading-4">
-      <div class="flex justify-between text-text-secondary">
-        <span class="font-medium">{label}</span>
-        <span>{reset}</span>
+    <Card padded class="gap-2!">
+      <h3 class="text-meta leading-4 font-semibold text-text-secondary">{label}</h3>
+      <div class="flex flex-wrap items-baseline gap-x-2 leading-7">
+        <strong class="text-display font-[650] tabular-nums">{value}%</strong>
+        <span class="text-meta text-text-secondary">{mode}</span>
       </div>
-      <div data-free class="relative h-[6px] mb-1 flex items-center">
-        <div class="w-full h-[6px] rounded-[3px] bg-surface-sunken">
-          <div
-            style={{ width: `${remaining}%` }}
-            class="h-full rounded-[3px] bg-warning"
+      <div data-free class="relative flex h-[6px] items-center rounded-[3px] bg-surface-sunken">
+        <div style={{ width: `${value}%` }} class={`h-full rounded-[3px] ${bar[tone]}`} />
+        {elapsed !== undefined && (
+          <span
+            style={{ left: `clamp(1px, ${elapsed * 100}%, calc(100% - 1px))` }}
+            class="absolute h-[10px] w-[2px] rounded-[1px] bg-text-secondary"
           />
-        </div>
-        <span
-          style={{ left: `calc(${elapsed * 100}% - 1px)` }}
-          class="absolute w-[2px] h-[10px] rounded-[1px] bg-text-secondary"
-        />
+        )}
       </div>
-      <div class="flex justify-between">
-        <span>
-          {used ? "已用" : "剩余"} {remaining}%
-        </span>
-        <span class="text-text-secondary">{estimate}</span>
+      <div class="flex flex-wrap justify-between gap-x-2 gap-y-1 text-meta leading-4">
+        <span class="text-text-secondary">{reset}</span>
+        {detail && <span class={ink[tone]}>{detail}</span>}
       </div>
-    </div>
+    </Card>
   );
 }
-export function QuotaBar({
-  remaining,
-  elapsed,
-  tone = "warning",
-}: {
-  remaining: number;
-  elapsed?: number;
-  tone?: "warning" | "success";
-}) {
+
+export function QuotaCards({ windows }: { windows: readonly QuotaWindow[] }) {
   return (
-    <div
-      data-free
-      class="relative flex h-[6px] items-center rounded-[3px] bg-surface-sunken"
-    >
-      <div
-        style={{ width: `${remaining}%` }}
-        class={`h-full rounded-[3px] ${tone === "success" ? "bg-success" : "bg-warning"}`}
-      />
-      {elapsed !== undefined && (
-        <span
-          style={{ left: `calc(${elapsed * 100}% - 1px)` }}
-          class="absolute h-[10px] w-[2px] rounded-[1px] bg-text-secondary"
-        />
-      )}
-    </div>
-  );
-}
-export function QuotaSummary({
-  label,
-  remaining,
-  estimate,
-  elapsed,
-  tall = false,
-  tone = "warning",
-}: {
-  label: string;
-  remaining: number;
-  estimate?: string;
-  elapsed?: number;
-  tall?: boolean;
-  tone?: "warning" | "success";
-}) {
-  return (
-    <div
-      class={`flex min-w-0 flex-col rounded-card bg-surface-subtle px-4 pt-4 ${tall ? "pb-[18px]" : "pb-4"}`}
-    >
-      <span class="text-meta leading-4 font-medium text-text-secondary">
-        {label}
-      </span>
-      <div
-        class={`flex h-7 items-baseline gap-[10px] leading-7 ${tall ? "mt-3" : "mt-[10px]"}`}
-      >
-        <strong class="text-display font-[650]">{remaining}%</strong>
-        {estimate && <span class="text-meta text-warning">{estimate}</span>}
-      </div>
-      <div class={tall ? "mt-4" : "mt-2"}>
-        <QuotaBar remaining={remaining} elapsed={elapsed} tone={tone} />
-      </div>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,164px),1fr))] gap-2">
+      {windows.map(window => <QuotaCard {...window} />)}
     </div>
   );
 }
 
-export default () => [
-  <Frame name="quota-card" width={392}>
-    <QuotaCard>
-      <header class="flex items-center gap-[10px] h-6">
-        <BrandMark brand="codex" size={24} />
-        <strong class="flex-1 text-body font-[650]">{quotaExample.title}</strong>
-        <span class="text-meta text-text-tertiary">{quotaExample.updated}</span>
-        <IconButton icon="refresh-cw" label="Refresh" compact />
-      </header>
-      <div class="flex flex-col gap-[26px]">
-        {readings.map((reading) => (
-          <QuotaReading {...reading} />
-        ))}
-      </div>
-    </QuotaCard>
-  </Frame>,
-  <Frame name="quota-reading" width={360}>
-    <div class="w-full bg-surface-subtle"><QuotaReading {...readings[0]} /></div>
-  </Frame>,
-  <Frame name="quota-bar" width={360}>
-    <div class="w-full bg-surface-subtle py-[2px]"><QuotaBar {...readings[0]} /></div>
-  </Frame>,
-  <Frame name="quota-summary" width={186}>
-    <div class="w-full bg-surface-raised"><QuotaSummary {...agentQuotas[0]} /></div>
-  </Frame>,
-  <Frame name="quota-summary-tall" width={216}>
-    <div class="w-full bg-surface-raised"><QuotaSummary {...quotaAccounts[0].quotas[0]} tall /></div>
-  </Frame>,
-  <Frame name="quota-detail-action">
-    <QuotaDetailAction>{quotaExample.updated}</QuotaDetailAction>
-  </Frame>,
-];
+export default () => quotaSpecimens.map(({ name, ...window }) => (
+  <Frame name={`quota-card-${name}`} width={208}>
+    <QuotaCard {...window} />
+  </Frame>
+));

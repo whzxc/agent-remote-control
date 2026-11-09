@@ -1,11 +1,11 @@
-import { Frame, Icon } from "sdg";
+import { Frame } from "sdg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import { QuotaBar } from "../modules/quota";
+import { QuotaCards } from "../modules/quota";
 import { Tile } from "../components/tile";
 import { Button } from "../components/button";
-import { overviewReadings as readings } from "../fixtures/quota";
+import { agentQuotas, overviewProvider } from "../fixtures/quota";
 function QuotaOverview({ empty = false }: { empty?: boolean }) {
   return (
     <PanelShell width={440} class="px-6 pt-[13px] pb-6">
@@ -24,25 +24,13 @@ function QuotaOverview({ empty = false }: { empty?: boolean }) {
           </div>
         </div>
       ) : (
-        <div class="mt-[33px] flex flex-col gap-7 rounded-card bg-surface-subtle p-4 pb-[18px]">
+        <div class="mt-6 flex flex-col gap-3">
           <header class="flex h-6 items-center gap-[10px]">
             <BrandMark brand="codex" size={24} />
-            <strong class="text-body font-[650]">ChatGPT</strong>
-            <span class="text-meta text-text-tertiary">· 2m ago</span>
+            <strong class="text-body font-[650]">{overviewProvider.name}</strong>
+            <span class="text-meta text-text-tertiary">{overviewProvider.observed}</span>
           </header>
-          <div class="flex flex-col gap-[22px]">
-            {readings.map((q) => (
-              <div class="flex flex-col gap-2">
-                <span class="text-meta leading-4 text-text-secondary">
-                  {q.title}
-                </span>
-                <QuotaBar remaining={q.remaining} elapsed={q.elapsed} />
-                <span class="mt-1 text-meta leading-4 text-text-secondary">
-                  {q.detail}
-                </span>
-              </div>
-            ))}
-          </div>
+          <QuotaCards windows={agentQuotas} />
         </div>
       )}
     </PanelShell>

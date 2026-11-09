@@ -4,7 +4,7 @@ import { Button } from '../components/button';
 import { Field, Input } from '../components/field';
 import { SingleChoice } from '../components/single-choice';
 import { accountAdd as copy } from '../fixtures/agent-account-add';
-import { accountSignIn as signIn } from '../fixtures/agent-account-management';
+import { accountSignIn as signIn } from '../fixtures/agent-accounts';
 import { Notice } from '../components/notice';
 
 type Method = 'oauth' | 'import';

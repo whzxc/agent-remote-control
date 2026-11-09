@@ -2,18 +2,16 @@ import { Frame, Icon } from "sdg";
 import { PanelShell } from "../components/panel";
 import { AgentIcon } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
-import { QuotaSummary } from "../modules/quota";
+import { QuotaCards } from "../modules/quota";
 import { TaskBubble } from "../modules/task-presentation";
 import { Tile } from "../components/tile";
 import { AgentTaskHistory } from "../modules/agent-activity";
 import { active, agentHistory, agentTaskMeta } from "../fixtures/agent-activity";
 import { taskDispatch } from "../fixtures/task-presentation";
 import { agentQuotas as quotas } from "../fixtures/quota";
-import { Button } from "../components/button";
-import { accountManagement } from "../fixtures/agent-account-management";
-function AgentPanel({ empty = false, manage = false }: { empty?: boolean; manage?: boolean }) {
+function AgentPanel({ empty = false }: { empty?: boolean }) {
   return (
-    <PanelShell width={manage ? 480 : 420} height={empty ? 320 : 840} class="px-5 pt-4 pb-3">
+    <PanelShell width={420} class={`px-5 pt-4 ${empty ? "pb-8" : "pb-3"}`}>
       <header class="flex items-center gap-3">
         <AgentIcon
           brand="codex"
@@ -21,9 +19,9 @@ function AgentPanel({ empty = false, manage = false }: { empty?: boolean; manage
           readings={quotas.map((q, i) => ({
             id: String(i),
             label: q.label,
-            value: q.remaining,
-            color: "var(--warning)",
-            elapsed: 1 - q.elapsed,
+            value: q.value,
+            color: `var(--${q.tone})`,
+            elapsed: q.elapsed,
           }))}
         />
         <div class="flex flex-1 flex-col gap-1">
@@ -36,17 +34,12 @@ function AgentPanel({ empty = false, manage = false }: { empty?: boolean; manage
           </p>
         </div>
         <div class="flex items-center gap-1">
-          {manage && <Button icon="users">{accountManagement.title}</Button>}
           {["refresh-cw", "settings", "maximize-2"].map((icon) => (
             <IconButton icon={icon} label={icon} />
           ))}
         </div>
       </header>
-      <div class="mt-5 grid grid-cols-2 gap-2">
-        {quotas.map((q) => (
-          <QuotaSummary {...q} />
-        ))}
-      </div>
+      <div class="mt-5"><QuotaCards windows={quotas} /></div>
       {empty ? (
         <div class="mt-12 flex flex-col items-center gap-[10px] text-text-tertiary">
           <Tile icon="messages-square" tone="neutral" />
@@ -90,8 +83,5 @@ export default () => [
     capture={{ region: "Codex", viewport: "1280x800" }}
   >
     <AgentPanel empty />
-  </Frame>,
-  <Frame name="account-entry" note="Proposed explicit account management entry in Agent history. Runtime fixture pending adoption.">
-    <AgentPanel empty manage />
   </Frame>,
 ];

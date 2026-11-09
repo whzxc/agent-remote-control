@@ -32,7 +32,8 @@ export function Button({
     <button
       disabled={disabled || busy}
       aria-busy={busy}
-      class={`inline-flex shrink-0 items-center justify-center gap-(--control-gap) h-(--control-height) px-4
+      class={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)
+        ${variant === "link" ? "h-6 px-0" : "h-(--control-height) px-4"}
         rounded-control text-small leading-4 font-semibold whitespace-nowrap ${paint[variant]} ${extra}`}
     >
       {(busy || icon) && (
