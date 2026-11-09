@@ -777,8 +777,9 @@ impl Manager {
                 Ok((id.to_owned(), merge::canonical(&rows, id)?))
             })
             .collect::<Result<std::collections::BTreeMap<_, _>>>()?;
+        let parity = std::cell::OnceCell::new();
         for row in &mut rows {
-            project_parity(row);
+            project_parity(row, &parity);
             row["mergedAccountIds"] = json!(canonical
                 .iter()
                 .filter_map(|(id, owner)| {
@@ -1243,14 +1244,17 @@ mod tests {
     }
 }
 
-fn project_parity(account: &mut Value) {
+fn project_parity(account: &mut Value, parity: &std::cell::OnceCell<Value>) {
     for profile in account["agentProfiles"]
         .as_array_mut()
         .into_iter()
         .flatten()
     {
         if profile["agent"] == "codex" {
-            profile["parity"] = codex::inspect_profile(string(profile, "profileId"));
+            profile["parity"] = parity.get_or_init(|| codex::inspect_profile("codex-home")).clone();
+            if profile["profileId"] != "codex-home" && profile["parity"]["state"] == "primary" {
+                profile["parity"]["state"] = json!("shared");
+            }
             profile["role"] = json!(if profile["profileId"] == "codex-home" {
                 "primary"
             } else {
@@ -1269,7 +1273,8 @@ fn parity_attention(profile: &Value) -> bool {
 }
 
 pub(crate) fn dispatch_accounts(agent: &str) -> Result<Value> {
-    Ok(json!(read()?.into_iter().map(|mut account| { project_parity(&mut account); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
+    let parity = std::cell::OnceCell::new();
+    Ok(json!(read()?.into_iter().map(|mut account| { project_parity(&mut account, &parity); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
         let profiles: Vec<_> = profiles(&a).filter(|p| p["agent"] == agent).cloned().collect();
         json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quota":a["quota"]})
     }).collect::<Vec<_>>()))
