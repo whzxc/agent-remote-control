@@ -3,7 +3,7 @@ use super::*;
 use crate::kernel::file_cache::{Cache as DirectoryCache, Stamp};
 use std::{io::Read, time::SystemTime};
 
-const DERIVATION_VERSION: u32 = 3;
+const DERIVATION_VERSION: u32 = 4;
 const HEAD_BYTES: u64 = 64 * 1024;
 const TAIL_BYTES: u64 = 128 * 1024;
 
@@ -29,6 +29,9 @@ pub(super) fn roots() -> Vec<(String, PathBuf, Option<String>)> {
         .map(|(path, account)| ("claude".into(), path, account))
         .collect();
     if let Some(home) = dirs::home_dir() {
+        for directory in [".gemini/antigravity/brain", ".gemini/antigravity-cli/brain"] {
+            roots.push(("antigravity".into(), home.join(directory), None));
+        }
         let expand = |value: std::ffi::OsString| {
             let path = PathBuf::from(value);
             path.strip_prefix("~")
@@ -62,9 +65,10 @@ impl Index {
                 for entry in entries.iter() {
                     let path = &entry.path;
                     if entry.kind.is_symlink()
-                        || path
-                            .file_name()
-                            .is_some_and(|s| s.to_string_lossy().starts_with('.'))
+                        || path.file_name().is_some_and(|s| {
+                            s.to_string_lossy().starts_with('.')
+                                && !(agent == "antigravity" && s == ".system_generated")
+                        })
                         || (agent == "claude" && activity::claude_sidechain(path, &[]))
                     {
                         continue;
@@ -210,6 +214,31 @@ pub(super) fn derive(
     complete: bool,
     modified: SystemTime,
 ) -> Option<Value> {
+    if agent == "antigravity" {
+        let id = path.parent()?.parent()?.parent()?.file_name()?.to_str()?;
+        uuid::Uuid::parse_str(id).ok()?;
+        if path.file_name()? != "transcript.jsonl" {
+            return None;
+        }
+        let records: Vec<_> = head.iter().chain(tail).collect();
+        let first = records
+            .iter()
+            .find(|r| r["type"] == "USER_INPUT")
+            .map(|r| antigravity_text(r))
+            .unwrap_or_default();
+        let updated = chrono::DateTime::<chrono::Utc>::from(modified)
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let created = records
+            .iter()
+            .find_map(|r| normalized_time(&r["created_at"]))
+            .unwrap_or_else(|| updated.clone());
+        return Some(
+            json!({"agent":agent,"id":id,"nativeSessionId":id,"source":"native",
+            "title":short(&first, 120),"preview":short(&first, 240),"project":null,
+            "createdAt":created,"updatedAt":updated,"status":null,
+            "messageCount":if complete { Some(records.iter().filter(|r| matches!(r["type"].as_str(), Some("USER_INPUT" | "PLANNER_RESPONSE"))).count()) } else { None },"metadataPartial":!complete}),
+        );
+    }
     let records: Vec<_> = head
         .iter()
         .chain(tail)
@@ -283,6 +312,9 @@ pub(super) fn timeline(session: &Session) -> Result<Value> {
         return activity::claude_timeline(&session.path, id);
     }
     let (records, truncated) = activity::read_tail(&session.path, 8 * 1024 * 1024)?;
+    if session.row["agent"] == "antigravity" {
+        return Ok(antigravity_timeline(id, &records, truncated));
+    }
     Ok(pi_timeline(id, &records, truncated))
 }
 
@@ -341,5 +373,78 @@ pub(super) fn pi_timeline(id: &str, records: &[Value], truncated: bool) -> Value
     let mut result = timeline.response(id, 0);
     result["status"] = Value::Null;
     result["readOnly"] = json!(true);
+    result
+}
+
+fn antigravity_text(record: &Value) -> String {
+    let text = string(record, "content").trim();
+    if record["type"] == "USER_INPUT" {
+        text.strip_prefix("<USER_REQUEST>")
+            .and_then(|s| s.strip_suffix("</USER_REQUEST>"))
+            .unwrap_or(text)
+            .trim()
+            .to_owned()
+    } else {
+        text.to_owned()
+    }
+}
+
+pub(super) fn antigravity_timeline(id: &str, records: &[Value], truncated: bool) -> Value {
+    let mut timeline = crate::task_tracking::Timeline::default();
+    timeline.partial = truncated;
+    for record in records {
+        let first_entry = timeline.entries.len();
+        let at = string(record, "created_at");
+        let text = antigravity_text(record);
+        match string(record, "type") {
+            "USER_INPUT" => timeline.agent(
+                "arc/user",
+                &json!({"turnId":record["step_index"].to_string(),"text":text}),
+                at,
+            ),
+            "PLANNER_RESPONSE" => {
+                let mut content = Vec::new();
+                if let Some(thinking) = record["thinking"].as_str().filter(|s| !s.is_empty()) {
+                    content.push(json!({"type":"thinking","thinking":thinking}));
+                }
+                if !text.is_empty() {
+                    content.push(json!({"type":"text","text":text}));
+                }
+                for call in record["tool_calls"].as_array().into_iter().flatten() {
+                    content.push(json!({"type":"toolCall","id":call["id"],"name":call["name"],"arguments":call["arguments"]}));
+                }
+                timeline.agent(
+                    "message_end",
+                    &json!({"message":{"role":"assistant","content":content}}),
+                    at,
+                );
+            }
+            _ => {}
+        }
+        for entry in timeline.entries.iter_mut().skip(first_entry) {
+            entry["stepIndex"] = record["step_index"].clone();
+            entry["source"] = record["source"].clone();
+            entry["nativeStatus"] = record["status"].clone();
+            if let Some(status) = match string(record, "status") {
+                "DONE" | "COMPLETED" => Some("completed"),
+                "ERROR" | "FAILED" => Some("failed"),
+                "ACTIVE" | "RUNNING" => Some("running"),
+                _ => None,
+            } {
+                entry["status"] = json!(status);
+            }
+        }
+    }
+    let mut result = timeline.response(id, 0);
+    result["status"] = Value::Null;
+    result["readOnly"] = json!(true);
+    for entry in result["entries"].as_array_mut().into_iter().flatten() {
+        if entry["type"] == "user" {
+            entry["role"] = json!("user");
+        }
+        if matches!(entry["type"].as_str(), Some("text" | "thinking")) {
+            entry["role"] = json!("assistant");
+        }
+    }
     result
 }

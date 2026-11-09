@@ -3,7 +3,7 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
 mod adapter;
-mod antigravity;
+pub(crate) mod antigravity;
 mod archive;
 mod conversations;
 mod dispatch;
@@ -773,7 +773,7 @@ impl AgentHost {
             };
             let available = discovery_error.is_none();
             let descriptor = driver.descriptor();
-            rows.push(json!({"agent":agent,"protocol":driver.protocol(),"installed":binary.is_some(),"available":available,"discoveryError":discovery_error,"descriptor":descriptor,"displayName":descriptor["displayName"],"integration":descriptor["integration"],"version":version.as_deref().map(str::trim),"path":binary,"configuration":"inherited","readiness":"ready means a live initialized session, not provider authentication"}));
+            rows.push(json!({"agent":agent,"protocol":driver.discovered_protocol(binary.as_deref()),"installed":binary.is_some(),"available":available,"discoveryError":discovery_error,"descriptor":descriptor,"displayName":descriptor["displayName"],"integration":descriptor["integration"],"version":version.as_deref().map(str::trim),"path":binary,"configuration":"inherited","readiness":"ready means a live initialized session, not provider authentication"}));
         }
         rows.sort_by(|a, b| string(a, "agent").cmp(string(b, "agent")));
         let mut inventory = json!({"agents":rows,"defaultAgent":"codex","observedAt":now()});
@@ -1069,7 +1069,7 @@ impl AgentHost {
             }
             let (binary, _, error) = driver.discover().await;
             return Ok(
-                json!({"agent":agent,"protocol":driver.protocol(),"installed":binary.is_some(),"available":error.is_none(),"discoveryError":error,"descriptor":driver.descriptor(),"negotiated":false,"capabilities":null,"nextAction":"agent_create then agent_capabilities(taskId)"}),
+                json!({"agent":agent,"protocol":driver.discovered_protocol(binary.as_deref()),"installed":binary.is_some(),"available":error.is_none(),"discoveryError":error,"descriptor":driver.descriptor(),"negotiated":false,"capabilities":null,"nextAction":"agent_create then agent_capabilities(taskId)"}),
             );
         }
         if name == "agent_read" {

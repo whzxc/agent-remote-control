@@ -220,12 +220,14 @@ fn routable(dir: &Path, b: &Binding, now: i64) -> Result<bool> {
             && s.active(now)
             && match s.channel {
                 Channel::McpEvents => s.webhook.as_ref().is_some_and(|w| w.verified_until > 0),
-                Channel::ClaudeSession => state.targets.iter().any(|t| {
-                    t.source_id == b.source_id
-                        && t.channel == s.channel
-                        && t.target == s.target
-                        && t.reachability.state == "verified"
-                }),
+                Channel::ClaudeSession | Channel::AntigravitySession => {
+                    state.targets.iter().any(|t| {
+                        t.source_id == b.source_id
+                            && t.channel == s.channel
+                            && t.target == s.target
+                            && t.reachability.state == "verified"
+                    })
+                }
             }
     }))
 }

@@ -1007,3 +1007,26 @@ Message snapshots use the same temporary one-hour, 64 MiB output cache as JSON s
 Current workspace Git changes are not attributed to a summary turn merely because they exist.
 Summary mode omits inbox reminders, conversation bindings, dispatch history, and unrelated task data.
 Existing defaults remain unchanged when `view` is omitted.
+
+### Antigravity notification targets
+
+Bind `antigravity_<uuid>` or `conversation://<uuid>` with `notify_control`.
+ARC canonicalizes the target to `antigravity_<uuid>` and returns
+`notify:{channel:"antigravity-session",target:"antigravity_<uuid>"}`. Pass this object
+to `codex_create`, `codex_send`, `agent_create` or `agent_send`, including Claude
+Agent dispatches. Existing `claude-session` dispatch objects also recognize these
+prefixed targets. A bare UUID remains invalid as a Claude session.
+
+Antigravity sources derive push notification capability. Desktop delivery uses
+`ARC_ANTIGRAVITY_AGENTAPI`, then `~/.gemini/antigravity/bin/agentapi`, then the macOS
+application's `Contents/Resources/bin/language_server agentapi`, then `agentapi` on
+PATH. Before every challenge or doorbell, `get-conversation-metadata <uuid>` must
+exit successfully and return an object at `response.conversationMetadata.metadata`.
+Failure returns `CLAUDE_SESSION_NOT_FOUND` without calling `send-message`.
+
+Delivery runs `send-message --title="ARC Notification" <uuid> <body>`. Exit status
+zero and `response.sendMessage.recipientId` matching the UUID confirm submission.
+The challenge contains `◎ ping · <code>` and instructions for
+`notification_ack({target,code})`. Only a matching acknowledgement verifies
+reachability. `notify_status` exposes that state and subsequent doorbell deliveries.
+Antigravity uses its native Desktop login and has no Claude account route.

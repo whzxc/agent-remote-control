@@ -11,7 +11,7 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | Agent ID | Entry point | Execution |
 | --- | --- | --- |
 | codex | Codex App Server / Desktop IPC | Native owner; [task ownership](../concepts.md#task-ownership) |
-| antigravity | `agy --input-format stream-json --output-format stream-json --print=""` | ARC-owned process, Antigravity stream JSON |
+| antigravity | `agy --input-format stream-json --output-format stream-json --print=""` or Desktop `agentapi` | Stream JSON or native Desktop submission |
 | pi | `pi --mode rpc` | ARC-owned process, Pi RPC |
 | opencode | `opencode acp` | ACP v1 |
 | gemini | `gemini --acp` | ACP v1 |
@@ -34,7 +34,7 @@ Call `guide` for the enabled op index and `guide({"op":"agent_create"})` for a c
 | kilo | `kilo acp` | ACP v1 |
 | vibe | `vibe-acp` | ACP v1 |
 
-The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact ACP discovery paths, version/help probes, compatibility notes, and upstream sources. Antigravity is a dedicated native driver, not an ACP descriptor. Its discovery requires both `stream-json` and `--conversation` in help so an unrelated `agy` executable cannot launch. The `antigravity` alias is accepted only after the same identity probe. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; each has its own execution entry.
+The [built-in descriptors](../../native/src/agents/builtins.json) contain the exact ACP discovery paths, version/help probes, compatibility notes, and upstream sources. Antigravity is a dedicated native driver, not an ACP descriptor. Standalone CLI discovery requires both `stream-json` and `--conversation` in help so an unrelated `agy` executable cannot launch. The `antigravity` alias is accepted only after the same identity probe. Pi completion requires the agent_settled event. Cursor discovery verifies that an executable named agent belongs to Cursor. Grok uses the official Grok CLI, not similarly named community programs. Goose discovery requires its ACP subcommand to exclude the unrelated migration tool. Oh My Pi uses its own ACP entry, not Pi RPC. Gemini CLI and Antigravity are separate products; each has its own execution entry.
 
 Kilo Code uses its native `kilo acp` entry. Mistral Vibe uses the separate `vibe-acp` executable from the official installation. Both reuse native provider configuration; neither provisions credentials or adds client filesystem/terminal capabilities. Vibe uses the Mistral brand artwork from the shared asset library.
 
@@ -175,3 +175,30 @@ Pi discovery supports the explicit v3 JSONL store: the session header supplies i
 Discovery runs only on demand, off the async runtime, with a 30-second TTL. Per-file metadata is cached by path, file stamp (including size and modification time) and derivation version. Unchanged transcripts are not reparsed. Each changed file reads at most a 64 KiB head and a 128 KiB tail. `updatedAt` is the file modification time, including native title edits. `messageCount` is exact only for files fully covered by the head; otherwise it is null and `metadataPartial` is true. Large files can have titles, cwd, sidechain markers or assistant text outside these windows. Native archive semantics are unavailable. Cursor order is deterministic for a stable cache snapshot; external writes between refreshes can move rows, so restart pagination to obtain a fresh view. List rows use metadata and do not prefetch detail timelines. Missing outcome evidence remains unconfirmed until new activity or an explicit detail read supplies it. Native Claude rows can confirm a final stop reason from their latest sampled message. Listing does not resume any Agent.
 
 `agents.conversations.timeline` (`POST agents/conversations/timeline`) takes `body: { agent, id, after? }`. Use the returned row's `id`. Unknown Codex histories and indexed native Claude/Pi sessions remain read-only without creating task records, processes, live subscriptions or ARC dispatch/approval ownership. Claude uses the existing external `claude_timeline` path. Pi replays the latest leaf's ancestry through the existing timeline event vocabulary; missing ancestors produce partial coverage. Both native readers use at most an 8 MiB tail and keep transcript paths private. Read-only responses are full snapshots, ignoring `after`; ARC task responses use the existing timeline cursor contract. These local management operations do not change the frozen control-source MCP tools or notification surface.
+
+## Antigravity Desktop
+
+When the compatible `agy`/`antigravity` CLI is unavailable, ARC discovers Desktop's
+`agentapi`. `ARC_ANTIGRAVITY_BIN` selects an explicit Agent executable.
+`ARC_ANTIGRAVITY_AGENTAPI` overrides the Desktop command; otherwise discovery checks
+`~/.gemini/antigravity/bin/agentapi`, the macOS application resource
+`Contents/Resources/bin/language_server` (with the `agentapi` subcommand), then
+`agentapi` on PATH. Desktop uses its current native login.
+
+`agent_create` submits `new-conversation` with the prompt, optional title and model.
+`agent_send` continues the saved native conversation with `get-conversation-metadata`
+and `send-message`. Metadata must exist before sending. Desktop returns submission
+acceptance, without a streaming completion event. Task metadata records
+`submission:accepted` and `completionObserved:false`; the ARC command adapter is
+idle after submission. Read the native conversation timeline for replies. Model
+selection is available on create; effort, non-default mode, interruption and
+approval responses require the standalone CLI or Desktop UI.
+
+`agents.conversations` includes Antigravity native sessions with
+`scope:native-and-arc-tasks`. Omitting `agent` lists all indexed native sessions and
+ARC Agent tasks. Both `~/.gemini/antigravity/brain/<uuid>` and
+`~/.gemini/antigravity-cli/brain/<uuid>` are scanned for
+`.system_generated/logs/transcript.jsonl`. The first `USER_INPUT` supplies title and
+preview after removing outer `USER_REQUEST` tags. `agents.conversations.timeline`
+reads user inputs, planner replies, thinking and tool calls without resuming the
+conversation. Native files remain owned by Antigravity.

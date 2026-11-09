@@ -64,14 +64,20 @@ pub fn install(target: &str) -> Result<Value> {
     let agent = match target {
         "codex" => ".codex",
         "claude-code" => ".claude",
-        _ => return Err("INVALID_ARGUMENT: target must be codex or claude-code; these are control-source skill targets. Configure Antigravity/Pi in Agent management and use agent_* operations".into()),
+        "antigravity" => ".gemini",
+        _ => {
+            return Err("INVALID_ARGUMENT: target must be codex, claude-code or antigravity".into())
+        }
     };
     let names = ["arc-setup", "arc-local-code"];
     let sources = names
         .iter()
         .map(|name| source(name))
         .collect::<Result<Vec<_>>>()?;
-    let home = dirs::home_dir().ok_or("home directory unavailable")?;
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+        .ok_or("home directory unavailable")?;
     let mut paths = Vec::new();
     for (name, source) in names.iter().zip(sources) {
         let destination = home.join(agent).join("skills").join(name);

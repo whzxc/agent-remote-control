@@ -3,11 +3,127 @@ use super::*;
 const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 const MODES: &[&str] = &["accept-edits", "auto", "plan"];
 
+pub(crate) fn conversation_id(target: &str) -> Option<String> {
+    let id = target
+        .trim()
+        .strip_prefix("antigravity_")
+        .or_else(|| target.trim().strip_prefix("conversation://"))?;
+    uuid::Uuid::parse_str(id).ok().map(|id| id.to_string())
+}
+
+pub(crate) fn agentapi_binary() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("ARC_ANTIGRAVITY_AGENTAPI") {
+        return driver::discover(&path.to_string_lossy());
+    }
+    dirs::home_dir()
+        .and_then(|home| {
+            driver::discover(
+                &home
+                    .join(".gemini/antigravity/bin/agentapi")
+                    .to_string_lossy(),
+            )
+        })
+        .or_else(|| {
+            driver::discover("/Applications/Antigravity.app/Contents/Resources/bin/language_server")
+        })
+        .or_else(|| driver::discover("agentapi"))
+}
+
+pub(crate) fn is_agentapi(binary: &Path) -> bool {
+    matches!(
+        binary.file_stem().and_then(|s| s.to_str()),
+        Some("agentapi" | "language_server")
+    ) || std::env::var_os("ARC_ANTIGRAVITY_AGENTAPI").is_some_and(|p| Path::new(&p) == binary)
+        || agentapi_binary().as_deref() == Some(binary)
+}
+
+pub(crate) async fn agentapi_call(binary: &Path, args: &[String]) -> Result<Value> {
+    let mut cmd = command(binary);
+    if binary.file_stem().is_some_and(|s| s == "language_server") {
+        cmd.arg("agentapi");
+    }
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        cmd.args(args)
+            .stdin(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .map_err(|_| "ANTIGRAVITY_AGENTAPI_TIMEOUT")?
+    .map_err(|e| format!("ANTIGRAVITY_AGENTAPI_FAILED: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "ANTIGRAVITY_AGENTAPI_FAILED: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let value: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|_| "ANTIGRAVITY_AGENTAPI_INVALID_RESPONSE")?;
+    if !value["error"].is_null() || !value["response"]["error"].is_null() {
+        return Err(format!("ANTIGRAVITY_AGENTAPI_FAILED: {value}"));
+    }
+    Ok(value)
+}
+
+pub(crate) async fn metadata(binary: &Path, id: &str) -> Result<Value> {
+    uuid::Uuid::parse_str(id).map_err(|_| "INVALID_ANTIGRAVITY_SESSION")?;
+    let value = agentapi_call(binary, &["get-conversation-metadata".into(), id.into()])
+        .await
+        .map_err(|_| "CLAUDE_SESSION_NOT_FOUND: Antigravity conversation metadata unavailable")?;
+    if !value["response"]["conversationMetadata"]["metadata"].is_object() {
+        return Err("CLAUDE_SESSION_NOT_FOUND: Antigravity conversation metadata missing".into());
+    }
+    Ok(value)
+}
+
+pub(crate) async fn send_message(
+    binary: &Path,
+    id: &str,
+    body: &str,
+    notification: bool,
+) -> Result<Value> {
+    // send-message creates phantom brain directories for unknown IDs. Always probe first.
+    metadata(binary, id).await?;
+    let mut args = vec!["send-message".into()];
+    if notification {
+        args.push("--title=ARC Notification".into());
+    }
+    args.extend([id.into(), body.into()]);
+    let result = agentapi_call(binary, &args).await?;
+    if result["response"]["sendMessage"]["recipientId"] != id {
+        return Err("ANTIGRAVITY_RECIPIENT_MISMATCH".into());
+    }
+    Ok(result)
+}
+
 pub async fn discover() -> (Option<PathBuf>, Option<String>, Option<String>) {
+    if let Some(path) = std::env::var_os("ARC_ANTIGRAVITY_BIN") {
+        let Some(binary) = driver::discover(&path.to_string_lossy()) else {
+            return (None, None, Some("AGENT_NOT_INSTALLED".into()));
+        };
+        if is_agentapi(&binary) {
+            return (Some(binary), None, None);
+        }
+        return discover_cli(vec![binary]).await;
+    }
     let mut candidates = driver::discover_in("agy", &driver::search_paths());
     candidates.extend(driver::discover_in("antigravity", &driver::search_paths()));
     let mut seen = std::collections::HashSet::new();
     candidates.retain(|candidate| seen.insert(candidate.clone()));
+    let observed = discover_cli(candidates).await;
+    if observed.2.is_none() {
+        return observed;
+    }
+    if let Some(binary) = agentapi_binary() {
+        return (Some(binary), None, None);
+    }
+    observed
+}
+
+async fn discover_cli(
+    candidates: Vec<PathBuf>,
+) -> (Option<PathBuf>, Option<String>, Option<String>) {
     let mut observed = (None, None, Some("AGENT_NOT_INSTALLED".into()));
     for binary in candidates {
         let version = process::probe(&binary, &["--version".into()]).await;

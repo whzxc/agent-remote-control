@@ -59,11 +59,24 @@ impl AgentDriver {
             Self::Acp(_) => "acp-v1",
         }
     }
+    pub fn discovered_protocol(&self, binary: Option<&Path>) -> &str {
+        if matches!(self, Self::Antigravity) && binary.is_some_and(super::antigravity::is_agentapi)
+        {
+            "antigravity-agentapi"
+        } else {
+            self.protocol()
+        }
+    }
     pub fn binary(&self) -> Option<PathBuf> {
         match self {
             Self::CodexNative => super::codex_binary(),
             Self::Pi => discover("pi"),
-            Self::Antigravity => discover("agy").or_else(|| discover("antigravity")),
+            Self::Antigravity => std::env::var("ARC_ANTIGRAVITY_BIN")
+                .ok()
+                .and_then(|p| discover(&p))
+                .or_else(|| discover("agy"))
+                .or_else(|| discover("antigravity"))
+                .or_else(super::antigravity::agentapi_binary),
             Self::Acp(m) if m.id == "claude" => discover("claude"),
             Self::Acp(m) => m.candidates().into_iter().next(),
         }
@@ -148,6 +161,19 @@ impl AgentDriver {
         let binary = binary
             .filter(|_| error.is_none())
             .ok_or_else(|| error.unwrap_or_else(|| "AGENT_NOT_INSTALLED".into()))?;
+        if matches!(self, Self::Antigravity) && super::antigravity::is_agentapi(&binary) {
+            if task["configured"]["options"]["effort"].is_string()
+                || task["configured"]["options"]["mode"]
+                    .as_str()
+                    .is_some_and(|m| m != "accept-edits")
+            {
+                return Err("UNSUPPORTED_DISPATCH_CONFIGURATION: agentapi supports model selection on create; effort and mode require agy".into());
+            }
+            if resume {
+                super::antigravity::metadata(&binary, string(&task, "sessionId")).await?;
+            }
+            return Process::desktop_agentapi(&binary, task, wake).await;
+        }
         let cwd = PathBuf::from(string(&task, "cwd"));
         let args = match self {
             Self::Pi => {
@@ -384,6 +410,9 @@ impl AgentDriver {
         result.map(|_| t.clone())
     }
     pub async fn interrupt(&self, p: &Arc<Process>) -> Result<Value> {
+        if p.state.lock().await["runtimeSource"] == "antigravity-agentapi" {
+            return Err("ANTIGRAVITY_AGENTAPI_OPERATION_UNSUPPORTED: interrupt this conversation in Desktop".into());
+        }
         if p.drain_only() {
             p.interrupt().await?;
             return Ok(p.state.lock().await.clone());

@@ -1683,7 +1683,7 @@
       "name": "agents.conversations",
       "route": "agents/conversations",
       "method": "POST",
-      "description": "Read a metadata-only conversation page. Codex keeps native unarchived threads in descending creation order. Claude Code and Pi v3 merge read-only native sessions with ARC tasks (scope:native-and-arc-tasks); other Agents expose ARC tasks. Non-Codex rows sort by updatedAt descending, then id ascending. ARC task identity wins nativeSessionId matches. Native rows use source:native, bounded head/tail metadata and a 30-second on-demand cache; metadataPartial marks incomplete samples and messageCount is null when unavailable. Claude child/sidechain sessions are excluded. limit defaults to 20 and is capped at 50. Reuse nextCursor unchanged. Open the returned id with agents.conversations.timeline. Listing never builds timelines or resumes sessions; transcript paths remain private.",
+      "description": "Read a metadata-only conversation page. Omit agent to list all indexed native sessions and ARC Agent tasks. Codex keeps native unarchived threads in descending creation order. Claude Code, Antigravity and Pi v3 merge read-only native sessions with ARC tasks (scope:native-and-arc-tasks); other Agents expose ARC tasks. Non-Codex rows sort by updatedAt descending, then id ascending. ARC task identity wins nativeSessionId matches. Native rows use source:native, bounded head/tail metadata and a 30-second on-demand cache; metadataPartial marks incomplete samples and messageCount is null when unavailable. Claude child/sidechain sessions are excluded. limit defaults to 20 and is capped at 50. Reuse nextCursor unchanged. Open the returned id with agents.conversations.timeline. Listing never builds timelines or resumes sessions; transcript paths remain private.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -1706,9 +1706,6 @@
                 "default": 20
               }
             },
-            "required": [
-              "agent"
-            ],
             "additionalProperties": false
           }
         },
@@ -1722,7 +1719,7 @@
       "name": "agents.conversations.timeline",
       "route": "agents/conversations/timeline",
       "method": "POST",
-      "description": "Read the selected conversation timeline without resuming it. Use the id returned by agents.conversations. Unknown Codex histories and indexed Claude Code/Pi native sessions remain read-only without joining ARC live ownership. Native Claude history uses the existing bounded transcript timeline; Pi v3 follows the latest leaf ancestry. Other Agents must own the ARC task ID. after is the last update cursor; readOnly responses are full snapshots with coverage and no transcript path.",
+      "description": "Read the selected conversation timeline without resuming it. Use the id returned by agents.conversations. Unknown Codex histories and indexed Claude Code/Pi/Antigravity native sessions remain read-only without joining ARC live ownership. Native Claude history uses the existing bounded transcript timeline; Pi v3 follows the latest leaf ancestry. Other Agents must own the ARC task ID. after is the last update cursor; readOnly responses are full snapshots with coverage and no transcript path.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -2700,7 +2697,7 @@
       "method": "GET",
       "route": "local-access/status",
       "localOnly": true,
-      "description": "Read local Claude client availability and matching configuration.",
+      "description": "Read local Claude and Antigravity client availability and matching configuration.",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -2712,7 +2709,7 @@
       "method": "POST",
       "route": "local-access/install",
       "localOnly": true,
-      "description": "Add a local control source using Claude Code CLI or Claude Desktop configuration; never replaces another server.",
+      "description": "Add a local control source using Claude Code CLI, Claude Desktop, or Antigravity configuration. Antigravity updates the ARC server entry and preserves other keys.",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -2728,7 +2725,8 @@
               "target": {
                 "enum": [
                   "code",
-                  "desktop"
+                  "desktop",
+                  "antigravity"
                 ]
               }
             },

@@ -217,7 +217,7 @@ impl AgentHost {
         args: &Value,
     ) -> Result<Value> {
         let agent = string(args, "agent");
-        if !self.drivers.contains_key(agent) {
+        if !agent.is_empty() && !self.drivers.contains_key(agent) {
             return Err("UNKNOWN_AGENT: read agents.list for registered IDs".into());
         }
         let limit = num(args, "limit", 20).clamp(1, 50);
@@ -289,7 +289,7 @@ impl AgentHost {
             .rows
             .iter()
             .filter(|row| {
-                row["agent"] == agent
+                (agent.is_empty() || row["agent"] == agent)
                     && cursor.as_ref().is_none_or(|(updated, id)| {
                         string(row, "updatedAt") < updated.as_str()
                             || (string(row, "updatedAt") == updated
@@ -314,7 +314,7 @@ impl AgentHost {
                 None
             ));
         }
-        let scope = if matches!(agent, "claude" | "pi") {
+        let scope = if matches!(agent, "" | "claude" | "pi" | "antigravity") {
             "native-and-arc-tasks"
         } else {
             "arc-tasks"
@@ -357,7 +357,7 @@ impl AgentHost {
             timeline["srcConversation"] = crate::src_conversations::task_ref(agent, session)?;
             return Ok(timeline);
         }
-        if matches!(agent, "claude" | "pi") && !task_path(session)?.exists() {
+        if matches!(agent, "claude" | "pi" | "antigravity") && !task_path(session)?.exists() {
             let mut cache = self.conversations.lock().await;
             cache.refresh().await?;
             let external = cache
@@ -374,6 +374,21 @@ impl AgentHost {
             }
         }
         let task = self.task(agent, session).await?;
+        if task["runtimeSource"] == "antigravity-agentapi" {
+            let mut cache = self.conversations.lock().await;
+            cache.refresh().await?;
+            let external = cache
+                .native_sessions
+                .iter()
+                .find(|s| s.row["agent"] == agent && s.row["id"] == task["sessionId"])
+                .cloned();
+            drop(cache);
+            if let Some(external) = external {
+                return tokio::task::spawn_blocking(move || native::timeline(&external))
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        }
         let mut timeline = self
             .timeline(control, session, num(args, "after", 0) as u64)
             .await?;

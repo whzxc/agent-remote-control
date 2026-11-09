@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::{future::Future, time::Duration};
 
 pub(crate) fn session_id(value: &str) -> Result<String> {
+    if let Some(id) = crate::agents::antigravity::conversation_id(value) {
+        return Ok(format!("antigravity_{id}"));
+    }
     let value = value.trim();
     let url = value
         .strip_prefix("https://")
@@ -263,15 +266,39 @@ pub(crate) static LOCK: Mutex<()> = Mutex::const_new(());
 enum Channel {
     #[default]
     ClaudeSession,
+    AntigravitySession,
     McpEvents,
+}
+
+impl Channel {
+    fn session(self) -> bool {
+        self != Self::McpEvents
+    }
+}
+fn target_channel(target: &str) -> Channel {
+    if crate::agents::antigravity::conversation_id(target).is_some() {
+        Channel::AntigravitySession
+    } else {
+        Channel::ClaudeSession
+    }
 }
 
 pub(crate) fn normalize(args: &mut Value) -> Result<()> {
     if args["purpose"] == "self-test" && args.get("notify").is_none() {
         args["notify"] = Value::Null;
     }
-    if args["notify"]["channel"] == "claude-session" {
-        args["notify"]["target"] = json!(session_id(string(&args["notify"], "target"))?);
+    if matches!(
+        args["notify"]["channel"].as_str(),
+        Some("claude-session" | "antigravity-session")
+    ) {
+        let target = session_id(string(&args["notify"], "target"))?;
+        if args["notify"]["channel"] == "antigravity-session"
+            && target_channel(&target) != Channel::AntigravitySession
+        {
+            return Err("INVALID_ANTIGRAVITY_SESSION".into());
+        }
+        args["notify"]["channel"] = json!(target_channel(&target));
+        args["notify"]["target"] = json!(target);
     }
     Ok(())
 }
@@ -325,7 +352,7 @@ pub(crate) async fn bind(
             || serde_json::to_value(b.channel).unwrap() != notify["channel"]
         {
             for d in &mut b.deliveries {
-                if d.channel == Channel::ClaudeSession && d.status == "pending" {
+                if d.channel.session() && d.status == "pending" {
                     d.status = "failed".into();
                     d.error = Some("binding-changed".into());
                 }
@@ -865,6 +892,15 @@ impl Executor for Cli {
             .find(|pair| pair[0] == "--cloud")
             .map(|pair| pair[1].as_str())
             .ok_or("INVALID_CLAUDE_SESSION")?;
+        if let Some(id) = crate::agents::antigravity::conversation_id(target) {
+            let binary = crate::agents::antigravity::agentapi_binary()
+                .ok_or("ANTIGRAVITY_AGENTAPI_UNAVAILABLE")?;
+            let body = args.get(1).ok_or("INVALID_NOTIFICATION_MESSAGE")?;
+            crate::agents::antigravity::send_message(&binary, &id, body, true).await?;
+            return Ok(json!({"ok":true,"session_id":target})
+                .to_string()
+                .into_bytes());
+        }
         let account_id = self
             .account_id
             .clone()
@@ -1440,8 +1476,12 @@ fn inbox_select(
             continue;
         }
         if (claude
-            && caller_target
-                .is_none_or(|target| row["channel"] != "claude-session" || row["target"] != target))
+            && caller_target.is_none_or(|target| {
+                !matches!(
+                    row["channel"].as_str(),
+                    Some("claude-session" | "antigravity-session")
+                ) || row["target"] != target
+            }))
             || (!claude && subscribed)
         {
             continue;
@@ -1468,11 +1508,7 @@ fn inbox_select(
             .iter()
             .filter(|b| b.source_id == source_id)
             .flat_map(|b| &b.deliveries)
-            .find(|d| {
-                row["eventId"] == d.event_id
-                    && d.channel == Channel::ClaudeSession
-                    && !d.target.is_empty()
-            });
+            .find(|d| row["eventId"] == d.event_id && d.channel.session() && !d.target.is_empty());
         let incremental =
             filters.is_none() && claude && (delivery.is_some() || row["attached"] == true);
         if incremental
@@ -2164,7 +2200,7 @@ async fn flush(
                         .rule(&current)
                         .map(|r| r.mode(chrono::Utc::now().timestamp()))
                         .unwrap_or("normal");
-                    deferred |= (reserved.channel == Channel::ClaudeSession
+                    deferred |= (reserved.channel.session()
                         && (current.target != reserved.target
                             || current.channel != reserved.channel))
                         || !state.subscriptions.iter().any(|s| {
@@ -2451,11 +2487,11 @@ pub(crate) async fn migrate() -> Result<()> {
     // Populate stable IDs without creating any subscription to the retired event name.
     subscriptions::route(&state, &mut all, chrono::Utc::now().timestamp());
     for b in all.iter() {
-        if b.channel == Channel::ClaudeSession {
+        if b.channel.session() {
             if let Some(target) = &b.target {
                 state.target(
                     &b.source_id,
-                    Channel::ClaudeSession,
+                    b.channel,
                     target,
                     chrono::Utc::now().timestamp(),
                     &settings,
@@ -5270,18 +5306,25 @@ pub(crate) fn push_available(notification: &Value) -> bool {
         notification,
         &settings,
         &state,
-        crate::agents::driver::discover("claude").is_some(),
+        if notification["channel"] == "antigravity-session" {
+            crate::agents::antigravity::agentapi_binary().is_some()
+        } else {
+            crate::agents::driver::discover("claude").is_some()
+        },
     )
 }
 fn effective_push(notification: &Value, settings: &Value, state: &State, cli: bool) -> bool {
     notification["reachability"] == "verified"
-        && notification["channel"] == "claude-session"
+        && matches!(
+            notification["channel"].as_str(),
+            Some("claude-session" | "antigravity-session")
+        )
         && notification["target"].is_string()
         && settings["notificationsEnabled"] != false
         && cli
         && !state.targets.iter().any(|t| {
             notification["sourceId"] == t.source_id
-                && t.channel == Channel::ClaudeSession
+                && json!(t.channel) == notification["channel"]
                 && notification["target"] == t.target
                 && t.breaker
         })
@@ -5469,7 +5512,7 @@ fn sync_src_conversation(source: &str, target: &str, handshake: bool) -> Result<
         .into_iter()
         .filter(|b| {
             b.source_id == source
-                && b.channel == Channel::ClaudeSession
+                && b.channel.session()
                 && b.target.as_deref() == Some(target)
                 && b.scope_end.is_none()
                 && !b.continuation_bound
@@ -5530,7 +5573,7 @@ pub(crate) fn conversation_target_for_send(source: &str, task: &str) -> Result<O
                 && b.scope_end.is_none()
                 && !b.continuation_bound
                 && (b.agent.is_empty() || b.agent == "codex")
-                && b.channel == Channel::ClaudeSession
+                && b.channel.session()
         })
         .max_by_key(|b| b.created_at)
         .and_then(|b| b.target))

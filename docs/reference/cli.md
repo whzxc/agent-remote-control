@@ -351,7 +351,7 @@ from the selected ingress. Claude completion additionally requires delivered
 notification evidence unless Claude Code was skipped.
 
 The setup wizard is Codex-backed. It configures ARC through a supported Codex
-or Claude control source. Configure Antigravity and Pi separately: install and
+or Claude control source. Configure executable Antigravity and Pi Agents separately: install and
 sign in natively, refresh Agent discovery, enable the Agent, then use `agent_*`.
 
 `cli call setup.dispatch --stdin` accepts `{"body":{"goal":"claude-loop"}}`
@@ -363,14 +363,14 @@ model, reasoning effort and execution ownership use existing defaults. It return
 reuses its durable receipt; unconfirmed or failed creation reports an error and
 retains the requestId. Prompts specify ARC_STATE_DIR to keep the same instance.
 
-`cli skill install --target codex|claude-code` installs the bundled `arc-setup`
-skill to `~/.codex/skills/arc-setup/` or `~/.claude/skills/arc-setup/`, replacing
-that skill directory with the current version. This command and playbook reads
+`cli skill install --target codex|claude-code|antigravity` installs the bundled `arc-setup`
+and `arc-local-code` skills under `~/.codex/skills/`, `~/.claude/skills/`, or
+`~/.gemini/skills/`, replacing those skill directories with the current version. This command and playbook reads
 work offline without starting Core. macOS loads Resources/skills/arc-setup;
 Windows loads skills/arc-setup under the installation directory; Linux loads
 skills/arc-setup beside arc. Debug builds fall back to the repository sources.
-These targets are control-source skills, not executable Agent IDs. Do not pass
-`antigravity` or `pi`; manage those Agents in ARC and use `agent_*`.
+These targets install control-source skills. Executable Agent configuration remains
+in Agent management; Pi has no control-source skill target.
 
 Permissions require Full Disk Access and applicable command Full Disk Access.
 Accessibility, screen recording, and notifications are optional. Claude delivery
@@ -506,13 +506,19 @@ ARC-created keys after replacement authentication succeeds.
 
 ## Local control sources
 
-`cli call local-access.status` reports Claude client availability and installed configuration.
+`cli call local-access.status` reports Claude and Antigravity client availability and installed configuration.
 Use `cli call local-access.install --stdin` with `{"body":{"target":"code"}}` or
 `{"body":{"target":"desktop"}}`. Claude Code is added in user scope with `claude mcp add`;
 Claude Desktop receives a dedicated entry in its official configuration file and requires a restart.
-Other servers are preserved; a conflicting same-name entry is rejected.
+Other servers are preserved; Claude rejects a conflicting same-name entry.
+`{"body":{"target":"antigravity"}}` updates the ARC entry in
+`~/.gemini/config/mcp_config.json` and starts `local-antigravity`. Empty files are
+accepted; other configuration keys are preserved. Status exposes
+`antigravityAvailable` and `antigravityInstalled`. Home paths follow HOME on Unix
+and USERPROFILE on Windows.
 
-The installed command is `arc cli local-mcp <ingressId>` with the instance's `ARC_STATE_DIR`.
+The installed command is `arc cli local-mcp <ingressId>`. Claude configurations
+include the instance's `ARC_STATE_DIR`; Antigravity uses the executable's default instance.
 It leases the local Core and forwards the existing `guide`, `query`, `act` and `notification`
 contracts through authenticated loopback IPC. A local ingress has `transport: "local"`,
 `auth: "none"`; it exposes no public listener. Its enabled state and tool policy still apply.

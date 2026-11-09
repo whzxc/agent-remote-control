@@ -58,16 +58,7 @@ impl Subscription {
 pub(super) fn claude_id(b: &Binding) -> String {
     format!(
         "sub_{}",
-        hash(
-            json!([
-                "claude-session",
-                b.source_id,
-                b.agent,
-                b.thread_id,
-                b.turn_id
-            ])
-            .to_string()
-        )
+        hash(json!([b.channel, b.source_id, b.agent, b.thread_id, b.turn_id]).to_string())
     )
 }
 
@@ -109,8 +100,7 @@ pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
         .collect();
     let ids: std::collections::HashSet<_> = bindings.iter().map(|(id, _)| id.as_str()).collect();
     state.subscriptions.retain(|s| {
-        !s.source_id.is_empty()
-            && (s.channel != Channel::ClaudeSession || ids.contains(s.id.as_str()))
+        !s.source_id.is_empty() && (!s.channel.session() || ids.contains(s.id.as_str()))
     });
     let mut positions = std::collections::HashMap::new();
     for (index, subscription) in state.subscriptions.iter().enumerate() {
@@ -120,12 +110,13 @@ pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
         let target = b.target.as_ref().unwrap();
         if let Some(index) = positions.get(&id) {
             state.subscriptions[*index].target = target.clone();
+            state.subscriptions[*index].channel = b.channel;
         } else {
             positions.insert(id.clone(), state.subscriptions.len());
             state.subscriptions.push(Subscription {
                 id,
                 source_id: b.source_id.clone(),
-                channel: Channel::ClaudeSession,
+                channel: b.channel,
                 target: target.clone(),
                 op: "task_status".into(),
                 args: if b.agent.is_empty() || b.agent == "codex" {
@@ -176,10 +167,12 @@ pub(super) fn route(state: &State, bindings: &mut [Binding], now: i64) {
                     continue;
                 }
                 // The original Claude delivery is also the persisted source event.
-                if sub.channel == Channel::ClaudeSession {
-                    if let Some(index) = b.deliveries.iter().position(|d| {
-                        d.event_id == source.event_id && d.channel == Channel::ClaudeSession
-                    }) {
+                if sub.channel.session() {
+                    if let Some(index) = b
+                        .deliveries
+                        .iter()
+                        .position(|d| d.event_id == source.event_id && d.channel == sub.channel)
+                    {
                         b.deliveries[index].subscription = sub.id.clone();
                         continue;
                     }

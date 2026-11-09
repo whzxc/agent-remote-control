@@ -169,6 +169,40 @@ pub struct Process {
     detach: Arc<tokio::sync::Notify>,
 }
 impl Process {
+    pub async fn desktop_agentapi(
+        binary: &Path,
+        mut state: Value,
+        wake: Arc<tokio::sync::Notify>,
+    ) -> Result<Arc<Self>> {
+        state["runtimeSource"] = json!("antigravity-agentapi");
+        state["agentapiBinary"] = json!(binary);
+        state["status"] = json!("idle");
+        state["metadata"] = super::antigravity::facts(&state, "agentapi");
+        let process = Arc::new(Self {
+            input: Mutex::new(None),
+            child: Mutex::new(None),
+            host: None,
+            replies: Default::default(),
+            events: Arc::new(Mutex::new(Events {
+                durable: true,
+                ..Default::default()
+            })),
+            state: Arc::new(Mutex::new(state)),
+            pi: false,
+            antigravity: true,
+            alive: true.into(),
+            capabilities: Mutex::new(
+                json!({"protocol":"antigravity-agentapi","resume":true,"cancel":false,"streaming":false,"completionEvent":null}),
+            ),
+            dispatch: Mutex::new(()),
+            reader: Mutex::new(None),
+            detach: Default::default(),
+        });
+        process.events.lock().await.wake = wake;
+        super::save_task(&*process.state.lock().await)?;
+        Ok(process)
+    }
+
     pub async fn start(
         binary: &Path,
         args: &[String],
@@ -914,6 +948,37 @@ impl Process {
             .map_err(|e| crate::rpc::submission_error(method, e))
     }
     pub async fn antigravity_turn(&self, text: &str) -> Result<Value> {
+        let task = self.state.lock().await.clone();
+        if task["runtimeSource"] == "antigravity-agentapi" {
+            let binary = PathBuf::from(string(&task, "agentapiBinary"));
+            let result = if let Some(id) = task["sessionId"].as_str() {
+                super::antigravity::send_message(&binary, id, text, false).await?
+            } else {
+                let mut args = vec!["new-conversation".into()];
+                if let Some(model) = task["configured"]["model"].as_str() {
+                    args.push(format!("--model={model}"));
+                }
+                if let Some(title) = task["title"].as_str() {
+                    args.push(format!("--title={title}"));
+                }
+                args.push(text.into());
+                super::antigravity::agentapi_call(&binary, &args).await?
+            };
+            let session = task["sessionId"]
+                .as_str()
+                .or_else(|| result["response"]["newConversation"]["conversationId"].as_str())
+                .ok_or("ANTIGRAVITY_CONVERSATION_ID_MISSING")?;
+            uuid::Uuid::parse_str(session).map_err(|_| "INVALID_ANTIGRAVITY_SESSION")?;
+            let mut state = self.state.lock().await;
+            state["sessionId"] = json!(session);
+            // agentapi confirms submission, without a streaming turn-completion event.
+            state["status"] = json!("idle");
+            state["metadata"]["submission"] = json!("accepted");
+            state["metadata"]["completionObserved"] = json!(false);
+            crate::dispatch_policy::agent_submitted(&state)?;
+            super::save_task(&state)?;
+            return Ok(result);
+        }
         if !self.alive.load(std::sync::atomic::Ordering::SeqCst) {
             return Err("PROCESS_NOT_RUNNING".into());
         }
@@ -1029,6 +1094,10 @@ impl Process {
         Ok(())
     }
     pub async fn close(&self) {
+        if self.state.lock().await["runtimeSource"] == "antigravity-agentapi" {
+            self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
+            return;
+        }
         if let Some(host) = &self.host {
             let _ = host.close().await;
             if let Some(mut reader) = self.reader.lock().await.take() {

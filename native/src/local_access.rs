@@ -18,13 +18,44 @@ fn code_config() -> Option<PathBuf> {
         .map(|p| p.join(".claude.json"))
         .or_else(|| dirs::home_dir().map(|p| p.join(".claude.json")))
 }
+fn antigravity_home() -> Option<PathBuf> {
+    std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+}
+fn antigravity_config() -> Option<PathBuf> {
+    antigravity_home().map(|p| p.join(".gemini/config/mcp_config.json"))
+}
+fn antigravity_available() -> bool {
+    antigravity_home().is_some_and(|home| {
+        [
+            ".gemini/config",
+            ".gemini/antigravity",
+            ".gemini/antigravity/bin/agentapi",
+        ]
+        .iter()
+        .any(|p| home.join(p).exists())
+    }) || Path::new("/Applications/Antigravity.app").exists()
+        || crate::agents::driver::discover("agy").is_some()
+        || crate::agents::driver::discover("antigravity").is_some()
+}
+fn read_json(path: &Path) -> Result<Value> {
+    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    if text.trim().is_empty() {
+        return Ok(json!({}));
+    }
+    serde_json::from_str(&text).map_err(|e| e.to_string())
+}
 fn server_config(id: &str) -> Result<Value> {
+    if id == "local-antigravity" {
+        return Ok(json!({"command":crate::runtime::binary()?,"args":["cli","local-mcp",id]}));
+    }
     Ok(
         json!({"command":crate::runtime::binary()?,"args":["cli","local-mcp",id],"env":{"ARC_STATE_DIR":root()}}),
     )
 }
 fn installed(path: Option<PathBuf>, expected: &Value) -> bool {
-    path.and_then(|p| load(&p).ok()).is_some_and(|v| {
+    path.and_then(|p| read_json(&p).ok()).is_some_and(|v| {
         let c = &v["mcpServers"][SERVER];
         c["command"] == expected["command"]
             && c["args"] == expected["args"]
@@ -46,6 +77,8 @@ pub(crate) fn request<'a>(
             return Ok(json!({
                 "codeAvailable":code.is_some(), "desktopAvailable":desktop.is_some(),
                 "codeInstalled":installed(code_config(), &server_config("local-claude-code")?) && service.ingress("local-claude-code").await.is_ok(),
+                "antigravityAvailable":antigravity_available(),
+                "antigravityInstalled":antigravity_config().and_then(|p| read_json(&p).ok()).is_some_and(|v| v["mcpServers"][SERVER].is_object()) && service.request("ingress", "GET", json!({})).await?.as_array().is_some_and(|rows| rows.iter().any(|row| row["transport"] == "local" && (row["id"] == "local-antigravity" || row["name"] == "local-antigravity" || row["controlSource"] == "antigravity"))),
                 "desktopInstalled":installed(desktop, &server_config("local-claude-desktop")?) && service.ingress("local-claude-desktop").await.is_ok()
             }));
         }
@@ -54,28 +87,33 @@ pub(crate) fn request<'a>(
         }
         let target = string(&body, "target");
         let (id, name) = match target {
+            "antigravity" if antigravity_available() => ("local-antigravity", "Antigravity"),
             "code" if code.is_some() => ("local-claude-code", "Claude Code"),
             "desktop" if desktop.is_some() => ("local-claude-desktop", "Claude Desktop"),
             _ => return Err("LOCAL_CLIENT_UNAVAILABLE".into()),
         };
         let expected = server_config(id)?;
-        if target == "desktop" {
-            let path = desktop.unwrap();
+        if matches!(target, "desktop" | "antigravity") {
+            let path = if target == "antigravity" {
+                antigravity_config().ok_or("HOME_UNAVAILABLE")?
+            } else {
+                desktop.unwrap()
+            };
             let mut config = if path.exists() {
-                load(&path)?
+                read_json(&path)?
             } else {
                 json!({})
             };
             let object = config
                 .as_object_mut()
-                .ok_or("Invalid Claude configuration")?;
+                .ok_or("Invalid client configuration")?;
             let servers = object
                 .entry("mcpServers")
                 .or_insert(json!({}))
                 .as_object_mut()
-                .ok_or("Invalid Claude server configuration")?;
+                .ok_or("Invalid client server configuration")?;
             if let Some(existing) = servers.get(SERVER) {
-                if existing != &expected {
+                if target != "antigravity" && existing != &expected {
                     return Err("LOCAL_CONFIG_CONFLICT".into());
                 }
             }
@@ -84,7 +122,7 @@ pub(crate) fn request<'a>(
         } else if !installed(code_config(), &expected) {
             // Never remove or overwrite a same-name server configured by the user.
             if code_config()
-                .and_then(|p| load(&p).ok())
+                .and_then(|p| read_json(&p).ok())
                 .is_some_and(|c| !c["mcpServers"][SERVER].is_null())
             {
                 return Err("LOCAL_CONFIG_CONFLICT".into());
@@ -115,7 +153,9 @@ pub(crate) fn request<'a>(
                 return Err("LOCAL_INSTALL_FAILED".into());
             }
         }
-        let path = if target == "desktop" {
+        let path = if target == "antigravity" {
+            antigravity_config()
+        } else if target == "desktop" {
             desktop_config()
         } else {
             code_config()
@@ -123,7 +163,16 @@ pub(crate) fn request<'a>(
         if !installed(path, &server_config(id)?) {
             return Err("LOCAL_INSTALL_NOT_CONFIRMED".into());
         }
-        if service.ingress(id).await.is_err() {
+        if target == "antigravity" {
+            let body = json!({"id":id,"name":name,"controlSource":"antigravity","transport":"local","auth":"none","enabled":true,"config":{"autoStart":true}});
+            if service.ingress(id).await.is_ok() {
+                service
+                    .request(&format!("ingress/{id}"), "PUT", body)
+                    .await?;
+            } else {
+                service.request("ingress", "POST", body).await?;
+            }
+        } else if service.ingress(id).await.is_err() {
             service.request("ingress", "POST", json!({"id":id,"name":name,"controlSource":"claude","transport":"local","auth":"none","config":{"autoStart":true}})).await?;
         }
         service

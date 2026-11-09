@@ -57,3 +57,13 @@ Quota availability comes from the provider. Cached values do not trigger live al
 ```
 
 An explicit array replaces that agent's default association; an empty array removes it. Omitted agents retain their built-in association. Each provider is read once and its snapshot advertises `agentIds`; `agentId` still identifies its native credential source and branding. Agent quota displays and `dispatch_policy` use `agentIds`. Associations describe shared billing only and do not select the agent's model or route; configure the native route separately. `modelAssociation: "unknown"` remains explicit until the upstream provides that evidence.
+
+## Antigravity control-source notifications
+
+Antigravity quota discovery is independent of local MCP access and notifications.
+An Antigravity control source can bind its native conversation with
+`notify_control` and acknowledge the delivered challenge using `notification_ack`.
+Dispatches use the returned `antigravity-session` notify object; `notify_status`
+reports reachability and delivery. The Desktop `agentapi` transport probes metadata
+before each send and requires a matching recipient in the response. See
+[Antigravity notification targets](tools.md#antigravity-notification-targets).

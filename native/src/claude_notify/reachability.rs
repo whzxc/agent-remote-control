@@ -55,7 +55,11 @@ impl Reachability {
 
 pub(super) async fn verify(source_id: &str, args: &Value) -> Result<Value> {
     let target = session_id(string(args, "target"))?;
-    let profile = source_account(source_id, &target)?;
+    let profile = if target_channel(&target) == Channel::AntigravitySession {
+        None
+    } else {
+        Some(source_account(source_id, &target)?)
+    };
     verify_in(
         &directory(),
         source_id,
@@ -63,7 +67,7 @@ pub(super) async fn verify(source_id: &str, args: &Value) -> Result<Value> {
         &settings()?,
         &Cli {
             service: std::sync::Weak::new(),
-            account_id: Some(profile),
+            account_id: profile,
         },
     )
     .await
@@ -84,13 +88,13 @@ pub(super) async fn verify_in(
         let _guard = LOCK.lock().await;
         let bound = records(&dir)?.iter().any(|b| {
             b.source_id == source_id
-                && b.channel == Channel::ClaudeSession
+                && b.channel == target_channel(&target)
                 && b.target.as_deref() == Some(&target)
         });
         let registered = State::load(&dir)?.targets.iter().any(|t| {
             t.registered
                 && t.source_id == source_id
-                && t.channel == Channel::ClaudeSession
+                && t.channel == target_channel(&target)
                 && t.target == target
         });
         if !bound && !registered {
@@ -106,7 +110,7 @@ pub(super) async fn verify_in(
             return Err("NOTIFICATIONS_DISABLED".into());
         }
         let mut state = State::load(&dir)?;
-        let t = state.target(source_id, Channel::ClaudeSession, &target, now, &settings);
+        let t = state.target(source_id, target_channel(&target), &target, now, &settings);
         if evidence["profileId"].is_string()
             && t.account_id.as_deref() != evidence["profileId"].as_str()
         {
@@ -136,8 +140,13 @@ pub(super) async fn verify_in(
         state.save(&dir)?;
     }
     // The code exists only in the delivered message; receipts and status cannot confirm it.
-    // The notify guide declares the ping glyph; the message itself carries no instruction.
-    let body = format!("{RECEIPT_HEADER}\n◎ ping · {code}");
+    // Claude uses the guide-defined ping; Desktop also receives explicit acknowledgement instructions.
+    let mut body = format!("{RECEIPT_HEADER}\n◎ ping · {code}");
+    if target_channel(&target) == Channel::AntigravitySession {
+        body.push_str(&format!(
+            "\nCall notification_ack with target {target} and code {code}."
+        ));
+    }
     let delivery = deliver_target(executor, source_id, &target, &body).await;
     let missing = delivery
         .as_ref()
@@ -157,7 +166,7 @@ pub(super) async fn verify_in(
     let mut state = State::load(&dir)?;
     let t = state.target(
         source_id,
-        Channel::ClaudeSession,
+        target_channel(&target),
         &target,
         chrono::Utc::now().timestamp(),
         settings,
@@ -182,6 +191,10 @@ pub(super) async fn verify_in(
         } else {
             json!({"code":"NOTIFICATION_DELIVERY_FAILED","message":"The verification message could not be delivered. Inspect notification logs, correct the destination or transport, and retry notify_control action:verify. Binding remains registered."})
         };
+        if missing && target_channel(&target) == Channel::AntigravitySession {
+            result["error"] = json!({"code":"CLAUDE_SESSION_NOT_FOUND","message":"Antigravity did not return conversation metadata. Correct the conversation ID before retrying; no message was sent."});
+            result["next"] = json!({"via":"act","op":"notify_control","args":{"action":"verify","target":target}});
+        }
         t.reachability.last_error = result["error"].clone();
     }
 
@@ -196,7 +209,7 @@ pub(super) fn acknowledge(dir: &Path, source_id: &str, args: &Value) -> Result<V
         .targets
         .iter_mut()
         .find(|t| {
-            t.source_id == source_id && t.channel == Channel::ClaudeSession && t.target == target
+            t.source_id == source_id && t.channel == target_channel(&target) && t.target == target
         })
         .ok_or("HANDSHAKE_NOT_FOUND")?;
     t.reachability.expire(chrono::Utc::now().timestamp());

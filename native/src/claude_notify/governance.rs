@@ -518,7 +518,7 @@ pub(super) fn status_in(
         t.reachability.expire(now);
         if !targets
             .iter()
-            .any(|v| v["target"] == t.target && v["channel"] == "claude-session")
+            .any(|v| v["target"] == t.target && v["channel"] == json!(t.channel))
         {
             targets.push(json!({"channel":t.channel,"target":t.target,"registered":true,"reachability":t.reachability.state,"reason":t.reachability.reason,"verificationAttempts":t.reachability.attempts,"verifiedAt":t.reachability.verified_at,"lastVerificationDelivery":t.reachability.delivery_status,"lastVerificationError":t.reachability.last_error,"tokens":t.tokens,"breaker":t.breaker,"pending":[],"recentBatches":[]}));
         }
@@ -813,7 +813,7 @@ pub(super) fn control_in(
                 _ => return Err("target must be a session or null".into()),
             };
             rule.rebind = Some(Rebind {
-                channel: Channel::ClaudeSession,
+                channel: target.as_deref().map(target_channel).unwrap_or(b.channel),
                 target: target.clone(),
             });
             // Late binding intentionally keeps pending completion catch-up pushes.
@@ -842,7 +842,7 @@ pub(super) fn apply_rebind(b: &mut Binding, rule: &Thread) {
         b.target = rebind.target.clone();
         b.channel = rebind.channel;
         for d in &mut b.deliveries {
-            if d.channel == Channel::ClaudeSession
+            if d.channel.session()
                 && (d.status == "pending"
                     || (d.status == "failed"
                         && matches!(d.error.as_deref(), Some("unbound" | "binding-changed"))))
@@ -882,11 +882,11 @@ pub(super) fn bind_target_in(
     }
     let mut state = State::load(dir)?;
     state
-        .target(source_id, Channel::ClaudeSession, &target, now, settings)
+        .target(source_id, target_channel(&target), &target, now, settings)
         .registered = true;
     state.save(dir)?;
     Ok(
-        json!({"action":"bind","bound":true,"target":target,"threadId":args["threadId"],"taskBound":args["threadId"].is_string(),"notify":{"channel":"claude-session","target":target},"next":{"via":"act","op":"notify_control","args":{"action":"verify","target":target},"hint":"Binding persists if verification fails. Acknowledge only the code received in the target conversation. Pass the returned notify object on future dispatches; registration alone does not subscribe tasks."}}),
+        json!({"action":"bind","bound":true,"target":target,"threadId":args["threadId"],"taskBound":args["threadId"].is_string(),"notify":{"channel":target_channel(&target),"target":target},"next":{"via":"act","op":"notify_control","args":{"action":"verify","target":target},"hint":"Binding persists if verification fails. Acknowledge only the code received in the target conversation. Pass the returned notify object on future dispatches; registration alone does not subscribe tasks."}}),
     )
 }
 
@@ -905,6 +905,11 @@ pub(crate) fn source_account(source_id: &str, target: &str) -> Result<String> {
 }
 
 async fn account_route_control(source_id: &str, args: &Value) -> Result<Value> {
+    if crate::agents::antigravity::conversation_id(string(args, "target")).is_some() {
+        return Err(
+            "ANTIGRAVITY_ACCOUNT_ROUTE_UNSUPPORTED: agentapi uses the native Desktop login".into(),
+        );
+    }
     let target = session_id(string(args, "target"))?;
     let _guard = LOCK.lock().await;
     let mut state = State::load(&directory())?;
@@ -954,6 +959,10 @@ async fn account_route_control(source_id: &str, args: &Value) -> Result<Value> {
 }
 
 async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
+    let target = session_id(string(args, "target"))?;
+    if target_channel(&target) == Channel::AntigravitySession {
+        return Ok(json!({"target":target,"transport":"agentapi"}));
+    }
     let route = account_route_control(source_id, args).await?;
     if route["accountId"].is_string() {
         return Ok(route);
