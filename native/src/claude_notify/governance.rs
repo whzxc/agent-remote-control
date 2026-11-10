@@ -439,7 +439,8 @@ pub(super) fn status_in(
         .values()
         .filter_map(|b| b.as_ref().as_ref().map(|row| (**row).clone()))
         .collect();
-    let result = status_from(dir, source_id, args, now, settings, &all)?;
+    let mut result = status_from(dir, source_id, args, now, settings, &all)?;
+    crate::egress::strip_internal(&mut result);
     let state = State::load(dir)?;
     let mut deadline = None;
     let mut due = |at: i64| {

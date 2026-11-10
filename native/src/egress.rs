@@ -93,6 +93,20 @@ pub fn compact_failure(value: &mut Value) {
     value["error"] = error;
 }
 
+/// Remove Core-only fields recursively at public payload boundaries.
+pub(crate) fn strip_internal(value: &mut Value) {
+    match value {
+        Value::Object(fields) => {
+            fields.retain(|key, _| !key.starts_with('_'));
+            for value in fields.values_mut() {
+                strip_internal(value);
+            }
+        }
+        Value::Array(values) => values.iter_mut().for_each(strip_internal),
+        _ => {}
+    }
+}
+
 pub fn tool(mut value: Value, mut error: bool) -> Value {
     if let Some(reason) = outcome_error(&value) {
         value["error"] = reason;

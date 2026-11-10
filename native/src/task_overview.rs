@@ -27,6 +27,9 @@ pub(crate) fn list_records(
             .cmp(string(a, "createdAt"))
             .then_with(|| string(a, "requestId").cmp(string(b, "requestId")))
     });
+    for record in &mut records {
+        crate::egress::strip_internal(record);
+    }
     records
 }
 

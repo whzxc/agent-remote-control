@@ -658,7 +658,9 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    let mut event = json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}});
+    crate::egress::strip_internal(&mut event);
+    event
 }
 fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
     observed["state"] == "completed"
@@ -1600,6 +1602,7 @@ fn inbox_select(
         let mut visible = row.clone();
         visible.as_object_mut().unwrap().remove("attached");
         visible.as_object_mut().unwrap().remove("attachedHash");
+        crate::egress::strip_internal(&mut visible);
         let fingerprint = hash(visible.to_string());
         if filters.is_none() && !claude && row["attachedHash"] == fingerprint {
             if repeated.len() < 5 {
@@ -1614,10 +1617,7 @@ fn inbox_select(
             if incremental {
                 row["attached"] = json!(true);
             }
-            let mut event = row.clone();
-            event.as_object_mut().unwrap().remove("attached");
-            event.as_object_mut().unwrap().remove("attachedHash");
-            events.push(event);
+            events.push(visible);
         }
     }
     if filters.is_none() {
@@ -4286,6 +4286,39 @@ pub(crate) mod tests {
         }
         routing::presence(&json!({"agent":"codex","taskId":b.thread_id,"present":false})).unwrap();
     }
+    #[tokio::test]
+    async fn delivered_dispatches_hide_internal_lifecycle_checkpoints() {
+        // Regression: ax-5d204fc1 inbox_wait events exposed _turnLifecycle inside dispatches after D1c.
+        let dir = Sandbox::new();
+        let mut binding = fixture(&dir.0);
+        let checkpoint = turn_adapter::checkpoint(&binding.lifecycle());
+        let turn_id = binding.turn_id.clone();
+        process(&Fake::success(), &dir.0, &mut binding, &json!({"state":"completed",
+            "dispatches":[{"turnId":turn_id,"_turnLifecycle":checkpoint,"terminal":{"state":"completed","_private":true}}]})).await.unwrap();
+        let restored = super::binding(&dir.0, &binding.thread_id, &binding.turn_id)
+            .unwrap()
+            .unwrap();
+        assert!(turn_adapter::restore(&restored.lifecycle).is_some());
+        assert!(
+            turn_adapter::restore(&restored.deliveries[0].dispatches[0]["_turnLifecycle"])
+                .is_some()
+        );
+        let delivered = event(&restored, &restored.deliveries[0]);
+        assert_eq!(
+            notification(Some(restored.clone()))["deliveries"][0]["state"],
+            "delivered"
+        );
+        assert!(delivered["dispatches"][0].get("_turnLifecycle").is_none());
+        assert!(delivered["dispatches"][0]["terminal"]
+            .get("_private")
+            .is_none());
+        assert_eq!(delivered["dispatches"][0]["terminal"]["state"], "completed");
+        let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
+        assert!(inbox["events"][0]["dispatches"][0]
+            .get("_turnLifecycle")
+            .is_none());
+    }
+
     #[tokio::test]
     async fn receipts_keep_thread_title_and_original_prompt_after_steering() {
         // Regression: completion labels used the latest steer prompt instead of the thread title or original dispatch prompt.
