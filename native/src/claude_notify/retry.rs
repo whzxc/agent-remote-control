@@ -147,7 +147,11 @@ pub(super) async fn handle(
         .scope(origin, control.mutate("send", args))
         .await;
     match result {
-        Ok(r) if r["state"] == "completed" && r["turnId"].is_string() => {
+        Ok(r)
+            if crate::kernel::receipts::progress::Progress::read(string(&r, "state"), true)
+                .is(crate::kernel::receipts::progress::State::Completed)
+                && r["turnId"].is_string() =>
+        {
             retry["status"] = json!("continued");
             retry["successorTurnId"] = r["turnId"].clone();
             update(b, retry, true).await?;

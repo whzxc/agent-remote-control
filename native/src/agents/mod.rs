@@ -1,4 +1,7 @@
 //! Common task host. Codex's native Control remains the owner of all native semantics.
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use crate::*;
 use std::collections::{HashMap, HashSet};
 mod activity;
@@ -431,7 +434,7 @@ impl AgentHost {
                     let runtime = lifecycle::runtime(&task);
                     Ok(Some(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
                 "origin":receipt["origin"],"state":receipt["state"],"createdAt":receipt["createdAt"],"updatedAt":receipt["updatedAt"],
-                "approval":{"decision":if receipt["state"] == "awaiting-approval" {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
+                "approval":{"decision":if Progress::read(string(&receipt, "state"), true).is(ReceiptState::AwaitingApproval) {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
                 "task":{"agentAccountId":receipt["agentAccountId"],"kind":if receipt["operation"] == "agent_create" {"create"}else{"send"},"origin":receipt["origin"],"title":task.get("title").unwrap_or(&args["title"]),"prompt":args["prompt"].as_str().unwrap_or(""),"input":[],"directory":task.get("cwd").unwrap_or(&args["cwd"]),"model":args["model"],"settings":{}},
                 "runtime":{"runtimeStatus":runtime,"title":task["title"],"observedAt":task["updatedAt"],"stale":receipt["backendSession"] != self.session && matches!(runtime, "active" | "waiting")},
                 "error":receipt.get("error").or_else(||receipt["result"].get("error"))})))
@@ -884,17 +887,22 @@ impl AgentHost {
         if !matches!(action, "read" | "approve" | "bypass" | "reject") {
             return Err("INVALID_APPROVAL_ACTION".into());
         }
-        if action != "read" && r["state"] == "awaiting-approval" {
+        if action != "read"
+            && Progress::read(string(&r, "state"), true).is(ReceiptState::AwaitingApproval)
+        {
             let driver = if action == "reject" {
                 None
             } else {
                 Some(self.drivers.get(agent).ok_or("UNKNOWN_AGENT")?.clone())
             };
-            r["state"] = json!(if action == "reject" {
-                "not-executed"
-            } else {
-                "reserved"
-            });
+            progress::apply(
+                &mut r,
+                if action == "reject" {
+                    ProgressEvent::Reject
+                } else {
+                    ProgressEvent::Approve
+                },
+            );
             r["approval"] = json!(action);
             r["backendSession"] = json!(self.session);
             if action != "reject" && r["operation"] != "agent_create" {
@@ -1112,7 +1120,7 @@ impl AgentHost {
         if matches!(name, "agent_create" | "agent_send") {
             args["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
-        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"reserved"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{ReceiptState::AwaitingApproval.wire()}else{ReceiptState::Reserved.wire()},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
         if matches!(name, "agent_create" | "agent_send") {
             crate::dispatch_caller::attach_current(&mut receipt);
         }
@@ -1163,11 +1171,14 @@ impl AgentHost {
             };
             match result {
                 Ok(v) => {
-                    r["state"] = json!(if v["configurationError"].is_string() {
-                        "failed"
-                    } else {
-                        "completed"
-                    });
+                    progress::apply(
+                        &mut r,
+                        if let Some(error) = v["configurationError"].as_str() {
+                            ProgressEvent::Fail(progress::failure(error))
+                        } else {
+                            ProgressEvent::Complete
+                        },
+                    );
                     if v["configurationError"].is_string() {
                         r["error"] = v["configurationError"].clone();
                     }
@@ -1179,7 +1190,7 @@ impl AgentHost {
                     r["result"] = v;
                 }
                 Err(e) => {
-                    r["state"] = json!(crate::kernel::receipts::failure_state(&e));
+                    progress::apply(&mut r, ProgressEvent::Fail(progress::failure(&e)));
                     r["error"] = crate::egress::failure(&e);
                 }
             }
@@ -1291,7 +1302,7 @@ impl AgentHost {
                     }
                     Err(error) => {
                         let unconfirmed =
-                            crate::kernel::receipts::failure_state(&error) == "unconfirmed";
+                            progress::failure(&error) == progress::Failure::Unconfirmed;
                         if unconfirmed {
                             // No prompt was sent, but a timed-out setter must not race a later prompt.
                             p.close().await;

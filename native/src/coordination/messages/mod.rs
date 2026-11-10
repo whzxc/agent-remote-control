@@ -5,6 +5,9 @@ mod store;
 mod tests;
 use super::*;
 use crate::claude_notify::coordination_delivery::{deliver, Outcome, Request, Route};
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use std::sync::{LazyLock, Mutex};
 use store::Store;
 pub(crate) const SUMMARY_LIMIT: usize = 240;
@@ -208,16 +211,16 @@ pub(crate) async fn call(op: &str, mut args: Value, backend: &str) -> Result<Val
         let _request=REQUESTS.lock(&request).await;
         let digest=hash(json!([actor,args]).to_string());
         let mut receipt=match RECEIPTS.replay(&request,&digest,backend)? {
-            Some(r) if r["state"]=="completed"=>{let mut result=r["result"].clone(); result["receipt"]=r; return Ok(result);},
-            Some(r)=>r,
-            None=>{let r=json!({"requestId":request,"origin":origin,"backendSession":backend,"digest":digest,"operation":op,"state":"reserved","createdAt":now()}); RECEIPTS.reserve(&r)?;r}
+            Some(r) if Progress::read(string(&r,"state"),true).is(ReceiptState::Completed)=>{let mut result=r["result"].clone(); result["receipt"]=r; return Ok(result);},
+            Some(r)=>return Ok(crate::egress::receipt(r)),
+            None=>{let r=json!({"requestId":request,"origin":origin,"backendSession":backend,"digest":digest,"operation":op,"state":ReceiptState::Reserved.wire(),"createdAt":now()}); RECEIPTS.reserve(&r)?;r}
         };
         receipt["backendSession"] = json!(backend);
         let _owner = RECEIPTS.begin(&mut receipt)?;
         let mut value=with_store(|s|s.send(&args,actor,route,&reason,chrono::Utc::now().timestamp()))?;
         value["projectionPending"]=json!(reconcile().is_err());
         // Receipts are discoverable independently; private bodies stay in messages.
-        receipt["state"]=json!("completed");
+        progress::apply(&mut receipt, ProgressEvent::Complete);
         receipt["result"]=json!({"stored":true,"pullable":true,"hint":value["hint"],"messageId":value["message"]["messageId"],"negotiationId":value["message"]["negotiationId"],"deliveryMode":value["deliveryMode"],"routing":value["routing"],"next":{"via":"query","op":"messages","args":{"direction":"outbox"}}});
         RECEIPTS.checkpoint(&mut receipt)?;value["receipt"]=receipt;Ok(value)
     }.await;

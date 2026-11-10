@@ -219,7 +219,12 @@ pub fn receipts(diagnostics: &mut Value, records: Result<Arc<Vec<Value>>>) {
                 .as_ref()
                 .is_none_or(|s| !Arc::ptr_eq(&s.records, &records))
             {
-                let mut uncertain = records.iter().filter(|r| r["state"] == "unconfirmed");
+                let mut uncertain = records.iter().filter(|r| {
+                    crate::kernel::receipts::progress::Progress::decode(string(r, "state"))
+                        .is_some_and(|p| {
+                            p.is(crate::kernel::receipts::progress::State::Unconfirmed)
+                        })
+                });
                 let rows: Vec<_> = uncertain.by_ref().take(100).map(|r| json!({"requestId":r["requestId"],"origin":{"ingressId":r["origin"]["ingressId"]}})).collect();
                 *cache = Some(Summary {
                     count: rows.len() + uncertain.count(),

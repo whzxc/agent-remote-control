@@ -1,4 +1,5 @@
 //! Durable management receipts. An interrupted write is unconfirmed, never replayed automatically.
+use crate::kernel::receipts::progress::{self, Event as ProgressEvent, State as ReceiptState};
 use crate::*;
 fn path(id: &str) -> Result<PathBuf> {
     if id.is_empty()
@@ -16,7 +17,7 @@ pub fn read(id: &str, instance: &str) -> Result<Value> {
     let mut receipt = load(&file)?;
     // Replace the retired management success spelling in the owning record once.
     if receipt["state"] == "succeeded" {
-        receipt["state"] = json!("completed");
+        receipt["state"] = json!(ReceiptState::Completed.wire());
         save(&file, &receipt)?;
     }
     Ok(project(
@@ -29,7 +30,7 @@ pub fn read(id: &str, instance: &str) -> Result<Value> {
 pub fn project(receipt: Value, instance: &str, time_ms: i64) -> Value {
     let owner_live = receipt["instance"] == instance;
     let mut receipt = crate::kernel::receipts::progress::project(receipt, owner_live, time_ms);
-    if receipt["state"] == "unconfirmed" {
+    if progress::Progress::read(string(&receipt, "state"), true).is(ReceiptState::Unconfirmed) {
         receipt["next"] =
             json!({"operation":"operations.get","arguments":{"id":receipt["requestId"]}});
         receipt.as_object_mut().unwrap().remove("nextAction");
@@ -65,7 +66,7 @@ pub fn submit(body: Value, instance: String) -> Result<Value> {
         return Ok(receipt);
     }
     private_dir(file.parent().unwrap())?;
-    let receipt = json!({"requestId":request,"operation":operation,"state":"reserved","startedAt":now(),"instance":instance,"fingerprint":fingerprint});
+    let receipt = json!({"requestId":request,"operation":operation,"state":ReceiptState::Reserved.wire(),"startedAt":now(),"instance":instance,"fingerprint":fingerprint});
     save(&file, &receipt)?;
     let response = project(
         receipt.clone(),
@@ -74,7 +75,7 @@ pub fn submit(body: Value, instance: String) -> Result<Value> {
     );
     let mut result = receipt;
     tokio::spawn(async move {
-        result["state"] = json!("executing");
+        progress::apply(&mut result, ProgressEvent::Begin);
         result["updatedAt"] = json!(now());
         let outcome = match save(&file, &result) {
             Ok(()) => crate::management::call(&operation, args).await,
@@ -85,11 +86,11 @@ pub fn submit(body: Value, instance: String) -> Result<Value> {
             Ok(value) => {
                 result["effectConfirmed"] =
                     json!(value["accepted"] != true && value["restarting"] != true);
-                result["state"] = json!("completed");
+                progress::apply(&mut result, ProgressEvent::Complete);
                 result["nextAction"]=json!("Read the affected resource. Secret-bearing operation outputs are never persisted in receipts.");
             }
             Err(error) => {
-                result["state"] = json!(crate::kernel::receipts::failure_state(&error));
+                progress::apply(&mut result, ProgressEvent::Fail(progress::failure(&error)));
                 result["error"] = json!(error);
             }
         }

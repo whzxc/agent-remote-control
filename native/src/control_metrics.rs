@@ -153,7 +153,10 @@ impl Call {
                 if !row["dispatchOutcome"].is_null() || crate::egress::dispatch_receipt(&result) {
                     row["dispatchOutcome"] = json!(if !row["errorCode"].is_null() {
                         "failed"
-                    } else if result["state"] == "completed"
+                    } else if crate::kernel::receipts::progress::Progress::decode(string(
+                        &result, "state"
+                    ))
+                    .is_some_and(|p| p.is(crate::kernel::receipts::progress::State::Completed))
                         && result["turnId"].is_string()
                         && (result["threadId"].is_string() || result["taskId"].is_string())
                     {

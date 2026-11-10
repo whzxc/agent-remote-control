@@ -977,6 +977,11 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
     if !value.is_object() {
         return;
     }
+    use crate::kernel::receipts::progress::{Progress, State};
+    let receipt_progress = value["requestId"]
+        .as_str()
+        .and_then(|_| Progress::decode(string(value, "state")));
+    let receipt_is = |state| receipt_progress.is_some_and(|progress| progress.is(state));
     let agent = name.starts_with("agent_") || string(value, "operation").starts_with("agent_");
     let task = value["taskId"].as_str().or_else(|| args["taskId"].as_str());
     let thread = value["threadId"]
@@ -995,7 +1000,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
     wait_args["until"] = json!("terminal");
     wait_args["timeoutMs"] = json!(30000);
     let wait_tool = if agent { "agent_wait" } else { "codex_wait" };
-    let mut next = if value["state"] == "unconfirmed" && value["requestId"].is_string() {
+    let mut next = if receipt_is(State::Unconfirmed) {
         json!({"via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"hint":"Submission is unconfirmed. Read this original receipt with the same requestId. Do not resubmit the operation."})
     } else if value["next"]["op"].is_string()
         || (value["next"].get("op") == Some(&Value::Null) && value["next"]["hint"].is_string())
@@ -1006,14 +1011,14 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         && thread.is_some()
     {
         json!({"via":"query","op":"codex_owner","args":{"threadId":thread},"hint":"Inspect this exact thread owner before retrying. Unheld threads can be read from persisted native state; do not reclaim a held writer."})
-    } else if value["state"] == "executing" && value["requestId"].is_string() {
-        json!({"via":"act","op":"receipt","args":{"action":"read","requestId":value["requestId"]},"retryAfterMs":1000,"hint":"The operation is executing. Read the original receipt for its outcome. Elapsed execution time does not indicate stalled submission."})
+    } else if receipt_is(State::Executing) {
+        json!({"via":"act","op":"receipt","args":{"action":"read","requestId":value["requestId"]},"retryAfterMs":1000,"hint":"The operation is executing. Read the original receipt for its outcome."})
     } else if value["error"]["code"] == "INVALID_ARGUMENTS" {
         let op = value["error"]["op"].as_str().unwrap_or(name);
         json!({"via":"query","op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})},"hint":format!("{}: {}",string(&value["error"],"field"),string(&value["error"],"message"))})
     } else if name == "command" && value["error"]["message"] == "RPC_TIMEOUT: command/exec" {
         json!({"via":"query","op":"guide","args":{"op":"process"},"hint":"command owns its child process tree until exit or timeout. For work that must outlive this call, use act process action:spawn with params:{command:[...],cwd:<absolute directory>,processHandle:<unique handle>,timeoutMs:null}. It lasts only for the native backend session; inspect codex_events and stop it with process action:kill."})
-    } else if value["state"] == "awaiting-approval" {
+    } else if receipt_is(State::AwaitingApproval) {
         json!({"hint":"Inspect the original request, then decide according to user intent.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
     } else if value["state"] == "interaction-required" {
         if agent {
@@ -1033,7 +1038,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
             arguments["timeoutMs"] = timeout.clone();
         }
         json!({"hint":"Continue waiting with the same task and turn.","via":"query","op":wait_tool,"args":arguments})
-    } else if value["state"] == "reserved" && value["requestId"].is_string() {
+    } else if receipt_is(State::Reserved) {
         json!({"hint":"Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"retryAfterMs":1000})
     } else if (matches!(
         name,
@@ -1042,7 +1047,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         string(value, "operation"),
         "create" | "send" | "agent_create" | "agent_send"
     )) && turn.is_some()
-        && value["state"] == "completed"
+        && receipt_is(State::Completed)
     {
         if push_available {
             json!({"hint":"You may end this turn and wait for an [ARC] notification; use guide for the review workflow."})
@@ -1070,12 +1075,17 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
             "hint":"Read the interrupted turn's recorded output before deciding whether to resume."})
     } else if value["state"] == "unconfirmed" && (thread.is_some() || task.is_some()) {
         json!({"via":"query","op":if agent {"agent_read"} else {"codex_read"},"args":if agent {json!({"agent":wait_args["agent"],"taskId":task})} else {json!({"threadId":thread,"statusOnly":true})},"hint":"Runtime ownership or progress is unknown. Inspect the owning session and this original task. Do not redispatch; notLoaded does not prove no native writer exists."})
-    } else if value["requestId"].is_string()
-        && matches!(
-            string(value, "state"),
-            "failed" | "rejected" | "cancelled" | "not-executed" | "unconfirmed"
-        )
-    {
+    } else if receipt_progress.is_some_and(|progress| {
+        [
+            State::Failed,
+            State::Rejected,
+            State::Cancelled,
+            State::NotExecuted,
+            State::Unconfirmed,
+        ]
+        .into_iter()
+        .any(|state| progress.is(state))
+    }) {
         json!({"via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"hint":"Inspect the surfaced failure and original receipt. Resolve its cause before a new authorized attempt; an unconfirmed effect must be reconciled without replay."})
     } else if value["error"].is_object() || value["ok"] == false {
         let known = catalog()["ops"]

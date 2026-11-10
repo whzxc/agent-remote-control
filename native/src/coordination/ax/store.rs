@@ -29,7 +29,8 @@ fn verification_reasons(action: &str, args: &Value, evidence: &[Value]) -> Vec<V
         let facts: Vec<_> = evidence.iter().filter(|f| f["id"] == *id).collect();
         if facts.iter().any(|f| {
             f["availability"] == "available"
-                && f["state"] == "completed"
+                && crate::kernel::receipts::progress::Progress::read(string(f, "state"), true)
+                    .is(crate::kernel::receipts::progress::State::Completed)
                 && VERIFICATION_OPERATIONS.contains(&string(f, "operation"))
         }) {
             continue;
@@ -40,7 +41,12 @@ fn verification_reasons(action: &str, args: &Value, evidence: &[Value]) -> Vec<V
             .copied();
         let reason = match fact {
             None => "unavailable",
-            Some(f) if f["state"] != "completed" => "not-completed",
+            Some(f)
+                if !crate::kernel::receipts::progress::Progress::read(string(f, "state"), true)
+                    .is(crate::kernel::receipts::progress::State::Completed) =>
+            {
+                "not-completed"
+            }
             Some(_) => "unsupported-operation",
         };
         let mut rejected = json!({"code":"evidence-not-accepted","id":id,"reason":reason});

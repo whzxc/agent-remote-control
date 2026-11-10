@@ -293,8 +293,10 @@ pub(super) fn inputs_on(
             }
         }
         Owner::Receipt => {
+            use crate::kernel::receipts::progress::{Progress, State};
+            let progress = Progress::read(string(row, "state"), true);
             if row["operation"] == "resume"
-                && row["state"] == "completed"
+                && progress.is(State::Completed)
                 && row["turnId"].is_string()
             {
                 let mut input = base(
@@ -313,7 +315,7 @@ pub(super) fn inputs_on(
                 evidence(&mut input, EvidenceKind::Receipt, request);
                 events.push(input);
             }
-            if row["state"] == "unconfirmed" {
+            if progress.is(State::Unconfirmed) {
                 let mut input = base(
                     row,
                     &format!("unconfirmed:{request}"),
@@ -726,7 +728,7 @@ fn receipt_inputs(
     receipt_origin(&row["origin"])?;
     use crate::kernel::receipts::progress::{self, Progress};
     let phase = Progress::read(string(row, "state"), row["backendSession"] == session);
-    if !phase.active() && phase != Progress::Unconfirmed {
+    if !phase.active() && !phase.is(progress::State::Unconfirmed) {
         return Ok((vec![], false));
     }
     // A malformed timestamp must not keep a record in the idle poll forever.
@@ -737,13 +739,15 @@ fn receipt_inputs(
     chrono::DateTime::parse_from_rfc3339(updated)
         .map_err(|_| "INVALID_RECEIPT: invalid phase timestamp")?;
     let mut events = vec![];
-    if phase == Progress::Unconfirmed && row["state"] != "unconfirmed" {
+    if phase.is(progress::State::Unconfirmed)
+        && !Progress::read(string(row, "state"), true).is(progress::State::Unconfirmed)
+    {
         let uncertain = progress::project(row.clone(), false, time);
         events.extend(inputs_on(Owner::Receipt, &uncertain, resource.clone())?);
     }
-    let normalized = progress::project(row.clone(), phase != Progress::Unconfirmed, time);
+    let normalized = progress::project(row.clone(), !phase.is(progress::State::Unconfirmed), time);
     let stalled = stalled_input(&normalized, time, resource)?;
-    let watch = phase == Progress::Reserved && stalled.is_none();
+    let watch = phase.is(progress::State::Reserved) && stalled.is_none();
     events.extend(stalled);
     Ok((events, watch))
 }

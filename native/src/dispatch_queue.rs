@@ -379,30 +379,35 @@ async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
                 Ok(result) => result,
                 Err(error) => {
                     let _guard = LOCK.lock().await;
-                    row["state"] = json!(crate::kernel::receipts::failure_state(&error));
+                    row["state"] = json!(crate::kernel::receipts::progress::failure(&error)
+                        .state()
+                        .wire());
                     row["error"] = crate::egress::failure(&error);
                     return save(&path(string(&row, "queueId"))?, &row);
                 }
             };
-            let state = string(&result, "state");
-            if crate::kernel::receipts::progress::Progress::read(state, true).active() {
+            let progress =
+                crate::kernel::receipts::progress::Progress::read(string(&result, "state"), true);
+            if progress.active() {
                 return Ok(());
             }
             let _guard = LOCK.lock().await;
-            row["state"] = json!(if state == "completed" {
-                if steering {
-                    "steered"
+            row["state"] = json!(
+                if progress.is(crate::kernel::receipts::progress::State::Completed) {
+                    if steering {
+                        "steered"
+                    } else {
+                        "sent"
+                    }
+                } else if progress.is(crate::kernel::receipts::progress::State::Unconfirmed) {
+                    "unconfirmed"
                 } else {
-                    "sent"
+                    "failed"
                 }
-            } else if state == "unconfirmed" {
-                "unconfirmed"
-            } else {
-                "failed"
-            });
+            );
             row["turnId"] = result["turnId"].clone();
             row["error"] = result["result"]["error"].clone();
-            row["reason"] = json!(state);
+            row["reason"] = result["state"].clone();
             save(&path(string(&row, "queueId"))?, &row)
         },
     )

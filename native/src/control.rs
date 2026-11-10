@@ -1,3 +1,6 @@
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use crate::turn_lifecycle::{adapters as turn_adapter, Outcome, TerminalRecord, TurnState};
 use crate::*;
 use crate::{
@@ -1483,7 +1486,7 @@ impl Control {
         } else {
             Value::Null
         };
-        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":"reserved","createdAt":now(),"updatedAt":now()});
+        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":ReceiptState::Reserved.wire(),"createdAt":now(),"updatedAt":now()});
         if matches!(operation, "create" | "send") {
             crate::dispatch_caller::attach_current(&mut receipt);
             receipt["srcConversation"] = crate::src_conversations::capture(&args).await?;
@@ -1516,12 +1519,12 @@ impl Control {
             receipt["arguments"] = args.clone();
             receipt["approval"] = json!({"decision":decision,"source":"cloud","at":now()});
             if decision == "pending" {
-                receipt["state"] = json!("awaiting-approval");
+                progress::apply(&mut receipt, ProgressEvent::AwaitApproval);
                 receipt["nextAction"] = json!("receipt: approve, bypass or reject; user intent overrides the default approval mode");
             }
         }
         RECEIPTS.reserve(&receipt)?;
-        if receipt["state"] == "awaiting-approval" {
+        if Progress::read(string(&receipt, "state"), true).is(ReceiptState::AwaitingApproval) {
             return Ok(receipt);
         }
         let wait = if operation == "command" && args.get("waitMs").is_none() {
@@ -1563,7 +1566,7 @@ impl Control {
             match outcome {
                 Ok(result) => {
                     receipt["result"] = result;
-                    receipt["state"] = json!("completed")
+                    progress::apply(&mut receipt, ProgressEvent::Complete)
                 }
                 Err(err) => {
                     // A definite pre-acceptance create failure must not leave an
@@ -1571,7 +1574,7 @@ impl Control {
                     if op == "create"
                         && receipt["threadId"].is_string()
                         && !receipt["cleanup"].is_object()
-                        && !err.starts_with("SUBMISSION_UNCONFIRMED:")
+                        && progress::failure(&err) != progress::Failure::Unconfirmed
                     {
                         let thread = string(&receipt, "threadId");
                         let cleanup = c.archive_empty_creation(thread).await;
@@ -1584,7 +1587,7 @@ impl Control {
                         .as_str()
                         .map(|stage| json!(stage))
                         .unwrap_or_else(|| receipt["state"].clone());
-                    receipt["state"] = json!(crate::kernel::receipts::failure_state(&err));
+                    progress::apply(&mut receipt, ProgressEvent::Fail(progress::failure(&err)));
                     let mut error = crate::egress::failure(&err);
                     if error["code"] == "THREAD_WRITER_BUSY" && receipt["threadId"].is_string() {
                         error["next"] =
@@ -1623,16 +1626,19 @@ impl Control {
         }
         let _request_lock = self.requests.lock(request).await;
         let mut r = self.receipt(request).await?;
-        if r["state"] != "awaiting-approval" {
+        if !Progress::read(string(&r, "state"), true).is(ReceiptState::AwaitingApproval) {
             return Ok(r);
         }
         r["approval"] = json!({"decision":if action=="approve"{"approved"}else{action},"source":source,"at":now()});
         r.as_object_mut().unwrap().remove("nextAction");
-        r["state"] = json!(if action == "reject" {
-            "not-executed"
-        } else {
-            "reserved"
-        });
+        progress::apply(
+            &mut r,
+            if action == "reject" {
+                ProgressEvent::Reject
+            } else {
+                ProgressEvent::Approve
+            },
+        );
         r["backendSession"] = json!(self.session);
         self.checkpoint(&mut r)?;
         if action != "reject" {

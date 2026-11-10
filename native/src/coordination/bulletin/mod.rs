@@ -1,6 +1,9 @@
 //! Shared notices and blockers. Recovery uses the coordination message outbox.
 mod store;
 use super::*;
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use crate::turn_lifecycle::{adapters as turn_adapter, Transition};
 use std::sync::{LazyLock, Mutex};
 use store::{Clock, Link, Store};
@@ -292,20 +295,27 @@ pub(crate) async fn call(
         let _guard = locks.lock(&request).await;
         let digest = digest(op,&args,&reader.principal);
         let mut receipt = match RECEIPTS.replay(&request,&digest,session)? {
-            Some(mut r) if matches!(string(&r,"state"),"completed"|"failed") => { let mut result = r["result"].clone(); session_result(op,&args,&mut result)?; r["result"]=result.clone(); result["receipt"] = r; return Ok(result); }
-            Some(r) => r,
-            None => { let r = json!({"requestId":request,"digest":digest,"operation":op,"origin":crate::kernel::origin::current_origin(),"backendSession":session,"state":"reserved","createdAt":now()}); RECEIPTS.reserve(&r)?; r }
+            Some(mut r) if matches!(Progress::read(string(&r,"state"),true).execution(), progress::Execution::Completed | progress::Execution::Failed) => { let mut result = r["result"].clone(); session_result(op,&args,&mut result)?; r["result"]=result.clone(); result["receipt"] = r; return Ok(result); }
+            Some(mut r) => {
+                // Read a committed owner result without repeating the mutation.
+                if let Some(mut result) = with_store(|s| s.replay(&request,&digest))? {
+                    progress::apply(&mut r, ProgressEvent::Complete);
+                    session_result(op,&args,&mut result)?;
+                    r["result"] = result.clone();
+                    RECEIPTS.checkpoint(&mut r)?;
+                    result["receipt"] = r;
+                    return Ok(result);
+                }
+                let retained = r["createdAt"].as_str().and_then(|at|chrono::DateTime::parse_from_rfc3339(at).ok())
+                    .and_then(|at|clock().age(at.timestamp_millis())).is_some_and(|age|age < 7 * 86400);
+                if !retained { return Err("COORDINATION_REPLAY_EXPIRED: the original incomplete receipt exceeds bulletin retention; inspect board and the original receipt before explicitly starting a new work scope".into()); }
+                return Ok(crate::egress::receipt(r));
+            },
+            None => { let r = json!({"requestId":request,"digest":digest,"operation":op,"origin":crate::kernel::origin::current_origin(),"backendSession":session,"state":ReceiptState::Reserved.wire(),"createdAt":now()}); RECEIPTS.reserve(&r)?; r }
         };
         receipt["backendSession"] = json!(session);
         let _owner = RECEIPTS.begin(&mut receipt)?;
-        // Recover an owner commit even when its receipt checkpoint was lost on restart.
-        let replay = with_store(|s| s.replay(&request,&digest))?;
-        let outcome = if let Some(result) = replay { Ok(result) } else {
-            if receipt["replayed"] == true {
-                let retained = receipt["createdAt"].as_str().and_then(|at|chrono::DateTime::parse_from_rfc3339(at).ok())
-                    .and_then(|at|clock().age(at.timestamp_millis())).is_some_and(|age|age < 7 * 86400);
-                if !retained { return Err("COORDINATION_REPLAY_EXPIRED: the original incomplete receipt exceeds bulletin retention; inspect board and the original receipt before explicitly starting a new work scope".into()); }
-            }
+        let outcome = {
             let mut links = linked(&args,&reader.principal)?;
             let threads = links.iter().map(|l| l.thread_id.clone()).collect::<Vec<_>>();
             let mut observed = control.coordination_observations(&threads).await;
@@ -332,9 +342,9 @@ pub(crate) async fn call(
             with_store(|s| if route.is_some() {s.mutate_routed(op,&args,&reader.principal,links,clock(),route)} else {s.mutate(op,&args,&reader.principal,links,clock())})
         };
         let mut value = match outcome {
-            Ok(value) => { receipt["state"] = json!("completed"); value }
+            Ok(value) => { progress::apply(&mut receipt, ProgressEvent::Complete); value }
             Err(e) if e.starts_with("COORDINATION_STORAGE") || e.starts_with("COORDINATION_CAPACITY") || e.starts_with("COORDINATION_RATE_LIMIT") => return Err(e),
-            Err(e) => { receipt["state"] = json!("failed"); failure(e,op) }
+            Err(e) => { progress::apply(&mut receipt, ProgressEvent::Fail(progress::Failure::Failed)); failure(e,op) }
         };
         session_result(op,&args,&mut value)?;
         value["projectionPending"] = json!(reconcile().is_err() || with_store(|s| Ok(!s.state.pending.is_empty()))?);

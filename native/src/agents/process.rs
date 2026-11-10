@@ -1,4 +1,7 @@
 use super::lifecycle;
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use crate::owned_children::SpawnOwned;
 use crate::turn_lifecycle::adapters as turn_adapter;
 use crate::*;
@@ -832,11 +835,8 @@ impl Process {
         let Ok(mut receipt) = load(&path) else {
             return;
         };
-        let progress =
-            crate::kernel::receipts::progress::Progress::read(string(&receipt, "state"), true);
-        if !progress.active()
-            && progress != crate::kernel::receipts::progress::Progress::Unconfirmed
-        {
+        let progress = Progress::read(string(&receipt, "state"), true);
+        if !progress.active() && !progress.is(ReceiptState::Unconfirmed) {
             return;
         }
         let received = state["taskHost"]["receivedSequence"].as_u64().unwrap_or(0);
@@ -847,7 +847,7 @@ impl Process {
             return;
         }
         if (self.pi && state["taskHost"]["promptResponded"] == true) || lifecycle::terminal(state) {
-            receipt["state"] = json!("completed");
+            progress::apply(&mut receipt, ProgressEvent::Complete);
             receipt["result"] = state.clone();
             receipt["error"] = Value::Null;
             if let Err(error) = super::RECEIPTS.checkpoint(&mut receipt) {

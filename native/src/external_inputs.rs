@@ -77,7 +77,10 @@ pub(crate) fn submitted(thread: &str, token: &str, result: &Result<Value>) -> Re
                     row["turnId"] = json!(turn);
                 }
             }
-            Err(error) if crate::kernel::receipts::failure_state(error) != "unconfirmed" => {
+            Err(error)
+                if crate::kernel::receipts::progress::failure(error)
+                    != crate::kernel::receipts::progress::Failure::Unconfirmed =>
+            {
                 submissions.retain(|s| s["id"] != token);
             }
             _ => {}
@@ -97,7 +100,9 @@ pub(crate) fn responding(thread: &str, request: &Value) -> Result<()> {
 }
 
 pub(crate) fn response_failed(thread: &str, request: &Value, error: &str) -> Result<()> {
-    if crate::kernel::receipts::failure_state(error) == "unconfirmed" {
+    if crate::kernel::receipts::progress::failure(error)
+        == crate::kernel::receipts::progress::Failure::Unconfirmed
+    {
         return Ok(());
     }
     let _guard = LOCK.lock().unwrap();

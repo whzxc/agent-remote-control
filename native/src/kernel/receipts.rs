@@ -111,10 +111,13 @@ impl ReceiptStore {
         if !receipt.is_object() {
             return Err("INVALID_RECEIPT".into());
         }
-        let previous = receipt["state"].clone();
+        let previous = progress::Progress::decode(string(&receipt, "state"));
         let owner_live = receipt["backendSession"] == session;
         receipt = progress::project(receipt, owner_live, chrono::Utc::now().timestamp_millis());
-        if receipt["state"] == "unconfirmed" && previous != "unconfirmed" {
+        if progress::Progress::read(string(&receipt, "state"), true)
+            .is(progress::State::Unconfirmed)
+            && !previous.is_some_and(|p| p.is(progress::State::Unconfirmed))
+        {
             crate::coordination::observers::unconfirmed(&receipt);
         }
         // Labels belong to the response boundary. A task/status poll reads many
@@ -171,7 +174,10 @@ impl ReceiptStore {
     }
     /// The local execution owner has accepted the operation. Turn completion is separate.
     pub fn begin(&self, receipt: &mut Value) -> Result<ExecutionOwner<'_>> {
-        receipt["state"] = json!("executing");
+        if !progress::Progress::read(string(receipt, "state"), true).is(progress::State::Reserved) {
+            return Err("SUBMISSION_UNCONFIRMED: read the original receipt; execution cannot be resubmitted".into());
+        }
+        progress::apply(receipt, progress::Event::Begin);
         self.checkpoint(receipt)?;
         Ok(ExecutionOwner {
             store: self,
@@ -263,15 +269,6 @@ impl RequestLocks {
         lock.lock_owned().await
     }
 }
-pub fn failure_state(error: &str) -> &'static str {
-    if error.starts_with("SUBMISSION_UNCONFIRMED:") {
-        "unconfirmed"
-    } else if error.starts_with("RPC_REJECTED") || error.starts_with("DESKTOP_REJECTED") {
-        "rejected"
-    } else {
-        "failed"
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -353,11 +350,29 @@ mod tests {
             assert_eq!(read["state"], "executing");
             assert_eq!(read["progressStalled"], false);
             assert_eq!(read["requestId"], row["requestId"]);
+            tokio::time::advance(std::time::Duration::from_millis(1)).await;
+            let readback = fixture
+                .store
+                .read(string(&row, "requestId"), "fixture-session")
+                .unwrap();
+            for response in [read, readback] {
+                let mut public = crate::egress::receipt(response);
+                crate::egress::next(&mut public, operation, &json!({}), false);
+                assert_eq!(public["state"], "executing");
+                assert_eq!(public["submissionState"], "submitted");
+                assert_eq!(public["executionState"], "executing");
+                assert_eq!(public["progressStalled"], false);
+                assert_eq!(
+                    public["next"]["args"],
+                    json!({"action":"read","requestId":row["requestId"]})
+                );
+                assert!(!string(&public["next"], "hint").contains("stalled"));
+            }
             let projected = fixture
                 .store
                 .read_for_projection(string(&row, "requestId"), "fixture-session")
                 .unwrap();
-            assert_eq!(projected["state"], read["state"]);
+            assert_eq!(projected["state"], "executing");
             assert_eq!(projected["submissionState"], "submitted");
         }
     }
@@ -366,19 +381,13 @@ mod tests {
     async fn lost_execution_owner_retains_the_original_receipt_across_reads() {
         // Regression: interrupted submission retained pending or task recovery advice instead of the original unconfirmed receipt.
         let fixture = Sandbox::new();
-        let mut row = json!({"requestId":id(),"operation":"agent_send","taskId":"fixture-task","state":"reserved","backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z"});
+        let mut row = json!({"requestId":id(),"operation":"agent_send","taskId":"fixture-task","digest":"fixture-digest","origin":crate::kernel::origin::current_origin(),"state":"reserved","backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z"});
         fixture.store.reserve(&row).unwrap();
         let request = string(&row, "requestId").to_owned();
         let restarted = fixture.store.read(&request, "new-session").unwrap();
         assert_eq!(restarted["state"], "unconfirmed");
         assert_eq!(restarted["requestId"], request);
-        let _owner = fixture.store.begin(&mut row).unwrap();
-        drop(_owner);
-        assert_eq!(
-            fixture.store.read(&request, "fixture-session").unwrap()["state"],
-            "unconfirmed"
-        );
-        let _owner = fixture.store.begin(&mut row).unwrap();
+        let owner = fixture.store.begin(&mut row).unwrap();
         let (sender, receiver) = tokio::sync::oneshot::channel();
         drop(sender);
         let lost = fixture
@@ -386,15 +395,25 @@ mod tests {
             .wait(&request, "fixture-session", 45_000, receiver)
             .await
             .unwrap();
+        drop(owner);
         let mut public = crate::egress::receipt(lost);
         crate::egress::next(&mut public, "receipt", &json!({"requestId":request}), false);
         assert_eq!(public["state"], "unconfirmed");
+        assert_eq!(public["submissionState"], "unconfirmed");
         assert_eq!(public["progressStalled"], false);
         assert_eq!(public["next"]["op"], "receipt");
         assert_eq!(
             public["next"]["args"],
             json!({"requestId":request,"action":"read"})
         );
+        let mut replay = fixture
+            .store
+            .replay(&request, "fixture-digest", "new-session")
+            .unwrap()
+            .unwrap();
+        assert_eq!(replay["state"], "unconfirmed");
+        assert_eq!(replay["requestId"], request);
+        assert!(fixture.store.begin(&mut replay).is_err());
         assert_eq!(
             fixture
                 .store
@@ -402,12 +421,45 @@ mod tests {
                 .unwrap()["state"],
             "unconfirmed"
         );
-        row["state"] = json!("completed");
-        fixture.store.checkpoint(&mut row).unwrap();
+        // A later confirmed owner result may settle the original operation.
+        progress::apply(&mut replay, progress::Event::Complete);
+        fixture.store.checkpoint(&mut replay).unwrap();
         assert_eq!(
             fixture.store.read(&request, "new-session").unwrap()["state"],
             "completed"
         );
+    }
+
+    #[test]
+    fn settled_receipts_keep_existing_outcomes_and_results_after_owner_restart() {
+        // Regression: shared progress migration must preserve completed/failed receipts and their original result/error payloads.
+        let fixture = Sandbox::new();
+        for state in ["completed", "failed"] {
+            let row = json!({"requestId":id(),"operation":"command","state":state,"backendSession":"old-session","createdAt":"2000-01-01T00:00:00Z","result":{"stdout":"original output","exitCode":if state == "completed" {0} else {1}},"error":if state == "failed" {json!({"code":"OPERATION_FAILED","message":"original error"})} else {Value::Null}});
+            fixture.store.reserve(&row).unwrap();
+            let read = fixture
+                .store
+                .read(string(&row, "requestId"), "new-session")
+                .unwrap();
+            for key in [
+                "requestId",
+                "state",
+                "operation",
+                "createdAt",
+                "result",
+                "error",
+            ] {
+                assert_eq!(read[key], row[key]);
+            }
+            assert_eq!(read["submissionState"], "submitted");
+            assert_eq!(read["executionState"], state);
+            assert_eq!(read["progressStalled"], false);
+            let projected = fixture
+                .store
+                .read_for_projection(string(&row, "requestId"), "new-session")
+                .unwrap();
+            assert_eq!(projected["state"], state);
+        }
     }
 
     #[tokio::test]

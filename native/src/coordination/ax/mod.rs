@@ -4,6 +4,9 @@ mod import;
 mod issue;
 mod store;
 use super::*;
+use crate::kernel::receipts::progress::{
+    self, Event as ProgressEvent, Progress, State as ReceiptState,
+};
 use std::sync::{LazyLock, Mutex};
 use store::Store;
 
@@ -212,12 +215,12 @@ pub(crate) async fn call(op: &str, mut args: Value, session: &str) -> Result<Val
         let _request=locks.lock(&request).await;
         let digest=request_digest(op,&args,&actor);
         let mut receipt=match RECEIPTS.replay(&request,&digest,session)? {
-            Some(r) if r["state"]=="completed" || r["state"]=="failed" => {
+            Some(r) if matches!(Progress::read(string(&r,"state"),true).execution(), progress::Execution::Completed | progress::Execution::Failed) => {
                 let mut result=r["result"].clone(); result["receipt"]=r; return Ok(result);
             }
-            Some(r) => r,
+            Some(r) => return Ok(crate::egress::receipt(r)),
             None => {
-                let r=json!({"requestId":request,"origin":crate::kernel::origin::current_origin(),"backendSession":session,"digest":digest,"operation":op,"state":"reserved","createdAt":now()});
+                let r=json!({"requestId":request,"origin":crate::kernel::origin::current_origin(),"backendSession":session,"digest":digest,"operation":op,"state":ReceiptState::Reserved.wire(),"createdAt":now()});
                 RECEIPTS.reserve(&r)?; r
             }
         };
@@ -226,11 +229,11 @@ pub(crate) async fn call(op: &str, mut args: Value, session: &str) -> Result<Val
         let facts=evidence(&args,&actor);
         let outcome=with_store(|s|s.mutate(op,&args,&actor,facts,chrono::Utc::now().timestamp_millis()));
         let mut result=match outcome {
-            Ok(mut result) => { result["projectionPending"]=json!(reconcile().is_err()); receipt["state"]=json!("completed"); result }
+            Ok(mut result) => { result["projectionPending"]=json!(reconcile().is_err()); progress::apply(&mut receipt, ProgressEvent::Complete); result }
             Err(error) => {
-                // Capacity/storage failures are retryable with the same durable reservation.
+                // Storage failure leaves the original receipt unconfirmed for reconciliation.
                 if error.starts_with("COORDINATION_") { return Err(error); }
-                receipt["state"]=json!("failed"); failure(error,op,&args)
+                progress::apply(&mut receipt, ProgressEvent::Fail(progress::Failure::Failed)); failure(error,op,&args)
             }
         };
         // Persist only the safe entry projection. Owner-only detail lives in AX, not receipts.
