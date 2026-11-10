@@ -1032,7 +1032,7 @@
     },
     {
       "name": "command",
-      "description": "",
+      "description": "Non-zero exit codes are normal results; branch on result.exitCode.",
       "inputSchema": {
         "type": "object",
         "properties": {

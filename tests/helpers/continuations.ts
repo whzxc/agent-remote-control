@@ -9,7 +9,7 @@ export function assertNextCalls(value: any): void {
   const root=value && Object.keys(value).length===1 && value.result ? value.result : value;
   let outcome=root;
   for(let depth=0;outcome && depth<8;depth++) {
-    if(outcome.ok===false || outcome.error?.code || (['failed','rejected','not-executed','unconfirmed','rolled-back'].includes(outcome.state) || (outcome.state==='cancelled' && outcome.stateScope!=='turn')) || (typeof outcome.exitCode==='number' && outcome.exitCode!==0)) {
+    if(outcome.ok===false || outcome.error?.code || (['failed','rejected','not-executed','unconfirmed','rolled-back'].includes(outcome.state) || (outcome.state==='cancelled' && outcome.stateScope!=='turn'))) {
       assert.ok(root.next && typeof root.next==='object','Failure response is missing next');
       assert.ok(typeof root.next.op==='string' || (root.next.op===null && typeof root.next.hint==='string' && root.next.hint.trim()),'Failure next must name an operation or explicitly describe human recovery');
       break;

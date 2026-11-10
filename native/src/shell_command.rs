@@ -54,7 +54,10 @@ pub async fn run(c: &control::Control, args: &Value) -> Result<Value> {
             timeout.saturating_add(5000),
         )
         .await?;
-    let result = json!({"stdout":output["stdout"],"stderr":output["stderr"],"exitCode":output["exitCode"],"durationMs":started.elapsed().as_millis() as u64,"truncated":false});
+    let mut result = json!({"stdout":output["stdout"],"stderr":output["stderr"],"exitCode":output["exitCode"],"durationMs":started.elapsed().as_millis() as u64,"truncated":false});
+    if let Some(signal) = output.get("signal") {
+        result["signal"] = signal.clone();
+    }
     budget(result, args)
 }
 

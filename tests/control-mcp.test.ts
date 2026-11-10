@@ -203,6 +203,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     }
     if (method === 'project/list' && existsSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json')) return emit({id,result:{data:JSON.parse(readFileSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json','utf8')),nextCursor:null}});
     if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });
+    if (method === 'command/exec' && params.command?.at(-1)==='fixture-signal-command') return emit({id,result:{stdout:'',stderr:'terminated',exitCode:null,signal:15}});
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-failed-command') return emit({id,result:{stdout:'',stderr:'failed check',exitCode:7}});
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-budget') return emit({id,result:{stdout:'é'.repeat(40),stderr:'err'.repeat(20),exitCode:0}});
     if (method === 'command/exec' && params.command?.at(-1)==='fixture-cwd') return emit({id,result:{stdout:params.cwd,stderr:'',exitCode:0}});
@@ -2183,6 +2184,51 @@ test('compact read defaults to the latest turn and item keys avoid duplicate com
   assert.equal((await call('codex_items',{...args,view:'full'})).result.error.code,'INVALID_ARGUMENTS');
 });
 
+test('command non-zero exits are completed results across MCP CLI and receipts',async()=>{
+  // Contract: an executed command returns its exit status as data without a tool error.
+  for(const args of [{cmd:'fixture-failed-command',cwd:directory},{action:'exec',params:{command:['fixture-failed-command'],cwd:directory}}]) {
+    const requestId=randomUUID();
+    const first=await call('command',{...args,requestId,waitMs:1000});
+    assert.equal(first.response.isError,false);
+    assert.equal(first.result.state,'completed');
+    assert.equal(first.result.result.exitCode,7);
+    assert.equal(first.result.result.stdout,'');
+    assert.equal(first.result.result.stderr,'failed check');
+    assert.equal(first.result.error,undefined);
+    const replay=await call('receipt',{requestId});
+    assert.equal(replay.response.isError,false);
+    assert.deepEqual(replay.result.result,first.result.result);
+    for(const [op,input] of [['receipt',{requestId}],['command',{...args,requestId:randomUUID(),waitMs:1000}]] as const) {
+      const cli=JSON.parse(execFileSync(fixtureCommand,['cli','control',op,'--stdin'],{env:fixtureEnv,input:JSON.stringify(input),encoding:'utf8',stdio:['pipe','pipe','pipe']}));
+      assert.equal(cli.ok,true);
+      assert.equal(cli.result.state,'completed');
+      assert.equal(cli.result.result.exitCode,7);
+      assert.equal(cli.error,undefined);
+    }
+  }
+  for(const args of [{cmd:'fixture-signal-command',cwd:directory},{action:'exec',params:{command:['fixture-signal-command'],cwd:directory}}]) {
+    const response=await call('command',{...args,requestId:randomUUID(),waitMs:1000});
+    assert.equal(response.response.isError,false);
+    assert.equal(response.result.state,'completed');
+    assert.equal(response.result.result.exitCode,null);
+    assert.equal(response.result.result.signal,15);
+    assert.equal(response.result.error,undefined);
+  }
+});
+
+test('command not started retains its operation error',async()=>{
+  // Contract: a command whose working directory is unavailable remains a tool error.
+  const requestId=randomUUID();
+  const first=await call('command',{cmd:'fixture-failed-command',cwd:path.join(directory,'missing-command-cwd'),requestId,waitMs:1000});
+  assert.equal(first.response.isError,true);
+  assert.equal(first.result.state,'failed');
+  assert.equal(first.result.error.code,'CONTROL_ERROR');
+  assert.match(first.result.error.message,/ABSOLUTE_CWD_REQUIRED/);
+  const replay=await call('receipt',{requestId});
+  assert.equal(replay.response.isError,true);
+  assert.equal(replay.result.error.code,first.result.error.code);
+});
+
 test('command output budgets preserve complete stdout and stderr through control_output',async()=>{
   // Contract: command receipts retain exit status and expose complete paged output when budgeted.
   for(const args of [{cmd:'fixture-budget',cwd:directory},{action:'exec',params:{command:['fixture-budget'],cwd:directory}}]) {
@@ -2468,7 +2514,8 @@ test('AX2 failed receipts report failure through MCP and CLI without losing iden
   assert.equal(envelope.result.error,undefined);assert.equal(envelope.result.result.error,undefined);
   assert.equal(response.result.result.error,undefined);
   const command=await completed('command',{cmd:'fixture-failed-command',cwd:directory,requestId:randomUUID()});
-  assert.equal(command.error.exitCode,7);
+  assert.equal(command.result.exitCode,7);
+  assert.equal(command.error,undefined);
 });
 
 

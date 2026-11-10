@@ -19,8 +19,7 @@ pub fn outcome_error(value: &Value) -> Option<Value> {
             state,
             "failed" | "rejected" | "not-executed" | "cancelled" | "unconfirmed" | "rolled-back"
         ) && !interrupted_turn(current);
-        let exit = current["exitCode"].as_i64().filter(|code| *code != 0);
-        if failed || exit.is_some() || current["ok"] == false {
+        if failed || current["ok"] == false {
             let reason = current
                 .get("error")
                 .filter(|v| !v.is_null())
@@ -30,7 +29,7 @@ pub fn outcome_error(value: &Value) -> Option<Value> {
                 Some(value) if value.is_string() => json!({"message":value}),
                 Some(value) => json!({"message":value.to_string()}),
                 None => {
-                    json!({"message":current["reason"].as_str().map(str::to_owned).unwrap_or_else(|| if let Some(code) = exit { format!("Command exited with code {code}") } else {format!("Operation outcome: {state}")})})
+                    json!({"message":current["reason"].as_str().map(str::to_owned).unwrap_or_else(|| format!("Operation outcome: {state}"))})
                 }
             };
             if !error["code"].is_string() {
@@ -43,7 +42,7 @@ pub fn outcome_error(value: &Value) -> Option<Value> {
             if !state.is_empty() {
                 error["outcome"] = json!(state);
             }
-            if let Some(code) = exit {
+            if let Some(code) = current["exitCode"].as_i64().filter(|code| *code != 0) {
                 error["exitCode"] = json!(code);
             }
             return Some(error);
