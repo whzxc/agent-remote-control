@@ -544,11 +544,36 @@ fn validate(s: &Settings) -> Result<()> {
     Ok(())
 }
 
+/// Preserve only native allowance facts needed for advisory dispatch decisions.
+pub(crate) fn codex_dispatch_quota(value: &Value) -> Value {
+    let pools: Vec<_> = if let Some(map) = value["rateLimitsByLimitId"].as_object() {
+        map.iter().map(|(id, pool)| (id.as_str(), pool)).collect()
+    } else if value["rateLimits"].is_object() {
+        vec![(
+            value["rateLimits"]["limitId"].as_str().unwrap_or("codex"),
+            &value["rateLimits"],
+        )]
+    } else {
+        vec![]
+    };
+    json!({"ordinaryUsageAllowed":value["ordinaryUsageAllowed"],"pools":pools.into_iter().map(|(id, pool)| {
+        json!({"id":id,"rateLimitReachedType":pool["rateLimitReachedType"],
+            "spendControlReached":pool["spendControlReached"],"credits":pool["credits"],
+            "primary":pool["primary"],"secondary":pool["secondary"]})
+    }).collect::<Vec<_>>()})
+}
+
 /// Read quota with the same native authentication that owns the selected execution profile.
 pub(crate) async fn account_quota(control: &Control, agent: &str, profile: &str) -> Value {
     match providers::account_read(control, agent, profile).await {
         Ok(reading) => {
-            json!({"state":"ready","source":"native-profile","observedAt":now(),"windows":reading.windows,"accountBlocked":reading.account_blocked,"blockedPoolIds":reading.blocked_pool_ids})
+            let mut quota = json!({"state":"ready","source":"native-profile","observedAt":now(),"windows":reading.windows,"accountBlocked":reading.account_blocked,"blockedPoolIds":reading.blocked_pool_ids});
+            if agent == "codex" {
+                let native = codex_dispatch_quota(&reading.raw_usage);
+                quota["ordinaryUsageAllowed"] = native["ordinaryUsageAllowed"].clone();
+                quota["pools"] = native["pools"].clone();
+            }
+            quota
         }
         Err(error) => {
             json!({"state":"unavailable","source":"native-profile","observedAt":now(),"windows":[],"error":error})

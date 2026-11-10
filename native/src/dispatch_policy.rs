@@ -5,6 +5,7 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
 mod quality;
+mod recommendation;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Dispatch records carry an outcome projection, never an operation phase.
@@ -51,7 +52,7 @@ const CRITERIA_ADVISORY_CHARS: usize = 2000;
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-struct Policy {
+pub(crate) struct Policy {
     model: Option<String>,
     effort: Option<String>,
     #[serde(default)]
@@ -67,6 +68,14 @@ struct Policy {
     #[serde(default)]
     deny_efforts: Vec<String>,
     criteria: String,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    account_credit_use: std::collections::BTreeMap<String, CreditUse>,
+}
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum CreditUse {
+    Allowed,
+    Never,
 }
 /// A user-owned bundle for one task class; the control source selects it explicitly.
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -107,6 +116,8 @@ pub(crate) struct AgentPolicy {
     allow_options: std::collections::BTreeMap<String, Vec<String>>,
     deny_options: std::collections::BTreeMap<String, Vec<String>>,
     criteria: String,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    account_credit_use: std::collections::BTreeMap<String, CreditUse>,
 }
 pub(crate) fn agent_policy(agent: &str) -> Result<AgentPolicy> {
     Ok(read()?.agents.remove(agent).unwrap_or_default())
@@ -547,6 +558,16 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
         Some(thread) => task_values(thread)?,
         None => Value::Null,
     };
+    resolve_configuration(args, inherited, &task, &policy)
+}
+
+/// Resolve structured Codex defaults without consulting advisory recommendations.
+pub(crate) fn resolve_configuration(
+    args: &mut Value,
+    inherited: &Value,
+    task: &Value,
+    policy: &Policy,
+) -> Result<Value> {
     let mut selection = json!({"reason":args["reason"],"source":{}});
     for (field, mode_field, default, allow, deny) in [
         (
@@ -678,6 +699,7 @@ async fn models(c: &control::Control) -> Result<Value> {
 pub(super) fn codex_model(model: &Value) -> Value {
     let mut row = json!({
         "model":model["model"], "name":model["displayName"],
+        "isDefault":model["isDefault"], "defaultReasoningEffort":model["defaultReasoningEffort"],
         "defaultServiceTier":model["defaultServiceTier"], "serviceTiers":model["serviceTiers"],
         "efforts":model["supportedReasoningEfforts"].as_array().into_iter().flatten()
             .map(|e| e["reasoningEffort"].clone()).collect::<Vec<_>>()
@@ -723,35 +745,20 @@ pub(crate) async fn catalog(
 }
 
 async fn codex_facts(c: &control::Control, compact: bool) -> Result<Value> {
-    let policy = read()?;
     let (models, quota) = tokio::join!(
         models(c),
         c.request("account/rateLimits/read", json!({}), 15000)
     );
     let quota = quota.map(|v| {
-        let pools = if let Some(map) = v["rateLimitsByLimitId"].as_object() {
-            map.iter().map(|(id, pool)| (id.clone(), pool.clone())).collect::<Vec<_>>()
-        } else if v["rateLimits"].is_object() {
-            vec![(v["rateLimits"]["limitId"].as_str().unwrap_or("codex").into(), v["rateLimits"].clone())]
-        } else { vec![] };
-        json!({"ordinaryUsageAllowed":v["ordinaryUsageAllowed"],"pools":pools.iter().map(|(id,p)| {
-            let mut pool = json!({"id":id});
-            for key in ["rateLimitReachedType","spendControlReached","credits"] {
-                if !p[key].is_null() { pool[key]=p[key].clone(); }
-            }
-            for key in ["primary","secondary"] {
-                if p[key].is_object() {
-                    pool[key]=json!({"usedPercent":p[key]["usedPercent"],"windowDurationMins":p[key]["windowDurationMins"],"resetsAt":p[key]["resetsAt"]});
-                }
-            }
-            pool
-        }).collect::<Vec<_>>()})
+        let mut quota = crate::subscriptions::codex_dispatch_quota(&v);
+        quota["state"] = json!("ready");
+        quota["observedAt"] = json!(now());
+        quota
     });
     let authoritative = models.is_ok();
     Ok(json!({
         "observedAt":now(),"authoritative":authoritative,
         "models":models.unwrap_or_else(|error| json!({"unavailable":error})),
-        "policy":policy,
         "quota":quota.unwrap_or_else(|error| json!({"unavailable":error})),
         "history":history_view("codex", compact).unwrap_or_else(|error| json!({"unavailable":error}))
     }))
@@ -796,10 +803,10 @@ pub(crate) async fn query(
         });
         if agent == "codex" {
             let facts = codex_facts(c, args["view"] != "full").await?;
-            for key in ["models", "authoritative", "quota", "history"] {
+            for key in ["models", "authoritative", "quota", "history", "observedAt"] {
                 row[key] = facts[key].clone();
             }
-            row["policy"] = facts["policy"]["codex"].clone();
+            row["policy"] = serde_json::to_value(&policies.codex).map_err(|e| e.to_string())?;
             row["selectionSupported"] = json!(true);
         } else {
             row["quota"] = if providers.is_empty() {
@@ -816,9 +823,13 @@ pub(crate) async fn query(
         }
     }
     let packs = packs_view(&policies, args["view"] == "full")?;
+    let recommendation = recommendation::compute(
+        &json!({"criteria":policies.criteria,"packs":policies.packs,"agents":rows}),
+        args["view"] == "full",
+    );
     Ok(decision::present(
         json!({"observedAt":now(),"policyPath":root().join("dispatch-policy.json"),"criteria":policies.criteria,"packs":packs,
-            "packAgents":policies.packs.values().filter_map(|p| p.agent.clone()).collect::<Vec<_>>(),"agents":rows}),
+            "recommendation":recommendation,"packAgents":policies.packs.values().filter_map(|p| p.agent.clone()).collect::<Vec<_>>(),"agents":rows}),
         args,
     ))
 }

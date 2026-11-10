@@ -1336,7 +1336,7 @@ pub(crate) fn dispatch_accounts(rows: &[Value], agent: &str) -> Result<Value> {
     let parity = std::cell::OnceCell::new();
     Ok(json!(rows.iter().cloned().map(|mut account| { project_parity(&mut account, &parity); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
         let profiles: Vec<_> = profiles(&a).filter(|p| p["agent"] == agent).cloned().collect();
-        json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quota":a["quota"]})
+        json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quotaProviderId":a["quotaProviderId"],"observedAt":a["observedAt"],"quota":a["quota"]})
     }).collect::<Vec<_>>()))
 }
 

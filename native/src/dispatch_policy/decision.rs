@@ -26,7 +26,7 @@ fn clean(value: &mut Value) {
                     v == "persistent-snapshot" || v == "persisted-session-snapshot"
                 });
             map.retain(|key, value| {
-                if key == "quality" {
+                if key == "quality" || key == "recommendation" {
                     return true;
                 }
                 if key == "models" {
