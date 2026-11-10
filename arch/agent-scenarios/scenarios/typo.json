@@ -1,0 +1,17 @@
+{
+  "id": "typo",
+  "capability": "first-contact",
+  "ops": [],
+  "title": "Recover from a misspelled operation",
+  "setup": [],
+  "call": {
+    "name": "act",
+    "arguments": {
+      "op": "codex_sned",
+      "args": {}
+    }
+  },
+  "conclusions": [
+    "Identify the unknown operation and use the supplied correction or discovery path."
+  ]
+}

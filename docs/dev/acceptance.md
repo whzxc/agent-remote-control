@@ -1,6 +1,6 @@
 # Acceptance
 
-[Development](development.md) · [CLI contracts](../reference/cli.md)
+[Development](development.md) · [CLI contracts](../reference/cli.md) · [Agent scenario catalog](agent-scenarios.md)
 
 ## Scope: fixtures first
 

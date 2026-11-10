@@ -1,0 +1,260 @@
+{
+  "capabilities": [
+    {
+      "id": "first-contact",
+      "title": "First contact",
+      "label": "首次接触",
+      "description": "Discover the control surface and recover from invalid calls.",
+      "ops": [
+        "guide",
+        "connector_verify"
+      ]
+    },
+    {
+      "id": "codex-tasks",
+      "title": "Codex tasks",
+      "label": "Codex 任务",
+      "description": "Create, continue, inspect, review and manage native Codex work.",
+      "ops": [
+        "projects",
+        "codex_thread",
+        "codex_tasks",
+        "codex_read",
+        "codex_wait",
+        "codex_create",
+        "codex_send",
+        "codex_review",
+        "codex_interrupt",
+        "codex_resume",
+        "codex_capabilities",
+        "codex_items",
+        "codex_schema",
+        "codex_query",
+        "codex_call",
+        "codex_pending",
+        "codex_respond",
+        "codex_events",
+        "codex_queue",
+        "codex_queue_control",
+        "codex_interactions",
+        "codex_archive",
+        "codex_owner",
+        "codex_release"
+      ]
+    },
+    {
+      "id": "other-agents",
+      "title": "Other Agents",
+      "label": "其他 Agent",
+      "description": "Discover and operate non-Codex Agent runtimes and their persistent tasks.",
+      "ops": [
+        "agents",
+        "agent_capabilities",
+        "agent_tasks",
+        "agent_create",
+        "agent_read",
+        "agent_context",
+        "agent_wait",
+        "agent_send",
+        "agent_review",
+        "agent_archive",
+        "agent_interrupt",
+        "agent_events",
+        "agent_pending",
+        "agent_respond"
+      ]
+    },
+    {
+      "id": "receipts-inbox",
+      "title": "Receipts and inbox",
+      "label": "回执与收件箱",
+      "description": "Resolve write receipts, read unread events and continue large outputs.",
+      "ops": [
+        "receipt",
+        "control_output",
+        "inbox_wait"
+      ]
+    },
+    {
+      "id": "notification-binding",
+      "title": "Notification binding",
+      "label": "通知绑定",
+      "description": "Bind and verify conversation routes and manage request delivery.",
+      "ops": [
+        "notification_ack",
+        "notify_status",
+        "notify_control",
+        "account_notify",
+        "request_route"
+      ]
+    },
+    {
+      "id": "dispatch-policy",
+      "title": "Dispatch policy",
+      "label": "调度策略",
+      "description": "Inspect and update selection criteria and reusable dispatch packs.",
+      "ops": [
+        "dispatch_policy",
+        "dispatch_policy_update",
+        "dispatch_pack_update"
+      ]
+    },
+    {
+      "id": "workspace",
+      "title": "Commands, files and Git",
+      "label": "命令、文件与 Git",
+      "description": "Inspect and change workspace files, Git state, commands and processes.",
+      "ops": [
+        "overview",
+        "tree",
+        "search",
+        "read",
+        "screen",
+        "git",
+        "git_write",
+        "fs",
+        "command",
+        "process",
+        "file_search",
+        "edit",
+        "write",
+        "codex_changes"
+      ]
+    },
+    {
+      "id": "accounts",
+      "title": "Accounts",
+      "label": "账号",
+      "description": "Inspect identity and manage Agent credential profiles and login.",
+      "ops": [
+        "codex_account",
+        "whoami",
+        "accounts",
+        "account_update",
+        "account_merge",
+        "account_add",
+        "account_import",
+        "account_login",
+        "account_reauth",
+        "account_remove",
+        "account_browsers"
+      ]
+    },
+    {
+      "id": "task-panel",
+      "title": "Task panel and timeline",
+      "label": "任务面板与时间线",
+      "description": "Read task presentation, navigate details and retain review and read state.",
+      "ops": [
+        "task_timeline",
+        "task_reviews",
+        "task_review_undo",
+        "task_bubble",
+        "task_mark_read",
+        "task_panel",
+        "task_panel_control",
+        "task_open",
+        "task_resource"
+      ]
+    },
+    {
+      "id": "coordination",
+      "title": "Coordination",
+      "label": "协作",
+      "description": "Share metadata, register sessions, declare resource intent and address peers.",
+      "ops": [
+        "events",
+        "board",
+        "coordination_session",
+        "notice_post",
+        "notice_update",
+        "notice_close",
+        "blocker_open",
+        "blocker_clear",
+        "message_send",
+        "messages",
+        "message_route"
+      ]
+    },
+    {
+      "id": "ax",
+      "title": "AX",
+      "label": "Agent 体验反馈",
+      "description": "Report friction, inspect shared findings and manage triage.",
+      "ops": [
+        "ax_issue_draft",
+        "ax_report",
+        "ax_list",
+        "ax_candidate",
+        "ax_triage"
+      ]
+    },
+    {
+      "id": "context",
+      "title": "Context",
+      "label": "上下文",
+      "description": "Resolve, search, read, check and amend the configured context provider.",
+      "ops": [
+        "context_resolve",
+        "context_search",
+        "context_read",
+        "context_check",
+        "context_amend"
+      ]
+    },
+    {
+      "id": "web-sessions",
+      "title": "ChatGPT and Claude web sessions",
+      "label": "ChatGPT 与 Claude 网页会话",
+      "description": "Inspect source-account conversations, import login and bind tasks to sessions.",
+      "ops": [
+        "src_conversations",
+        "src_chrome_profiles",
+        "src_conversation_open",
+        "src_login_import",
+        "src_conversation_bind",
+        "src_login_clear"
+      ]
+    },
+    {
+      "id": "downstream-mcp",
+      "title": "Downstream MCP",
+      "label": "下游 MCP",
+      "description": "Access native Codex MCP resources and the shared ARC MCP hub.",
+      "ops": [
+        "mcp",
+        "mcp_tools",
+        "mcp_call",
+        "mcp_configure"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics",
+      "label": "诊断",
+      "description": "Read runtime cost and logs or apply scoped acceptance overrides and faults.",
+      "ops": [
+        "runtime_metrics",
+        "logs",
+        "acceptance_fault",
+        "app_env"
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Pushed notifications",
+      "label": "推送通知",
+      "description": "Review pushed event payloads by structured kind.",
+      "ops": [],
+      "notificationKinds": [
+        "completed",
+        "failed",
+        "interrupted",
+        "needs-input",
+        "handoff",
+        "recovered",
+        "ping"
+      ]
+    }
+  ]
+}

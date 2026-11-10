@@ -1,0 +1,71 @@
+{
+  "id": "question",
+  "capability": "codex-tasks",
+  "ops": [
+    "codex_create",
+    "codex_pending",
+    "codex_wait"
+  ],
+  "title": "Read a turn waiting for a question answer",
+  "setup": [
+    {
+      "id": "question",
+      "call": {
+        "name": "act",
+        "arguments": {
+          "op": "codex_create",
+          "requestId": "00000000-0000-4000-8000-000000000004",
+          "args": {
+            "project": "${fixture}",
+            "prompt": "Harmless scenario fixture",
+            "thread": {
+              "model": "fixture-dispatch-question"
+            },
+            "purpose": "self-test",
+            "waitMs": 1000
+          }
+        }
+      },
+      "until": {
+        "path": "state",
+        "equals": "completed"
+      }
+    },
+    {
+      "id": "pending",
+      "call": {
+        "name": "query",
+        "arguments": {
+          "op": "codex_pending",
+          "args": {
+            "threadId": "${question.threadId}"
+          }
+        }
+      },
+      "until": {
+        "path": "requests",
+        "nonEmpty": true
+      }
+    }
+  ],
+  "call": {
+    "name": "query",
+    "arguments": {
+      "op": "codex_wait",
+      "args": {
+        "threadId": "${question.threadId}",
+        "turnId": "${question.turnId}",
+        "view": "summary",
+        "timeoutMs": 1000
+      }
+    }
+  },
+  "conclusions": [
+    "Recognize that the turn needs input and discover the pending interaction and response path.",
+    "Treat any final response alongside a pending question as captured evidence to review."
+  ],
+  "fixtureArtifacts": [
+    "The fake App Server includes a completed agentMessage containing pong in its inProgress question turn. A finalResponse can therefore coexist with a pending question.",
+    "The temporary workspace has no Git baseline, so the summary can report unavailable change evidence."
+  ]
+}

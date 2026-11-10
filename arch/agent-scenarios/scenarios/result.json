@@ -1,0 +1,52 @@
+{
+  "id": "result",
+  "capability": "codex-tasks",
+  "ops": [
+    "codex_create",
+    "codex_wait"
+  ],
+  "title": "Read a completed turn summary",
+  "setup": [
+    {
+      "id": "completed",
+      "call": {
+        "name": "act",
+        "arguments": {
+          "op": "codex_create",
+          "requestId": "00000000-0000-4000-8000-000000000005",
+          "args": {
+            "project": "${fixture}",
+            "prompt": "Harmless scenario fixture",
+            "thread": {
+              "model": "fixture-dispatch-completed"
+            },
+            "purpose": "self-test",
+            "waitMs": 1000
+          }
+        }
+      },
+      "until": {
+        "path": "state",
+        "equals": "completed"
+      }
+    }
+  ],
+  "call": {
+    "name": "query",
+    "arguments": {
+      "op": "codex_wait",
+      "args": {
+        "threadId": "${completed.threadId}",
+        "turnId": "${completed.turnId}",
+        "view": "summary",
+        "timeoutMs": 1000
+      }
+    }
+  },
+  "fixtureArtifacts": [
+    "The temporary workspace has no Git baseline. Change evidence can be unavailable even though the synthetic turn completed."
+  ],
+  "conclusions": [
+    "Identify the completed turn, its final response and any continuation for complete evidence."
+  ]
+}

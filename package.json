@@ -36,7 +36,11 @@
     "mutation:native": "node tooling/mutation-native.mjs",
     "test:churn": "node tooling/test-churn.mjs",
     "dev:isolated": "node tooling/isolated-dev.mjs",
-    "desktop:install": "node tooling/install-local.mjs"
+    "desktop:install": "node tooling/install-local.mjs",
+    "agent-scenarios": "node tooling/agent-scenarios.mjs",
+    "agent-scenarios:capture": "node tooling/agent-scenarios.mjs capture",
+    "agent-scenarios:check": "node tooling/agent-scenarios.mjs check",
+    "agent-scenarios:approve": "node tooling/agent-scenarios.mjs approve"
   },
   "devDependencies": {
     "@ast-grep/lang-rust": ">=0.0.7 <1",

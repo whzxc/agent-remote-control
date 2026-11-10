@@ -1,0 +1,100 @@
+{
+  "id": "dispatch",
+  "capability": "codex-tasks",
+  "ops": [
+    "codex_create",
+    "inbox_wait"
+  ],
+  "title": "Dispatch with two earlier completed results unread",
+  "setup": [
+    {
+      "id": "earlier-a",
+      "call": {
+        "name": "act",
+        "arguments": {
+          "op": "codex_create",
+          "requestId": "00000000-0000-4000-8000-000000000001",
+          "args": {
+            "project": "${fixture}",
+            "prompt": "Harmless scenario fixture",
+            "thread": {
+              "model": "fixture-dispatch-completed"
+            },
+            "purpose": "self-test",
+            "waitMs": 1000
+          }
+        }
+      },
+      "until": {
+        "path": "state",
+        "equals": "completed"
+      }
+    },
+    {
+      "id": "earlier-b",
+      "call": {
+        "name": "act",
+        "arguments": {
+          "op": "codex_create",
+          "requestId": "00000000-0000-4000-8000-000000000002",
+          "args": {
+            "project": "${fixture}",
+            "prompt": "Harmless scenario fixture",
+            "thread": {
+              "model": "fixture-dispatch-completed"
+            },
+            "purpose": "self-test",
+            "waitMs": 1000
+          }
+        }
+      },
+      "until": {
+        "path": "state",
+        "equals": "completed"
+      }
+    },
+    {
+      "id": "unread",
+      "call": {
+        "name": "query",
+        "arguments": {
+          "op": "inbox_wait",
+          "args": {
+            "threadIds": [
+              "${earlier-a.threadId}",
+              "${earlier-b.threadId}"
+            ],
+            "timeoutMs": 1000
+          }
+        }
+      },
+      "until": {
+        "path": "unread",
+        "equals": 2
+      }
+    }
+  ],
+  "call": {
+    "name": "act",
+    "arguments": {
+      "op": "codex_create",
+      "requestId": "00000000-0000-4000-8000-000000000003",
+      "args": {
+        "project": "${fixture}",
+        "prompt": "Harmless scenario fixture",
+        "thread": {
+          "model": "fixture-dispatch-completed"
+        },
+        "purpose": "self-test",
+        "waitMs": 1000
+      }
+    }
+  },
+  "fixtureArtifacts": [
+    "The fake App Server completes this turn synchronously, so executionState may already be completed in the dispatch response."
+  ],
+  "conclusions": [
+    "Distinguish accepted submission from execution state and use the thread and turn identifiers for follow-up.",
+    "Recognize the unread-results reminder and its inbox continuation without embedding earlier result bodies."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "first-contact",
+  "capability": "first-contact",
+  "ops": [
+    "guide"
+  ],
+  "title": "Read the initial guide",
+  "setup": [],
+  "call": {
+    "name": "guide",
+    "arguments": {}
+  },
+  "conclusions": [
+    "Discover the core Loop rules, common operations and available follow-up calls without prior arguments."
+  ]
+}
