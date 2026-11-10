@@ -80,7 +80,11 @@ pub(crate) fn query(args: &Value) -> Result<Value> {
         let origin = crate::kernel::origin::current_origin();
         let source = crate::sources::coordination_source(&origin)?;
         let reader = reader(&origin, &source)?;
-        let query: Query = serde_json::from_value(args.clone())
+        let mut query_args = args.clone();
+        if let Some(fields) = query_args.as_object_mut() {
+            fields.remove("view");
+        }
+        let query: Query = serde_json::from_value(query_args)
             .map_err(|_| "INVALID_ARGUMENT: read guide for events")?;
         with_journal(|journal| journal.query(&reader, query, chrono::Utc::now().timestamp_millis()))
             .map(project_coverage)

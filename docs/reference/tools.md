@@ -367,7 +367,31 @@ Native handles for processes, watches, and MCP subscriptions belong to the curre
 
 ## Output, events, and logs
 
-Large JSON results over 64 KiB are stored as snapshots with outputId and nextOffset. `control_output` reads up to 65536 UTF-16 code units per page; join all text pages before parsing JSON. JSON and plain-text snapshots expire after one hour and share a 64 MiB quota. Expired reads return OUTPUT_EXPIRED; oversized/unallocatable snapshots return OUTPUT_STORAGE_LIMIT.
+Dedicated list ops accept `view:digest`. An omitted view switches to the owner digest above the 12 KiB inline limit. Explicit views and ID/detail reads retain their existing result contracts. `dispatch_policy` retains `view:decision`; `codex_thread` supports digest only for `search`, `timeline` and `backgroundTerminals/list`.
+
+The digest has `view`, `revision`, `counts`, `rows`, `omitted`, `coverage` and `next`, plus the standard `arcVersion`. Its serialized result stays within 8 KiB and 20 rows. Metadata and continuation actions reserve space before rows. Rows sort actionable first, then by stable opaque ID within the owner snapshot. Summaries contain one bounded metadata line. Credentials, routing addresses and task bodies stay outside the digest. Oversized identifiers use stable opaque hashes with snapshot detail actions.
+
+Counts carry `kind:exact|bounded|unknown`. Bounded values are lower bounds; unknown values are null. Counts describe snapshot rows unless explicitly named as owner totals. Native pages, retained event windows and compact notification history disclose bounded coverage. Account rows count account/Agent pairs; source and MCP rows include both containers and their children.
+
+| Op | Row meaning |
+| --- | --- |
+| `notify_status` | Route reachability/attention, thread observation, subscription and delivery state |
+| `ax_list` | Severity and lifecycle state, with a short ID when unique in the snapshot |
+| `codex_tasks`, `agent_tasks` | Selected-turn outcome and pending interactions; absent evidence stays unknown |
+| `board` | Notices, blocker state, owner conflict counts and reader attention |
+| `messages` | Delivery state and escalation; unread remains unknown without owner read acknowledgements |
+| `events` | Event kind and bounded resource references |
+| `accounts` | Health, quota state/maximum reported window utilization and default per Agent |
+| `src_conversations` | Source-account status, conversation kind and task linkage count |
+| `projects` | Registered project identity and root count |
+| `mcp_tools` | Server health and downstream tool annotation claims |
+| `codex_thread` list actions | Native entry identity and observed state |
+
+`row.detail` reads the immutable full row under `row`. `row.read`, when present, reads fresh owner detail. Follow the returned actions unchanged; `digestCursor` is opaque. `next` traverses the snapshot and then the owner's next page, retaining its original filters. `omitted.full` reads the complete owner snapshot through `control_output` with the existing UTF-16 offsets. `coverage.expand` expands compact notification history; `coverage.historyStart` starts at the oldest retained event cursor. Auxiliary owner metadata remains in the full snapshot.
+
+Digest snapshots share the 64 MiB temporary output cache and one-hour lifetime. They remain scoped to the reading control source. Expiry returns a restart action; after eviction, reapply filters to the returned list restart. Native cursor errors keep their owner restart action. `ax_list id` accepts a full ID or unique prefix; ambiguous or missing prefixes return an error naming the full-ID form.
+
+Other JSON results above the inline limit (12 KiB by default; 64 KiB with explicit full view) are stored as snapshots with outputId and nextOffset. `control_output` reads up to 65536 UTF-16 code units per page; join all text pages before parsing JSON. JSON and plain-text snapshots expire after one hour and share a 64 MiB quota. Expired reads return OUTPUT_EXPIRED; oversized/unallocatable snapshots return OUTPUT_STORAGE_LIMIT.
 
 Codex events keep a bounded memory window of 2000 entries or 8 MiB. gap/reset reports loss or restart. Native task history remains readable on demand. In `task_timeline`, a silent command has empty `output.text`; missing or null native output is never rendered as the text `null`. Commands that actually print `null` retain that text. Pi/ACP events additionally have durable archives; see [Agents](agents.md). `codex_read` and `codex_items` default to compact structured items: agentMessage, userMessage, fileChange, error, and commandExecution (command, exitCode and bounded output). Reasoning and other internal items are omitted. Truncated bodies carry `truncated:true` and a shared readMore hint. `view:"full"` retains original item IDs, text hashes, text offsets and configuration/action metadata where available. In codex_items, text continuation with offset/expectedHash requires full view; native page cursors and turn IDs are preserved in both views. `codex_read` can include local images with includeImages and maxImages.
 

@@ -1068,6 +1068,10 @@ impl Store {
                     )
                 });
             }
+            if args["view"].is_null() || args["view"] == "digest" {
+                projection["conflictCount"] =
+                    json!(self.conflicts(&n.resources, Some(&n.id), clock).len());
+            }
             let age = clock
                 .age(n.last_active_at)
                 .map(|age| format!("{age}s"))

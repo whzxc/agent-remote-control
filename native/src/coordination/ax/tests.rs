@@ -615,3 +615,20 @@ fn ax_history_discloses_access_and_missing_reasons() {
         "Fixture decision"
     );
 }
+
+#[test]
+fn ax_short_id_reads_the_unique_entry_and_rejects_ambiguity() {
+    // Regression: ax-9d1b45c5 short ids silently returned no AX entries.
+    let mut f = Fixture::new();
+    let first = f.report("Digest prefix fixture");
+    let prefix = string(&first, "id").chars().take(11).collect::<String>();
+    assert_eq!(
+        f.call("ax_list", json!({"id":prefix}))["entries"][0]["id"],
+        first["id"]
+    );
+    f.report("Another prefix fixture");
+    let ambiguous = f.call("ax_list", json!({"id":"ax-"}));
+    assert_eq!(ambiguous["error"]["code"], "INVALID_ARGUMENT");
+    assert!(string(&ambiguous["error"], "message").contains("full AX id"));
+    assert_eq!(ambiguous["next"]["op"], "guide");
+}

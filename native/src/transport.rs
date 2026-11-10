@@ -656,6 +656,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
     };
     let summary = crate::task_summary::requested(name, &args);
     let mut wait_limit = None;
+    let mut digest_continuation = false;
     let result = async {
         if !s.connected() {
             return Err("Connection closed".into());
@@ -711,6 +712,26 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
         {
             args["waitMs"] = json!(args["timeoutMs"].as_u64().unwrap_or(60000).saturating_add(10000).min(45000));
         }
+        if args["digestCursor"].is_string() && crate::kernel::digests::supports(name, &args) {
+            let spec = catalog()["ops"].as_array().unwrap().iter().find(|op|op["name"]==name).unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            match crate::kernel::digests::resume(name, &args, &s.origin().await)? {
+                crate::kernel::digests::Resume::Value(value) => return Ok(value),
+                crate::kernel::digests::Resume::Owner(next) => { args = next; digest_continuation = true; },
+            }
+        }
+        #[cfg(feature = "test-fixture")]
+        if let Ok(path) = std::env::var("ARC_FIXTURE_DIGESTS") {
+            let fixtures = load(Path::new(&path))?;
+            if let Some(value) = fixtures.get(name) {
+                let spec = catalog()["ops"].as_array().unwrap().iter().find(|op|op["name"]==name).unwrap();
+                crate::egress::validate_op(spec, &args)?;
+                for (key, expected) in fixtures["expect"].as_object().into_iter().flatten() {
+                    if args[key] != *expected { return Err(format!("FIXTURE_ARGUMENT_MISMATCH: {key}")); }
+                }
+                return Ok(value.clone());
+            }
+        }
         s.call(name, args.clone()).await
     }.await;
     let mut images = Vec::new();
@@ -752,7 +773,17 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
             if let Some(reason) = &outcome {
                 value["error"] = reason.clone();
             }
-            let mut paged = if summary || matches!(name, "guide" | "control_output") {
+            let mut paged = if value["view"] == "digest"
+                || summary
+                || matches!(name, "guide" | "control_output")
+            {
+                value.clone()
+            } else if (crate::kernel::digests::requested(name, &args, &value)
+                || (digest_continuation && value["error"].is_null()))
+                && args["digestCursor"].is_null()
+            {
+                crate::kernel::digests::present(name, &args, value.clone(), &s.origin().await)?
+            } else if args["digestCursor"].is_string() && args["view"] != "full" {
                 value.clone()
             } else {
                 crate::kernel::results::page_output(
@@ -821,7 +852,8 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
     if summary {
         value = crate::task_summary::project(name, &args, &value);
     }
-    let inbox = if summary
+    let inbox = if value["view"] == "digest"
+        || summary
         || (name == "dispatch_policy" && args["view"] != "full")
         || (name == "guide" && value["profile"]["name"] == "local-code")
         || name == "inbox_wait"

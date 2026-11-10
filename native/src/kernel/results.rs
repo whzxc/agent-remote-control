@@ -109,6 +109,31 @@ pub(crate) fn text_continuation(text: &str) -> Result<Value> {
     )
 }
 
+pub(super) fn save_digest(snapshot: &Value) -> Result<String> {
+    let output = id();
+    let dir = root().join("outputs");
+    let _writer = WRITER.lock().map_err(|e| e.to_string())?;
+    private_dir(&dir)?;
+    make_room(&dir, snapshot.to_string().len() as u64)?;
+    save(&dir.join(format!("{output}.digest")), snapshot)?;
+    Ok(output)
+}
+pub(super) fn load_digest(output: &str) -> Result<Option<(Value, bool)>> {
+    uuid::Uuid::parse_str(output).map_err(|_| "INVALID_OUTPUT_ID")?;
+    let path = root().join("outputs").join(format!("{output}.digest"));
+    let metadata = match std::fs::metadata(&path) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let expired = metadata
+        .modified()
+        .map_err(|e| e.to_string())?
+        .elapsed()
+        .unwrap_or_default()
+        >= TTL;
+    Ok(Some((load(&path)?, expired)))
+}
 fn make_room(dir: &Path, incoming: u64) -> Result<()> {
     if incoming > QUOTA {
         return Err("OUTPUT_STORAGE_LIMIT".into());
@@ -121,7 +146,7 @@ fn make_room(dir: &Path, incoming: u64) -> Result<()> {
         // Never evict append-only native event logs or unrelated files.
         if path
             .extension()
-            .is_none_or(|ext| ext != "json" && ext != "txt")
+            .is_none_or(|ext| ext != "json" && ext != "txt" && ext != "digest")
             || path
                 .file_stem()
                 .and_then(|s| s.to_str())
@@ -164,6 +189,22 @@ pub fn read_output(args: &Value) -> Result<Value> {
     let path = dir.join(format!("{output}.json"));
     let offset = num(args, "offset", 0);
     let length = num(args, "length", 65536).min(65536);
+    if let Some((snapshot, expired)) = load_digest(output)? {
+        let value = super::digests::output(&snapshot)?;
+        if expired {
+            return Err(super::digests::expired(&snapshot));
+        }
+        let (text, characters) = read_slice(
+            std::io::Cursor::new(value.to_string()),
+            offset,
+            length,
+            None,
+        )?;
+        let end = offset.saturating_add(length).min(characters);
+        return Ok(
+            json!({"outputId":output,"offset":offset,"text":text,"characters":characters,"nextOffset":if end<characters{Some(end)}else{None}}),
+        );
+    }
     let plain = dir.join(format!("{output}.txt"));
     if plain.exists() {
         let mut file = std::fs::File::open(plain).map_err(|e| e.to_string())?;

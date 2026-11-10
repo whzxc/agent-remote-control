@@ -420,6 +420,12 @@ fn conflicts_never_reserve_or_block() {
     let second=f.call("notice_post",json!({"intent":"Parallel work","resources":["app:installed"],"expectedDurationSeconds":600}));
     assert_eq!(second["notice"]["state"], "active");
     assert_eq!(second["conflicts"][0]["noticeId"], first["id"]);
+    let digest_input = f.call("board", json!({"view":"digest"}));
+    assert!(digest_input["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|row| row["conflictCount"] == 1));
     let warnings = f.store.conflicts(
         &[ResourceKey::parse("app:installed").unwrap()],
         None,

@@ -703,6 +703,28 @@ impl Store {
         authority_revision: &str,
         time: i64,
     ) -> Result<Value> {
+        let selected_id = if let Some(prefix) = args["id"].as_str() {
+            if self.data.entries.contains_key(prefix)
+                || prefix
+                    .strip_prefix("ax-")
+                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+            {
+                Some(prefix.to_owned())
+            } else {
+                let matches: Vec<_> = self
+                    .data
+                    .entries
+                    .keys()
+                    .filter(|id| id.starts_with(prefix))
+                    .collect();
+                match matches.as_slice() {
+                    [id] => Some((*id).clone()),
+                    _ => return Err("INVALID_ARGUMENT: id must be a full AX id (ax-<UUID>) or a unique prefix; read ax_list without id and use rows[].id (or entries[].id in full view)".into()),
+                }
+            }
+        } else {
+            None
+        };
         let mut filters = args.clone();
         filters.as_object_mut().unwrap().remove("cursor");
         filters.as_object_mut().unwrap().remove("limit");
@@ -752,7 +774,7 @@ impl Store {
         let mut more = false;
         let start = after.clone();
         for e in self.data.entries.values().filter(|e| e.id > start) {
-            if args["id"].as_str().is_some_and(|id| e.id != id)
+            if selected_id.as_ref().is_some_and(|id| &e.id != id)
                 || args["status"]
                     .as_str()
                     .or(args["state"].as_str())
