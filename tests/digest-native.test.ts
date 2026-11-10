@@ -3,6 +3,7 @@ import { after, before, test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import { nativeControl } from './helpers/native-control.ts';
 
@@ -41,7 +42,13 @@ before(async () => {
 for await (const line of createInterface({input:process.stdin})) {
  const {id}=JSON.parse(line); if(id!==undefined) console.log(JSON.stringify({id,result:{}}));
 }`,{ARC_FIXTURE_DIGESTS:fixtureFile});
-  await control.restart(async state=>{stateDirectory=state;});
+  await control.restart(async state=>{
+    stateDirectory=state;
+    await mkdir(path.join(state,'ingresses/digest-local'),{recursive:true});
+    await writeFile(path.join(state,'ingresses/index.json'),'["digest-local"]');
+    await writeFile(path.join(state,'ingresses/digest-local/config.json'),JSON.stringify({id:'digest-local',name:'Digest fixture',controlSource:'codex',transport:'local',auth:'none',enabled:true,toolPolicy:'all',config:{}}));
+    await writeFile(path.join(state,'ingresses/digest-local/secrets.json'),JSON.stringify({apiKey:'',cloudflareToken:'',ngrokAuthtoken:''}));
+  });
   await control.api('preferences', {values:{'mcp-services':'on'}}, 'PUT');
 });
 after(async () => {await control?.close();await rm(directory,{recursive:true,force:true});});
@@ -155,7 +162,7 @@ test('remote query and CLI both return bounded digests without changing frozen t
   await fixture('projects',cases.find(c=>c.op==='projects')!.value);
   await control.restart(async state=>{
     await mkdir(path.join(state,'ingresses/default'),{recursive:true});
-    await writeFile(path.join(state,'ingresses/index.json'),'["default"]');
+    await writeFile(path.join(state,'ingresses/index.json'),'["default","digest-local"]');
     await writeFile(path.join(state,'ingresses/default/config.json'),JSON.stringify({id:'default',name:'Fixture',controlSource:'chatgpt',transport:'openai-tunnel',auth:'openai',enabled:true,toolPolicy:'all',config:{}}));
     await writeFile(path.join(state,'ingresses/default/secrets.json'),JSON.stringify({apiKey:'',cloudflareToken:'',ngrokAuthtoken:''}));
   });
@@ -164,4 +171,64 @@ test('remote query and CLI both return bounded digests without changing frozen t
   const wrongSource=await control.call(next.op,next.args);assert.equal(wrongSource.error.code,'DIGEST_SCOPE_CHANGED');
   const cli=await control.shell(`arc cli control projects`);
   const result=JSON.parse(cli.stdout);budget(result.result??result.structuredContent?.result??result);
+});
+
+
+function wireValue(response: any) {
+  assert.equal(response.result.isError,false,JSON.stringify(response));
+  const text=response.result.content.find((c:any)=>c.type==='text').text;
+  const value=response.result.structuredContent.result;
+  assert.deepEqual(JSON.parse(text),value);
+  assert.equal(Buffer.byteLength(text),Buffer.byteLength(JSON.stringify(value)));
+  return value;
+}
+function sizedOwner(value: any, bytes: number) {
+  const result=JSON.parse(JSON.stringify(value,(key,v)=>key==='payload'?undefined:v));
+  result.padding='🧪"\\\n'.repeat(20);
+  const rest=bytes-Buffer.byteLength(JSON.stringify(result));
+  assert.ok(rest>=0,'fixture must leave room for boundary padding');
+  result.padding+='x'.repeat(rest);
+  assert.equal(Buffer.byteLength(JSON.stringify(result)),bytes);
+  assert.ok(JSON.stringify(result).length<bytes,'wire budget counts UTF-8 bytes, not characters');
+  return result;
+}
+for(const op of ['codex_tasks','ax_list','accounts','notify_status','board','agent_tasks']) {
+  test(`${op} default measures the final wire result before choosing a digest`,async()=>{
+    // Regression: default codex_tasks returned 12926 bytes because overflow was measured before transport enrichment.
+    const c=cases.find(c=>c.op===op)!;
+    const owner=structuredClone(c.value);
+    if(op==='codex_tasks'){owner.view='compact';owner.tasks=owner.tasks.slice(0,20);}
+    if(op==='accounts')owner.accounts=owner.accounts.slice(0,20);
+    await fixture(op,sizedOwner(owner,12*1024-1));
+    const explicit=wireValue(await control.sourceResponse('digest-local',op,{...c.args,view:'full'},'query'));
+    assert.ok(Buffer.byteLength(JSON.stringify(explicit))>12*1024,'transport metadata alone crosses the limit');
+    assert.notEqual(explicit.view,'digest');
+    budget(wireValue(await control.sourceResponse('digest-local',op,c.args??{},'query')));
+    const cli=JSON.parse((await control.shell(`echo '${JSON.stringify(c.args??{})}' | arc cli control ${op} --stdin`)).stdout);
+    assert.equal(cli.ok,true);budget(cli.result);
+    await fixture(op,sizedOwner(owner,1024*12-1024));
+    const small=wireValue(await control.sourceResponse('digest-local',op,c.args??{},'query'));
+    assert.notEqual(small.view,'digest');assert.ok(Buffer.byteLength(JSON.stringify(small))<=12*1024);
+  });
+}
+
+test('isolated notify digest preserves full-row actions in both MCP representations',async()=>{
+  // Regression: isolated-source notify_status digest rows were reported without detail actions.
+  const value={
+    targets:[{channel:'mcp-events',target:'private-route',reachability:'failed',pending:[]}],
+    threads:[{threadId:'task-one',diagnosis:{terminal:false,scope:{active:true},reasons:['pending-observation']}}],
+    subscriptions:[{id:'sub-one',channel:'mcp-events',target:'private-route',active:true,muted:false}],
+    deliveries:[{eventId:'event-one',subscriptionId:'sub-one',threadId:'task-one',turnId:'turn-one',state:'pending'}],
+    unboundPending:[{eventId:'event-two',threadId:'task-two',turnId:'turn-two'}],
+  };
+  await fixture('notify_status',value);
+  const digest=wireValue(await control.sourceResponse('digest-local','notify_status',{view:'digest'},'query'));
+  budget(digest);assert.equal(digest.rows.length,5);
+  const expected=Object.values(value).flat();const found=[];
+  for(const row of digest.rows){
+    validateAction(row.detail);
+    const detail=wireValue(await control.sourceResponse('digest-local',row.detail.op,row.detail.args,'query'));
+    found.push(detail.row);
+  }
+  for(const row of expected)assert.ok(found.some(r=>isDeepStrictEqual(r,row)));
 });

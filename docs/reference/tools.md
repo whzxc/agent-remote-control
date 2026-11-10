@@ -367,7 +367,7 @@ Native handles for processes, watches, and MCP subscriptions belong to the curre
 
 ## Output, events, and logs
 
-Dedicated list ops accept `view:digest`. An omitted view switches to the owner digest above the 12 KiB inline limit. Explicit views and ID/detail reads retain their existing result contracts. `dispatch_policy` retains `view:decision`; `codex_thread` supports digest only for `search`, `timeline` and `backgroundTerminals/list`.
+Dedicated list ops accept `view:digest`. An omitted view switches to the owner digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, after display labels, `next`, `arcInbox` and `arcVersion` are added. The measured result is the same JSON carried by MCP text and `structuredContent.result`, or CLI `result`; duplicate MCP representations and outer protocol wrappers are not counted. Explicit views and ID/detail reads retain their existing result contracts. `dispatch_policy` retains `view:decision`; `codex_thread` supports digest only for `search`, `timeline` and `backgroundTerminals/list`.
 
 The digest has `view`, `revision`, `counts`, `rows`, `omitted`, `coverage` and `next`, plus the standard `arcVersion`. Its serialized result stays within 8 KiB and 20 rows. Metadata and continuation actions reserve space before rows. Rows sort actionable first, then by stable opaque ID within the owner snapshot. Summaries contain one bounded metadata line. Credentials, routing addresses and task bodies stay outside the digest. Oversized identifiers use stable opaque hashes with snapshot detail actions.
 
@@ -387,7 +387,7 @@ Counts carry `kind:exact|bounded|unknown`. Bounded values are lower bounds; unkn
 | `mcp_tools` | Server health and downstream tool annotation claims |
 | `codex_thread` list actions | Native entry identity and observed state |
 
-`row.detail` reads the immutable full row under `row`. `row.read`, when present, reads fresh owner detail. Follow the returned actions unchanged; `digestCursor` is opaque. `next` traverses the snapshot and then the owner's next page, retaining its original filters. `omitted.full` reads the complete owner snapshot through `control_output` with the existing UTF-16 offsets. `coverage.expand` expands compact notification history; `coverage.historyStart` starts at the oldest retained event cursor. Auxiliary owner metadata remains in the full snapshot.
+Every digest row carries a schema-valid `row.detail` action that reads the immutable full row under `row`. `row.read`, when present, reads fresh owner detail. Follow the returned actions unchanged; `digestCursor` is opaque. `next` traverses the snapshot and then the owner's next page, retaining its original filters. `omitted.full` reads the complete owner snapshot through `control_output` with the existing UTF-16 offsets. `coverage.expand` expands compact notification history; `coverage.historyStart` starts at the oldest retained event cursor. Auxiliary owner metadata remains in the full snapshot.
 
 Digest snapshots share the 64 MiB temporary output cache and one-hour lifetime. They remain scoped to the reading control source. Expiry returns a restart action; after eviction, reapply filters to the returned list restart. Native cursor errors keep their owner restart action. `ax_list id` accepts a full ID or unique prefix; ambiguous or missing prefixes return an error naming the full-ID form.
 

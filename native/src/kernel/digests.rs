@@ -20,12 +20,18 @@ fn detail_read(op: &str, args: &Value) -> bool {
         || op == "mcp_tools" && args["tool"].is_string()
         || op == "messages" && args["recoveryMessageId"].is_string()
 }
+// Presentation selection is based on caller arguments, never the owner's default view.
+pub(crate) fn default_list(op: &str, args: &Value) -> bool {
+    supports(op, args)
+        && !detail_read(op, args)
+        && args["view"].is_null()
+        && args["digestCursor"].is_null()
+}
 pub(crate) fn requested(op: &str, args: &Value, value: &Value) -> bool {
     supports(op, args)
         && !detail_read(op, args)
-        && value.get("error").is_none()
-        && (args["view"] == "digest"
-            || (args["view"].is_null() && value.to_string().len() > 12 * 1024))
+        && value["error"].is_null()
+        && args["view"] == "digest"
 }
 fn action(op: &str, args: Value) -> Value {
     json!({"via":"query","op":op,"args":args})

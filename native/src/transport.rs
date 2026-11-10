@@ -657,6 +657,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
     let summary = crate::task_summary::requested(name, &args);
     let mut wait_limit = None;
     let mut digest_continuation = false;
+    let mut default_list = false;
     let result = async {
         if !s.connected() {
             return Err("Connection closed".into());
@@ -773,6 +774,9 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
             if let Some(reason) = &outcome {
                 value["error"] = reason.clone();
             }
+            default_list = outcome.is_none()
+                && value["error"].is_null()
+                && crate::kernel::digests::default_list(name, &args);
             let mut paged = if value["view"] == "digest"
                 || summary
                 || matches!(name, "guide" | "control_output")
@@ -783,7 +787,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
                 && args["digestCursor"].is_null()
             {
                 crate::kernel::digests::present(name, &args, value.clone(), &s.origin().await)?
-            } else if args["digestCursor"].is_string() && args["view"] != "full" {
+            } else if default_list || (args["digestCursor"].is_string() && args["view"] != "full") {
                 value.clone()
             } else {
                 crate::kernel::results::page_output(
@@ -882,6 +886,14 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
         value["arcInbox"] = json!({"unread":inbox["unread"],"next":inbox["next"]});
     }
     let mut result = crate::egress::tool(value, error);
+    // Measure the exact serialized result emitted as both text and structuredContent.result.
+    // Labels, next, arcInbox and arcVersion have all been added. Default lists must not
+    // pass through generic paging first: that would hide the owner's full list shape.
+    if default_list && string(&result["content"][0], "text").len() > 12 * 1024 {
+        let full = result["structuredContent"]["result"].take();
+        let digest = crate::kernel::digests::present(name, &args, full, &s.origin().await)?;
+        result = crate::egress::tool(digest, false);
+    }
     result["content"].as_array_mut().unwrap().extend(images);
     Ok(result)
 }

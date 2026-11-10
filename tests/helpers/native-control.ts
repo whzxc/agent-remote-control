@@ -82,13 +82,17 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
     assertNextCalls(value.structuredContent);
     return value.structuredContent?.result ?? value;
   };
-  const sourceCall = async (ingressId: string, op: string, args: Record<string,unknown> = {}, tool: 'act' | 'query' = 'act') => {
+  const sourceResponse = async (ingressId: string, op: string, args: Record<string,unknown> = {}, tool: 'act' | 'query' = 'act') => {
     const response=await fetch(`http://127.0.0.1:${runtime.endpoint.port}/mcp/${ingressId}`, {
       method:'POST',headers:{authorization:`Bearer ${runtime.endpoint.token}`,'content-type':'application/json'},
       body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:tool,arguments:{op,args}}}),
     });
     const value=await response.json() as any;
     assertNextCalls(value.result?.structuredContent);
+    return value;
+  };
+  const sourceCall = async (ingressId: string, op: string, args: Record<string,unknown> = {}, tool: 'act' | 'query' = 'act') => {
+    const value = await sourceResponse(ingressId, op, args, tool);
     return value.result?.structuredContent?.result??value;
   };
   const completed = async (op: string, args: Record<string, unknown> = {}) => {
@@ -106,7 +110,7 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
     const quoted="'"+binary.replaceAll("'","'\\''")+"'";
     return promisify(execFile)('/bin/sh',['-c',command.replace('arc cli',`${quoted} cli`)],{env:{...process.env,ARC_STATE_DIR:path.join(directory,'state')}});
   };
-  return { api, call, sourceCall, completed, shell, async restart(prepare?: (directory: string) => Promise<void>) {
+  return { api, call, sourceCall, sourceResponse, completed, shell, async restart(prepare?: (directory: string) => Promise<void>) {
     await stop();
     if (prepare) await prepare(path.join(directory, 'state'));
     runtime = await launch();
