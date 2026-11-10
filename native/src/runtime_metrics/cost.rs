@@ -127,9 +127,18 @@ fn begin(owner: Owner, reason: Reason) {
         c.wakes[reason as usize].fetch_add(1, Relaxed);
     }
 }
-pub(crate) async fn scope<T>(owner: Owner, reason: Reason, future: impl Future<Output = T>) -> T {
-    begin(owner, reason);
-    OWNER.scope(owner, future).await
+// Box before constructing the async block. An async fn would retain the inline
+// input in its initial state even if its body boxed that input on the first poll.
+pub(crate) fn scope<T>(
+    owner: Owner,
+    reason: Reason,
+    future: impl Future<Output = T>,
+) -> impl Future<Output = T> {
+    let future = Box::pin(future);
+    async move {
+        begin(owner, reason);
+        OWNER.scope(owner, future).await
+    }
 }
 pub(crate) fn sync<T>(owner: Owner, reason: Reason, work: impl FnOnce() -> T) -> T {
     begin(owner, reason);
@@ -145,6 +154,7 @@ pub(crate) fn sync<T>(owner: Owner, reason: Reason, work: impl FnOnce() -> T) ->
 /// Propagate attribution into a child task without counting another pass.
 pub(crate) fn inherit<T>(future: impl Future<Output = T>) -> impl Future<Output = T> {
     let owner = current();
+    let future = Box::pin(future);
     async move {
         match owner {
             Some(owner) => OWNER.scope(owner, future).await,
@@ -165,7 +175,12 @@ pub(crate) fn blocking<T>(work: impl FnOnce() -> T) -> impl FnOnce() -> T {
         work()
     }
 }
-pub(crate) async fn read_scope<T>(route: &str, method: &str, future: impl Future<Output = T>) -> T {
+pub(crate) fn read_scope<T>(
+    route: &str,
+    method: &str,
+    future: impl Future<Output = T>,
+) -> impl Future<Output = T> {
+    let future = Box::pin(future);
     let owner = match route {
         "tasks/request-routing" | "tasks/presence" => Some(Owner::RoutingRead),
         "app/env" => Some(Owner::EnvironmentRead),
@@ -180,18 +195,21 @@ pub(crate) async fn read_scope<T>(route: &str, method: &str, future: impl Future
         }
         _ => None,
     };
-    match owner {
-        Some(owner) => {
-            scope(owner, Reason::Poll, async {
-                scan_set(1);
-                future.await
-            })
-            .await
+    async move {
+        match owner {
+            Some(owner) => {
+                scope(owner, Reason::Poll, async {
+                    scan_set(1);
+                    future.await
+                })
+                .await
+            }
+            None => future.await,
         }
-        None => future.await,
     }
 }
-pub(crate) async fn op_scope<T>(op: &str, future: impl Future<Output = T>) -> T {
+pub(crate) fn op_scope<T>(op: &str, future: impl Future<Output = T>) -> impl Future<Output = T> {
+    let future = Box::pin(future);
     let owner = match op {
         "codex_read" | "task_timeline" | "task_reviews" | "codex_review" | "dispatch_policy"
         | "agent_read" | "agent_review" | "receipt" => Some(Owner::TaskRead),
@@ -199,15 +217,17 @@ pub(crate) async fn op_scope<T>(op: &str, future: impl Future<Output = T>) -> T 
         "app_env" => Some(Owner::EnvironmentRead),
         _ => None,
     };
-    match owner {
-        Some(owner) => {
-            scope(owner, Reason::Poll, async {
-                scan_set(1);
-                future.await
-            })
-            .await
+    async move {
+        match owner {
+            Some(owner) => {
+                scope(owner, Reason::Poll, async {
+                    scan_set(1);
+                    future.await
+                })
+                .await
+            }
+            None => future.await,
         }
-        None => future.await,
     }
 }
 /// Timers can wake within a long-lived input pass without starting another pass.
@@ -266,6 +286,50 @@ pub(super) fn snapshot() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn attribution_wrappers_bound_future_size() {
+        // Regression: D2a inline attribution futures overflowed the default Tokio worker stack in unoptimized Core startup.
+        fn payload() -> impl Future<Output = usize> {
+            let bytes = [0u8; 64 * 1024];
+            async move {
+                std::future::ready(()).await;
+                std::hint::black_box(bytes.as_slice()).len()
+            }
+        }
+        let scoped = scope(Owner::BrowserGuard, Reason::Poll, payload());
+        let inherited = inherit(payload());
+        let read = read_scope("app/env", "GET", payload());
+        let op = op_scope("app_env", payload());
+        let other_read = read_scope("other", "GET", payload());
+        let other_op = op_scope("other", payload());
+        let nested = scope(
+            Owner::BrowserGuard,
+            Reason::Poll,
+            inherit(read_scope("app/env", "GET", op_scope("app_env", payload()))),
+        );
+        for size in [
+            std::mem::size_of_val(&scoped),
+            std::mem::size_of_val(&inherited),
+            std::mem::size_of_val(&read),
+            std::mem::size_of_val(&op),
+            std::mem::size_of_val(&other_read),
+            std::mem::size_of_val(&other_op),
+            std::mem::size_of_val(&nested),
+        ] {
+            assert!(
+                size <= 1024,
+                "Attribution must not inline a 64 KiB child: {size} bytes"
+            );
+        }
+        assert_eq!(scoped.await, 64 * 1024);
+        assert_eq!(inherited.await, 64 * 1024);
+        assert_eq!(read.await, 64 * 1024);
+        assert_eq!(op.await, 64 * 1024);
+        assert_eq!(other_read.await, 64 * 1024);
+        assert_eq!(other_op.await, 64 * 1024);
+        assert_eq!(nested.await, 64 * 1024);
+    }
+
     #[tokio::test]
     async fn projection_cost_is_content_free_and_shared_reads_are_attributed_once() {
         // Contract: runtime_metrics exposes cumulative owner costs and attributes nested shared reads once without task content.
