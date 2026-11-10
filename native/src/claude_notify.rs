@@ -4,6 +4,8 @@ use crate::*;
 pub(crate) mod continuation;
 pub(crate) mod coordination_delivery;
 mod diagnostics;
+mod lifecycle;
+use crate::turn_lifecycle::{adapters as turn_adapter, TurnState};
 mod governance;
 pub(crate) mod mcp_events;
 mod observer;
@@ -142,7 +144,8 @@ struct Binding {
     #[serde(default)]
     explicit: bool,
     project: String,
-    terminal: bool,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    lifecycle: Value,
     created_at: i64,
     waiting: Vec<String>,
     deliveries: Vec<Delivery>,
@@ -243,7 +246,7 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
             .and_then(|v| v.to_str())
             .unwrap_or("Untitled")
             .into(),
-        terminal: false,
+        lifecycle: Value::Null,
         created_at: chrono::Utc::now().timestamp(),
         waiting: vec![],
         deliveries: vec![],
@@ -491,19 +494,20 @@ pub(crate) async fn resumed(
     previous: &str,
     turn: &str,
     configuration: Value,
+    native_thread: &Value,
 ) -> Result<()> {
     let Some(mut b) = binding(&directory(), thread, previous)? else {
         return Err("RESUME_BINDING_MISSING".into());
     };
-    process(
-        &directory(),
-        &LOCK,
-        &mut b,
-        &json!({"state":"cancelled","nextTurnId":turn,
-        "nativeContinuation":{"retry":{"turnId":turn,"trigger":"resume_interrupted_task",
-        "startedAt":chrono::Utc::now().timestamp(),"configuration":configuration}}}),
-    )
-    .await
+    let (mut observed, turn_state) = crate::waiter::classify_with_lifecycle(
+        &json!({"thread":native_thread}),
+        &mut Some(previous.into()),
+    );
+    observed["_turnLifecycle"] = turn_adapter::checkpoint(&turn_state);
+    observed["nextTurnId"] = json!(turn);
+    observed["nativeContinuation"] = json!({"retry":{"turnId":turn,"trigger":"resume_interrupted_task",
+        "startedAt":chrono::Utc::now().timestamp(),"configuration":configuration}});
+    process(&directory(), &LOCK, &mut b, &observed).await
 }
 pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
     if let Err(error) = result {
@@ -520,7 +524,7 @@ pub(crate) fn record_binding(receipt: &mut Value, result: Result<()>) {
 const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
 fn expired(b: &Binding, now: i64, superseded: bool) -> bool {
     (b.continuation_bound || b.scope_end.is_some() || superseded)
-        && b.terminal
+        && b.terminal()
         && !b
             .deliveries
             .iter()
@@ -603,9 +607,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     let kind = match d.task_state.as_str() {
         "handoff" => "handoff",
         "recovered" => "recovered",
-        "completed" => "completed",
-        "failed" => "failed",
-        "cancelled" => "interrupted",
+        _ if d.key == "terminal" => turn_adapter::push(&b.turn_state()).unwrap_or("needs-input"),
         _ => "needs-input",
     };
     let agent = !b.agent.is_empty() && b.agent != "codex";
@@ -624,7 +626,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(b,d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
     observed["state"] == "completed"
@@ -661,14 +663,19 @@ const GLYPHS: [&str; 9] = [
 ];
 const MAIL: &str = "✉ mail";
 
-fn glyph(d: &Delivery) -> &'static str {
-    match d.task_state.as_str() {
+fn glyph(b: &Binding, d: &Delivery) -> &'static str {
+    let kind = match d.task_state.as_str() {
+        "handoff" => "handoff",
+        "recovered" => "recovered",
+        _ => turn_adapter::push(&b.turn_state()).unwrap_or("needs-input"),
+    };
+    match kind {
         "recovered" => GLYPHS[7],
         "handoff" => GLYPHS[6],
         "completed" => GLYPHS[5],
         "failed" => GLYPHS[2],
-        "cancelled" | "interrupted" if d.continuation.is_object() => GLYPHS[4],
-        "cancelled" | "interrupted" => GLYPHS[3],
+        "interrupted" if d.continuation.is_object() => GLYPHS[4],
+        "interrupted" => GLYPHS[3],
         _ if d.state == "waiting for approval" => GLYPHS[1],
         _ => GLYPHS[0],
     }
@@ -695,7 +702,7 @@ fn doorbell<'a>(glyphs: impl IntoIterator<Item = &'a str>) -> String {
 }
 #[cfg(test)]
 fn message(b: &Binding) -> String {
-    doorbell(b.deliveries.iter().map(glyph))
+    doorbell(b.deliveries.iter().map(|d| glyph(b, d)))
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
@@ -704,25 +711,19 @@ fn arguments(session: &str, message: &str) -> Vec<String> {
 }
 
 // Persist the exact interaction alongside its stable event ID for restart recovery.
-fn transitions(b: &mut Binding, observed: &Value) -> Vec<(String, String)> {
-    if b.terminal {
-        return vec![];
-    }
-    let terminal = match string(observed, "state") {
-        "completed" => Some("completed"),
-        "failed" => Some("failed"),
-        "cancelled" => Some("interrupted"),
-        _ => None,
-    };
-    if let Some(state) = terminal {
-        b.terminal = true;
+fn transitions(b: &mut Binding, observed: &Value, native_terminal: bool) -> Vec<(String, String)> {
+    let turn = b.turn_state();
+    if let TurnState::Terminal(_) = turn {
         b.waiting.clear();
-        return vec![("terminal".into(), state.into())];
+        if !native_terminal || b.deliveries.iter().any(|d| d.key == "terminal") {
+            return vec![];
+        }
+        return vec![("terminal".into(), turn_adapter::push(&turn).unwrap().into())];
     }
-    if observed["state"] == "running" {
+    if turn == TurnState::Active {
         b.waiting.clear();
     }
-    if observed["state"] != "interaction-required" {
+    if turn != TurnState::AwaitingInteraction {
         return vec![];
     }
     let mut events = vec![];
@@ -1051,7 +1052,7 @@ fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
     Ok(false)
 }
 fn quiet_terminal(b: &Binding) -> bool {
-    b.terminal
+    b.terminal()
         && b.waiting.is_empty()
         && !b.deliveries.iter().any(|d| {
             !d.interaction.is_null()
@@ -1078,12 +1079,31 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         return Ok(());
     };
     *b = current;
+    if !lifecycle::same_key(&b.key(), observation) {
+        return Ok(());
+    }
+    let before_lifecycle = b.lifecycle.clone();
+    let incoming = lifecycle::observed(&b.key(), observation, 0).state();
+    if observation.get("handoffs").is_none() {
+        lifecycle::merge(b, observation);
+    }
+    let native_terminal = matches!((&incoming, b.turn_state()),
+        (TurnState::Terminal(incoming), TurnState::Terminal(current)) if incoming.outcome == current.outcome);
+    let mut projected = observation.clone();
+    if observation.get("handoffs").is_none() {
+        lifecycle::project(b, &mut projected);
+    }
+    if b.terminal() && !native_terminal {
+        if let Some(delivery) = b.deliveries.iter().find(|d| d.key == "terminal") {
+            projected["finalResponse"] = delivery.final_response.clone();
+            projected["error"] = delivery.task_error.clone();
+        }
+    }
+    let observation = &projected;
     let reconciliation = if (b.observation["reconciliation"] == "pending-after-restart"
         || observer::exhausted(b))
-        && matches!(
-            string(observation, "state"),
-            "completed" | "failed" | "cancelled"
-        ) {
+        && b.terminal()
+    {
         let terminal = observation["dispatches"].as_array()
             .and_then(|rows| rows.iter().find(|row| row["turnId"] == b.turn_id))
             .map(|row| row["terminal"].clone())
@@ -1100,10 +1120,10 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     let diagnostic_changed = if observation.get("handoffs").is_none() {
         let mut diagnostic = json!({"state":observation["state"],"reason":observation["reason"],
             "runtimeSource":observation["runtimeSource"],"runtimeStatus":observation["runtimeStatus"],
-            "recordedStatus":observation["recordedStatus"],"observedAt":if observation["state"]=="unconfirmed" {b.observation["observedAt"].clone()}else{observation["observedAt"].clone()},
+            "recordedStatus":observation["recordedStatus"],"conflict":observation["conflict"],"observedAt":if observation["state"]=="unconfirmed" {b.observation["observedAt"].clone()}else{observation["observedAt"].clone()},
             "reconciliation":if observation["state"]=="unconfirmed" {"pending-after-restart"}else{"reconciled"}});
         if observation["state"] == "unconfirmed" {
-            let failed = observer::unavailable(&b.observation, string(observation, "reason"));
+            let failed = observer::unavailable(b, string(observation, "reason"));
             for key in ["reconciliation", "reconciliationAttempts", "lastError"] {
                 diagnostic[key] = failed[key].clone();
             }
@@ -1181,10 +1201,34 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             }
         }
     }
+    if native_terminal {
+        let state = turn_adapter::wait(&b.turn_state()).0.as_wire();
+        let kind = turn_adapter::push(&b.turn_state()).unwrap();
+        for d in &mut b.deliveries {
+            if d.key == "terminal" && matches!(d.status.as_str(), "pending" | "sending") {
+                if d.task_state != state {
+                    d.task_state = state.into();
+                    d.state = kind.into();
+                    resolved = true;
+                }
+                if state == "completed"
+                    && !observation["finalResponse"].is_null()
+                    && d.final_response != observation["finalResponse"]
+                {
+                    d.final_response = observation["finalResponse"].clone();
+                    resolved = true;
+                }
+            }
+        }
+    }
     let previous_waiting = b.waiting.clone();
-    let was_terminal = b.terminal;
+    let lifecycle_changed = before_lifecycle != b.lifecycle;
     let suppress_empty = empty_answered_completion(b, observation);
-    let mut events = transitions(b, observation);
+    let mut events = if observation.get("handoffs").is_some() {
+        Vec::new()
+    } else {
+        transitions(b, observation, native_terminal)
+    };
     if suppress_empty {
         events.clear();
     }
@@ -1216,9 +1260,8 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             events.push((key, "handoff".into()));
         }
     }
-    if events.is_empty() && b.waiting == previous_waiting && b.terminal == was_terminal && !resolved
-    {
-        if diagnostic_changed {
+    if events.is_empty() && b.waiting == previous_waiting && !lifecycle_changed && !resolved {
+        if diagnostic_changed || lifecycle_changed {
             persist(dir, b)?;
         }
         return Ok(());
@@ -1447,6 +1490,9 @@ fn inbox_select(
                 && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
         });
         if let Some(b) = bound {
+            if matches!(b.turn_state(), TurnState::Conflict(_)) {
+                continue;
+            }
             if row["interaction"].is_object() && row["interaction"]["resolved"] != true {
                 let agent = if b.agent.is_empty() {
                     "codex"
@@ -1800,10 +1846,8 @@ pub(crate) fn settings() -> Result<Value> {
 }
 
 fn wakes(d: &Delivery) -> bool {
-    matches!(
-        d.task_state.as_str(),
-        "completed" | "failed" | "cancelled" | "interrupted" | "interaction-required"
-    )
+    turn_adapter::WaitState::from_wire(&d.task_state)
+        .is_some_and(turn_adapter::WaitState::keeps_response)
 }
 
 fn queued(d: &mut Delivery, reason: &str) {
@@ -1870,12 +1914,14 @@ async fn flush(
         .zip(continuations)
     {
         let mut changed = false;
+        let interrupted = turn_adapter::push(&b.turn_state()) == Some("interrupted");
         for d in &mut b.deliveries {
             if matches!(d.status.as_str(), "pending" | "sending") && !wakes(d) {
                 d.status = "inbox-only".into();
                 changed = true;
             }
-            if d.task_state == "cancelled" && d.status == "pending" && b.scope_end.is_some() {
+            if interrupted && d.key == "terminal" && d.status == "pending" && b.scope_end.is_some()
+            {
                 d.status = "resolved".into();
                 queued(d, "superseded");
                 changed = true;
@@ -1887,7 +1933,7 @@ async fn flush(
             {
                 changed |= d.continuation != continuation;
                 d.continuation = continuation.clone();
-                if d.task_state == "cancelled" && continuation["state"] != "unknown" {
+                if interrupted && continuation["state"] != "unknown" {
                     d.status = "resolved".into();
                     queued(d, "superseded");
                     changed = true;
@@ -1940,6 +1986,7 @@ async fn flush(
             if b.source_id != source_id {
                 continue;
             }
+            let turn = b.turn_state();
             let rule = state.rule(b);
             let mode = rule.map(|r| r.mode(now)).unwrap_or("normal");
             let digest_due = rule.is_some_and(|r| now.saturating_sub(r.digest_at) >= 3600);
@@ -1952,7 +1999,13 @@ async fn flush(
                     continue;
                 }
 
-                let reason = if settings["notificationsEnabled"] == false {
+                let reason = if !lifecycle::admits(&turn, d) {
+                    Some(if matches!(turn, TurnState::Conflict(_)) {
+                        "terminal-conflict"
+                    } else {
+                        "native-outcome-unconfirmed"
+                    })
+                } else if settings["notificationsEnabled"] == false {
                     Some("disabled")
                 } else if target.is_empty() {
                     Some("unbound")
@@ -2101,7 +2154,7 @@ async fn flush(
             single.deliveries = vec![b.deliveries[*di].clone()];
             single.channel = channel;
             single.target = Some(target.clone());
-            glyphs.push(glyph(&b.deliveries[*di]));
+            glyphs.push(glyph(b, &b.deliveries[*di]));
             if let Some(r) = reserved
                 .iter_mut()
                 .find(|r| r.thread_id == b.thread_id && r.turn_id == b.turn_id)
@@ -2151,8 +2204,7 @@ async fn flush(
             // interruption against successor evidence immediately before transport.
             if batch
                 .iter()
-                .flat_map(|b| &b.deliveries)
-                .any(|d| d.task_state == "cancelled")
+                .any(|b| turn_adapter::push(&b.turn_state()) == Some("interrupted"))
             {
                 let latest = records(dir)?;
                 let batch_id = batch[0].deliveries[0].batch.clone();
@@ -2165,13 +2217,14 @@ async fn flush(
                         .cloned()
                     {
                         let continuation = continuation::notice(&current, &Value::Null, &latest);
-                        if current.scope_end.is_some()
-                            || (continuation.is_object() && continuation["state"] != "unknown")
+                        if turn_adapter::push(&current.turn_state()) == Some("interrupted")
+                            && (current.scope_end.is_some()
+                                || (continuation.is_object() && continuation["state"] != "unknown"))
                         {
                             for d in &mut current.deliveries {
                                 if d.batch == batch_id
                                     && d.status == "sending"
-                                    && d.task_state == "cancelled"
+                                    && d.key == "terminal"
                                 {
                                     if continuation.is_object() {
                                         d.continuation = continuation.clone();
@@ -2205,7 +2258,11 @@ async fn flush(
                     state.save(dir)?;
                     continue;
                 }
-                body = doorbell(batch.iter().flat_map(|b| &b.deliveries).map(glyph));
+                body = doorbell(
+                    batch
+                        .iter()
+                        .flat_map(|b| b.deliveries.iter().map(move |d| glyph(b, d))),
+                );
             }
             let breaker = state.targets.iter().any(|t| {
                 t.source_id == batch[0].source_id
@@ -2221,9 +2278,13 @@ async fn flush(
                         .rule(&current)
                         .map(|r| r.mode(chrono::Utc::now().timestamp()))
                         .unwrap_or("normal");
-                    deferred |= (reserved.channel.session()
-                        && (current.target != reserved.target
-                            || current.channel != reserved.channel))
+                    deferred |= reserved
+                        .deliveries
+                        .iter()
+                        .any(|d| !lifecycle::admits(&current.turn_state(), d))
+                        || (reserved.channel.session()
+                            && (current.target != reserved.target
+                                || current.channel != reserved.channel))
                         || !state.subscriptions.iter().any(|s| {
                             s.id == reserved.deliveries[0].subscription
                                 && s.active(chrono::Utc::now().timestamp_millis())
@@ -2236,12 +2297,15 @@ async fn flush(
             }
             if deferred {
                 for mut current in current_batch {
+                    let conflict = matches!(current.turn_state(), TurnState::Conflict(_));
                     for d in &mut current.deliveries {
                         if d.batch == batch[0].deliveries[0].batch && d.status == "sending" {
                             d.status = "pending".into();
                             queued(
                                 d,
-                                if breaker {
+                                if conflict {
+                                    "terminal-conflict"
+                                } else if breaker {
                                     "breaker"
                                 } else {
                                     "control-changed"
@@ -2783,7 +2847,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         let watch = terminal_watches.get(&path);
                         let changed = watch.map(|w|w.changed(original,&events).unwrap_or(true)).unwrap_or_else(||events.has_thread(&original.thread_id));
                         let old_expired = expired(original, chrono::Utc::now().timestamp(), superseded);
-                        if !recovering && !old_expired && ((original.terminal && original.observation["reconciliation"] != "pending-after-restart" && (original.scope_end.is_some() || original.continuation_bound))
+                        if !recovering && !old_expired && ((original.terminal() && original.observation["reconciliation"] != "pending-after-restart" && (original.scope_end.is_some() || original.continuation_bound))
                             || watch.is_some_and(|w| w.unchanged(original,&events).unwrap_or(false))) {
                             if let Some(watch) = terminal_watches.get_mut(&path) { watch.cursor = events.cursor; }
                             dormant_bindings += 1;
@@ -2799,7 +2863,12 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         }
                         if recovering {
                             recover(&directory(), &mut b)?;
-                            if !observer::exhausted(&b) && (!b.terminal || (!b.continuation_bound && b.scope_end.is_none() && b.continuation_until > 0)) {
+                            lifecycle::loss(&mut b);
+                            let mut observation = b.observation.clone();
+                            lifecycle::project(&b, &mut observation);
+                            b.observation = observation;
+                            persist(&directory(), &b)?;
+                            if !observer::exhausted(&b) && (!b.terminal() || (!b.continuation_bound && b.scope_end.is_none() && b.continuation_until > 0)) {
                                 if !b.observation.is_object() { b.observation = json!({}); }
                                 b.observation["reconciliation"] = json!("pending-after-restart");
                                 persist(&directory(), &b)?;
@@ -2810,7 +2879,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             b.observation["reconciliation"] = json!("pending-after-restart");
                             persist(&directory(), &b)?;
                         }
-                        if b.terminal && (b.scope_end.is_some() || b.continuation_bound) {
+                        if b.terminal() && (b.scope_end.is_some() || b.continuation_bound) {
                             dormant_bindings += 1;
                             crate::runtime_metrics::cost::bindings(all.len(), observed_bindings, dormant_bindings);
                             if b.observation["reconciliation"] == "pending-after-restart" {
@@ -2870,20 +2939,22 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                                 if let Some(mut b) = binding(&directory(),&old.thread_id,&old.turn_id)? {
                                     // A successful explicit read racing this failure wins.
                                     if !observation_changed(&old.observation,&b.observation) {
-                                        b.observation = observer::unavailable(&b.observation,&error);
+                                        b.observation = observer::unavailable(&mut b,&error);
                                         persist(&directory(),&b)?;
                                     }
                                 }
                                 continue;
                             }
                         };
-                        let mut b = old;
+                        let mut b = binding(&directory(), &old.thread_id, &old.turn_id)?.unwrap_or(old);
+                        lifecycle::merge(&mut b, &observed);
+                        lifecycle::project(&b, &mut observed);
                         if matches!(string(&observed,"state"),"running"|"interaction-required") || observed["recordedStatus"] == "inProgress" {
                             owner_threads.insert(b.thread_id.clone());
                         }
                         for request in observed["interaction"].as_array_mut().into_iter().flatten() { crate::respond_tokens::issue(&b.source_id,request)?; }
                         if (b.observation["reconciliation"] == "pending-after-restart" || observer::exhausted(&b))
-                            && matches!(string(&observed,"state"),"completed"|"failed"|"cancelled") {
+                            && b.terminal() {
                             process(&directory(),&LOCK,&mut b,&observed).await?;
                         }
                         match retry::handle(&control,&mut b,&observed).await {
@@ -2938,6 +3009,40 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
 mod tests {
     use super::*;
     use std::sync::Mutex as SyncMutex;
+    fn native_observation(b: &Binding, observed: &Value) -> Value {
+        let mut value = observed.clone();
+        if value.get("recordedStatus").is_none() {
+            value["recordedStatus"] = json!(match string(observed, "state") {
+                "completed" => Some("completed"),
+                "failed" => Some("failed"),
+                "cancelled" => Some("interrupted"),
+                "running" => Some("inProgress"),
+                _ => None,
+            });
+        }
+        if value.get("threadId").is_none() {
+            value["threadId"] = json!(b.thread_id);
+        }
+        if value.get("turnId").is_none() {
+            value["turnId"] = json!(b.turn_id);
+        }
+        value
+    }
+    pub(super) fn fixture_state(b: &mut Binding, state: &str) {
+        b.lifecycle = turn_adapter::checkpoint(&lifecycle::observed(
+            &b.key(),
+            &native_observation(b, &json!({"state":state})),
+            0,
+        ));
+    }
+    async fn process_observation(
+        dir: &Path,
+        lock: &Mutex<()>,
+        b: &mut Binding,
+        observed: &Value,
+    ) -> Result<()> {
+        super::process(dir, lock, b, &native_observation(b, observed)).await
+    }
     #[test]
     fn observation_clock_does_not_create_a_durable_transition() {
         // Regression: unchanged terminal observations rewrote hundreds of task and handoff records every cycle.
@@ -2963,7 +3068,7 @@ mod tests {
         let mut b = fixture(&dir.0);
         let lock = Mutex::new(());
         for _ in 0..observer::RECONCILIATION_ATTEMPTS {
-            super::process(
+            process_observation(
                 &dir.0,
                 &lock,
                 &mut b,
@@ -2972,7 +3077,7 @@ mod tests {
             .await
             .unwrap();
         }
-        assert!(!b.terminal);
+        assert!(!b.terminal());
         assert!(observer::exhausted(&b));
         let status = governance::status_in(
             &dir.0,
@@ -2997,10 +3102,10 @@ mod tests {
             .unwrap()
             .clone();
         crate::egress::validate_op(&spec, &diagnosis["next"]["args"]).unwrap();
-        super::process(&dir.0, &lock, &mut b, &json!({"state":"completed"}))
+        process_observation(&dir.0, &lock, &mut b, &json!({"state":"completed"}))
             .await
             .unwrap();
-        assert!(b.terminal);
+        assert!(b.terminal());
         assert_eq!(b.observation["reconciliation"], "reconciled");
         assert_eq!(
             b.deliveries.iter().filter(|d| d.key == "terminal").count(),
@@ -3245,7 +3350,7 @@ mod tests {
         b: &mut Binding,
         observation: &Value,
     ) -> Result<()> {
-        super::process(dir, &Mutex::new(()), b, observation).await?;
+        process_observation(dir, &Mutex::new(()), b, observation).await?;
         {
             flush(
                 executor,
@@ -3350,7 +3455,7 @@ mod tests {
         b.caused_by =
             json!({"op":"codex_send","at":"2026-10-01T00:00:00Z","requestId":"request-test"});
         persist(dir, &b).unwrap();
-        super::process(dir, &Mutex::new(()), &mut b, &observation)
+        process_observation(dir, &Mutex::new(()), &mut b, &observation)
             .await
             .unwrap();
         for d in &mut b.deliveries {
@@ -3380,7 +3485,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(b.terminal);
+        assert!(b.terminal());
         assert_eq!(b.deliveries.len(), 1);
 
         let dir2 = Sandbox::new();
@@ -4066,13 +4171,18 @@ mod tests {
             ("cancelled", "interrupted"),
             ("interaction-required", "needs-input"),
         ] {
-            b.deliveries[0].task_state = state.into();
-            b.deliveries[0].final_response = json!("SECRET_OUTPUT");
-            b.deliveries[0].task_error = json!("SECRET_ERROR");
-            assert!(!message(&b).contains("SECRET"));
-            let payload = event(&b, &b.deliveries[0]);
+            let observed = if state == "interaction-required" {
+                interaction(json!(71))
+            } else {
+                json!({"state":state,"finalResponse":"SECRET_OUTPUT","error":"SECRET_ERROR"})
+            };
+            let projected = enqueue(&dir.0, &format!("projection-{state}"), observed, 100).await;
+            assert!(!message(&projected).contains("SECRET"));
+            let payload = event(&projected, &projected.deliveries[0]);
             assert_eq!(payload["kind"], kind);
-            assert_eq!(payload["finalResponse"], "SECRET_OUTPUT");
+            if state == "completed" {
+                assert_eq!(payload["finalResponse"], "SECRET_OUTPUT");
+            }
         }
     }
     #[tokio::test]
@@ -4084,7 +4194,7 @@ mod tests {
         persist(&dir.0, &b).unwrap();
         routing::presence(&json!({"agent":"codex","taskId":b.thread_id,"present":true})).unwrap();
         let lock = Mutex::new(());
-        super::process(&dir.0, &lock, &mut b, &interaction(json!(41)))
+        process_observation(&dir.0, &lock, &mut b, &interaction(json!(41)))
             .await
             .unwrap();
         let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
@@ -4096,7 +4206,7 @@ mod tests {
         });
         assert!(denied.unwrap_err().contains("REQUEST_SOURCE_MISMATCH"));
         // Native resolution is independent of notification routing and prevents a late push.
-        super::process(
+        process_observation(
             &dir.0,
             &lock,
             &mut b,
@@ -4111,7 +4221,7 @@ mod tests {
                 routing::control_in(&dir.0, &args, false)
             });
         assert!(resolved.unwrap_err().contains("REQUEST_RESOLVED"));
-        super::process(&dir.0, &lock, &mut b, &interaction(json!(42)))
+        process_observation(&dir.0, &lock, &mut b, &interaction(json!(42)))
             .await
             .unwrap();
         for (action, expected) in [
@@ -4144,7 +4254,7 @@ mod tests {
         persist(&dir.0, &b).unwrap();
         let observation = json!({"state":"completed","title":thread_title,
             "dispatches":[{"turnId":b.turn_id,"title":initial_prompt},{"turnId":b.turn_id,"title":steer_prompt}]});
-        super::process(&dir.0, &Mutex::new(()), &mut b, &observation)
+        process_observation(&dir.0, &Mutex::new(()), &mut b, &observation)
             .await
             .unwrap();
         let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
@@ -4165,7 +4275,7 @@ mod tests {
         b.source_id = "claude".into();
         persist(&dir.0, &b).unwrap();
         let fake = Fake::success();
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut b,
@@ -4675,7 +4785,7 @@ mod tests {
         for terminal in [false, true] {
             let dir = Sandbox::new();
             let mut b = fixture(&dir.0);
-            b.terminal = terminal;
+            fixture_state(&mut b, if terminal { "completed" } else { "running" });
             b.created_at = 100;
             persist(&dir.0, &b).unwrap();
             assert!(!remove_expired(&dir.0, &b, 101 + RETENTION_SECONDS, false).unwrap());
@@ -4755,7 +4865,7 @@ mod tests {
                 dir: &dir.0,
                 fail,
             };
-            super::process(&dir.0, &lock, &mut b, &interaction(json!(17)))
+            process_observation(&dir.0, &lock, &mut b, &interaction(json!(17)))
                 .await
                 .unwrap();
             flush(&probe, &dir.0, &lock, i64::MAX, 0, &json!({}))
@@ -4847,10 +4957,10 @@ mod tests {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let handoff = json!({"state":"unconfirmed","handoffs":[{"eventId":"queued-handoff","from":"connector","to":"unheld","observedAt":now(),"evidence":null,"timeBasis":"observed-not-transition-time"}]});
-        super::process(&dir.0, &Mutex::new(()), &mut b, &handoff)
+        process_observation(&dir.0, &Mutex::new(()), &mut b, &handoff)
             .await
             .unwrap();
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut b,
@@ -4894,10 +5004,10 @@ mod tests {
             } else {
                 json!({"state":state})
             };
-            super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+            process_observation(&dir.0, &Mutex::new(()), &mut b, &observed)
                 .await
                 .unwrap();
-            b.terminal = terminal;
+            fixture_state(&mut b, if terminal { "completed" } else { "running" });
             persist(&dir.0, &b).unwrap();
             let handoffs = json!({"state":"unconfirmed","handoffs":[
                 {"eventId":"connector-unheld","from":"connector","to":"unheld","observedAt":now(),"evidence":null,"timeBasis":"observed-not-transition-time"},
@@ -4906,7 +5016,7 @@ mod tests {
             for _ in 0..3 {
                 b = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
                 super::recover(&dir.0, &mut b).unwrap();
-                super::process(&dir.0, &Mutex::new(()), &mut b, &handoffs)
+                process_observation(&dir.0, &Mutex::new(()), &mut b, &handoffs)
                     .await
                     .unwrap();
             }
@@ -4969,7 +5079,7 @@ mod tests {
             next.turn_id = "resumed-turn".into();
             next.continuation_bound = false;
             next.successor = Value::Null;
-            next.observation = json!({"state":state});
+            next.observation = native_observation(&next, &json!({"state":state}));
             persist(&dir.0, &next).unwrap();
             let fake = Fake::success();
             for _ in 0..3 {
@@ -5013,7 +5123,7 @@ mod tests {
         // Regression: an interruption waiting for bucket tokens lost the continuation's completed outcome.
         let dir = Sandbox::new();
         let mut old = fixture(&dir.0);
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut old,
@@ -5028,7 +5138,7 @@ mod tests {
         next.turn_id = "resumed-turn".into();
         next.successor = Value::Null;
         next.deliveries.clear();
-        next.observation = json!({"state":"completed"});
+        next.observation = native_observation(&next, &json!({"state":"completed"}));
         persist(&dir.0, &next).unwrap();
         let fake = Fake::success();
         flush(&fake, &dir.0, &Mutex::new(()), i64::MAX, 0, &json!({}))
@@ -5170,7 +5280,7 @@ mod tests {
             .unwrap();
         }
 
-        assert!(b.terminal);
+        assert!(b.terminal());
         let report = notification(binding(&dir.0, "thread-1", "turn-1").unwrap());
         assert_eq!(report["target"], "session_010000000000000000000001");
         assert_eq!(report["deliveries"].as_array().unwrap().len(), 3);
@@ -5380,10 +5490,10 @@ fn effective_push(notification: &Value, settings: &Value, state: &State, cli: bo
 // Both explicit reads and the background observer can publish the first terminal
 // event. Collect its snapshot on either path, before process freezes the delivery.
 async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observed: &mut Value) {
-    if !b.terminal
+    if !b.terminal()
         && matches!(
-            string(observed, "state"),
-            "completed" | "failed" | "cancelled"
+            lifecycle::observed(&b.key(), observed, 0).state(),
+            TurnState::Terminal(_)
         )
         && (b.agent.is_empty() || b.agent == "codex")
     {
@@ -5400,12 +5510,28 @@ async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observe
         .await
         .unwrap_or_else(|error| json!({"unavailable":error}));
     }
-    if !b.terminal
-        && observed["state"] == "completed"
+    if !b.terminal()
+        && turn_adapter::push(&lifecycle::observed(&b.key(), observed, 0).state())
+            == Some("completed")
         && (b.agent.is_empty() || b.agent == "codex")
         && !empty_answered_completion(b, observed)
     {
         observed["changes"] = crate::changes::notification(control, &b.thread_id, &b.turn_id).await;
+    }
+}
+
+pub(crate) async fn record_conflict(observed: &Value, turn: &crate::turn_lifecycle::Transition) {
+    if !matches!(turn.state(), TurnState::Conflict(_)) {
+        return;
+    }
+    let mut observed = observed.clone();
+    observed["_turnLifecycle"] = turn_adapter::checkpoint(turn);
+    if let Err(error) = observe(&turn.key().native_session, &turn.key().turn_id, &observed).await {
+        crate::logs::record(
+            "WARN",
+            &format!("Notification conflict persistence failed: {error}"),
+            None,
+        );
     }
 }
 
@@ -5428,8 +5554,7 @@ pub(crate) async fn read_turns(
     if !matches!(
         name,
         "codex_read" | "codex_wait" | "codex_items" | "codex_changes" | "agent_read" | "agent_wait"
-    ) || value["state"] == "unconfirmed"
-    {
+    ) {
         return Ok(reads);
     }
     let task = value["taskId"]
@@ -5438,7 +5563,7 @@ pub(crate) async fn read_turns(
         .or_else(|| value["threadId"].as_str())
         .or_else(|| args["threadId"].as_str())
         .unwrap_or("");
-    let turns = if name == "codex_read" {
+    let turns = if name == "codex_read" && value["turns"].is_array() {
         value["turns"].as_array().cloned().unwrap_or_default()
     } else if name == "codex_items" && value["turnId"].is_null() && args["turnId"].is_null() {
         value["items"].as_array().cloned().unwrap_or_default()
@@ -5460,16 +5585,45 @@ pub(crate) async fn read_turns(
             continue;
         }
         let mut observation = t.clone();
+        let bound = binding(&directory(), task, turn)?;
+        let read_evidence = bound
+            .as_ref()
+            .filter(|_| name.starts_with("codex_"))
+            .map(|b| {
+                let mut evidence = lifecycle::observed(&b.key(), &t, 0);
+                // A turn may have contradictory records in one read. Preserve each
+                // before hydration or the read-scope deduplication drops later rows.
+                for row in value["turns"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|row| row["turnId"] == turn)
+                {
+                    for item in lifecycle::observed(&b.key(), row, 0).evidence() {
+                        evidence = crate::turn_lifecycle::advance(&evidence, &item);
+                    }
+                }
+                evidence
+            });
         // Item/change pages identify the read turn but carry no lifecycle state.
         // Reconcile a pending binding now, before inbox() acknowledges it, so the
         // observer cannot append an already-read completion on its next cycle.
         if matches!(name, "codex_read" | "codex_items" | "codex_changes")
-            && binding(&directory(), task, turn)?.is_some_and(|b| !b.terminal)
+            && (observation["recordedStatus"].is_null()
+                || observation["state"].is_null()
+                || observation["reason"] == "inconsistent-native-state"
+                || value["reason"] == "inconsistent-native-state")
+            && bound.is_some()
         {
-            match tokio::time::timeout(
-                Duration::from_secs(10),
-                crate::waiter::codex_observe(control, &json!({"threadId":task,"turnId":turn})),
-            )
+            match tokio::time::timeout(Duration::from_secs(10), async {
+                crate::waiter::codex_notification_observe(
+                    control,
+                    &json!({"threadId":task,"turnId":turn}),
+                    true,
+                )
+                .await
+                .map(|(value, _)| value)
+            })
             .await
             {
                 Ok(Ok(value)) => observation = value,
@@ -5480,27 +5634,31 @@ pub(crate) async fn read_turns(
                 ),
             }
         }
+        if let Some(first_read) = read_evidence {
+            let mut combined = lifecycle::observed(first_read.key(), &observation, 1);
+            for evidence in first_read.evidence() {
+                combined = crate::turn_lifecycle::advance(&combined, &evidence);
+            }
+            observation["_turnLifecycle"] = turn_adapter::checkpoint(&combined);
+        }
         if observation["title"].is_null() {
             observation["title"] = value["title"].clone();
         }
         if name == "agent_read" {
-            observation["finalResponse"] = value["output"].clone();
-            observation["state"] = json!(match t["recordedStatus"]
+            observation["recordedStatus"] = t["recordedStatus"]
                 .as_str()
                 .or_else(|| t["status"].as_str())
-                .unwrap_or("")
-            {
-                "completed" => "completed",
-                "failed" => "failed",
-                "cancelled" | "interrupted" => "cancelled",
-                _ => "unconfirmed",
-            });
+                .map(|s| json!(s))
+                .unwrap_or(Value::Null);
+            observation["finalResponse"] = value["output"].clone();
         }
         if let Some(b) = binding(&directory(), task, turn)? {
             enrich_completion(control, &b, &mut observation).await;
         }
         observe(task, turn, &observation).await?;
-        reads.push((task.into(), turn.into()));
+        if value["state"] != "unconfirmed" {
+            reads.push((task.into(), turn.into()));
+        }
     }
     reads.sort();
     reads.dedup();

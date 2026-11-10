@@ -118,7 +118,7 @@ pub(crate) fn evidence_from_history(
         && configuration.is_object()
     {
         result["reason"] = json!("native-continuation");
-        result["retry"] = json!({"turnId":next["id"],"trigger":trigger,"startedAt":started,"configuration":configuration,"state":notice_state(string(next,"status"))});
+        result["retry"] = json!({"turnId":next["id"],"trigger":trigger,"startedAt":started,"configuration":configuration,"state":notice_state(&lifecycle::observed(&crate::turn_lifecycle::TurnKey::new("codex",string(thread,"id"),string(next,"id")), &json!({"recordedStatus":next["status"],"state":if next["status"]=="inProgress" {"running"}else{"unconfirmed"}}), 0).state())});
     } else if !matches!(
         trigger,
         "capacity_retry_automatic" | "capacity_retry_manual" | "resume_interrupted_task"
@@ -134,15 +134,17 @@ pub(crate) fn evidence_from_history(
     Ok(result)
 }
 
-fn notice_state(state: &str) -> &'static str {
-    match state {
-        "completed" => "completed",
-        "failed" => "failed",
-        "cancelled" | "interrupted" => "interrupted",
-        "running" | "inProgress" => "running",
-        "interaction-required" => "needs-input",
-        _ => "unknown",
-    }
+fn retry_observation(thread: &str, retry: &Value) -> Value {
+    json!({"threadId":thread,"turnId":retry["turnId"],"recordedStatus":retry["state"],
+        "state":match string(retry,"state") {"running" | "inProgress"=>"running", "needs-input" | "interaction-required"=>"interaction-required", _=>"unconfirmed"}})
+}
+
+fn notice_state(state: &TurnState) -> &'static str {
+    turn_adapter::push(state).unwrap_or(if *state == TurnState::Active {
+        "running"
+    } else {
+        "unknown"
+    })
 }
 
 pub(super) fn notice(b: &Binding, observation: &Value, all: &[Binding]) -> Value {
@@ -155,7 +157,9 @@ pub(super) fn notice(b: &Binding, observation: &Value, all: &[Binding]) -> Value
     let mut state = "unknown";
     let retry = &observation["nativeContinuation"]["retry"];
     if retry["turnId"] == turn {
-        state = notice_state(string(retry, "state"));
+        let key = crate::turn_lifecycle::TurnKey::new(&b.key().agent, &b.thread_id, turn);
+        let native = retry_observation(&b.thread_id, retry);
+        state = notice_state(&lifecycle::observed(&key, &native, 0).state());
     }
     // Follow only confirmed continuations owned by this source. Bound the walk
     // even if a damaged record links back to an earlier turn.
@@ -165,10 +169,11 @@ pub(super) fn notice(b: &Binding, observation: &Value, all: &[Binding]) -> Value
         }) else {
             break;
         };
-        let observed = notice_state(string(&next.observation, "state"));
-        if observed != "unknown" {
-            state = observed;
+        let mut successor = next.clone();
+        if retry["turnId"] == turn {
+            lifecycle::merge(&mut successor, &retry_observation(&b.thread_id, retry));
         }
+        state = notice_state(&successor.turn_state());
         if next.successor["inherited"] != true {
             break;
         }
@@ -206,6 +211,11 @@ fn close_scope(dir: &Path, b: &mut Binding, reason: &str) -> Result<()> {
 }
 
 pub(super) fn adopt(dir: &Path, b: &mut Binding, observation: &Value) -> Result<()> {
+    if !lifecycle::same_key(&b.key(), observation)
+        || matches!(b.turn_state(), TurnState::Conflict(_))
+    {
+        return Ok(());
+    }
     if observation["archived"] == true {
         close_scope(dir, b, "thread-archived")?;
     }
@@ -222,14 +232,18 @@ pub(super) fn adopt(dir: &Path, b: &mut Binding, observation: &Value) -> Result<
             // origin scope in that gap; bind owns explicit scope replacement.
             return Ok(());
         }
-        if observation["state"] == "completed" && !b.continuation_bound {
+        if turn_adapter::push(&b.turn_state()) == Some("completed") && !b.continuation_bound {
             b.successor = json!({"turnId":next,"inherited":false,"reason":"predecessor-completed"});
             close_scope(dir, b, "unrelated-native-turn")?;
             persist(dir, b)?;
             return Ok(());
         }
     }
-    if matches!(string(observation, "state"), "cancelled" | "failed") && !b.continuation_bound {
+    if matches!(
+        turn_adapter::push(&b.turn_state()),
+        Some("interrupted" | "failed")
+    ) && !b.continuation_bound
+    {
         if observation["nextTurnId"].is_string()
             && !observation["nativeContinuation"]["retry"].is_object()
             && observation["nativeContinuation"]["excluded"] != true
@@ -247,13 +261,13 @@ pub(super) fn adopt(dir: &Path, b: &mut Binding, observation: &Value) -> Result<
         }
         // Allow a bounded re-read if terminal history has not flushed yet. Adoption
         // still requires the native deadline; reads/restarts never extend this grace.
-        let until = if observation["state"] == "cancelled" {
+        let until = if turn_adapter::push(&b.turn_state()) == Some("interrupted") {
             i64::MAX
         } else {
             observation["nativeContinuation"]["until"]
                 .as_i64()
                 .unwrap_or_else(|| {
-                    if !b.terminal && b.continuation_until == 0 {
+                    if b.continuation_until == 0 {
                         chrono::Utc::now().timestamp() + WINDOW_SECONDS
                     } else {
                         b.continuation_until
@@ -282,7 +296,7 @@ pub(super) fn adopt(dir: &Path, b: &mut Binding, observation: &Value) -> Result<
                         b.scope_started_at
                     };
                     next_binding.created_at = chrono::Utc::now().timestamp();
-                    next_binding.terminal = false;
+                    next_binding.lifecycle = Value::Null;
                     next_binding.waiting.clear();
                     next_binding.deliveries.clear();
                     next_binding.explicit = false;

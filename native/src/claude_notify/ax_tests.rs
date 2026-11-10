@@ -13,7 +13,7 @@ async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
             "task":{"dispatch":{"model":"model","effort":"high"}}}))
         .unwrap();
         if pending {
-            super::process(
+            process_observation(
                 &dir.0,
                 &Mutex::new(()),
                 &mut old,
@@ -27,11 +27,11 @@ async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
         let mut next = old.clone();
         next.turn_id = next_id.clone();
         next.explicit = false;
-        next.terminal = false;
+        next.lifecycle = Value::Null;
         next.deliveries.clear();
         next.observation = Value::Null;
         persist(&dir.0, &next).unwrap();
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut next,
@@ -55,7 +55,7 @@ async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
         )
         .unwrap();
         super::recover(&dir.0, &mut old).unwrap();
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut old,
@@ -229,7 +229,7 @@ async fn ax_acquisition_retains_history_without_waking_any_source() {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let handoff = json!({"eventId":"acquired","from":"unheld","to":"connector","observedAt":now(),"causedBySourceId":if own {&b.source_id} else {"other"}});
-        super::process(
+        process_observation(
             &dir.0,
             &Mutex::new(()),
             &mut b,
@@ -247,7 +247,9 @@ async fn ax_acquisition_retains_history_without_waking_any_source() {
         )
         .await
         .unwrap();
-        let status = governance::status_in(&dir.0, &b.source_id, &json!({"all":true}), 131, &json!({})).unwrap();
+        let status =
+            governance::status_in(&dir.0, &b.source_id, &json!({"all":true}), 131, &json!({}))
+                .unwrap();
         let deliveries = status["deliveries"].as_array().unwrap();
         assert!(!deliveries.is_empty());
         assert!(deliveries.iter().all(|d| d["state"] == "inbox-only"));
@@ -255,4 +257,368 @@ async fn ax_acquisition_retains_history_without_waking_any_source() {
         assert_eq!(inbox["events"][0]["ownership"], handoff);
         assert_eq!(inbox["events"][0]["next"]["op"], "codex_owner");
     }
+}
+
+fn selected_native(b: &Binding, status: &str, runtime: &str) -> Value {
+    let (mut observed, turn) = crate::waiter::classify_with_lifecycle(
+        &json!({"thread":{"id":b.thread_id,"status":{"type":runtime},"turns":[
+            {"id":b.turn_id,"status":status,"items":[{"id":"answer","type":"agentMessage","text":"Finished; commit fixture123"}]}
+        ]}}),
+        &mut Some(b.turn_id.clone()),
+    );
+    observed["_turnLifecycle"] = turn_adapter::checkpoint(&turn);
+    observed
+}
+
+#[tokio::test]
+async fn ax_delayed_loss_and_stale_projection_push_agree_with_selected_native_completion() {
+    // Regression: ax-0d9fb1f7 and ax-27840e50 pushed interrupted/halted while the selected native turn was completed.
+    for order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        let completed = selected_native(&b, "completed", "unknown");
+        let evidence = [
+            completed.clone(),
+            json!({"threadId":b.thread_id,"turnId":b.turn_id,"state":"cancelled","reason":"connection-closed"}),
+            selected_native(&b, "inProgress", "active"),
+        ];
+        for index in order {
+            super::process(&dir.0, &Mutex::new(()), &mut b, &evidence[index])
+                .await
+                .unwrap();
+        }
+        let fake = Fake::success();
+        flush(
+            &fake,
+            &dir.0,
+            &Mutex::new(()),
+            chrono::Utc::now().timestamp() + 60,
+            0,
+            &json!({}),
+        )
+        .await
+        .unwrap();
+        let status = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"all":true}),
+            chrono::Utc::now().timestamp() + 60,
+            &json!({}),
+        )
+        .unwrap();
+        assert_eq!(
+            status["threads"][0]["diagnosis"]["observation"]["state"],
+            completed["state"]
+        );
+        assert!(status["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["kind"] == "completed" && d["state"] == "delivered"));
+        let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
+        let event = &inbox["events"][0];
+        assert_eq!(event["kind"], completed["state"]);
+        assert_eq!(event["turnId"], b.turn_id);
+        assert_eq!(event["finalResponse"], completed["finalResponse"]);
+    }
+}
+
+#[tokio::test]
+async fn ax_conflicting_native_outcomes_hold_delivery_and_explain_notify_status_after_restart() {
+    // Regression: the terminal latch hid contradictory native completion and retained a pending interrupted push.
+    for statuses in [["interrupted", "completed"], ["completed", "interrupted"]] {
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        for status in statuses {
+            let observed = selected_native(&b, status, "idle");
+            super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+                .await
+                .unwrap();
+        }
+        b = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
+        b.observation = observer::unavailable(&mut b, "owner-lost-after-restart");
+        persist(&dir.0, &b).unwrap();
+        flush(
+            &Fake::success(),
+            &dir.0,
+            &Mutex::new(()),
+            chrono::Utc::now().timestamp() + 60,
+            0,
+            &json!({}),
+        )
+        .await
+        .unwrap();
+        let status = governance::status_in(
+            &dir.0,
+            "claude",
+            &json!({"all":true}),
+            chrono::Utc::now().timestamp() + 60,
+            &json!({}),
+        )
+        .unwrap();
+        let diagnosis = &status["threads"][0]["diagnosis"];
+        assert_eq!(diagnosis["observation"]["state"], "unconfirmed");
+        assert!(diagnosis["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("terminal-conflict")));
+        assert_eq!(diagnosis["observation"]["conflict"]["turnId"], b.turn_id);
+        let records = diagnosis["observation"]["conflict"]["records"]
+            .as_array()
+            .unwrap();
+        assert!(records.iter().any(|r| r["status"] == "completed"));
+        assert!(records.iter().any(|r| r["status"] == "interrupted"));
+        assert!(status["deliveries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["state"] == "pending" && d["timing"]["queueReason"] == "terminal-conflict"));
+    }
+}
+
+#[tokio::test]
+async fn owner_loss_and_interrupt_intent_emit_no_terminal_notification() {
+    // Regression: synthesized cancelled state after owner loss or interrupt intent was accepted as native interruption.
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0);
+    let running = selected_native(&b, "inProgress", "active");
+    super::process(&dir.0, &Mutex::new(()), &mut b, &running)
+        .await
+        .unwrap();
+    for state in ["unconfirmed", "cancelling", "cancelled"] {
+        let observed = json!({"threadId":b.thread_id,"turnId":b.turn_id,"state":state});
+        super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+            .await
+            .unwrap();
+    }
+    b.observation = observer::unavailable(&mut b, "connection-closed");
+    persist(&dir.0, &b).unwrap();
+    flush(
+        &Fake::success(),
+        &dir.0,
+        &Mutex::new(()),
+        chrono::Utc::now().timestamp() + 60,
+        0,
+        &json!({}),
+    )
+    .await
+    .unwrap();
+    let status = governance::status_in(
+        &dir.0,
+        "claude",
+        &json!({"all":true}),
+        chrono::Utc::now().timestamp() + 60,
+        &json!({}),
+    )
+    .unwrap();
+    assert_eq!(
+        status["threads"][0]["diagnosis"]["observation"]["state"],
+        "unconfirmed"
+    );
+    assert_eq!(status["deliveries"], json!([]));
+}
+
+#[tokio::test]
+async fn late_predecessor_cannot_replace_successor_lifecycle_or_payload() {
+    // Regression: a late predecessor observation must not relabel the completed successor or overwrite its final response.
+    let dir = Sandbox::new();
+    let old = fixture(&dir.0);
+    let predecessor = selected_native(&old, "interrupted", "idle");
+    let mut next = old.clone();
+    next.turn_id = "successor".into();
+    next.lifecycle = Value::Null;
+    persist(&dir.0, &next).unwrap();
+    let completed = selected_native(&next, "completed", "idle");
+    super::process(&dir.0, &Mutex::new(()), &mut next, &completed)
+        .await
+        .unwrap();
+    super::process(&dir.0, &Mutex::new(()), &mut next, &predecessor)
+        .await
+        .unwrap();
+    flush(
+        &Fake::success(),
+        &dir.0,
+        &Mutex::new(()),
+        chrono::Utc::now().timestamp() + 60,
+        0,
+        &json!({}),
+    )
+    .await
+    .unwrap();
+    let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
+    let event = inbox["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|event| event["turnId"] == "successor")
+        .unwrap();
+    assert_eq!(event["kind"], "completed");
+    assert_eq!(event["finalResponse"], completed["finalResponse"]);
+    let mut linked = old.clone();
+    linked.successor = json!({"turnId":"successor","inherited":true});
+    assert_eq!(
+        continuation::notice(&linked, &predecessor, &[next])["state"],
+        "completed"
+    );
+}
+
+#[test]
+fn notify_guide_defines_every_emittable_doorbell_label() {
+    // Regression: ax-27840e50 received halted but guide topic:notify did not define that label.
+    let guide = crate::control_profiles::guide(&json!({}), &json!({"topic":"notify"}), &[]);
+    for label in GLYPHS {
+        assert!(
+            string(&guide, "content").contains(label),
+            "missing label: {label}"
+        );
+    }
+    assert!(string(&guide, "content").contains("◎ ping"));
+}
+
+#[tokio::test]
+async fn conflict_arriving_after_reservation_blocks_the_next_transport() {
+    // Regression: a reserved terminal push could retain an obsolete outcome while another destination was sending.
+    struct DuringSend {
+        directory: PathBuf,
+    }
+    impl Executor for DuringSend {
+        async fn send(&self, _source: &str, args: Vec<String>) -> Result<Vec<u8>> {
+            let target = args.windows(2).find(|pair| pair[0] == "--cloud").unwrap()[1].clone();
+            for mut b in records(&self.directory)?
+                .into_iter()
+                .filter(|b| b.target.as_deref() != Some(&target) && b.terminal())
+            {
+                let contradictory = selected_native(&b, "interrupted", "idle");
+                super::process(&self.directory, &Mutex::new(()), &mut b, &contradictory).await?;
+            }
+            Ok(json!({"ok":true,"session_id":target})
+                .to_string()
+                .into_bytes())
+        }
+        async fn escalate(&self, _body: String) -> Result<()> {
+            Ok(())
+        }
+    }
+    let dir = Sandbox::new();
+    for index in 1..=2 {
+        let mut b = fixture(&dir.0);
+        b.thread_id = format!("reserved-{index}");
+        b.target = Some(format!("session_{index:024}"));
+        verified_fixture_target(&dir.0, &b);
+        persist(&dir.0, &b).unwrap();
+        let completed = selected_native(&b, "completed", "idle");
+        super::process(&dir.0, &Mutex::new(()), &mut b, &completed)
+            .await
+            .unwrap();
+    }
+    let at = chrono::Utc::now().timestamp() + 60;
+    flush(
+        &DuringSend {
+            directory: dir.0.clone(),
+        },
+        &dir.0,
+        &Mutex::new(()),
+        at,
+        0,
+        &json!({}),
+    )
+    .await
+    .unwrap();
+    let status =
+        governance::status_in(&dir.0, "claude", &json!({"all":true}), at, &json!({})).unwrap();
+    let deliveries = status["deliveries"].as_array().unwrap();
+    assert!(deliveries
+        .iter()
+        .any(|d| d["state"] == "delivered" && d["kind"] == "completed"));
+    assert!(deliveries
+        .iter()
+        .any(|d| d["state"] == "pending" && d["timing"]["queueReason"] == "terminal-conflict"));
+    assert!(status["threads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["diagnosis"]["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("terminal-conflict"))));
+}
+
+#[tokio::test]
+async fn ordered_native_reconciliation_releases_a_conflicted_delivery() {
+    // Regression: notification projection must not erase native sequence ordering when reconciling a held terminal push.
+    use crate::turn_lifecycle::{advance, Transition};
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0);
+    for (status, sequence) in [("interrupted", 4), ("completed", 4), ("completed", 5)] {
+        let turn = advance(
+            &Transition::new(b.key()),
+            &turn_adapter::codex_terminal(b.key(), status, Some(sequence)).unwrap(),
+        );
+        let mut observed = selected_native(&b, status, "idle");
+        observed["_turnLifecycle"] = turn_adapter::checkpoint(&turn);
+        super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+            .await
+            .unwrap();
+        if status == "completed" && sequence == 4 {
+            let result = governance::status_in(
+                &dir.0,
+                "claude",
+                &json!({"threadId":b.thread_id}),
+                100,
+                &json!({}),
+            )
+            .unwrap();
+            assert!(result["threads"][0]["diagnosis"]["reasons"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("terminal-conflict")));
+            assert_eq!(
+                result["threads"][0]["diagnosis"]["next"]["args"]["turnId"],
+                b.turn_id
+            );
+        }
+    }
+    let at = chrono::Utc::now().timestamp() + 60;
+    flush(&Fake::success(), &dir.0, &Mutex::new(()), at, 0, &json!({}))
+        .await
+        .unwrap();
+    let status =
+        governance::status_in(&dir.0, "claude", &json!({"all":true}), at, &json!({})).unwrap();
+    assert_eq!(
+        status["threads"][0]["diagnosis"]["observation"]["state"],
+        "completed"
+    );
+    assert!(status["threads"][0]["diagnosis"]["observation"]["conflict"].is_null());
+    assert!(status["deliveries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|d| d["state"] == "delivered" && d["kind"] == "completed"));
+    let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
+    assert_eq!(inbox["events"][0]["kind"], "completed");
+}
+
+#[tokio::test]
+async fn selected_summary_read_retains_its_turn_acknowledgement_scope() {
+    // Regression: codex_read summary results have no turns array and were skipped by notification read tracking.
+    let control = control::Control::new(PathBuf::new());
+    let thread = id();
+    let turn = id();
+    let value = json!({"threadId":thread,"turnId":turn,"state":"completed","recordedStatus":"completed","finalResponse":{"text":"Finished"}});
+    let reads = read_turns(
+        &control,
+        "codex_read",
+        &json!({"threadId":thread,"turnId":turn,"view":"summary"}),
+        &value,
+    )
+    .await
+    .unwrap();
+    assert_eq!(reads, vec![(thread, turn)]);
 }

@@ -28,7 +28,9 @@ pub(super) async fn update(b: &mut Binding, retry: Value, terminal: bool) -> Res
     };
     current.retry = retry;
     if terminal {
-        current.terminal = true;
+        let mut observed = json!({"_turnLifecycle":b.lifecycle});
+        lifecycle::project(b, &mut observed);
+        lifecycle::merge(&mut current, &observed);
         current.continuation_bound = true;
         current.waiting.clear();
     }
@@ -41,7 +43,7 @@ pub(super) async fn handle(
     b: &mut Binding,
     observed: &Value,
 ) -> Result<bool> {
-    if observed["state"] != "failed"
+    if turn_adapter::push(&b.turn_state()) != Some("failed")
         || (!b.agent.is_empty() && b.agent != "codex")
         || observed["error"]["codexErrorInfo"] != "serverOverloaded"
     {

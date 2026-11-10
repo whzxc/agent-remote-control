@@ -2026,7 +2026,7 @@ impl Control {
             r["executionOwner"] = json!(if desktop { "desktop" } else { "connector" });
             crate::claude_notify::record_binding(
                 r,
-                crate::claude_notify::resumed(thread, previous, turn, context).await,
+                crate::claude_notify::resumed(thread, previous, turn, context, &state).await,
             );
             return Ok(
                 json!({"threadId":thread,"turnId":turn,"resumedFrom":previous,"executionOwner":r["executionOwner"]}),
@@ -2792,10 +2792,11 @@ impl Control {
                         .values()
                         .cloned()
                         .collect::<Vec<_>>();
-                    let mut status = crate::waiter::classify(
+                    let (mut status, lifecycle) = crate::waiter::classify_with_lifecycle(
                         &json!({"thread":native,"pending":pending}),
                         &mut args["turnId"].as_str().map(str::to_owned),
                     );
+                    crate::claude_notify::record_conflict(&status, &lifecycle).await;
                     if args["view"] == "summary" {
                         status["files"] = turns
                             .iter()
@@ -2884,10 +2885,11 @@ impl Control {
                         .values()
                         .cloned()
                         .collect::<Vec<_>>();
-                    let status = crate::waiter::classify(
+                    let (status, lifecycle) = crate::waiter::classify_with_lifecycle(
                         &json!({"thread":native,"pending":pending}),
                         &mut None,
                     );
+                    crate::claude_notify::record_conflict(&status, &lifecycle).await;
                     for key in ["state", "reason", "turnId", "recordedStatus"] {
                         result[key] = status[key].clone();
                     }

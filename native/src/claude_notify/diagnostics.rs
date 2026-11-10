@@ -4,6 +4,9 @@ use super::*;
 pub(super) fn turn(b: &Binding) -> Value {
     let owner = ownership::read(&b.thread_id).unwrap_or(Value::Null);
     let mut reasons = Vec::new();
+    if matches!(b.turn_state(), TurnState::Conflict(_)) {
+        reasons.push(json!("terminal-conflict"));
+    }
     if let Some(reason) = &b.scope_end {
         reasons.push(json!(reason));
     }
@@ -21,14 +24,14 @@ pub(super) fn turn(b: &Binding) -> Value {
         reasons.push(json!("pending-after-restart"));
     } else if observer::exhausted(b) {
         reasons.push(json!("unavailable-after-restart"));
-    } else if !b.terminal && b.observation.is_null() {
+    } else if !b.terminal() && b.observation.is_null() {
         reasons.push(json!("pending-observation"));
     }
-    if b.terminal && !b.deliveries.iter().any(|d| d.key == "terminal") {
+    if b.terminal() && !b.deliveries.iter().any(|d| d.key == "terminal") {
         reasons.push(json!("no-terminal-delivery"));
     }
     if b.deliveries.is_empty() {
-        reasons.push(json!(if b.terminal {
+        reasons.push(json!(if b.terminal() {
             "no-terminal-delivery"
         } else {
             "awaiting-observable-transition"
@@ -53,7 +56,17 @@ pub(super) fn turn(b: &Binding) -> Value {
             reasons.push(reason);
         }
     }
-    let next = if observer::exhausted(b) {
+    let next = if matches!(b.turn_state(), TurnState::Conflict(_)) {
+        let (op, args) = if b.key().agent == "codex" {
+            (
+                "codex_read",
+                json!({"threadId":b.thread_id,"turnId":b.turn_id}),
+            )
+        } else {
+            ("agent_read", json!({"agent":b.agent,"taskId":b.thread_id}))
+        };
+        json!({"via":"query","op":op,"args":args,"hint":"Reconcile the conflicting native records for this turn. New pushes remain held until authoritative ordering resolves the conflict."})
+    } else if observer::exhausted(b) {
         let (op, args) = if b.agent.is_empty() || b.agent == "codex" {
             (
                 "codex_read",
@@ -68,7 +81,7 @@ pub(super) fn turn(b: &Binding) -> Value {
     } else {
         json!({"via":"query","op":"codex_read","args":{"threadId":b.thread_id,"statusOnly":true},"hint":"Read the current native turn. Unknown history remains pending; a new unrelated turn does not inherit this binding."})
     };
-    json!({"reasons":reasons,"terminal":b.terminal,"scope":{"threadId":b.thread_id,"sourceId":b.source_id,"active":b.scope_end.is_none(),"endedBy":b.scope_end},
+    json!({"reasons":reasons,"terminal":b.terminal(),"scope":{"threadId":b.thread_id,"sourceId":b.source_id,"active":b.scope_end.is_none(),"endedBy":b.scope_end},
         "successor":b.successor,"observation":b.observation,
         "retry":{"status":b.retry["status"],"reason":b.retry["reason"],"notBefore":b.retry["notBefore"],"successorTurnId":b.retry["successorTurnId"]},"next":next})
 }

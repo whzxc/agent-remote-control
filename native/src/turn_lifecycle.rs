@@ -116,6 +116,34 @@ impl Transition {
     pub fn last_live(&self) -> Option<LiveRecord> {
         self.last_live
     }
+    pub fn revision(&self) -> u64 {
+        self.owner.map(|(revision, _)| revision).unwrap_or(0)
+    }
+    /// Replay the bounded knowledge frontier through the same transition authority.
+    pub fn evidence(&self) -> Vec<Evidence> {
+        let mut evidence = self
+            .terminals
+            .iter()
+            .map(|record| Evidence {
+                key: self.key.clone(),
+                kind: EvidenceKind::NativeTerminal(*record),
+            })
+            .collect::<Vec<_>>();
+        if let Some(live) = self.last_live {
+            evidence.push(Evidence::owner_live(
+                self.key.clone(),
+                live.state,
+                live.revision,
+            ));
+        }
+        if let Some((revision, state)) = self.owner {
+            evidence.push(Evidence {
+                key: self.key.clone(),
+                kind: EvidenceKind::Owner { revision, state },
+            });
+        }
+        evidence
+    }
     pub fn state(&self) -> TurnState {
         if let Some(first) = self.terminals.first() {
             if self
@@ -172,6 +200,79 @@ pub fn advance(previous: &Transition, evidence: &Evidence) -> Transition {
 pub mod adapters {
     use super::*;
 
+    /// Notification persistence is a bounded derived checkpoint, never native history.
+    pub fn checkpoint(turn: &Transition) -> serde_json::Value {
+        use serde_json::json;
+        let owner = turn.owner.map(|(revision, state)| {
+            let state = match state {
+                OwnerState::Live(LiveState::Active) => TurnState::Active,
+                OwnerState::Live(LiveState::AwaitingInteraction) => TurnState::AwaitingInteraction,
+                OwnerState::Loss(reason) => TurnState::Unconfirmed(reason),
+            };
+            let (state, reason) = wait(&state);
+            json!({"revision":revision,"state":state.as_wire(),"reason":reason})
+        });
+        json!({"agent":turn.key.agent,"threadId":turn.key.native_session,"turnId":turn.key.turn_id,
+            "terminals":turn.terminals.iter().map(|r|json!({"status":push_outcome(r.outcome),"sequence":r.sequence})).collect::<Vec<_>>(),
+            "owner":owner,"lastLive":turn.last_live.map(|r|json!({"revision":r.revision,"state":match r.state {LiveState::Active=>"running",LiveState::AwaitingInteraction=>"interaction-required"}}))})
+    }
+    pub fn restore(value: &serde_json::Value) -> Option<Transition> {
+        let key = TurnKey::new(
+            value["agent"].as_str()?,
+            value["threadId"].as_str()?,
+            value["turnId"].as_str()?,
+        );
+        let mut turn = Transition::new(key.clone());
+        for record in value["terminals"].as_array()? {
+            turn = advance(
+                &turn,
+                &codex_terminal(
+                    key.clone(),
+                    record["status"].as_str()?,
+                    record["sequence"].as_u64(),
+                )?,
+            );
+        }
+        for owner in [&value["lastLive"], &value["owner"]]
+            .into_iter()
+            .filter(|v| !v.is_null())
+        {
+            let revision = owner["revision"].as_u64()?;
+            let evidence = match owner["state"].as_str()? {
+                "running" => Evidence::owner_live(key.clone(), LiveState::Active, revision),
+                "interaction-required" => {
+                    Evidence::owner_live(key.clone(), LiveState::AwaitingInteraction, revision)
+                }
+                "unconfirmed" => Evidence::loss(
+                    key.clone(),
+                    match owner["reason"].as_str()? {
+                        "turn-not-found" => LossReason::TurnNotFound,
+                        "inconsistent-native-state" => LossReason::InconsistentNativeState,
+                        "runtime-ownership-unknown" => LossReason::OwnerUnavailable,
+                        _ => return None,
+                    },
+                    revision,
+                ),
+                _ => return None,
+            };
+            turn = advance(&turn, &evidence);
+        }
+        Some(turn)
+    }
+    pub fn push_outcome(outcome: Outcome) -> &'static str {
+        match outcome {
+            Outcome::Completed => "completed",
+            Outcome::Failed => "failed",
+            Outcome::Interrupted => "interrupted",
+        }
+    }
+    pub fn push(state: &TurnState) -> Option<&'static str> {
+        match state {
+            TurnState::Terminal(record) => Some(push_outcome(record.outcome)),
+            TurnState::AwaitingInteraction => Some("needs-input"),
+            _ => None,
+        }
+    }
     pub fn codex_terminal(key: TurnKey, status: &str, sequence: Option<u64>) -> Option<Evidence> {
         let outcome = match status {
             "completed" => Outcome::Completed,
@@ -465,6 +566,24 @@ mod tests {
                     outcome: Outcome::Completed,
                     sequence: Some(4)
                 })
+            );
+        }
+    }
+    #[test]
+    fn checkpoint_roundtrip_preserves_scoped_knowledge_and_conflicts() {
+        // Property: notification checkpoints preserve the entire authoritative knowledge frontier.
+        let evidence = [
+            Evidence::owner_live(key(), LiveState::Active, 1),
+            Evidence::loss(key(), LossReason::OwnerUnavailable, 2),
+            terminal("completed", Some(3)),
+            terminal("interrupted", None),
+        ];
+        let mut turn = Transition::new(key());
+        for item in &evidence {
+            turn = advance(&turn, item);
+            assert_eq!(
+                adapters::restore(&adapters::checkpoint(&turn)),
+                Some(turn.clone())
             );
         }
     }

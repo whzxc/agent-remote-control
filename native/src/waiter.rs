@@ -203,6 +203,12 @@ fn finish(
     v
 }
 pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Value {
+    classify_with_lifecycle(observation, selected).0
+}
+pub(crate) fn classify_with_lifecycle(
+    observation: &Value,
+    selected: &mut Option<String>,
+) -> (Value, Transition) {
     let t = &observation["thread"];
     let turns = t["turns"].as_array().cloned().unwrap_or_default();
     if selected.is_none() {
@@ -301,10 +307,13 @@ pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Va
         .take(5)
         .map(|r| r["questionSummary"].clone())
         .collect::<Vec<_>>());
-    json!({"state":state.as_wire(),"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
+    (
+        json!({"state":state.as_wire(),"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
         "runtimeSource":t["runtimeSource"],"archived":crate::control::summary(t)["archived"],"externalUserInputs":observation["externalUserInputs"].as_array().into_iter().flatten().filter(|r| r["turnId"].as_str()==selected.as_deref() || (r["answeredTurnId"].is_string() && r["answeredTurnId"].as_str()==selected.as_deref())).collect::<Vec<_>>(),"finalResponse":assistant,"error":turn["error"],"interaction":interactions,
         "activeFlags":flags,"interactionAction":if blocked && interactions.is_empty(){Some("Inspect Codex Desktop for the pending interaction; this owner exposes no callback ID to Agent Remote Control")}else if !interactions.is_empty(){Some("Use codex_respond with id=responseId and backendSession; do not resend the task")}else{None},
-        "progress":progress,"observedAt":now()})
+        "progress":progress,"observedAt":now()}),
+        lifecycle,
+    )
 }
 
 enum CodexOwner {
@@ -317,10 +326,12 @@ struct CodexSource {
     turn: Option<String>,
     desktop_owner: Option<String>,
     events: SharedEvents,
+    lifecycle: Option<Transition>,
 }
 impl WaitSource for CodexSource {
     fn classify(&mut self, observation: &Value, selected: &mut Option<String>) -> Value {
-        let mut result = classify(observation, selected);
+        let (mut result, lifecycle) = classify_with_lifecycle(observation, selected);
+        self.lifecycle = Some(lifecycle);
         if WaitState::from_wire(string(&result, "state")).is_some_and(WaitState::is_terminal) {
             let turns = observation["thread"]["turns"].as_array();
             if let Some(turns) = turns {
@@ -467,6 +478,7 @@ async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSourc
         turn: args["turnId"].as_str().map(str::to_owned),
         desktop_owner: None,
         events: control.events.clone(),
+        lifecycle: None,
     })
 }
 
@@ -478,7 +490,7 @@ pub(crate) async fn codex_observe(control: &Arc<Control>, args: &Value) -> Resul
 pub(crate) async fn codex_observe_with_path(
     control: &Arc<Control>,
     args: &Value,
-) -> Result<(Value, Option<PathBuf>)> {
+) -> Result<(Value, Option<PathBuf>, Transition)> {
     let mut source = codex_source(control, args).await?;
     let _ = crate::runtime_metrics::OBSERVATION
         .try_with(|sample| sample.lock().unwrap().history_reads += 1);
@@ -491,7 +503,14 @@ pub(crate) async fn codex_observe_with_path(
         &mut args["turnId"].as_str().map(str::to_owned),
     );
     let path = observation["thread"]["path"].as_str().map(PathBuf::from);
-    Ok((result, path))
+    Ok((
+        result,
+        path,
+        source
+            .lifecycle
+            .take()
+            .expect("classified native observation"),
+    ))
 }
 
 /// Historical notification reconciliation uses a read-only app-server, without
@@ -502,7 +521,9 @@ pub(crate) async fn codex_notification_observe(
     discover_owner: bool,
 ) -> Result<(Value, Option<PathBuf>)> {
     if discover_owner {
-        return codex_observe_with_path(control, args).await;
+        let (mut value, path, turn) = codex_observe_with_path(control, args).await?;
+        value["_turnLifecycle"] = adapters::checkpoint(&turn);
+        return Ok((value, path));
     }
     let mut source = CodexSource {
         owner: CodexOwner::Background(control.thread_rpc(string(args, "threadId")).await?),
@@ -510,18 +531,27 @@ pub(crate) async fn codex_notification_observe(
         turn: args["turnId"].as_str().map(str::to_owned),
         desktop_owner: None,
         events: control.events.clone(),
+        lifecycle: None,
     };
     let _ = crate::runtime_metrics::OBSERVATION
         .try_with(|sample| sample.lock().unwrap().history_reads += 1);
     let observation = source.observe().await?;
-    let result = source.classify(
+    let mut result = source.classify(
         &observation,
         &mut args["turnId"].as_str().map(str::to_owned),
+    );
+    result["_turnLifecycle"] = adapters::checkpoint(
+        source
+            .lifecycle
+            .as_ref()
+            .expect("classified native observation"),
     );
     if adapters::codex_active(string(&result, "recordedStatus"))
         || WaitState::from_wire(string(&result, "state")) == Some(WaitState::InteractionRequired)
     {
-        return codex_observe_with_path(control, args).await;
+        let (mut value, path, turn) = codex_observe_with_path(control, args).await?;
+        value["_turnLifecycle"] = adapters::checkpoint(&turn);
+        return Ok((value, path));
     }
     Ok((
         result,
@@ -545,7 +575,11 @@ pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {
                 CodexOwner::Desktop(ipc) => ipc.changes.clone(),
                 CodexOwner::Background(_) => wake,
             };
-            wait(&mut source, wake, shutdown, args, started).await
+            let result = wait(&mut source, wake, shutdown, args, started).await;
+            if let Some(lifecycle) = &source.lifecycle {
+                crate::claude_notify::record_conflict(&result, lifecycle).await;
+            }
+            result
         }
         Err(e) => finish(
             json!({"threadId":args["threadId"],"turnId":args["turnId"],"recordedStatus":null,"runtimeStatus":"unknown","finalResponse":null,"interaction":[]}),

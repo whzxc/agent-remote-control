@@ -88,7 +88,7 @@ impl Idle {
             .inspect(|_| crate::runtime_metrics::cost::rows(1))
             .filter(|b| !b.source_id.is_empty())
         {
-            let closed = b.terminal
+            let closed = b.terminal()
                 && b.observation["reconciliation"] != "pending-after-restart"
                 && (b.scope_end.is_some() || b.continuation_bound);
             if !closed {
@@ -112,7 +112,7 @@ impl Idle {
                     paths.push(path);
                 }
             }
-            if b.terminal
+            if b.terminal()
                 && (closed || superseded(b, latest))
                 && !b
                     .deliveries
@@ -139,7 +139,7 @@ impl Idle {
             .inspect(|_| crate::runtime_metrics::cost::rows(1))
             .filter(|b| {
                 !b.source_id.is_empty()
-                    && !(b.terminal && (b.scope_end.is_some() || b.continuation_bound))
+                    && !(b.terminal() && (b.scope_end.is_some() || b.continuation_bound))
             })
         {
             if let Some(watch) = watches.get(&path_in(&directory(), &b.thread_id, &b.turn_id)) {
@@ -161,7 +161,9 @@ pub(super) const RECONCILIATION_ATTEMPTS: u64 = 3;
 pub(super) fn exhausted(b: &Binding) -> bool {
     b.observation["reconciliation"] == "unavailable-after-restart"
 }
-pub(super) fn unavailable(previous: &Value, reason: &str) -> Value {
+pub(super) fn unavailable(b: &mut Binding, reason: &str) -> Value {
+    lifecycle::loss(b);
+    let previous = &b.observation;
     let mut observation = if previous.is_object() {
         previous.clone()
     } else {
@@ -179,6 +181,7 @@ pub(super) fn unavailable(previous: &Value, reason: &str) -> Value {
         "pending-after-restart"
     });
     observation["lastError"] = json!(reason);
+    lifecycle::project(b, &mut observation);
     observation
 }
 pub(super) fn ownership_needed(b: &Binding, changed: bool) -> bool {
@@ -317,7 +320,7 @@ mod tests {
         let control = control::Control::new(PathBuf::new());
         let fixture = |completed: usize| {
             let mut active = binding();
-            active.terminal = false;
+            active.lifecycle = Value::Null;
             active.turn_id = "active".into();
             active.observation = json!({"state":"running"});
             let mut rows = vec![Arc::new(active)];
@@ -364,7 +367,7 @@ mod tests {
         let mut b: Binding = serde_json::from_value(json!({
             "threadId":"thread","turnId":"turn","target":null,"project":"",
             "terminal":true,"createdAt":0,"waiting":[],"deliveries":[],
-            "observation":{"state":"completed","reconciliation":"reconciled"}
+            "observation":{"state":"completed","recordedStatus":"completed","reconciliation":"reconciled"}
         }))
         .unwrap();
         assert!(reusable(&b));
@@ -379,9 +382,9 @@ mod tests {
         b.observation["reconciliation"] = json!("pending-after-restart");
         assert!(!reusable(&b));
         b.observation["reconciliation"] = json!("reconciled");
-        b.terminal = false;
+        super::super::tests::fixture_state(&mut b, "running");
         assert!(!reusable(&b));
-        b.terminal = true;
+        super::super::tests::fixture_state(&mut b, "completed");
         b.waiting.push("approval".into());
         assert!(!reusable(&b));
     }
@@ -408,7 +411,7 @@ mod tests {
         serde_json::from_value(
             json!({"threadId":"thread","turnId":"turn","sourceId":"source","target":null,
             "project":"","terminal":true,"createdAt":1,"waiting":[],"deliveries":[],
-            "observation":{"state":"completed","reconciliation":"reconciled"}}),
+            "observation":{"state":"completed","recordedStatus":"completed","reconciliation":"reconciled"}}),
         )
         .unwrap()
     }
@@ -452,9 +455,9 @@ mod tests {
         latest.insert((b.source_id.clone(), b.thread_id.clone()), 2);
         assert!(superseded(&b, &latest));
         assert!(super::super::expired(&b, RETENTION_SECONDS + 2, true));
-        b.terminal = false;
+        super::super::tests::fixture_state(&mut b, "running");
         assert!(!super::super::expired(&b, RETENTION_SECONDS + 2, true));
-        b.terminal = true;
+        super::super::tests::fixture_state(&mut b, "completed");
         let delivery: Delivery = serde_json::from_value(
             json!({"key":"terminal","target":"target","state":"completed","status":"pending"}),
         )
@@ -466,17 +469,17 @@ mod tests {
     fn reconciliation_exhaustion_preserves_unknown_task_state() {
         // Regression: unavailable startup histories remained pending-after-restart and retried forever.
         let mut b = binding();
-        b.terminal = false;
+        super::super::tests::fixture_state(&mut b, "running");
         b.observation = json!({"state":"unconfirmed"});
         for _ in 0..RECONCILIATION_ATTEMPTS {
-            b.observation = unavailable(&b.observation, "native-read-unavailable");
+            b.observation = unavailable(&mut b, "native-read-unavailable");
         }
         assert!(exhausted(&b));
         assert!(reusable(&b));
         assert_eq!(b.observation["state"], "unconfirmed");
-        assert!(!b.terminal);
+        assert!(!b.terminal());
         assert_eq!(
-            unavailable(&b.observation, "still-unavailable")["reconciliationAttempts"],
+            unavailable(&mut b, "still-unavailable")["reconciliationAttempts"],
             RECONCILIATION_ATTEMPTS
         );
     }
