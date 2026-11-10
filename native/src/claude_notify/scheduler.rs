@@ -9,7 +9,7 @@ pub(super) fn next_at(
     routing_at: Option<i64>,
     active: impl Fn(&str) -> bool,
 ) -> Option<i64> {
-    let mut next_at = governance::next_delivery_at(state, settings, &active);
+    let mut next_at: Option<i64> = None;
     for b in bindings
         .iter()
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
@@ -21,14 +21,15 @@ pub(super) fn next_at(
             .filter(|d| matches!(d.status.as_str(), "pending" | "sending"))
         {
             let reason = d.timing.queue_reason.as_deref().unwrap_or("");
-            let next = if routing::held(d) {
+            let next = if d.target.is_empty() || !lifecycle::admits(&b.turn_state(), d) {
+                None
+            } else if routing::held(d) {
                 (d.interaction["routing"]["state"] == "deferred")
                     .then_some(routing_at)
                     .flatten()
             } else {
                 match reason {
                     "disabled" | "breaker" => None,
-                    "unbound" if d.target.is_empty() => None,
                     "muted" | "digest-wait" => state.rule(b).and_then(|r| {
                         if reason == "muted" {
                             r.until
@@ -45,12 +46,29 @@ pub(super) fn next_at(
                         .iter()
                         .find(|s| s.id == d.subscription)
                         .and_then(|s| s.until),
-                    "retry-backoff" => Some(d.next_attempt_at.saturating_add(1)),
-                    "token-wait" => next_at,
-                    _ => Some(d.created_at.saturating_add(2).max(now)),
+                    "retry-backoff" | "batch-window" => Some(d.next_attempt_at),
+                    "token-wait" => state
+                        .targets
+                        .iter()
+                        .find(|t| {
+                            t.source_id == b.source_id
+                                && t.channel == d.channel
+                                && t.target == d.target
+                        })
+                        .map(|t| {
+                            if t.tokens > 0 {
+                                return now.saturating_add(1);
+                            }
+                            t.refilled_at
+                                .saturating_add(governance::refill_seconds(settings))
+                        }),
+                    // A reservation cancelled by a concurrent control change, or a second
+                    // MCP event in the same batch, gets one future pass to re-evaluate.
+                    _ => Some(d.next_attempt_at.max(now.saturating_add(1))),
                 }
             };
             if let Some(at) = next {
+                let at = at.max(now.saturating_add(1));
                 next_at = Some(next_at.map_or(at, |old| old.min(at)));
             }
         }
@@ -62,7 +80,9 @@ pub(super) fn next_at(
 mod tests {
     use super::*;
     fn binding() -> Binding {
-        serde_json::from_value(json!({"threadId":"thread","turnId":"turn","sourceId":"","target":"target","project":"","terminal":true,"createdAt":0,"waiting":[],"deliveries":[]})).unwrap()
+        let mut b: Binding = serde_json::from_value(json!({"threadId":"thread","turnId":"turn","sourceId":"","target":"target","project":"","terminal":true,"createdAt":0,"waiting":[],"deliveries":[]})).unwrap();
+        super::super::tests::fixture_state(&mut b, "completed");
+        b
     }
     #[test]
     fn unattributed_pending_and_paused_routes_have_no_retry_clock() {
@@ -71,6 +91,8 @@ mod tests {
         let mut b = binding();
         b.deliveries.push(Delivery {
             status: "pending".into(),
+            key: "terminal".into(),
+            task_state: "completed".into(),
             target: "target".into(),
             ..Default::default()
         });
@@ -98,6 +120,8 @@ mod tests {
         b.source_id = "source".into();
         b.deliveries.push(Delivery {
             status: "pending".into(),
+            key: "terminal".into(),
+            task_state: "completed".into(),
             target: "target".into(),
             next_attempt_at: 1300,
             timing: DeliveryTiming {
@@ -115,7 +139,7 @@ mod tests {
                 None,
                 |_| true
             ),
-            Some(1301)
+            Some(1300)
         );
         state.thread(&b, 0).until = Some(1200);
         state.thread(&b, 0).mode = "mute".into();

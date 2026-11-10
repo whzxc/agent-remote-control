@@ -48,8 +48,12 @@ struct Index {
     reconciliation: HashSet<Key>,
     dormant: HashSet<Key>,
     pending: HashSet<Key>,
+    destinations: HashMap<(String, Channel, String), HashSet<Key>>,
+    sources: HashMap<String, HashSet<Key>>,
+    controls: Option<Arc<governance::Data>>,
     observation: Deadlines,
     delivery: Deadlines,
+    delivery_dirty: HashSet<Key>,
     retention: Deadlines,
     dirty: HashSet<Key>,
     evidence: HashMap<PathBuf, (Option<file_cache::Stamp>, HashSet<Key>)>,
@@ -65,6 +69,7 @@ struct Index {
 static INDEXES: std::sync::LazyLock<std::sync::Mutex<HashMap<PathBuf, Index>>> =
     std::sync::LazyLock::new(Default::default);
 pub(super) static WAKE: tokio::sync::Notify = tokio::sync::Notify::const_new();
+pub(super) static DELIVERY_WAKE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 fn clock() -> i64 {
     chrono::Utc::now().timestamp()
 }
@@ -180,6 +185,7 @@ impl Index {
             .entry(b.thread_id.clone())
             .or_default()
             .insert(key.clone());
+        self.unindex_delivery(&key);
         self.rows.insert(
             key.clone(),
             Record {
@@ -195,9 +201,27 @@ impl Index {
                 .any(|d| matches!(d.status.as_str(), "pending" | "sending"));
         if pending {
             self.pending.insert(key.clone());
+            self.sources
+                .entry(b.source_id.clone())
+                .or_default()
+                .insert(key.clone());
+            for d in b
+                .deliveries
+                .iter()
+                .filter(|d| matches!(d.status.as_str(), "pending" | "sending"))
+            {
+                self.destinations
+                    .entry((b.source_id.clone(), d.channel, d.target.clone()))
+                    .or_default()
+                    .insert(key.clone());
+            }
             self.delivery.set(&key, Some(0));
+            if changed {
+                DELIVERY_WAKE.notify_one();
+            }
         } else {
             self.pending.remove(&key);
+            self.delivery_dirty.remove(&key);
             self.delivery.set(&key, None);
         }
         self.classify(&key, clock());
@@ -213,8 +237,36 @@ impl Index {
             }
         }
         self.watch_base(&key);
+        self.watch_paths(&key, routing::paths(dir, &self.rows[&key].binding));
         if changed {
             WAKE.notify_one();
+        }
+    }
+    fn unindex_delivery(&mut self, key: &Path) {
+        if let Some(row) = self.rows.get(key) {
+            let b = &row.binding;
+            if let Some(keys) = self.sources.get_mut(&b.source_id) {
+                keys.remove(key);
+                if keys.is_empty() {
+                    self.sources.remove(&b.source_id);
+                }
+            }
+            for d in &b.deliveries {
+                let destination = (b.source_id.clone(), d.channel, d.target.clone());
+                if let Some(keys) = self.destinations.get_mut(&destination) {
+                    keys.remove(key);
+                    if keys.is_empty() {
+                        self.destinations.remove(&destination);
+                    }
+                }
+            }
+        }
+    }
+    fn wake_delivery(&mut self, key: &Path) {
+        if self.pending.contains(key) {
+            self.delivery_dirty.insert(key.into());
+            self.delivery.set(key, Some(0));
+            DELIVERY_WAKE.notify_one();
         }
     }
     fn watch_paths(&mut self, key: &Path, paths: Vec<PathBuf>) {
@@ -283,6 +335,7 @@ impl Index {
         }
     }
     fn remove(&mut self, key: &Path) {
+        self.unindex_delivery(key);
         self.unwatch(key);
         self.exhausted.remove(key);
         if let Some(row) = self.rows.remove(key) {
@@ -306,6 +359,7 @@ impl Index {
                 &mut self.reconciliation,
                 &mut self.dormant,
                 &mut self.pending,
+                &mut self.delivery_dirty,
                 &mut self.dirty,
             ] {
                 set.remove(key);
@@ -346,6 +400,7 @@ impl Index {
                     *stamp = current;
                     let keys = keys.clone();
                     for key in keys {
+                        self.wake_delivery(&key);
                         self.wake_key(&key);
                     }
                 }
@@ -567,6 +622,11 @@ pub(super) fn delivery_due(dir: &Path, now: i64) -> Result<Arc<Vec<Arc<Binding>>
     with(dir, |i| {
         i.refresh(dir)?;
         let keys = i.delivery.take(now);
+        // Persistence/transport setup errors retain a future retry, never an overdue key.
+        for key in &keys {
+            i.delivery_dirty.remove(key);
+            i.delivery.set(key, Some(now.saturating_add(2)));
+        }
         cost::rows(keys.len());
         Ok(Arc::new(
             keys.iter()
@@ -576,10 +636,24 @@ pub(super) fn delivery_due(dir: &Path, now: i64) -> Result<Arc<Vec<Arc<Binding>>
         ))
     })
 }
-pub(super) fn wake_deliveries(dir: &Path) -> Result<()> {
+pub(super) fn wake_deliveries(dir: &Path, affected: impl Fn(&Binding) -> bool) -> Result<()> {
     with(dir, |i| {
         for key in &i.pending {
-            i.delivery.set(key, Some(0));
+            if affected(&i.rows[key].binding) {
+                i.delivery.set(key, Some(0));
+            }
+        }
+        DELIVERY_WAKE.notify_one();
+        Ok(())
+    })
+}
+pub(super) fn delivery_prepared(dir: &Path, rows: &[Arc<Binding>]) -> Result<()> {
+    with(dir, |i| {
+        // Controls routed under the store lock have been handled. Changes arriving
+        // while transport releases that lock must survive final rescheduling.
+        for b in rows {
+            i.delivery_dirty
+                .remove(&path_in(dir, &b.thread_id, &b.turn_id));
         }
         Ok(())
     })
@@ -619,13 +693,143 @@ pub(super) fn schedule_deliveries(
             } else {
                 None
             };
+            let at = if i.pending.contains(&key) && i.delivery_dirty.contains(&key) {
+                Some(now.saturating_add(1))
+            } else {
+                at
+            };
             i.delivery.set(&key, at);
         }
         Ok(())
     })
 }
+pub(super) fn has_pending_target(
+    dir: &Path,
+    source: &str,
+    channel: Channel,
+    target: &str,
+) -> Result<bool> {
+    with(dir, |i| {
+        Ok(i.destinations
+            .get(&(source.into(), channel, target.into()))
+            .is_some_and(|keys| !keys.is_empty()))
+    })
+}
 pub(super) fn next_delivery(dir: &Path) -> Result<Option<i64>> {
-    with(dir, |i| Ok(i.delivery.next()))
+    with(dir, |i| {
+        i.refresh(dir)?;
+        Ok(i.delivery.next())
+    })
+}
+
+// Track effective controls, not store mtimes or transport bookkeeping. Owned writes
+// and external readback use this same invalidation path, including writes during sends.
+pub(super) fn controls_changed(dir: &Path, data: Arc<governance::Data>) {
+    let Ok(mut indexes) = INDEXES.lock() else {
+        return;
+    };
+    let Some(i) = indexes.get_mut(dir) else {
+        return;
+    };
+    if i.controls
+        .as_ref()
+        .is_some_and(|old| Arc::ptr_eq(old, &data))
+    {
+        return;
+    }
+    let Some(old) = i.controls.replace(data.clone()) else {
+        return;
+    };
+    let mut keys = HashSet::new();
+    let target_key = |t: &governance::Target| (t.source_id.clone(), t.channel, t.target.clone());
+    let old_targets: HashMap<_, _> = old.targets.iter().map(|t| (target_key(t), t)).collect();
+    let new_targets: HashMap<_, _> = data.targets.iter().map(|t| (target_key(t), t)).collect();
+    let target_control = |t: &&governance::Target| {
+        (
+            t.breaker,
+            t.account_id.clone(),
+            t.reachability.state.clone(),
+        )
+    };
+    for key in old_targets.keys().chain(new_targets.keys()) {
+        let old = old_targets.get(key);
+        let new = new_targets.get(key);
+        let changed = old.map(target_control) != new.map(target_control);
+        let refilled = old.is_some_and(|t| t.tokens == 0) && new.is_some_and(|t| t.tokens > 0);
+        if changed || refilled {
+            keys.extend(
+                i.destinations
+                    .get(key)
+                    .into_iter()
+                    .flatten()
+                    .filter(|key| {
+                        changed
+                            || i.rows[*key]
+                                .binding
+                                .deliveries
+                                .iter()
+                                .any(|d| d.timing.queue_reason.as_deref() == Some("token-wait"))
+                    })
+                    .cloned(),
+            );
+        }
+    }
+    let thread_key = |t: &governance::Thread| (t.source_id.clone(), t.thread_id.clone());
+    let old_threads: HashMap<_, _> = old.threads.iter().map(|t| (thread_key(t), t)).collect();
+    let new_threads: HashMap<_, _> = data.threads.iter().map(|t| (thread_key(t), t)).collect();
+    for key in old_threads.keys().chain(new_threads.keys()) {
+        let old = old_threads.get(key);
+        let new = new_threads.get(key);
+        if old.map_or("normal", |t| t.mode.as_str()) != new.map_or("normal", |t| t.mode.as_str())
+            || old.and_then(|t| t.until) != new.and_then(|t| t.until)
+            || old.and_then(|t| t.rebind.as_ref()) != new.and_then(|t| t.rebind.as_ref())
+        {
+            keys.extend(
+                i.scopes
+                    .get(key)
+                    .into_iter()
+                    .flatten()
+                    .map(|(_, key)| key.clone()),
+            );
+        }
+    }
+    let old_subs: HashMap<_, _> = old.subscriptions.iter().map(|s| (&s.id, s)).collect();
+    let new_subs: HashMap<_, _> = data.subscriptions.iter().map(|s| (&s.id, s)).collect();
+    for sub in old.subscriptions.iter().chain(&data.subscriptions) {
+        if old_subs.get(&sub.id) == new_subs.get(&sub.id) {
+            continue;
+        }
+        let candidates = sub.args["threadId"]
+            .as_str()
+            .or_else(|| sub.args["taskId"].as_str())
+            .and_then(|thread| i.threads.get(thread))
+            .or_else(|| i.sources.get(&sub.source_id));
+        keys.extend(
+            candidates
+                .into_iter()
+                .flatten()
+                .filter(|key| sub.matches(&i.rows[*key].binding))
+                .cloned(),
+        );
+    }
+    for key in keys {
+        i.wake_delivery(&key);
+    }
+}
+
+pub(super) fn routing_changed(agent: &str, thread: &str) {
+    if let Ok(mut indexes) = INDEXES.lock() {
+        for i in indexes.values_mut() {
+            for key in i.threads.get(thread).cloned().unwrap_or_default() {
+                let b = &i.rows[&key].binding;
+                if (b.agent == agent || (b.agent.is_empty() && agent == "codex"))
+                    && b.deliveries.iter().any(routing::held)
+                {
+                    i.wake_delivery(&key);
+                }
+            }
+        }
+    }
 }
 
 pub(super) fn successors(dir: &Path, b: &Binding) -> Result<Vec<Binding>> {

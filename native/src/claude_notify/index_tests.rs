@@ -216,6 +216,7 @@ async fn restart_seed_preserves_pending_delivery_and_latest_interrupted_scope() 
     b.created_at -= RETENTION_SECONDS * 2;
     b.continuation_until = i64::MAX;
     b.deliveries.push(Delivery {
+        target: "session_010000000000000000000001".into(),
         key: "terminal".into(),
         state: "interrupted".into(),
         task_state: "cancelled".into(),
@@ -230,9 +231,9 @@ async fn restart_seed_preserves_pending_delivery_and_latest_interrupted_scope() 
     persist(&dir.0, &b).unwrap();
     index::all(&dir.0).unwrap();
     index::schedule_deliveries(&dir.0, &[Arc::new(b.clone())], &json!({}), 100).unwrap();
-    assert!(index::delivery_due(&dir.0, 200).unwrap().is_empty());
+    assert!(index::delivery_due(&dir.0, 199).unwrap().is_empty());
     assert_eq!(
-        index::delivery_due(&dir.0, 201).unwrap()[0].turn_id,
+        index::delivery_due(&dir.0, 200).unwrap()[0].turn_id,
         b.turn_id
     );
     assert!(

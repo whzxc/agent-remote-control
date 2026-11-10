@@ -196,7 +196,9 @@ impl State {
     pub fn load(dir: &Path) -> Result<Self> {
         let path = dir.join("subscriptions/state.json");
         if !path.exists() {
-            return Ok(Self::default());
+            let state = Self::default();
+            index::controls_changed(dir, state.data.clone());
+            return Ok(state);
         }
         let data = CACHE
             .lock()
@@ -206,6 +208,7 @@ impl State {
                     serde_json::from_slice(bytes).map_err(|e| format!("INVALID_JSON: {e}"))?;
                 Data::decode_ref(&value)
             })?;
+        index::controls_changed(dir, data.clone());
         Ok(Self {
             saved: Some(data.clone()),
             data,
@@ -234,6 +237,7 @@ impl State {
             before,
             self.data.as_ref().clone(),
         )?;
+        index::controls_changed(dir, self.data.clone());
         self.saved = Some(self.data.clone());
         Ok(())
     }
@@ -318,7 +322,7 @@ pub(super) fn next_delivery_at(
         }
     }
     for target in state.targets.iter().filter(|t| active(&t.source_id)) {
-        if !target.escalated {
+        if settings["notificationsEnabled"] != false && !target.escalated {
             if let Some(at) = target.empty_since {
                 due(at.saturating_add(escalation_seconds(settings)));
             }
@@ -745,7 +749,6 @@ pub(super) fn control_in(
         }
         let result = json!({"action":action,"subscription":sub.public(now),"previous":previous});
         state.save(dir)?;
-        index::wake_deliveries(dir)?;
         return Ok(result);
     }
     if action == "breaker" {
@@ -775,7 +778,6 @@ pub(super) fn control_in(
         let result =
             json!({"action":action,"target":target,"enabled":t.breaker,"previous":previous});
         state.save(dir)?;
-        index::wake_deliveries(dir)?;
         return Ok(result);
     }
     let thread = string(args, "threadId");
@@ -826,7 +828,6 @@ pub(super) fn control_in(
             // Late binding intentionally keeps pending completion catch-up pushes.
             // Persist the override first; the next flush also applies it after a crash.
             state.save(dir)?;
-            index::wake_deliveries(dir)?;
             for b in all
                 .iter_mut()
                 .filter(|b| b.thread_id == thread && b.source_id == source_id)
@@ -838,7 +839,6 @@ pub(super) fn control_in(
         _ => return Err("Unknown notification action".into()),
     }
     state.save(dir)?;
-    index::wake_deliveries(dir)?;
     Ok(
         json!({"action":action,"threadId":thread,"previous":previous,"previousTarget":previous_target,"control":state.rule(&b)}),
     )

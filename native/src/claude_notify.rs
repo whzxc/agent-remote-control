@@ -1861,6 +1861,7 @@ async fn flush(
         crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::NotificationDelivery);
     let _operation = mcp_events::OPERATION.lock().await;
     let guard = lock.lock().await;
+    let mut state = State::load(dir)?;
     let original = index::delivery_due(dir, now)?;
     crate::runtime_metrics::cost::scan_set(original.len());
     let mut all: Vec<_> = original
@@ -1868,7 +1869,6 @@ async fn flush(
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
         .map(|binding| (**binding).clone())
         .collect();
-    let mut state = State::load(dir)?;
     subscriptions::sync(&mut state, &all);
     state
         .subscriptions
@@ -2016,8 +2016,14 @@ async fn flush(
                     Some("muted")
                 } else if mode == "digest" && !digest_due && !d.digest {
                     Some("digest-wait")
-                } else if d.next_attempt_at != 0 && now <= d.next_attempt_at {
-                    Some("retry-backoff")
+                } else if now < d.next_attempt_at {
+                    Some(
+                        if d.timing.queue_reason.as_deref() == Some("batch-window") {
+                            "batch-window"
+                        } else {
+                            "retry-backoff"
+                        },
+                    )
                 } else {
                     None
                 };
@@ -2049,6 +2055,18 @@ async fn flush(
                     || now.saturating_sub(d.created_at) >= window
                     || d.timing.queue_reason.as_deref() == Some("token-wait")
             });
+        let batch_at = eligible
+            .iter()
+            .map(|(bi, di, _)| all[*bi].deliveries[*di].created_at)
+            .max()
+            .map(|last| last.saturating_add(window.min(2)))
+            .zip(
+                eligible
+                    .iter()
+                    .map(|(bi, di, _)| all[*bi].deliveries[*di].created_at.saturating_add(window))
+                    .min(),
+            )
+            .map(|(quiet, limit)| quiet.min(limit));
         let waiting = window_ready
             && eligible
                 .iter()
@@ -2060,8 +2078,14 @@ async fn flush(
                     .iter()
                     .any(|d| d.channel == channel && d.target == target)
         });
-        if settings["notificationsEnabled"] != false && (observed_target || tokens > 0 || breaker) {
+        if settings["notificationsEnabled"] != false {
+            let outstanding = !observed_target
+                && tokens == 0
+                && index::has_pending_target(dir, &source_id, channel, &target)?;
             let t = state.target(&source_id, channel, &target, now, settings);
+            // Advance outstanding starvation on the target's maintenance clock, or
+            // clear it when the last pending binding has left this destination.
+            let waiting = waiting || (outstanding && t.empty_since.is_some());
             if let Some(reason) = t.anomaly(now, waiting, settings) {
                 let threads = all
                     .iter()
@@ -2086,6 +2110,7 @@ async fn flush(
             let d = &mut all[bi].deliveries[di];
             if !window_ready {
                 queued(d, "batch-window");
+                d.next_attempt_at = batch_at.expect("eligible batch has a deadline");
                 continue;
             }
             if !d.token_charged && tokens == 0 {
@@ -2136,6 +2161,7 @@ async fn flush(
             let b = &mut all[*bi];
             let d = &mut b.deliveries[*di];
             d.status = "sending".into();
+            d.next_attempt_at = 0;
             d.error = None;
             d.token_charged = true;
             d.digest = *digest;
@@ -2174,6 +2200,7 @@ async fn flush(
             persist(dir, b)?;
         }
     }
+    index::delivery_prepared(dir, &original)?;
     drop(guard);
     for (source_id, channel, target, body) in alerts {
         if let Err(error) = executor.escalate(body).await {
@@ -2415,6 +2442,9 @@ async fn flush(
                             } else {
                                 0
                             };
+                            if retry {
+                                queued(d, "retry-backoff");
+                            }
                             d.error = outcome.error.clone();
                         } else {
                             d.status = if d.channel == Channel::McpEvents {
@@ -2619,15 +2649,11 @@ pub(crate) async fn migrate() -> Result<()> {
 struct DeliveryInputs {
     stamps: Vec<Option<file_cache::Stamp>>,
     settings: Value,
-    revision: Option<u64>,
 }
 impl DeliveryInputs {
-    fn read(dir: &Path, settings: Value, revision: Option<u64>) -> Result<Self> {
+    fn read(dir: &Path, settings: Value) -> Result<Self> {
         Ok(Self {
             stamps: [
-                "tasks",
-                "subscriptions/state.json",
-                "request-routing",
                 "../sources.json",
                 "../accounts/index.json",
                 "../app-env.json",
@@ -2636,7 +2662,6 @@ impl DeliveryInputs {
             .map(|name| file_cache::Stamp::read(&dir.join(name)))
             .collect::<Result<_>>()?,
             settings,
-            revision,
         })
     }
 }
@@ -2648,6 +2673,8 @@ fn delivery_source_active(source: &str) -> bool {
 #[derive(Default)]
 struct DeliveryIdle {
     inputs: Option<DeliveryInputs>,
+    state_stamp: Option<file_cache::Stamp>,
+    maintenance_at: Option<i64>,
     next_at: Option<i64>,
 }
 impl DeliveryIdle {
@@ -2659,31 +2686,37 @@ impl DeliveryIdle {
         now: i64,
         inputs: DeliveryInputs,
     ) -> Result<()> {
-        if self.inputs.as_ref() == Some(&inputs) && self.next_at.is_none_or(|at| now < at) {
-            crate::runtime_metrics::cost::cache(true);
+        // Canonical producers and watched binding/routing files queue their affected keys.
+        // Watcher revisions and our own output files are wake signals, never cache keys.
+        let next_at = index::next_delivery(dir)?
+            .into_iter()
+            .chain(self.maintenance_at)
+            .min();
+        let stamp = file_cache::Stamp::read(&dir.join("subscriptions/state.json"))?;
+        let same_inputs = self.inputs.as_ref() == Some(&inputs);
+        let same_state = self.state_stamp == stamp;
+        crate::runtime_metrics::cost::cache(same_inputs && same_state);
+        if same_inputs && same_state && next_at.is_none_or(|at| now < at) {
+            self.next_at = next_at;
             return Ok(());
         }
-        crate::runtime_metrics::cost::cache(false);
-        if self.inputs.as_ref() != Some(&inputs) {
-            index::wake_deliveries(dir)?;
+        if self.inputs.as_ref().is_some_and(|old| old != &inputs) {
+            index::wake_deliveries(dir, |b| b.deliveries.iter().any(|d| !d.target.is_empty()))?;
         }
         self.inputs = None;
         flush(executor, dir, lock, now, 30, &inputs.settings).await?;
         let _guard = lock.lock().await;
+        self.state_stamp = file_cache::Stamp::read(&dir.join("subscriptions/state.json"))?;
         let state = State::load(dir)?;
-        let next_at = [
-            index::next_delivery(dir)?,
-            governance::next_delivery_at(&state, &inputs.settings, delivery_source_active),
-        ]
-        .into_iter()
-        .flatten()
-        .min();
-        // Compare against the inputs from BEFORE flush. A concurrent mutation or
-        // this pass's own writes must trigger another pass, never be marked handled.
-        if DeliveryInputs::read(dir, inputs.settings.clone(), inputs.revision)? == inputs {
-            self.next_at = next_at;
-            self.inputs = Some(inputs);
-        }
+        self.maintenance_at =
+            governance::next_delivery_at(&state, &inputs.settings, delivery_source_active);
+        self.next_at = index::next_delivery(dir)?
+            .into_iter()
+            .chain(self.maintenance_at)
+            .min();
+        // The inputs contain only external environment/settings, so our output cannot
+        // invalidate them. A concurrent external edit is compared on the next wake.
+        self.inputs = Some(inputs);
         Ok(())
     }
 }
@@ -2731,11 +2764,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             &directory(),
                             &LOCK,
                             chrono::Utc::now().timestamp(),
-                            DeliveryInputs::read(
-                                &dir,
-                                settings()?,
-                                changes.as_ref().and_then(|c| c.revision()),
-                            )?,
+                            DeliveryInputs::read(&dir, settings()?)?,
                         )
                         .await
                     },
@@ -2764,7 +2793,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     _ = delivery_shutdown.changed() => break,
                     _ = deadline => reason = if idle.inputs.is_none() || changes.as_ref().and_then(|c| c.revision()).is_none() { crate::runtime_metrics::cost::Reason::Timer } else { crate::runtime_metrics::cost::Reason::Deadline },
                     _ = changed.notified() => reason = crate::runtime_metrics::cost::Reason::Dirty,
-                    _ = routing::WAKE.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
+                    _ = index::DELIVERY_WAKE.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
                     _ = wake.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
                 }
             }
@@ -2850,6 +2879,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                                 b.observation["reconciliation"] = json!("scope-ended");
                                 persist(&directory(), &b)?;
                             }
+                            index::finish(&directory(), &b.thread_id, &b.turn_id, None)?;
                             continue;
                         }
                         drop(_guard);
@@ -3369,6 +3399,8 @@ mod tests {
         persist(dir, &b).unwrap();
         b
     }
+    mod delivery_deadlines;
+
     #[test]
     fn historical_subscription_sync_preserves_scope_and_delivery_preferences() {
         // Regression: 698 historical bindings caused subscription synchronization to repeatedly hash every binding for every subscription.
@@ -5358,18 +5390,20 @@ mod tests {
             Ok(br#"{"ok":true,"session_id":"session_010000000000000000000004"}"#.to_vec()),
         ] {
             let dir = Sandbox::new();
-            let mut b = fixture(&dir.0);
+            enqueue(
+                &dir.0,
+                "thread-1",
+                json!({"state":"failed","error":"SECRET_ERROR"}),
+                100,
+            )
+            .await;
             let fake = Fake::new(result);
-            for _ in 0..2 {
-                process(
-                    &fake,
-                    &dir.0,
-                    &mut b,
-                    &json!({"state":"failed","error":"SECRET_ERROR"}),
-                )
-                .await
-                .unwrap();
+            for at in [100, 109] {
+                flush(&fake, &dir.0, &Mutex::new(()), at, 0, &json!({}))
+                    .await
+                    .unwrap();
             }
+            let b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();
 
             assert_eq!(b.deliveries[0].status, "pending");
             assert_eq!(b.deliveries[0].failures, 1);

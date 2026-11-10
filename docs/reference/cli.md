@@ -210,7 +210,11 @@ and task-record deltas after warmup. Fixed active work should have equal recurri
 row and parse counts as completed history grows. `cost.indexRepair` records
 bounded watcher repair; `indexWatches.coverageGaps` exposes failed watches.
 `caches.notificationBindings.activityIndex` reports activity/deadline partitions,
-pending bindings, latest resumable scopes and dirty keys. Indexes rebuild from
+pending bindings, latest resumable scopes and dirty keys. `deliveryDue` counts
+scheduled binding keys, including future deadlines; `pendingBindings` also includes
+parked deliveries. Unbound deliveries wait for target binding, while retries and
+batch windows use their own next attempt. Target maintenance never wakes unrelated
+pending bindings. Indexes rebuild from
 canonical files on restart; retention is unchanged.
 
 `caches` reports entry counts, serialized source bytes and file/directory reads.

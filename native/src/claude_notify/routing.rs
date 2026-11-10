@@ -2,7 +2,6 @@
 use super::*;
 use std::sync::{LazyLock, Mutex as SyncMutex};
 
-pub(super) static WAKE: LazyLock<tokio::sync::Notify> = LazyLock::new(Default::default);
 static SESSION: LazyLock<String> = LazyLock::new(id);
 static SERIAL: SyncMutex<()> = SyncMutex::new(());
 static PRESENCE: SyncMutex<Option<(String, String, i64)>> = SyncMutex::new(None);
@@ -171,11 +170,15 @@ pub(crate) fn presence(args: &Value) -> Result<Value> {
     } else if p.as_ref().is_some_and(|(a, t, _)| a == agent && t == task) {
         *p = None;
     }
-    if previous
+    let changed = previous
         != p.as_ref()
-            .map(|(agent, task, _)| (agent.clone(), task.clone()))
-    {
-        WAKE.notify_one();
+            .map(|(agent, task, _)| (agent.clone(), task.clone()));
+    drop(p);
+    if changed {
+        if let Some((agent, task)) = previous {
+            index::routing_changed(&agent, &task);
+        }
+        index::routing_changed(agent, task);
     }
     Ok(json!({"present":args["present"] == true}))
 }
@@ -191,6 +194,18 @@ fn path(dir: &Path, agent: &str, task: &str, request: &str) -> PathBuf {
         "{}.json",
         hash(json!([agent, task, request]).to_string())
     ))
+}
+pub(super) fn paths(dir: &Path, b: &Binding) -> Vec<PathBuf> {
+    let agent = if b.agent.is_empty() {
+        "codex"
+    } else {
+        &b.agent
+    };
+    b.deliveries
+        .iter()
+        .filter(|d| matches!(d.status.as_str(), "pending" | "sending") && d.interaction.is_object())
+        .map(|d| path(dir, agent, &b.thread_id, &request_id(&d.interaction)))
+        .collect()
 }
 fn binding_for(dir: &Path, agent: &str, task: &str, turn: &Value) -> Result<Option<Binding>> {
     let matches = |b: &Binding| {
@@ -357,6 +372,7 @@ pub(super) fn control_in(dir: &Path, args: &Value, local: bool) -> Result<Value>
         now,
     )?;
     save_entry(&p, &entry)?;
+    index::routing_changed(agent, task);
     Ok(json!({"routing":entry.routing}))
 }
 pub(super) fn refresh(dir: &Path, b: &mut Binding) -> Result<()> {
