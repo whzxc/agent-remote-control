@@ -96,6 +96,10 @@ impl Timeline {
     /// Rollout framing is translated to native item inputs, then uses codex_item
     /// just like app-server history and live item notifications.
     pub fn backfill_codex_records(&mut self, records: &[Value]) {
+        if self.info.is_null() {
+            self.info = json!({});
+        }
+        self.info["agent"] = json!("codex");
         for record in records {
             if !self.codex_transcript.include(record) {
                 continue;
@@ -105,7 +109,11 @@ impl Timeline {
             let p = &record["payload"];
             if record["type"] == "turn_context" {
                 if let Some(turn) = p["turn_id"].as_str() {
-                    self.turn = turn.into();
+                    if self.turn != turn {
+                        self.status = self.turn_status(turn).unwrap_or("").into();
+                        self.turn_started_at = None;
+                        self.turn = turn.into();
+                    }
                 }
                 continue;
             }
@@ -115,14 +123,33 @@ impl Timeline {
                         self.codex("turn/started", &json!({"turn":{"id":p["turn_id"]}}), at);
                         self.transcript_activity = Some((at.into(), 90));
                     }
-                    "task_complete" | "turn_aborted" => self.finish(
-                        if p["type"] == "task_complete" {
-                            "completed"
-                        } else {
-                            "cancelled"
-                        },
-                        at,
-                    ),
+                    "task_complete" | "turn_aborted" => {
+                        let turn = p["turn_id"].as_str().unwrap_or(&self.turn).to_owned();
+                        let selected = (self.turn != turn && !self.turn.is_empty()).then(|| {
+                            (
+                                self.turn.clone(),
+                                self.status.clone(),
+                                self.turn_started_at.clone(),
+                            )
+                        });
+                        self.turn = turn;
+                        let evidence = turn_adapter::codex_terminal(
+                            self.turn_key(&self.turn),
+                            if p["type"] == "task_complete" {
+                                "completed"
+                            } else {
+                                "cancelled"
+                            },
+                            Some(self.codex_transcript.ordinal - 1),
+                        )
+                        .unwrap();
+                        self.finish_native(evidence, at);
+                        if let Some((turn, status, started_at)) = selected {
+                            self.turn = turn;
+                            self.status = status;
+                            self.turn_started_at = started_at;
+                        }
+                    }
                     "warning" => self.notice(None, "warning", "message", p, at),
                     "stream_error" => self.notice(None, "retry", "start", p, at),
                     "context_compacted" => self.notice(None, "compaction", "end", p, at),
@@ -204,7 +231,10 @@ impl Timeline {
         if self.entries.is_empty() && self.omitted_sidechain_records > 0 {
             return false;
         }
-        if matches!(self.status.as_str(), "completed" | "failed" | "cancelled") {
+        if matches!(
+            self.turn_lifecycle(&self.turn).state(),
+            TurnState::Terminal(_) | TurnState::Conflict(_)
+        ) {
             return false;
         }
         // Silence is not terminal evidence: compaction and long tools can stop
@@ -232,6 +262,10 @@ impl Timeline {
     }
     /// Local Claude history uses the same text/tool vocabulary, without approvals.
     pub fn backfill_claude(&mut self, records: &[Value]) {
+        if self.info.is_null() {
+            self.info = json!({});
+        }
+        self.info["agent"] = json!("claude");
         for record in records {
             if record["isSidechain"] == true {
                 self.omitted_sidechain_records += 1;

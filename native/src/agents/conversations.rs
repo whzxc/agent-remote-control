@@ -34,6 +34,10 @@ struct TaskMetadata {
     session_id: Option<String>,
     status: Option<String>,
     #[serde(default)]
+    turn_id: Value,
+    #[serde(default, rename = "_turnLifecycle")]
+    lifecycle: Value,
+    #[serde(default)]
     metadata: Value,
     #[serde(default)]
     last_message: Value,
@@ -91,9 +95,11 @@ fn stored() -> Result<Vec<Value>> {
         turns.extend(summaries.keys().map(String::as_str));
         turns.insert(&tracking.turn);
         turns.remove("");
+        let mut projection = json!({"agent":task.agent,"taskId":task.task_id,"turnId":task.turn_id,"status":task.status,"_turnLifecycle":task.lifecycle});
+        lifecycle::loss(&mut projection);
         rows.push(
             json!({"agent":task.agent,"agentAccountId":task.agent_account_id,"id":task.task_id,"title":task.title,"project":task.cwd,
-            "createdAt":task.created_at,"updatedAt":task.updated_at.as_ref().unwrap_or(&task.created_at),"nativeSessionId":task.session_id,"source":"arc-task","status":task.status,"dispatchSummary":summary,"turnCount":turns.len()}),
+            "createdAt":task.created_at,"updatedAt":task.updated_at.as_ref().unwrap_or(&task.created_at),"nativeSessionId":task.session_id,"source":"arc-task","status":projection["status"],"dispatchSummary":summary,"turnCount":turns.len()}),
         );
     }
     Ok(rows)
@@ -261,11 +267,15 @@ impl AgentHost {
                 item["dispatchSummary"] = metadata["dispatchSummary"].clone();
                 item["turnCount"] = metadata["turnCount"].clone();
                 let native_status = row["status"].as_str().or_else(|| row["status"]["type"].as_str());
-                item["status"] = if matches!(native_status, Some("active" | "running" | "inProgress")) {
-                    native_status.map(|s| json!(s)).unwrap_or(Value::Null)
-                } else {
-                    metadata["status"].as_str().or(native_status).map(|s| json!(s)).unwrap_or(Value::Null)
-                };
+                item["runtimeStatus"] = native_status.map(|s| json!(s)).unwrap_or(Value::Null);
+                let key = crate::turn_lifecycle::TurnKey::new("codex", string(row, "id"), metadata["turnId"].as_str().unwrap_or(""));
+                let recorded = metadata["status"].as_str().unwrap_or("");
+                let mut turn = crate::turn_lifecycle::Transition::new(key.clone());
+                if let Some(evidence) = crate::turn_lifecycle::adapters::codex_terminal(key.clone(), recorded, None) {
+                    turn = crate::turn_lifecycle::advance(&turn, &evidence);
+                }
+                turn = crate::turn_lifecycle::advance(&turn, &crate::turn_lifecycle::adapters::codex_owner(key, Some(recorded), native_status.unwrap_or("unknown"), false, 0));
+                item["status"] = json!(crate::turn_lifecycle::adapters::projection(&turn.state()));
                 item["metadataPartial"] = metadata["metadataPartial"].clone();
                 if let Some(open) = self.task_navigation(agent, string(row, "id")) {
                     item["open"] = open;
@@ -392,7 +402,9 @@ impl AgentHost {
         let mut timeline = self
             .timeline(control, session, num(args, "after", 0) as u64)
             .await?;
-        timeline["status"] = task["status"].clone();
+        timeline["status"] = json!(crate::turn_lifecycle::adapters::projection(
+            &lifecycle::read(&task).state()
+        ));
         timeline["srcConversation"] = task["srcConversation"].clone();
         if task["processState"] == "stopped" {
             timeline["readOnly"] = json!(true);

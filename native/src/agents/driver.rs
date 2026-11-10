@@ -1,4 +1,6 @@
+use super::lifecycle;
 use super::{process::Process, *};
+use crate::turn_lifecycle::adapters as turn_adapter;
 
 pub use super::manifest::Manifest;
 #[derive(Clone)]
@@ -264,16 +266,16 @@ impl AgentDriver {
         let baseline = crate::changes::capture(&cwd).await;
         {
             let mut t = p.state.lock().await;
-            if !matches!(
-                string(&t, "status"),
-                "idle" | "completed" | "cancelled" | "failed"
-            ) {
+            if !lifecycle::ready(&t) {
                 return Err("TASK_BUSY_OR_UNCONFIRMED".into());
             }
             let previous_turn = t["turnId"].clone();
             let interrupted = t["status"] == "cancelled";
-            t["status"] = json!("running");
             t["turnId"] = json!(id());
+            t["_turnLifecycle"] = Value::Null;
+            t["status"] = json!("unknown");
+            lifecycle::owner(&mut t, "running");
+            t["interruptRequested"] = Value::Null;
             if p.hosted() {
                 t["taskHost"]["requestId"] = args["requestId"].clone();
             }
@@ -339,11 +341,9 @@ impl AgentDriver {
         let mut t = p.state.lock().await;
         match &result {
             Ok(v) if !p.pi && !p.antigravity => {
-                t["status"] = json!(if v["stopReason"] == "cancelled" {
-                    "cancelled"
-                } else {
-                    "completed"
-                });
+                let evidence =
+                    turn_adapter::acp_response(lifecycle::key(&t), &json!({"result":v})).unwrap();
+                lifecycle::apply(&mut t, evidence);
                 t["stopReason"] = v["stopReason"].clone();
                 if t["status"] == "cancelled" {
                     t["error"] = json!("cancelled");
@@ -364,13 +364,21 @@ impl AgentDriver {
                 }
             }
             Err(e) => {
-                t["status"] = json!(
-                    if crate::kernel::receipts::failure_state(e) == "unconfirmed" {
-                        "unknown"
-                    } else {
-                        "failed"
-                    }
-                );
+                let native = e
+                    .strip_prefix("RPC_REJECTED:")
+                    .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+                    .and_then(|reply| {
+                        if p.pi {
+                            turn_adapter::pi_prompt_response(lifecycle::key(&t), &reply)
+                        } else {
+                            turn_adapter::acp_response(lifecycle::key(&t), &reply)
+                        }
+                    });
+                if let Some(evidence) = native {
+                    lifecycle::apply(&mut t, evidence);
+                } else {
+                    lifecycle::loss(&mut t);
+                }
                 t["error"] = json!(e);
             }
             _ => {}
@@ -400,7 +408,7 @@ impl AgentDriver {
         if let Err(error) = crate::claude_notify::observe(
             string(&t, "taskId"),
             string(&t, "turnId"),
-            &json!({"state":t["status"],"title":t["title"],"finalResponse":t["output"],"error":t["error"]}),
+            &lifecycle::observation(&t),
         )
         .await
         {
@@ -440,17 +448,16 @@ impl AgentDriver {
                 .map_err(|e| format!("SUBMISSION_UNCONFIRMED: {e}"))?;
         }
         let mut t = p.state.lock().await;
-        if !matches!(
-            string(&t, "status"),
-            "idle" | "completed" | "cancelled" | "failed"
-        ) {
-            t["status"] = json!(if p.pi { "cancelled" } else { "cancelling" });
+        t["interruptRequested"] = json!(true);
+        if !lifecycle::ready(&t) && lifecycle::active(&t) {
+            lifecycle::owner(&mut t, "cancelling");
+            t["status"] = json!("cancelling");
         }
         save_task(&t)?;
         if let Err(error) = crate::claude_notify::observe(
             string(&t, "taskId"),
             string(&t, "turnId"),
-            &json!({"state":t["status"],"title":t["title"],"finalResponse":t["output"],"error":t["error"]}),
+            &lifecycle::observation(&t),
         )
         .await
         {
@@ -543,7 +550,7 @@ impl AgentDriver {
         let mut t = p.state.lock().await;
         p.snapshot_tracking(&mut t).await;
         if empty && t["status"] == "waiting-permission" {
-            t["status"] = json!("running");
+            lifecycle::owner(&mut t, "running");
         }
         save_task(&t)?;
         p.events.lock().await.wake.notify_waiters();

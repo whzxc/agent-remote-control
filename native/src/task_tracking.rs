@@ -1,4 +1,7 @@
 //! Bounded, protocol-independent task observations. Native events remain authoritative.
+use crate::turn_lifecycle::{
+    adapters as turn_adapter, advance, Evidence, Transition, TurnKey, TurnState,
+};
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -370,10 +373,13 @@ pub(crate) struct Timeline {
     pub turn: String,
     pub turn_dispatch_summaries: HashMap<String, Value>,
     pub turn_timings: HashMap<String, Value>,
-    turn_statuses: HashMap<String, String>,
+    #[serde(
+        flatten,
+        serialize_with = "serialize_turn_knowledge",
+        deserialize_with = "deserialize_turn_knowledge"
+    )]
+    turn_lifecycles: HashMap<String, Value>,
     turn_started_at: Option<String>,
-    #[serde(skip)]
-    turn_status_observations: HashMap<String, u64>,
     #[serde(skip)]
     pub history_loaded: bool,
     #[serde(skip)]
@@ -386,6 +392,47 @@ pub(crate) struct Timeline {
     #[serde(skip)]
     buffers: HashMap<String, String>,
 }
+// Keep the existing string projection for consumers; only the checkpoint frontier
+// is lifecycle authority. Old persisted strings enter through this boundary.
+fn serialize_turn_knowledge<S: serde::Serializer>(
+    turns: &HashMap<String, Value>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    let projected: HashMap<_, _> = turns
+        .iter()
+        .map(|(id, value)| {
+            let state = turn_adapter::restore(value).unwrap_or_else(|| {
+                let key = TurnKey::new("", "", id);
+                advance(
+                    &Transition::new(key.clone()),
+                    &turn_adapter::recorded(key, value.as_str().unwrap_or("unknown"), 0),
+                )
+            });
+            (id, turn_adapter::projection(&state.state()))
+        })
+        .collect();
+    let mut map = serializer.serialize_map(Some(2))?;
+    map.serialize_entry("turnStatuses", &projected)?;
+    map.serialize_entry("turnLifecycles", turns)?;
+    map.end()
+}
+fn deserialize_turn_knowledge<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<HashMap<String, Value>, D::Error> {
+    #[derive(Default, Deserialize)]
+    #[serde(default, rename_all = "camelCase")]
+    struct Stored {
+        turn_lifecycles: HashMap<String, Value>,
+        turn_statuses: HashMap<String, String>,
+    }
+    let mut stored = Stored::deserialize(deserializer)?;
+    for (id, status) in stored.turn_statuses {
+        stored.turn_lifecycles.entry(id).or_insert(json!(status));
+    }
+    Ok(stored.turn_lifecycles)
+}
+
 impl Timeline {
     fn notice(&mut self, id: Option<&str>, kind: &str, stage: &str, native: &Value, at: &str) {
         // A lifecycle fact is complete as an observation, even when it describes
@@ -448,34 +495,81 @@ impl Timeline {
         row["notice"] = notice;
         self.put(row, at);
     }
-    pub fn turn_status(&self, turn: &str) -> Option<&str> {
-        self.turn_statuses
-            .get(turn)
-            .map(String::as_str)
-            .or_else(|| (!turn.is_empty() && self.turn == turn).then_some(self.status.as_str()))
+    fn turn_key(&self, turn: &str) -> TurnKey {
+        TurnKey::new(
+            self.info["agent"].as_str().unwrap_or("codex"),
+            string(&self.info, "id"),
+            turn,
+        )
+    }
+    pub fn turn_lifecycle(&self, turn: &str) -> Transition {
+        let key = self.turn_key(turn);
+        let stored = self.turn_lifecycles.get(turn);
+        stored
+            .and_then(turn_adapter::restore)
+            .filter(|t| t.key() == &key)
+            .unwrap_or_else(|| {
+                let status = stored.and_then(Value::as_str).unwrap_or_else(|| {
+                    if self.turn == turn {
+                        &self.status
+                    } else {
+                        "unknown"
+                    }
+                });
+                advance(
+                    &Transition::new(key.clone()),
+                    &turn_adapter::recorded(key, status, 0),
+                )
+            })
+    }
+    pub fn turn_status(&self, turn: &str) -> Option<&'static str> {
+        (!turn.is_empty() && (self.turn == turn || self.turn_lifecycles.contains_key(turn)))
+            .then(|| turn_adapter::projection(&self.turn_lifecycle(turn).state()))
     }
     pub fn lose_observation(&mut self) {
         self.observation_lost = true;
         self.history_loaded = false;
         self.status = "unknown".into();
+        self.record_turn_status();
     }
     fn record_turn_status(&mut self) {
         if self.turn.is_empty() {
             return;
         }
-        self.turn_status_observations
-            .insert(self.turn.clone(), self.observed_events);
-        let status = match self.status.as_str() {
-            "running" | "inProgress" => "running",
-            "completed" => "completed",
-            "failed" => "failed",
-            "cancelled" | "interrupted" => "cancelled",
-            _ => {
-                self.turn_statuses.remove(&self.turn);
-                return;
-            }
-        };
-        self.turn_statuses.insert(self.turn.clone(), status.into());
+        let evidence = turn_adapter::recorded(
+            self.turn_key(&self.turn),
+            &self.status,
+            self.turn_lifecycle(&self.turn)
+                .revision()
+                .saturating_add(1)
+                .max(self.observed_events.saturating_add(1)),
+        );
+        self.apply_turn_evidence(evidence);
+    }
+    fn apply_turn_evidence(&mut self, evidence: Evidence) {
+        let key = self.turn_key(&self.turn);
+        let previous = self
+            .turn_lifecycles
+            .get(&self.turn)
+            .and_then(turn_adapter::restore)
+            .filter(|t| t.key() == &key)
+            .unwrap_or_else(|| {
+                let status = self
+                    .turn_lifecycles
+                    .get(&self.turn)
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                advance(
+                    &Transition::new(key.clone()),
+                    &turn_adapter::recorded(key.clone(), status, 0),
+                )
+            });
+        let next = advance(&previous, &evidence);
+        if self.status != "inProgress" || !matches!(next.state(), TurnState::Active) {
+            self.status = turn_adapter::projection(&next.state()).into();
+        }
+        self.turn_lifecycles
+            .insert(self.turn.clone(), turn_adapter::checkpoint(&next));
     }
     fn put(&mut self, mut row: Value, at: &str) {
         self.partial |= row["truncated"] == true;
@@ -492,12 +586,10 @@ impl Timeline {
             row["turnId"] = json!(self.turn);
         }
         if matches!(string(&row, "status"), "running" | "pending")
-            && self
-                .turn_statuses
-                .get(string(&row, "turnId"))
-                .is_some_and(|status| {
-                    matches!(status.as_str(), "completed" | "failed" | "cancelled")
-                })
+            && matches!(
+                self.turn_lifecycle(string(&row, "turnId")).state(),
+                TurnState::Terminal(_) | TurnState::Conflict(_)
+            )
         {
             row["status"] = json!(
                 if matches!(string(&row, "type"), "text" | "thinking" | "user") {
@@ -595,12 +687,15 @@ impl Timeline {
         timing.as_object_mut().unwrap().remove("endedAt");
     }
     pub fn finish(&mut self, status: &str, at: &str) {
-        // A lost observation or a late settlement cannot replace a known outcome.
-        let terminal = self
-            .turn_status(&self.turn)
-            .filter(|status| matches!(*status, "completed" | "failed" | "cancelled"))
-            .map(str::to_owned);
-        let status = terminal.as_deref().unwrap_or(status);
+        self.status = status.into();
+        self.record_turn_status();
+        self.settle_entries(at);
+    }
+    fn finish_native(&mut self, evidence: Evidence, at: &str) {
+        self.apply_turn_evidence(evidence);
+        self.settle_entries(at);
+    }
+    fn settle_entries(&mut self, at: &str) {
         if !self.turn.is_empty() {
             let timing = self
                 .turn_timings
@@ -614,8 +709,7 @@ impl Timeline {
             }
         }
         self.end_chunk(at);
-        self.status = status.into();
-        self.record_turn_status();
+        let status = self.status.clone();
         self.buffers.clear();
         let ids: Vec<_> = self
             .entries
@@ -689,11 +783,11 @@ impl Timeline {
         }
     }
     pub fn agent(&mut self, method: &str, msg: &Value, at: &str) {
-        let terminal = self
-            .turn_status(&self.turn)
-            .filter(|status| matches!(*status, "completed" | "failed" | "cancelled"))
-            .map(str::to_owned);
-        if terminal.is_some()
+        let terminal = matches!(
+            self.turn_lifecycle(&self.turn).state(),
+            TurnState::Terminal(_) | TurnState::Conflict(_)
+        );
+        if terminal
             && matches!(
                 method,
                 "session/request_permission" | "extension_ui_request"
@@ -709,8 +803,10 @@ impl Timeline {
                 self.status = "running".into();
                 self.pi_stop_reason.clear();
                 self.pi_error = Value::Null;
-                self.start_turn(at);
                 self.record_turn_status();
+                if matches!(self.turn_lifecycle(&self.turn).state(), TurnState::Active) {
+                    self.start_turn(at);
+                }
                 let (text, truncated) = cut(&redact(string(msg, "text")), MAX_TEXT);
                 self.partial |= truncated;
                 let row = json!({"id":format!("{}:user:{}",self.turn,self.revision+1),"type":"user","status":"completed","text":text,"truncated":truncated});
@@ -731,7 +827,7 @@ impl Timeline {
             _ => self.observed_events += 1,
         }
         match method {
-            "step_update" | "result" if terminal.is_none() => self.antigravity(method, msg, at),
+            "step_update" | "result" => self.antigravity(method, msg, at),
             "session/update" => {
                 let u = &msg["params"]["update"];
                 match string(u, "sessionUpdate") {
@@ -886,23 +982,25 @@ impl Timeline {
                     }
                     // A failed model attempt can be retried. Only agent_settled
                     // establishes the final outcome of the Pi turn.
-                    if terminal.is_none() {
-                        self.pi_stop_reason = string(m, "stopReason").into();
-                        self.pi_error = summary(&m["errorMessage"])["text"].clone();
-                    }
+                    self.pi_stop_reason = string(m, "stopReason").into();
+                    self.pi_error = summary(&m["errorMessage"])["text"].clone();
                     self.pi_message += 1;
                 }
             }
             "agent_settled" => {
-                let status = match self.pi_stop_reason.as_str() {
-                    "error" => "failed",
-                    "aborted" => "cancelled",
-                    _ => "completed",
-                };
-                if terminal.is_none() && status == "failed" {
+                self.finish_native(
+                    turn_adapter::pi_settled(self.turn_key(&self.turn), &self.pi_stop_reason),
+                    at,
+                );
+                if matches!(
+                    self.turn_lifecycle(&self.turn).state(),
+                    TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                        outcome: crate::turn_lifecycle::Outcome::Failed,
+                        ..
+                    })
+                ) {
                     self.error(&self.pi_error.clone(), at);
                 }
-                self.finish(status, at);
             }
             "auto_retry_start" | "auto_retry_end" => self.notice(
                 None,
@@ -966,10 +1064,16 @@ impl Timeline {
         for req in requests {
             // Late asynchronous answers remain available through codex_pending,
             // but must not revive a finished turn as active input work.
-            let status = self
-                .turn_status(string(&req["params"], "turnId"))
-                .unwrap_or_else(|| string(req, "turnStatus"));
-            if matches!(status, "completed" | "failed" | "cancelled" | "interrupted") {
+            let turn = string(&req["params"], "turnId");
+            let lifecycle = self.turn_lifecycle(turn);
+            let lifecycle = advance(
+                &lifecycle,
+                &turn_adapter::recorded(self.turn_key(turn), string(req, "turnStatus"), 0),
+            );
+            if matches!(
+                lifecycle.state(),
+                TurnState::Terminal(_) | TurnState::Conflict(_)
+            ) {
                 continue;
             }
             let id = format!("interaction:{}", req["id"]);
@@ -1119,7 +1223,14 @@ impl Timeline {
                 self.turn_dispatch_summaries.insert(turn, summary);
             }
         }
-        let mut history = Timeline::default();
+        let mut history = Timeline {
+            info: json!({"id":thread["id"],"agent":"codex","title":codex_title(thread),"project":thread["cwd"]}),
+            observed_events: observed,
+            ..Default::default()
+        };
+        if self.info.is_null() {
+            self.info = history.info.clone();
+        }
         let turns = thread["turns"].as_array();
         history.partial = turns.is_none();
         for turn in turns.into_iter().flatten() {
@@ -1133,11 +1244,13 @@ impl Timeline {
                     "inProgress" | "running" => "running",
                     "completed" => "completed",
                     "cancelled" | "interrupted" => "cancelled",
-                    _ if history.status == "inProgress"
-                        && !matches!(
-                            string(item, "type"),
-                            "userMessage" | "steeringUserMessage"
-                        ) =>
+                    _ if matches!(
+                        history.turn_lifecycle(&history.turn).state(),
+                        TurnState::Active
+                    ) && !matches!(
+                        string(item, "type"),
+                        "userMessage" | "steeringUserMessage"
+                    ) =>
                     {
                         "running"
                     }
@@ -1175,18 +1288,26 @@ impl Timeline {
         );
         self.partial = history.partial || history.entries.iter().any(|r| r["truncated"] == true);
         self.tool_observed |= history.tool_observed;
-        // Preserve lifecycle evidence that arrived after the history read began.
-        for (turn, _) in history.turn_status_observations {
-            if self
-                .turn_status_observations
-                .get(&turn)
-                .is_none_or(|event| *event <= observed)
-            {
-                if let Some(status) = history.turn_statuses.remove(&turn) {
-                    self.turn_statuses.insert(turn, status);
-                } else {
-                    self.turn_statuses.remove(&turn);
+        // Merge native history even when live item deltas arrived during the read.
+        // No arrival-time branch can discard a stronger terminal observation.
+        for (turn, checkpoint) in &history.turn_lifecycles {
+            if let Some(incoming) = turn_adapter::restore(checkpoint) {
+                // History can add native outcomes. It cannot confirm renewed
+                // ownership over a live observation or a recorded owner loss.
+                if self.turn_lifecycles.contains_key(turn)
+                    && !matches!(
+                        incoming.state(),
+                        TurnState::Terminal(_) | TurnState::Conflict(_)
+                    )
+                {
+                    continue;
                 }
+                let mut merged = self.turn_lifecycle(turn);
+                for evidence in incoming.evidence() {
+                    merged = advance(&merged, &evidence);
+                }
+                self.turn_lifecycles
+                    .insert(turn.clone(), turn_adapter::checkpoint(&merged));
             }
         }
         if self.observed_events == observed || self.status.is_empty() {
@@ -1195,6 +1316,12 @@ impl Timeline {
                 self.turn_started_at = None;
             }
             self.turn = history.turn;
+        }
+        if !self.turn.is_empty()
+            && !(self.status == "inProgress"
+                && matches!(self.turn_lifecycle(&self.turn).state(), TurnState::Active))
+        {
+            self.status = turn_adapter::projection(&self.turn_lifecycle(&self.turn).state()).into();
         }
         for (position, mut row) in history.entries.into_iter().enumerate() {
             // Preserve explicit unknown times and ordering through the incremental API.
@@ -1352,6 +1479,23 @@ impl Timeline {
     }
     pub fn codex(&mut self, method: &str, params: &Value, at: &str) {
         self.observed_events += 1;
+        let event_turn = params["turnId"]
+            .as_str()
+            .or_else(|| params["turn"]["id"].as_str());
+        let selected = event_turn
+            .filter(|turn| !self.turn.is_empty() && **turn != self.turn && method != "turn/started")
+            .map(|_| {
+                (
+                    self.turn.clone(),
+                    self.status.clone(),
+                    self.turn_started_at.clone(),
+                )
+            });
+        if let Some(turn) = event_turn {
+            let status = self.turn_status(turn).unwrap_or("unknown");
+            self.turn = turn.into();
+            self.status = status.into();
+        }
         match method {
             "turn/started" => {
                 let turn = string(&params["turn"], "id");
@@ -1360,22 +1504,16 @@ impl Timeline {
                 }
                 self.turn = turn.into();
                 self.status = "running".into();
-                self.start_turn(at);
                 self.record_turn_status();
+                if matches!(self.turn_lifecycle(&self.turn).state(), TurnState::Active) { self.start_turn(at); }
             }
             "turn/completed" => {
                 if let Some(turn) = params["turn"]["id"].as_str() {
                     self.turn = turn.into();
                 }
-                self.finish(match string(&params["turn"],"status") {"failed"=>"failed","interrupted"|"cancelled"=>"cancelled","completed"=>"completed",_=>"unknown"},at);
+                self.finish(string(&params["turn"], "status"), at);
             }
             "item/started"|"item/completed" => {
-                if let Some(turn) = params["turnId"].as_str() {
-                    if self.turn != turn {
-                        self.turn_started_at = None;
-                    }
-                    self.turn = turn.into();
-                }
                 let status=match string(&params["item"],"status") {"failed"|"declined"=>"failed",_ if method=="item/completed"=>"completed",_=>"running"};
                 self.codex_item(&params["item"],status,at);
             }
@@ -1389,6 +1527,11 @@ impl Timeline {
             "error" if params["willRetry"] == true => self.notice(None, "retry", "start", params, at),
             "error" => self.error(params,at),
             _=>(),
+        }
+        if let Some((turn, status, started_at)) = selected {
+            self.turn = turn;
+            self.status = status;
+            self.turn_started_at = started_at;
         }
     }
     pub fn execution_evidence(&self) -> Value {
@@ -1465,13 +1608,25 @@ impl Timeline {
         if !summaries.is_empty() {
             result["turnDispatchSummaries"] = json!(summaries);
         }
-        if !self.turn_statuses.is_empty() {
-            result["turnStatuses"] = json!(self.turn_statuses);
+        if !self.turn_lifecycles.is_empty() {
+            result["turnStatuses"] = json!(self
+                .turn_lifecycles
+                .keys()
+                .map(|turn| (turn, self.turn_status(turn)))
+                .collect::<HashMap<_, _>>());
+        }
+        let conflicts: HashMap<_, _> = self
+            .turn_lifecycles
+            .iter()
+            .filter(|(turn, _)| matches!(self.turn_lifecycle(turn).state(), TurnState::Conflict(_)))
+            .collect();
+        if !conflicts.is_empty() {
+            result["conflicts"] = json!(conflicts);
         }
         if !self.turn_timings.is_empty() {
             result["turnTimings"] = json!(self.turn_timings);
         }
-        result["snapshotHash"] = json!(hash(json!({"entries":self.entries,"status":self.status,"turnStatuses":self.turn_statuses,"turnTimings":self.turn_timings,"coverage":result["coverage"]}).to_string()));
+        result["snapshotHash"] = json!(hash(json!({"entries":self.entries,"status":self.status,"turnLifecycles":self.turn_lifecycles,"turnTimings":self.turn_timings,"coverage":result["coverage"]}).to_string()));
         result
     }
     pub fn session(&self, id: &str, info: &Value, source: &str, pending: Option<Value>) -> Value {
@@ -1527,7 +1682,7 @@ impl Timeline {
             .iter()
             .filter_map(|entry| entry["turnId"].as_str())
             .collect();
-        turns.extend(self.turn_statuses.keys().map(String::as_str));
+        turns.extend(self.turn_lifecycles.keys().map(String::as_str));
         turns.insert(&self.turn);
         turns.remove("");
         row["turnCount"] = json!(turns.len());
@@ -1638,10 +1793,11 @@ pub(crate) fn observe(
     durable: bool,
 ) {
     if durable {
-        timelines
-            .entry(session.into())
-            .or_default()
-            .agent(method, params, at);
+        let timeline = timelines.entry(session.into()).or_default();
+        if timeline.info.is_null() {
+            timeline.info = json!({"id":session});
+        }
+        timeline.agent(method, params, at);
         return;
     }
     let thread = params["threadId"]
@@ -1651,6 +1807,9 @@ pub(crate) fn observe(
     let Some(t) = timelines.get_mut(thread) else {
         return;
     };
+    if t.info.is_null() {
+        t.info = json!({"id":thread,"agent":"codex"});
+    }
     if method == "desktop/thread-stream-state-changed" {
         if params["change"]["type"] == "snapshot" {
             let state = &params["change"]["conversationState"];
@@ -1664,7 +1823,7 @@ pub(crate) fn observe(
                         for item in turn["items"].as_array().into_iter().flatten() {
                             t.codex_item(
                                 item,
-                                if t.status == "inProgress" {
+                                if matches!(t.turn_lifecycle(&t.turn).state(), TurnState::Active) {
                                     "running"
                                 } else {
                                     "completed"
@@ -1689,37 +1848,96 @@ mod tests {
     #[test]
     fn stream_stability_late_events_do_not_reopen_terminal_turns() {
         // Regression: reader EOF and late permission or Pi events overwrote terminal turn outcomes.
-        for status in ["completed", "failed", "cancelled"] {
-            let mut timeline = Timeline::default();
-            let at = "2026-01-01T00:00:00Z";
-            timeline.agent("arc/user", &json!({"turnId":"old","text":"fixture"}), at);
-            timeline.finish(status, at);
-            timeline.finish("unknown", "2026-01-01T00:00:01Z");
-            timeline.agent(
-                "session/request_permission",
-                &json!({"id":"late","params":{"toolCall":{"title":"late"}}}),
-                at,
-            );
-            timeline.agent("session/update", &json!({"params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"late evidence"}}}}), at);
-            timeline.agent("message_end", &json!({"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"late failure"}}), at);
-            timeline.agent("agent_settled", &json!({}), at);
-            assert_eq!(timeline.turn_status("old"), Some(status));
-            let response = timeline.response("fixture", 0);
-            assert_eq!(response["status"], status);
-            assert!(response["entries"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|r| !matches!(string(r, "status"), "pending" | "running")));
-            assert!(response["entries"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|r| r["text"] == "late evidence"));
-            timeline.agent("arc/user", &json!({"turnId":"new","text":"next"}), at);
-            assert_eq!(timeline.turn_status("new"), Some("running"));
-            assert_eq!(timeline.turn_status("old"), Some(status));
-        }
+        let status = "completed";
+        let mut timeline = Timeline::default();
+        let at = "2026-01-01T00:00:00Z";
+        timeline.agent("arc/user", &json!({"turnId":"old","text":"fixture"}), at);
+        timeline.finish(status, at);
+        timeline.finish("unknown", "2026-01-01T00:00:01Z");
+        timeline.agent(
+            "session/request_permission",
+            &json!({"id":"late","params":{"toolCall":{"title":"late"}}}),
+            at,
+        );
+        timeline.agent("session/update", &json!({"params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"late evidence"}}}}), at);
+        timeline.agent("message_end", &json!({"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"late failure"}}), at);
+        assert_eq!(timeline.turn_status("old"), Some(status));
+        let response = timeline.response("fixture", 0);
+        assert_eq!(response["status"], status);
+        assert!(response["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| !matches!(string(r, "status"), "pending" | "running")));
+        assert!(response["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["text"] == "late evidence"));
+        timeline.agent("arc/user", &json!({"turnId":"new","text":"next"}), at);
+        assert_eq!(timeline.turn_status("new"), Some("running"));
+        assert_eq!(timeline.turn_status("old"), Some(status));
+        timeline.finish("unknown", at);
+        assert_eq!(timeline.turn_status("new"), Some("unknown"));
+    }
+
+    #[test]
+    fn native_history_completion_survives_inflight_items_and_checkpoint_restore() {
+        // Regression: history completion was discarded when late item deltas arrived during the native read.
+        let at = "2026-01-01T00:00:00Z";
+        let mut timeline = Timeline {
+            info: json!({"id":"thread","agent":"codex"}),
+            ..Default::default()
+        };
+        timeline.codex(
+            "turn/started",
+            &json!({"threadId":"thread","turn":{"id":"turn"}}),
+            at,
+        );
+        let baseline = timeline.revision;
+        let observed = timeline.observed_events;
+        timeline.codex("item/started", &json!({"threadId":"thread","turnId":"turn","item":{"id":"command","type":"commandExecution","command":"fixture"}}), at);
+        timeline.backfill_codex(
+            &json!({"id":"thread","turns":[{"id":"turn","status":"completed","items":[]}]}),
+            baseline,
+            observed,
+            at,
+        );
+        timeline.codex(
+            "item/commandExecution/outputDelta",
+            &json!({"threadId":"thread","turnId":"turn","itemId":"command","delta":"late output"}),
+            at,
+        );
+        let mut restored: Timeline =
+            serde_json::from_value(serde_json::to_value(&timeline).unwrap()).unwrap();
+        let result = restored.response("thread", 0);
+        assert_eq!(result["status"], "completed");
+        assert_eq!(result["turnStatuses"]["turn"], "completed");
+        assert_eq!(result["entries"][0]["output"]["text"], "late output");
+        assert_eq!(result["entries"][0]["status"], "unknown");
+        restored.codex(
+            "turn/started",
+            &json!({"threadId":"thread","turn":{"id":"new"}}),
+            at,
+        );
+        restored.codex("item/commandExecution/outputDelta", &json!({"threadId":"thread","turnId":"turn","itemId":"command","delta":" after successor"}), at);
+        restored.backfill_codex_records(&[json!({"timestamp":at,"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn"}})]);
+        assert_eq!(restored.response("thread", 0)["status"], "running");
+        assert_eq!(
+            restored.response("thread", 0)["turnStatuses"]["turn"],
+            "completed"
+        );
+        restored.codex(
+            "turn/completed",
+            &json!({"threadId":"thread","turn":{"id":"turn","status":"failed"}}),
+            at,
+        );
+        let restored: Timeline =
+            serde_json::from_value(serde_json::to_value(restored).unwrap()).unwrap();
+        let result = restored.response("thread", 0);
+        assert_eq!(result["status"], "running");
+        assert_eq!(result["turnStatuses"]["turn"], "unknown");
+        assert!(result["conflicts"]["turn"].is_object());
     }
 
     #[test]

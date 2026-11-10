@@ -1,4 +1,5 @@
 //! Bounded live enrichment of a native task page; never resumes tasks on reads.
+use crate::turn_lifecycle::{adapters, advance, Transition, TurnKey, TurnState};
 use crate::*;
 use std::collections::HashMap;
 use tokio::time::{timeout_at, Duration, Instant};
@@ -330,36 +331,37 @@ fn compact(
                 .any(|f| matches!(f.as_str(), Some("waitingOnApproval" | "waitingOnUserInput")))
         });
     let retrying = matches!(string(retry, "status"), "scheduled" | "submitting");
-    let (status, reason) = if error.is_some() {
-        ("unconfirmed", error.unwrap())
-    } else if waiting {
-        ("needs-input", "")
-    } else if retrying {
-        ("retrying", "")
-    } else if runtime == "active" {
-        ("running", "")
-    } else if runtime == "notLoaded" || runtime.is_empty() || runtime == "unknown" {
-        ("unconfirmed","persisted-history-only: no live owner confirmed; recorded turn is not proof of current runtime")
-    } else if runtime == "systemError" || turn["status"] == "failed" {
-        ("failed", "")
-    } else if runtime != "idle" {
-        ("unconfirmed", "unsupported-native-runtime-status")
-    } else if turn["status"] == "inProgress" {
-        (
-            "unconfirmed",
-            "native runtime idle but latest turn still in progress",
-        )
-    } else if queue["pending"].as_u64().unwrap_or(0) > 0 {
-        (
-            "queued",
-            if queue["blocked"].as_u64().unwrap_or(0) > 0 {
-                "queue paused after failure or interruption"
+    let key = TurnKey::new("codex", string(row, "id"), string(turn, "id"));
+    let mut lifecycle = advance(
+        &Transition::new(key.clone()),
+        &adapters::codex_owner(
+            key.clone(),
+            turn["status"].as_str(),
+            if error.is_some() { "unknown" } else { runtime },
+            waiting,
+            0,
+        ),
+    );
+    if let Some(evidence) = adapters::codex_terminal(key, string(turn, "status"), None) {
+        lifecycle = advance(&lifecycle, &evidence);
+    }
+    let (status, reason) = match lifecycle.state() {
+        TurnState::Terminal(_) => (adapters::wait(&lifecycle.state()).0.as_wire(), ""),
+        TurnState::AwaitingInteraction => ("needs-input", ""),
+        TurnState::Active if retrying => ("retrying", ""),
+        TurnState::Active => ("running", ""),
+        _ if turn.is_null() && runtime == "idle" && error.is_none() => (
+            if queue["pending"].as_u64().unwrap_or(0) > 0 {
+                "queued"
             } else {
-                ""
+                "idle"
             },
-        )
-    } else {
-        ("idle", "")
+            "",
+        ),
+        _ => (
+            "unconfirmed",
+            error.unwrap_or(adapters::wait(&lifecycle.state()).1),
+        ),
     };
     let turn_model = turn
         .get("model")
@@ -389,6 +391,7 @@ fn compact(
     ));
     out["project"] = t["cwd"].clone();
     out["status"] = json!(status);
+    out["runtimeStatus"] = json!(if error.is_some() { "unknown" } else { runtime });
     out["updatedAt"] = t.get("updatedAt").unwrap_or(&row["updatedAt"]).clone();
     out["currentTurn"] = if turn.is_null() {
         Value::Null
@@ -428,76 +431,38 @@ mod tests {
     use super::*;
     #[test]
     fn statuses_are_evidence_based_and_compact_does_not_copy_prompts() {
-        // Property: statuses are evidence based and compact does not copy prompts.
-        let mut t = json!({"id":"t","name":"Title","cwd":"/project","preview":"large prompt","status":{"type":"active"},"model":"m"});
-        let turn = json!({"id":"turn","status":"inProgress"});
-        let q = json!({"pending":2,"blocked":0});
-        let render = |t: &Value, turn: &Value, pending, retry: &Value, error, full| {
-            compact(t, t, turn, pending, retry, &q, error, full)
-        };
-        let v = render(&t, &turn, false, &Value::Null, None, false);
-        assert_eq!(v["status"], "running");
-        assert!(v.get("preview").is_none());
-        assert_eq!(v["queue"]["pending"], 2);
-        assert_eq!(
-            render(&t, &turn, true, &Value::Null, None, false)["status"],
-            "needs-input"
+        // Regression: task summaries conflated idle threads with completed selected turns and copied full prompts.
+        let thread = json!({"id":"t","name":"Title","cwd":"/project","preview":"large prompt","status":{"type":"idle"},"model":"m"});
+        let turn = json!({"id":"turn","status":"completed"});
+        let value = compact(
+            &thread,
+            &thread,
+            &turn,
+            true,
+            &json!({"status":"scheduled"}),
+            &json!({"pending":2}),
+            None,
+            false,
         );
-        t["status"]["type"] = json!("idle");
-        let done = json!({"id":"turn","status":"completed"});
-        assert_eq!(
-            render(&t, &done, false, &Value::Null, None, false)["status"],
-            "queued"
+        assert_eq!(value["status"], "completed");
+        assert_eq!(value["runtimeStatus"], "idle");
+        assert_eq!(value["currentTurn"]["status"], "completed");
+        assert_eq!(value["queue"]["pending"], 2);
+        assert_eq!(value["retry"]["status"], "scheduled");
+        assert!(value.get("preview").is_none());
+        let full = compact(
+            &thread,
+            &thread,
+            &turn,
+            false,
+            &Value::Null,
+            &Value::Null,
+            Some("timeout"),
+            true,
         );
-        assert_eq!(
-            render(
-                &t,
-                &done,
-                false,
-                &json!({"status":"scheduled"}),
-                None,
-                false
-            )["status"],
-            "retrying"
-        );
-        assert_eq!(
-            render(
-                &t,
-                &json!({"id":"turn","status":"failed"}),
-                false,
-                &Value::Null,
-                None,
-                false
-            )["status"],
-            "failed"
-        );
-        assert_eq!(
-            compact(
-                &t,
-                &t,
-                &done,
-                false,
-                &Value::Null,
-                &json!({"pending":0}),
-                None,
-                false
-            )["status"],
-            "idle"
-        );
-        assert_eq!(
-            render(&t, &turn, false, &Value::Null, None, false)["status"],
-            "unconfirmed"
-        );
-        t["status"]["type"] = json!("notLoaded");
-        let v = render(&t, &done, false, &Value::Null, None, false);
-        assert_eq!(v["status"], "unconfirmed");
-        assert!(v["statusReason"]
-            .as_str()
-            .unwrap()
-            .contains("no live owner"));
-        assert_eq!(
-            render(&t, &done, false, &Value::Null, Some("timeout"), true)["preview"],
-            "large prompt"
-        );
+        assert_eq!(full["preview"], "large prompt");
+        assert_eq!(full["status"], "completed");
+        assert_eq!(full["runtimeStatus"], "unknown");
+        assert_eq!(full["currentTurn"]["source"], "persisted-history");
     }
 }

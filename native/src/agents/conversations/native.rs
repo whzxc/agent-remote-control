@@ -321,6 +321,7 @@ pub(super) fn timeline(session: &Session) -> Result<Value> {
 // Pi v3 is a tree. Replay only the latest leaf's ancestry, bounded by the tail.
 pub(super) fn pi_timeline(id: &str, records: &[Value], truncated: bool) -> Value {
     let mut timeline = crate::task_tracking::Timeline::default();
+    timeline.info = json!({"id":id,"agent":"pi"});
     timeline.partial = truncated;
     let entries: HashMap<_, _> = records
         .iter()
@@ -391,6 +392,7 @@ fn antigravity_text(record: &Value) -> String {
 
 pub(super) fn antigravity_timeline(id: &str, records: &[Value], truncated: bool) -> Value {
     let mut timeline = crate::task_tracking::Timeline::default();
+    timeline.info = json!({"id":id,"agent":"antigravity"});
     timeline.partial = truncated;
     for record in records {
         let first_entry = timeline.entries.len();

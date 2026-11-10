@@ -327,6 +327,82 @@ pub mod adapters {
         Ok(terminal)
     }
 
+    /// Decode an owning adapter's recorded turn projection. Process exit and
+    /// interrupt intent must use loss/owner evidence instead of terminal strings.
+    pub fn recorded(key: TurnKey, status: &str, revision: u64) -> Evidence {
+        if let Some(terminal) = codex_terminal(key.clone(), status, None) {
+            return terminal;
+        }
+        match status {
+            "running" | "inProgress" | "starting" | "cancelling" => {
+                Evidence::owner_live(key, LiveState::Active, revision)
+            }
+            "waiting-permission" | "interaction-required" => {
+                Evidence::owner_live(key, LiveState::AwaitingInteraction, revision)
+            }
+            _ => Evidence::loss(key, LossReason::OwnerUnavailable, revision),
+        }
+    }
+    pub fn projection(state: &TurnState) -> &'static str {
+        match state {
+            TurnState::Active => "running",
+            TurnState::AwaitingInteraction => "waiting-permission",
+            TurnState::Terminal(_) => wait(state).0.as_wire(),
+            _ => "unknown",
+        }
+    }
+    pub fn terminal(state: &TurnState) -> bool {
+        matches!(state, TurnState::Terminal(_))
+    }
+    pub fn pi_settled(key: TurnKey, stop_reason: &str) -> Evidence {
+        recorded(
+            key,
+            match stop_reason {
+                "error" => "failed",
+                "aborted" => "cancelled",
+                _ => "completed",
+            },
+            0,
+        )
+    }
+    pub fn pi_prompt_response(key: TurnKey, response: &serde_json::Value) -> Option<Evidence> {
+        if !response["error"].is_null() || response["success"] != true {
+            codex_terminal(key, "failed", None)
+        } else {
+            None // Pi prompt acceptance does not confirm turn completion.
+        }
+    }
+    pub fn acp_response(key: TurnKey, response: &serde_json::Value) -> Option<Evidence> {
+        // An RPC rejection is a native rejection; a transport error is not.
+        if !response["error"].is_null() {
+            return codex_terminal(key, "failed", None);
+        }
+        response.get("result").and_then(|result| {
+            codex_terminal(
+                key,
+                if result["stopReason"] == "cancelled" {
+                    "cancelled"
+                } else {
+                    "completed"
+                },
+                None,
+            )
+        })
+    }
+    pub fn antigravity_result(key: TurnKey, result: &serde_json::Value) -> Evidence {
+        recorded(
+            key,
+            if result["status"] == "SUCCESS" {
+                "completed"
+            } else if result["finished_reason"] == "interrupted" {
+                "cancelled"
+            } else {
+                "failed"
+            },
+            0,
+        )
+    }
+
     pub fn codex_active(status: &str) -> bool {
         status == "inProgress"
     }
@@ -471,6 +547,30 @@ mod tests {
                 Evidence::owner_live(key(), LiveState::Active, 2),
                 Evidence::owner_live(key(), LiveState::AwaitingInteraction, 1),
                 terminal(status, Some(1)),
+            ]) {
+                assert_eq!(fold(&evidence).state(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn protocol_terminal_adapters_share_the_monotonic_frontier() {
+        // Property: Pi, ACP and Antigravity native terminals dominate every permutation of owner and loss evidence.
+        for native in [
+            adapters::pi_settled(key(), "aborted"),
+            adapters::acp_response(
+                key(),
+                &serde_json::json!({"result":{"stopReason":"end_turn"}}),
+            )
+            .unwrap(),
+            adapters::antigravity_result(key(), &serde_json::json!({"status":"SUCCESS"})),
+        ] {
+            let expected = fold(&[native.clone()]).state();
+            for evidence in permutations(&[
+                native,
+                Evidence::owner_live(key(), LiveState::Active, 2),
+                Evidence::owner_live(key(), LiveState::AwaitingInteraction, 3),
+                Evidence::loss(key(), LossReason::OwnerUnavailable, 4),
             ]) {
                 assert_eq!(fold(&evidence).state(), expected);
             }

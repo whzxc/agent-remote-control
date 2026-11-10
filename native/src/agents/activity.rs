@@ -652,7 +652,7 @@ pub(super) fn conversation_projection(records: &[Value], partial: bool) -> Value
     }
     json!({"dispatchSummary":clock.dispatch_summary,
         "turnCount":if partial { None } else { Some(clock.turns.len()) },
-        "status":clock.status,"metadataPartial":partial})
+        "turnId":clock.turn_id,"status":clock.status,"metadataPartial":partial})
 }
 
 pub(super) fn agent_summary(state: &Value) -> Option<Value> {

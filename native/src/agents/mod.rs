@@ -8,6 +8,7 @@ mod archive;
 mod conversations;
 mod dispatch;
 pub(crate) mod driver;
+mod lifecycle;
 mod manifest;
 mod mcp;
 mod process;
@@ -425,14 +426,7 @@ impl AgentHost {
                     if task["archived"] == true {
                         return Ok(None);
                     }
-                    let state = string(&task, "status");
-                    let runtime = match state {
-                        "running" | "starting" | "cancelling" => "active",
-                        "waiting-permission" => "waiting",
-                        "failed" => "systemError",
-                        "completed" | "idle" | "cancelled" => "idle",
-                        _ => "unknown",
-                    };
+                    let runtime = lifecycle::runtime(&task);
                     Ok(Some(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
                 "origin":receipt["origin"],"state":receipt["state"],"createdAt":receipt["createdAt"],"updatedAt":receipt["updatedAt"],
                 "approval":{"decision":if receipt["state"] == "awaiting-approval" {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
@@ -458,12 +452,7 @@ impl AgentHost {
         let processes: Vec<_> = self.processes.lock().await.values().cloned().collect();
         for process in processes {
             let state = process.state.lock().await.clone();
-            if account_ids.contains(&state["agentAccountId"])
-                && matches!(
-                    string(&state, "status"),
-                    "running" | "starting" | "waiting-permission"
-                )
-            {
+            if account_ids.contains(&state["agentAccountId"]) && lifecycle::active(&state) {
                 self.tool(
                     control,
                     "agent_interrupt",
@@ -479,7 +468,13 @@ impl AgentHost {
             .await
             .timelines
             .iter()
-            .filter(|(_, t)| matches!(t.status.as_str(), "running" | "inProgress"))
+            .filter(|(_, t)| {
+                matches!(
+                    t.turn_lifecycle(&t.turn).state(),
+                    crate::turn_lifecycle::TurnState::Active
+                        | crate::turn_lifecycle::TurnState::AwaitingInteraction
+                )
+            })
             .map(|(id, _)| id.clone())
             .collect();
         for task in active {
@@ -509,11 +504,7 @@ impl AgentHost {
                 continue;
             }
             let events = process.events.lock().await;
-            if !matches!(
-                string(&state, "status"),
-                "running" | "waiting-permission" | "starting" | "cancelling"
-            ) && events.pending.is_empty()
-            {
+            if !lifecycle::active(&state) && events.pending.is_empty() {
                 continue;
             }
             native_sessions.insert((agent.to_owned(), string(&state, "sessionId").to_owned()));
@@ -762,11 +753,8 @@ impl AgentHost {
         } else {
             let mut t = load(&task_path(task)?)?;
             t["processState"] = json!("stopped");
-            if !matches!(
-                string(&t, "status"),
-                "completed" | "cancelled" | "failed" | "idle"
-            ) {
-                t["status"] = json!("unknown");
+            if t["status"] != "idle" {
+                lifecycle::loss(&mut t);
             }
             t
         };
@@ -1033,10 +1021,7 @@ impl AgentHost {
         }
         if name == "agent_read" {
             let mut task = self.task(agent, string(&args, "taskId")).await?;
-            task["finalResponse"] = if matches!(
-                string(&task, "status"),
-                "completed" | "failed" | "cancelled"
-            ) {
+            task["finalResponse"] = if lifecycle::terminal(&task) {
                 task["output"].clone()
             } else {
                 Value::Null
@@ -1288,10 +1273,7 @@ impl AgentHost {
                     .map_err(|_| "TASK_BUSY_OR_UNCONFIRMED")?;
                 let snapshot = p.state.lock().await.clone();
                 archive::ensure_unarchived(&snapshot)?;
-                if !matches!(
-                    string(&snapshot, "status"),
-                    "idle" | "completed" | "cancelled" | "failed"
-                ) {
+                if !lifecycle::ready(&snapshot) {
                     return Err("TASK_BUSY_OR_UNCONFIRMED".into());
                 }
                 // Empty creates expose capabilities without applying policy or recording work.
@@ -1312,7 +1294,7 @@ impl AgentHost {
                             // No prompt was sent, but a timed-out setter must not race a later prompt.
                             p.close().await;
                             let mut state = p.state.lock().await;
-                            state["status"] = json!("unknown");
+                            lifecycle::loss(&mut state);
                             state["configurationError"] = json!(error);
                             save_task(&state)?;
                         }

@@ -1,4 +1,6 @@
+use super::lifecycle;
 use crate::owned_children::SpawnOwned;
+use crate::turn_lifecycle::adapters as turn_adapter;
 use crate::*;
 use std::{collections::HashMap, process::Stdio, time::Duration};
 use tokio::{
@@ -22,9 +24,6 @@ pub(crate) fn streaming_delta(pi: bool, msg: &Value) -> bool {
                 "agent_message_chunk" | "agent_thought_chunk"
             )
     }
-}
-fn terminal_status(status: &str) -> bool {
-    matches!(status, "completed" | "cancelled" | "failed")
 }
 /// Configuration inputs exclude output, tracking, and observation timestamps.
 pub(crate) fn configuration(state: &Value) -> Value {
@@ -379,7 +378,7 @@ impl Process {
     ) -> Result<Arc<Self>> {
         let mut tracking: crate::task_tracking::Timeline =
             serde_json::from_value(state["tracking"].clone()).unwrap_or_default();
-        tracking.info = json!({"id":state["taskId"],"project":state["cwd"]});
+        tracking.info = json!({"id":state["taskId"],"agent":state["agent"],"project":state["cwd"]});
         let capabilities = state["hostCapabilities"].clone();
         let process = Arc::new(Self {
             input: Mutex::new(input),
@@ -521,10 +520,14 @@ impl Process {
                 if let Some(offset) = offset {
                     state["taskHost"]["ackedOffset"] = json!(offset);
                 }
-                let terminal = terminal_status(string(&state, "status"));
+                let terminal = matches!(
+                    lifecycle::read(&state).state(),
+                    crate::turn_lifecycle::TurnState::Terminal(_)
+                        | crate::turn_lifecycle::TurnState::Conflict(_)
+                );
                 let task = string(&state, "taskId").to_owned();
                 if antigravity {
-                    p.antigravity_event(&mut state, &msg, terminal).await;
+                    p.antigravity_event(&mut state, &msg).await;
                     state["updatedAt"] = json!(now());
                     if method == "step_update" && msg["step_update"]["state"] == "ACTIVE" {
                         p.snapshot_tracking(&mut state).await;
@@ -583,11 +586,13 @@ impl Process {
                         .await
                         .pending
                         .insert(msg["id"].to_string(), msg.clone());
-                    state["status"] = json!("waiting-permission");
+                    lifecycle::owner(&mut state, "waiting-permission");
+                    let mut observation = lifecycle::observation(&state);
+                    observation["interaction"] = json!([msg]);
                     if let Err(error) = crate::claude_notify::observe(
                         string(&state, "taskId"),
                         string(&state, "turnId"),
-                        &json!({"state":"interaction-required","title":state["title"],"interaction":[msg]}),
+                        &observation,
                     )
                     .await
                     {
@@ -609,13 +614,12 @@ impl Process {
                             .collect::<Vec<_>>()
                             .join(""));
                     }
-                    if method == "agent_settled" && !terminal {
-                        state["status"] =
-                            json!(match string(&state["lastMessage"], "stopReason") {
-                                "error" => "failed",
-                                "aborted" => "cancelled",
-                                _ => "completed",
-                            });
+                    if method == "agent_settled" {
+                        let evidence = turn_adapter::pi_settled(
+                            lifecycle::key(&state),
+                            string(&state["lastMessage"], "stopReason"),
+                        );
+                        lifecycle::apply(&mut state, evidence);
                     }
                 } else if method == "session/update" {
                     let update = &msg["params"]["update"];
@@ -646,7 +650,7 @@ impl Process {
                     if let Err(error) = crate::claude_notify::observe(
                         string(&state, "taskId"),
                         string(&state, "turnId"),
-                        &json!({"state":state["status"],"title":state["title"],"finalResponse":state["output"],"error":state["lastMessage"]["errorMessage"]}),
+                        &lifecycle::observation(&state),
                     )
                     .await
                     {
@@ -679,22 +683,8 @@ impl Process {
                 let mut s = p.state.lock().await;
                 if let Some(exit) = &host_exit {
                     s["exitCode"] = exit["exitCode"].clone();
-                    if !terminal_status(string(&s, "status")) && read_error.is_none() {
-                        s["status"] = json!(if exit["exitCode"] == 0 {
-                            "completed"
-                        } else {
-                            "failed"
-                        });
-                        crate::event(
-                            &p.events,
-                            string(&s, "taskId"),
-                            "arc/settled",
-                            json!({"status":s["status"]}),
-                        )
-                        .await;
-                    }
                 }
-                let abnormal = !terminal_status(string(&s, "status"))
+                let abnormal = !lifecycle::terminal(&s)
                     || exit_status.as_ref().is_some_and(|status| !status.success());
                 let error = read_error.or_else(|| abnormal.then(|| {
                     "PROCESS_EXIT_UNCONFIRMED: Agent stdout closed before a confirmed successful exit. Inspect stdoutDiagnostics and the Agent logs before resuming.".into()
@@ -715,9 +705,7 @@ impl Process {
                         .clone()
                         .unwrap_or_else(|| "PROCESS_EXIT_UNCONFIRMED".into())));
                 }
-                if !terminal_status(string(&s, "status")) {
-                    s["status"] = json!("unknown");
-                }
+                lifecycle::loss(&mut s);
                 s["processState"] = json!("exited");
                 if let Some(status) = exit_status {
                     s["exitCode"] = json!(status.code());
@@ -828,7 +816,7 @@ impl Process {
             let mut events = self.events.lock().await;
             events.pending.remove(&value["id"].to_string());
             if events.pending.is_empty() && state["status"] == "waiting-permission" {
-                state["status"] = json!("running");
+                lifecycle::owner(&mut state, "running");
             }
         }
         self.persist(&mut state).await;
@@ -858,9 +846,7 @@ impl Process {
         if prompt > received {
             return;
         }
-        if (self.pi && state["taskHost"]["promptResponded"] == true)
-            || terminal_status(string(state, "status"))
-        {
+        if (self.pi && state["taskHost"]["promptResponded"] == true) || lifecycle::terminal(state) {
             receipt["state"] = json!("completed");
             receipt["result"] = state.clone();
             receipt["error"] = Value::Null;
@@ -881,13 +867,17 @@ impl Process {
             state["taskHost"]["promptResponded"] = json!(true);
             let failed = msg.get("error").is_some() || (self.pi && msg["success"] != true);
             if !self.pi || failed {
-                state["status"] = json!(if failed {
-                    "failed"
-                } else if msg["result"]["stopReason"] == "cancelled" {
-                    "cancelled"
-                } else {
-                    "completed"
-                });
+                if self.pi {
+                    if let Some(evidence) =
+                        turn_adapter::pi_prompt_response(lifecycle::key(&state), msg)
+                    {
+                        lifecycle::apply(&mut state, evidence);
+                    }
+                } else if let Some(evidence) =
+                    turn_adapter::acp_response(lifecycle::key(&state), msg)
+                {
+                    lifecycle::apply(&mut state, evidence);
+                }
                 state["stopReason"] = msg["result"]["stopReason"].clone();
                 state["error"] = msg["error"].clone();
                 state["dispatch"]["submission"] =
@@ -914,10 +904,7 @@ impl Process {
     }
     pub async fn release(&self) {
         let state = self.state.lock().await.clone();
-        let busy = !matches!(
-            string(&state, "status"),
-            "idle" | "completed" | "cancelled" | "failed"
-        ) || !self.events.lock().await.pending.is_empty();
+        let busy = !lifecycle::ready(&state) || !self.events.lock().await.pending.is_empty();
         let uncertain = !self.alive.load(std::sync::atomic::Ordering::SeqCst)
             && self.host.as_ref().is_some_and(|host| host.alive());
         if self.host.is_some() && (busy || uncertain) {
@@ -1018,7 +1005,7 @@ impl Process {
             .map_err(|_| "PROCESS_EXIT".to_owned())?
             .map_err(|error| crate::rpc::submission_error("antigravity/turn", error))
     }
-    async fn antigravity_event(&self, state: &mut Value, msg: &Value, terminal: bool) {
+    async fn antigravity_event(&self, state: &mut Value, msg: &Value) {
         let event = string(msg, "event");
         let task = string(state, "taskId").to_owned();
         crate::event(&self.events, &task, event, msg.clone()).await;
@@ -1048,7 +1035,7 @@ impl Process {
             }
             return;
         }
-        if event != "result" || terminal {
+        if event != "result" {
             return;
         }
         let result = &msg["result"];
@@ -1061,13 +1048,10 @@ impl Process {
         state["deniedActions"] = result["denied_actions"].clone();
         state["stopReason"] = result["finished_reason"].clone();
         state["error"] = result["error"].clone();
-        state["status"] = json!(if result["status"] == "SUCCESS" {
-            "completed"
-        } else if result["finished_reason"] == "interrupted" {
-            "cancelled"
-        } else {
-            "failed"
-        });
+        lifecycle::apply(
+            state,
+            turn_adapter::antigravity_result(lifecycle::key(state), result),
+        );
         state["turnEvidence"] = json!({
             "source":"antigravity-result","scope":"turn","observedAt":now(),
             "status":result["status"],"deniedActions":result["denied_actions"]
@@ -1418,6 +1402,9 @@ mod stream_stability_tests {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let host = super::super::AgentHost::new().unwrap();
             let task = id();
+            crate::kernel::origin::ORIGIN.scope(json!({"sourceId":"claude"}), crate::claude_notify::bind(
+                &json!({"agent":"dsh","notify":{"channel":"claude-session","target":"session_010000000000000000000001"}}),
+                &task, "turn", "/project", json!({"op":"agent_send"}))).await.unwrap();
             let directory = std::env::temp_dir().join(format!("arc-journal-replay-{}", id()));
             std::fs::create_dir_all(&directory).unwrap();
             let journal = directory.join("journal.jsonl");
@@ -1454,7 +1441,105 @@ mod stream_stability_tests {
             assert_eq!(state["output"],"finished");
             assert_eq!(state["pendingInteractions"],json!([]));
             assert_eq!(state["exitCode"],0);
+            let observed = host.observe_notification("dsh", &task, "turn").await.unwrap();
+            assert_eq!(observed["state"], "completed");
+            assert_eq!(observed["finalResponse"], "finished");
+            crate::claude_notify::observe(&task, "turn", &observed).await.unwrap();
+            crate::claude_notify::tests::deliver_fixture_events(&task, "turn").await;
+            let sent = crate::claude_notify::read(&task, "turn").unwrap();
+            let completed: Vec<_> = sent["deliveries"].as_array().unwrap().iter().filter(|delivery| delivery["kind"] == "completed").collect();
+            assert_eq!(completed.len(), 1);
+            assert_eq!(completed[0]["state"], "delivered");
+            let event_id = completed[0]["eventId"].clone();
+            crate::claude_notify::observe(&task, "turn", &observed).await.unwrap();
+            crate::claude_notify::tests::deliver_fixture_events(&task, "turn").await;
+            let repeated = crate::claude_notify::read(&task, "turn").unwrap();
+            let completed: Vec<_> = repeated["deliveries"].as_array().unwrap().iter().filter(|delivery| delivery["kind"] == "completed").collect();
+            assert_eq!(completed.len(), 1);
+            assert_eq!(completed[0]["eventId"], event_id);
+            assert_eq!(completed[0]["state"], "delivered");
             recovered.release().await;
+            std::fs::remove_dir_all(directory).unwrap();
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pi_interrupt_waits_for_native_settlement() {
+        // Regression: Pi abort acknowledgement was projected as cancelled before native interruption confirmation.
+        if !isolated("pi_interrupt_waits_for_native_settlement") {
+            return;
+        }
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let host = super::super::AgentHost::new().unwrap();
+            let task = id();
+            crate::kernel::origin::ORIGIN.scope(json!({"sourceId":"claude"}), crate::claude_notify::bind(
+                &json!({"agent":"pi","notify":{"channel":"claude-session","target":"session_010000000000000000000001"}}),
+                &task, "turn", "/project", json!({"op":"agent_send"}))).await.unwrap();
+            let state = json!({"taskId":task,"agent":"pi","sessionId":"native-session","turnId":"turn","status":"running","metadata":{},"output":""});
+            let script = r#"
+                read abort
+                request_id=$(printf '%s' "$abort" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+                printf '{"type":"response","id":"%s","success":true,"data":{}}\n' "$request_id"
+                read get_state
+                request_id=$(printf '%s' "$get_state" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+                printf '{"type":"response","id":"%s","success":true,"data":{"sessionId":"native-session","isStreaming":true}}\n' "$request_id"
+                read confirm
+                printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[],"stopReason":"aborted"}}' '{"type":"agent_settled"}'
+                read hold
+            "#;
+            let process = Process::start(Path::new("/bin/sh"), &["-c".into(),script.into()], &std::env::temp_dir(), true, false, state, host.wake.clone(), &host.launches).await.unwrap();
+            host.processes.lock().await.insert(task.clone(), process.clone());
+            let requested = super::super::driver::AgentDriver::Pi.interrupt(&process).await.unwrap();
+            assert_eq!(requested["status"], "cancelling");
+            assert!(crate::claude_notify::read(&task, "turn").unwrap()["deliveries"].as_array().unwrap().is_empty());
+            let active = host.observe_notification("pi", &task, "turn").await.unwrap();
+            assert_eq!(active["state"], "running");
+            assert_eq!(active["recordedStatus"], "cancelling");
+            process.write(json!({"type":"confirm"})).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let notified = host.wake.notified();
+                    tokio::pin!(notified);
+                    notified.as_mut().enable();
+                    if host.context_task("pi", &task).await.unwrap()["status"] == "cancelled" { break; }
+                    notified.await;
+                }
+            }).await.unwrap();
+            let confirmed = host.observe_notification("pi", &task, "turn").await.unwrap();
+            assert_eq!(confirmed["state"], "cancelled");
+            assert_eq!(confirmed["reason"], "agent-turn-terminal");
+            let notification = crate::claude_notify::read(&task, "turn").unwrap();
+            assert!(notification["deliveries"].as_array().unwrap().iter().any(|delivery| delivery["kind"] == "interrupted"));
+            process.close().await;
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn host_exit_without_native_outcome_stays_unconfirmed() {
+        // Regression: a successful detached host exit fabricated a completed native turn.
+        if !isolated("host_exit_without_native_outcome_stays_unconfirmed") {
+            return;
+        }
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let host = super::super::AgentHost::new().unwrap();
+            let task = id();
+            let directory = std::env::temp_dir().join(format!("arc-exit-only-{}", id()));
+            std::fs::create_dir_all(&directory).unwrap();
+            let journal = directory.join("journal.jsonl");
+            std::fs::write(&journal, "").unwrap();
+            save(&directory.join("exit.json"), &json!({"exitCode":0,"receivedSequence":0,"nextOffset":1,"error":null})).unwrap();
+            let state = json!({"taskId":task,"agent":"dsh","status":"running","turnId":"turn","metadata":{},"output":"",
+                "taskHost":{"hostPid":0,"hostStart":"exited","hostProtocol":1,"socket":"unused","journalPath":journal,"ackedOffset":0}});
+            let process = Process::reattach(state, host.wake.clone(), &host.launches).await.unwrap();
+            host.processes.lock().await.insert(task.clone(), process.clone());
+            let saved = host.context_task("dsh", &task).await.unwrap();
+            assert_eq!(saved["exitCode"], 0);
+            assert_eq!(saved["status"], "unknown");
+            let observed = host.observe_notification("dsh", &task, "turn").await;
+            assert!(observed.is_err() || observed.unwrap()["state"] == "unconfirmed");
+            process.release().await;
             std::fs::remove_dir_all(directory).unwrap();
         });
     }

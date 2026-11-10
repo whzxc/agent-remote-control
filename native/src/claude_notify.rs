@@ -3032,7 +3032,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::sync::Mutex as SyncMutex;
     fn native_observation(b: &Binding, observed: &Value) -> Value {
@@ -3405,6 +3405,21 @@ mod tests {
                 .state = "verified".into();
             state.save(dir).unwrap();
         }
+    }
+    pub(crate) async fn deliver_fixture_events(thread: &str, turn: &str) {
+        let dir = directory();
+        let binding = binding(&dir, thread, turn).unwrap().unwrap();
+        verified_fixture_target(&dir, &binding);
+        flush(
+            &Fake::success(),
+            &dir,
+            &LOCK,
+            chrono::Utc::now().timestamp() + 60,
+            0,
+            &json!({"notificationBucketCapacity":100}),
+        )
+        .await
+        .unwrap();
     }
     fn fixture(dir: &Path) -> Binding {
         bind_in(

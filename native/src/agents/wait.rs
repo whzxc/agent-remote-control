@@ -1,5 +1,6 @@
 //! Process-owned observations for the same bounded waiter used by Codex.
 use super::*;
+use crate::turn_lifecycle::{adapters, TurnState};
 use crate::waiter::WaitSource;
 use tokio::time::Instant;
 
@@ -36,8 +37,26 @@ impl WaitSource for AgentSource {
             if !dispatches.is_empty() && self.process_session.is_none() {
                 return Ok(json!({"status":"starting","dispatching":true}));
             }
-            return Err("process-ownership-unconfirmed".into());
+            let task = self.host.task(&self.agent, &self.task).await?;
+            return Ok(task);
         };
+        let recorded = p.state.lock().await.clone();
+        if recorded["agent"] != self.agent {
+            return Err("AGENT_TASK_MISMATCH".into());
+        }
+        if self
+            .process_session
+            .as_ref()
+            .is_some_and(|session| *session != recorded["processSession"])
+        {
+            return Err("process-owner-changed".into());
+        }
+        if lifecycle::terminal(&recorded)
+            || matches!(lifecycle::read(&recorded).state(), TurnState::Conflict(_))
+        {
+            self.process_session = Some(recorded["processSession"].clone());
+            return Ok(recorded);
+        }
         if let Err(error) = p.check_alive().await {
             let previous = p.state.lock().await["turnId"].clone();
             if self.process_session.is_none() && dispatches.contains(&previous) {
@@ -98,29 +117,37 @@ impl WaitSource for AgentSource {
             *selected = t["turnId"].as_str().map(str::to_owned);
         }
         let status = string(t, "status");
+        let mut turn = lifecycle::read(t);
+        if !t["interaction"].as_array().is_none_or(Vec::is_empty) {
+            turn = crate::turn_lifecycle::advance(
+                &turn,
+                &crate::turn_lifecycle::Evidence::owner_live(
+                    lifecycle::key(t),
+                    crate::turn_lifecycle::LiveState::AwaitingInteraction,
+                    turn.revision().saturating_add(1),
+                ),
+            );
+        }
         let (state, reason) = if selected.is_some() && t["turnId"].as_str() != selected.as_deref() {
             ("unconfirmed", "turn-changed-or-unavailable")
-        } else if !t["interaction"].as_array().is_none_or(Vec::is_empty) {
-            ("interaction-required", "agent-interaction")
         } else if dispatching {
             ("running", "agent-dispatching")
-        } else if matches!(status, "completed" | "failed" | "cancelled") {
-            if t["runtime"]["isStreaming"] == true
-                || t["runtime"]["isCompacting"] == true
-                || t["runtime"]["pendingMessageCount"].as_u64().unwrap_or(0) > 0
-            {
-                ("unconfirmed", "inconsistent-native-state")
-            } else {
-                (status, "agent-turn-terminal")
-            }
-        } else if matches!(status, "starting" | "running" | "cancelling") {
-            ("running", "agent-turn-active")
         } else {
-            ("unconfirmed", "agent-state-unknown-or-no-turn")
+            let (state, reason) = adapters::wait(&turn.state());
+            (
+                state.as_wire(),
+                match turn.state() {
+                    TurnState::Terminal(_) => "agent-turn-terminal",
+                    TurnState::Active => "agent-turn-active",
+                    TurnState::AwaitingInteraction => "agent-interaction",
+                    TurnState::Conflict(_) => reason,
+                    _ => "agent-state-unknown-or-no-turn",
+                },
+            )
         };
         json!({"state":state,"reason":reason,"title":t["title"],"agent":self.agent,"taskId":self.task,
             "sessionId":t["sessionId"],"threadId":null,"turnId":selected,
-            "recordedStatus":t["status"],"runtimeStatus":if state=="unconfirmed"{"unknown"}else{status},
+            "_turnLifecycle":adapters::checkpoint(&turn),"recordedStatus":t["status"],"runtimeStatus":if state=="unconfirmed"{"unknown"}else{status},
             "runtimeSource":self.host.drivers[&self.agent].protocol(),"processSession":t["processSession"],
             "finalResponse":final_response(t, state, self.host.drivers[&self.agent].protocol()),
             "outputTruncated":t["outputTruncated"],"contextUsage":t["contextUsage"],
@@ -179,10 +206,8 @@ pub(super) async fn observe(
 }
 
 fn final_response(task: &Value, state: &str, protocol: &str) -> Value {
-    if matches!(
-        state,
-        "completed" | "failed" | "cancelled" | "interaction-required"
-    ) || (protocol == "pi-rpc" && task["lastMessage"]["role"] == "assistant")
+    if adapters::WaitState::from_wire(state).is_some_and(adapters::WaitState::keeps_response)
+        || (protocol == "pi-rpc" && task["lastMessage"]["role"] == "assistant")
     {
         task["output"].clone()
     } else {
