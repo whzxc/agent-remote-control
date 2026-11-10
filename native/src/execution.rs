@@ -1,6 +1,7 @@
 //! Application composition: tool routing over shared execution owners.
 use crate::{agents::AgentHost, control::Control, *};
 pub struct Execution {
+    pub(crate) front_door: Arc<crate::front_door::InProcess>,
     pub(crate) control: Arc<Control>,
     agents: Arc<AgentHost>,
     accounts: Arc<crate::accounts::Manager>,
@@ -14,6 +15,7 @@ impl Execution {
         accounts: Arc<crate::accounts::Manager>,
     ) -> Arc<Self> {
         Arc::new(Self {
+            front_door: Arc::new(crate::front_door::InProcess::new()),
             control,
             agents,
             subscriptions,

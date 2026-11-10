@@ -21,6 +21,66 @@ Updater scheduling starts after Core is attached. Desktop reads effective networ
 
 service::Service owns one Control, AgentHost, execution::Execution, and ingress collection. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
 
+### In-process front-door/Core protocol
+
+`front_door::protocol` defines the private version-1 boundary. `Hello` negotiates the
+version, a UUID-backed `Generation`, readiness and encoded frame limits. `Request`
+carries that generation, a transport `RequestId`, `Deadline`, `AuthenticatedContext`,
+`Operation` and JSON body. Transport IDs correlate frames; public receipt IDs remain
+unchanged in the body. `ResponseFrame` carries the correlated result.
+`StreamFrame` adds a monotonically increasing sequence; a null body is a snapshot
+stream keepalive. `Cancellation` addresses an
+admitted request in one generation. `DrainAck` acknowledges zero admitted requests.
+Incompatible versions, stale generations, expired deadlines and oversized frames
+return explicit `FRONT_DOOR_*` errors internally. Existing public adapters retain
+their HTTP, MCP and CLI error projections.
+
+`front_door::InProcess`, shared by Service and its ingresses through Execution,
+implements the boundary without another process or listener. Admissions are capped
+at 128, including streams, with no replay or waiting request queue. Encoded requests
+are capped at 36 MiB, retaining the existing 35 MiB pet-import HTTP allowance.
+Response and stream frames are capped at 64 MiB. Existing smaller HTTP body limits
+still apply. Ordinary requests and streams retain an absolute 1830-second deadline;
+browser reads use 30 seconds. Each stream channel holds one frame and delivery waits
+at most two seconds for its consumer. Dropping a request releases its future and
+admission; explicit cancellation has the same scope and never stops an Agent turn.
+Drain closes admissions under the admission lock and waits for all permits until
+its supplied deadline. Shutdown closes admissions before stopping existing owners.
+
+The transport/auth side owns `transport`'s private local listener, `https`,
+`https_tunnel`, relay forwarding, HTTP/MCP framing, `oauth` grants and pairing, and
+`browser` key/cookie verification. The existing OpenAI tunnel authenticates its
+upstream and enters through the private local listener. Private local authentication
+still verifies loopback peer, Host, Bearer and Origin. `front_door` derives MCP
+source identity from the configured ingress and authenticated credential, including
+the credential anchor and event principal. Headers never supply ingress or source authority. Browser
+contexts carry the verified key digest and server-selected ingress; private
+management contexts represent the authenticated local peer. These contexts cannot
+be deserialized or constructed from public input.
+
+`core_requests` owns MCP dispatch, tool validation and authorization, local control,
+management operation routing, browser operation restrictions, snapshot observation
+and result projection. Core receives the authenticated context, checks its target
+and current source authority, and retains existing task association and resource
+boundaries in Execution and domain owners. Browser API reads and streams use this
+boundary directly. They no longer forward through the private management HTTP API.
+
+The source authority cache remains the sole revocation owner. Transport admission,
+Core admission and result/frame delivery consult its current state; source writes
+publish to this same cache. Cached principals and MCP session headers cannot bypass
+revocation. Browser streams recheck the current key and connection every two seconds.
+Every delivered result and stream frame is fenced against the receiving endpoint's
+Core generation, request identity and deadline. A stale result is discarded before
+public serialization. No credential, grant, receipt or transcript store is copied.
+The adapters do not select accounts, dispatch or restart Agents, replay writes, or
+classify turn completion.
+
+`runtime::serve_mode` still owns the Core lock, all listeners, provider supervision
+and shutdown. The process placement and detached executor ownership are unchanged.
+The separate socket/pipe peer, surviving listener/provider owner and Core attachment
+lifecycle belong to the subsequent process extraction described in
+[Runtime invariants](runtime-invariants-proposal.md#d3-stable-front-door-replaceable-core-detached-executors).
+
 Core's `resources` module owns process resource policy. It runs at runtime startup and Service initialization, and checks again before each Rpc creates app-server. Desktop, login startup, and Linux daemon share this path. Login items do not maintain separate limits. macOS/Linux attempt to raise the `RLIMIT_NOFILE` soft limit to 8192 while preserving higher soft limits and the original hard limit. macOS also respects `OPEN_MAX` and the read-only `kern.maxfilesperproc`. Global system limits remain unchanged. Each attempt records the original, target, attempted, and measured values and failure reason. Failure or a below-target limit does not stop Core.
 
 Status requests read resources on demand without a monitoring task. Core limits are measured in-process. Rpc records the app-server PID, creation time, and inherited startup limits. A detached server reports `detached` and `adopted`; its PID is checked against the recorded creation time on every read because it may not be Core's child. Linux reads child limits through read-only prlimit and counts `/proc/<pid>/fd`. macOS enumerates descriptors with `proc_pidinfo(PROC_PIDLISTFDS)` and labels limits as inherited startup records. Child exit status is checked before and after sampling. Exit or read failure yields null counts and unknown status without sending child commands. Windows reports not applicable. Communication readiness is separate from resource health. Known descriptor use at 90% of the soft limit produces `APP_SERVER_FD_PRESSURE`. Degraded limits produce `CORE_NOFILE_DEGRADED` or `APP_SERVER_NOFILE_DEGRADED`. These diagnostics neither unsubscribe threads nor restart processes.

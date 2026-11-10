@@ -1,0 +1,80 @@
+{
+  "browser_allowed": {
+    "body": "{\"agents-max-visible\":\"4\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff"
+    },
+    "status": 200
+  },
+  "browser_denied": {
+    "body": "",
+    "headers": {
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff"
+    },
+    "status": 401
+  },
+  "browser_write": {
+    "body": "",
+    "headers": {
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff"
+    },
+    "status": 403
+  },
+  "local_allowed": {
+    "body": "{\"agents-max-visible\":\"4\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json"
+    },
+    "status": 200
+  },
+  "local_denied": {
+    "body": "{\"error\":\"unauthorized\"}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json"
+    },
+    "status": 403
+  },
+  "local_origin": {
+    "body": "{\"error\":\"unauthorized\"}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json"
+    },
+    "status": 403
+  },
+  "mcp_allowed": {
+    "body": "{\"id\":7,\"jsonrpc\":\"2.0\",\"result\":{\"resultType\":\"complete\"}}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json"
+    },
+    "status": 200
+  },
+  "mcp_denied": {
+    "body": "{\"error\":\"unauthorized\"}",
+    "headers": {
+      "cache-control": "no-store",
+      "content-type": "application/json",
+      "www-authenticate": "Bearer"
+    },
+    "status": 401
+  },
+  "mcp_method": {
+    "body": "{\"error\":\"method not allowed\"}",
+    "headers": {
+      "allow": "POST",
+      "cache-control": "no-store",
+      "content-type": "application/json"
+    },
+    "status": 405
+  }
+}

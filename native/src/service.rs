@@ -497,6 +497,7 @@ impl Service {
         }).await
     }
     pub(crate) fn begin_shutdown(&self) {
+        self.execution.front_door.begin_drain();
         self.closing.store(true, Ordering::SeqCst);
         self.runtime.begin_shutdown();
     }

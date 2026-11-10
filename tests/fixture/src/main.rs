@@ -104,7 +104,7 @@ async fn main() {
     let mut out = tokio::io::stdout();
     while let Some(line) = lines.next_line().await.unwrap() {
         let request = serde_json::from_str(&line).unwrap();
-        let response = arc_core::transport::mcp(&service, request).await.unwrap();
+        let response = arc_core::front_door::mcp(&service, request).await.unwrap();
         if !response.is_null() {
             out.write_all(format!("{response}\n").as_bytes())
                 .await

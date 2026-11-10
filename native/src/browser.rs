@@ -1,6 +1,5 @@
 //! Key-authenticated, read-only browser surface on existing HTTPS ingresses.
 use crate::*;
-use futures_util::StreamExt;
 use http_body_util::{BodyExt, Full, Limited};
 use hyper::{body::Bytes, Request, Response};
 use ring::rand::{SecureRandom, SystemRandom};
@@ -23,6 +22,9 @@ fn key_path() -> PathBuf {
 }
 fn stored_key() -> Option<String> {
     load(&key_path()).ok()?["key"].as_str().map(str::to_owned)
+}
+pub(crate) fn key_digest() -> Option<String> {
+    stored_key().map(hash)
 }
 pub(crate) async fn access(service: &service::Service, rotate: bool) -> Result<Value> {
     static WRITE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -160,51 +162,6 @@ pub(crate) fn status_comparison(value: &Value) -> Value {
     }
 }
 
-fn allowed(route: &str, method: &str) -> bool {
-    match method {
-        "GET" => {
-            matches!(
-                route,
-                "status"
-                    | "source"
-                    | "agents"
-                    | "agents/activity"
-                    | "subscriptions"
-                    | "tasks"
-                    | "preferences"
-                    | "accounts"
-                    | "events"
-                    | "subscriptions/events"
-                    | "agents/activity/events"
-                    | "relay/list"
-                    | "relay/progress"
-            ) || route
-                .strip_prefix("accounts/")
-                .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
-                || ["agents/timeline/", "tasks/runtime/"].iter().any(|prefix| {
-                    route
-                        .strip_prefix(prefix)
-                        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
-                })
-        }
-        "POST" => matches!(
-            route,
-            "agents/conversations"
-                | "agents/conversations/timeline"
-                | "coordination/board"
-                | "coordination/events"
-                | "coordination/ax_list"
-                | "agents/dispatch-catalog"
-                | "agents/dispatch-defaults/read"
-                | "agents/resources"
-                | "tasks/reviews"
-                | "tasks/control"
-                | "tasks/request-routing"
-        ),
-        _ => false,
-    }
-}
-
 struct Stream(tokio::sync::mpsc::Receiver<Bytes>);
 impl hyper::body::Body for Stream {
     type Data = Bytes;
@@ -262,10 +219,10 @@ pub(crate) async fn handle(
     }
     let method = request.method().as_str().to_owned();
     if let Some(route) = path.strip_prefix("/view-api/") {
-        if !allowed(route, &method) {
+        if !crate::core_requests::browser_allowed(route, &method) {
             return empty(403);
         }
-        let body = if method == "POST" {
+        let mut body = if method == "POST" {
             let bytes = match tokio::time::timeout(
                 Duration::from_secs(5),
                 Limited::new(request.into_body(), 16384).collect(),
@@ -278,45 +235,18 @@ pub(crate) async fn handle(
             let Ok(body) = serde_json::from_slice::<Value>(&bytes) else {
                 return empty(400);
             };
-            if (route == "tasks/control" && body["op"] != "codex_queue")
-                || (route == "tasks/request-routing" && body["action"] != "read")
-                || (route == "agents/resources" && body["action"] != "image")
-            {
-                return empty(403);
-            }
-            let catalog = crate::management::catalog();
-            let Some(operation) = catalog["operations"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|op| op["route"] == route && op["method"] == "POST")
-            else {
-                return empty(403);
-            };
-            if crate::management::resolve(string(operation, "name"), &json!({"body":body})).is_err()
-            {
-                return empty(400);
-            }
-            Some(body)
+            body
         } else {
-            None
+            json!({})
         };
-        let port = ingress.port.load(std::sync::atomic::Ordering::SeqCst);
-        let Ok(client) = reqwest::Client::builder()
-            .no_proxy()
-            .connect_timeout(Duration::from_secs(5))
-            .build()
-        else {
-            return empty(503);
-        };
-        let target_route = match route {
-            "status" => "browser/snapshot",
-            "events" => "browser/events",
-            _ => route,
-        };
-        let mut target = format!("http://127.0.0.1:{port}/api/{target_route}");
+        if let Err(error) = crate::core_requests::authorize_browser(route, &method, &body) {
+            return empty(if error == "FRONT_DOOR_BROWSER_INVALID" {
+                400
+            } else {
+                403
+            });
+        }
         if route.starts_with("agents/timeline/") {
-            let mut params = Vec::new();
             for (key, value) in
                 url::form_urlencoded::parse(query.as_deref().unwrap_or("").as_bytes())
             {
@@ -325,69 +255,25 @@ pub(crate) async fn handle(
                         let Ok(after) = value.parse::<u64>() else {
                             return empty(400);
                         };
-                        params.push(format!("after={after}"));
+                        body["after"] = json!(after);
                     }
-                    "recent" if value == "1" => params.push("recent=1".into()),
+                    "recent" if value == "1" => body["recent"] = json!(true),
                     _ => {}
                 }
             }
-            if !params.is_empty() {
-                target.push('?');
-                target.push_str(&params.join("&"));
-            }
         }
-        let mut upstream = client
-            .request(
-                reqwest::Method::from_bytes(method.as_bytes()).unwrap(),
-                target,
-            )
-            .bearer_auth(&ingress.token);
-        if let Some(validator) = &validator {
-            upstream = upstream.header("If-None-Match", validator);
-        }
-        if let Some(body) = body {
-            upstream = upstream.json(&body);
-        }
-        let streaming = matches!(
+        if matches!(
             route,
             "events" | "subscriptions/events" | "agents/activity/events"
-        );
-        if !streaming {
-            upstream = upstream.timeout(Duration::from_secs(30));
-        }
-        let Ok(upstream) = upstream.send().await else {
-            return empty(503);
-        };
-        if !upstream.status().is_success() {
-            let code = upstream.status().as_u16();
-            return match upstream.bytes().await {
-                Ok(bytes) => response(code, bytes, Some("application/json")),
-                Err(_) => empty(502),
+        ) {
+            let kind = match route {
+                "events" => crate::front_door::Snapshot::Browser,
+                "subscriptions/events" => crate::front_door::Snapshot::Subscriptions,
+                _ => crate::front_door::Snapshot::Activity,
             };
-        }
-        if streaming {
-            let (tx, rx) = tokio::sync::mpsc::channel(1);
-            let mut stream = upstream.bytes_stream();
-            tokio::spawn(async move {
-                let mut check = tokio::time::interval(Duration::from_secs(2));
-                loop {
-                    tokio::select! {
-                        _ = tx.closed() => break,
-                        _ = check.tick() => {
-                            if crate::runtime_metrics::cost::sync(crate::runtime_metrics::cost::Owner::BrowserGuard, crate::runtime_metrics::cost::Reason::Timer, || {
-                                crate::runtime_metrics::cost::scan_set(1);
-                                crate::runtime_metrics::cost::rows(1);
-                                stored_key()
-                            }).is_none_or(|current| !same(&current, &key))
-                                || !ingress.connected.load(std::sync::atomic::Ordering::SeqCst) { break; }
-                        },
-                        chunk = stream.next() => match chunk {
-                            Some(Ok(bytes)) => if !matches!(tokio::time::timeout(Duration::from_secs(2), tx.send(bytes)).await, Ok(Ok(()))) { break; },
-                            _ => break,
-                        }
-                    }
-                }
-            });
+            let Ok(rx) = crate::front_door::browser_stream(&ingress, &key, kind).await else {
+                return empty(503);
+            };
             let mut result = empty(200);
             result
                 .headers_mut()
@@ -398,19 +284,40 @@ pub(crate) async fn handle(
             *result.body_mut() = Stream(rx).boxed();
             return result;
         }
-        return match upstream.bytes().await {
-            Ok(bytes) => {
-                let etag = format!("\"{}\"", hash(&bytes));
-                let mut result = if not_modified(validator.as_deref(), &etag) {
-                    empty(304)
-                } else {
-                    response(200, bytes, Some("application/json"))
-                };
-                result.headers_mut().insert("ETag", etag.parse().unwrap());
-                result
+        let value =
+            match crate::front_door::browser_request(&ingress, &key, route, &method, body).await {
+                Ok(value) => value,
+                Err(error) if error == "FRONT_DOOR_BROWSER_FORBIDDEN" => return empty(403),
+                Err(error) if error == "FRONT_DOOR_BROWSER_INVALID" => return empty(400),
+                Err(error) if error == "FRONT_DOOR_BROWSER_UNAUTHORIZED" => return empty(401),
+                Err(error) if error.starts_with("FRONT_DOOR_") => return empty(503),
+                Err(error) => {
+                    return response(
+                        400,
+                        json!({"error":error}).to_string(),
+                        Some("application/json"),
+                    )
+                }
+            };
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let etag = format!("\"{}\"", hash(&bytes));
+        // Preserve the upstream conditional-read response, including its empty body.
+        if not_modified(validator.as_deref(), &etag) {
+            if method == "GET"
+                || matches!(
+                    route,
+                    "agents/conversations" | "agents/conversations/timeline" | "tasks/reviews"
+                )
+            {
+                return response(304, Bytes::new(), Some("application/json"));
             }
-            Err(_) => empty(502),
-        };
+            let mut result = empty(304);
+            result.headers_mut().insert("ETag", etag.parse().unwrap());
+            return result;
+        }
+        let mut result = response(200, bytes, Some("application/json"));
+        result.headers_mut().insert("ETag", etag.parse().unwrap());
+        return result;
     }
     if method != "GET" {
         return empty(403);

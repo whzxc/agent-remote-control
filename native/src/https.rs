@@ -270,7 +270,7 @@ async fn handle_inner(
             string(&value, "method"),
             "notifications/cancelled" | "notifications/initialized"
         ) {
-            let _ = crate::transport::mcp_ingress_authenticated(
+            let _ = crate::front_door::mcp_ingress_authenticated(
                 &service,
                 value,
                 &principal,
@@ -288,7 +288,7 @@ async fn handle_inner(
             &value,
             sse,
             async move {
-                let result = crate::transport::mcp_ingress_authenticated(
+                let result = crate::front_door::mcp_ingress_authenticated(
                     &service,
                     request,
                     &principal,
@@ -301,7 +301,7 @@ async fn handle_inner(
             async move { crate::transport::wait_disconnect(&disconnect).await },
         ));
     }
-    let result = crate::transport::mcp_ingress_authenticated(
+    let result = crate::front_door::mcp_ingress_authenticated(
         &service,
         value,
         &principal,

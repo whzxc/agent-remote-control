@@ -23,13 +23,13 @@ pub struct Ingress {
     pub id: String,
     pub meta: Mutex<Value>,
     pub(crate) oauth: Mutex<crate::oauth::OAuth>,
-    dir: PathBuf,
+    pub(crate) dir: PathBuf,
     pub(crate) execution: Arc<crate::execution::Execution>,
-    pub(crate) wait_calls: crate::transport::WaitCalls,
+    pub(crate) wait_calls: crate::core_requests::WaitCalls,
     pub token: String,
     pub port: std::sync::atomic::AtomicU16,
     settings: Mutex<Value>,
-    verification: Mutex<Value>,
+    pub(crate) verification: Mutex<Value>,
     logs: Mutex<Vec<String>>,
     tunnel: Mutex<Option<Child>>,
     https: Mutex<Option<tokio::task::JoinHandle<()>>>,
@@ -155,44 +155,6 @@ impl Ingress {
     }
     pub async fn origin(&self) -> Value {
         crate::kernel::origin::current_origin()
-    }
-    pub async fn principal_origin(&self, principal: &Value) -> Result<Value> {
-        let meta = self.meta.lock().await;
-        let source = if principal["type"] == "oauth-grant" {
-            crate::sources::for_grant(&self.id, string(principal, "grantId"))?
-        } else {
-            if meta["auth"] == "oauth" {
-                return Err("OAuth principal required".into());
-            }
-            crate::sources::connect_ingress(&meta).await?
-        };
-        crate::sources::touch(&source, string(&meta, "auth")).await
-    }
-    pub async fn allows(&self, name: &str) -> bool {
-        let meta = self.meta.lock().await;
-        let allowed = crate::kernel::policy::allows(&meta["toolPolicy"], name);
-        drop(meta);
-        allowed && self.execution.available(name).await
-    }
-    pub async fn authenticate(&self, header: &str) -> Option<Value> {
-        let meta = self.meta.lock().await;
-        if meta["auth"] == "oauth" {
-            drop(meta);
-            let resource = self.mcp_url.lock().await.clone();
-            let resource = reqwest::Url::parse(&resource).ok()?;
-            return self
-                .oauth
-                .lock()
-                .await
-                .authenticate(header, resource.as_str())
-                .await;
-        }
-        let allowed = meta["auth"] == "none"
-            || meta["auth"] == "bearer"
-                && !string(&meta, "bearerToken").is_empty()
-                && hash(header) == hash(format!("Bearer {}", string(&meta, "bearerToken")));
-        (allowed && !crate::sources::ingress_retired(&self.id))
-            .then(|| json!({"type":"ingress","ingressId":self.id}))
     }
     pub(crate) async fn observe_request(&self, field: &str) -> Result<()> {
         let mut verification = self.verification.lock().await;
@@ -1039,53 +1001,6 @@ impl Ingress {
             }
             _ => Err("UNKNOWN_ROUTE".into()),
         }
-    }
-    pub async fn call(self: &Arc<Self>, name: &str, args: Value) -> Result<Value> {
-        if !self.connected.load(std::sync::atomic::Ordering::SeqCst) {
-            return Err("Connection closed".into());
-        }
-        let result = if name == "connector_verify" {
-            let spec = catalog()["ops"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|op| op["name"] == name)
-                .unwrap();
-            crate::egress::validate_op(spec, &args)?;
-            let mut v = self.verification.lock().await;
-            if args["code"] != v["code"] {
-                return Err("Verification code does not match".into());
-            }
-            let mut next = v.clone();
-            next["challengeVerifiedAt"] = json!(now());
-            next["verifiedAt"] = next["challengeVerifiedAt"].clone();
-            save(&self.dir.join("verification.json"), &next)?;
-            *v = next;
-            Ok(json!({"code":args["code"],"received":true,"origin":self.origin().await}))
-        } else {
-            let policy = self.meta.lock().await["toolPolicy"].clone();
-            self.execution.call(name, args, policy).await
-        };
-        if result.is_ok() && name != "connector_verify" {
-            let mut v = self.verification.lock().await;
-            if v["verifiedAt"].is_null() {
-                v["verifiedAt"] = json!(now());
-                save(&self.dir.join("verification.json"), &v)?;
-            }
-        }
-        self.log(
-            if result.is_ok() { "INFO" } else { "ERROR" },
-            &format!(
-                "{}: {name}",
-                if result.is_ok() {
-                    "Request processed"
-                } else {
-                    "Request failed"
-                }
-            ),
-        )
-        .await;
-        result
     }
 }
 pub(crate) fn write_secret(path: &Path, text: &str) -> Result<()> {

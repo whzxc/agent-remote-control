@@ -35,6 +35,7 @@ mod control_metrics;
 mod control_profiles;
 pub mod control_sources;
 pub mod coordination;
+mod core_requests;
 pub mod desktop;
 pub mod diagnostics;
 mod dispatch_caller;
@@ -43,6 +44,7 @@ mod dispatch_queue;
 pub mod egress;
 pub mod execution;
 mod external_inputs;
+pub mod front_door;
 pub mod headless;
 pub mod https;
 pub mod https_tunnel;
@@ -488,3 +490,6 @@ pub(crate) mod wait_transport;
 
 mod cli_acceptance;
 mod cli_shim;
+
+#[cfg(test)]
+mod front_door_tests;
