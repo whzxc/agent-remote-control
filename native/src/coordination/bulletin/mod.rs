@@ -285,13 +285,6 @@ pub(crate) async fn call(
             value["projectionPending"] = json!(projection.is_some() || with_store(|s| Ok(!s.state.pending.is_empty()))?);
             mark_owned(&mut value, &reader.principal);
             value["attention"] = attention(&reader.principal).await;
-            let lines: Vec<String> = value["attention"]["items"].as_array().into_iter().flatten()
-                .filter(|item| item["kind"] != "blocker")
-                .map(|item| format!("attention {} {} {}", string(item,"kind"), string(item,"id"), item["summary"].as_str().or(item["reason"].as_str()).unwrap_or(""))).collect();
-            if !lines.is_empty() {
-                let summary = string(&value, "summary");
-                value["summary"] = json!(if summary.is_empty() { lines.join("\n") } else { format!("{summary}\n{}", lines.join("\n")) });
-            }
             if reader.principal == Principal::LocalAuthority && args["id"].is_string() {
                 if let Some(blocker) = recovery_blocker(string(&args,"id"))? { value["localRecoverySelection"] = blocker["recoverySelection"].clone(); }
             }

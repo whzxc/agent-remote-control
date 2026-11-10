@@ -80,3 +80,15 @@ test('desktop bulletin management uses local authority, owner revisions, replay 
     assert.deepEqual(retained.blockers[0].evidenceIds, ['synthetic-inspection']);
   } finally { await fixture.close(); }
 });
+
+
+test('board keeps AX attention structured without duplicate summary lines', async () => {
+  // Regression: AX-only attention repeated its kind and identifier in the board summary.
+  const fixture = await nativeControl('');
+  try {
+    await fixture.call('ax_report', {symptom:'Fixture blocking control decision', expected:'Expose actionable AX attention', severity:'blocking'});
+    const board = await fixture.api('coordination/board', {view:'summary'});
+    assert.ok(board.attention.items.some((item: any) => item.kind === 'ax-triage' && item.open > 0 && item.next.op === 'ax_list'));
+    assert.ok(!board.summary?.includes('ax-triage'));
+  } finally { await fixture.close(); }
+});
