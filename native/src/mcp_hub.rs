@@ -216,23 +216,32 @@ fn sweeper() {
         tokio::spawn(async {
             loop {
                 tokio::time::sleep(Duration::from_secs(60)).await;
-                let entries: Vec<Entry> = POOL
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .values()
-                    .cloned()
-                    .collect();
-                for entry in entries {
-                    let Ok(mut live) = entry.try_lock() else {
-                        continue;
-                    };
-                    if live.used.is_some_and(|used| used.elapsed() > IDLE) {
-                        if let Some(session) = live.session.take() {
-                            session.close().await;
+                crate::runtime_metrics::cost::scope(
+                    crate::runtime_metrics::cost::Owner::McpSweep,
+                    crate::runtime_metrics::cost::Reason::Timer,
+                    async {
+                        let entries: Vec<Entry> = POOL
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .values()
+                            .cloned()
+                            .collect();
+                        crate::runtime_metrics::cost::scan_set(entries.len());
+                        for entry in entries {
+                            crate::runtime_metrics::cost::rows(1);
+                            let Ok(mut live) = entry.try_lock() else {
+                                continue;
+                            };
+                            if live.used.is_some_and(|used| used.elapsed() > IDLE) {
+                                if let Some(session) = live.session.take() {
+                                    session.close().await;
+                                }
+                                live.used = None;
+                            }
                         }
-                        live.used = None;
-                    }
-                }
+                    },
+                )
+                .await;
             }
         });
     });

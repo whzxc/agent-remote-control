@@ -147,6 +147,8 @@ impl Store {
             }
             let bytes =
                 std::fs::read(&path).map_err(|_| "COORDINATION_STORAGE: cannot read messages")?;
+            crate::runtime_metrics::cost::bytes_read(bytes.len());
+            crate::runtime_metrics::cost::bytes_parsed(bytes.len());
             let mut value: Value = serde_json::from_slice(&bytes).map_err(|_| {
                 "COORDINATION_CORRUPT: preserve messages snapshot for local recovery"
             })?;
@@ -190,6 +192,7 @@ impl Store {
                 ..Default::default()
             }
         };
+        crate::runtime_metrics::cost::scan_set(data.messages.len() + data.negotiations.len());
         let store = Self { path, data };
         if !store.path.exists() || migrated {
             store.save()?;
@@ -207,7 +210,9 @@ impl Store {
         {
             return Err("COORDINATION_CAPACITY: use local messages management to resolve escalations; wait for closed history retention".into());
         }
-        super::super::journal::atomic_bytes(&self.path, &bytes)
+        super::super::journal::atomic_bytes(&self.path, &bytes)?;
+        crate::runtime_metrics::cost::changed(1);
+        Ok(())
     }
     fn transaction<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
         let before = self.data.clone();
@@ -648,6 +653,7 @@ impl Store {
             due(time);
         }
         for n in &self.data.negotiations {
+            crate::runtime_metrics::cost::rows(1);
             if !n.unresolved() && n.state == "open" {
                 due(n.expires_at);
             }
@@ -656,6 +662,7 @@ impl Store {
             }
         }
         for row in &self.data.messages {
+            crate::runtime_metrics::cost::rows(1);
             let state = string(&row.envelope, "deliveryState");
             if state == "sending" {
                 due(time);
@@ -695,6 +702,7 @@ impl Store {
         })?;
         let mut groups: BTreeMap<String, Vec<Row>> = BTreeMap::new();
         for row in &self.data.messages {
+            crate::runtime_metrics::cost::rows(1);
             if row.envelope["deliveryState"] != "pending" || row.due > time {
                 continue;
             }

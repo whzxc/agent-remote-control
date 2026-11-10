@@ -374,7 +374,11 @@ pub(crate) async fn handle(
                     tokio::select! {
                         _ = tx.closed() => break,
                         _ = check.tick() => {
-                            if stored_key().is_none_or(|current| !same(&current, &key))
+                            if crate::runtime_metrics::cost::sync(crate::runtime_metrics::cost::Owner::BrowserGuard, crate::runtime_metrics::cost::Reason::Timer, || {
+                                crate::runtime_metrics::cost::scan_set(1);
+                                crate::runtime_metrics::cost::rows(1);
+                                stored_key()
+                            }).is_none_or(|current| !same(&current, &key))
                                 || !ingress.connected.load(std::sync::atomic::Ordering::SeqCst) { break; }
                         },
                         chunk = stream.next() => match chunk {

@@ -114,8 +114,16 @@ impl Frames {
                     *offset = row["offset"].as_u64().ok_or("TASK_HOST_JOURNAL_INVALID")?;
                     return serde_json::to_vec(&row).map_err(|e| e.to_string());
                 }
-                let status = client.status().await;
-                let exited = client.exit();
+                let (status, exited) = crate::runtime_metrics::cost::scope(
+                    crate::runtime_metrics::cost::Owner::AgentProcess,
+                    crate::runtime_metrics::cost::Reason::Poll,
+                    async {
+                        crate::runtime_metrics::cost::scan_set(1);
+                        crate::runtime_metrics::cost::rows(1);
+                        (client.status().await, client.exit())
+                    },
+                )
+                .await;
                 if !client.alive() && exited.is_none() {
                     return Err(
                         "TASK_HOST_LOST: no exit record; reconcile the task before resuming".into(),
@@ -147,6 +155,7 @@ impl Frames {
                     return Ok(vec![]);
                 }
                 tokio::time::sleep(Duration::from_millis(100)).await;
+                crate::runtime_metrics::cost::wake(crate::runtime_metrics::cost::Reason::Timer);
             },
         }
     }
@@ -406,7 +415,11 @@ impl Process {
             loop {
                 // Keep the same read future across timer ticks: line() consumes partial
                 // frames and must not be cancelled by the persistence deadline.
-                let read = frames.next();
+                let read = crate::runtime_metrics::cost::scope(
+                    crate::runtime_metrics::cost::Owner::AgentProcess,
+                    crate::runtime_metrics::cost::Reason::Event,
+                    frames.next(),
+                );
                 tokio::pin!(read);
                 let frame = loop {
                     tokio::select! {
@@ -419,7 +432,7 @@ impl Process {
                             }
                         } => {
                             let Some(p) = weak.upgrade() else { return };
-                            p.persist(&mut *p.state.lock().await).await;
+                            crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::AgentProcess, crate::runtime_metrics::cost::Reason::Deadline, p.persist(&mut *p.state.lock().await)).await;
                             deadline = None;
                         }
                         result = &mut read => break result,

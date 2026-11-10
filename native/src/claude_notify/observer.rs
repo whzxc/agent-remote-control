@@ -1,6 +1,45 @@
 //! Reuse settled or exhausted observations until their evidence changes.
 use super::*;
 
+/// History-wide maps used by a non-skipped pass. Keep the visit count explicit
+/// so activity indexing can replace this cost boundary without hiding its slope.
+pub(super) struct ScanSet {
+    pub paths: std::collections::HashSet<PathBuf>,
+    pub latest: std::collections::HashMap<(String, String), i64>,
+    pub rows_visited: usize,
+}
+pub(super) fn scan_set(dir: &Path, all: &[Arc<Binding>]) -> ScanSet {
+    let mut rows_visited = 0;
+    let paths = all
+        .iter()
+        .map(|b| {
+            rows_visited += 1;
+            path_in(dir, &b.thread_id, &b.turn_id)
+        })
+        .collect();
+    let mut latest = std::collections::HashMap::<(String, String), i64>::new();
+    for b in all {
+        rows_visited += 1;
+        let created = latest
+            .entry((b.source_id.clone(), b.thread_id.clone()))
+            .or_default();
+        *created = (*created).max(b.created_at);
+    }
+    ScanSet {
+        paths,
+        latest,
+        rows_visited,
+    }
+}
+
+pub(super) fn scan_for_pass(dir: &Path, all: &[Arc<Binding>]) -> ScanSet {
+    let scan = scan_set(dir, all);
+    crate::runtime_metrics::cost::scan_set(all.len());
+    crate::runtime_metrics::cost::bindings(all.len(), 0, 0);
+    crate::runtime_metrics::cost::rows(scan.rows_visited);
+    scan
+}
+
 pub(super) struct TerminalWatch {
     pub path: Option<PathBuf>,
     pub stamp: Option<file_cache::Stamp>,
@@ -44,7 +83,11 @@ impl Idle {
         let mut paths = vec![root().join("execution"), root().join("agents/tasks")];
         let mut next = None;
         let mut writers = Vec::new();
-        for b in all.iter().filter(|b| !b.source_id.is_empty()) {
+        for b in all
+            .iter()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
+            .filter(|b| !b.source_id.is_empty())
+        {
             let closed = b.terminal
                 && b.observation["reconciliation"] != "pending-after-restart"
                 && (b.scope_end.is_some() || b.continuation_bound);
@@ -91,10 +134,14 @@ impl Idle {
             return;
         };
         let revision = changes.revision();
-        for b in all.iter().filter(|b| {
-            !b.source_id.is_empty()
-                && !(b.terminal && (b.scope_end.is_some() || b.continuation_bound))
-        }) {
+        for b in all
+            .iter()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
+            .filter(|b| {
+                !b.source_id.is_empty()
+                    && !(b.terminal && (b.scope_end.is_some() || b.continuation_bound))
+            })
+        {
             if let Some(watch) = watches.get(&path_in(&directory(), &b.thread_id, &b.turn_id)) {
                 if watch.changed(b, events).unwrap_or(true) {
                     return;
@@ -262,6 +309,54 @@ impl TerminalWatch {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn retained_history_increases_observer_visits_with_fixed_active_work() {
+        // Regression: ax-090844fd observer map construction revisits retained completed history beside a fixed active workload.
+        use crate::runtime_metrics::cost::{self, Owner, Reason};
+        let control = control::Control::new(PathBuf::new());
+        let fixture = |completed: usize| {
+            let mut active = binding();
+            active.terminal = false;
+            active.turn_id = "active".into();
+            active.observation = json!({"state":"running"});
+            let mut rows = vec![Arc::new(active)];
+            rows.extend((0..completed).map(|n| {
+                let mut row = binding();
+                row.turn_id = format!("completed-{n}");
+                Arc::new(row)
+            }));
+            rows
+        };
+        let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+        cost::scope(Owner::NotificationObserver, Reason::Timer, async {
+            scan_for_pass(Path::new("fixture"), &fixture(4))
+        })
+        .await;
+        let middle = control.tool("runtime_metrics", json!({})).await.unwrap();
+        cost::scope(Owner::NotificationObserver, Reason::Event, async {
+            scan_for_pass(Path::new("fixture"), &fixture(40))
+        })
+        .await;
+        let after = control.tool("runtime_metrics", json!({})).await.unwrap();
+        let metric =
+            |v: &Value, key: &str| v["cost"]["notificationObserver"][key].as_u64().unwrap();
+        let small_visits = metric(&middle, "rowsVisited") - metric(&before, "rowsVisited");
+        let large_visits = metric(&after, "rowsVisited") - metric(&middle, "rowsVisited");
+        assert!(small_visits > 0);
+        assert!(large_visits > small_visits);
+        assert_eq!(
+            metric(&after, "recordsChanged"),
+            metric(&before, "recordsChanged")
+        );
+        assert_eq!(metric(&after, "passes") - metric(&before, "passes"), 2);
+        assert_eq!(metric(&middle, "scanSetSize"), 5);
+        assert_eq!(metric(&after, "scanSetSize"), 41);
+        println!(
+            "runtime_metrics observer fixture: {}",
+            json!({"small":middle["cost"]["notificationObserver"],"large":after["cost"]["notificationObserver"]})
+        );
+    }
 
     #[test]
     fn only_settled_terminal_observations_can_be_reused() {

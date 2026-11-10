@@ -48,14 +48,22 @@ impl State {
         true
     }
     fn active(&self) -> std::sync::MutexGuard<'_, HashMap<String, Lease>> {
-        let mut leases = self.leases.lock().unwrap();
-        leases.retain(|_, lease| {
-            lease.seen.elapsed() < LEASE_TTL
-                || lease.process_start.as_ref().is_some_and(|start| {
-                    crate::codex_host::process_start(lease.pid).as_ref() == Some(start)
-                })
-        });
-        leases
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::RuntimeLease,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                let mut leases = self.leases.lock().unwrap();
+                crate::runtime_metrics::cost::scan_set(leases.len());
+                leases.retain(|_, lease| {
+                    crate::runtime_metrics::cost::rows(1);
+                    lease.seen.elapsed() < LEASE_TTL
+                        || lease.process_start.as_ref().is_some_and(|start| {
+                            crate::codex_host::process_start(lease.pid).as_ref() == Some(start)
+                        })
+                });
+                leases
+            },
+        )
     }
     pub(crate) fn take_remote_restore(&self) -> bool {
         !self
@@ -808,7 +816,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
                 std::future::pending::<()>().await;
             } => break,
             _ = tokio::time::sleep(Duration::from_millis(500)) => {
-                if !daemon && service.runtime.active().is_empty() {
+                if crate::runtime_metrics::cost::sync(crate::runtime_metrics::cost::Owner::RuntimeLease, crate::runtime_metrics::cost::Reason::Timer, || !daemon && service.runtime.active().is_empty()) {
                     let empty = empty_since.get_or_insert_with(Instant::now);
                     if started.elapsed() > Duration::from_secs(15) && empty.elapsed() > Duration::from_secs(2)
                         && service.runtime.close_if_idle() { break; }

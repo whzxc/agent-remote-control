@@ -406,74 +406,85 @@ impl AgentHost {
     }
     /// Project adapter receipts into the same local task feed as Codex dispatches.
     pub(crate) fn task_records(&self) -> Result<Arc<Vec<Value>>> {
-        let directory = root().join("agents/requests");
-        if !directory.exists() {
-            return Ok(Arc::default());
-        }
-        use crate::kernel::file_cache::{self, Projection};
-        let dependencies = [directory.clone(), root().join("agents/tasks")];
-        let mut cache = self.task_records.lock().map_err(|e| e.to_string())?;
-        let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
-        if let Some(records) = cache.get(&stamps) {
-            return Ok(records);
-        }
-        let mut complete = true;
-        let mut records = Vec::new();
-        for entry in file_cache::entries(&directory)?.iter() {
-            let path = &entry.path;
-            let Some(request) = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .filter(|s| uuid::Uuid::parse_str(s).is_ok())
-            else {
-                continue;
-            };
-            if path.extension().is_none_or(|s| s != "json") {
-                continue;
-            }
-            let receipt = RECEIPTS.read(request, &self.session)?;
-            if !matches!(string(&receipt, "operation"), "agent_create" | "agent_send") {
-                continue;
-            }
-            let args = &receipt["arguments"];
-            let task = task_path(string(&receipt, "taskId"))
-                .ok()
-                .and_then(|p| match file_cache::load(&p) {
-                    Ok(task) => Some(task),
-                    Err(_) => {
-                        complete &= !p.exists();
-                        None
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::AgentTaskRecords,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                let directory = root().join("agents/requests");
+                if !directory.exists() {
+                    return Ok(Arc::default());
+                }
+                use crate::kernel::file_cache::{self, Projection};
+                let dependencies = [directory.clone(), root().join("agents/tasks")];
+                let mut cache = self.task_records.lock().map_err(|e| e.to_string())?;
+                let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
+                if let Some(records) = cache.get(&stamps) {
+                    crate::runtime_metrics::cost::cache(true);
+                    return Ok(records);
+                }
+                crate::runtime_metrics::cost::cache(false);
+                let mut complete = true;
+                let mut records = Vec::new();
+                let entries = file_cache::entries(&directory)?;
+                crate::runtime_metrics::cost::scan_set(entries.len());
+                for entry in entries.iter() {
+                    crate::runtime_metrics::cost::rows(1);
+                    let path = &entry.path;
+                    let Some(request) = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .filter(|s| uuid::Uuid::parse_str(s).is_ok())
+                    else {
+                        continue;
+                    };
+                    if path.extension().is_none_or(|s| s != "json") {
+                        continue;
                     }
-                })
-                .unwrap_or(Value::Null);
-            if task["archived"] == true {
-                continue;
-            }
-            let state = string(&task, "status");
-            let runtime = match state {
-                "running" | "starting" | "cancelling" => "active",
-                "waiting-permission" => "waiting",
-                "failed" => "systemError",
-                "completed" | "idle" | "cancelled" => "idle",
-                _ => "unknown",
-            };
-            records.push(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
+                    let receipt = RECEIPTS.read(request, &self.session)?;
+                    if !matches!(string(&receipt, "operation"), "agent_create" | "agent_send") {
+                        continue;
+                    }
+                    let args = &receipt["arguments"];
+                    let task = task_path(string(&receipt, "taskId"))
+                        .ok()
+                        .and_then(|p| match file_cache::load(&p) {
+                            Ok(task) => Some(task),
+                            Err(_) => {
+                                complete &= !p.exists();
+                                None
+                            }
+                        })
+                        .unwrap_or(Value::Null);
+                    if task["archived"] == true {
+                        continue;
+                    }
+                    let state = string(&task, "status");
+                    let runtime = match state {
+                        "running" | "starting" | "cancelling" => "active",
+                        "waiting-permission" => "waiting",
+                        "failed" => "systemError",
+                        "completed" | "idle" | "cancelled" => "idle",
+                        _ => "unknown",
+                    };
+                    records.push(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
                 "origin":receipt["origin"],"state":receipt["state"],"createdAt":receipt["createdAt"],"updatedAt":receipt["updatedAt"],
                 "approval":{"decision":if receipt["state"] == "awaiting-approval" {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
                 "task":{"agentAccountId":receipt["agentAccountId"],"kind":if receipt["operation"] == "agent_create" {"create"}else{"send"},"origin":receipt["origin"],"title":task.get("title").unwrap_or(&args["title"]),"prompt":args["prompt"].as_str().unwrap_or(""),"input":[],"directory":task.get("cwd").unwrap_or(&args["cwd"]),"model":args["model"],"settings":{}},
                 "runtime":{"runtimeStatus":runtime,"title":task["title"],"observedAt":task["updatedAt"],"stale":receipt["backendSession"] != self.session && matches!(runtime, "active" | "waiting")},
                 "error":receipt.get("error").or_else(||receipt["result"].get("error"))}));
-        }
-        let records: Arc<Vec<Value>> = Arc::new(
-            records
-                .iter()
-                .map(crate::task_overview::display_record)
-                .collect(),
-        );
-        if complete {
-            cache.set(&dependencies, stamps, records.clone())?;
-        }
-        Ok(records)
+                }
+                let records: Arc<Vec<Value>> = Arc::new(
+                    records
+                        .iter()
+                        .map(crate::task_overview::display_record)
+                        .collect(),
+                );
+                if complete {
+                    cache.set(&dependencies, stamps, records.clone())?;
+                }
+                Ok(records)
+            },
+        )
     }
     pub(crate) async fn cancel_account(
         self: &Arc<Self>,

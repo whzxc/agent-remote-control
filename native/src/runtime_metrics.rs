@@ -1,4 +1,5 @@
 //! Content-free, bounded diagnostics. Wall time identifies work, not CPU attribution.
+pub(crate) mod cost;
 use crate::*;
 use std::sync::{
     atomic::{AtomicU64, Ordering::Relaxed},
@@ -181,7 +182,7 @@ pub(crate) fn snapshot() -> Value {
         "work":NAMES.iter().zip(&COUNTERS).map(|(name,c)| json!({"name":name,
             "calls":c.calls.load(Relaxed),"inFlight":c.in_flight.load(Relaxed),
             "totalWallMs":c.total_us.load(Relaxed) as f64/1000.0,"maxWallMs":c.max_us.load(Relaxed) as f64/1000.0})).collect::<Vec<_>>(),
-        "notificationObserve":observation_metrics(),
+        "notificationObserve":observation_metrics(),"cost":cost::snapshot(),
         "caches":{"json":crate::kernel::file_cache::diagnostics(),"notificationBindings":crate::claude_notify::diagnostics()}})
 }
 #[cfg(target_os = "macos")]

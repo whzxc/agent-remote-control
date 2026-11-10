@@ -265,6 +265,9 @@ impl Ingress {
         crate::logs::record(level, &msg, Some(&self.id));
     }
     async fn refresh_health(&self) -> Result<()> {
+        crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::Ingress, crate::runtime_metrics::cost::Reason::Poll, async {
+        crate::runtime_metrics::cost::scan_set(1);
+        crate::runtime_metrics::cost::rows(1);
         // Only the ingress supervisor performs recovery; reads never restart providers.
         let Ok(_lifecycle) = self.operation.try_lock() else {
             return Ok(());
@@ -328,6 +331,7 @@ impl Ingress {
             }
         }
         Ok(())
+        }).await
     }
     pub(crate) async fn transport_status(&self) -> Result<TransportStatus> {
         let tunnel_running = self.tunnel.lock().await.is_some();
@@ -579,7 +583,13 @@ impl Ingress {
                     let Some(owner) = owner.upgrade() else {
                         break;
                     };
-                    if let Err(error) = owner.refresh_health().await {
+                    if let Err(error) = crate::runtime_metrics::cost::scope(
+                        crate::runtime_metrics::cost::Owner::Ingress,
+                        crate::runtime_metrics::cost::Reason::Timer,
+                        owner.refresh_health(),
+                    )
+                    .await
+                    {
                         owner
                             .log(
                                 "WARN",

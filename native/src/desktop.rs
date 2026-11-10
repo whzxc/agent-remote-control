@@ -66,9 +66,17 @@ struct Snapshots {
 }
 impl Snapshots {
     fn prune(&mut self) {
-        let before = self.rows.len();
-        self.rows.retain(|_, s| s.received.elapsed() < SNAPSHOT_TTL);
-        self.evictions += (before - self.rows.len()) as u64;
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::DesktopSnapshots,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                let before = self.rows.len();
+                crate::runtime_metrics::cost::scan_set(before);
+                crate::runtime_metrics::cost::rows(before);
+                self.rows.retain(|_, s| s.received.elapsed() < SNAPSHOT_TTL);
+                self.evictions += (before - self.rows.len()) as u64;
+            },
+        )
     }
     fn insert(&mut self, thread: String, mut value: Value, wire_bytes: usize) {
         self.prune();
@@ -194,7 +202,12 @@ impl Ipc {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
                 interval.tick().await;
-                cleanup_snapshots.lock().await.prune();
+                let mut snapshots = cleanup_snapshots.lock().await;
+                crate::runtime_metrics::cost::sync(
+                    crate::runtime_metrics::cost::Owner::DesktopSnapshots,
+                    crate::runtime_metrics::cost::Reason::Timer,
+                    || snapshots.prune(),
+                );
             }
         });
         let session = session.to_owned();

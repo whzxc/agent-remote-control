@@ -61,6 +61,10 @@ pub(crate) fn stream(
                     return;
                 }
                 _ = heartbeat.tick() => {
+                    crate::runtime_metrics::cost::sync(crate::runtime_metrics::cost::Owner::WaitHeartbeat, crate::runtime_metrics::cost::Reason::Timer, || {
+                        crate::runtime_metrics::cost::scan_set(1);
+                        crate::runtime_metrics::cost::rows(1);
+                    });
                     progress += 1;
                     if sse {
                         if let Some(token) = &token {

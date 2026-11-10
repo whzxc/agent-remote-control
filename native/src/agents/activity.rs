@@ -53,38 +53,47 @@ impl Monitor {
         self.known.iter().find(|s| s.session["id"] == id).cloned()
     }
     pub async fn sample(&mut self, mut selected: Vec<String>) -> Vec<(String, Value)> {
-        selected.retain(|id| matches!(id.as_str(), "codex" | "claude"));
-        selected.sort();
-        selected.dedup();
-        if self.selected != selected
-            || self
-                .sampled
-                .is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
-        {
-            self.selected = selected.clone();
-            let mut cache = std::mem::take(&mut self.scan);
-            let (scanned, cache) = tokio::task::spawn_blocking(move || {
-                let scanned = scan(&selected, &mut cache);
-                (scanned, cache)
-            })
-            .await
-            .unwrap_or_default();
-            self.scan = cache;
-            self.active = scanned
-                .iter()
-                .map(|s| (s.agent.clone(), s.session.clone()))
-                .collect();
-            for session in scanned {
-                self.known
-                    .retain(|s| s.session["id"] != session.session["id"]);
-                self.known.push(session);
-            }
-            if self.known.len() > 128 {
-                self.known.drain(..self.known.len() - 128);
-            }
-            self.sampled = Some(Instant::now());
-        }
-        self.active.clone()
+        crate::runtime_metrics::cost::scope(
+            crate::runtime_metrics::cost::Owner::Activity,
+            crate::runtime_metrics::cost::Reason::Poll,
+            async {
+                selected.retain(|id| matches!(id.as_str(), "codex" | "claude"));
+                selected.sort();
+                selected.dedup();
+                if self.selected != selected
+                    || self
+                        .sampled
+                        .is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
+                {
+                    self.selected = selected.clone();
+                    let mut cache = std::mem::take(&mut self.scan);
+                    let (scanned, cache) = tokio::task::spawn_blocking(
+                        crate::runtime_metrics::cost::blocking(move || {
+                            let scanned = scan(&selected, &mut cache);
+                            (scanned, cache)
+                        }),
+                    )
+                    .await
+                    .unwrap_or_default();
+                    self.scan = cache;
+                    self.active = scanned
+                        .iter()
+                        .map(|s| (s.agent.clone(), s.session.clone()))
+                        .collect();
+                    for session in scanned {
+                        self.known
+                            .retain(|s| s.session["id"] != session.session["id"]);
+                        self.known.push(session);
+                    }
+                    if self.known.len() > 128 {
+                        self.known.drain(..self.known.len() - 128);
+                    }
+                    self.sampled = Some(Instant::now());
+                }
+                self.active.clone()
+            },
+        )
+        .await
     }
 }
 
@@ -124,7 +133,9 @@ impl ScanCache {
         modified: SystemTime,
         now: SystemTime,
     ) -> Result<(&Tail, Option<Value>)> {
-        if self.tails.get(path).is_none_or(|tail| tail.stamp != stamp) {
+        let miss = self.tails.get(path).is_none_or(|tail| tail.stamp != stamp);
+        crate::runtime_metrics::cost::cache(!miss);
+        if miss {
             // At most 128 recent tails (128 KiB each) are retained. Older files are
             // discovered through metadata without reading their contents.
             if self.tails.len() >= 128 && !self.tails.contains_key(path) {
@@ -207,6 +218,9 @@ impl ScanCache {
             let mut titles = HashMap::new();
             for line in BufReader::new(file).lines() {
                 let line = line.map_err(|e| e.to_string())?;
+                crate::runtime_metrics::cost::rows(1);
+                crate::runtime_metrics::cost::bytes_read(line.len());
+                crate::runtime_metrics::cost::bytes_parsed(line.len());
                 let Ok(record) = serde_json::from_str::<Value>(&line) else {
                     continue;
                 };
@@ -280,6 +294,7 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
             })
             .collect()
     };
+    crate::runtime_metrics::cost::scan_set(paths.len());
     let mut sessions = scan_paths(paths, &index, SystemTime::now(), cache);
     for external in &mut sessions {
         if external.agent == "claude" {
@@ -323,6 +338,7 @@ fn discover_paths(roots: &[(String, PathBuf)], cache: &mut ScanCache) -> Vec<(St
                 continue;
             };
             for entry in entries.iter() {
+                crate::runtime_metrics::cost::rows(1);
                 let path = &entry.path;
                 if path
                     .file_name()
@@ -356,6 +372,7 @@ fn scan_paths(
     let mut active = Vec::new();
     let mut recent = HashSet::new();
     for (agent, path) in paths {
+        crate::runtime_metrics::cost::rows(1);
         let path = &path;
         let Ok(metadata) = std::fs::metadata(path) else {
             continue;
@@ -459,13 +476,17 @@ pub(super) fn conversation_metadata(
     file.take(128 * 1024)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
+    crate::runtime_metrics::cost::bytes_read(bytes.len());
     let mut lines = bytes.split_inclusive(|byte| *byte == b'\n');
     if offset > 0 {
         lines.next();
     }
     let records: Vec<Value> = lines
         .filter(|line| line.last() == Some(&b'\n'))
-        .filter_map(|line| serde_json::from_slice(line).ok())
+        .filter_map(|line| {
+            crate::runtime_metrics::cost::bytes_parsed(line.len());
+            serde_json::from_slice(line).ok()
+        })
         .collect();
     let row = conversation_projection(&records, offset > 0);
     cached.stamp = Some(stamp);
@@ -498,6 +519,8 @@ fn read_sample_clock(path: &Path, agent: &str, tail: &mut Tail) -> Result<()> {
         if count == 0 || line.last() != Some(&b'\n') {
             break;
         }
+        crate::runtime_metrics::cost::bytes_read(line.len());
+        crate::runtime_metrics::cost::bytes_parsed(line.len());
         if let Ok(record) = serde_json::from_slice::<Value>(&line) {
             observe_clock(&record, agent, clock);
         }
@@ -687,12 +710,16 @@ fn read_tail_prefix(mut file: File, size: u64, limit: u64) -> Result<(Vec<Value>
     file.take(size - start)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
+    crate::runtime_metrics::cost::bytes_read(bytes.len());
     let mut lines = bytes.split(|b| *b == b'\n');
     if start > 0 {
         lines.next();
     }
     let records = lines
-        .filter_map(|line| serde_json::from_slice(line).ok())
+        .filter_map(|line| {
+            crate::runtime_metrics::cost::bytes_parsed(line.len());
+            serde_json::from_slice(line).ok()
+        })
         .collect();
     Ok((records, start > 0))
 }

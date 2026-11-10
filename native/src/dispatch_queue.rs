@@ -13,26 +13,35 @@ fn records() -> Result<Vec<Value>> {
     records_in(&directory())
 }
 fn records_in(dir: &Path) -> Result<Vec<Value>> {
-    if !dir.exists() {
-        return Ok(vec![]);
-    }
-    let mut rows = file_cache::entries(dir)?
-        .iter()
-        .filter(|e| e.path.extension().is_some_and(|v| v == "json"))
-        .filter_map(|e| {
-            let row = load(&e.path).ok()?;
-            if !row.is_object()
-                || uuid::Uuid::parse_str(string(&row, "queueId")).is_err()
-                || string(&row, "threadId").is_empty()
-                || !row["args"].is_object()
-            {
-                return None;
+    crate::runtime_metrics::cost::sync(
+        crate::runtime_metrics::cost::Owner::DispatchQueue,
+        crate::runtime_metrics::cost::Reason::Poll,
+        || {
+            if !dir.exists() {
+                return Ok(vec![]);
             }
-            Some(row)
-        })
-        .collect::<Vec<_>>();
-    rows.sort_by_key(|r| r["sequence"].as_u64().unwrap_or(0));
-    Ok(rows)
+            let entries = file_cache::entries(dir)?;
+            crate::runtime_metrics::cost::scan_set(entries.len());
+            let mut rows = entries
+                .iter()
+                .inspect(|_| crate::runtime_metrics::cost::rows(1))
+                .filter(|e| e.path.extension().is_some_and(|v| v == "json"))
+                .filter_map(|e| {
+                    let row = load(&e.path).ok()?;
+                    if !row.is_object()
+                        || uuid::Uuid::parse_str(string(&row, "queueId")).is_err()
+                        || string(&row, "threadId").is_empty()
+                        || !row["args"].is_object()
+                    {
+                        return None;
+                    }
+                    Some(row)
+                })
+                .collect::<Vec<_>>();
+            rows.sort_by_key(|r| r["sequence"].as_u64().unwrap_or(0));
+            Ok(rows)
+        },
+    )
 }
 fn visible(row: &Value) -> bool {
     visible_to(row, &crate::kernel::origin::current_origin())
@@ -188,166 +197,182 @@ pub(crate) async fn control(control: &Arc<control::Control>, args: &Value) -> Re
     )
 }
 async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
-    if string(&row["origin"], "sourceId").is_empty() {
-        return Ok(()); // Orphans remain visible for explicit local cancellation.
-    }
-    // The send path serializes this check with all other ARC writes to this thread.
-    let thread = string(&row, "threadId").to_owned();
-    if row["state"] != "dispatching" && row["state"] != "steering" {
-        let _thread = control.thread_lock(&thread).await;
-        {
-            let _guard = LOCK.lock().await;
-            row = load(&path(string(&row, "queueId"))?)?;
-        }
-        if !matches!(string(&row, "state"), "queued" | "blocked") {
-            return Ok(());
-        }
-        let latest = control.dispatch_state(&thread).await?;
-        let turns = latest["turns"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
-        let turn = turns.first().unwrap_or(&Value::Null);
-        let waiting_input = control
-            .events
-            .lock()
-            .await
-            .pending
-            .values()
-            .any(|r| r["params"]["threadId"] == thread);
-        let _guard = LOCK.lock().await;
-        if waiting_input
-            || turn["status"] == "inProgress"
-            || crate::claude_notify::retry_pending(&thread, string(turn, "id"))?
-        {
-            row["state"] = json!("queued");
-            row["reason"] = json!(if waiting_input {
-                "waiting-input"
-            } else if turn["status"] == "inProgress" {
-                "active-turn"
+    crate::runtime_metrics::cost::scope(
+        crate::runtime_metrics::cost::Owner::DispatchQueue,
+        crate::runtime_metrics::cost::Reason::Poll,
+        async {
+            if string(&row["origin"], "sourceId").is_empty() {
+                return Ok(()); // Orphans remain visible for explicit local cancellation.
+            }
+            // The send path serializes this check with all other ARC writes to this thread.
+            let thread = string(&row, "threadId").to_owned();
+            if row["state"] != "dispatching" && row["state"] != "steering" {
+                let _thread = control.thread_lock(&thread).await;
+                {
+                    let _guard = LOCK.lock().await;
+                    row = load(&path(string(&row, "queueId"))?)?;
+                }
+                if !matches!(string(&row, "state"), "queued" | "blocked") {
+                    return Ok(());
+                }
+                let latest = control.dispatch_state(&thread).await?;
+                let turns = latest["turns"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
+                let turn = turns.first().unwrap_or(&Value::Null);
+                let waiting_input = control
+                    .events
+                    .lock()
+                    .await
+                    .pending
+                    .values()
+                    .any(|r| r["params"]["threadId"] == thread);
+                let _guard = LOCK.lock().await;
+                if waiting_input
+                    || turn["status"] == "inProgress"
+                    || crate::claude_notify::retry_pending(&thread, string(turn, "id"))?
+                {
+                    row["state"] = json!("queued");
+                    row["reason"] = json!(if waiting_input {
+                        "waiting-input"
+                    } else if turn["status"] == "inProgress" {
+                        "active-turn"
+                    } else {
+                        "automatic-retry"
+                    });
+                    save(&path(string(&row, "queueId"))?, &row)?;
+                    return Ok(());
+                }
+                if matches!(
+                    string(turn, "status"),
+                    "failed" | "interrupted" | "cancelled"
+                ) && row["allowFailedTurn"] != turn["id"]
+                {
+                    row["state"] = json!("blocked");
+                    row["blockedTurn"] = turn["id"].clone();
+                    row["reason"] = json!("previous-turn-failed-or-interrupted");
+                    save(&path(string(&row, "queueId"))?, &row)?;
+                    return Ok(());
+                }
+                if !turn.is_null()
+                    && !matches!(
+                        string(turn, "status"),
+                        "completed" | "failed" | "interrupted" | "cancelled"
+                    )
+                {
+                    return Ok(());
+                }
+                row["state"] = json!("dispatching");
+                row["expectedPreviousTurn"] = turn["id"].clone();
+                save(&path(string(&row, "queueId"))?, &row)?;
+            }
+            let mut args = row["args"].clone();
+            args.as_object_mut().unwrap().remove("sendMode");
+            args["requestId"] = row["dispatchRequestId"].clone();
+            args["waitMs"] = json!(0);
+            args["approval"] = json!("approved");
+            let steering = row["state"] == "steering";
+            if steering {
+                args["sendMode"] = json!("steer");
+                args["_expectedActiveTurn"] = row["expectedActiveTurn"].clone();
             } else {
-                "automatic-retry"
-            });
-            save(&path(string(&row, "queueId"))?, &row)?;
-            return Ok(());
-        }
-        if matches!(
-            string(turn, "status"),
-            "failed" | "interrupted" | "cancelled"
-        ) && row["allowFailedTurn"] != turn["id"]
-        {
-            row["state"] = json!("blocked");
-            row["blockedTurn"] = turn["id"].clone();
-            row["reason"] = json!("previous-turn-failed-or-interrupted");
-            save(&path(string(&row, "queueId"))?, &row)?;
-            return Ok(());
-        }
-        if !turn.is_null()
-            && !matches!(
-                string(turn, "status"),
-                "completed" | "failed" | "interrupted" | "cancelled"
-            )
-        {
-            return Ok(());
-        }
-        row["state"] = json!("dispatching");
-        row["expectedPreviousTurn"] = turn["id"].clone();
-        save(&path(string(&row, "queueId"))?, &row)?;
-    }
-    let mut args = row["args"].clone();
-    args.as_object_mut().unwrap().remove("sendMode");
-    args["requestId"] = row["dispatchRequestId"].clone();
-    args["waitMs"] = json!(0);
-    args["approval"] = json!("approved");
-    let steering = row["state"] == "steering";
-    if steering {
-        args["sendMode"] = json!("steer");
-        args["_expectedActiveTurn"] = row["expectedActiveTurn"].clone();
-    } else {
-        args["_newTurn"] = json!(true);
-        args["_expectedPreviousTurn"] = row["expectedPreviousTurn"].clone();
-    }
-    let origin = row["origin"].clone();
-    let result = match crate::kernel::origin::ORIGIN
-        .scope(
-            origin,
-            crate::dispatch_caller::CALLER.scope(
-                crate::dispatch_caller::validated(&row["caller"]),
-                control.mutate("send", args),
-            ),
-        )
-        .await
-    {
-        Ok(result) => result,
-        Err(error) => {
+                args["_newTurn"] = json!(true);
+                args["_expectedPreviousTurn"] = row["expectedPreviousTurn"].clone();
+            }
+            let origin = row["origin"].clone();
+            let result = match crate::kernel::origin::ORIGIN
+                .scope(
+                    origin,
+                    crate::dispatch_caller::CALLER.scope(
+                        crate::dispatch_caller::validated(&row["caller"]),
+                        control.mutate("send", args),
+                    ),
+                )
+                .await
+            {
+                Ok(result) => result,
+                Err(error) => {
+                    let _guard = LOCK.lock().await;
+                    row["state"] = json!(crate::kernel::receipts::failure_state(&error));
+                    row["error"] = crate::egress::failure(&error);
+                    return save(&path(string(&row, "queueId"))?, &row);
+                }
+            };
+            let state = string(&result, "state");
+            if matches!(
+                state,
+                "pending"
+                    | "reserved"
+                    | "submitting"
+                    | "thread-submitting"
+                    | "thread-created"
+                    | "turn-submitting"
+            ) {
+                return Ok(());
+            }
             let _guard = LOCK.lock().await;
-            row["state"] = json!(crate::kernel::receipts::failure_state(&error));
-            row["error"] = crate::egress::failure(&error);
-            return save(&path(string(&row, "queueId"))?, &row);
-        }
-    };
-    let state = string(&result, "state");
-    if matches!(
-        state,
-        "pending"
-            | "reserved"
-            | "submitting"
-            | "thread-submitting"
-            | "thread-created"
-            | "turn-submitting"
-    ) {
-        return Ok(());
-    }
-    let _guard = LOCK.lock().await;
-    row["state"] = json!(if state == "completed" {
-        if steering {
-            "steered"
-        } else {
-            "sent"
-        }
-    } else if state == "unconfirmed" {
-        "unconfirmed"
-    } else {
-        "failed"
-    });
-    row["turnId"] = result["turnId"].clone();
-    row["error"] = result["result"]["error"].clone();
-    row["reason"] = json!(state);
-    save(&path(string(&row, "queueId"))?, &row)
+            row["state"] = json!(if state == "completed" {
+                if steering {
+                    "steered"
+                } else {
+                    "sent"
+                }
+            } else if state == "unconfirmed" {
+                "unconfirmed"
+            } else {
+                "failed"
+            });
+            row["turnId"] = result["turnId"].clone();
+            row["error"] = result["result"]["error"].clone();
+            row["reason"] = json!(state);
+            save(&path(string(&row, "queueId"))?, &row)
+        },
+    )
+    .await
 }
 pub(crate) fn start(control: &Arc<control::Control>) {
     let weak = Arc::downgrade(control);
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
+        let mut reason = crate::runtime_metrics::cost::Reason::Startup;
         loop {
             let Some(c) = weak.upgrade() else {
                 break;
             };
-            let cycle = async {
-                let mut threads = std::collections::HashSet::new();
-                let mut tasks = tokio::task::JoinSet::new();
-                let mut rows = records()?;
-                // Reconcile reserved submissions before an older queued row can
-                // block their receipt readback behind a running turn.
-                rows.sort_by_key(|r| !matches!(string(r, "state"), "steering" | "dispatching"));
-                for row in rows {
-                    if !string(&row["origin"], "sourceId").is_empty()
-                        && matches!(
-                            string(&row, "state"),
-                            "queued" | "blocked" | "dispatching" | "steering"
-                        )
-                        && threads.insert(string(&row, "threadId").to_owned())
-                    {
-                        let c = c.clone();
-                        tasks.spawn(async move { tick(&c, row).await });
+            let cycle = crate::runtime_metrics::cost::scope(
+                crate::runtime_metrics::cost::Owner::DispatchQueue,
+                reason,
+                async {
+                    let mut threads = std::collections::HashSet::new();
+                    let mut tasks = tokio::task::JoinSet::new();
+                    let mut rows = records()?;
+                    // Reconcile reserved submissions before an older queued row can
+                    // block their receipt readback behind a running turn.
+                    rows.sort_by_key(|r| !matches!(string(r, "state"), "steering" | "dispatching"));
+                    for row in rows {
+                        crate::runtime_metrics::cost::rows(1);
+                        if !string(&row["origin"], "sourceId").is_empty()
+                            && matches!(
+                                string(&row, "state"),
+                                "queued" | "blocked" | "dispatching" | "steering"
+                            )
+                            && threads.insert(string(&row, "threadId").to_owned())
+                        {
+                            let c = c.clone();
+                            tasks.spawn(crate::runtime_metrics::cost::inherit(async move {
+                                tick(&c, row).await
+                            }));
+                        }
                     }
-                }
-                while let Some(result) = tasks.join_next().await {
-                    if let Ok(Err(e)) = result {
-                        crate::logs::record("WARN", &format!("Queued send: {e}"), None);
+                    while let Some(result) = tasks.join_next().await {
+                        if let Ok(Err(e)) = result {
+                            crate::logs::record("WARN", &format!("Queued send: {e}"), None);
+                        }
                     }
-                }
-                Ok::<_, String>(())
-            };
+                    Ok::<_, String>(())
+                },
+            );
             tokio::select! {_=shutdown.changed()=>break,r=cycle=>if let Err(e)=r{crate::logs::record("WARN",&format!("Send queue: {e}"),None);}}
             drop(c);
+            reason = crate::runtime_metrics::cost::Reason::Timer;
             tokio::select! {_=shutdown.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(1))=>{}}
         }
     });

@@ -32,6 +32,7 @@ pub(crate) async fn wait(
     let mut last = json!({"threadId":args["threadId"],"turnId":args["turnId"],"recordedStatus":null,"runtimeStatus":"unknown","interaction":[],"finalResponse":null});
     let mut baseline = args["expectedHash"].as_str().map(str::to_owned);
     let mut selected = args["turnId"].as_str().map(str::to_owned);
+    let mut reason = crate::runtime_metrics::cost::Reason::Poll;
     loop {
         if !source.alive() {
             return finish(
@@ -57,7 +58,11 @@ pub(crate) async fn wait(
         let observation = tokio::select! {
             biased;
             _ = shutdown.changed() => return finish(last, "unconfirmed", "connector-shutdown", started, baseline.as_deref()),
-            result = tokio::time::timeout_at(deadline.min(Instant::now()+Duration::from_secs(10)), source.observe()) => result,
+            result = tokio::time::timeout_at(deadline.min(Instant::now()+Duration::from_secs(10)), crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::ScopedWait, reason, async {
+                crate::runtime_metrics::cost::scan_set(1);
+                crate::runtime_metrics::cost::rows(1);
+                source.observe().await
+            })) => result,
         };
         let observed = match observation {
             Ok(result) => result,
@@ -117,6 +122,7 @@ pub(crate) async fn wait(
             _ = shutdown.changed() => return finish(last, "unconfirmed", "connector-shutdown", started, baseline.as_deref()),
             _ = tokio::time::sleep_until(deadline) => return deadline_result(last, started, baseline.as_deref()),
             _ = notified => {
+                reason = crate::runtime_metrics::cost::Reason::Event;
                 // Coalesce streaming deltas; cap reads at four/second even under load.
                 tokio::select! {
                     biased;
@@ -124,7 +130,7 @@ pub(crate) async fn wait(
                     _ = tokio::time::sleep_until(deadline.min(Instant::now()+Duration::from_millis(250))) => {},
                 }
             },
-            _ = tokio::time::sleep(Duration::from_secs(2)) => {},
+            _ = tokio::time::sleep(Duration::from_secs(2)) => reason = crate::runtime_metrics::cost::Reason::Timer,
         }
     }
 }

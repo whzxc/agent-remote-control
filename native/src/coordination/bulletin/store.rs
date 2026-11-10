@@ -446,9 +446,11 @@ impl Store {
         }
     }
     pub fn linked_threads(&self) -> Vec<String> {
+        crate::runtime_metrics::cost::scan_set(self.state.notices.len());
         self.state
             .notices
             .iter()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
             .filter(|n| n.live())
             .flat_map(|n| &n.thread_links)
             .map(|l| l.thread_id.clone())
@@ -457,7 +459,13 @@ impl Store {
             .collect()
     }
     pub fn missing(&mut self, observed: &[String]) {
-        for notice in self.state.notices.iter_mut().filter(|n| n.live()) {
+        for notice in self
+            .state
+            .notices
+            .iter_mut()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
+            .filter(|n| n.live())
+        {
             for link in &mut notice.thread_links {
                 if link.scope_state == "running" && !observed.contains(&link.thread_id) {
                     link.scope_state = "unknown".into();
@@ -496,7 +504,13 @@ impl Store {
         if types::identifier(turn).is_err() {
             return;
         }
-        for notice in self.state.notices.iter_mut().filter(|n| n.live()) {
+        for notice in self
+            .state
+            .notices
+            .iter_mut()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
+            .filter(|n| n.live())
+        {
             for link in notice
                 .thread_links
                 .iter_mut()

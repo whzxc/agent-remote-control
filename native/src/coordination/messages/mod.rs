@@ -312,20 +312,27 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
         let mut next_at = None;
         loop {
             tokio::select! {_=shutdown.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(5))=>{}}
-            let pass = async {
-                let before = Projection::<()>::stamps(&dependencies)?;
-                let now = chrono::Utc::now().timestamp();
-                if handled.as_ref() == Some(&before) && next_at.is_none_or(|at| now < at) {
-                    return Ok::<_, String>(());
-                }
-                handled = None;
-                flush().await?;
-                next_at = with_store(|s| Ok(s.next_background_at(chrono::Utc::now().timestamp())))?;
-                if Projection::<()>::stamps(&dependencies)? == before {
-                    handled = Some(before);
-                }
-                Ok(())
-            };
+            let pass = crate::runtime_metrics::cost::scope(
+                crate::runtime_metrics::cost::Owner::CoordinationMessages,
+                crate::runtime_metrics::cost::Reason::Timer,
+                async {
+                    let before = Projection::<()>::stamps(&dependencies)?;
+                    let now = chrono::Utc::now().timestamp();
+                    if handled.as_ref() == Some(&before) && next_at.is_none_or(|at| now < at) {
+                        crate::runtime_metrics::cost::cache(true);
+                        return Ok::<_, String>(());
+                    }
+                    crate::runtime_metrics::cost::cache(false);
+                    handled = None;
+                    flush().await?;
+                    next_at =
+                        with_store(|s| Ok(s.next_background_at(chrono::Utc::now().timestamp())))?;
+                    if Projection::<()>::stamps(&dependencies)? == before {
+                        handled = Some(before);
+                    }
+                    Ok(())
+                },
+            );
             tokio::select! {_=shutdown.changed()=>break,result=pass=>{if result.is_err(){observers::gap("messages","projection-or-delivery-unavailable");}}}
         }
     });

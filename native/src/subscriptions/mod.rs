@@ -122,55 +122,69 @@ impl SubscriptionService {
         let weak = Arc::downgrade(self);
         tokio::spawn(async move {
             let mut inventory_due = Instant::now();
+            let mut reason = crate::runtime_metrics::cost::Reason::Startup;
             loop {
                 let Some(s) = weak.upgrade() else { return };
                 if s.state.lock().await.stopped {
                     return;
                 }
-                if Instant::now() >= inventory_due {
-                    let inventory = s.agents.ui_inventory(false).await;
-                    s.inventory(&inventory).await;
-                    inventory_due = Instant::now() + Duration::from_secs(180);
-                } else if let Some(inventory) = s.agents.cached_subscription_inventory().await {
-                    s.inventory(&inventory).await;
-                }
-                let (enabled, ids) = {
-                    let mut state = s.state.lock().await;
-                    let enabled = state.settings.enabled;
-                    let mut ids = vec![];
-                    for (id, slot) in &mut state.slots {
-                        expire(slot);
-                        if enabled && slot.view.eligible && slot.job.is_none() {
-                            let reset = slot
-                                .view
-                                .windows
-                                .iter()
-                                .filter_map(|w| w.resets_at.as_ref())
-                                .find(|r| {
-                                    chrono::DateTime::parse_from_rfc3339(r)
-                                        .is_ok_and(|d| d <= chrono::Utc::now())
-                                        && !slot.reset_seen.contains(r)
-                                })
-                                .cloned();
-                            if let Some(reset) = reset {
-                                slot.reset_seen.push(reset);
-                                slot.due = slot.due.min(Instant::now());
-                            }
-                            if slot.due <= Instant::now() {
-                                ids.push(id.clone())
-                            }
+                let enabled = crate::runtime_metrics::cost::scope(
+                    crate::runtime_metrics::cost::Owner::Subscriptions,
+                    reason,
+                    async {
+                        if Instant::now() >= inventory_due {
+                            let inventory = s.agents.ui_inventory(false).await;
+                            s.inventory(&inventory).await;
+                            inventory_due = Instant::now() + Duration::from_secs(180);
+                        } else if let Some(inventory) =
+                            s.agents.cached_subscription_inventory().await
+                        {
+                            s.inventory(&inventory).await;
                         }
-                    }
-                    s.publish(&mut state);
-                    (enabled, ids)
-                };
-                for id in ids {
-                    s.refresh(&id).await;
-                }
+                        let (enabled, ids) = {
+                            let mut state = s.state.lock().await;
+                            let enabled = state.settings.enabled;
+                            let mut ids = vec![];
+                            crate::runtime_metrics::cost::scan_set(state.slots.len());
+                            for (id, slot) in &mut state.slots {
+                                crate::runtime_metrics::cost::rows(1);
+                                expire(slot);
+                                if enabled && slot.view.eligible && slot.job.is_none() {
+                                    let reset = slot
+                                        .view
+                                        .windows
+                                        .iter()
+                                        .filter_map(|w| w.resets_at.as_ref())
+                                        .find(|r| {
+                                            chrono::DateTime::parse_from_rfc3339(r)
+                                                .is_ok_and(|d| d <= chrono::Utc::now())
+                                                && !slot.reset_seen.contains(r)
+                                        })
+                                        .cloned();
+                                    if let Some(reset) = reset {
+                                        slot.reset_seen.push(reset);
+                                        slot.due = slot.due.min(Instant::now());
+                                    }
+                                    if slot.due <= Instant::now() {
+                                        ids.push(id.clone())
+                                    }
+                                }
+                            }
+                            s.publish(&mut state);
+                            (enabled, ids)
+                        };
+                        for id in ids {
+                            s.refresh(&id).await;
+                        }
+                        enabled
+                    },
+                )
+                .await;
                 if enabled {
-                    tokio::select! {_=s.wake.notified()=>{},_=tokio::time::sleep(Duration::from_secs(5))=>{}}
+                    tokio::select! {_=s.wake.notified()=>reason = crate::runtime_metrics::cost::Reason::Event,_=tokio::time::sleep(Duration::from_secs(5))=>reason = crate::runtime_metrics::cost::Reason::Timer}
                 } else {
                     s.wake.notified().await;
+                    reason = crate::runtime_metrics::cost::Reason::Event;
                 }
             }
         });

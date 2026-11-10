@@ -19,49 +19,59 @@ impl ReceiptStore {
     /// Bulk task projections retain their own metadata snapshot, not full receipt
     /// payloads in the shared JSON cache.
     pub fn read_for_projection(&self, request: &str, session: &str) -> Result<Value> {
-        type Snapshot = (String, super::file_cache::Cache<Value>);
-        static PROJECTIONS: std::sync::LazyLock<std::sync::Mutex<Snapshot>> =
-            std::sync::LazyLock::new(Default::default);
-        let mut snapshots = PROJECTIONS.lock().map_err(|e| e.to_string())?;
-        if snapshots.0 != session {
-            *snapshots = (session.into(), Default::default());
-        }
-        let record = snapshots.1.read_with(&self.path(request)?, |bytes| {
-            let mut row = Self::normalize(
-                serde_json::from_slice(bytes).map_err(|e| e.to_string())?,
-                session,
-            )?;
-            // Keep only the result metadata consumed by the task projection. Full
-            // receipts and arguments stay with explicit receipt reads.
-            fn fields(value: &Value, keys: &[&str]) -> Value {
-                Value::Object(
-                    keys.iter()
-                        .filter_map(|key| value.get(*key).map(|v| ((*key).into(), v.clone())))
-                        .collect(),
-                )
-            }
-            let result = &row["result"];
-            let mut summary = fields(result, &["error", "threadId"]);
-            for key in ["thread", "resolved"] {
-                if let Some(value) = result.get(key) {
-                    summary[key] = fields(
-                        value,
-                        if key == "thread" {
-                            &["id", "name", "cwd"]
-                        } else {
-                            &["cwd"]
-                        },
-                    );
-                    if key == "resolved" && value.get("thread").is_some() {
-                        summary[key]["thread"] = fields(&value["thread"], &["id", "name", "cwd"]);
-                    }
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::ReceiptProjection,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                crate::runtime_metrics::cost::scan_set(1);
+                type Snapshot = (String, super::file_cache::Cache<Value>);
+                static PROJECTIONS: std::sync::LazyLock<std::sync::Mutex<Snapshot>> =
+                    std::sync::LazyLock::new(Default::default);
+                let mut snapshots = PROJECTIONS.lock().map_err(|e| e.to_string())?;
+                if snapshots.0 != session {
+                    *snapshots = (session.into(), Default::default());
                 }
-            }
-            row["result"] = summary;
-            row.as_object_mut().unwrap().remove("arguments");
-            Ok(row)
-        })?;
-        Ok(record.as_ref().clone())
+                let record = snapshots.1.read_with(&self.path(request)?, |bytes| {
+                    let mut row = Self::normalize(
+                        serde_json::from_slice(bytes).map_err(|e| e.to_string())?,
+                        session,
+                    )?;
+                    // Keep only the result metadata consumed by the task projection. Full
+                    // receipts and arguments stay with explicit receipt reads.
+                    fn fields(value: &Value, keys: &[&str]) -> Value {
+                        Value::Object(
+                            keys.iter()
+                                .filter_map(|key| {
+                                    value.get(*key).map(|v| ((*key).into(), v.clone()))
+                                })
+                                .collect(),
+                        )
+                    }
+                    let result = &row["result"];
+                    let mut summary = fields(result, &["error", "threadId"]);
+                    for key in ["thread", "resolved"] {
+                        if let Some(value) = result.get(key) {
+                            summary[key] = fields(
+                                value,
+                                if key == "thread" {
+                                    &["id", "name", "cwd"]
+                                } else {
+                                    &["cwd"]
+                                },
+                            );
+                            if key == "resolved" && value.get("thread").is_some() {
+                                summary[key]["thread"] =
+                                    fields(&value["thread"], &["id", "name", "cwd"]);
+                            }
+                        }
+                    }
+                    row["result"] = summary;
+                    row.as_object_mut().unwrap().remove("arguments");
+                    Ok(row)
+                })?;
+                Ok(record.as_ref().clone())
+            },
+        )
     }
     fn normalize(mut receipt: Value, session: &str) -> Result<Value> {
         if !receipt.is_object() {

@@ -118,9 +118,11 @@ impl JournalReader {
         let mut file = std::io::BufReader::new(std::fs::File::open(path).map_err(io_error)?);
         let mut first = String::new();
         file.read_line(&mut first).map_err(io_error)?;
+        crate::runtime_metrics::cost::bytes_read(first.len());
         if !first.ends_with('\n') {
             return Ok(vec![]);
         }
+        crate::runtime_metrics::cost::bytes_parsed(first.len());
         let row: Value = serde_json::from_str(&first).map_err(io_error)?;
         let first = row["offset"].as_u64().ok_or("TASK_HOST_JOURNAL_INVALID")?;
         if first != self.first {
@@ -131,6 +133,7 @@ impl JournalReader {
             .map_err(io_error)?;
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).map_err(io_error)?;
+        crate::runtime_metrics::cost::bytes_read(bytes.len());
         let complete = bytes
             .iter()
             .rposition(|b| *b == b'\n')
@@ -139,6 +142,8 @@ impl JournalReader {
         let mut result = vec![];
         let mut expected = after + 1;
         for row in complete.split(|b| *b == b'\n').filter(|b| !b.is_empty()) {
+            crate::runtime_metrics::cost::rows(1);
+            crate::runtime_metrics::cost::bytes_parsed(row.len());
             let row: Value = serde_json::from_slice(row).map_err(io_error)?;
             let offset = row["offset"].as_u64().ok_or("TASK_HOST_JOURNAL_INVALID")?;
             if offset <= after {

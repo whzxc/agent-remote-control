@@ -250,6 +250,10 @@ async fn connect(
     loop {
         tokio::select! {
             _ = heartbeat.tick() => {
+                crate::runtime_metrics::cost::sync(crate::runtime_metrics::cost::Owner::Relay, crate::runtime_metrics::cost::Reason::Timer, || {
+                    crate::runtime_metrics::cost::scan_set(requests.len() + 1);
+                    crate::runtime_metrics::cost::rows(1);
+                });
                 if pong.elapsed() > Duration::from_secs(75) { return Err("Relay heartbeat timed out".into()); }
                 send_frame(&mut ws, "ping".into()).await?;
             }

@@ -10,7 +10,11 @@ pub(super) fn next_at(
     active: impl Fn(&str) -> bool,
 ) -> Option<i64> {
     let mut next_at = governance::next_delivery_at(state, settings, &active);
-    for b in bindings.iter().filter(|b| active(&b.source_id)) {
+    for b in bindings
+        .iter()
+        .inspect(|_| crate::runtime_metrics::cost::rows(1))
+        .filter(|b| active(&b.source_id))
+    {
         for d in b
             .deliveries
             .iter()

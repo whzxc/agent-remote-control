@@ -41,8 +41,10 @@ impl RefReader {
     fn read(&mut self, path: &Path) -> Result<String> {
         let stamp = Stamp::read(path)?;
         if let Some((_, value)) = self.files.get(path).filter(|(s, _)| *s == stamp) {
+            crate::runtime_metrics::cost::cache(true);
             return Ok(value.clone());
         }
+        crate::runtime_metrics::cost::cache(false);
         let value = if stamp.is_none() {
             String::new()
         } else {
@@ -54,6 +56,8 @@ impl RefReader {
                 .take(MAX_BYTES + 1)
                 .read_to_string(&mut value)
                 .map_err(|e| e.to_string())?;
+            crate::runtime_metrics::cost::bytes_read(value.len());
+            crate::runtime_metrics::cost::bytes_parsed(value.len());
             if value.len() as u64 > MAX_BYTES {
                 return Err("ref-bytes-capacity".into());
             }
@@ -93,7 +97,11 @@ impl RefReader {
     pub(super) fn refs(&mut self, common: &Path) -> Result<BTreeMap<String, String>> {
         let mut refs = BTreeMap::new();
         let packed = self.read(&common.join("packed-refs"))?;
-        for line in packed.lines().filter(|l| !l.starts_with(['#', '^'])) {
+        for line in packed
+            .lines()
+            .inspect(|_| crate::runtime_metrics::cost::rows(1))
+            .filter(|l| !l.starts_with(['#', '^']))
+        {
             if let Some((oid, name)) = line.split_once(' ') {
                 if watched(name) {
                     insert(&mut refs, name, oid)?;
@@ -139,6 +147,7 @@ impl RefReader {
         }
         let entries = self.directories[&directory].1.clone();
         for entry in &entries {
+            crate::runtime_metrics::cost::rows(1);
             let name = entry
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -262,7 +271,9 @@ impl Watcher {
             observers::gap("git", "project-count-capacity");
         }
         let mut root_count = 0;
+        crate::runtime_metrics::cost::scan_set(projects.len().min(32));
         for project in projects.iter().take(32) {
+            crate::runtime_metrics::cost::rows(1);
             let pid = string(project, "id");
             if types::identifier(pid).is_err() {
                 continue;
@@ -274,6 +285,7 @@ impl Watcher {
                 .take(8)
                 .enumerate()
             {
+                crate::runtime_metrics::cost::rows(1);
                 root_count += 1;
                 if root_count > 32 {
                     observers::gap("git", "root-count-capacity");
@@ -316,9 +328,11 @@ impl Watcher {
         }
         let reader = self.reader.clone();
         let directory = root.to_path_buf();
-        self.inflight = Some(tokio::task::spawn_blocking(move || {
-            snapshot(&mut reader.lock().unwrap(), &directory)
-        }));
+        self.inflight = Some(tokio::task::spawn_blocking(
+            crate::runtime_metrics::cost::blocking(move || {
+                snapshot(&mut reader.lock().unwrap(), &directory)
+            }),
+        ));
         let observed = self
             .inflight
             .as_mut()

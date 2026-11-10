@@ -294,6 +294,8 @@ pub(crate) fn request<'a>(
             return Ok(json!({"relays":records()?,"version":env!("ARC_BUILD_VERSION")}));
         }
         if action == "progress" && method == "GET" {
+            crate::runtime_metrics::cost::scan_set(1);
+            crate::runtime_metrics::cost::rows(1);
             let guard = service.relay.job.lock().await;
             return Ok(match guard.as_ref() {
                 Some(job) => job.status.lock().await.clone(),

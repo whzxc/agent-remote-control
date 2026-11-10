@@ -493,6 +493,7 @@ pub(crate) async fn tick(control: &crate::control::Control, agents: &crate::agen
                 .collect::<Vec<_>>(),
         );
         for (thread, turn, status) in &observed {
+            crate::runtime_metrics::cost::rows(1);
             let state = match status.as_str() {
                 "running" | "inProgress" | "pending" => "running",
                 "completed" | "failed" => "completed",

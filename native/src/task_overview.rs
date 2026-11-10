@@ -68,22 +68,35 @@ impl Feed {
         host: &crate::agents::AgentHost,
         revision: Option<&str>,
     ) -> Value {
-        let inputs = FeedInputs {
-            codex,
-            agents,
-            sources: crate::sources::labels(),
-            accounts: crate::accounts::label_snapshot(),
-            desktop: !cfg!(target_os = "linux") && crate::desktop::installation().is_some(),
-        };
-        if self.inputs.as_ref().is_none_or(|old| !old.same(&inputs)) {
-            let mut next = json!(list_records(&inputs.codex, &inputs.agents, host));
-            crate::sources::decorate_labels(&mut next, &inputs.sources);
-            if let Some(accounts) = inputs.accounts.as_deref().and_then(Value::as_array) {
-                crate::accounts::decorate_labels(&mut next, accounts);
-            }
-            if next != self.records {
-                let previous = std::mem::replace(&mut self.revision, id());
-                self.previous = self.records.as_array().and_then(|old| {
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::TaskFeed,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                let inputs = FeedInputs {
+                    codex,
+                    agents,
+                    sources: crate::sources::labels(),
+                    accounts: crate::accounts::label_snapshot(),
+                    desktop: !cfg!(target_os = "linux") && crate::desktop::installation().is_some(),
+                };
+                crate::runtime_metrics::cost::scan_set(inputs.codex.len() + inputs.agents.len());
+                let rebuild = self.inputs.as_ref().is_none_or(|old| !old.same(&inputs));
+                crate::runtime_metrics::cost::cache(!rebuild);
+                if rebuild {
+                    crate::runtime_metrics::cost::rows(inputs.codex.len() + inputs.agents.len());
+                    let mut next = json!(list_records(&inputs.codex, &inputs.agents, host));
+                    crate::sources::decorate_labels(&mut next, &inputs.sources);
+                    if let Some(accounts) = inputs.accounts.as_deref().and_then(Value::as_array) {
+                        crate::accounts::decorate_labels(&mut next, accounts);
+                    }
+                    if next != self.records {
+                        if !self.records.is_array() {
+                            crate::runtime_metrics::cost::changed(
+                                next.as_array().map_or(0, Vec::len),
+                            );
+                        }
+                        let previous = std::mem::replace(&mut self.revision, id());
+                        self.previous = self.records.as_array().and_then(|old| {
                     let mut old: HashMap<_, _> = old
                         .iter()
                         .map(|row| (string(row, "requestId"), row))
@@ -96,6 +109,7 @@ impl Feed {
                         .collect();
                     let mut removed: Vec<_> = old.into_keys().collect();
                     removed.sort_unstable();
+                    crate::runtime_metrics::cost::changed(records.len() + removed.len());
                     if records.len() + removed.len() > 256 {
                         return None;
                     }
@@ -104,21 +118,23 @@ impl Feed {
                         json!({"revision":self.revision,"records":records,"removed":removed}),
                     ))
                 });
-                self.records = next;
-            }
-            self.inputs = Some(inputs);
-        }
-        if revision == Some(self.revision.as_str()) {
-            return json!({"revision":self.revision});
-        }
-        if let Some((_, delta)) = self
-            .previous
-            .as_ref()
-            .filter(|(previous, _)| revision == Some(previous.as_str()))
-        {
-            return delta.clone();
-        }
-        json!({"revision":self.revision,"records":self.records})
+                        self.records = next;
+                    }
+                    self.inputs = Some(inputs);
+                }
+                if revision == Some(self.revision.as_str()) {
+                    return json!({"revision":self.revision});
+                }
+                if let Some((_, delta)) = self
+                    .previous
+                    .as_ref()
+                    .filter(|(previous, _)| revision == Some(previous.as_str()))
+                {
+                    return delta.clone();
+                }
+                json!({"revision":self.revision,"records":self.records})
+            },
+        )
     }
 }
 
@@ -200,6 +216,7 @@ pub(crate) fn display_record(record: &Value) -> Value {
     row
 }
 pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Value> {
+    crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::TaskList, crate::runtime_metrics::cost::Reason::Poll, async {
     let full = args["view"] == "full";
     let enrich = args["enrich"].as_bool().unwrap_or(args["archived"] != true);
     let mut params = args.clone();
@@ -233,6 +250,8 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
         None => c.profile_task_page(params).await?,
     };
     let rows = page["data"].as_array().ok_or("NATIVE_TASKS_MISSING")?;
+    crate::runtime_metrics::cost::scan_set(rows.len());
+    crate::runtime_metrics::cost::rows(rows.len());
     if !enrich {
         let tasks: Vec<_> = rows.iter().map(|row| {
             let mut task = if full {control::summary(row)} else {json!({"threadId":row["id"],"title":row["name"],"project":row["cwd"],"updatedAt":row["updatedAt"]})};
@@ -258,7 +277,7 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
             .get(string(&row, "id"))
             .cloned()
             .unwrap_or(json!({"pending":0,"blocked":0}));
-        jobs.spawn(async move {
+        jobs.spawn(crate::runtime_metrics::cost::inherit(async move {
             let id=string(&row,"id");
             // History has no ownership side effects. Keep its latest turn even
             // when the Desktop owner probe cannot finish within the page budget.
@@ -281,7 +300,7 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
             };
             let retry=crate::claude_notify::retry_status(id,string(&turn,"id")).unwrap_or(Value::Null);
             (index,compact(&row,&native,&turn,pending,&retry,&queue,error.as_deref(),full))
-        });
+        }));
     }
     let mut results = Vec::new();
     while let Some(r) = jobs.join_next().await {
@@ -291,6 +310,7 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
     Ok(
         json!({"observedAt":now(),"view":if full{"full"}else{"compact"},"tasks":results.into_iter().map(|(_,v)|v).collect::<Vec<_>>(),"nextCursor":page["nextCursor"]}),
     )
+    }).await
 }
 fn compact(
     row: &Value,

@@ -219,11 +219,15 @@ pub fn save_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     }
     std::fs::rename(&temp, path).map_err(|e| e.to_string())?;
     kernel::file_cache::changed(path, before);
+    runtime_metrics::cost::changed(1);
     Ok(())
 }
 pub fn load(path: &Path) -> Result<Value> {
-    serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+    runtime_metrics::cost::rows(1);
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    runtime_metrics::cost::bytes_read(bytes.len());
+    runtime_metrics::cost::bytes_parsed(bytes.len());
+    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
 }
 pub fn command(binary: impl AsRef<std::ffi::OsStr>) -> tokio::process::Command {
     let mut c = tokio::process::Command::new(binary);

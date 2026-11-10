@@ -146,6 +146,7 @@ pub(super) fn durable(path: &Path, value: &Value) -> Result<()> {
     )?;
     journal::atomic_bytes(path, &bytes)?;
     crate::kernel::file_cache::changed(path, None);
+    crate::runtime_metrics::cost::changed(1);
     if let Some(storage) = storage.as_mut() {
         storage.bytes =
             storage.bytes - storage.files.get(path).copied().unwrap_or(0) + bytes.len() as u64;
@@ -460,6 +461,7 @@ pub(super) fn project_at(
         json!({})
     };
     for descriptor in row["coordinationPending"].as_array().into_iter().flatten() {
+        crate::runtime_metrics::cost::rows(1);
         let input: EventInput = serde_json::from_value(descriptor.clone())
             .map_err(|_| "COORDINATION_STORAGE: invalid owner descriptor")?;
         if done.get(&input.transition_id).is_some() {
@@ -481,6 +483,7 @@ fn discover(dir: &Path, depth: usize, paths: &mut BTreeSet<PathBuf>) {
         return;
     };
     for entry in entries.take(MAX_PENDING).flatten() {
+        crate::runtime_metrics::cost::rows(1);
         if paths.len() >= MAX_PENDING {
             gap("replay", "discovery-capacity");
             break;
@@ -497,16 +500,23 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
     let service = Arc::downgrade(service);
     tokio::spawn(async move {
         let mut pending = BTreeSet::new();
-        for (name, depth) in [
-            ("dispatches", 1),
-            ("agents/requests", 0),
-            ("agents/tasks", 0),
-            ("coordination/observations", 0),
-            ("coordination/tooling", 0),
-        ] {
-            discover(&root().join(name), depth, &mut pending);
-        }
-        discover(&root(), 0, &mut pending);
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::CoordinationObservers,
+            crate::runtime_metrics::cost::Reason::Startup,
+            || {
+                for (name, depth) in [
+                    ("dispatches", 1),
+                    ("agents/requests", 0),
+                    ("agents/tasks", 0),
+                    ("coordination/observations", 0),
+                    ("coordination/tooling", 0),
+                ] {
+                    discover(&root().join(name), depth, &mut pending);
+                }
+                discover(&root(), 0, &mut pending);
+            },
+        );
+        let mut reason = crate::runtime_metrics::cost::Reason::Startup;
         let mut receipts = ReceiptObserver::default();
         let receipt_directory = root();
         let agent_receipt_directory = receipt_directory.join("agents/requests");
@@ -531,66 +541,81 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
             let Some(service) = service.upgrade() else {
                 break;
             };
-            pending.extend(std::mem::take(&mut *DIRTY.lock().unwrap()));
-            if slow_at.elapsed() >= Duration::from_secs(5) {
-                for path in &receipts.waiting {
-                    pending.insert(path.clone());
-                }
-                super::bulletin::tick(&service.control, &service.agents).await;
-                slow_at = Instant::now();
-            }
-            let batch = std::mem::take(&mut pending);
-            for path in batch {
-                // Startup replay visits historical owners once. Do not fill the
-                // hot JSON cache with complete receipt payloads and checkpoints.
-                if let Ok(row) = crate::load(&path) {
-                    let receipt_path = (path.parent() == Some(receipt_directory.as_path())
-                        || path.parent() == Some(agent_receipt_directory.as_path()))
-                        && path
-                            .file_stem()
-                            .and_then(|name| name.to_str())
-                            .is_some_and(|name| uuid::Uuid::parse_str(name).is_ok());
-                    if receipt_path
-                        || (row["requestId"].is_string() && row["operation"].is_string())
-                    {
-                        let session = if path.starts_with(&agent_receipt_directory) {
-                            service.agents.backend_session()
-                        } else {
-                            &service.control.session
-                        };
-                        if let Ok(resource) = host() {
-                            if !receipts.observe(
-                                &path,
-                                &row,
-                                session,
-                                chrono::Utc::now().timestamp_millis(),
-                                resource,
-                                &|input| persist(input).map(|_| ()),
-                            ) {
-                                continue;
+            crate::runtime_metrics::cost::scope(
+                crate::runtime_metrics::cost::Owner::CoordinationObservers,
+                reason,
+                async {
+                    pending.extend(std::mem::take(&mut *DIRTY.lock().unwrap()));
+                    if slow_at.elapsed() >= Duration::from_secs(5) {
+                        for path in &receipts.waiting {
+                            crate::runtime_metrics::cost::rows(1);
+                            pending.insert(path.clone());
+                        }
+                        super::bulletin::tick(&service.control, &service.agents).await;
+                        slow_at = Instant::now();
+                    }
+                    let batch = std::mem::take(&mut pending);
+                    crate::runtime_metrics::cost::scan_set(batch.len());
+                    for path in batch {
+                        crate::runtime_metrics::cost::rows(1);
+                        // Startup replay visits historical owners once. Do not fill the
+                        // hot JSON cache with complete receipt payloads and checkpoints.
+                        if let Ok(row) = crate::load(&path) {
+                            let receipt_path = (path.parent() == Some(receipt_directory.as_path())
+                                || path.parent() == Some(agent_receipt_directory.as_path()))
+                                && path
+                                    .file_stem()
+                                    .and_then(|name| name.to_str())
+                                    .is_some_and(|name| uuid::Uuid::parse_str(name).is_ok());
+                            if receipt_path
+                                || (row["requestId"].is_string() && row["operation"].is_string())
+                            {
+                                let session = if path.starts_with(&agent_receipt_directory) {
+                                    service.agents.backend_session()
+                                } else {
+                                    &service.control.session
+                                };
+                                if let Ok(resource) = host() {
+                                    if !receipts.observe(
+                                        &path,
+                                        &row,
+                                        session,
+                                        chrono::Utc::now().timestamp_millis(),
+                                        resource,
+                                        &|input| persist(input).map(|_| ()),
+                                    ) {
+                                        continue;
+                                    }
+                                }
+                            }
+                            if project(&path, super::emit).is_err() && pending.len() < MAX_PENDING {
+                                pending.insert(path);
+                                gap("projection", "pending-retry");
+                            }
+                        } else if path.exists() {
+                            gap("projection", "owner-read-unavailable");
+                            if pending.len() < MAX_PENDING {
+                                pending.insert(path);
                             }
                         }
                     }
-                    if project(&path, super::emit).is_err() && pending.len() < MAX_PENDING {
-                        pending.insert(path);
-                        gap("projection", "pending-retry");
+                    receipts.report();
+                    if git_at.elapsed()
+                        >= Duration::from_secs(if super::git_watch::active() { 5 } else { 30 })
+                    {
+                        crate::runtime_metrics::cost::scope(
+                            crate::runtime_metrics::cost::Owner::CoordinationGit,
+                            crate::runtime_metrics::cost::Reason::Timer,
+                            watcher.poll(),
+                        )
+                        .await;
+                        git_at = Instant::now();
                     }
-                } else if path.exists() {
-                    gap("projection", "owner-read-unavailable");
-                    if pending.len() < MAX_PENDING {
-                        pending.insert(path);
-                    }
-                }
-            }
-            receipts.report();
-            if git_at.elapsed()
-                >= Duration::from_secs(if super::git_watch::active() { 5 } else { 30 })
-            {
-                watcher.poll().await;
-                git_at = Instant::now();
-            }
+                },
+            )
+            .await;
             drop(service);
-            tokio::select! { _=WAKE.notified()=>{}, _=tokio::time::sleep(Duration::from_secs(5))=>{} }
+            tokio::select! { _=WAKE.notified()=>reason = crate::runtime_metrics::cost::Reason::Dirty, _=tokio::time::sleep(Duration::from_secs(5))=>reason = crate::runtime_metrics::cost::Reason::Timer }
         }
     })
 }

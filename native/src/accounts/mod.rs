@@ -17,13 +17,23 @@ fn path() -> PathBuf {
     root().join("accounts/index.json")
 }
 fn read() -> Result<Vec<Value>> {
-    if !path().exists() {
-        return Ok(vec![]);
-    }
-    match load(&path())? {
-        Value::Array(rows) => Ok(rows),
-        _ => Err("ACCOUNTS_INVALID: expected an array".into()),
-    }
+    crate::runtime_metrics::cost::sync(
+        crate::runtime_metrics::cost::Owner::Accounts,
+        crate::runtime_metrics::cost::Reason::Poll,
+        || {
+            if !path().exists() {
+                return Ok(vec![]);
+            }
+            match load(&path())? {
+                Value::Array(rows) => {
+                    crate::runtime_metrics::cost::scan_set(rows.len());
+                    crate::runtime_metrics::cost::rows(rows.len());
+                    Ok(rows)
+                }
+                _ => Err("ACCOUNTS_INVALID: expected an array".into()),
+            }
+        },
+    )
 }
 fn change<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
     let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Accounts);

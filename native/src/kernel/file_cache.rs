@@ -237,8 +237,10 @@ impl<T> Cache<T> {
     pub fn entries(&mut self, path: &Path) -> Result<Arc<Vec<Entry>>> {
         let stamp = Stamp::read(path)?;
         if let Some(cached) = self.directories.get(path).filter(|v| v.stamp == stamp) {
+            crate::runtime_metrics::cost::cache(true);
             return Ok(cached.entries.clone());
         }
+        crate::runtime_metrics::cost::cache(false);
         let mut entries = Vec::new();
         if stamp.is_some() {
             self.io.directory_reads += 1;
@@ -350,6 +352,7 @@ impl<T> Cache<T> {
         path: &Path,
         decode: impl FnOnce(&[u8]) -> Result<T>,
     ) -> Result<Arc<T>> {
+        crate::runtime_metrics::cost::rows(1);
         let stamp =
             Stamp::read(path)?.ok_or_else(|| format!("File not found: {}", path.display()))?;
         self.clock += 1;
@@ -358,11 +361,15 @@ impl<T> Cache<T> {
             cached.used = self.clock;
             self.recency.insert(self.clock, path.into());
             self.hits += 1;
+            crate::runtime_metrics::cost::cache(true);
             return Ok(cached.value.clone());
         }
+        crate::runtime_metrics::cost::cache(false);
         self.io.file_opens += 1;
         count_io(true);
         let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        crate::runtime_metrics::cost::bytes_read(bytes.len());
+        crate::runtime_metrics::cost::bytes_parsed(bytes.len());
         let value: Arc<T> = Arc::new(decode(&bytes)?);
         if let Some(old) = self.files.remove(path) {
             self.bytes -= old.stamp.len;

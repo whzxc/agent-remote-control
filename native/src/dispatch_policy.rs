@@ -1150,8 +1150,11 @@ fn read_rows(dir: &Path) -> Result<Vec<Value>> {
     if !dir.exists() {
         return Ok(vec![]);
     }
-    let mut rows = file_cache::entries(dir)?
+    let entries = file_cache::entries(dir)?;
+    crate::runtime_metrics::cost::scan_set(entries.len());
+    let mut rows = entries
         .iter()
+        .inspect(|_| crate::runtime_metrics::cost::rows(1))
         .filter(|entry| entry.path.extension().is_some_and(|v| v == "json"))
         .map(|entry| load(&entry.path))
         .collect::<Result<Vec<_>>>()?;

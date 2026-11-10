@@ -1648,6 +1648,7 @@ impl Control {
         Ok(r)
     }
     pub async fn task_records(&self) -> Result<Arc<Vec<Value>>> {
+        crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::TaskRecords, crate::runtime_metrics::cost::Reason::Poll, async {
         use crate::kernel::file_cache::{self, Projection};
         let mut cache = self.task_records.lock().await;
         if cache.changes.is_none() {
@@ -1679,11 +1680,16 @@ impl Control {
         }
         let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
         if let Some(records) = cache.projection.get(&stamps) {
+            crate::runtime_metrics::cost::cache(true);
             return Ok(records);
         }
+        crate::runtime_metrics::cost::cache(false);
         let mut complete = true;
         let mut records = Vec::new();
-        for entry in file_cache::entries(&root())?.iter() {
+        let entries = file_cache::entries(&root())?;
+        crate::runtime_metrics::cost::scan_set(entries.len());
+        for entry in entries.iter() {
+            crate::runtime_metrics::cost::rows(1);
             let path = &entry.path;
             if path.extension().is_none_or(|e| e != "json") {
                 continue;
@@ -1789,6 +1795,7 @@ impl Control {
                 .set(&dependencies, stamps, records.clone())?;
         }
         Ok(records)
+        }).await
     }
     pub async fn task_display_records(&self) -> Result<Arc<Vec<Value>>> {
         self.task_records().await?;
@@ -2544,7 +2551,8 @@ impl Control {
     }
     pub async fn tool(self: &Arc<Self>, name: &str, args: Value) -> Result<Value> {
         let warnings = crate::coordination::bulletin::command_warnings(name, &args);
-        let mut result = self.tool_inner(name, args.clone()).await;
+        let mut result =
+            crate::runtime_metrics::cost::op_scope(name, self.tool_inner(name, args.clone())).await;
         if let (Some(warnings), Ok(value)) = (warnings, &mut result) {
             value["conflicts"] = warnings["conflicts"].clone();
             value["conflictCoverage"] = warnings["conflictCoverage"].clone();
@@ -3414,6 +3422,7 @@ pub(crate) fn persisted_history(thread: &Value) -> Result<String> {
     file.take(32 * 1024 * 1024)
         .read_to_string(&mut text)
         .map_err(|e| e.to_string())?;
+    crate::runtime_metrics::cost::bytes_read(text.len());
     Ok(text)
 }
 
@@ -3433,6 +3442,9 @@ fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> 
         {
             break;
         }
+        crate::runtime_metrics::cost::rows(1);
+        crate::runtime_metrics::cost::bytes_read(line.len());
+        crate::runtime_metrics::cost::bytes_parsed(line.len());
         let record: Value =
             serde_json::from_slice(&line).map_err(|e| format!("INVALID_NATIVE_HISTORY: {e}"))?;
         if !matched {
@@ -3476,6 +3488,9 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
             .map_while(std::result::Result::ok)
             .filter(|l| l.len() <= 1024 * 1024)
         {
+            crate::runtime_metrics::cost::rows(1);
+            crate::runtime_metrics::cost::bytes_read(line.len());
+            crate::runtime_metrics::cost::bytes_parsed(line.len());
             let Ok(event) = serde_json::from_str::<Value>(&line) else {
                 continue;
             };

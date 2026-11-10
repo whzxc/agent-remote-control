@@ -414,6 +414,7 @@ impl Service {
         }
     }
     pub async fn status(&self) -> Result<Value> {
+        crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::Status, crate::runtime_metrics::cost::Reason::Poll, async {
         let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Status);
         let mut status = if let Ok(primary) = self.primary().await {
             primary.status().await?
@@ -450,7 +451,10 @@ impl Service {
         status["core"]["opCount"] = json!(catalog()["ops"].as_array().unwrap().len());
         status["core"]["package"] = json!({"version":env!("ARC_BUILD_VERSION"),"sha":"native"});
         let mut items = Vec::new();
-        for i in self.entries().await {
+        let entries = self.entries().await;
+        crate::runtime_metrics::cost::scan_set(entries.len());
+        for i in entries {
+            crate::runtime_metrics::cost::rows(1);
             items.push(i.summary().await?);
         }
         let running = items.iter().filter(|i| i["running"] == true).count();
@@ -480,6 +484,7 @@ impl Service {
         status["core"]["logs"] = status["logs"].clone();
         status["core"]["registered"] = json!(running > 0);
         Ok(status)
+        }).await
     }
     pub(crate) fn begin_shutdown(&self) {
         self.closing.store(true, Ordering::SeqCst);
@@ -617,7 +622,12 @@ impl Service {
                 json!({"time":now(),"level":"INFO","msg":format!("{method} {route}: started"),"operationId":operation,"ingressId":ingress_id,"phase":"started"}),
             )?;
         }
-        let mut result = self.request_inner(route, method, body).await;
+        let mut result = crate::runtime_metrics::cost::read_scope(
+            route,
+            method,
+            self.request_inner(route, method, body),
+        )
+        .await;
         if let Ok(value) = &mut result {
             crate::sources::decorate(value);
         }
@@ -877,6 +887,14 @@ impl Service {
                     );
                 loop {
                     let entries = self.entries().await;
+                    crate::runtime_metrics::cost::sync(
+                        crate::runtime_metrics::cost::Owner::ScopedWait,
+                        crate::runtime_metrics::cost::Reason::Poll,
+                        || {
+                            crate::runtime_metrics::cost::scan_set(entries.len());
+                            crate::runtime_metrics::cost::rows(entries.len());
+                        },
+                    );
                     let mut states = Vec::new();
                     for entry in entries {
                         if body["ingressId"].as_str().is_some_and(|id| entry.id != id) {
@@ -1143,6 +1161,14 @@ impl Service {
                         .await
                         .get(&expires_id)
                         .map(|(_, last, _)| last.elapsed().as_secs() >= 120);
+                    crate::runtime_metrics::cost::sync(
+                        crate::runtime_metrics::cost::Owner::DraftExpiry,
+                        crate::runtime_metrics::cost::Reason::Timer,
+                        || {
+                            crate::runtime_metrics::cost::scan_set(1);
+                            crate::runtime_metrics::cost::rows(1);
+                        },
+                    );
                     match expired {
                         None => break,
                         Some(true) => {
