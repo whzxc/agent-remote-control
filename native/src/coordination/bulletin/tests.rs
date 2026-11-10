@@ -1144,7 +1144,8 @@ fn dispatch_missing_and_ambiguous_identity_never_guess_project_or_session() {
     assert_eq!(ambiguous["project"], "ambiguous");
     assert_eq!(ambiguous["resources"], json!([]));
     let mut f = Fixture::new();
-    for event in dispatch_fixture("missing-request", "new-turn", Value::Null, Value::Null) {
+    let association = json!({"resources":[],"project":"unattributed","lane":"unattributed","source":"unattributed","session":"unattributed","registryObservedAt":null});
+    for event in dispatch_fixture("missing-request", "new-turn", Value::Null, association) {
         f.store.dispatch_notice(&event, f.clock).unwrap();
     }
     let notice = &f.call("board", json!({"view":"full"}))["notices"][0];
@@ -1371,4 +1372,184 @@ fn manual_project_names_admit_canonical_keys_that_overlap_derived_dispatches() {
         assert_eq!(warning["conflicts"][0]["noticeId"], notice["id"]);
         assert_eq!(warning["conflicts"][0]["resource"], canonical);
     }
+}
+
+#[test]
+fn unattributed_dispatches_stay_visible_without_host_or_peer_conflicts() {
+    // Regression: installed unattributed dispatch notices inherited the host resource and conflicted with every peer dispatch.
+    let mut f = Fixture::new();
+    let association = json!({"resources":[],"project":"unattributed","lane":"unattributed","source":"observed","session":"unattributed","registryObservedAt":null});
+    for request in ["unattributed-first", "unattributed-second"] {
+        for event in dispatch_fixture(
+            request,
+            "new-turn",
+            json!({"sourceId":"source-a"}),
+            association.clone(),
+        ) {
+            let restored: EventInput = serde_json::from_value(json!(event)).unwrap();
+            let projected = restored.project("fixture-epoch", 1, f.clock.utc).unwrap();
+            assert_eq!(projected["resources"], json!(["unattributed:dispatch"]));
+            f.store.dispatch_notice(&restored, f.clock).unwrap();
+        }
+    }
+    for _ in 0..2 {
+        f.call("notice_post", json!({"intent":"Fixture host work","resources":["host:fixture"],"expectedDurationSeconds":60}));
+    }
+    let board = f.call("board", json!({"view":"full"}));
+    assert_eq!(board["notices"].as_array().unwrap().len(), 4);
+    for notice in board["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["dispatchId"].is_string())
+    {
+        assert_eq!(notice["resources"], json!([]));
+        assert_eq!(notice["association"]["project"], "unattributed");
+        assert!(notice["activityCoverage"].is_string());
+    }
+    let digest = f.call("board", json!({"view":"digest"}));
+    for notice in digest["notices"].as_array().unwrap() {
+        assert_eq!(
+            notice["conflictCount"],
+            if notice["dispatchId"].is_string() {
+                0
+            } else {
+                1
+            }
+        );
+    }
+    let host = [ResourceKey::parse("host:fixture").unwrap()];
+    assert_eq!(
+        f.store.advisory(&host, None, f.clock)["conflicts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(f.call("notice_post", json!({"intent":"Fixture invalid claim","resources":["unattributed:dispatch"],"expectedDurationSeconds":60}))["error"]["code"], "INVALID_ARGUMENT");
+    let marker = [ResourceKey::unattributed_dispatch()];
+    assert!(f.store.advisory(&marker, None, f.clock)["conflicts"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    for event in &f.store.state.pending {
+        event.project("fixture-epoch", 1, f.clock.utc).unwrap();
+    }
+    f.store = Store::open(f.path.join("state.json")).unwrap();
+    assert_eq!(
+        f.call("board", json!({"view":"digest"}))["notices"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|n| n["dispatchId"].is_string() && n["conflictCount"] == 0)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn startup_removes_pre_admission_notices_and_old_events_cannot_backfill_them() {
+    // Regression: the first observer pass after upgrade derived notices for dispatches accepted before coordination admission existed.
+    let mut f = Fixture::new();
+    let thread = id();
+    let current_request = id();
+    let legacy_request = id();
+    let association = json!({"resources":[],"project":"unattributed","lane":"unattributed","source":"observed","session":"unattributed","registryObservedAt":null});
+    for mut event in dispatch_fixture(
+        &current_request,
+        "new-turn",
+        json!({"sourceId":"source-a"}),
+        association.clone(),
+    ) {
+        event.thread_refs[0].thread_id = thread.clone();
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    let manual = f.post();
+    let current = f.call("board", json!({"view":"full"}))["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["dispatchId"] == current_request)
+        .unwrap()
+        .clone();
+    let legacy_id = format!("dispatch-{}", hash(&legacy_request));
+    let mut snapshot = json!(f.store.state);
+    let mut legacy = snapshot["notices"][0].clone();
+    legacy["id"] = json!(legacy_id);
+    legacy["dispatchId"] = json!(legacy_request);
+    legacy["resources"] = json!(["host:fixture"]);
+    snapshot["notices"][0]["resources"] = json!(["host:fixture"]);
+    snapshot["notices"].as_array_mut().unwrap().push(legacy);
+    snapshot
+        .as_object_mut()
+        .unwrap()
+        .remove("dispatchAdmissionCleanupComplete");
+    save(&f.path.join("state.json"), &snapshot).unwrap();
+    let owners = f.path.join("dispatches").join(&thread);
+    save(
+        &owners.join(format!("{current_request}.json")),
+        &json!({"requestId":current_request,"coordination":{"association":association}}),
+    )
+    .unwrap();
+    let old_row = json!({"requestId":legacy_request,"threadId":thread,"turnId":"first-turn","dispatchMode":"new-turn","origin":{"sourceId":"source-a"}});
+    save(&owners.join(format!("{legacy_request}.json")), &old_row).unwrap();
+    f.store = Store::open(f.path.join("state.json")).unwrap();
+    f.store
+        .cleanup_dispatch_admissions(&f.path, f.clock)
+        .unwrap();
+    let board = f.call("board", json!({"view":"full","state":"all"}));
+    assert_eq!(board["notices"].as_array().unwrap().len(), 2);
+    assert!(board["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|n| n["id"] == manual["id"]));
+    assert!(!board["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|n| n["id"] == legacy_id));
+    assert_eq!(
+        f.board(&current["id"])["notices"][0]["resources"],
+        json!([])
+    );
+    for event in super::super::observers::inputs_on(
+        super::super::observers::Owner::Dispatch,
+        &old_row,
+        ResourceKey::parse("host:fixture").unwrap(),
+    )
+    .unwrap()
+    {
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    assert_eq!(
+        f.call("board", json!({"view":"full","state":"all"}))["notices"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    std::fs::remove_dir_all(f.path.join("dispatches")).unwrap();
+    f.store = Store::open(f.path.join("state.json")).unwrap();
+    let before =
+        crate::runtime_metrics::snapshot()["cost"]["coordinationObservers"]["rowsVisited"].clone();
+    crate::runtime_metrics::cost::sync(
+        crate::runtime_metrics::cost::Owner::CoordinationObservers,
+        crate::runtime_metrics::cost::Reason::Startup,
+        || {
+            f.store
+                .cleanup_dispatch_admissions(&f.path, f.clock)
+                .unwrap()
+        },
+    );
+    let after =
+        crate::runtime_metrics::snapshot()["cost"]["coordinationObservers"]["rowsVisited"].clone();
+    assert_eq!(after, before);
+    assert_eq!(
+        f.call("board", json!({"view":"full","state":"all"}))["notices"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 }

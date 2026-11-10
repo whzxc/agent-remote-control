@@ -954,6 +954,8 @@ original dispatch `requestId` (`dispatchId` on the board).
 This includes Codex create/send, Agent create/send, native `turn/start` and explicit resume.
 A steer does not create another work scope.
 The durable dispatch descriptor projects through the existing coordination outbox.
+Derived notices require a recorded coordination admission.
+Dispatches accepted before admission records existed do not create notices.
 A repeated `requestId` reuses its notice and never reopens a terminal notice.
 Native retries update the evidenced successor scope.
 
@@ -965,7 +967,9 @@ A baseline whose Git common directory is its root `.git` produces
 `project:<id>/main` when it has no lane ref.
 Other worktrees without an evidenced lane remain unattributed.
 Prompt text, titles and project labels never establish identity.
-Missing or ambiguous identity retains a host-scoped notice with explicit coverage.
+Missing or ambiguous identity retains a notice with `resources:[]` and explicit coverage.
+It participates in no resource conflicts.
+Its coordination events use the non-conflicting internal marker `unattributed:dispatch`.
 Logical board sessions remain unattributed because dispatch arguments carry no
 authenticated logical session handle.
 The native `threadLinks` identify only the dispatched thread and turn.

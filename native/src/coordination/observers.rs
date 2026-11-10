@@ -255,19 +255,19 @@ pub(super) fn inputs_on(
                     &format!("dispatch:{request}"),
                     EventKind::DispatchAccepted,
                 )?;
-                let associated: Vec<ResourceKey> =
-                    serde_json::from_value(row["coordination"]["association"]["resources"].clone())
-                        .unwrap_or_default();
-                if !associated.is_empty() {
-                    input.resources = associated;
+                let association: Option<DispatchAssociation> =
+                    serde_json::from_value(row["coordination"]["association"].clone()).ok();
+                if let Some(association) = &association {
+                    input.resources = if association.resources.is_empty() {
+                        vec![ResourceKey::unattributed_dispatch()]
+                    } else {
+                        association.resources.clone()
+                    };
                 }
                 input.occurred_at = row["acceptedAt"].as_str().map(str::to_owned);
                 input.status = Some(EventStatus::Submitted);
                 input.observation = Some(Observation {
-                    dispatch_association: serde_json::from_value(
-                        row["coordination"]["association"].clone(),
-                    )
-                    .ok(),
+                    dispatch_association: association,
                     model: row["model"].as_str().map(str::to_owned),
                     effort: row["effort"].as_str().map(str::to_owned),
                     ..Default::default()

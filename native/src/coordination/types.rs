@@ -59,10 +59,20 @@ impl From<ResourceKey> for String {
 impl TryFrom<String> for ResourceKey {
     type Error = String;
     fn try_from(value: String) -> Result<Self> {
+        if value == "unattributed:dispatch" {
+            return Ok(Self::unattributed_dispatch());
+        }
         Self::parse(&value)
     }
 }
 impl ResourceKey {
+    /// Internal event marker. It carries no resource claim and is not admitted by parse.
+    pub(crate) fn unattributed_dispatch() -> Self {
+        Self("unattributed:dispatch".into())
+    }
+    pub(crate) fn is_claim(&self) -> bool {
+        self.0 != "unattributed:dispatch"
+    }
     pub fn parse(value: &str) -> Result<Self> {
         let valid = match value.split_once(':') {
             Some(("app", "installed")) => true,

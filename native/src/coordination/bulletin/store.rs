@@ -17,6 +17,8 @@ const SNAPSHOT_BYTES: usize = 2 * 1024 * 1024; // Plus one equal-size atomic tem
 pub(super) struct State {
     epoch: String,
     revision: u64,
+    #[serde(default)]
+    dispatch_admission_cleanup_complete: bool,
     pub notices: Vec<Record>,
     pub blockers: Vec<Record>,
     sessions: Vec<Session>,
@@ -362,6 +364,7 @@ impl Store {
         } else {
             State {
                 epoch: id(),
+                dispatch_admission_cleanup_complete: true,
                 ..Default::default()
             }
         };
@@ -375,7 +378,11 @@ impl Store {
                 !valid_time(n.created_at)
                     || !valid_time(n.last_active_at)
                     || n.ended_at.is_some_and(|at| !valid_time(at))
-                    || n.resources.is_empty()
+                    || (n.resources.is_empty()
+                        && !(n.dispatch_id.is_some()
+                            && n.association
+                                .as_ref()
+                                .is_some_and(|a| a.resources.is_empty())))
                     || n.resources.len() > 16
                     || n.thread_links.len() > 16
                     || n.thread_links.iter().any(|l| l.terminals.len() > 16)
@@ -441,7 +448,7 @@ impl Store {
                 self.dispatch_notices.insert(dispatch.clone(), index);
             }
             if row.state == "active" {
-                for resource in &row.resources {
+                for resource in row.resources.iter().filter(|resource| resource.is_claim()) {
                     self.resource_notices
                         .entry(resource.clone())
                         .or_default()
@@ -451,7 +458,7 @@ impl Store {
         }
         for (index, row) in self.state.blockers.iter().enumerate() {
             if row.state != "cleared" {
-                for resource in &row.resources {
+                for resource in row.resources.iter().filter(|resource| resource.is_claim()) {
                     self.resource_blockers
                         .entry(resource.clone())
                         .or_default()
@@ -529,9 +536,13 @@ impl Store {
         Ok(())
     }
     fn event(&mut self, record: &Record, blocker: bool) -> Result<()> {
+        let resources = if record.resources.is_empty() && record.dispatch_id.is_some() {
+            vec![ResourceKey::unattributed_dispatch()]
+        } else {
+            record.resources.clone()
+        };
         if self.state.pending.len()
-            + record
-                .resources
+            + resources
                 .len()
                 .div_ceil(if record.thread_links.is_empty() { 4 } else { 2 })
                 * record.thread_links.len().max(1)
@@ -546,7 +557,7 @@ impl Store {
             } else {
                 EventKind::NoticeChanged
             },
-            record.resources.clone(),
+            resources,
         );
         event.origin = Some(record.owner.clone());
         // Journal observation time prevents late links from broadening a past window.
@@ -768,7 +779,66 @@ impl Store {
             }
         }
     }
+    /// Reconcile the pre-admission projection once. Missing owner evidence stays visible.
+    pub fn cleanup_dispatch_admissions(&mut self, base: &Path, clock: Clock) -> Result<()> {
+        if self.state.dispatch_admission_cleanup_complete {
+            return Ok(());
+        }
+        let mut remove = std::collections::BTreeSet::new();
+        for row in &self.state.notices {
+            let Some(request) = &row.dispatch_id else {
+                continue;
+            };
+            crate::runtime_metrics::cost::rows(1);
+            let Some(link) = row.thread_links.first() else {
+                continue;
+            };
+            match crate::dispatch_policy::coordination_admission(base, &link.thread_id, request) {
+                Ok(false) => {
+                    remove.insert(row.id.clone());
+                }
+                Ok(true) => {}
+                Err(_) => observers::gap("dispatch-notice-cleanup", "owner-unavailable"),
+            }
+        }
+        self.transaction(clock, |s| {
+            s.state.notices.retain(|row| !remove.contains(&row.id));
+            let mut changed = remove;
+            for row in &mut s.state.notices {
+                if row.dispatch_id.is_some() {
+                    if let Some(association) = &row.association {
+                        if row.resources != association.resources {
+                            row.resources = association.resources.clone();
+                            row.revision += 1;
+                            changed.insert(row.id.clone());
+                        }
+                    }
+                }
+            }
+            s.state.pending.retain(|event| {
+                !event
+                    .evidence_refs
+                    .iter()
+                    .any(|r| matches!(r.kind, EvidenceKind::Notice) && changed.contains(&r.id))
+            });
+            for row in s
+                .state
+                .notices
+                .iter()
+                .filter(|row| changed.contains(&row.id))
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                s.event(&row, false)?;
+            }
+            s.state.dispatch_admission_cleanup_complete = true;
+            s.state.revision += 1;
+            Ok(())
+        })
+    }
+
     pub fn maintain(&mut self, revoked: &[String], clock: Clock) -> Result<()> {
+        self.cleanup_dispatch_admissions(&root(), clock)?;
         if clock.certain
             && self.maintained.as_ref().is_some_and(|(old, at, next)| {
                 old == revoked
@@ -872,7 +942,7 @@ impl Store {
         clock: Clock,
     ) -> Vec<Value> {
         let mut result = Vec::new();
-        for resource in resources {
+        for resource in resources.iter().filter(|resource| resource.is_claim()) {
             for (kind, indices) in [
                 ("notice", self.resource_notices.get(resource)),
                 ("blocker", self.resource_blockers.get(resource)),
@@ -909,6 +979,13 @@ impl Store {
     /// The deterministic dispatch key and owner checkpoint make replays idempotent.
     /// A terminal notice is never reopened by a delayed acceptance projection.
     pub fn dispatch_notice(&mut self, input: &EventInput, clock: Clock) -> Result<()> {
+        let Some(association) = input
+            .observation
+            .as_ref()
+            .and_then(|o| o.dispatch_association.as_ref())
+        else {
+            return Ok(());
+        };
         let Some(dispatch) = input
             .evidence_refs
             .iter()
@@ -924,18 +1001,14 @@ impl Store {
             s.prune(clock);
             if s.state.notices.len() >= 256 { return Err("COORDINATION_CAPACITY: retain dispatch projection until bulletin capacity is available".into()); }
             let owner = input.origin.clone().unwrap_or(Principal::Arc);
-            let association = input.observation.as_ref().and_then(|o|o.dispatch_association.clone()).unwrap_or(DispatchAssociation {
-                source: if input.origin.is_some(){"observed"}else{"unattributed"}.into(),
-                session: "unattributed".into(), project: "unattributed".into(), lane: "unattributed".into(), ..Default::default()
-            });
             let links = input.thread_refs.iter().filter_map(|thread| {
                 let turn = thread.turn_id.as_ref()?;
                 Some(Link { thread_id:thread.thread_id.clone(), session_binding_id:None, observed_turn_id:Some(turn.clone()), scope_state:"unknown".into(), observed_at:None, terminals:Default::default() })
             }).collect();
             let at = input.occurred_at.as_deref().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).map(|at|at.timestamp_millis()).unwrap_or(clock.utc);
             let row = Record {
-                id:format!("dispatch-{}", hash(&dispatch)), dispatch_id:Some(dispatch), association:Some(association), revision:1, owner, owner_session_id:None,
-                resources:input.resources.clone(), intent:Some("ARC dispatch".into()), expected_duration_seconds:None, thread_links:links,
+                id:format!("dispatch-{}", hash(&dispatch)), dispatch_id:Some(dispatch), association:Some(association.clone()), revision:1, owner, owner_session_id:None,
+                resources:association.resources.clone(), intent:Some("ARC dispatch".into()), expected_duration_seconds:None, thread_links:links,
                 cause_code:None, summary:None, evidence_ids:vec![], fixing_commit:None, reason:None, suggested_next_step:None,
                 created_at:at, last_active_at:at, fresh_activity:false, state:"active".into(), closed_reason:None, ended_at:None, recovery_selection:None, cleared_by:None
             };

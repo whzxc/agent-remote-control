@@ -1254,6 +1254,19 @@ fn directory(thread: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
     Ok(root().join("dispatches").join(thread))
 }
+/// One-time bulletin cleanup reads only the exact owning dispatch, without history or account resolution.
+pub(crate) fn coordination_admission(base: &Path, thread: &str, request: &str) -> Result<bool> {
+    uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
+    uuid::Uuid::parse_str(request).map_err(|_| "INVALID_REQUEST_ID")?;
+    let row = crate::kernel::file_cache::load(
+        &base
+            .join("dispatches")
+            .join(thread)
+            .join(format!("{request}.json")),
+    )?;
+    Ok(row["coordination"]["association"].is_object())
+}
+
 pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let rows = read_records(thread)?;
