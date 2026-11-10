@@ -196,7 +196,7 @@ test("submission locks immediately, survives snapshot refresh and retries only t
   const retry = beginApproval(failed, "allow", payload, () => `request-${++ids}`)!;
   assert.equal(retry.payload, first.payload);
   assert.equal(retry.requestId, first.requestId);
-  const pending = finishApproval(retry, { state: "pending" });
+  const pending = finishApproval(retry, { state: "executing" });
   assert.equal(pending.status, "pending");
   assert.equal(beginApproval(pending, "allow", payload, () => "unused")?.payload, first.payload);
   assert.equal(beginApproval(finishApproval(retry, { state: "completed" }), "allow", payload, () => "unused"), undefined);
@@ -428,7 +428,9 @@ test("dispatch records use their own turn results and keep submission separate",
   assert.equal(dispatchState({ ...latest, state: "awaiting-approval" }, undefined, live), "awaitingApproval");
   assert.equal(dispatchState({ ...latest, state: "failed" }, undefined, undefined), "submissionFailed");
   assert.equal(dispatchState({ ...latest, state: "unconfirmed" }, undefined, undefined), "submissionUnknown");
-  assert.equal(dispatchState({ ...latest, state: "reserved" }, undefined, undefined), "submitting");
+  for (const state of ["reserved", "executing"]) {
+    assert.equal(dispatchState({ ...latest, state }, undefined, undefined), "submitting");
+  }
   assert.equal(dispatchState({ ...latest, state: "not-executed" }, undefined, undefined), "notExecuted");
 });
 

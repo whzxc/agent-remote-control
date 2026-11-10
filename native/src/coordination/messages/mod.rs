@@ -10,7 +10,7 @@ use store::Store;
 pub(crate) const SUMMARY_LIMIT: usize = 240;
 static MESSAGES: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 static REQUESTS: crate::kernel::receipts::RequestLocks = crate::kernel::receipts::RequestLocks;
-const RECEIPTS: crate::kernel::receipts::ReceiptStore =
+static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 /// Peer notices wake only recipients currently holding an overlapping board resource.
 pub(crate) fn delivery_decision(
@@ -193,6 +193,8 @@ pub(crate) async fn call(op: &str, mut args: Value, backend: &str) -> Result<Val
             Some(r)=>r,
             None=>{let r=json!({"requestId":request,"origin":origin,"backendSession":backend,"digest":digest,"operation":op,"state":"reserved","createdAt":now()}); RECEIPTS.reserve(&r)?;r}
         };
+        receipt["backendSession"] = json!(backend);
+        let _owner = RECEIPTS.begin(&mut receipt)?;
         let mut value=with_store(|s|s.send(&args,actor,route,&reason,chrono::Utc::now().timestamp()))?;
         value["projectionPending"]=json!(reconcile().is_err());
         // Receipts are discoverable independently; private bodies stay in messages.

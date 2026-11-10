@@ -18,6 +18,6 @@ export function dispatchState(record: TaskRecord, execution: TaskExecution | und
   if (["rejected", "not-executed", "cancelled"].includes(record.state)) return "notExecuted";
   if (record.state === "unconfirmed") return "submissionUnknown";
   if (record.error || record.state === "failed") return "submissionFailed";
-  if (["pending", "reserved", "submitting", "thread-submitting", "thread-created", "turn-submitting"].includes(record.state)) return "submitting";
+  if (["reserved", "executing"].includes(record.state)) return "submitting";
   return "unknown";
 }

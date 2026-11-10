@@ -163,7 +163,7 @@ export function beginApproval(previous: ApprovalSubmission | undefined, decision
 }
 export function finishApproval(submission: ApprovalSubmission, receipt: { state?: string; error?: unknown; result?: { responded?: boolean; error?: unknown } }): ApprovalSubmission {
   if (receipt.state === "completed" && receipt.result?.responded !== false) return { ...submission, status: "submitted" };
-  if (["pending", "running", "reserved"].includes(receipt.state ?? "")) return { ...submission, status: "pending" };
+  if (["reserved", "executing"].includes(receipt.state ?? "")) return { ...submission, status: "pending" };
   return { ...submission, status: receipt.state === "unconfirmed" ? "unconfirmed" : "failed",
     error: typeof receipt.error === "string" ? receipt.error : JSON.stringify(receipt.error ?? receipt.result?.error ?? receipt.state ?? "Unknown response") };
 }

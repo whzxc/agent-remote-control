@@ -198,6 +198,7 @@ pub fn receipt(value: Value) -> Value {
     if !value["requestId"].is_string() || !value["state"].is_string() {
         return value;
     }
+    let value = crate::kernel::receipts::progress::project(value, true, chrono::Utc::now().timestamp_millis());
     let mut out = json!({});
     for key in [
         "requestId",
@@ -207,6 +208,10 @@ pub fn receipt(value: Value) -> Value {
         "message",
         "queueId",
         "state",
+        "submissionState",
+        "executionState",
+        "phaseAgeMs",
+        "progressStalled",
         "operation",
         "threadId",
         "turnId",
@@ -265,22 +270,6 @@ pub fn receipt(value: Value) -> Value {
         });
     }
     out["stateScope"] = json!("operation");
-    if let Some(updated) = value["updatedAt"]
-        .as_str()
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-    {
-        let age = chrono::Utc::now()
-            .signed_duration_since(updated)
-            .num_milliseconds()
-            .max(0);
-        out["phaseAgeMs"] = json!(age);
-        if !matches!(
-            string(&value, "state"),
-            "completed" | "failed" | "cancelled" | "rejected" | "not-executed"
-        ) {
-            out["progressStalled"] = json!(age >= 30000 && value["state"] != "executing");
-        }
-    }
     let result = &value["result"];
     if value["task"]["dispatch"].is_object() {
         out["dispatch"] = value["task"]["dispatch"].clone();
@@ -943,7 +932,9 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
     wait_args["until"] = json!("terminal");
     wait_args["timeoutMs"] = json!(30000);
     let wait_tool = if agent { "agent_wait" } else { "codex_wait" };
-    let mut next = if value["next"]["op"].is_string()
+    let mut next = if value["state"] == "unconfirmed" && value["requestId"].is_string() {
+        json!({"via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
+    } else if value["next"]["op"].is_string()
         || (value["next"].get("op") == Some(&Value::Null) && value["next"]["hint"].is_string())
     {
         value["next"].clone()
@@ -979,18 +970,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
             arguments["timeoutMs"] = timeout.clone();
         }
         json!({"hint":"Continue waiting with the same task and turn.","via":"query","op":wait_tool,"args":arguments})
-    } else if matches!(
-        value["state"].as_str(),
-        Some(
-            "pending"
-                | "reserved"
-                | "thread-submitting"
-                | "thread-created"
-                | "turn-submitting"
-                | "submitting"
-                | "queued"
-        )
-    ) && value["requestId"].is_string()
+    } else if value["state"] == "reserved" && value["requestId"].is_string()
     {
         json!({"hint":"Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"retryAfterMs":1000})
     } else if (matches!(

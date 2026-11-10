@@ -1,7 +1,7 @@
 //! Shell convenience form over the existing native command executor.
 use crate::*;
 
-pub async fn run(c: &control::Control, args: &Value, receipt: &mut Value) -> Result<Value> {
+pub async fn run(c: &control::Control, args: &Value) -> Result<Value> {
     let directory = crate::projects::working_directory(c, args).await?;
     let cwd = Path::new(directory.as_str().unwrap_or(""));
     if !cwd.is_absolute() {
@@ -47,8 +47,6 @@ pub async fn run(c: &control::Control, args: &Value, receipt: &mut Value) -> Res
     };
     let started = std::time::Instant::now();
     let timeout = num(args, "timeoutMs", 60000) as u64;
-    receipt["state"] = json!("executing");
-    crate::kernel::receipts::ReceiptStore::new("").checkpoint(receipt)?;
     let output = c
         .request(
             "command/exec",

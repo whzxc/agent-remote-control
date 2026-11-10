@@ -297,15 +297,7 @@ async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
                 }
             };
             let state = string(&result, "state");
-            if matches!(
-                state,
-                "pending"
-                    | "reserved"
-                    | "submitting"
-                    | "thread-submitting"
-                    | "thread-created"
-                    | "turn-submitting"
-            ) {
+            if crate::kernel::receipts::progress::Progress::read(state, true).active() {
                 return Ok(());
             }
             let _guard = LOCK.lock().await;

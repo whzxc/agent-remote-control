@@ -8,7 +8,7 @@ use std::sync::{LazyLock, Mutex};
 use store::Store;
 
 static AX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-const RECEIPTS: crate::kernel::receipts::ReceiptStore =
+static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 fn with_store<T>(f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     let _guard = AX
@@ -204,6 +204,8 @@ pub(crate) async fn call(op: &str, mut args: Value, session: &str) -> Result<Val
                 RECEIPTS.reserve(&r)?; r
             }
         };
+        receipt["backendSession"] = json!(session);
+        let _owner = RECEIPTS.begin(&mut receipt)?;
         let facts=evidence(&args,&actor);
         let outcome=with_store(|s|s.mutate(op,&args,&actor,facts,chrono::Utc::now().timestamp_millis()));
         let mut result=match outcome {

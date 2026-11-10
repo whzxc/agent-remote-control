@@ -10,7 +10,7 @@ static TIME: LazyLock<(i64, std::time::Instant)> = LazyLock::new(|| {
         std::time::Instant::now(),
     )
 });
-const RECEIPTS: crate::kernel::receipts::ReceiptStore =
+static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 fn clock() -> Clock {
     let utc = chrono::Utc::now().timestamp_millis();
@@ -300,6 +300,8 @@ pub(crate) async fn call(
             Some(r) => r,
             None => { let r = json!({"requestId":request,"digest":digest,"operation":op,"origin":crate::kernel::origin::current_origin(),"backendSession":session,"state":"reserved","createdAt":now()}); RECEIPTS.reserve(&r)?; r }
         };
+        receipt["backendSession"] = json!(session);
+        let _owner = RECEIPTS.begin(&mut receipt)?;
         // Recover an owner commit even when its receipt checkpoint was lost on restart.
         let replay = with_store(|s| s.replay(&request,&digest))?;
         let outcome = if let Some(result) = replay { Ok(result) } else {

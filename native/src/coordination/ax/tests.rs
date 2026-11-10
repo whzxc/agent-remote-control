@@ -494,7 +494,7 @@ fn ax_entry_bound_and_candidate_overflow() {
 fn receipt_observer_transition_replay_does_not_duplicate_ax_candidates() {
     // Contract: one receipt-stalled transition remains one AX occurrence across restart, cooldown and confirmation.
     let mut f = Fixture::new();
-    let row = json!({"requestId":"stalled-request","state":"running","updatedAt":timestamp(f.time),"origin":{"sourceId":"one","accountId":"account-one"}});
+    let row = json!({"requestId":"stalled-request","state":"reserved","updatedAt":timestamp(f.time),"origin":{"sourceId":"one","accountId":"account-one"}});
     let resource = ResourceKey::parse("host:fixture").unwrap();
     let first = super::super::observers::stalled_input(&row, f.time + 30_000, resource.clone())
         .unwrap()

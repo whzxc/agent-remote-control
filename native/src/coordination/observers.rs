@@ -703,10 +703,9 @@ fn receipt_inputs(
         return Err("INVALID_RECEIPT: missing operation or state".into());
     }
     receipt_origin(&row["origin"])?;
-    if matches!(
-        string(row, "state"),
-        "completed" | "failed" | "cancelled" | "rejected" | "not-executed"
-    ) {
+    use crate::kernel::receipts::progress::{self, Progress};
+    let phase = Progress::read(string(row, "state"), row["backendSession"] == session);
+    if !phase.active() && phase != Progress::Unconfirmed {
         return Ok((vec![], false));
     }
     // A malformed timestamp must not keep a record in the idle poll forever.
@@ -717,17 +716,13 @@ fn receipt_inputs(
     chrono::DateTime::parse_from_rfc3339(updated)
         .map_err(|_| "INVALID_RECEIPT: invalid phase timestamp")?;
     let mut events = vec![];
-    if row["backendSession"]
-        .as_str()
-        .is_some_and(|previous| previous != session)
-        && !matches!(string(row, "state"), "unconfirmed" | "awaiting-approval")
-    {
-        let mut uncertain = row.clone();
-        uncertain["state"] = json!("unconfirmed");
+    if phase == Progress::Unconfirmed && row["state"] != "unconfirmed" {
+        let uncertain = progress::project(row.clone(), false, time);
         events.extend(inputs_on(Owner::Receipt, &uncertain, resource.clone())?);
     }
-    let stalled = stalled_input(row, time, resource)?;
-    let watch = stalled.is_none();
+    let normalized = progress::project(row.clone(), phase != Progress::Unconfirmed, time);
+    let stalled = stalled_input(&normalized, time, resource)?;
+    let watch = phase == Progress::Reserved && stalled.is_none();
     events.extend(stalled);
     Ok((events, watch))
 }
@@ -796,19 +791,12 @@ pub(super) fn stalled_input(
     time: i64,
     resource: ResourceKey,
 ) -> Result<Option<EventInput>> {
-    if matches!(
-        string(row, "state"),
-        "completed" | "failed" | "cancelled" | "rejected" | "not-executed" | "executing"
-    ) {
+    use crate::kernel::receipts::progress::{self, Progress};
+    let phase = Progress::read(string(row, "state"), true);
+    if !phase.stalled(progress::age_ms(row, time).unwrap_or(0)) {
         return Ok(None);
     }
     let updated = row["updatedAt"].as_str().or(row["createdAt"].as_str());
-    if !updated
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-        .is_some_and(|t| time.saturating_sub(t.timestamp_millis()) >= 30_000)
-    {
-        return Ok(None);
-    }
     let mut input = base_on(
         row,
         &format!(

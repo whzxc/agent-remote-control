@@ -98,7 +98,7 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   const completed = async (op: string, args: Record<string, unknown> = {}) => {
     let result = await call(op, { ...(['codex_create','codex_send','agent_create','agent_send'].includes(op) ? {purpose:'self-test',notify:null} : {}), ...args });
     const deadline = Date.now() + 10000;
-    while (['pending', 'reserved', 'executing', 'submitting', 'turn-submitting', 'thread-submitting', 'thread-created'].includes(result.state)) {
+    while (['reserved', 'executing'].includes(result.state)) {
       if (Date.now() > deadline) throw new Error('Fixture receipt did not finish');
       await new Promise(resolve => setTimeout(resolve, 20));
       result = await call('receipt', { requestId: result.requestId });

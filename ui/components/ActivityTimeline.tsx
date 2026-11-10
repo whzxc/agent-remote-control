@@ -264,7 +264,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     continuationBusy.current = true; setContinuing(true); setOpenError("");
     void (async () => {
       let receipt = await api<{ state: string; requestId: string; error?: { message?: string } }>("tasks/control", "POST", { op: request.op, args: request.args });
-      while (["pending", "reserved", "submitting"].includes(receipt.state)) {
+      while (["reserved", "executing"].includes(receipt.state)) {
         await new Promise(resolve => setTimeout(resolve, 500));
         receipt = await api("tasks/control", "POST", { op: "receipt", args: { requestId: receipt.requestId } });
       }

@@ -794,7 +794,7 @@ fn stalled_receipt_is_phase_age_not_task_failure() {
     // Contract: events records progressStalled at 30 seconds without claiming execution failure or duplicating a phase.
     let mut f = Fixture::new();
     let row =
-        json!({"requestId":"slow-request","state":"running","updatedAt":types::timestamp(f.time)});
+        json!({"requestId":"slow-request","state":"reserved","updatedAt":types::timestamp(f.time)});
     let resource = ResourceKey::parse("host:fixture").unwrap();
     assert!(
         observers::stalled_input(&row, f.time + 29_999, resource.clone())
@@ -922,7 +922,8 @@ fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individ
     // reopen completed fixture phases to exercise the same observer conversion.
     for (index, row) in rows.iter().enumerate() {
         let mut row = row.clone();
-        row["state"] = json!("running");
+        row["state"] = json!("reserved");
+        row["backendSession"] = json!("new-session");
         let path = PathBuf::from(format!("receipt-{index}"));
         observer.observe(&path, &row, "new-session", time, resource.clone(), &persist);
     }
@@ -951,7 +952,7 @@ fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individ
         0
     );
     let mut invalid = rows[0].clone();
-    invalid["state"] = json!("running");
+    invalid["state"] = json!("reserved");
     invalid["origin"] = json!({"sourceId": ["invalid"]});
     let bad_path = Path::new("bad-receipt");
     for _ in 0..3 {
@@ -966,7 +967,8 @@ fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individ
     }
     let mut valid = rows[0].clone();
     valid["requestId"] = json!("valid-after-invalid");
-    valid["state"] = json!("running");
+    valid["state"] = json!("reserved");
+    valid["backendSession"] = json!("new-session");
     observer.observe(
         Path::new("valid-receipt"),
         &valid,
@@ -1041,14 +1043,14 @@ fn executing_command_is_not_a_stalled_submission() {
     // Regression: AX-07 healthy foreground commands emitted receipt-stalled candidates after 30 seconds.
     let mut f = Fixture::new();
     let row = json!({"requestId":"foreground","operation":"command","state":"executing","updatedAt":types::timestamp(f.time)});
-    let event = observers::stalled_input(
-        &row,
-        f.time + 120_000,
-        ResourceKey::parse("host:fixture").unwrap(),
-    )
-    .unwrap();
-    if let Some(event) = event {
-        emit_observation(&mut f, event);
+    for state in ["executing", "awaiting-approval", "unconfirmed"] {
+        let mut receipt = row.clone();
+        receipt["state"] = json!(state);
+        assert!(observers::stalled_input(
+            &receipt,
+            f.time + 300_000,
+            ResourceKey::parse("host:fixture").unwrap(),
+        ).unwrap().is_none());
     }
     assert!(f.query(json!({"kinds":["receipt.stalled"]}))["events"]
         .as_array()

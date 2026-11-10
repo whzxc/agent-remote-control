@@ -21,7 +21,7 @@ pub struct Control {
     task_records: Mutex<TaskRecords>,
 }
 type TaskRecords = crate::kernel::task_projection::TaskProjection;
-const RECEIPTS: crate::kernel::receipts::ReceiptStore =
+static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 // Fresh creations have no user history and may not be materialized until turn/start.
 async fn submission_history<F, Fut>(fresh_thread: bool, mut list: F) -> Result<Vec<Value>>
@@ -378,16 +378,7 @@ impl Control {
         for (request, job) in jobs {
             job.abort();
             let _ = job.await;
-            if let Ok(mut receipt) = load(&root().join(format!("{request}.json"))) {
-                if !matches!(
-                    string(&receipt, "state"),
-                    "completed" | "failed" | "rejected" | "not-executed" | "unconfirmed"
-                ) {
-                    receipt["previousState"] = receipt["state"].clone();
-                    receipt["state"] = json!("unconfirmed");
-                    let _ = self.checkpoint(&mut receipt);
-                }
-            }
+            let _ = RECEIPTS.abandon(&request);
         }
         self.monitor.lock().await.take();
     }
@@ -469,7 +460,7 @@ impl Control {
         if let Some(r) = receipt {
             r["threadId"] = json!(thread);
             r["task"]["directory"] = result["thread"]["cwd"].clone();
-            r["state"] = json!("thread-created");
+            r["submissionStage"] = json!("thread-created");
             self.checkpoint(r)?;
         }
         if !title.is_empty() {
@@ -573,7 +564,7 @@ impl Control {
                 if r["task"].is_object() {
                     r["task"]["directory"] = response["thread"]["cwd"].clone();
                 }
-                r["state"] = json!("thread-created");
+                r["submissionStage"] = json!("thread-created");
                 self.checkpoint(r)?;
             }
             // New threads are lazy: metadata reads do not materialize a rollout.
@@ -1531,19 +1522,9 @@ impl Control {
         let rx = self.launch(operation, args, receipt, &mut jobs);
         drop(jobs);
         drop(request_lock);
-        match tokio::time::timeout(Duration::from_millis(wait), rx).await {
-            Ok(Ok(r)) => r,
-            _ => {
-                let mut pending = json!({"requestId":request,"state":"pending","operation":operation,"nextAction":"receipt"});
-                if matches!(operation, "create" | "send") {
-                    let receipt = self.receipt(&request).await?;
-                    pending["agentAccountId"] = receipt["agentAccountId"].clone();
-                    pending["origin"] = receipt["origin"].clone();
-                }
-                Ok(pending)
-            }
-        }
+        RECEIPTS.wait(&request, &self.session, wait, rx).await
     }
+
     fn launch(
         self: &Arc<Self>,
         operation: &str,
@@ -1558,7 +1539,11 @@ impl Control {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let origin = receipt["origin"].clone();
         let job = tokio::spawn(crate::kernel::origin::ORIGIN.scope(origin, async move {
-            let outcome = c.perform(&op, &args, &mut receipt).await;
+            let owner = RECEIPTS.begin(&mut receipt);
+            let outcome = match &owner {
+                Ok(_) => c.perform(&op, &args, &mut receipt).await,
+                Err(error) => Err(error.clone()),
+            };
             match outcome {
                 Ok(result) => {
                     receipt["result"] = result;
@@ -1579,7 +1564,10 @@ impl Control {
                             Err(error) => json!({"archived":false,"error":error}),
                         };
                     }
-                    receipt["failureStage"] = receipt["state"].clone();
+                    receipt["failureStage"] = receipt["submissionStage"]
+                        .as_str()
+                        .map(|stage| json!(stage))
+                        .unwrap_or_else(|| receipt["state"].clone());
                     receipt["state"] = json!(crate::kernel::receipts::failure_state(&err));
                     let mut error = crate::egress::failure(&err);
                     if error["code"] == "THREAD_WRITER_BUSY" && receipt["threadId"].is_string() {
@@ -1637,12 +1625,9 @@ impl Control {
             let rx = self.launch(&op, r["arguments"].clone(), r.clone(), &mut jobs);
             drop(jobs);
             drop(_request_lock);
-            if let Ok(Ok(result)) =
-                tokio::time::timeout(Duration::from_millis(wait_ms.min(120000)), rx).await
-            {
-                return result;
-            }
-            r["state"] = json!("pending");
+            return RECEIPTS
+                .wait(request, &self.session, wait_ms.min(120000), rx)
+                .await;
         }
         Ok(r)
     }
@@ -1916,7 +1901,7 @@ impl Control {
                 binding["reason"] = json!("explicit-interrupted-resume");
                 save(&path, &binding)?;
             }
-            r["state"] = json!("submitting");
+            r["submissionStage"] = json!("submitting");
             self.checkpoint(r)?;
             let mut params = json!({"threadId":thread,"input":[],"turnTrigger":"resume_interrupted_task","parentTurnId":previous,"rootTurnId":previous});
             let inherited = crate::dispatch_policy::inherited_configuration(
@@ -1984,7 +1969,7 @@ impl Control {
                     return Err("RELEASE_UNCONFIRMED: read codex_owner before archive".into());
                 }
             }
-            r["state"] = json!("submitting");
+            r["submissionStage"] = json!("submitting");
             self.checkpoint(r)?;
             if let Err(error) = rpc
                 .call("thread/archive", json!({"threadId":thread}), 10000)
@@ -2008,10 +1993,10 @@ impl Control {
             return crate::text_files::write(self, operation, args).await;
         }
         if operation == "command" {
-            return crate::shell_command::run(self, args, r).await;
+            return crate::shell_command::run(self, args).await;
         }
         if operation == "git_write" {
-            r["state"] = json!("submitting");
+            r["submissionStage"] = json!("submitting");
             self.checkpoint(r)?;
             return crate::projects::write(self, args).await;
         }
@@ -2104,7 +2089,7 @@ impl Control {
                 } else {
                     Value::Null
                 };
-                r["state"] = json!("responding");
+                r["submissionStage"] = json!("responding");
                 self.checkpoint(r)?;
                 crate::external_inputs::responding(
                     string(&pending["params"], "threadId"),
@@ -2145,7 +2130,7 @@ impl Control {
             } else {
                 self.utility().await?
             };
-            r["state"] = json!("responding");
+            r["submissionStage"] = json!("responding");
             self.checkpoint(r)?;
             let mut response =
                 json!({"id":pending.get("nativeResponseId").unwrap_or(&pending["id"])});
@@ -2200,7 +2185,7 @@ impl Control {
                 }
             }
             r["task"]["directory"] = seed.get("cwd").cloned().unwrap_or(Value::Null);
-            r["state"] = json!("thread-submitting");
+            r["submissionStage"] = json!("thread-submitting");
             self.checkpoint(r)?;
             let background = r["executionOwner"] == "connector";
             let result = if background {
@@ -2231,7 +2216,7 @@ impl Control {
             r["seedTimings"]["ownerMs"] = json!(step.elapsed().as_millis());
             let background = self.effective_background(thread).await?;
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
-            r["state"] = json!("turn-submitting");
+            r["submissionStage"] = json!("turn-submitting");
             r["task"]["dispatch"]["submittedAt"] = json!(now());
             self.checkpoint(r)?;
             retry_args["_retryModel"] = turn
@@ -2412,11 +2397,7 @@ impl Control {
             params["cwd"] = crate::projects::working_directory(self, &directory_args).await?;
         }
         r["threadId"] = params["threadId"].clone();
-        r["state"] = json!(if method == "command/exec" {
-            "executing"
-        } else {
-            "submitting"
-        });
+        r["submissionStage"] = json!(method);
         if operation == "send" {
             r["task"]["dispatch"]["submittedAt"] = json!(now());
         }

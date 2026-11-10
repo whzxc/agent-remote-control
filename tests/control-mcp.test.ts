@@ -287,7 +287,7 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 async function completed(name: string, args: Record<string, unknown>) {
   let { result } = await call(name, args);
   const deadline = Date.now() + 15000;
-  while (['pending', 'reserved', 'executing', 'submitting', 'thread-submitting', 'thread-created', 'turn-submitting'].includes(result.state)) {
+  while (['reserved', 'executing'].includes(result.state)) {
     assert.ok(Date.now() < deadline, 'receipt completed before deadline');
     await new Promise(resolve => setTimeout(resolve, 20));
     result = (await call('receipt', { requestId: args.requestId })).result;

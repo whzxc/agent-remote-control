@@ -2,12 +2,31 @@
 use super::file_cache::load;
 use crate::*;
 mod projection;
+pub mod progress;
 
 pub struct ReceiptStore {
     directory: &'static str,
     #[cfg(test)]
     base: Option<PathBuf>,
 }
+/// Keeps a failed or cancelled execution owner from leaving a live phase behind.
+#[must_use = "Keep the execution owner alive until its outcome is checkpointed."]
+pub struct ExecutionOwner<'a> {
+    store: &'a ReceiptStore,
+    request: String,
+}
+impl Drop for ExecutionOwner<'_> {
+    fn drop(&mut self) {
+        if let Err(error) = self.store.abandon(&self.request) {
+            crate::logs::record(
+                "ERROR",
+                &format!("Cannot record receipt owner loss: {error}"),
+                None,
+            );
+        }
+    }
+}
+
 impl ReceiptStore {
     #[cfg(test)]
     pub(crate) fn fixture(base: PathBuf) -> Self {
@@ -84,19 +103,10 @@ impl ReceiptStore {
         if !receipt.is_object() {
             return Err("INVALID_RECEIPT".into());
         }
-        if receipt["backendSession"] != session
-            && !matches!(
-                string(&receipt, "state"),
-                "completed"
-                    | "failed"
-                    | "rejected"
-                    | "not-executed"
-                    | "unconfirmed"
-                    | "awaiting-approval"
-            )
-        {
-            receipt["previousState"] = receipt["state"].clone();
-            receipt["state"] = json!("unconfirmed");
+        let previous = receipt["state"].clone();
+        let owner_live = receipt["backendSession"] == session;
+        receipt = progress::project(receipt, owner_live, chrono::Utc::now().timestamp_millis());
+        if receipt["state"] == "unconfirmed" && previous != "unconfirmed" {
             crate::coordination::observers::unconfirmed(&receipt);
         }
         // Labels belong to the response boundary. A task/status poll reads many
@@ -151,7 +161,50 @@ impl ReceiptStore {
             Ok(((), Some(projection::summary(receipt.clone())?)))
         })
     }
+    /// The local execution owner has accepted the operation. Turn completion is separate.
+    pub fn begin(&self, receipt: &mut Value) -> Result<ExecutionOwner<'_>> {
+        receipt["state"] = json!("executing");
+        self.checkpoint(receipt)?;
+        Ok(ExecutionOwner {
+            store: self,
+            request: string(receipt, "requestId").into(),
+        })
+    }
+    pub fn abandon(&self, request: &str) -> Result<()> {
+        let path = self.path(request)?;
+        let receipt = load(&path)?;
+        if progress::Progress::read(string(&receipt, "state"), true).active() {
+            let mut receipt =
+                progress::project(receipt, false, chrono::Utc::now().timestamp_millis());
+            self.checkpoint(&mut receipt)?;
+        }
+        Ok(())
+    }
+    pub async fn wait(
+        &self,
+        request: &str,
+        session: &str,
+        wait_ms: u64,
+        response: tokio::sync::oneshot::Receiver<Result<Value>>,
+    ) -> Result<Value> {
+        match tokio::time::timeout(std::time::Duration::from_millis(wait_ms), response).await {
+            Ok(Ok(result)) => result,
+            Err(_) => self.read(request, session),
+            Ok(Err(_)) => {
+                self.abandon(request)?;
+                self.read(request, session)
+            }
+        }
+    }
     pub fn checkpoint(&self, receipt: &mut Value) -> Result<()> {
+        for field in [
+            "submissionState",
+            "executionState",
+            "progressStalled",
+            "phaseAgeMs",
+        ] {
+            receipt.as_object_mut().unwrap().remove(field);
+        }
         let path = self.path(string(receipt, "requestId"))?;
         if let Ok(previous) = load(&path) {
             let mut old = previous.clone();
@@ -233,7 +286,7 @@ mod tests {
             }
         }
         fn receipt(&self, completed: bool) -> Value {
-            let row = json!({"requestId":id(),"operation":"create","state":if completed {"completed"} else {"running"},"backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z","result":{"thread":{"id":"fixture-thread","name":"fixture","cwd":"/fixture"}}});
+            let row = json!({"requestId":id(),"operation":"create","state":if completed {"completed"} else {"executing"},"backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z","result":{"thread":{"id":"fixture-thread","name":"fixture","cwd":"/fixture"}}});
             self.store.reserve(&row).unwrap();
             row
         }
@@ -259,6 +312,93 @@ mod tests {
                 .unwrap()
         })
     }
+    #[tokio::test(start_paused = true)]
+    async fn receipt_wait_returns_execution_progress_instead_of_a_pending_snapshot() {
+        // Regression: AX-07 Control timeout and Agent waits returned pending snapshots after the execution owner had accepted the operation.
+        let fixture = Sandbox::new();
+        for operation in [
+            "command",
+            "create",
+            "send",
+            "agent_create",
+            "agent_send",
+            "write",
+            "fs",
+            "notice_post",
+            "ax_report",
+            "message_send",
+        ] {
+            let mut row = json!({"requestId":id(),"operation":operation,"state":"reserved","backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z"});
+            fixture.store.reserve(&row).unwrap();
+            let _owner = fixture.store.begin(&mut row).unwrap();
+            let (_sender, receiver) = tokio::sync::oneshot::channel();
+            let read = fixture
+                .store
+                .wait(
+                    string(&row, "requestId"),
+                    "fixture-session",
+                    45_000,
+                    receiver,
+                )
+                .await
+                .unwrap();
+            assert_eq!(read["state"], "executing");
+            assert_eq!(read["progressStalled"], false);
+            assert_eq!(read["requestId"], row["requestId"]);
+            let projected = fixture
+                .store
+                .read_for_projection(string(&row, "requestId"), "fixture-session")
+                .unwrap();
+            assert_eq!(projected["state"], read["state"]);
+            assert_eq!(projected["submissionState"], "submitted");
+        }
+    }
+
+    #[tokio::test]
+    async fn lost_execution_owner_retains_the_original_receipt_across_reads() {
+        // Regression: interrupted submission retained pending or task recovery advice instead of the original unconfirmed receipt.
+        let fixture = Sandbox::new();
+        let mut row = json!({"requestId":id(),"operation":"agent_send","taskId":"fixture-task","state":"reserved","backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z"});
+        fixture.store.reserve(&row).unwrap();
+        let request = string(&row, "requestId").to_owned();
+        let restarted = fixture.store.read(&request, "new-session").unwrap();
+        assert_eq!(restarted["state"], "unconfirmed");
+        assert_eq!(restarted["requestId"], request);
+        let _owner = fixture.store.begin(&mut row).unwrap();
+        drop(_owner);
+        assert_eq!(fixture.store.read(&request, "fixture-session").unwrap()["state"], "unconfirmed");
+        let _owner = fixture.store.begin(&mut row).unwrap();
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        drop(sender);
+        let lost = fixture
+            .store
+            .wait(&request, "fixture-session", 45_000, receiver)
+            .await
+            .unwrap();
+        let mut public = crate::egress::receipt(lost);
+        crate::egress::next(&mut public, "receipt", &json!({"requestId":request}), false);
+        assert_eq!(public["state"], "unconfirmed");
+        assert_eq!(public["progressStalled"], false);
+        assert_eq!(public["next"]["op"], "receipt");
+        assert_eq!(
+            public["next"]["args"],
+            json!({"requestId":request,"action":"read"})
+        );
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(&request, "fixture-session")
+                .unwrap()["state"],
+            "unconfirmed"
+        );
+        row["state"] = json!("completed");
+        fixture.store.checkpoint(&mut row).unwrap();
+        assert_eq!(
+            fixture.store.read(&request, "new-session").unwrap()["state"],
+            "completed"
+        );
+    }
+
     #[tokio::test]
     async fn receipt_and_task_polls_read_only_changed_summaries_after_warmup() {
         // Regression: task-record invalidations revisited every retained receipt and could evict unchanged summaries by payload size.

@@ -73,7 +73,7 @@ fn remember_task_configuration(task: &Value) -> Result<()> {
     }
     Ok(())
 }
-const RECEIPTS: crate::kernel::receipts::ReceiptStore =
+static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("agents/requests");
 impl AgentHost {
     /// Bounded metadata from existing live processes; no launch, disk scan or upstream read.
@@ -855,14 +855,7 @@ impl AgentHost {
         for (request, job) in operations {
             job.job.abort();
             let _ = job.job.await;
-            if let Ok(path) = RECEIPTS.path(&request) {
-                if let Ok(mut r) = load(&path) {
-                    if r["state"] == "pending" {
-                        r["state"] = json!("unconfirmed");
-                        let _ = RECEIPTS.checkpoint(&mut r);
-                    }
-                }
-            }
+            let _ = RECEIPTS.abandon(&request);
         }
         let processes = self
             .processes
@@ -910,7 +903,7 @@ impl AgentHost {
             r["state"] = json!(if action == "reject" {
                 "not-executed"
             } else {
-                "pending"
+                "reserved"
             });
             r["approval"] = json!(action);
             r["backendSession"] = json!(self.session);
@@ -925,17 +918,9 @@ impl AgentHost {
                 ops.insert(request.into(), job);
                 drop(ops);
                 drop(_request_lock);
-                if let Ok(Ok(result)) =
-                    tokio::time::timeout(
-                        std::time::Duration::from_millis(
-                            num(&args, "waitMs", 25000).min(120000) as u64
-                        ),
-                        rx,
-                    )
-                    .await
-                {
-                    return result;
-                }
+                return RECEIPTS
+                    .wait(request, &self.session, num(&args, "waitMs", 25000).min(120000) as u64, rx)
+                    .await;
             }
         }
         Ok(r)
@@ -1135,7 +1120,7 @@ impl AgentHost {
         if matches!(name, "agent_create" | "agent_send") {
             args["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
-        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"pending"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{"awaiting-approval"}else{"reserved"},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
         if matches!(name, "agent_create" | "agent_send") {
             crate::dispatch_caller::attach_current(&mut receipt);
         }
@@ -1145,19 +1130,14 @@ impl AgentHost {
         }
         let mut ops = self.operations.lock().await;
         let (job, rx) = self.launch(driver.clone(), receipt.clone());
-        ops.insert(request.into(), job);
+        ops.insert(request.clone(), job);
         drop(ops);
         drop(request_lock);
-        match tokio::time::timeout(
-            std::time::Duration::from_millis(num(&args, "waitMs", 25000).min(120000) as u64),
-            rx,
-        )
-        .await
-        {
-            Ok(Ok(result)) => result,
-            _ => Ok(receipt),
-        }
+        RECEIPTS
+            .wait(&request, &self.session, num(&args, "waitMs", 25000).min(120000) as u64, rx)
+            .await
     }
+
     fn launch(
         self: &Arc<Self>,
         driver: AgentDriver,
@@ -1172,12 +1152,16 @@ impl AgentHost {
             let arguments = r["arguments"].clone();
             let task = string(&r, "taskId").to_owned();
             let name = string(&r, "operation").to_owned();
-            let result = crate::dispatch_caller::CALLER
-                .scope(
-                    crate::dispatch_caller::validated(&r["caller"]),
-                    host.perform(&driver, &name, &arguments, &task),
-                )
-                .await;
+            let owner = RECEIPTS.begin(&mut r);
+            let result = match &owner {
+                Err(error) => Err(error.clone()),
+                Ok(_) => crate::dispatch_caller::CALLER
+                    .scope(
+                        crate::dispatch_caller::validated(&r["caller"]),
+                        host.perform(&driver, &name, &arguments, &task),
+                    )
+                    .await,
+            };
             match result {
                 Ok(v) => {
                     r["state"] = json!(if v["configurationError"].is_string() {
@@ -1200,7 +1184,7 @@ impl AgentHost {
                     r["error"] = crate::egress::failure(&e);
                 }
             }
-            // Failure leaves the original pending receipt; replay is always prohibited.
+            // Failure leaves the original receipt; replay is always prohibited.
             let result = RECEIPTS.checkpoint(&mut r).map(|_| r.clone());
             let _ = tx.send(result);
             host.operations.lock().await.remove(string(&r, "requestId"));
