@@ -26,6 +26,9 @@ fn clean(value: &mut Value) {
                     v == "persistent-snapshot" || v == "persisted-session-snapshot"
                 });
             map.retain(|key, value| {
+                if key == "quality" {
+                    return true;
+                }
                 if key == "models" {
                     if let Some(models) = value.as_array_mut() {
                         // Compact strings may themselves be opaque IDs such as "unknown".
@@ -39,7 +42,7 @@ fn clean(value: &mut Value) {
                 (value.is_string()
                     && matches!(
                         key.as_str(),
-                        "model" | "displayName" | "name" | "id" | "value"
+                        "model" | "displayName" | "name" | "id" | "value" | "coverage"
                     ))
                     || !(key == "observedAt" && !stale || empty(value))
             });
@@ -184,10 +187,19 @@ fn history(row: &Value) -> Value {
             s
         })
         .collect::<Vec<_>>();
-    if groups.is_empty() {
+    if groups.is_empty()
+        && row["history"]["quality"]["externalReviews"]["reviews"]
+            .as_u64()
+            .unwrap_or(0)
+            == 0
+        && row["history"]["quality"]["selfTests"]["count"]
+            .as_u64()
+            .unwrap_or(0)
+            == 0
+    {
         return Value::Null;
     }
-    json!({"groups":groups})
+    json!({"groups":groups,"quality":row["history"]["quality"],"coverage":row["history"]["coverage"]})
 }
 fn quota_summary(windows: Vec<(String, f64)>) -> String {
     windows

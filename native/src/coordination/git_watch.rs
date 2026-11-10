@@ -6,11 +6,23 @@ use std::{
     sync::{LazyLock, Mutex},
     time::Duration,
 };
+pub(crate) mod fixes;
 const MAX_REFS: usize = 128;
 const MAX_BYTES: u64 = 256 * 1024;
 static BASELINES: LazyLock<Mutex<Vec<Value>>> = LazyLock::new(Default::default);
 pub(crate) fn baseline(row: &Value) {
     let mut rows = BASELINES.lock().unwrap();
+    if let Some(existing) = rows
+        .iter_mut()
+        .find(|r| r["threadId"] == row["threadId"] && r["turnId"] == row["turnId"])
+    {
+        let ended = existing["endedAt"].clone();
+        *existing = row.clone();
+        if existing["endedAt"].is_null() {
+            existing["endedAt"] = ended;
+        }
+        return;
+    }
     if rows.len() >= 128 {
         rows.remove(0);
         observers::gap("baselines", "capacity");
@@ -367,7 +379,7 @@ impl Watcher {
             serde_json::from_value(old["refs"].clone()).unwrap_or_default();
         let continuous =
             self.boot_seen.contains_key(&repository_key) && old["identity"] == identity;
-        let baselines = BASELINES.lock().unwrap().clone();
+        let mut baselines = BASELINES.lock().unwrap().clone();
         let mut pending = vec![];
         if !old["refs"].is_null() && old["identity"] == identity {
             let names: std::collections::BTreeSet<_> = previous.keys().chain(refs.keys()).collect();
@@ -376,6 +388,15 @@ impl Watcher {
                 let after = refs.get(name);
                 if before == after {
                     continue;
+                }
+                for row in crate::changes::correlation_baselines()? {
+                    if !baselines
+                        .iter()
+                        .any(|r| r["threadId"] == row["threadId"] && r["turnId"] == row["turnId"])
+                        && baselines.len() < 128
+                    {
+                        baselines.push(row);
+                    }
                 }
                 let ancestry = if let (Some(before), Some(after)) = (before, after) {
                     // A changed ref alone triggers one bounded, read-only ancestry command.
@@ -397,6 +418,21 @@ impl Watcher {
                 } else {
                     Some(false)
                 };
+                if let (Some(before), Some(after)) = (before, after) {
+                    if ancestry == Some(true) {
+                        fixes::observe(
+                            root,
+                            &common,
+                            name,
+                            before,
+                            after,
+                            continuous,
+                            &baselines,
+                            &store.join("quality-correlations.json"),
+                        )
+                        .await?;
+                    }
+                }
                 let movement = match (before, after) {
                     (None, Some(_)) => RefMovement::Created,
                     (Some(_), None) => RefMovement::Deleted,

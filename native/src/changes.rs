@@ -69,7 +69,15 @@ pub(crate) fn terminal(thread: &str, turn: &str) -> Option<tokio::task::JoinHand
     }
     let (thread, turn) = (thread.to_owned(), turn.to_owned());
     Some(tokio::spawn(async move {
-        let baseline = load(&path(&thread, &turn)).unwrap_or(Value::Null);
+        let file = path(&thread, &turn);
+        let mut baseline = load(&file).unwrap_or(Value::Null);
+        if baseline.is_object() && baseline["endedAt"].is_null() {
+            baseline["endedAt"] = load(&terminal_path(&thread, &turn))
+                .ok()
+                .map(|v| v["observedAt"].clone())
+                .unwrap_or(Value::Null);
+            let _ = save(&file, &baseline);
+        }
         if baseline.is_object() {
             evidence(&thread, &turn, string(&baseline, "cwd"), true).await;
         }
@@ -134,7 +142,66 @@ async fn evidence(thread: &str, turn: &str, cwd: &str, terminal: bool) -> Value 
             value["changeEvidence"] = json!("live-git-baseline: snapshot persistence failed");
         }
     }
+    if terminal && value["fallback"] == false {
+        let mut observed = baseline.clone();
+        observed["files"] = value["files"].clone();
+        observed["renamed"] = json!(value["files"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|f| f["renamed"] == true));
+        crate::coordination::git_watch::baseline(&observed);
+    }
     value
+}
+
+/// Reuse durable turn baselines and terminal evidence after observer restart.
+pub(crate) fn correlation_baselines() -> Result<Vec<Value>> {
+    let directory = root().join("changes");
+    if !directory.exists() {
+        return Ok(vec![]);
+    }
+    let mut rows = vec![];
+    for thread in crate::kernel::file_cache::entries(&directory)?
+        .iter()
+        .take(128)
+    {
+        if !thread.path.is_dir() {
+            continue;
+        }
+        for entry in crate::kernel::file_cache::entries(&thread.path)?
+            .iter()
+            .take(128)
+        {
+            if entry.path.extension().is_none_or(|e| e != "json") {
+                continue;
+            }
+            let Ok(mut row) = crate::kernel::file_cache::load(&entry.path) else {
+                continue;
+            };
+            if !chrono::DateTime::parse_from_rfc3339(string(&row, "endedAt"))
+                .is_ok_and(|t| t >= chrono::Utc::now() - chrono::Duration::days(14))
+            {
+                continue;
+            }
+            if let Ok(evidence) = crate::kernel::file_cache::load(&snapshot_path(
+                string(&row, "threadId"),
+                string(&row, "turnId"),
+            )) {
+                row["files"] = evidence["files"].clone();
+                row["renamed"] = json!(evidence["files"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|f| f["renamed"] == true));
+            }
+            rows.push(row);
+            if rows.len() >= 128 {
+                return Ok(rows);
+            }
+        }
+    }
+    Ok(rows)
 }
 
 pub async fn query(c: &control::Control, args: &Value) -> Result<Value> {
@@ -268,13 +335,14 @@ async fn query_live(
         if parts.len() != 3 {
             continue;
         }
-        let file = if parts[2].is_empty() {
+        let renamed = parts[2].is_empty();
+        let file = if renamed {
             let _old = chunks.next();
             chunks.next().unwrap_or("")
         } else {
             parts[2]
         };
-        files.push(json!({"path":file,"added":parts[0].parse::<u64>().ok(),"removed":parts[1].parse::<u64>().ok(),"binary":parts[0]=="-"}));
+        files.push(json!({"path":file,"added":parts[0].parse::<u64>().ok(),"removed":parts[1].parse::<u64>().ok(),"binary":parts[0]=="-","renamed":renamed}));
     }
     // Git diff omits untracked files; include their current text in the workspace summary.
     let untracked = if end.is_some() {

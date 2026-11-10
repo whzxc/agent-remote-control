@@ -3,6 +3,7 @@ use crate::kernel::file_cache::{self, load};
 use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
+mod quality;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Advisory only: criteria are never rejected or truncated.
@@ -787,12 +788,25 @@ fn history(agent: &str) -> Result<Value> {
 
 fn history_rows() -> Result<Vec<Value>> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+    history_rows_in(&root())
+}
+
+fn history_rows_in(base: &Path) -> Result<Vec<Value>> {
     let mut rows = Vec::new();
     for kind in ["dispatches", "reviews"] {
-        let dir = root().join(kind);
-        if dir.exists() {
-            for entry in file_cache::entries(&dir)?.iter() {
-                rows.extend(read_rows(&entry.path)?);
+        let dir = base.join(kind);
+        if !dir.exists() {
+            continue;
+        }
+        for entry in file_cache::entries(&dir)?.iter().take(quality::MAX_ROWS) {
+            crate::runtime_metrics::cost::rows(1);
+            if !entry.path.is_dir() {
+                continue;
+            }
+            let remaining = quality::MAX_ROWS.saturating_sub(rows.len());
+            rows.extend(read_rows_limit(&entry.path, remaining)?);
+            if rows.len() >= quality::MAX_ROWS {
+                return Ok(rows);
             }
         }
     }
@@ -800,12 +814,29 @@ fn history_rows() -> Result<Vec<Value>> {
 }
 
 fn history_view(agent: &str, compact: bool) -> Result<Value> {
-    Ok(summarize_history(
-        &history_rows()?,
-        agent,
-        compact,
-        chrono::Utc::now() - chrono::Duration::days(30),
-    ))
+    let rows = history_rows()?;
+    Ok(history_from_rows(&rows, agent, compact, &root()))
+}
+
+fn history_from_rows(rows: &[Value], agent: &str, compact: bool, base: &Path) -> Value {
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+    let mut result = summarize_history(rows, agent, compact, cutoff);
+    let selected = rows
+        .iter()
+        .inspect(|_| crate::runtime_metrics::cost::rows(1))
+        .filter(|r| {
+            r["agent"].as_str().unwrap_or("codex") == agent
+                && chrono::DateTime::parse_from_rfc3339(string(r, "submittedAt"))
+                    .is_ok_and(|t| t >= cutoff)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    result["quality"]["laterFixCorrelation"] = crate::coordination::git_watch::fixes::summary(
+        &selected,
+        &base.join("coordination/ref-watch/quality-correlations.json"),
+    );
+    result["coverage"] = result["quality"]["coverage"].clone();
+    result
 }
 
 /// One terse 30-day outcome line per pack, across Agents and configurations.
@@ -834,14 +865,15 @@ pub(crate) fn summarize_packs(
         // n, pass, rework, failed, interrupted, unreviewed
         let s = stats.entry(name.to_owned()).or_default();
         s[0] += 1;
+        match string(&row["review"], "verdict") {
+            "pass" => s[1] += 1,
+            "rework" => s[2] += 1,
+            _ => s[5] += 1,
+        }
         match string(&row["terminal"], "state") {
             "failed" => s[3] += 1,
             "interrupted" | "cancelled" => s[4] += 1,
-            _ => match string(&row["review"], "verdict") {
-                "pass" => s[1] += 1,
-                "rework" => s[2] += 1,
-                _ => s[5] += 1,
-            },
+            _ => {}
         }
         if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
             if !matches!(
@@ -941,6 +973,7 @@ pub(crate) fn summarize_history(
     let mut groups = std::collections::BTreeMap::<(String, String, String, String), Group>::new();
     let mut seen = std::collections::HashSet::new();
     for row in rows {
+        crate::runtime_metrics::cost::rows(1);
         let external = row["dispatchOrigin"] == "external";
         if row["agent"].as_str().unwrap_or("codex") != agent
             || (!external && agent != "codex" && row["submission"] != "accepted")
@@ -1004,6 +1037,11 @@ pub(crate) fn summarize_history(
             continue;
         }
         group.dispatches += 1;
+        match string(&row["review"], "verdict") {
+            "pass" => group.pass += 1,
+            "rework" => group.rework += 1,
+            _ => {}
+        }
         match string(&row["terminal"], "state") {
             "failed" => {
                 group.failed += 1;
@@ -1013,11 +1051,6 @@ pub(crate) fn summarize_history(
                 group.interrupted += 1;
                 continue;
             }
-            _ => {}
-        }
-        match string(&row["review"], "verdict") {
-            "pass" => group.pass += 1,
-            "rework" => group.rework += 1,
             _ => {}
         }
         if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
@@ -1064,7 +1097,7 @@ pub(crate) fn summarize_history(
         .into_iter()
         .map(|((model, effort, tier, options), mut g)| {
             let mut row = json!({"agent":agent,"model":model,"options":serde_json::from_str::<Value>(&options).unwrap_or(json!({})),"effort":effort,"serviceTier":tier,"dispatches":g.dispatches,
-            "pass":g.pass,"rework":g.rework,"failed":g.failed,"interrupted":g.interrupted,"unreviewed":g.dispatches-g.pass-g.rework-g.failed-g.interrupted});
+            "pass":g.pass,"rework":g.rework,"failed":g.failed,"interrupted":g.interrupted,"unreviewed":g.dispatches-g.pass-g.rework});
             if g.external_reviews > 0 {
                 row["external"] = json!({"reviews":g.external_reviews,"pass":g.external_pass,"rework":g.external_rework});
             }
@@ -1084,7 +1117,7 @@ pub(crate) fn summarize_history(
             g["dispatches"].as_u64().unwrap_or(0) + g["external"]["reviews"].as_u64().unwrap_or(0),
         )
     });
-    json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups})
+    json!({"windowDays":30,"excludedPurpose":"self-test","groups":groups,"quality":quality::aggregate(rows, agent, cutoff)})
 }
 
 /// Match the effective configuration; never substitute another model's duration.
@@ -1147,6 +1180,9 @@ fn read_external_reviews(thread: &str) -> Result<Vec<Value>> {
     read_rows(&root().join("reviews").join(thread))
 }
 fn read_rows(dir: &Path) -> Result<Vec<Value>> {
+    read_rows_limit(dir, usize::MAX)
+}
+fn read_rows_limit(dir: &Path, limit: usize) -> Result<Vec<Value>> {
     if !dir.exists() {
         return Ok(vec![]);
     }
@@ -1154,9 +1190,16 @@ fn read_rows(dir: &Path) -> Result<Vec<Value>> {
     crate::runtime_metrics::cost::scan_set(entries.len());
     let mut rows = entries
         .iter()
+        .take(limit)
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
         .filter(|entry| entry.path.extension().is_some_and(|v| v == "json"))
-        .map(|entry| load(&entry.path))
+        .map(|entry| {
+            let mut row = load(&entry.path)?;
+            if quality::import(&mut row) {
+                save(&entry.path, &row)?;
+            }
+            Ok(row)
+        })
         .collect::<Result<Vec<_>>>()?;
     rows.sort_by_key(|r| string(r, "submittedAt").to_owned());
     Ok(rows)
@@ -1467,6 +1510,9 @@ pub(crate) fn undo_local_review(thread: &str, turn: &str, request: &str) -> Resu
     }
     for mut row in rows {
         row.as_object_mut().unwrap().remove("review");
+        if let Some(observations) = row["reviewObservations"].as_array_mut() {
+            observations.retain(|r| r["requestId"] != request);
+        }
         let path = if external {
             root()
                 .join("reviews")
@@ -1496,6 +1542,10 @@ pub(crate) fn review_record(
             review[field] = external[field].clone();
         }
     }
+    for field in ["foundBy", "defects", "advisory"] {
+        review[field] = args[field].clone();
+    }
+    quality::normalize(&mut review, false);
     review
 }
 
@@ -1521,8 +1571,16 @@ fn save_review(thread: &str, turn: &str, args: &Value, external: &Value) -> Resu
         &now(),
     );
     if is_external {
-        let mut row = external.clone();
-        row["review"] = review.clone();
+        let review_path = root()
+            .join("reviews")
+            .join(thread)
+            .join(format!("{}.json", hash(turn)));
+        let mut row = if review_path.exists() {
+            load(&review_path)?
+        } else {
+            external.clone()
+        };
+        quality::attach(&mut row, &review);
         save(
             &root()
                 .join("reviews")
@@ -1533,7 +1591,7 @@ fn save_review(thread: &str, turn: &str, args: &Value, external: &Value) -> Resu
         return Ok(json!({"threadId":thread,"turnId":turn,"review":row["review"]}));
     }
     for row in &mut rows {
-        row["review"] = review.clone();
+        quality::attach(row, &review);
         save(
             &directory(thread)?.join(format!("{}.json", string(row, "requestId"))),
             row,
