@@ -49,7 +49,8 @@ local endpoint. Existing ingress, service, health and headless runtime status in
 `frontDoor.build`, `installedBuild` and `matchesInstalledBuild`. A retained compatible
 front door can therefore report a different build from the current local entry point.
 On macOS, `frontDoor.update` exposes `state`, `currentBuild`, `targetBuild`,
-`lastOutcome`, `rollback`, `retryAt` and an optional `lastError`. `installedBuild`
+`lastOutcome`, `rollback`, `endedReads`, `outstandingWrites`, `retryAt` and an optional
+`lastError`. `retryAt` is a Unix millisecond timestamp. `installedBuild`
 uses the supervisor's latest installed-image observation after an update attempt.
 `app/native.json` keeps the current Core identity and that same endpoint for existing
 Desktop and CLI clients. Local Core discovery and management requests first use
@@ -63,9 +64,11 @@ Desktop leases and the existing headless entry points retain that responsibility
 On macOS, the Core supervisor observes installed-image identity and performs
 compatible front-door updates under exclusive `front-door-install.lock` ownership.
 It stages the target, verifies the previous image and pauses business admissions.
-Maintenance ends admitted reads, including long waits and snapshot streams, with the
-existing retryable draining error and a guide next action. It waits up to five
-seconds for admitted writes. Only outstanding writes can expire the drain, leaving
+Maintenance ends admitted reads, including long waits and snapshot streams, with
+`FRONT_DOOR_CORE_DRAINING` and a guide next action.
+Callers SHOULD reissue these as new authorized reads once ready.
+It waits up to five seconds for admitted writes.
+Only outstanding writes can expire the drain, leaving
 the old owner serving and resuming admissions. Update status records `endedReads`
 and `outstandingWrites`. Requests waiting for admission retain their original
 identities and deadlines. Front-door shutdown closes the queue with its existing
