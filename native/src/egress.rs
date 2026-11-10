@@ -106,24 +106,27 @@ pub fn tool(mut value: Value, mut error: bool) -> Value {
     }
     value["arcVersion"] = json!(arc_version());
     let text = value.to_string();
-    json!({"content":[{"type":"text","text":text}],"structuredContent":{"result":value},"isError":error})
+    json!({"content":[{"type":"text","text":text}],"isError":error})
 }
-/// Opted-in clients read structuredContent; images and other content stay intact.
-pub(crate) fn minimal_text(response: &mut Value) {
-    if !response["structuredContent"].is_object() {
-        return;
-    }
-    let text = if response["isError"] == true {
-        format!(
-            "Error {}; see structuredContent.result.error.",
-            string(&response["structuredContent"]["result"]["error"], "code")
-        )
-    } else {
-        "See structuredContent.result.".into()
-    };
-    if let Some(content) = response["content"].as_array_mut() {
-        content.retain(|b| b["type"] != "text");
-        content.insert(0, json!({"type":"text","text":text}));
+/// Decode ARC's single JSON text block. Downstream MCP results have their own contract.
+pub(crate) fn tool_value(response: &Value) -> Result<Value> {
+    let text = response["content"]
+        .as_array()
+        .and_then(|blocks| blocks.iter().find(|block| block["type"] == "text"))
+        .and_then(|block| block["text"].as_str())
+        .ok_or("Invalid ARC tool result: expected JSON text content")?;
+    serde_json::from_str(text).map_err(|e| format!("Invalid ARC tool result JSON: {e}"))
+}
+
+/// Count JSON escaping and the exact MCP response framing for this request.
+pub(crate) fn wire_bytes(result: &Value, rpc_id: Option<&Value>) -> usize {
+    match rpc_id {
+        Some(id) => {
+            let mut result = result.clone();
+            result["resultType"] = json!("complete");
+            json!({"jsonrpc":"2.0","id":id,"result":result}).to_string().len()
+        }
+        None => result.to_string().len(),
     }
 }
 
@@ -1103,7 +1106,7 @@ mod tests {
             args[field] = json!(limit + 1);
             let mut value = json!({"error":failure(&validate_op(spec, &args).unwrap_err())});
             next(&mut value, "command", &args, false);
-            let value = tool(value, true)["structuredContent"]["result"].clone();
+            let value = tool_value(&tool(value, true)).unwrap();
             assert_eq!(value["error"]["code"], "INVALID_ARGUMENTS");
             assert_eq!(value["error"]["field"], format!("/{field}"));
             assert_eq!(value["next"]["via"], "query");

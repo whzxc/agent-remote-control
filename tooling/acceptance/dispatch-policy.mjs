@@ -1,3 +1,4 @@
+import {toolResult} from '../mcp-result.mjs';
 // Isolated public-contract acceptance. No real dispatch, account or notification target.
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
@@ -19,7 +20,7 @@ const put=async(name,value)=>{const p=path.join(dir,name);await mkdir(path.dirna
 const save=async(name,value)=>{await mkdir(out,{recursive:true});await writeFile(path.join(out,name+'.json'),JSON.stringify(value,null,2)+'\n');};
 const policy={criteria:'Choose based on evidence.',codex:{model:'sample-model',effort:'high',criteria:'MUST review the result.',denyModels:['denied-model']},claude:{model:'native-default',denyModels:['denied-model']},dsh:{criteria:'MUST use observed choices.'}};
 let client;
-async function call(op,args={}){const r=await client.callTool({name:'query',arguments:{op,args}});assert.ok(!r.isError,JSON.stringify(r));return r.structuredContent.result;}
+async function call(op,args={}){const r=await client.callTool({name:'query',arguments:{op,args}});assert.ok(!r.isError,JSON.stringify(r));return toolResult(r);}
 try{
  await put('ingresses/index.json',['default']);
  await put('ingresses/default/config.json',{id:'default',name:'Self-test',controlSource:'claude',transport:'openai-tunnel',auth:'openai',enabled:true,toolPolicy:'all',config:{}});

@@ -616,7 +616,7 @@ async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value> {
             origin,
             crate::dispatch_caller::CALLER.scope(
                 crate::dispatch_caller::validated(&body["caller"]),
-                call_tool(&source, tool, envelope),
+                call_tool(&source, tool, envelope, None),
             ),
         )
         .await
@@ -631,19 +631,29 @@ async fn enabled_ops(s: &ControlSource<'_>) -> Vec<Value> {
     ops
 }
 
-async fn call_tool(s: &ControlSource<'_>, tool: &str, envelope: Value) -> Result<Value> {
+async fn call_tool(
+    s: &ControlSource<'_>,
+    tool: &str,
+    envelope: Value,
+    rpc_id: Option<&Value>,
+) -> Result<Value> {
     let metric = crate::control_metrics::Call::new(&s.origin().await, tool, &envelope);
-    let mut response = call_tool_inner(s, tool, envelope).await;
-    if crate::sources::minimal_text(string(&s.origin().await, "sourceId")) {
-        if let Ok(response) = &mut response {
-            crate::egress::minimal_text(response);
+    let mut response = call_tool_inner(s, tool, envelope, rpc_id).await;
+    if rpc_id.is_some() {
+        if let Ok(result) = &mut response {
+            result["resultType"] = json!("complete");
         }
     }
     metric.finish(&response).await;
     response
 }
 
-async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> Result<Value> {
+async fn call_tool_inner(
+    s: &ControlSource<'_>,
+    tool: &str,
+    envelope: Value,
+    rpc_id: Option<&Value>,
+) -> Result<Value> {
     let name = if tool == "guide" {
         "guide"
     } else {
@@ -716,7 +726,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
         if args["digestCursor"].is_string() && crate::kernel::digests::supports(name, &args) {
             let spec = catalog()["ops"].as_array().unwrap().iter().find(|op|op["name"]==name).unwrap();
             crate::egress::validate_op(spec, &args)?;
-            match crate::kernel::digests::resume(name, &args, &s.origin().await)? {
+            match crate::kernel::digests::resume(name, &args, &s.origin().await, rpc_id)? {
                 crate::kernel::digests::Resume::Value(value) => return Ok(value),
                 crate::kernel::digests::Resume::Owner(next) => { args = next; digest_continuation = true; },
             }
@@ -786,7 +796,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
                 || (digest_continuation && value["error"].is_null()))
                 && args["digestCursor"].is_null()
             {
-                crate::kernel::digests::present(name, &args, value.clone(), &s.origin().await)?
+                crate::kernel::digests::present(name, &args, value.clone(), &s.origin().await, rpc_id)?
             } else if default_list || (args["digestCursor"].is_string() && args["view"] != "full") {
                 value.clone()
             } else {
@@ -886,12 +896,13 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
         value["arcInbox"] = json!({"unread":inbox["unread"],"next":inbox["next"]});
     }
     let mut result = crate::egress::tool(value, error);
-    // Measure the exact serialized result emitted as both text and structuredContent.result.
+    // Measure the serialized text block, including JSON escaping and response framing.
     // Labels, next, arcInbox and arcVersion have all been added. Default lists must not
     // pass through generic paging first: that would hide the owner's full list shape.
-    if default_list && string(&result["content"][0], "text").len() > 12 * 1024 {
-        let full = result["structuredContent"]["result"].take();
-        let digest = crate::kernel::digests::present(name, &args, full, &s.origin().await)?;
+    if default_list && crate::egress::wire_bytes(&result, rpc_id) > 12 * 1024 {
+        let full = crate::egress::tool_value(&result)?;
+        let digest =
+            crate::kernel::digests::present(name, &args, full, &s.origin().await, rpc_id)?;
         result = crate::egress::tool(digest, false);
     }
     result["content"].as_array_mut().unwrap().extend(images);
@@ -1004,7 +1015,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
             let started = std::time::Instant::now();
             let source = ControlSource::Ingress(s);
             let response = tokio::select! {
-                result = call_tool(&source, string(&request["params"], "name"), args.clone()) => result,
+                result = call_tool(&source, string(&request["params"], "name"), args.clone(), id.as_ref()) => result,
                 _ = cancel.changed() => {
                     let mut value = json!({"state":"unconfirmed","reason":"wait-cancelled","threadId":op_args["threadId"],"turnId":op_args["turnId"],"runtimeStatus":"unknown","recordedStatus":null,"finalResponse":null,"interaction":[],"changed":false,"conditionMet":false,"observedAt":null,"returnedAt":now(),"elapsedMs":started.elapsed().as_millis() as u64});
                     if args["op"] == "inbox_wait" {
@@ -1028,6 +1039,7 @@ async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -> Result<Va
                     .get("arguments")
                     .cloned()
                     .unwrap_or(json!({})),
+                id.as_ref(),
             )
             .await
         }

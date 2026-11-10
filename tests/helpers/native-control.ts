@@ -1,3 +1,4 @@
+import {toolResult} from '../../tooling/mcp-result.mjs';
 import {assertNextCalls} from './continuations.ts';
 import {promisify} from 'node:util';
 import { execFile, execFileSync, spawn } from 'node:child_process';
@@ -79,8 +80,9 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   };
   const call = async (op: string, args: Record<string, unknown> = {}) => {
     const value = await api('cli/control', { op, args });
-    assertNextCalls(value.structuredContent);
-    return value.structuredContent?.result ?? value;
+    const result = toolResult(value);
+    assertNextCalls(result);
+    return result;
   };
   const sourceResponse = async (ingressId: string, op: string, args: Record<string,unknown> = {}, tool: 'act' | 'query' = 'act') => {
     const response=await fetch(`http://127.0.0.1:${runtime.endpoint.port}/mcp/${ingressId}`, {
@@ -88,12 +90,12 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
       body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:tool,arguments:{op,args}}}),
     });
     const value=await response.json() as any;
-    assertNextCalls(value.result?.structuredContent);
+    assertNextCalls(toolResult(value.result));
     return value;
   };
   const sourceCall = async (ingressId: string, op: string, args: Record<string,unknown> = {}, tool: 'act' | 'query' = 'act') => {
     const value = await sourceResponse(ingressId, op, args, tool);
-    return value.result?.structuredContent?.result??value;
+    return toolResult(value.result);
   };
   const completed = async (op: string, args: Record<string, unknown> = {}) => {
     let result = await call(op, { ...(['codex_create','codex_send','agent_create','agent_send'].includes(op) ? {purpose:'self-test',notify:null} : {}), ...args });

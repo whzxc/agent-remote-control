@@ -23,9 +23,11 @@ impl Fixture {
             if op=="ax_list" {self.store.list(&args,&self.actor,"authority-1",self.time)}
             else {self.store.mutate(op,&args,&self.actor,vec![json!({"kind":"observation","coreBuild":"fixture-build","observedAt":timestamp(self.time)})],self.time)}
         });
-        crate::egress::tool(result.unwrap_or_else(|e| failure(e, op, &args)), false)
-            ["structuredContent"]["result"]
-            .clone()
+        crate::egress::tool_value(&crate::egress::tool(
+            result.unwrap_or_else(|e| failure(e, op, &args)),
+            false,
+        ))
+        .unwrap()
     }
     fn report(&mut self, symptom: &str) -> Value {
         self.call("ax_report",json!({"symptom":symptom,"expected":"Bounded actionable result","severity":"workaround"}))["entry"].clone()

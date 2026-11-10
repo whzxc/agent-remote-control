@@ -1,3 +1,4 @@
+import {toolResult} from '../tooling/mcp-result.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
@@ -54,7 +55,7 @@ async function start(directory: string) {
     const call = async (op: string, args = {}) => {
       const response = await request('api/cli/control', { op, args });
       assert.equal(response.isError, false, JSON.stringify(response));
-      return response.structuredContent.result;
+      return toolResult(response);
     };
     const phases: Record<string, number> = { metadataMs: performance.now() - at };
     assert.equal((await request('healthz')).pid, child.pid);

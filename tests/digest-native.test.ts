@@ -1,3 +1,4 @@
+import {toolResult} from '../tooling/mcp-result.mjs';
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
@@ -81,6 +82,24 @@ async function full(action: any) {
   while(result.nextOffset!==null){result=await follow({...action,args:{...action.args,offset:result.nextOffset}});text+=result.text;}
   return JSON.parse(text);
 }
+
+test('query carries one complete JSON text result and preserves error envelopes',async()=>{
+  // Contract: query returns its complete result once in content and marks error JSON with isError.
+  const projects=[{id:'complete-fixture',status:'registered',payload}];
+  await fixture('projects',{projects});
+  const success=await control.sourceResponse('digest-local','projects',{view:'full'},'query');
+  assert.equal(success.result.isError,false);
+  assert.equal(success.result.content.length,1);
+  const value=JSON.parse(success.result.content[0].text);
+  assert.deepEqual(value.projects,projects);
+  assert.equal(typeof value.arcVersion,'string');
+  assert.equal(success.result.structuredContent,undefined);
+  const failed=await control.sourceResponse('digest-local','read',{unsupported:true},'query');
+  assert.equal(failed.result.isError,true);
+  assert.equal(failed.result.content.length,1);
+  assert.equal(JSON.parse(failed.result.content[0].text).error.code,'INVALID_ARGUMENTS');
+  assert.equal(failed.result.structuredContent,undefined);
+});
 
 test('owner digests and oversized defaults expose every snapshot row through valid MCP actions',async()=>{
   // Regression: ax-9d1b45c5 oversized list reads exposed raw JSON prefixes instead of actionable metadata.
@@ -170,15 +189,15 @@ test('remote query and CLI both return bounded digests without changing frozen t
   const next=remote.next;const continued=await control.sourceCall('default',next.op,next.args,'query');budget(continued);
   const wrongSource=await control.call(next.op,next.args);assert.equal(wrongSource.error.code,'DIGEST_SCOPE_CHANGED');
   const cli=await control.shell(`arc cli control projects`);
-  const result=JSON.parse(cli.stdout);budget(result.result??result.structuredContent?.result??result);
+  const result=JSON.parse(cli.stdout);budget(result.result);
 });
 
 
 function wireValue(response: any) {
   assert.equal(response.result.isError,false,JSON.stringify(response));
   const text=response.result.content.find((c:any)=>c.type==='text').text;
-  const value=response.result.structuredContent.result;
-  assert.deepEqual(JSON.parse(text),value);
+  assert.equal(response.result.structuredContent,undefined);
+  const value=JSON.parse(text);
   assert.equal(Buffer.byteLength(text),Buffer.byteLength(JSON.stringify(value)));
   return value;
 }
@@ -206,13 +225,14 @@ for(const op of ['codex_tasks','ax_list','accounts','notify_status','board','age
     budget(wireValue(await control.sourceResponse('digest-local',op,c.args??{},'query')));
     const cli=JSON.parse((await control.shell(`echo '${JSON.stringify(c.args??{})}' | arc cli control ${op} --stdin`)).stdout);
     assert.equal(cli.ok,true);budget(cli.result);
-    await fixture(op,sizedOwner(owner,1024*12-1024));
-    const small=wireValue(await control.sourceResponse('digest-local',op,c.args??{},'query'));
-    assert.notEqual(small.view,'digest');assert.ok(Buffer.byteLength(JSON.stringify(small))<=12*1024);
+    await fixture(op,sizedOwner(owner,1024*12-4096));
+    const smallResponse=await control.sourceResponse('digest-local',op,c.args??{},'query');
+    const small=wireValue(smallResponse);
+    assert.notEqual(small.view,'digest');assert.ok(Buffer.byteLength(JSON.stringify(smallResponse))<=12*1024);
   });
 }
 
-test('isolated notify digest preserves full-row actions in both MCP representations',async()=>{
+test('isolated notify digest preserves full-row actions in MCP text',async()=>{
   // Regression: isolated-source notify_status digest rows were reported without detail actions.
   const value={
     targets:[{channel:'mcp-events',target:'private-route',reachability:'failed',pending:[]}],
@@ -239,3 +259,29 @@ test('isolated notify digest preserves full-row actions in both MCP representati
   const result=await control.call('accounts',{view:'digest'});
   assert.ok(result.rows[0].summary.includes('Research account'));
  });
+
+test('digest wire size includes escaping and JSON-RPC framing',async t=>{
+  // Regression: ax-f60511f4 duplicated a 7.7 KB digest into a 16.6 KB JSON-RPC message.
+  const owner={projects:Array.from({length:37},(_,i)=>({id:`fixture-${i}`,status:'registered',title:'🧪"\\\n'.repeat(20)}))};
+  await fixture('projects',owner);
+  const digest=await control.sourceResponse('digest-local','projects',{view:'digest'},'query');
+  budget(wireValue(digest));
+  assert.ok(Buffer.byteLength(JSON.stringify(digest))<=8*1024);
+  const next=toolResult(digest.result).next;
+  assert.ok(next);
+  const continued=await control.sourceResponse('digest-local',next.op,next.args,'query');
+  budget(wireValue(continued));
+  assert.ok(Buffer.byteLength(JSON.stringify(continued))<=8*1024);
+  const escaped={projects:[{id:'escaped-fixture'}],padding:'"\\\n'.repeat(1500)};
+  assert.ok(Buffer.byteLength(JSON.stringify(escaped))<12*1024);
+  await fixture('projects',escaped);
+  const full=await control.sourceResponse('digest-local','projects',{view:'full'},'query');
+  assert.notEqual(wireValue(full).view,'digest');
+  assert.ok(Buffer.byteLength(JSON.stringify(full))>12*1024);
+  budget(wireValue(await control.sourceResponse('digest-local','projects',{},'query')));
+  for(const [name,response] of [['digest',digest],['guide',await control.sourceResponse('digest-local','guide',{op:'projects'},'query')]] as const){
+    const before=structuredClone(response);
+    before.result.structuredContent={result:toolResult(response.result)};
+    t.diagnostic(`${name} JSON-RPC bytes: before=${Buffer.byteLength(JSON.stringify(before))}, after=${Buffer.byteLength(JSON.stringify(response))}`);
+  }
+});

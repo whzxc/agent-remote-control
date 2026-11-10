@@ -148,7 +148,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -1438,7 +1438,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -1682,7 +1682,7 @@
               "digest"
             ],
             "default": "compact",
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "enrich": {
             "type": "boolean",
@@ -3602,7 +3602,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -4890,7 +4890,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -5247,7 +5247,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -6856,7 +6856,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -7833,7 +7833,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -8110,7 +8110,7 @@
               "digest"
             ],
             "default": "summary",
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "includeSessions": {
             "type": "boolean",
@@ -8905,7 +8905,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -9012,7 +9012,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -9296,7 +9296,7 @@
               "full",
               "digest"
             ],
-            "description": "digest returns bounded semantic metadata; full retains the existing full-result paging contract. An omitted view uses digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, including display labels, next, arcInbox and arcVersion. Explicit detail reads retain their existing behavior."
+            "description": "digest returns semantic metadata within 8 KiB and 20 rows. full retains full-result paging. An omitted view uses digest above 12 KiB of serialized response bytes, including labels, next, arcInbox, arcVersion, JSON text escaping and MCP framing. Detail reads retain their existing behavior."
           },
           "digestCursor": {
             "type": "string",
@@ -11315,17 +11315,6 @@
         "additionalProperties": false,
         "required": []
       },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "result": {}
-        },
-        "required": [
-          "result"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
-      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -11363,17 +11352,6 @@
         "idempotentHint": true,
         "openWorldHint": true
       },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "result": {}
-        },
-        "required": [
-          "result"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
-      },
       "execution": {
         "taskSupport": "forbidden"
       }
@@ -11407,17 +11385,6 @@
         "destructiveHint": true,
         "idempotentHint": false,
         "openWorldHint": true
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "result": {}
-        },
-        "required": [
-          "result"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
       },
       "execution": {
         "taskSupport": "forbidden"

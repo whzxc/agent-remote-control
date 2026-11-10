@@ -129,7 +129,7 @@ pub(crate) async fn control(op: &str, args: Value) -> Result<Value> {
         crate::dispatch_caller::control_request(op, &args),
     )
     .await?;
-    let mut value = response["structuredContent"]["result"].clone();
+    let mut value = crate::egress::tool_value(&response)?;
     if response["isError"] == true && crate::egress::outcome_error(&value).is_none() {
         let mut error = value["error"].clone();
         if error.is_object() {

@@ -1,7 +1,6 @@
 //! Owner-specific metadata projections over immutable, authorized list snapshots.
 use crate::*;
-// Egress adds arcVersion after projection. Reserve its envelope space.
-const BUDGET: usize = 8 * 1024 - 256;
+const BUDGET: usize = 8 * 1024;
 const ROWS: usize = 20;
 
 pub(crate) fn supports(op: &str, args: &Value) -> bool {
@@ -584,12 +583,18 @@ fn upstream(op: &str, args: &Value, value: &Value) -> Value {
     }
     action(op, a)
 }
-pub(crate) fn present(op: &str, args: &Value, value: Value, origin: &Value) -> Result<Value> {
+pub(crate) fn present(
+    op: &str,
+    args: &Value,
+    value: Value,
+    origin: &Value,
+    rpc_id: Option<&Value>,
+) -> Result<Value> {
     let snapshot = json!({"op":op,"args":args,"scope":scope(origin),"value":value});
     let output = super::results::save_digest(&snapshot)?;
-    render(&output, &snapshot, 0)
+    render(&output, &snapshot, 0, rpc_id)
 }
-fn render(output: &str, snapshot: &Value, offset: usize) -> Result<Value> {
+fn render(output: &str, snapshot: &Value, offset: usize, rpc_id: Option<&Value>) -> Result<Value> {
     let op = string(snapshot, "op");
     let args = &snapshot["args"];
     let value = &snapshot["value"];
@@ -689,7 +694,7 @@ fn render(output: &str, snapshot: &Value, offset: usize) -> Result<Value> {
         }
         out["rows"].as_array_mut().unwrap().push(projected);
         update(&mut out, i + 1);
-        if out.to_string().len() > BUDGET {
+        if crate::egress::wire_bytes(&crate::egress::tool(out.clone(), false), rpc_id) > BUDGET {
             out["rows"]
                 .as_array_mut()
                 .unwrap()
@@ -698,7 +703,7 @@ fn render(output: &str, snapshot: &Value, offset: usize) -> Result<Value> {
                 .as_object_mut()
                 .unwrap()
                 .remove("summary");
-            if out.to_string().len() > BUDGET {
+            if crate::egress::wire_bytes(&crate::egress::tool(out.clone(), false), rpc_id) > BUDGET {
                 out["rows"].as_array_mut().unwrap().pop();
                 update(&mut out, i);
                 break;
@@ -711,7 +716,12 @@ pub(crate) enum Resume {
     Value(Value),
     Owner(Value),
 }
-pub(crate) fn resume(op: &str, args: &Value, origin: &Value) -> Result<Resume> {
+pub(crate) fn resume(
+    op: &str,
+    args: &Value,
+    origin: &Value,
+    rpc_id: Option<&Value>,
+) -> Result<Resume> {
     let (output, offset) = string(args, "digestCursor")
         .split_once(':')
         .ok_or("INVALID_DIGEST_CURSOR")?;
@@ -751,7 +761,7 @@ pub(crate) fn resume(op: &str, args: &Value, origin: &Value) -> Result<Resume> {
             return Ok(Resume::Owner(next["args"].clone()));
         }
     }
-    render(output, &snapshot, offset).map(Resume::Value)
+    render(output, &snapshot, offset, rpc_id).map(Resume::Value)
 }
 pub(super) fn output(snapshot: &Value) -> Result<Value> {
     if snapshot["scope"] != scope(&crate::kernel::origin::current_origin()) {

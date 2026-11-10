@@ -102,7 +102,7 @@ impl Call {
         row["completedAt"] = json!(chrono::Utc::now().timestamp_millis());
         match response {
             Ok(response) => {
-                let result = &response["structuredContent"]["result"];
+                let result = crate::egress::tool_value(response).unwrap_or(Value::Null);
                 row["responseBytes"] = json!(bytes(response));
                 row["textBytes"] = json!(response["content"]
                     .as_array()
@@ -111,8 +111,7 @@ impl Call {
                     .filter_map(|b| b["text"].as_str())
                     .map(str::len)
                     .sum::<usize>());
-                row["structuredContentBytes"] =
-                    json!(response.get("structuredContent").map(bytes).unwrap_or(0));
+                row["structuredContentBytes"] = json!(0);
                 for field in ["threadId", "taskId", "requestId", "agent"] {
                     if let Some(v) = result.get(field) {
                         row[field] = identifier(v);
@@ -151,7 +150,7 @@ impl Call {
                     Value::Null
                 };
                 row["cacheHash"] = digest;
-                if !row["dispatchOutcome"].is_null() || crate::egress::dispatch_receipt(result) {
+                if !row["dispatchOutcome"].is_null() || crate::egress::dispatch_receipt(&result) {
                     row["dispatchOutcome"] = json!(if !row["errorCode"].is_null() {
                         "failed"
                     } else if result["state"] == "completed"

@@ -1,3 +1,4 @@
+import {toolResult} from '../tooling/mcp-result.mjs';
 import {assertNextCalls} from './helpers/continuations.ts';
 import {prepareCoreBinary} from './helpers/native-control.ts';
 import assert from 'node:assert/strict';
@@ -264,7 +265,7 @@ for await (const line of createInterface({input:process.stdin})) {
   await connectFixture();
   await management('task-settings', 'PUT', {autoOpenCodex:false});
   inventory = await client.listTools();
-  const index = ((await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}})).structuredContent as {result:any}).result.ops;
+  const index = toolResult((await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}}))).ops;
   operations = await Promise.all(index.map(async ({op}: {op: string}) => {
     const detail = (await call('guide', {op})).result;
     return {...catalog.ops.find((item: any) => item.name === op), inputSchema: detail.inputSchema, description: detail.description};
@@ -282,8 +283,9 @@ function opCall(name: string, args: Record<string, unknown> = {}) {
 }
 async function call(name: string, args: Record<string, unknown> = {}) {
   const response = await client.callTool(opCall(name, args));
-  assertNextCalls(response.structuredContent);
-  return { response, result: (response.structuredContent as { result: any } | undefined)?.result };
+  const result=toolResult(response);
+  assertNextCalls(result);
+  return { response, result };
 }
 async function completed(name: string, args: Record<string, unknown>) {
   let { result } = await call(name, args);
@@ -647,25 +649,25 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     assert.equal(a.toolPolicy, 'all');
     await management(`ingress/${a.id}/start`, 'POST');
     await management(`ingress/${b.id}/start`, 'POST');
-    const list = async (i: any) => (await ingressRpc(i, 'tools/call', {name:'query',arguments:{op:'guide',args:{view:'full'}}})).result.structuredContent.result.ops.map((op: any) => op.op);
+    const list = async (i: any) => toolResult((await ingressRpc(i, 'tools/call', {name:'query',arguments:{op:'guide',args:{view:'full'}}})).result).ops.map((op: any) => op.op);
     assert.deepEqual(await list(a), config.tools.filter(tool => tool.available !== false).map(tool => tool.name));
     assert.deepEqual(await list(b), config.tools.filter(tool => (b.toolPolicy.allowlist.includes(tool.name) || ['notification_ack', 'notify_status', 'inbox_wait'].includes(tool.name)) && tool.available !== false).map(tool => tool.name));
     assert.deepEqual((await management('tool-catalog')).tools, config.tools, 'management inventory remains unfiltered');
     for (const name of config.tools.filter(tool => !b.toolPolicy.allowlist.includes(tool.name) && !['notification_ack', 'notify_status', 'inbox_wait'].includes(tool.name)).map(tool => tool.name)) {
-      assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: { action: 'approve', requestId: randomUUID() } })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE', name);
+      assert.equal(toolResult((await ingressRpc(b, 'tools/call', { name, arguments: { action: 'approve', requestId: randomUUID() } })).result).error.code, 'OP_UNAVAILABLE', name);
     }
     const source=(await management('source')).sources.find((source:any)=>source.ingressId===b.id);
     assert.ok(source.capabilityProfileOffer.choices.includes('remote-polling'));
     assert.equal(source.capabilityProfile,undefined);
     await management(`source/${source.id}`,'PUT',{capabilityProfile:{hostAccess:'none',waitMode:'poll'}});
     assert.deepEqual((await management(`ingress/${b.id}`)).toolPolicy,b.toolPolicy);
-    assert.ok(!((await ingressRpc(b,'tools/call',{name:'query',arguments:{op:'guide',args:{}}})).result.structuredContent.result.ops).some((row:any)=>row.op==='command'));
+    assert.ok(!(toolResult((await ingressRpc(b,'tools/call',{name:'query',arguments:{op:'guide',args:{}}})).result).ops).some((row:any)=>row.op==='command'));
     const args = { requestId: randomUUID(), method: 'fixture/counts', params: {} };
     const blocked = await ingressRpc(b, 'tools/call', { name: 'codex_call', arguments: args });
     assert.equal(blocked.result.isError, true);
-    assert.equal(blocked.result.structuredContent.result.error.code, 'OP_UNAVAILABLE');
+    assert.equal(toolResult(blocked.result).error.code, 'OP_UNAVAILABLE');
     const missingReceipt = await ingressRpc(a, 'tools/call', { name: 'receipt', arguments: { requestId: args.requestId } });
-    assert.equal(missingReceipt.result.structuredContent.result.state, 'not-found', 'blocked mutation did not create a receipt');
+    assert.equal(toolResult(missingReceipt.result).state, 'not-found', 'blocked mutation did not create a receipt');
     const allowed = await ingressRpc(a, 'tools/call', { name: 'codex_call', arguments: args });
     assert.equal(allowed.result.isError, false);
     // A restricted real read succeeds, not merely schema validation or list filtering.
@@ -693,7 +695,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     await management(`ingress/${b.id}`, 'PUT', { toolPolicy: { allowlist: [] } });
     await management(`ingress/${b.id}/start`, 'POST');
     assert.deepEqual(await list(b), ['guide', 'inbox_wait', 'notification_ack', 'notify_status']);
-    for (const name of ['connector_verify', 'codex_wait', 'agent_wait']) assert.equal((await ingressRpc(b, 'tools/call', { name, arguments: {} })).result.structuredContent.result.error.code, 'OP_UNAVAILABLE');
+    for (const name of ['connector_verify', 'codex_wait', 'agent_wait']) assert.equal(toolResult((await ingressRpc(b, 'tools/call', { name, arguments: {} })).result).error.code, 'OP_UNAVAILABLE');
   } finally {
     await management(`ingress/${a.id}`, 'DELETE');
     await management(`ingress/${b.id}`, 'DELETE');
@@ -926,7 +928,7 @@ const fixtureRows = async () => JSON.parse(await readFile(path.join(directory,'d
 
 test('guide exposes replay boundaries and durable writes survive concurrent retries and Core restart', async () => {
   // Regression: a lost write response must not cause a repeated edit after concurrent retry or restart.
-  const guide = ((await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}})).structuredContent as {result:any}).result;
+  const guide = toolResult((await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}})));
   assert.ok(guide.ops.every((op:any) => ['read-only','receipt','original-receipt','read-back'].includes(op.retry.mode)));
   assert.equal((await call('guide',{op:'edit'})).result.retry.mode,'receipt');
   assert.equal((await call('guide',{op:'screen'})).result.retry.automaticRetry,false);
@@ -1446,7 +1448,7 @@ test('inbox_wait filters unread events before limiting, isolates ingress and coo
   try {
     await management(`ingress/${other.id}/start`,'POST');
     const isolated=await ingressRpc(other,'tools/call',{name:'inbox_wait',arguments:args});
-    assert.deepEqual(isolated.result.structuredContent.result.events,[]);
+    assert.deepEqual(toolResult(isolated.result).events,[]);
     await ingressRpc(other,'tools/call',{name:'notification_ack',arguments:{eventIds}});
     assert.deepEqual((await inbox(args)).events,first.events);
   } finally { await management(`ingress/${other.id}`,'DELETE'); }
@@ -1458,7 +1460,7 @@ test('inbox_wait filters unread events before limiting, isolates ingress and coo
   const late = await dispatchFixture('fixture-dispatch-queue');
   const waiting = fetch(`http://127.0.0.1:${endpoint.port}/mcp/default`, {method:'POST', headers:{Authorization:`Bearer ${endpoint.token}`,'Content-Type':'application/json'}, body:JSON.stringify({jsonrpc:'2.0',id:'late-inbox',method:'tools/call',params:{name:'query',arguments:{op:'inbox_wait',args:{timeoutMs:15000,threadIds:[late.threadId],eventTypes:['completed']}}}})}).then(r => r.json());
   await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:late.threadId},requestId:randomUUID()});
-  assert.equal((await waiting).result.structuredContent.result.events[0].threadId, late.threadId);
+  assert.equal(toolResult((await waiting).result).events[0].threadId, late.threadId);
 });
 
 test('HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect', async () => {
@@ -1477,12 +1479,12 @@ test('HTTP and HTTPS ingress wait streaming keeps final result intact and releas
       const r=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({...request,params:{...request.params,arguments:{op:'inbox_wait',args:{timeoutMs:1,threadIds:['never-self-test']}}}})});
       return r.json();
     },v=>!v.error);
-    assert.equal(retry.result.structuredContent.result.state,'timeout');
+    assert.equal(toolResult(retry.result).state,'timeout');
   }
   const progress=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({...request,id:'progress-self-test',params:{...request.params,_meta:{progressToken:'progress-token'},arguments:{op:'inbox_wait',args:{timeoutMs:100,threadIds:['never-self-test']}}}})});
   const frames=(await progress.text()).split('\n').filter(l=>l.startsWith('data: ')).map(l=>JSON.parse(l.slice(6)));
   assert.equal(frames[0].method,'notifications/progress');assert.equal(frames[0].params.progressToken,'progress-token');
-  assert.equal(frames.at(-1).result.structuredContent.result.state,'timeout');
+  assert.equal(toolResult(frames.at(-1).result).state,'timeout');
   }} finally {await management('ingress/wait-stream','DELETE');}
 });
 
@@ -1493,7 +1495,7 @@ test('Claude task waits expose the source cap without delaying terminal results'
   await management('ingress/wait-cap/start','POST');
   try {
     const response=await fetch(`http://127.0.0.1:${endpoint.port}/mcp/wait-cap`,{method:'POST',headers:{Authorization:`Bearer ${endpoint.token}`,'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'cap-self-test',method:'tools/call',params:{name:'query',arguments:{op:'codex_wait',args:{threadId:created.threadId,turnId:created.turnId,timeoutMs:1800000,until:'terminal'}}}})});
-    const result=(await response.json()).result.structuredContent.result;
+    const result=toolResult((await response.json()).result);
     assert.equal(result.state,'completed');assert.equal(result.finalResponse.text,'pong');
     assert.equal(result.waitLimit.capped,true);assert.equal(result.waitLimit.timeoutMs,170000);
     assert.equal(result.waitLimit.requestedTimeoutMs,1800000);assert.equal(result.waitLimit.controlSource,'claude');
@@ -1510,7 +1512,7 @@ test('stdio bridge forwards negotiated progress, preserves final replies and can
     child.stdin.write(JSON.stringify(request('stdio-progress',100,true))+'\n');
     await eventually(async()=>messages,v=>v.some(r=>r.id==='stdio-progress'));
     assert.equal(messages.find(r=>r.method==='notifications/progress').params.progressToken,'stdio-token');
-    assert.equal(messages.find(r=>r.id==='stdio-progress').result.structuredContent.result.state,'timeout');
+    assert.equal(toolResult(messages.find(r=>r.id==='stdio-progress').result).state,'timeout');
     const before=messages.length;
     child.stdin.write(JSON.stringify(request('stdio-quiet',100))+'\n');
     await eventually(async()=>messages,v=>v.some(r=>r.id==='stdio-quiet'));
@@ -1521,7 +1523,7 @@ test('stdio bridge forwards negotiated progress, preserves final replies and can
     const retry=await eventually(async()=>{
       const r=await fetch(`http://127.0.0.1:${endpoint.port}/mcp/default`,{method:'POST',headers:{Authorization:`Bearer ${endpoint.token}`,'Content-Type':'application/json'},body:JSON.stringify(request('stdio-disconnect',1))});return r.json();
     },v=>!v.error);
-    assert.equal(retry.result.structuredContent.result.state,'timeout');
+    assert.equal(toolResult(retry.result).state,'timeout');
   } finally {child.kill();}
 });
 
@@ -1534,7 +1536,7 @@ test('non-object MCP args report their JSON type without exposing submitted cont
       [null,'null'],[[],'array'],
     ] as const) {
       const response=await client.callTool({name,arguments:{op,args}});
-      const error=(response.structuredContent as any).result.error;
+      const error=toolResult(response).error;
       assert.equal(response.isError,true);
       assert.equal(error.code,'INVALID_ARGUMENTS');
       assert.equal(error.field,'/args');
@@ -1582,7 +1584,7 @@ test('argument errors are short, field-specific and leave unread inbox untouched
       assert.equal(result.error.guide.arguments.args.op,name);
     }
     const envelope=await client.callTool({name:'query',arguments:{op:'read',args:{},extra:'private-value'}});
-    assert.equal(envelope.isError,true);assert.equal((envelope.structuredContent as any).result.error.field,'/extra');
+    assert.equal(envelope.isError,true);assert.equal(toolResult(envelope).error.field,'/extra');
     assert.deepEqual(await wait(),unread);
 });
 
@@ -1630,8 +1632,8 @@ test('MCP cmd default wait returns a receipt before the client deadline and pres
   assert.ok(remote.result.requestId);
   assert.equal(remote.result.next.op, 'receipt');
   assert.equal(remote.result.next.args.requestId, remote.result.requestId);
-  assert.equal(explicit.result.structuredContent.result.state, 'completed');
-  assert.equal(local.structuredContent.result.state, 'completed');
+  assert.equal(toolResult(explicit.result).state, 'completed');
+  assert.equal(toolResult(local).state, 'completed');
   const receipt = await call('receipt', {requestId:remote.result.requestId});
   assert.equal(receipt.result.state, 'completed');
 });
@@ -2010,7 +2012,7 @@ test('frozen guide tool redirects query-only topics to query guide', async () =>
 
 test('guide progressively discloses every enabled op and caches projected content', async () => {
   // Contract: query guide caches the source-specific view without changing frozen tools.
-  const readGuide = async (args: Record<string, unknown>) => (await client.callTool({name:'query',arguments:{op:'guide',args}})).structuredContent!.result as any;
+  const readGuide = async (args: Record<string, unknown>) => toolResult((await client.callTool({name:'query',arguments:{op:'guide',args}}))) as any;
   const compact = (await call('guide')).result;
   const full = await readGuide({view:'full'});
   assert.ok(compact.ops.length < full.ops.length);
@@ -2121,42 +2123,23 @@ test('control stats report byte baselines and waste candidates without call cont
   assert.equal(r.metadataOnly,true);assert.ok(r.totals.calls>0);
   assert.ok(r.bySource.every((s:any)=>s.sourceId&&s.controlSource));
   assert.ok(r.byOp.find((s:any)=>s.op==='guide').textBytes>0);
-  assert.ok(r.totals.structuredContentBytes>0);assert.ok(r.byDay.length);
+  assert.equal(r.totals.structuredContentBytes,0);assert.ok(r.byDay.length);
   assert.ok(r.wasteCandidates.lookupThenAct>0);assert.ok(r.wasteCandidates.uncachedUnchangedReads>0);assert.ok(r.wasteCandidates.argumentErrorRetries>0);
   const task=r.tasks.find((t:any)=>t.taskId===created.threadId);
   assert.equal(task.reviewed,true);assert.ok(task.calls>=3);assert.ok(task.responseBytes>0);
   assert.equal(r.profileSequences.sessionProxy,true);
   const cohorts=r.profileSequences.cohorts;
   assert.ok(cohorts.some((c:any)=>c.profile==='local-code'&&c.transport==='cli'&&c.guideResponseBytes.median>0));
-  const remoteSequence=r.profileSequences.sequences.find((s:any)=>s.sourceId===created.origin?.sourceId) ?? r.profileSequences.sequences.find((s:any)=>s.profile.startsWith('remote-')&&s.transport==='mcp'&&s.callsBeforeFirstDispatch!==null);
+  const remoteSequence=r.profileSequences.sequences.find((s:any)=>s.sourceId===created.origin?.sourceId&&s.callsBeforeFirstDispatch!==null) ?? r.profileSequences.sequences.find((s:any)=>s.profile.startsWith('remote-')&&s.transport==='mcp'&&s.callsBeforeFirstDispatch!==null);
   assert.ok(remoteSequence);assert.equal(typeof remoteSequence.callsBeforeFirstDispatch,'number');
   assert.ok(cohorts.some((c:any)=>c.invalidArguments>0&&c.argumentErrorRetries>0));
   assert.ok(!JSON.stringify(stats).includes('private-metric-payload'));
+  const measured=await call('projects',{view:'full'});
+  const updated=JSON.parse(execFileSync(fixtureCommand,['cli','stats','control','--since','1h'],{env:fixtureEnv,encoding:'utf8'})).result;
+  assert.equal(updated.totals.responseBytes-r.totals.responseBytes,Buffer.byteLength(JSON.stringify(measured.response)));
+  assert.equal(updated.totals.textBytes-r.totals.textBytes,Buffer.byteLength((measured.response.content[0] as any).text));
+  assert.equal(updated.totals.structuredContentBytes,0);
   console.log('CONTROL_BASELINE '+JSON.stringify(r.totals));
-});
-
-
-test('minimal MCP text is opt-in per source and preserves structured results and errors',async()=>{
-  // Contract: frozen tools retain structuredContent when a source opts into minimal text.
-  const before=await call('guide');
-  const sources=await management('source');
-  const rows=Array.isArray(sources)?sources:sources.sources;
-  const source=rows.find((s:any)=>s.ingressId==='default');assert.ok(source);
-  assert.equal(source.minimalText===true,false);
-  await management(`source/${source.id}`,'PUT',{minimalText:true});
-  try {
-    const compact=await call('guide');
-    assert.deepEqual(compact.result,before.result);
-    assert.ok(JSON.stringify(compact.response.content).length<JSON.stringify(before.response.content).length);
-    const failed=await call('read',{unsupported:true});
-    assert.equal(failed.response.isError,true);assert.equal(failed.result.error.code,'INVALID_ARGUMENTS');
-    assert.ok((failed.response.content[0] as any).text.includes(failed.result.error.code));
-    const local=JSON.parse(execFileSync(fixtureCommand,['cli','control','guide'],{env:fixtureEnv,encoding:'utf8'}));
-    assert.equal(local.ok,true);assert.ok(local.result.content);
-  } finally {await management(`source/${source.id}`,'PUT',{minimalText:false});}
-  const restored=await call('guide');
-  assert.deepEqual(JSON.parse((restored.response.content[0] as any).text),restored.result);
-  assert.equal(restored.result.guideHash,before.result.guideHash);
 });
 
 
@@ -2464,7 +2447,7 @@ test('AX CLI explicitly targets an isolated instance without installed fallback'
 
 test('AX topic guides return relevant operations and cache each view separately', async () => {
   // Regression: every topic guide repeated the entire operation catalog during long control loops.
-  const guide = async (args: Record<string,unknown>) => ((await client.callTool({name:'query',arguments:{op:'guide',args}})).structuredContent as any).result;
+  const guide = async (args: Record<string,unknown>) => toolResult((await client.callTool({name:'query',arguments:{op:'guide',args}})));
   for (const [topic,required] of [['notify','notify_control'],['review','codex_review'],['approvals','codex_respond']]) {
     const scoped = await guide({topic});
     assert.equal(scoped.indexScope,'topic');
@@ -2827,14 +2810,14 @@ test('Maintainer mode defaults off, persists and switches guide content and comm
     assert.match(on.content, /ax_list/);
     for (const op of ['ax_report','ax_list','ax_candidate','ax_triage']) assert.ok(on.ops.some((entry:any) => entry.op === op));
     const cached = await client.callTool({name:'query', arguments:{op:'guide',args:{knownGuideHash:off.guideHash}}});
-    assert.equal((cached.structuredContent as any).result.unchanged, undefined);
+    assert.equal(toolResult(cached).unchanged, undefined);
     assert.equal(config(['get']).maintainerMode, true);
     await management('preferences','PUT',{values:{'maintainer-mode':'off'}});
     assert.equal(config(['get']).maintainerMode, false);
     assert.equal((await call('guide')).result.guideHash, off.guideHash);
     for (const view of [{}, {view:'full'}]) {
-      const guide = (await client.callTool({name:'query',arguments:{op:'guide',args:view}})).structuredContent as any;
-      assert.doesNotMatch(guide.result.content, /ax_report|ax_list/);
+      const guide = toolResult(await client.callTool({name:'query',arguments:{op:'guide',args:view}}));
+      assert.doesNotMatch(guide.content, /ax_report|ax_list/);
     }
   } finally { await management('preferences','PUT',{values:before}); }
 });

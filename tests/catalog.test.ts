@@ -15,6 +15,7 @@ test('published MCP tool schemas retain the frozen envelopes and compile every o
   };
   const validator = new AjvJsonSchemaValidator();
   for (const tool of catalog.tools) {
+    assert.equal(tool.outputSchema, undefined);
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
     assert.deepEqual(tool.inputSchema.properties, properties[tool.name as keyof typeof properties]);

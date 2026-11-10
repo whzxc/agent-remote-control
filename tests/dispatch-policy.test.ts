@@ -1,3 +1,4 @@
+import {toolResult} from '../tooling/mcp-result.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
@@ -217,7 +218,7 @@ test('Policy update uses the act and CLI envelopes with guarded error codes and 
     await fixture.api(`ingress/${ingress.id}`,{toolPolicy:{allowlist:['dispatch_policy']}},'PUT');
     assert.equal((await fixture.sourceCall(ingress.id,'dispatch_policy_update',args)).error.code,'OP_UNAVAILABLE');
     const envelope=await fixture.api('cli/control',{op:'dispatch_policy_update',args:{scope:'global',criteria:'Outer request ID',expectedCriteriaHash:initial.criteriaHash},requestId:randomUUID()});
-    assert.equal(envelope.isError,false);assert.equal(envelope.structuredContent.result.criteriaHash,digest('Outer request ID'));
+    assert.equal(envelope.isError,false);assert.equal(toolResult(envelope).criteriaHash,digest('Outer request ID'));
   }finally{await fixture.close();}
 });
 

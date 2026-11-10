@@ -2915,10 +2915,6 @@
               "product": {
                 "type": "string"
               },
-              "minimalText": {
-                "type": "boolean",
-                "description": "Opt in to minimal MCP text while retaining structuredContent. Omitted source settings default to false."
-              },
               "capabilityProfile": {
                 "type": [
                   "object",
@@ -2959,7 +2955,7 @@
           "body"
         ]
       },
-      "description": "Update source label, product, minimalText, or capabilityProfile through local management. Local Code requires built-in local CLI authority.",
+      "description": "Update source label, product, or capabilityProfile through local management. Local Code requires built-in local CLI authority.",
       "localOnly": true
     },
     {

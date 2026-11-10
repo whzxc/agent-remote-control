@@ -1301,7 +1301,7 @@ mod tests {
             &json!({"project":"workspace-repository","operation":"status"}),
             false,
         );
-        let result = crate::egress::tool(result, true)["structuredContent"]["result"].clone();
+        let result = crate::egress::tool_value(&crate::egress::tool(result, true)).unwrap();
         assert_eq!(result["error"]["code"], "PROJECT_NOT_FOUND");
         assert_eq!(result["next"]["via"], "query");
         assert_eq!(result["next"]["op"], "projects");

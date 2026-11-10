@@ -1,3 +1,4 @@
+import {toolResult} from '../mcp-result.mjs';
 // Isolated MCP acceptance: no real Agent, account, notification target or unit-test hooks.
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
@@ -27,7 +28,7 @@ async function call(op,args={},expectError=false){
  const name=op==='guide'?'guide':catalog.ops.find(o=>o.name===op).annotations.readOnlyHint?'query':'act';
  const r=await client.callTool({name,arguments:name==='guide'?args:{op,args}});
  assert.equal(Boolean(r.isError),expectError,op+': '+JSON.stringify(r));
- return r.structuredContent.result;
+ return toolResult(r);
 }
 async function dispatch(op='codex_create',args={}){
  let r=await call(op,{...(op==='codex_create'?{project:dir}:{}),prompt:'Reply SELF_TEST_OK without tools.',model:'fixture-notify',effort:'high',purpose:'self-test',notify:{channel:'claude-session',target:'session_selftest'},requestId:randomUUID(),waitMs:1000,...args});

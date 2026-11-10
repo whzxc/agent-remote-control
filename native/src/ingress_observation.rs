@@ -192,7 +192,9 @@ impl Trace {
     pub(crate) fn result(&self, result: &Result<Value>) {
         let mut row = self.0.lock().unwrap_or_else(|e| e.into_inner());
         if let Ok(response) = result {
-            let result = &response["result"]["structuredContent"]["result"];
+            let Ok(result) = crate::egress::tool_value(&response["result"]) else {
+                return;
+            };
             if let Some(request) = result["requestId"]
                 .as_str()
                 .filter(|s| uuid::Uuid::parse_str(s).is_ok())

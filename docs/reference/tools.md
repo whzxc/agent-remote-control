@@ -373,7 +373,7 @@ Native handles for processes, watches, and MCP subscriptions belong to the curre
 
 ## Output, events, and logs
 
-Dedicated list ops accept `view:digest`. An omitted view switches to the owner digest when the final result JSON exceeds 12 KiB of UTF-8 bytes, after display labels, `next`, `arcInbox` and `arcVersion` are added. The measured result is the same JSON carried by MCP text and `structuredContent.result`, or CLI `result`; duplicate MCP representations and outer protocol wrappers are not counted. Explicit views and ID/detail reads retain their existing result contracts. `dispatch_policy` retains `view:decision`; `codex_thread` supports digest only for `search`, `timeline` and `backgroundTerminals/list`.
+Dedicated list ops accept `view:digest`. An omitted view switches to the owner digest when the serialized response exceeds 12 KiB of UTF-8 bytes, after display labels, `next`, `arcInbox` and `arcVersion` are added. Measurement includes the single JSON text block, JSON escaping, and MCP framing with the request ID and `resultType`. Local CLI control measures its serialized tool result. Digest pages use the same measurement and stay within 8 KiB. Explicit views and ID/detail reads retain their existing result contracts. `dispatch_policy` retains `view:decision`; `codex_thread` supports digest only for `search`, `timeline` and `backgroundTerminals/list`.
 
 The digest has `view`, `revision`, `counts`, `rows`, `omitted`, `coverage` and `next`, plus the standard `arcVersion`. Its serialized result stays within 8 KiB and 20 rows. Metadata and continuation actions reserve space before rows. Rows sort actionable first, then by stable opaque ID within the owner snapshot. Summaries contain one bounded metadata line. Credentials, routing addresses and task bodies stay outside the digest. Oversized identifiers use stable opaque hashes with snapshot detail actions.
 
@@ -606,7 +606,7 @@ MCP `isError:true` and CLI `ok:false` / exit 1 reflect failed, rejected, cancell
 
 ## Response size and inbox revisits
 
-Default control results above 12 KiB return a short preview, identity/status summary, and `outputId`. Read `control_output({outputId,offset:0,length:8192})` and follow `nextOffset` to reconstruct the full immutable JSON. Guide and explicit output pages are exempt; supported `view:"full"` requests use a 64 KiB inline threshold. Native method schemas include only transitively referenced definitions. Compact automatic `arcInbox` attachments suppress unchanged event bodies and retain `unchangedEvents` references and unread counts. `inbox_wait({timeoutMs:0})` returns full unread events; deduplication does not acknowledge them.
+Default control results whose serialized MCP response exceeds 12 KiB return a short preview, identity/status summary, and `outputId`. Read `control_output({outputId,offset:0,length:8192})` and follow `nextOffset` to reconstruct the full immutable JSON. Guide and explicit output pages are exempt; supported `view:"full"` requests use a 64 KiB inline threshold. Native method schemas include only transitively referenced definitions. Compact automatic `arcInbox` attachments suppress unchanged event bodies and retain `unchangedEvents` references and unread counts. `inbox_wait({timeoutMs:0})` returns full unread events; deduplication does not acknowledge them.
 
 ## Status and stalled submissions
 

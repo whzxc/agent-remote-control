@@ -39,7 +39,7 @@ impl Fixture {
             .unwrap()
             .query(reader, query, self.time)
             .unwrap_or_else(|message| failure(message, &args));
-        crate::egress::tool(project_coverage(value), false)["structuredContent"]["result"].clone()
+        crate::egress::tool_value(&crate::egress::tool(project_coverage(value), false)).unwrap()
     }
     // Seed a bounded snapshot for capacity boundaries. Tests still cross
     // the boundary through emit and assert only the events op, avoiding tens of

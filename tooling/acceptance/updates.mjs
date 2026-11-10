@@ -1,3 +1,4 @@
+import {toolResult} from '../mcp-result.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
 requireMainCheckout();
 import assert from 'node:assert/strict';
@@ -136,8 +137,8 @@ async function control(op,args) {
     method:'POST',headers:{authorization:`Bearer ${endpoint.token}`,'content-type':'application/json'},body:JSON.stringify({op,args}),
   });
   const value=await response.json();
-  if(value.isError)throw new Error(JSON.stringify(value.structuredContent));
-  return value.structuredContent?.result ?? value;
+  if(value.isError)throw new Error(JSON.stringify(toolResult(value)));
+  return toolResult(value);
 }
 async function task() { return control('agent_read',{agent,taskId}); }
 async function until(read, accept, timeout=90_000) {
