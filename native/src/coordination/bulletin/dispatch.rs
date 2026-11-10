@@ -32,7 +32,6 @@ pub fn dispatch_association(baseline: &Value, registry: &Value) -> Value {
     let mut resources = Vec::new();
     let mut lane = "unattributed";
     if let Some(project) = project {
-        resources.push(ResourceKey::project(project).unwrap());
         if let Some(name) = baseline["ref"]
             .as_str()
             .and_then(|r| r.strip_prefix("refs/heads/wt/"))
@@ -41,7 +40,12 @@ pub fn dispatch_association(baseline: &Value, registry: &Value) -> Value {
                 resources.push(key);
                 lane = "git-baseline";
             }
-        } else if baseline["ref"].is_string() {
+        } else if baseline["root"]
+            .as_str()
+            .zip(baseline["commonDir"].as_str())
+            .is_some_and(|(root, common)| Path::new(root).join(".git") == Path::new(common))
+        {
+            resources.push(ResourceKey::project(project).unwrap());
             lane = "not-a-lane";
         }
     }

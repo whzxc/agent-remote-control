@@ -1965,7 +1965,10 @@ impl Control {
             r["turnId"] = json!(turn);
             r["dispatchMode"] = json!("resumed");
             r["task"]["dispatch"] = json!({"submittedAt":now()});
-            crate::dispatch_policy::record(r)?;
+            if let Err(error) = crate::dispatch_policy::record(r) {
+                crate::logs::record("WARN", &error, None);
+                crate::coordination::observers::gap("dispatch", "persistence-failed");
+            }
             if let Err(e) = crate::changes::record(thread, turn, &baseline) {
                 crate::logs::record("WARN", &e, None);
             }
@@ -2488,7 +2491,10 @@ impl Control {
         }
         if operation == "native" && method == "turn/start" {
             r["task"]["dispatch"] = json!({"submittedAt":now()});
-            crate::dispatch_policy::record(r)?;
+            if let Err(error) = crate::dispatch_policy::record(r) {
+                crate::logs::record("WARN", &error, None);
+                crate::coordination::observers::gap("dispatch", "persistence-failed");
+            }
         }
         if operation == "send" {
             let turn = result["turn"]["id"]

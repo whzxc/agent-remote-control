@@ -932,8 +932,11 @@ Native retries update the evidenced successor scope.
 
 Project association matches the pre-submission `changes` Git baseline against
 registered root identity or Git common-dir identity.
-A unique match produces `project:<id>/main`.
-An evidenced `refs/heads/wt/<name>` baseline also produces `lane:<id>/<name>`.
+A unique match with an evidenced `refs/heads/wt/<name>` baseline produces only
+`lane:<id>/<name>`.
+A baseline whose Git common directory is its root `.git` produces
+`project:<id>/main` when it has no lane ref.
+Other worktrees without an evidenced lane remain unattributed.
 Prompt text, titles and project labels never establish identity.
 Missing or ambiguous identity retains a host-scoped notice with explicit coverage.
 Logical board sessions remain unattributed because dispatch arguments carry no
@@ -946,7 +949,7 @@ New-turn dispatch receipts include the following advisory metadata:
 {
   "coordination": {
     "association": {
-      "resources": ["project:example/main", "lane:example/worker"],
+      "resources": ["lane:example/worker"],
       "project": "registered-root",
       "lane": "git-baseline",
       "source": "observed",
@@ -957,7 +960,7 @@ New-turn dispatch receipts include the following advisory metadata:
       "id": "notice-example",
       "noticeId": "notice-example",
       "kind": "notice",
-      "resource": "project:example/main",
+      "resource": "lane:example/worker",
       "state": "active",
       "lastActiveAt": "2026-01-01T00:00:00Z",
       "inactivityAgeSeconds": 12,
@@ -982,10 +985,12 @@ Age is null during clock uncertainty.
 Conflicts never prevent dispatch.
 `boardRevision` contains the bulletin epoch and revision used by the query.
 `admissionBoardRevision` retains the original admission snapshot.
-Receipt reads and same-request retries return `freshness:refreshed` with current
+Public MCP receipt reads and same-request retries return `freshness:refreshed` with current
 advisory data and the original dispatch identity.
 The dispatch's own derived notice is omitted from its refreshed conflicts.
 A refreshed advisory does not renew notice activity.
+Internal receipt reads and notification processing retain the admission snapshot.
+`runtime_metrics.cost.bulletinMaintenance.passes` counts bulletin maintenance calls.
 `conflictCoverage` is `observed`, `partial`, `unknown` or `unattributed`.
 `partial` means the 100-conflict cap was reached.
 `unknown` means the bulletin could not be read.
@@ -1006,8 +1011,16 @@ close requires that handle. Sessions are optional for notices and blockers and
 are pull-only in this phase. They do not isolate holders of the same credential.
 Intent/summary is one line of at most 240 characters. Never include prompt content,
 credentials, task output or private routing details. Resources are one to 16
-canonical keys. Writes require qualified lane keys. Thread links cap at 16 and
-require the caller's evidenced dispatch origin; opaque references grant no access
+canonical keys. Writes require qualified lane keys.
+Notice, blocker and message admission accepts a registered project ID or unique
+registered project name in project and qualified lane resources.
+Admission returns and stores project-ID keys.
+Message conditions use the same canonical keys.
+Exact registered IDs take precedence over names.
+Unknown names return `RESOURCE_UNKNOWN`.
+Ambiguous names return `RESOURCE_AMBIGUOUS`.
+
+Thread links cap at 16 and require the caller's evidenced dispatch origin; opaque references grant no access
 to tasks. Expected duration ranges from one second to seven days and is not expiry.
 
 `board` returns `summary`, compact `notices`/`blockers`, `nextCursor`, `observedAt`,

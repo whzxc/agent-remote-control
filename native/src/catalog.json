@@ -4845,7 +4845,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 270,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Event reads may use a unique retained lane shorthand, such as lane:worker. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. Event reads may use a unique retained lane shorthand, such as lane:worker. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "kinds": {
             "type": "array",
@@ -7663,7 +7663,7 @@
               "minLength": 1,
               "maxLength": 270
             },
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "receiptIds": {
             "type": "array",
@@ -7776,7 +7776,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 270,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "severity": {
             "type": "string",
@@ -8082,7 +8082,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 270,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "id": {
             "type": "string",
@@ -8269,7 +8269,7 @@
             "maxItems": 16,
             "minItems": 1,
             "uniqueItems": true,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "expectedDurationSeconds": {
             "type": "integer",
@@ -8365,7 +8365,7 @@
             "maxItems": 16,
             "minItems": 1,
             "uniqueItems": true,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "expectedDurationSeconds": {
             "type": "integer",
@@ -8505,7 +8505,7 @@
             "maxItems": 16,
             "minItems": 1,
             "uniqueItems": true,
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "causeCode": {
             "type": "string",
@@ -8739,7 +8739,7 @@
               "minLength": 1,
               "maxLength": 280
             },
-            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+            "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
           },
           "summary": {
             "type": "string",
@@ -8778,7 +8778,7 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 280,
-                  "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys MUST be the registered project ID from query projects. Keys MUST match ARC-observed transition resources exactly for conflict detection."
+                  "description": "Use app:installed, project:<id>/main, lane:<project>/<name>, host:<id>, or isolated:<id>. Use host:<id> for host or service deployments. <id> in project keys and <project> in lane keys accept a registered project ID or unique name from query projects at admission. Returned keys use the registered ID. Keys MUST match ARC-observed transition resources exactly for conflict detection."
                 },
                 "predicate": {
                   "type": "string",

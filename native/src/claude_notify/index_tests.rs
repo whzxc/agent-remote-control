@@ -742,3 +742,33 @@ fn recovery_updates_preserve_observation_time_without_new_evidence() {
     let changed = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
     assert_eq!(changed.observation, b.observation);
 }
+
+#[tokio::test]
+async fn internal_receipts_and_notification_processing_do_not_maintain_the_bulletin() {
+    // Regression: 10953ca8 refreshed dispatch advisories during every internal receipt read.
+    let dir = Sandbox::new();
+    let receipt_dir = dir.0.join("receipts");
+    let receipts = crate::kernel::receipts::ReceiptStore::fixture(receipt_dir);
+    let request = id();
+    let row = json!({"requestId":request,"operation":"send","state":"completed","backendSession":"fixture","coordination":{"freshness":"admission","association":{"resources":["lane:fixture/worker"]}}});
+    receipts.reserve(&row).unwrap();
+    fixture(&dir.0, "notification-active", "running");
+    let control = control::Control::new(PathBuf::new());
+    let before = metrics(&control).await;
+    for _ in 0..3 {
+        let read = receipts.read(&request, "fixture").unwrap();
+        assert_eq!(read["coordination"]["freshness"], "admission");
+        assert_eq!(
+            receipts.read_for_projection(&request, "fixture").unwrap()["coordination"]["freshness"],
+            "admission"
+        );
+        pass(&dir.0, chrono::Utc::now().timestamp() + 10)
+            .await
+            .unwrap();
+    }
+    let mut unrelated = json!({"requestId":"unrelated","state":"completed"});
+    crate::coordination::bulletin::dispatch::refresh(&mut unrelated);
+    let after = metrics(&control).await;
+    assert_eq!(delta(&before, &after, "bulletinMaintenance", "passes"), 0);
+    println!("internalReceiptReads=3 notificationPasses=3 bulletinMaintenancePasses=0");
+}

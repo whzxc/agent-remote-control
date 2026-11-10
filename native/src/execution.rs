@@ -57,6 +57,13 @@ impl Execution {
         };
         let summary = crate::task_summary::requested(name, &args);
         let mut result = self.call_inner(name, args.clone(), policy).await?;
+        // Advisory refresh belongs to public responses, never internal receipt reads
+        // or notification retry processing. refresh skips receipts without coordination.
+        if (name == "receipt" && args["action"].as_str().unwrap_or("read") == "read")
+            || result["replayed"] == true
+        {
+            crate::coordination::bulletin::dispatch::refresh(&mut result);
+        }
         if !summary
             && name == "codex_wait"
             && result["turnId"].is_string()

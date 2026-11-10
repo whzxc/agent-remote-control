@@ -906,3 +906,30 @@ fn caller_message_snapshot_reuses_payload_and_reloads_external_changes() {
     assert_eq!(read()["messages"], changed["messages"]);
     MESSAGES.lock().unwrap().remove(&f.path);
 }
+
+#[test]
+fn message_admission_returns_canonical_project_resources_and_conditions() {
+    // Regression: project-name messages could not overlap project-ID board resources.
+    let project = "00000000-0000-4000-8000-000000000001";
+    let registry = json!({"projects":[{"id":project,"name":"Fixture"}]});
+    let args = types::canonical_resources(&json!({"type":"request","summary":"Fixture request","toSourceId":"two","resources":[format!("lane:{project}/worker")],"conditions":[{"resource":"lane:Fixture/worker","predicate":"notice-closed"}]}), &registry).unwrap();
+    let mut f = Fixture::new();
+    let message = f.send("one", args);
+    assert_eq!(
+        message["message"]["resources"],
+        json!([format!("lane:{project}/worker")])
+    );
+    assert_eq!(
+        message["message"]["conditions"][0]["resource"],
+        format!("lane:{project}/worker")
+    );
+    let duplicate = json!({"projects":[{"id":project,"name":"Fixture"},{"id":"00000000-0000-4000-8000-000000000002","name":"Fixture"}]});
+    assert!(
+        types::canonical_resource("project:Fixture/main", &duplicate)
+            .unwrap_err()
+            .starts_with("RESOURCE_AMBIGUOUS:")
+    );
+    assert!(types::canonical_resource("lane:missing/worker", &registry)
+        .unwrap_err()
+        .starts_with("RESOURCE_UNKNOWN:"));
+}

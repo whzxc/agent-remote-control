@@ -110,6 +110,79 @@ impl ResourceKey {
     }
 }
 
+/// Resolve registered project names once at admission. Exact IDs take precedence.
+pub fn canonical_resource(value: &str, registry: &Value) -> Result<ResourceKey> {
+    let (selector, lane) = if let Some(project) = value
+        .strip_prefix("project:")
+        .and_then(|v| v.strip_suffix("/main"))
+    {
+        (project, None)
+    } else if let Some((project, lane)) =
+        value.strip_prefix("lane:").and_then(|v| v.split_once('/'))
+    {
+        (project, Some(lane))
+    } else {
+        return ResourceKey::parse(value);
+    };
+    let projects = registry["projects"].as_array().into_iter().flatten();
+    let exact = projects.clone().find(|p| p["id"] == selector);
+    let id = if let Some(project) = exact {
+        string(project, "id")
+    } else {
+        let mut named = projects.filter(|p| p["name"] == selector);
+        let project = named
+            .next()
+            .ok_or("RESOURCE_UNKNOWN: project is not registered; query projects for its ID")?;
+        if named.next().is_some() {
+            return Err(
+                "RESOURCE_AMBIGUOUS: use the registered project ID from query projects".into(),
+            );
+        }
+        string(project, "id")
+    };
+    match lane {
+        Some(lane) => ResourceKey::lane(id, lane),
+        None => ResourceKey::project(id),
+    }
+}
+
+/// Pure admission projection shared by bulletin and message operations.
+pub fn canonical_resources(args: &Value, registry: &Value) -> Result<Value> {
+    let mut next = args.clone();
+    if let Some(resources) = next.get_mut("resources").and_then(Value::as_array_mut) {
+        for resource in resources {
+            *resource = json!(canonical_resource(
+                resource.as_str().unwrap_or(""),
+                registry
+            )?);
+        }
+    }
+    for condition in next
+        .get_mut("conditions")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        condition["resource"] = json!(canonical_resource(string(condition, "resource"), registry)?);
+    }
+    Ok(next)
+}
+
+pub(super) fn admit_resources(args: &mut Value) -> Result<()> {
+    if !args["resources"].as_array().is_some_and(|resources| {
+        resources.iter().any(|r| {
+            r.as_str()
+                .is_some_and(|r| r.starts_with("project:") || r.starts_with("lane:"))
+        })
+    }) {
+        return Ok(());
+    }
+    let registry = crate::kernel::file_cache::load(&root().join("coordination/projects.json"))
+        .unwrap_or(Value::Null);
+    *args = canonical_resources(args, &registry)?;
+    Ok(())
+}
+
 /// A projection of registered project/lane identities, not a second registry.
 #[derive(Default)]
 pub struct Resources {

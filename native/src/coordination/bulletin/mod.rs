@@ -163,8 +163,11 @@ fn reconcile() -> Result<()> {
 }
 fn maintain() -> Result<()> {
     // Snapshot authorization before the bulletin lock. No account resolution or disk scan.
-    let revoked = crate::sources::coordination_revoked()?;
-    with_store(|s| s.maintain(&revoked, clock()))
+    use crate::runtime_metrics::cost::{self, Owner, Reason};
+    cost::sync(Owner::BulletinMaintenance, Reason::Poll, || {
+        let revoked = crate::sources::coordination_revoked()?;
+        with_store(|s| s.maintain(&revoked, clock()))
+    })
 }
 /// Called only after authenticated ingress has admitted the operation. Failed domain
 /// work is still owner activity; an unauthorized caller never reaches this hook.
@@ -272,6 +275,7 @@ pub(crate) async fn call(
 ) -> Result<Value> {
     let session = control.session.as_str();
     let result = async {
+        types::admit_resources(&mut args)?;
         validate(op,&args)?;
         let reader = actor()?;
         maintain()?;

@@ -40,8 +40,9 @@ pub(crate) enum Owner {
     WaitHeartbeat,
     ScopedWait,
     DraftExpiry,
+    BulletinMaintenance,
 }
-const OWNERS: [&str; 36] = [
+const OWNERS: [&str; 37] = [
     "indexUpdate",
     "notificationAdopt",
     "receiptAdopt",
@@ -78,6 +79,7 @@ const OWNERS: [&str; 36] = [
     "waitHeartbeat",
     "scopedWait",
     "draftExpiry",
+    "bulletinMaintenance",
 ];
 #[derive(Clone, Copy)]
 pub(crate) enum Reason {
@@ -122,11 +124,11 @@ impl Cost {
     }
 }
 #[cfg(not(test))]
-static COSTS: [Cost; 36] = [const { Cost::new() }; 36];
+static COSTS: [Cost; 37] = [const { Cost::new() }; 37];
 #[cfg(test)]
-thread_local! { static COSTS: [Cost; 36] = [const { Cost::new() }; 36]; }
+thread_local! { static COSTS: [Cost; 37] = [const { Cost::new() }; 37]; }
 
-fn with_costs<T>(read: impl FnOnce(&[Cost; 36]) -> T) -> T {
+fn with_costs<T>(read: impl FnOnce(&[Cost; 37]) -> T) -> T {
     #[cfg(test)]
     {
         COSTS.with(read)

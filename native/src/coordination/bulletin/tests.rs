@@ -1066,10 +1066,7 @@ fn accepted_dispatch_and_same_request_retry_project_one_board_notice() {
     assert_eq!(notices[0]["threadLinks"][0]["threadId"], "derived-thread");
     assert_eq!(
         notices[0]["resources"],
-        json!([
-            "project:fixture-project/main",
-            "lane:fixture-project/worker"
-        ])
+        json!(["lane:fixture-project/worker"])
     );
     assert_eq!(notices[0]["association"]["session"], "unattributed");
     assert!(notices[0]["ownerSessionId"].is_null());
@@ -1086,7 +1083,7 @@ fn accepted_dispatch_and_same_request_retry_project_one_board_notice() {
 fn dispatch_advisory_includes_notice_and_blocker_without_preventing_acceptance() {
     // Regression: dispatch receipts omitted active overlapping notices and uncleared blockers.
     let mut f = Fixture::new();
-    let notice = f.call("notice_post", json!({"intent":"Fixture work","resources":["project:fixture-project/main"],"expectedDurationSeconds":60}))["notice"].clone();
+    let notice = f.call("notice_post", json!({"intent":"Fixture work","resources":["lane:fixture-project/worker"],"expectedDurationSeconds":60}))["notice"].clone();
     let blocker = f.call("blocker_open", json!({"resources":["lane:fixture-project/worker"],"causeCode":"fixture","summary":"Fixture blocker"}))["blocker"].clone();
     let resources: Vec<ResourceKey> =
         serde_json::from_value(derived_association()["resources"].clone()).unwrap();
@@ -1268,4 +1265,110 @@ fn derived_notice_restart_and_inactivity_preserve_dispatch_dedupe() {
             .len(),
         1
     );
+}
+
+#[test]
+fn dispatch_resources_separate_lanes_from_main_and_match_only_the_same_scope() {
+    // Regression: 10953ca8 lane dispatches also claimed main and conflicted with unrelated lanes.
+    let mut f = Fixture::new();
+    let registry = json!({"projects":[{"id":"fixture-project","roots":[{"path":"/fixture/repo","commonDir":"/fixture/repo/.git"}]}]});
+    let association = |root: &str, branch: &str| {
+        let mut value = dispatch::dispatch_association(
+            &json!({"root":root,"commonDir":"/fixture/repo/.git","ref":branch}),
+            &registry,
+        );
+        value["source"] = json!("observed");
+        value["session"] = json!("unattributed");
+        value
+    };
+    let first = association("/fixture/worker-a", "refs/heads/wt/worker-a");
+    for event in dispatch_fixture(
+        "scope-request-a",
+        "new-turn",
+        json!({"sourceId":"source-a"}),
+        first.clone(),
+    ) {
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    for second in [
+        association("/fixture/worker-b", "refs/heads/wt/worker-b"),
+        association("/fixture/repo", "refs/heads/main"),
+    ] {
+        let keys: Vec<ResourceKey> = serde_json::from_value(second["resources"].clone()).unwrap();
+        assert!(f.store.advisory(&keys, None, f.clock)["conflicts"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let request = if second["lane"] == "git-baseline" {
+            "scope-request-b"
+        } else {
+            "scope-request-main"
+        };
+        for mut event in
+            dispatch_fixture(request, "new-turn", json!({"sourceId":"source-b"}), second)
+        {
+            event.thread_refs[0].thread_id = request.into();
+            f.store.dispatch_notice(&event, f.clock).unwrap();
+        }
+    }
+    let keys: Vec<ResourceKey> = serde_json::from_value(first["resources"].clone()).unwrap();
+    let conflict = f.store.advisory(&keys, None, f.clock);
+    assert_eq!(conflict["conflicts"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        conflict["conflicts"][0]["resource"],
+        "lane:fixture-project/worker-a"
+    );
+    for mut event in dispatch_fixture(
+        "scope-request-same-lane",
+        "new-turn",
+        json!({"sourceId":"source-c"}),
+        first,
+    ) {
+        event.thread_refs[0].thread_id = "same-lane-thread".into();
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    assert_eq!(
+        f.store.advisory(&keys, None, f.clock)["conflicts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let detached_worktree = association("/fixture/other-worktree", "refs/heads/feature");
+    assert_eq!(detached_worktree["resources"], json!([]));
+}
+
+#[test]
+fn manual_project_names_admit_canonical_keys_that_overlap_derived_dispatches() {
+    // Regression: 10953ca8 manual project-name resources never matched derived project-ID resources.
+    let mut f = Fixture::new();
+    let project = "00000000-0000-4000-8000-000000000001";
+    let registry = json!({"projects":[{"id":project,"name":"Fixture Project","roots":[{"path":"/fixture/repo","commonDir":"/fixture/repo/.git"}]}]});
+    for (resource, root, branch, canonical) in [
+        (
+            "project:Fixture Project/main",
+            "/fixture/repo",
+            "refs/heads/main",
+            format!("project:{project}/main"),
+        ),
+        (
+            "lane:Fixture Project/worker",
+            "/fixture/worker",
+            "refs/heads/wt/worker",
+            format!("lane:{project}/worker"),
+        ),
+    ] {
+        let args = types::canonical_resources(&json!({"intent":"Fixture manual work","resources":[resource],"expectedDurationSeconds":60}), &registry).unwrap();
+        let notice = f.call("notice_post", args)["notice"].clone();
+        assert_eq!(notice["resources"], json!([canonical]));
+        let derived = dispatch::dispatch_association(
+            &json!({"root":root,"commonDir":"/fixture/repo/.git","ref":branch}),
+            &registry,
+        );
+        let keys: Vec<ResourceKey> = serde_json::from_value(derived["resources"].clone()).unwrap();
+        let warning = f.store.advisory(&keys, None, f.clock);
+        assert_eq!(warning["conflicts"].as_array().unwrap().len(), 1);
+        assert_eq!(warning["conflicts"][0]["noticeId"], notice["id"]);
+        assert_eq!(warning["conflicts"][0]["resource"], canonical);
+    }
 }
