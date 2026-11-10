@@ -1,0 +1,13 @@
+%% Notification delivery (layer 2): status of one delivery record.
+%% Index and code mapping: docs/dev/arch-assets.md
+stateDiagram-v2
+  direction LR
+  state "inbox-only" as inboxonly
+  [*] --> pending: turn became pushable
+  pending --> sending: gates open
+  sending --> delivered: confirmed
+  sending --> pending: send failed, control changed, breaker or conflict
+  pending --> resolved: answered or superseded
+  pending --> inboxonly: no push path
+  sending --> inboxonly: no push path
+  pending --> failed: binding changed or subscription ended

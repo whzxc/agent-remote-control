@@ -1,0 +1,26 @@
+%% Main loop (layer 2): one Codex dispatch from submission through push to review.
+%% Index and code mapping: docs/dev/arch-assets.md
+sequenceDiagram
+  autonumber
+  participant S as Control source
+  participant F as Front door
+  participant C as Core
+  participant X as Codex (Desktop or App Server)
+  participant N as Native session store
+  S->>F: act codex_create {prompt, pack, notify}
+  F->>C: private IPC with authenticated source
+  C->>C: reserve receipt (requestId)
+  C->>C: resolve dispatch policy and pack
+  C->>X: start thread and first turn
+  C->>C: bind notification to thread, turn and target
+  C-->>S: receipt: submitted, threadId, turnId
+  Note over S: ends its turn and waits
+  X->>N: writes rollout while working
+  C->>N: observes the turn
+  C->>C: turn lifecycle reaches terminal
+  C->>C: schedule delivery (batch window, token bucket)
+  C-->>S: L1 push via claude CLI: done
+  S->>F: query codex_read view:review
+  F->>C: forward
+  C-->>S: outcome, marks inbox events read
+  S->>F: act codex_review {verdict}

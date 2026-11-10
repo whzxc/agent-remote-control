@@ -1,0 +1,32 @@
+%% ARC system map (layer 0): processes, external parties and how they connect.
+%% Index and code mapping: docs/dev/arch-assets.md
+flowchart TB
+  src["Control sources<br/>ChatGPT · Claude · other MCP clients"]
+  net["Connections<br/>OpenAI Secure Tunnel · dedicated tunnel · relay"]
+  subgraph HOST["ARC on this computer"]
+    local["Desktop app · arc CLI"]
+    fd["Front door<br/>listeners · auth · tunnels<br/>queue during Core swap"]
+    state[("State directory<br/>sources · receipts · bindings")]
+    hub["MCP hub<br/>downstream MCP servers"]
+    core["Core<br/>op catalog · receipts · dispatch<br/>notifications · coordination · accounts"]
+  end
+  subgraph EXEC["Agent execution"]
+    codexd["Codex Desktop<br/>primary account"]
+    appsrv["ARC App Server<br/>one per Codex account"]
+    taskhost["task-host<br/>Claude Code · Cursor · Pi · dsh"]
+  end
+  native[("Native session stores<br/>CODEX_HOME · Claude projects")]
+  src -->|"MCP guide / query / act"| net
+  net -->|"HTTPS"| fd
+  local -->|"local HTTP"| fd
+  fd -->|"private IPC"| core
+  state --- core
+  hub --- core
+  core -->|"Desktop IPC"| codexd
+  core -->|"socket"| appsrv
+  core -->|"task-host protocol"| taskhost
+  codexd --> native
+  appsrv --> native
+  taskhost --> native
+  core -.->|"observes turns"| native
+  core -.->|"push: L1 claude CLI · L2 webhook"| src

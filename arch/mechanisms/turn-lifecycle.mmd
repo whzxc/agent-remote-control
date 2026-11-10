@@ -1,0 +1,20 @@
+%% Turn lifecycle (layer 2): TurnState classification from turn_lifecycle::advance.
+%% Index and code mapping: docs/dev/arch-assets.md
+stateDiagram-v2
+  state "awaiting-interaction" as awaiting
+  [*] --> unconfirmed: binding created
+  unconfirmed --> active: owner reports running
+  unconfirmed --> awaiting: owner reports a pending request
+  active --> awaiting: question or approval appears
+  awaiting --> active: request answered
+  active --> unconfirmed: owner lost
+  awaiting --> unconfirmed: owner lost
+  unconfirmed --> terminal: native terminal record
+  active --> terminal: native terminal record
+  awaiting --> terminal: native terminal record
+  terminal --> conflict: contradicting unordered record
+  state terminal {
+    completed
+    failed
+    interrupted
+  }

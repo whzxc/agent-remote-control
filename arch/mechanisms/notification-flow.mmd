@@ -1,0 +1,11 @@
+%% Notification flow (layer 2): from binding to L1/L2 delivery and the ingress inbox.
+%% Index and code mapping: docs/dev/arch-assets.md
+flowchart TB
+  bind["Binding<br/>thread · turn · target"] --> observe["Observer<br/>reads owner and rollout"]
+  observe --> lifecycle["turn_lifecycle"]
+  lifecycle -->|"terminal or needs-input"| delivery["Delivery: pending"]
+  lifecycle -.->|"always"| inbox["Ingress inbox<br/>arcInbox · inbox_wait"]
+  delivery --> gates{"Gates"}
+  gates -->|"open"| send["Send"]
+  send --> cli["L1 · claude CLI<br/>Claude cloud session"]
+  send --> webhook["L2 · MCP Events webhook<br/>ChatGPT Work"]

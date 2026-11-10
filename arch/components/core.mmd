@@ -1,0 +1,47 @@
+%% Core internals (layer 1): request path, business owners, background work and shared records.
+%% Index and code mapping: docs/dev/arch-assets.md
+flowchart TB
+  fdq["Front door (separate process)"]
+  subgraph PATH["Request path"]
+    inproc["front_door::InProcess<br/>admits at most 128 calls"]
+    admit["core_requests<br/>authority · validation · allowlist"]
+    exec["execution::Execution<br/>routes each op to its owner"]
+    egress["egress<br/>errors · arcVersion · arcInbox"]
+    inproc --> admit
+    admit --> exec
+    exec --> egress
+  end
+  subgraph OWNERS["Business owners"]
+    direction TB
+    control["Control<br/>Codex · workspace · review"]
+    agenthost["AgentHost<br/>other Agents"]
+    accounts["accounts<br/>identities"]
+    coord["coordination<br/>board · messages · AX"]
+    policy["dispatch_policy<br/>criteria · packs"]
+    hub["mcp_hub"]
+    control ~~~ coord
+    agenthost ~~~ policy
+    accounts ~~~ hub
+  end
+  subgraph BG["Background work"]
+    direction TB
+    notify["claude_notify<br/>observe · schedule · deliver"]
+    queue["dispatch_queue<br/>queued sends"]
+    subs["subscriptions<br/>quota readers"]
+    notify ~~~ queue
+    queue ~~~ subs
+  end
+  subgraph KERNEL["kernel: shared records"]
+    direction TB
+    receipts["receipts"]
+    results["results"]
+    events["events and inbox"]
+  end
+  lifecycle["turn_lifecycle<br/>pure classification"]
+  ext[("Codex Desktop · App Server · task-host")]
+  fdq -->|"private IPC"| inproc
+  exec --> OWNERS
+  OWNERS --> KERNEL
+  OWNERS --> ext
+  BG --> lifecycle
+  BG --> KERNEL

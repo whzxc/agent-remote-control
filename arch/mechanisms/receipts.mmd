@@ -1,0 +1,20 @@
+%% Receipts (layer 2): write-operation progress from kernel::receipts::progress::advance.
+%% Index and code mapping: docs/dev/arch-assets.md
+stateDiagram-v2
+  direction LR
+  state "awaiting-approval" as awaiting
+  state "not-executed" as notexecuted
+  [*] --> reserved: write admitted
+  reserved --> awaiting: needs local approval
+  awaiting --> reserved: approved
+  awaiting --> notexecuted: rejected locally
+  state active {
+    reserved --> executing: begin
+  }
+  active --> completed: complete
+  active --> failed: fail
+  active --> rejected: refused upstream
+  active --> unconfirmed: owner or response lost
+  unconfirmed --> completed: later evidence
+  unconfirmed --> failed: later evidence
+  unconfirmed --> rejected: later evidence

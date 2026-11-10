@@ -1,6 +1,6 @@
 # Architecture and lifecycle
 
-[Remote link](remote-link.md) · [Development](development.md) · [Tools](../reference/tools.md) · [Agents](../reference/agents.md)
+[Remote link](remote-link.md) · [Development](development.md) · [Tools](../reference/tools.md) · [Agents](../reference/agents.md) · [Architecture assets](arch-assets.md)
 
 ## Processes and responsibilities
 

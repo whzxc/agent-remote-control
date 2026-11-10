@@ -1,0 +1,11 @@
+%% Notification reachability (layer 2): handshake state of one notification target.
+%% Index and code mapping: docs/dev/arch-assets.md
+stateDiagram-v2
+  direction LR
+  state "challenge sent" as challenging
+  [*] --> unverified: target bound
+  unverified --> challenging: verify sends a ping with a code
+  challenging --> verified: notification_ack with the code
+  challenging --> failed: 5 minutes pass or the ping cannot be sent
+  failed --> challenging: verify again
+  verified --> unverified: route changed
