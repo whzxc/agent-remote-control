@@ -1,6 +1,6 @@
 //! Private front-door/Core protocol. These types do not change any public wire schema.
 use crate::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub(crate) const VERSION: u16 = 1;
@@ -8,15 +8,15 @@ pub(crate) const MAX_REQUEST_BYTES: usize = 36 * 1024 * 1024;
 pub(crate) const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) const MAX_IN_FLIGHT: usize = 128;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Generation(pub [u8; 16]);
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Readiness {
     Ready,
     Draining,
     Unavailable,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Hello {
     pub version: u16,
     pub generation: Generation,
@@ -24,7 +24,7 @@ pub(crate) struct Hello {
     pub max_request_bytes: usize,
     pub max_frame_bytes: usize,
 }
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub(crate) struct Deadline {
     unix_ms: u64,
 }
@@ -49,17 +49,19 @@ fn unix_ms() -> u64 {
         .unwrap_or_default()
         .as_millis() as u64
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RequestId(pub String);
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) enum Operation {
     Mcp,
     LocalControl,
     Management { route: String, method: String },
     Snapshot { kind: Snapshot },
     Health,
+    Authority { op: String },
+    IngressContext { ingress_id: String },
 }
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub(crate) enum Snapshot {
     Status,
     Browser,
@@ -67,12 +69,12 @@ pub(crate) enum Snapshot {
     Activity,
 }
 
-// No Deserialize implementation or header-based constructor: only adapters can mint authority.
-#[derive(Clone, Debug, Serialize)]
+// Decode context only after authenticating the private peer. Public headers cannot mint authority.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct AuthenticatedContext {
     pub(super) authority: Authority,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) enum Authority {
     Management,
     Browser {
@@ -134,7 +136,7 @@ impl AuthenticatedContext {
         matches!(self.authority, Authority::Browser { .. })
     }
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Request {
     pub version: u16,
     pub generation: Generation,
@@ -151,26 +153,26 @@ impl Request {
         self.context.validate()
     }
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct ResponseFrame {
     pub generation: Generation,
     pub request_id: RequestId,
     pub body: Result<Value>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct StreamFrame {
     pub generation: Generation,
     pub request_id: RequestId,
     pub sequence: u64,
     pub body: Value,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Cancellation {
     pub generation: Generation,
     pub request_id: RequestId,
 }
 #[allow(dead_code)] // The process-swap owner will consume drain acknowledgements.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct DrainAck {
     pub generation: Generation,
     pub outstanding: usize,

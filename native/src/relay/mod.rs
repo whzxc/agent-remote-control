@@ -91,7 +91,7 @@ async fn step(status: &Mutex<Value>, phase: &str) {
     status.lock().await["phase"] = json!(phase);
 }
 async fn connect(
-    service: &Arc<crate::service::Service>,
+    service: &Arc<crate::front_door::owner::Gateway>,
     config: &mut Value,
     status: &Mutex<Value>,
 ) -> Result<Value> {
@@ -122,7 +122,7 @@ async fn connect(
     )
 }
 async fn execute(
-    service: Arc<crate::service::Service>,
+    service: Arc<crate::front_door::owner::Gateway>,
     action: String,
     body: Value,
     status: Arc<Mutex<Value>>,
@@ -275,7 +275,10 @@ fn label(body: &Value) -> Result<String> {
     }
     Ok(name.into())
 }
-async fn remove_ingress(service: &Arc<crate::service::Service>, config: &Value) -> Result<()> {
+async fn remove_ingress(
+    service: &Arc<crate::front_door::owner::Gateway>,
+    config: &Value,
+) -> Result<()> {
     let id = string(config, "ingressId");
     if !id.is_empty() && service.ingress(id).await.is_ok() {
         Box::pin(service.request(&format!("ingress/{id}"), "DELETE", json!({}))).await?;
@@ -283,7 +286,7 @@ async fn remove_ingress(service: &Arc<crate::service::Service>, config: &Value) 
     Ok(())
 }
 pub(crate) fn request<'a>(
-    service: &'a Arc<crate::service::Service>,
+    service: &'a Arc<crate::front_door::owner::Gateway>,
     route: &'a str,
     method: &'a str,
     body: Value,

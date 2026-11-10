@@ -178,6 +178,15 @@ async fn authorized(s: &crate::ingress::Ingress, principal: &str) -> bool {
         {
             return false;
         }
+        if s.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("_event_active/{}", s.id),
+                "GET",
+                json!({"principal":principal}),
+            )
+            .await
+            .is_ok_and(|v| v == true);
+        }
         let resource = s.mcp_url.lock().await.clone();
         s.oauth
             .lock()

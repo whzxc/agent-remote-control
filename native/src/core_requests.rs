@@ -12,7 +12,7 @@ enum ControlSource<'a> {
 impl ControlSource<'_> {
     fn execution(&self) -> &Arc<crate::execution::Execution> {
         match self {
-            Self::Ingress(s) => &s.execution,
+            Self::Ingress(s) => s.execution.as_ref().expect("Core ingress execution"),
             Self::Local(s) => s,
         }
     }
@@ -565,13 +565,35 @@ impl crate::ingress::Ingress {
         let meta = self.meta.lock().await;
         let allowed = crate::kernel::policy::allows(&meta["toolPolicy"], name);
         drop(meta);
-        allowed && self.execution.available(name).await
+        allowed
+            && self
+                .execution
+                .as_ref()
+                .expect("Core ingress execution")
+                .available(name)
+                .await
     }
     pub async fn call(self: &Arc<Self>, name: &str, args: Value) -> Result<Value> {
         if !self.connected.load(std::sync::atomic::Ordering::SeqCst) {
             return Err("Connection closed".into());
         }
-        let result = if name == "connector_verify" {
+        let result = if name == "connector_verify" && !cfg!(test) {
+            let spec = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            let mut value = crate::front_door::process::gateway_request(
+                &format!("_connector_verify/{}", self.id),
+                "POST",
+                args,
+            )
+            .await?;
+            value["origin"] = self.origin().await;
+            Ok(value)
+        } else if name == "connector_verify" {
             let spec = catalog()["ops"]
                 .as_array()
                 .unwrap()
@@ -591,9 +613,21 @@ impl crate::ingress::Ingress {
             Ok(json!({"code":args["code"],"received":true,"origin":self.origin().await}))
         } else {
             let policy = self.meta.lock().await["toolPolicy"].clone();
-            self.execution.call(name, args, policy).await
+            self.execution
+                .as_ref()
+                .expect("Core ingress execution")
+                .call(name, args, policy)
+                .await
         };
-        if result.is_ok() && name != "connector_verify" {
+        if result.is_ok() && name != "connector_verify" && !cfg!(test) {
+            let _ = crate::front_door::process::gateway_request(
+                &format!("_verified/{}", self.id),
+                "POST",
+                json!({}),
+            )
+            .await;
+        }
+        if result.is_ok() && name != "connector_verify" && cfg!(test) {
             let mut v = self.verification.lock().await;
             if v["verifiedAt"].is_null() {
                 v["verifiedAt"] = json!(now());
@@ -667,7 +701,7 @@ pub(crate) fn handle<'a>(
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value>> + Send + 'a>> {
     Box::pin(async move {
         use crate::front_door::{Operation, Snapshot, Target};
-        // The in-process peer is the private endpoint object. A socket peer replaces it in D3b.
+        // The private socket/pipe authenticates the peer before this context is decoded.
         request.context.validate()?;
         match (target, &request.operation) {
             (Target::Ingress(ingress), Operation::Mcp)
@@ -722,6 +756,30 @@ pub(crate) fn handle<'a>(
                 Ok(
                     json!({"runtime":"rust","instance":service.control.session,"pid":std::process::id(),"owner":"core","version":env!("ARC_BUILD_VERSION"),"build":load(&root().join("app/native.json"))?["build"]}),
                 )
+            }
+            (Target::Service(_service, _), Operation::Authority { op })
+                if request.context.is_management() =>
+            {
+                crate::front_door::authority::handle(op, request.body.clone()).await
+            }
+            (Target::Service(service, _), Operation::IngressContext { ingress_id })
+                if request.context.is_management() =>
+            {
+                let ingress = service.ingress(ingress_id).await?;
+                if !ingress.connected.load(std::sync::atomic::Ordering::SeqCst)
+                    || ingress.meta.lock().await["enabled"] != true
+                {
+                    return Err("Connection closed".into());
+                }
+                serde_json::to_value(
+                    crate::front_door::authenticated_context(
+                        &ingress,
+                        &request.body["principal"],
+                        request.body["header"].as_str(),
+                    )
+                    .await?,
+                )
+                .map_err(|e| e.to_string())
             }
             _ => Err("FRONT_DOOR_CONTEXT_MISMATCH".into()),
         }

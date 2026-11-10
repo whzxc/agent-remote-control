@@ -42,7 +42,9 @@ async fn mcp_browser_oauth_local_wire_contract() {
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let base = format!("http://{address}");
     let local_base = format!("http://127.0.0.1:{}", service.port.load(Ordering::SeqCst));
-    let access = crate::browser::access(&service, false).await.unwrap();
+    let access = crate::browser::access(service.entries().await, false)
+        .await
+        .unwrap();
     let ping = json!({"jsonrpc":"2.0","id":7,"method":"ping"});
     let mut cases = serde_json::Map::new();
     cases.insert(
@@ -234,7 +236,9 @@ async fn mcp_browser_oauth_local_wire_contract() {
             .is_err()
     );
     drop(local_events);
-    crate::browser::access(&service, true).await.unwrap();
+    crate::browser::access(service.entries().await, true)
+        .await
+        .unwrap();
     assert_eq!(
         client
             .get(format!("{base}/view-api/preferences"))

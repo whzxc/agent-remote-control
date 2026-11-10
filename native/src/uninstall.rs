@@ -136,6 +136,7 @@ pub async fn run(purge: bool) -> Result<Value> {
         }
     }
     crate::runtime::stop_for_uninstall().await?;
+    crate::front_door::process::stop().await?;
     // Detached Codex app-servers outlive Core by design; removal ends them.
     crate::codex_host::stop_all().await?;
     crate::task_host::stop_all().await?;

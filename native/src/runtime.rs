@@ -214,7 +214,11 @@ impl State {
 pub fn binary() -> Result<PathBuf> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let name = if cfg!(windows) { "arc.exe" } else { "arc" };
-    if executable.file_name().is_some_and(|v| v == name) {
+    if executable.file_name().is_some_and(|v| {
+        v == name
+            || cfg!(feature = "test-fixture")
+                && (v == "contract-fixture" || v == "contract-fixture.exe")
+    }) {
         return Ok(executable);
     }
     let parent = executable.parent().ok_or("missing executable directory")?;
@@ -403,6 +407,7 @@ impl Client {
             if !core_unlocked()? {
                 return Err("CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists.".into());
             }
+            crate::front_door::process::prepare_install().await?;
             private_dir(&root())?;
             let log = std::fs::OpenOptions::new()
                 .create(true)

@@ -25,6 +25,7 @@ const staging = mkdtempSync('/Applications/.arc-install-');
 const staged = path.join(staging, 'Agent Remote Control.app');
 run('/usr/bin/ditto', [candidate, staged]);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', staged]);
+run(path.join(staged, 'Contents/Resources/bin/arc'), ['front-door-prepare']);
 read('app', 'quit');
 for (const pid of [desktop.pid, core.pid]) {
   try { process.kill(pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; }

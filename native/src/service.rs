@@ -4,46 +4,7 @@ use crate::{control::Control, ingress::Ingress, *};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-type ConnectionIntent = std::collections::BTreeSet<String>;
-
-fn connection_intent() -> Result<ConnectionIntent> {
-    let path = root().join("desktop-session.json");
-    if !path.exists() {
-        return Ok(ConnectionIntent::new());
-    }
-    serde_json::from_value(crate::kernel::file_cache::load(&path)?)
-        .map_err(|error| error.to_string())
-}
-
-pub(crate) fn expected_remote() -> Result<Vec<Value>> {
-    let mut entries = Vec::new();
-    for id in connection_intent()? {
-        valid_id(&id)?;
-        let path = root().join("ingresses").join(&id).join("config.json");
-        if !path.exists() {
-            continue;
-        }
-        let entry = crate::kernel::file_cache::load(&path)?;
-        if entry["enabled"] == true && entry["transport"] != "local" {
-            entries.push(json!({"id":id,"name":entry["name"]}));
-        }
-    }
-    Ok(entries)
-}
-
-fn remember_connection(id: &str, connected: bool) -> Result<()> {
-    // Core owns intent. Runtime shutdown and source lifecycle leave it intact.
-    static WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = WRITER.lock().unwrap();
-    let mut ids = connection_intent()?;
-    if connected {
-        ids.insert(id.to_owned());
-    } else {
-        ids.remove(id);
-    }
-    save(&root().join("desktop-session.json"), &json!(ids))
-}
-
+pub(crate) use crate::front_door::owner::expected_remote;
 fn status_settings() -> Result<Value> {
     use crate::kernel::file_cache::Projection;
     static SETTINGS: std::sync::LazyLock<std::sync::Mutex<Projection<Value>>> =
@@ -68,163 +29,12 @@ pub struct Service {
     pub token: String,
     pub port: AtomicU16,
     ingresses: Mutex<BTreeMap<String, Arc<Ingress>>>,
-    drafts: Mutex<BTreeMap<String, (Arc<Ingress>, std::time::Instant, tokio::task::AbortHandle)>>,
-    configuration: Mutex<()>,
-    pub(crate) relay: crate::relay::Manager,
     accounts: Arc<crate::accounts::Manager>,
     task_feed: Mutex<crate::task_overview::Feed>,
     closing: std::sync::atomic::AtomicBool,
 }
+pub(crate) use crate::front_door::owner::store_entry;
 use crate::ingress::config::{defaults, secrets};
-// Secrets use the existing private-directory/atomic-file storage, separately from configuration.
-pub(crate) fn store_entry(entry: &Value) -> Result<()> {
-    let dir = root().join("ingresses").join(string(entry, "id"));
-    private_dir(&dir)?;
-    let mut public = entry.clone();
-    public["config"]
-        .as_object_mut()
-        .unwrap()
-        .remove("connectionMode");
-    let mut secret = json!({"bearerToken":public.as_object_mut().unwrap().remove("bearerToken").unwrap_or(Value::Null)});
-    for (key, _) in secrets() {
-        secret[key] = public["config"]
-            .as_object_mut()
-            .unwrap()
-            .remove(key)
-            .unwrap_or(Value::Null);
-    }
-    save(&dir.join("secrets.json"), &secret)?;
-    save(&dir.join("config.json"), &public)
-}
-fn read_entry(id: &str) -> Result<Value> {
-    valid_id(id)?;
-    let dir = root().join("ingresses").join(id);
-    let mut entry = load(&dir.join("config.json"))?;
-    if entry["id"] != id {
-        return Err("ingress id mismatch".into());
-    }
-    let secret = load(&dir.join("secrets.json"))?;
-    entry["bearerToken"] = secret["bearerToken"].clone();
-    for (key, _) in secrets() {
-        entry["config"][key] = secret.get(key).cloned().unwrap_or_else(|| json!(""));
-    }
-    Ok(entry)
-}
-fn valid_id(id: &str) -> Result<()> {
-    if id == "local-cli"
-        || id.is_empty()
-        || id.len() > 64
-        || !id
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-    {
-        return Err("id must contain 1-64 ASCII letters, digits, - or _".into());
-    }
-    Ok(())
-}
-fn normalize(mut entry: Value) -> Result<Value> {
-    if let Some(config) = entry["config"].as_object_mut() {
-        config.remove("ngrokDomain");
-    }
-    if entry
-        .as_object()
-        .ok_or("expected ingress object")?
-        .keys()
-        .any(|k| {
-            ![
-                "id",
-                "name",
-                "controlSource",
-                "transport",
-                "auth",
-                "bearerToken",
-                "enabled",
-                "toolPolicy",
-                "config",
-            ]
-            .contains(&k.as_str())
-        })
-    {
-        return Err("unknown ingress field; see cli help".into());
-    }
-    valid_id(string(&entry, "id"))?;
-    for field in ["name", "controlSource"] {
-        let text = entry[field]
-            .as_str()
-            .ok_or("name and controlSource are required")?;
-        if text.is_empty() || text.len() > 120 || text.chars().any(char::is_control) {
-            return Err("invalid ingress label".into());
-        }
-    }
-    if !entry["enabled"].is_boolean() {
-        return Err("enabled must be boolean".into());
-    }
-    if !["openai-tunnel", "https", "relay", "local"].contains(&string(&entry, "transport")) {
-        return Err("transport must be openai-tunnel, https, relay or local".into());
-    }
-    if entry["transport"] == "local" && entry["auth"] != "none" {
-        return Err("Local connections use authenticated IPC".into());
-    }
-    if entry["transport"] == "openai-tunnel" {
-        if entry["auth"] != "openai" {
-            return Err("OpenAI Tunnel requires auth=openai".into());
-        }
-    } else if !["none", "bearer", "oauth"].contains(&string(&entry, "auth")) {
-        return Err("HTTPS auth must be none, bearer or oauth".into());
-    }
-    if entry.get("toolPolicy").is_none() {
-        entry["toolPolicy"] = crate::kernel::policy::default_policy();
-    }
-    if entry["toolPolicy"] != "all" {
-        let allowed = entry["toolPolicy"]["allowlist"]
-            .as_array()
-            .ok_or("toolPolicy must be all or {allowlist:[op names]}")?;
-        for name in allowed {
-            if !catalog()["ops"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|t| t["name"] == *name)
-            {
-                return Err("unknown op in allowlist".into());
-            }
-        }
-    }
-    let mut config = defaults();
-    if let Ok(prefs) = load(&root().join("app/preferences.json")) {
-        for key in ["proxyMode", "proxyUrl"] {
-            if let Some(v) = prefs.get(key) {
-                config[key] = v.clone();
-            }
-        }
-    }
-    for (k, v) in entry["config"]
-        .as_object()
-        .ok_or("config must be an object")?
-    {
-        config[k] = v.clone();
-    }
-    config["connectionMode"] = json!(if entry["transport"] == "local" {
-        "local"
-    } else if entry["transport"] == "relay" {
-        "relay"
-    } else if entry["transport"] == "https" {
-        "https"
-    } else {
-        "tunnel"
-    });
-    crate::ingress::config::validate_config(&config)?;
-    entry["config"] = config;
-    if entry["auth"] == "bearer" {
-        let token = string(&entry, "bearerToken");
-        if token.len() < 32 || token.len() > 4096 || !token.bytes().all(|b| b.is_ascii_graphic()) {
-            return Err(
-                "bearerToken requires 32-4096 printable ASCII characters; supply via stdin".into(),
-            );
-        }
-    }
-    Ok(entry)
-}
 impl Service {
     pub fn new() -> Result<Arc<Self>> {
         crate::resources::initialize();
@@ -232,17 +42,6 @@ impl Service {
         init_crypto();
         crate::logs::record("INFO", "Service starting", None);
         private_dir(&root())?;
-        let index = root().join("ingresses/index.json");
-        if !index.exists() {
-            save(&index, &json!([]))?;
-        }
-        if let Err(error) = crate::ingress::prune_tunnel_versions() {
-            crate::logs::record(
-                "WARN",
-                &format!("Cannot prune unused Tunnel components: {error}"),
-                None,
-            );
-        }
         let control =
             Control::new(crate::agents::codex_binary().unwrap_or_else(|| PathBuf::from("codex")));
         let agents = crate::agents::AgentHost::with_launches(control.launches.clone())?;
@@ -255,35 +54,7 @@ impl Service {
             subscriptions.clone(),
             accounts.clone(),
         );
-        let token = id() + &id();
-        let mut ingresses = BTreeMap::new();
-        for id in load(&index)?.as_array().ok_or("invalid ingress index")? {
-            let mut entry = read_entry(id.as_str().ok_or("invalid ingress id")?)?;
-            // Removed registry entries cannot prevent the remaining tools or management UI starting.
-            let mut changed = false;
-            if let Some(allowed) = entry
-                .get_mut("toolPolicy")
-                .and_then(Value::as_object_mut)
-                .and_then(|p| p.get_mut("allowlist"))
-                .and_then(Value::as_array_mut)
-            {
-                let before = allowed.len();
-                allowed.retain(|name| {
-                    catalog()["ops"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .any(|t| t["name"] == *name)
-                });
-                changed = before != allowed.len();
-            }
-            let entry = normalize(entry)?;
-            if changed {
-                store_entry(&entry)?;
-            }
-            let ingress = Ingress::new(entry, execution.clone(), token.clone())?;
-            ingresses.insert(ingress.id.clone(), ingress);
-        }
+        let token = crate::front_door::process::ensure_secret()?;
         Ok(Arc::new(Self {
             runtime: crate::runtime::State::with_launches(control.launches.clone()),
             subscriptions,
@@ -292,10 +63,7 @@ impl Service {
             agents,
             token,
             port: AtomicU16::new(0),
-            ingresses: Mutex::new(ingresses),
-            drafts: Mutex::new(BTreeMap::new()),
-            configuration: Mutex::new(()),
-            relay: Default::default(),
+            ingresses: Mutex::new(BTreeMap::new()),
             accounts,
             task_feed: Default::default(),
             closing: std::sync::atomic::AtomicBool::new(false),
@@ -323,7 +91,7 @@ impl Service {
         );
         for ingress in service_mut.ingresses.get_mut().values_mut() {
             let i = Arc::get_mut(ingress).unwrap();
-            i.execution = service_mut.execution.clone();
+            i.execution = Some(service_mut.execution.clone());
             i.connected.store(true, Ordering::SeqCst);
         }
         crate::claude_notify::start(&service);
@@ -331,84 +99,96 @@ impl Service {
         Ok(service)
     }
     pub async fn ingress(&self, id: &str) -> Result<Arc<Ingress>> {
-        self.ingresses
-            .lock()
-            .await
-            .get(id)
-            .cloned()
-            .ok_or("ingress not found".into())
+        crate::front_door::owner::valid_id(id)?;
+        let info =
+            crate::front_door::process::gateway_request(&format!("_entry/{id}"), "GET", json!({}))
+                .await?;
+        let mut entries = self.ingresses.lock().await;
+        let ingress = match entries.get(id) {
+            Some(i) => {
+                i.update_entry(info["entry"].clone()).await;
+                i.clone()
+            }
+            None => {
+                let i = Ingress::new(
+                    info["entry"].clone(),
+                    self.execution.clone(),
+                    self.token.clone(),
+                )?;
+                entries.insert(id.into(), i.clone());
+                i
+            }
+        };
+        ingress
+            .connected
+            .store(info["connected"] == true, Ordering::SeqCst);
+        *ingress.mcp_url.lock().await = string(&info, "url").into();
+        Ok(ingress)
     }
     pub async fn primary(&self) -> Result<Arc<Ingress>> {
-        let items = self.ingresses.lock().await;
-        items
-            .get("default")
-            .or_else(|| items.values().next())
-            .cloned()
-            .ok_or("no ingresses; run cli ingress add --stdin".into())
+        let entries =
+            crate::front_door::process::gateway_request("_entries", "GET", json!({})).await?;
+        let ids = entries
+            .as_array()
+            .ok_or("invalid front-door ingress registry")?;
+        let id = ids
+            .iter()
+            .find(|id| **id == "default")
+            .or_else(|| ids.first())
+            .and_then(Value::as_str)
+            .ok_or("no ingresses; run cli ingress add --stdin")?;
+        self.ingress(id).await
     }
     pub async fn autostart(self: &Arc<Self>) {
-        let mut jobs = tokio::task::JoinSet::new();
-        for ingress in self.entries().await {
-            let meta = ingress.meta.lock().await.clone();
-            if meta["enabled"] != true || meta["config"]["autoStart"] != true {
-                continue;
-            }
-            let service = self.clone();
-            jobs.spawn(async move {
-                if let Err(error) = service
-                    .request(&format!("ingress/{}/start", ingress.id), "POST", json!({}))
-                    .await
-                {
-                    crate::logs::record(
-                        "ERROR",
-                        &format!("Ingress {} autostart failed: {error}", ingress.id),
-                        None,
-                    );
-                }
-            });
+        if let Err(error) =
+            crate::front_door::process::gateway_request("_autostart", "POST", json!({})).await
+        {
+            crate::logs::record("ERROR", &error, None);
         }
-        while jobs.join_next().await.is_some() {}
     }
     pub(crate) async fn restore_remote(self: &Arc<Self>) -> Result<()> {
-        let mut jobs = tokio::task::JoinSet::new();
-        for entry in expected_remote()? {
-            let Ok(ingress) = self.ingress(string(&entry, "id")).await else {
-                continue;
-            };
-            let port = self.port.load(Ordering::SeqCst);
-            jobs.spawn(async move {
-                let _runtime = ingress.operation.lock().await;
-                if !connection_intent()?.contains(&ingress.id)
-                    || ingress.retired.load(Ordering::SeqCst)
-                    || ingress.meta.lock().await["enabled"] != true
-                {
-                    return Ok::<(), String>(());
-                }
-                ingress.port.store(port, Ordering::SeqCst);
-                if let Err(error) = ingress.start().await {
-                    crate::logs::record("ERROR", &error, Some(&ingress.id));
-                }
-                Ok(())
-            });
-        }
-        while let Some(job) = jobs.join_next().await {
-            job.map_err(|error| error.to_string())??;
-        }
-        Ok(())
+        crate::front_door::process::gateway_request("_restore", "POST", json!({}))
+            .await
+            .map(|_| ())
     }
-
     async fn remote_faults(&self) -> Result<Vec<Value>> {
         let mut faults = Vec::new();
         for entry in expected_remote()? {
-            let ingress = self.ingress(string(&entry, "id")).await?;
-            if ingress.transport_status().await?.state != "ready" {
+            if self
+                .ingress(string(&entry, "id"))
+                .await?
+                .transport_status()
+                .await?
+                .state
+                != "ready"
+            {
                 faults.push(entry);
             }
         }
         Ok(faults)
     }
     pub(crate) async fn entries(&self) -> Vec<Arc<Ingress>> {
-        self.ingresses.lock().await.values().cloned().collect()
+        let Ok(ids) =
+            crate::front_door::process::gateway_request("_entries", "GET", json!({})).await
+        else {
+            return Vec::new();
+        };
+        self.ingresses.lock().await.retain(|id, _| {
+            ids.as_array()
+                .is_some_and(|ids| ids.iter().any(|live| live == id))
+        });
+        let mut entries = Vec::new();
+        for id in ids
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            if let Ok(i) = self.ingress(id).await {
+                entries.push(i);
+            }
+        }
+        entries
     }
     pub async fn network_proxy(&self) -> Result<crate::proxy::NetworkProxy> {
         crate::proxy::NetworkProxy::resolve(
@@ -504,85 +284,9 @@ impl Service {
     pub async fn stop(&self) -> Result<()> {
         self.begin_shutdown();
         self.accounts.stop(&self.control).await;
-        self.relay.cancel().await;
-        crate::cloudflare::stop_login().await;
-        let _configuration = self.configuration.lock().await;
-        self.closing.store(true, Ordering::SeqCst);
-        crate::logs::record("INFO", "Service stopping", None);
         self.subscriptions.stop().await;
-        let entries = self.entries().await;
-        for ingress in &entries {
-            ingress.retired.store(true, Ordering::SeqCst);
-        }
-        let mut errors = Vec::new();
-        for ingress in entries {
-            let _runtime = ingress.operation.lock().await;
-            if let Err(error) = ingress.stop().await {
-                errors.push(error);
-            }
-        }
-        let drafts = std::mem::take(&mut *self.drafts.lock().await);
-        for (id, (draft, _, task)) in drafts {
-            task.abort();
-            let _runtime = draft.operation.lock().await;
-            draft.retired.store(true, Ordering::SeqCst);
-            let _ = draft.stop().await;
-            let _ = std::fs::remove_dir_all(root().join("ingresses").join(id));
-        }
         self.agents.close().await;
         self.control.close().await;
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors.join("; "))
-        }
-    }
-    async fn all(&self, action: &str) -> Result<Value> {
-        let mut jobs = tokio::task::JoinSet::new();
-        for ingress in self.entries().await {
-            if action == "start" && ingress.meta.lock().await["enabled"] != true {
-                continue;
-            }
-            ingress
-                .port
-                .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
-            let action = action.to_owned();
-            jobs.spawn(async move {
-                let result = Self::set_connection(&ingress, action == "start").await;
-                json!({"id":ingress.id,"ok":result.is_ok(),"error":result.err()})
-            });
-        }
-        let mut results = Vec::new();
-        while let Some(result) = jobs.join_next().await {
-            results.push(result.map_err(|e| e.to_string())?);
-        }
-        results.sort_by(|a, b| string(a, "id").cmp(string(b, "id")));
-        Ok(json!({"results":results}))
-    }
-    async fn set_connection(ingress: &Arc<Ingress>, connected: bool) -> Result<Value> {
-        let _runtime = ingress.operation.lock().await;
-        if ingress.retired.load(Ordering::SeqCst) {
-            return Err("ingress removed or replaced".into());
-        }
-        if connected && ingress.meta.lock().await["enabled"] != true {
-            return Err("ingress disabled".into());
-        }
-        remember_connection(&ingress.id, connected)?;
-        if connected {
-            ingress.start().await?;
-        } else {
-            ingress.stop().await?;
-        }
-        Ok(json!({"ok":true}))
-    }
-    async fn discard_draft(&self, id: &str) -> Result<()> {
-        if let Some((draft, _, task)) = self.drafts.lock().await.remove(id) {
-            task.abort();
-            let _runtime = draft.operation.lock().await;
-            draft.retired.store(true, Ordering::SeqCst);
-            draft.stop().await?;
-            let _ = std::fs::remove_dir_all(root().join("ingresses").join(id));
-        }
         Ok(())
     }
     pub async fn request(
@@ -591,6 +295,29 @@ impl Service {
         method: &str,
         body: Value,
     ) -> Result<Value> {
+        if route == "ingress"
+            || route.starts_with("ingress/")
+            || route.starts_with("ingress-drafts")
+            || route.starts_with("source/")
+            || route.starts_with("browser/access")
+        {
+            if let Some(policy) = body.get("toolPolicy").filter(|policy| **policy != "all") {
+                for name in policy["allowlist"]
+                    .as_array()
+                    .ok_or("toolPolicy must be all or {allowlist:[op names]}")?
+                {
+                    if !catalog()["ops"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|op| op["name"] == *name)
+                    {
+                        return Err("unknown op in allowlist".into());
+                    }
+                }
+            }
+            return crate::front_door::process::gateway_request(route, method, body).await;
+        }
         if route == "tasks/snapshot" && method == "POST" {
             crate::management::resolve("tasks.snapshot", &json!({"body":body}))?;
             let mut feed = self.task_feed.lock().await;
@@ -712,91 +439,6 @@ impl Service {
         if route == "source" && method == "GET" {
             return Ok(json!({"sources":crate::sources::control_sources()?}));
         }
-        if let Some(path) = route.strip_prefix("source/") {
-            let (id, action) = path.split_once('/').unwrap_or((path, ""));
-            let source = crate::sources::get(id)?;
-            if action.is_empty() && method == "PUT" {
-                return crate::sources::update(id, &body).await;
-            }
-            if action == "switch" && method == "POST" {
-                if let Ok(current) = self.ingress(string(&source, "ingressId")).await {
-                    if current
-                        .oauth
-                        .lock()
-                        .await
-                        .pending_ids()
-                        .iter()
-                        .any(|id| source["credential"]["grantId"] == *id)
-                    {
-                        return Err(
-                            "SOURCE_NOT_SWITCHABLE: approve the pending source first".into()
-                        );
-                    }
-                }
-                let i = self.ingress(string(&body, "ingressId")).await?;
-                let _runtime = i.operation.lock().await;
-                if i.retired.load(Ordering::SeqCst) {
-                    return Err("Connection removed; select another connection".into());
-                }
-                let entry = i.meta.lock().await.clone();
-                let _oauth = i.oauth.lock().await;
-                return crate::sources::begin_switch(id, &entry).await;
-            }
-            if action == "switch" && method == "DELETE" {
-                if let Ok(i) = self
-                    .ingress(string(&source["pendingSwitch"], "ingressId"))
-                    .await
-                {
-                    let _runtime = i.operation.lock().await;
-                    let mut oauth = i.oauth.lock().await;
-                    let current = crate::sources::get(id)?;
-                    if let Some(request) = current["pendingSwitch"]["requestId"].as_str() {
-                        oauth.revoke(request).await?;
-                    }
-                }
-                return crate::sources::cancel_switch(id).await;
-            }
-            if action == "disconnect" && method == "POST" {
-                crate::sources::require_control_source(&source)?;
-                if source["credential"]["type"] == "oauth-grant" {
-                    if let Ok(i) = self.ingress(string(&source, "ingressId")).await {
-                        let _runtime = i.operation.lock().await;
-                        let mut oauth = i.oauth.lock().await;
-                        let current = crate::sources::get(id)?;
-                        oauth
-                            .revoke(string(&current["credential"], "grantId"))
-                            .await?;
-                    }
-                } else if source["credential"]["type"] == "local" {
-                    if let Ok(i) = self.ingress(string(&source, "ingressId")).await {
-                        let _runtime = i.operation.lock().await;
-                        i.stop().await?;
-                    }
-                }
-                return crate::sources::disconnect(id).await;
-            }
-            if action == "claim" && method == "POST" {
-                let i = self.ingress(string(&source, "ingressId")).await?;
-                let _runtime = i.operation.lock().await;
-                if i.retired.load(Ordering::SeqCst) || i.meta.lock().await["auth"] != "oauth" {
-                    return Err("Connection configuration changed; retry".into());
-                }
-                let mut oauth = i.oauth.lock().await;
-                oauth
-                    .decide(
-                        string(&source["credential"], "grantId"),
-                        true,
-                        Some(
-                            body["sourceId"]
-                                .as_str()
-                                .ok_or("sourceId must be new or an existing source ID")?,
-                        ),
-                    )
-                    .await?;
-                return Ok(json!({"approved":true,"sourceId":body["sourceId"]}));
-            }
-            return Err("UNKNOWN_ROUTE".into());
-        }
         if route.starts_with("local-access/") {
             return crate::local_access::request(self, route, method, body).await;
         }
@@ -832,7 +474,7 @@ impl Service {
                 .await;
         }
         if route.starts_with("relay/") {
-            return crate::relay::request(self, route, method, body).await;
+            return crate::front_door::process::gateway_request(route, method, body).await;
         }
         if route.starts_with("setup/") {
             return crate::setup::request(self, route, method, body).await;
@@ -871,11 +513,15 @@ impl Service {
             return Ok(readiness);
         }
         match (method, route) {
-            ("GET", "browser/access") => return crate::browser::access(self, false).await,
+            ("GET", "browser/access") => {
+                return crate::browser::access(self.entries().await, false).await
+            }
             ("GET", "browser/snapshot") => {
                 return self.status().await.map(crate::browser::compact_status)
             }
-            ("POST", "browser/access/rotate") => return crate::browser::access(self, true).await,
+            ("POST", "browser/access/rotate") => {
+                return crate::browser::access(self.entries().await, true).await
+            }
             ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
@@ -1115,140 +761,6 @@ impl Service {
                 json!({"groups":exposure["groups"],"required":exposure["required"],"tools":tools}),
             );
         }
-        if route == "ingress-drafts" && method == "POST" {
-            let _guard = self.configuration.lock().await;
-            if self.closing.load(Ordering::SeqCst) {
-                return Err("core shutting down".into());
-            }
-            if self.drafts.lock().await.len() >= 8 {
-                return Err("too many pending connections".into());
-            }
-            let mut config = body["config"].clone();
-            if !config.is_object()
-                || !["cloudflare", "ngrok", "pinggy", "localxpose"]
-                    .contains(&string(&config, "httpsProvider"))
-            {
-                return Err("managed HTTPS provider required".into());
-            }
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
-            config["httpsHost"] = json!("127.0.0.1");
-            config["httpsPort"] = json!(listener.local_addr().map_err(|e| e.to_string())?.port());
-            if !(config["httpsProvider"] == "pinggy" && config["pinggyMode"] == "named"
-                || config["httpsProvider"] == "localxpose")
-            {
-                config["httpsUrl"] = json!("");
-            }
-            drop(listener);
-            let entry = normalize(
-                json!({"id":format!("draft-{}",id()),"name":"Pending connection","controlSource":"custom","transport":"https","enabled":true,"auth":"bearer","bearerToken":id()+&id(),"toolPolicy":{"allowlist":[]},"config":config}),
-            )?;
-            let draft = Ingress::new(entry, self.execution.clone(), self.token.clone())?;
-            let draft_id = draft.id.clone();
-            draft
-                .port
-                .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
-            let starter = draft.clone();
-            let task = tokio::spawn(async move {
-                let _ = starter.request("start", "POST", json!({})).await;
-            });
-            self.drafts.lock().await.insert(
-                draft_id.clone(),
-                (
-                    draft.clone(),
-                    std::time::Instant::now(),
-                    task.abort_handle(),
-                ),
-            );
-            let owner = Arc::downgrade(self);
-            let expires_id = draft_id.clone();
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                    let Some(owner) = owner.upgrade() else { break };
-                    let _guard = owner.configuration.lock().await;
-                    let expired = owner
-                        .drafts
-                        .lock()
-                        .await
-                        .get(&expires_id)
-                        .map(|(_, last, _)| last.elapsed().as_secs() >= 120);
-                    crate::runtime_metrics::cost::sync(
-                        crate::runtime_metrics::cost::Owner::DraftExpiry,
-                        crate::runtime_metrics::cost::Reason::Timer,
-                        || {
-                            crate::runtime_metrics::cost::scan_set(1);
-                            crate::runtime_metrics::cost::rows(1);
-                        },
-                    );
-                    match expired {
-                        None => break,
-                        Some(true) => {
-                            let _ = owner.discard_draft(&expires_id).await;
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-            });
-            return draft.summary().await;
-        }
-        if let Some(path) = route.strip_prefix("ingress-drafts/") {
-            let (id, action) = path.split_once('/').unwrap_or((path, ""));
-            valid_id(id)?;
-            let _guard = self.configuration.lock().await;
-            if self.closing.load(Ordering::SeqCst) {
-                return Err("core shutting down".into());
-            }
-            if method == "DELETE" && action.is_empty() {
-                self.discard_draft(id).await?;
-                return Ok(json!({"removed":id}));
-            }
-            let draft = {
-                let mut drafts = self.drafts.lock().await;
-                let (draft, last, _) = drafts
-                    .get_mut(id)
-                    .ok_or("pending connection expired; obtain the MCP URL again")?;
-                *last = std::time::Instant::now();
-                draft.clone()
-            };
-            if method == "GET" && action.is_empty() {
-                return draft.summary().await;
-            }
-            if method == "POST" && action == "commit" {
-                let _runtime = draft.operation.lock().await;
-                let mut entry = draft.meta.lock().await.clone();
-                for key in ["name", "controlSource", "auth", "bearerToken"] {
-                    if let Some(value) = body.get(key) {
-                        entry[key] = value.clone();
-                    }
-                }
-                if !["none", "bearer", "oauth"].contains(&string(&entry, "auth")) {
-                    return Err("invalid authentication".into());
-                }
-                entry["toolPolicy"] = body
-                    .get("toolPolicy")
-                    .cloned()
-                    .unwrap_or_else(crate::kernel::policy::default_policy);
-                entry["config"]["httpsUrl"] = body["url"].clone();
-                let entry = normalize(entry)?;
-                // Validate the live URL before publishing or enabling any tools.
-                draft
-                    .validate_draft_url(string(&entry["config"], "httpsUrl"))
-                    .await?;
-                store_entry(&entry)?;
-                let mut entries = self.ingresses.lock().await;
-                let mut ids: Vec<_> = entries.keys().cloned().collect();
-                ids.push(id.to_owned());
-                save(&root().join("ingresses/index.json"), &json!(ids))?;
-                draft.activate_draft(entry).await?;
-                entries.insert(id.to_owned(), draft.clone());
-                self.drafts.lock().await.remove(id);
-                drop(entries);
-                drop(_runtime);
-                return draft.summary().await;
-            }
-            return Err("UNKNOWN_ROUTE".into());
-        }
         if route == "coordination/messages" && matches!(method, "GET" | "POST") {
             return crate::coordination::messages::local(method, &body);
         }
@@ -1265,283 +777,6 @@ impl Service {
             } else {
                 v
             });
-        }
-        if route == "ingress" && method == "GET" {
-            let mut items = Vec::new();
-            for i in self.entries().await {
-                items.push(i.summary().await?);
-            }
-            return Ok(json!(items));
-        }
-        if route == "ingress/start-all" && method == "POST" {
-            return self.all("start").await;
-        }
-        if route == "ingress/stop-all" && method == "POST" {
-            return self.all("stop").await;
-        }
-        if route == "ingress" && method == "POST" {
-            let _guard = self.configuration.lock().await;
-            if self.closing.load(Ordering::SeqCst) {
-                return Err("core shutting down".into());
-            }
-            if !body.is_object() {
-                return Err("expected ingress object".into());
-            }
-            let mut entry = body;
-            if entry.get("id").is_none() {
-                entry["id"] = json!(id());
-            }
-            if entry.get("name").is_none() {
-                let mut names = Vec::new();
-                for ingress in self.entries().await {
-                    names.push(string(&*ingress.meta.lock().await, "name").to_owned());
-                }
-                entry["name"] = json!(crate::control_sources::default_name(
-                    string(&entry, "controlSource"),
-                    &names,
-                ));
-            }
-            for (k, v) in json!({"enabled":true,"toolPolicy":crate::kernel::policy::default_policy(),"config":{}})
-                .as_object()
-                .unwrap()
-            {
-                entry
-                    .as_object_mut()
-                    .ok_or("invalid ingress")?
-                    .entry(k.clone())
-                    .or_insert(v.clone());
-            }
-            if entry["transport"] == "https" && entry["config"].get("httpsPort").is_none() {
-                let listener =
-                    std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
-                entry["config"]["httpsPort"] =
-                    json!(listener.local_addr().map_err(|e| e.to_string())?.port());
-            }
-            let entry = normalize(entry)?;
-            if self
-                .ingresses
-                .lock()
-                .await
-                .contains_key(string(&entry, "id"))
-            {
-                return Err("ingress already exists".into());
-            }
-            store_entry(&entry)?;
-            let i = Ingress::new(entry, self.execution.clone(), self.token.clone())?;
-            let mut entries = self.ingresses.lock().await;
-            let mut ids: Vec<_> = entries.keys().cloned().collect();
-            ids.push(i.id.clone());
-            save(&root().join("ingresses/index.json"), &json!(ids))?;
-            entries.insert(i.id.clone(), i.clone());
-            drop(entries);
-            return i.summary().await;
-        }
-        if let Some(path) = route.strip_prefix("ingress/") {
-            let (id, action) = path.split_once('/').unwrap_or((path, ""));
-            valid_id(id)?;
-            let _guard = if matches!(method, "PUT" | "DELETE") || action == "token" {
-                Some(self.configuration.lock().await)
-            } else {
-                None
-            };
-            if self.closing.load(Ordering::SeqCst) {
-                return Err("core shutting down".into());
-            }
-            let i = self.ingress(id).await?;
-            if action.starts_with("oauth") {
-                let _runtime = i.operation.lock().await;
-                if i.retired.load(Ordering::SeqCst) {
-                    return Err("Connection configuration changed; retry".into());
-                }
-                if i.meta.lock().await["auth"] != "oauth" {
-                    return Err("OAuth is not enabled for this connection".into());
-                }
-                let resource = i.mcp_url.lock().await.clone();
-                let mut oauth = i.oauth.lock().await;
-                let resource = if resource.is_empty() {
-                    oauth.resource().to_owned()
-                } else {
-                    resource
-                };
-                if resource.is_empty() {
-                    return Err("Start this connection before managing OAuth".into());
-                }
-                let resource = reqwest::Url::parse(&resource)
-                    .map_err(|_| "Invalid OAuth resource URL")?
-                    .to_string();
-                if method == "GET" && action == "oauth" {
-                    return oauth.management(&resource).await;
-                }
-                if method == "GET" && action.starts_with("oauth/request/") {
-                    oauth.management(&resource).await?;
-                    return oauth.status(action.trim_start_matches("oauth/request/"), &resource);
-                }
-                if method == "POST" && action == "oauth/decision" {
-                    oauth.management(&resource).await?;
-                    oauth
-                        .decide(
-                            string(&body, "id"),
-                            body["allow"].as_bool().ok_or("allow must be boolean")?,
-                            body["sourceId"].as_str(),
-                        )
-                        .await?;
-                    return oauth.status(string(&body, "id"), &resource);
-                }
-                if method == "POST" && action == "oauth/client/remove" {
-                    oauth.remove_client(string(&body, "id")).await?;
-                    return Ok(json!({"removed":true}));
-                }
-                if method == "POST" && action == "oauth/revoke" {
-                    oauth.revoke(string(&body, "id")).await?;
-                    return Ok(json!({"ok":true}));
-                }
-                if method == "POST" && action == "oauth/register" {
-                    return oauth.register(&body, &resource).await.map_err(String::from);
-                }
-                return Err("UNKNOWN_ROUTE".into());
-            }
-            if method == "POST" && action == "credentials" {
-                let credentials = i.request("config/credentials", "GET", json!({})).await?;
-                return Ok(
-                    json!({"apiKey": credentials["apiKey"], "bearerToken": credentials["bearerToken"]}),
-                );
-            }
-            if method == "GET" && action.is_empty() {
-                return i.summary().await;
-            }
-            if method == "DELETE" && action.is_empty() {
-                let _runtime = i.operation.lock().await;
-                i.stop().await?;
-                remember_connection(id, false)?;
-                i.retired.store(true, Ordering::SeqCst);
-                let mut oauth = i.oauth.lock().await;
-                crate::sources::remove_connection(
-                    &i.meta.lock().await.clone(),
-                    oauth.pending_ids(),
-                )
-                .await?;
-                oauth.reset().await?;
-                drop(oauth);
-                let mut entries = self.ingresses.lock().await;
-                let ids: Vec<_> = entries.keys().filter(|k| *k != id).cloned().collect();
-                save(&root().join("ingresses/index.json"), &json!(ids))?;
-                entries.remove(id);
-                drop(entries);
-                std::fs::remove_dir_all(root().join("ingresses").join(id))
-                    .map_err(|e| e.to_string())?;
-                return Ok(json!({"removed":id}));
-            }
-            if method == "POST" && action == "probe" {
-                return crate::diagnostics::probe(&i).await;
-            }
-            if method == "POST" && action == "restart" {
-                let _runtime = i.operation.lock().await;
-                if i.meta.lock().await["enabled"] != true {
-                    return Err("ingress disabled".into());
-                }
-                remember_connection(id, true)?;
-                i.stop().await?;
-                i.port
-                    .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
-                i.start().await?;
-                return i.summary().await;
-            }
-            if method == "PUT" && action.is_empty() || action == "token" && method == "POST" {
-                let _runtime = i.operation.lock().await;
-                let restart = i.summary().await?["running"] == true;
-                let mut entry = read_entry(id)?;
-                let previous = normalize(entry.clone())?;
-                if action == "token" && entry["auth"] != "bearer" {
-                    return Err("token rotation requires auth=bearer".into());
-                }
-                if action == "token" {
-                    entry["bearerToken"] = json!(crate::id() + &crate::id());
-                } else {
-                    for (k, v) in body.as_object().ok_or("expected JSON object")? {
-                        if k == "config" {
-                            for (k, v) in v.as_object().ok_or("config must be an object")? {
-                                entry["config"][k] = v.clone();
-                            }
-                        } else {
-                            entry[k] = v.clone();
-                        }
-                    }
-                }
-                if entry["id"] != id {
-                    return Err("cannot change ingress id".into());
-                }
-                let entry = normalize(entry)?;
-                // Metadata and startup preferences apply to the existing runtime. In
-                // particular, policy changes must preserve OAuth and active requests.
-                let mut old_runtime = previous["config"].clone();
-                let mut new_runtime = entry["config"].clone();
-                old_runtime.as_object_mut().unwrap().remove("autoStart");
-                new_runtime.as_object_mut().unwrap().remove("autoStart");
-                let runtime_changed = old_runtime != new_runtime
-                    || ["transport", "enabled", "auth", "bearerToken"]
-                        .iter()
-                        .any(|key| previous[*key] != entry[*key]);
-                if !runtime_changed {
-                    store_entry(&entry)?;
-                    i.update_entry(entry).await;
-                    return i.summary().await;
-                }
-                i.stop().await?;
-                if let Err(error) = store_entry(&entry) {
-                    if restart {
-                        let _ = i.start().await;
-                    }
-                    return Err(error);
-                }
-                if entry["enabled"] != true {
-                    remember_connection(id, false)?;
-                }
-                let next = Ingress::new(entry.clone(), self.execution.clone(), self.token.clone())?;
-                let identity_changed = crate::ingress::config::binding(&previous["config"])
-                    != crate::ingress::config::binding(&entry["config"])
-                    || ["transport", "controlSource", "auth", "bearerToken"]
-                        .iter()
-                        .any(|key| previous[*key] != entry[*key]);
-                if previous["auth"] != entry["auth"] || previous["transport"] != entry["transport"]
-                {
-                    next.oauth.lock().await.reset().await?;
-                }
-                if identity_changed {
-                    next.request("verification/reset", "POST", json!({}))
-                        .await?;
-                }
-                i.retired.store(true, Ordering::SeqCst);
-                self.ingresses
-                    .lock()
-                    .await
-                    .insert(id.to_owned(), next.clone());
-                if restart && entry["enabled"] == true {
-                    next.port
-                        .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
-                    next.start().await?;
-                }
-                return if action == "token" {
-                    Ok(
-                        json!({"id":id,"token":entry["bearerToken"],"delivery":"secret; store locally, do not paste into chat"}),
-                    )
-                } else {
-                    next.summary().await
-                };
-            }
-            if method != "POST"
-                || !["start", "stop", "install", "verification/reset"].contains(&action)
-            {
-                return Err("UNKNOWN_ROUTE".into());
-            }
-            if action == "start" && i.meta.lock().await["enabled"] != true {
-                return Err("ingress disabled".into());
-            }
-            i.port
-                .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
-            if matches!(action, "start" | "stop") {
-                return Self::set_connection(&i, action == "start").await;
-            }
-            return i.request(action, method, body).await;
         }
         if [
             "task-settings",
@@ -1673,26 +908,9 @@ impl Service {
             }
             _ => {}
         }
-        if method == "PUT" && route == "config" && self.ingresses.lock().await.is_empty() {
-            let _guard = self.configuration.lock().await;
-            if self.closing.load(Ordering::SeqCst) {
-                return Err("core shutting down".into());
-            }
-            if !self.ingresses.lock().await.is_empty() {
-                return Err("ingress was created; refresh configuration".into());
-            }
-            let https = body["connectionMode"] == "https";
-            let entry = normalize(
-                json!({"id":"default","name":"ChatGPT","controlSource":"chatgpt","transport":if https{"https"}else{"openai-tunnel"},"auth":if https{"none"}else{"openai"},"enabled":true,"toolPolicy":crate::kernel::policy::default_policy(),"config":body}),
-            )?;
-            store_entry(&entry)?;
-            let ingress = Ingress::new(entry, self.execution.clone(), self.token.clone())?;
-            save(&root().join("ingresses/index.json"), &json!(["default"]))?;
-            self.ingresses
-                .lock()
-                .await
-                .insert("default".into(), ingress);
-            return Ok(json!({"ok":true}));
+        if method == "PUT" && route == "config" && self.entries().await.is_empty() {
+            return crate::front_door::process::gateway_request("_initial_config", "PUT", body)
+                .await;
         }
         if route == "stop" && self.ingresses.lock().await.is_empty() {
             return Ok(json!({"ok":true}));
@@ -1706,7 +924,7 @@ impl Service {
 
 #[cfg(test)]
 pub(crate) fn scale_seed() -> Result<()> {
-    let entry = normalize(
+    let entry = crate::front_door::owner::normalize(
         json!({"id":"synthetic","name":"Synthetic ingress","controlSource":"Synthetic source","transport":"https","auth":"bearer","bearerToken":"synthetic-token-for-fixture-only-000000","enabled":true,"config":{}}),
     )?;
     store_entry(&entry)?;

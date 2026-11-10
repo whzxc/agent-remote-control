@@ -151,7 +151,7 @@ impl OAuth {
             .unwrap_or("")
     }
     async fn revoke_sources(&self, grants: Vec<String>) -> Result<()> {
-        crate::sources::revoke_grants(self.ingress_id(), &grants).await
+        crate::front_door::authority::revoke_grants(self.ingress_id(), &grants).await
     }
     pub async fn reset(&mut self) -> Result<()> {
         self.revoke_sources(
@@ -176,13 +176,17 @@ impl OAuth {
         // A moved source immediately invalidates its former grant on every surface.
         // Prune those credentials durably when this OAuth instance is next accessed.
         let ingress = self.ingress_id().to_owned();
-        let count = self.stored.grants.len();
-        self.stored
-            .grants
-            .retain(|g| crate::sources::grant_active(&ingress, &g.id));
-        if self.stored.grants.len() != count {
-            self.persist()?;
-        }
+        // Unavailable authority pauses admission without interpreting the outage as revocation.
+        let active = crate::front_door::authority::active_grants(
+            &ingress,
+            self.stored
+                .grants
+                .iter()
+                .map(|grant| grant.id.clone())
+                .collect(),
+        )
+        .await;
+        self.apply_authority_snapshot(active)?;
         let now = clock();
         self.revoke_sources(
             self.pending
@@ -203,6 +207,17 @@ impl OAuth {
         self.registrations.retain(|t| *t + 3600 > now);
         Ok(())
     }
+    fn apply_authority_snapshot(&mut self, active: Result<Vec<String>>) -> Result<()> {
+        let active = active?;
+        let count = self.stored.grants.len();
+        self.stored
+            .grants
+            .retain(|grant| active.contains(&grant.id));
+        if self.stored.grants.len() != count {
+            self.persist()?;
+        }
+        Ok(())
+    }
     pub async fn authenticate(&mut self, header: &str, resource: &str) -> Option<Value> {
         self.prepare(resource).await.ok()?;
         let digest = hash(header.strip_prefix("Bearer ")?);
@@ -213,7 +228,7 @@ impl OAuth {
                 g.resource == resource
                     && g.access == digest
                     && g.access_expires > clock()
-                    && crate::sources::grant_active(self.ingress_id(), &g.id)
+                    && crate::front_door::authority::grant_active(self.ingress_id(), &g.id)
             })
             .map(|g| json!({"type":"oauth-grant","grantId":g.id,"clientId":g.client}))
     }
@@ -225,7 +240,7 @@ impl OAuth {
             .find(|g| {
                 g.access == digest
                     && g.access_expires > clock()
-                    && crate::sources::grant_active(self.ingress_id(), &g.id)
+                    && crate::front_door::authority::grant_active(self.ingress_id(), &g.id)
             })
             .map(|g| g.id.clone())
     }
@@ -233,7 +248,7 @@ impl OAuth {
         self.stored.grants.iter().any(|g| {
             g.id == principal
                 && (resource.is_empty() || g.resource == resource)
-                && crate::sources::grant_active(self.ingress_id(), &g.id)
+                && crate::front_door::authority::grant_active(self.ingress_id(), &g.id)
         })
     }
     pub async fn register(
@@ -414,7 +429,7 @@ impl OAuth {
                 .ok_or("Invalid OAuth directory")?
                 .join("config.json"),
         )?;
-        crate::sources::pending(&entry, &key, get("client_id"), &client.name).await?;
+        crate::front_door::authority::pending(&entry, &key, get("client_id"), &client.name).await?;
         self.pending.insert(
             key.clone(),
             Pending {
@@ -453,14 +468,18 @@ impl OAuth {
             .keys()
             .map(|key| {
                 let mut status = self.status(key, resource)?;
-                if let Ok(source) = crate::sources::for_grant(self.ingress_id(), key) {
+                if let Ok(source) = crate::front_door::authority::for_grant(self.ingress_id(), key)
+                {
                     status["sourceId"] = source["id"].clone();
                     status["product"] = source["product"].clone();
                     status["switchSourceId"] = source["switchSourceId"].clone();
                     status["sourceCandidates"] = if source["switchSourceId"].is_string() {
                         json!([])
                     } else {
-                        json!(crate::sources::candidates(&source, &self.grant_ids())?)
+                        json!(crate::front_door::authority::candidates(
+                            &source,
+                            &self.grant_ids()
+                        )?)
                     };
                 }
                 Ok(status)
@@ -470,7 +489,7 @@ impl OAuth {
             .stored
             .grants
             .iter()
-            .filter(|g| crate::sources::grant_active(self.ingress_id(), &g.id))
+            .filter(|g| crate::front_door::authority::grant_active(self.ingress_id(), &g.id))
             .collect();
         grants.sort_by_key(|g| {
             std::cmp::Reverse(
@@ -508,7 +527,7 @@ impl OAuth {
         Ok(json!({"id":key,"status":"expired"}))
     }
     pub async fn decide(&mut self, key: &str, allow: bool, choice: Option<&str>) -> Result<()> {
-        let source = crate::sources::for_grant(self.ingress_id(), key)?;
+        let source = crate::front_door::authority::for_grant(self.ingress_id(), key)?;
         let choice = if allow {
             let choice = choice
                 .map(str::to_owned)
@@ -516,10 +535,10 @@ impl OAuth {
                 .or_else(|| source["switchSourceId"].as_str().map(str::to_owned));
             let choice = match choice {
                 Some(c) => c,
-                None if crate::sources::candidates(&source, &self.grant_ids())?.is_empty() => "new".into(),
+                None if crate::front_door::authority::candidates(&source, &self.grant_ids())?.is_empty() => "new".into(),
                 None => return Err("SOURCE_CHOICE_REQUIRED: choose sourceId=new or an existing source ID; use source claim".into()),
             };
-            crate::sources::validate_claim(&source, &choice, &self.grant_ids())?;
+            crate::front_door::authority::validate_claim(&source, &choice, &self.grant_ids())?;
             Some(choice)
         } else {
             None
@@ -678,7 +697,7 @@ impl OAuth {
                 if self.stored.grants.len() >= 128 {
                     return Err("temporarily_unavailable".into());
                 }
-                if let Some(old) = crate::sources::connect(
+                if let Some(old) = crate::front_door::authority::connect(
                     self.ingress_id(),
                     &key,
                     p.source_choice.as_deref().ok_or("invalid_grant")?,
@@ -1146,5 +1165,42 @@ async fn route(
         Ok(response(200, json!({})))
     } else {
         Ok(response(200, oauth.token(&q, basic, resource).await?))
+    }
+}
+
+#[cfg(test)]
+mod front_door_tests {
+    use super::*;
+    #[test]
+    fn front_door_authority_loss_preserves_existing_grants() {
+        // Regression: treating unavailable Core authority as revoked would durably remove every OAuth grant during replacement.
+        let resource = "https://fixture.example/mcp";
+        let mut oauth = OAuth {
+            path: PathBuf::new(),
+            stored: Stored {
+                resource: resource.into(),
+                clients: Default::default(),
+                grants: vec![Grant {
+                    id: "grant".into(),
+                    connected_at: Some(1),
+                    client: "client".into(),
+                    resource: resource.into(),
+                    authorization_code: String::new(),
+                    access: "digest".into(),
+                    access_expires: i64::MAX,
+                    refresh: String::new(),
+                    used_refresh: vec![],
+                }],
+            },
+            pending: Default::default(),
+            registrations: vec![],
+        };
+        assert!(oauth
+            .apply_authority_snapshot(Err("FRONT_DOOR_CORE_UNAVAILABLE".into()))
+            .is_err());
+        assert_eq!(
+            oauth.status("grant", resource).unwrap()["status"],
+            "completed"
+        );
     }
 }

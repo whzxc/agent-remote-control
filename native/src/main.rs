@@ -23,6 +23,8 @@ async fn run() -> Result<()> {
         ["package-check", path] => {
             arc_core::output::line(arc_core::package::check(std::path::Path::new(path)).await?)
         }
+        ["front-door"] => arc_core::front_door::process::run().await,
+        ["front-door-prepare"] => arc_core::front_door::process::prepare_install().await,
         ["codex-host"] => arc_core::codex_host::run().await,
         ["task-host"] => arc_core::task_host::run().await,
         ["context-provider-stdio"] => arc_core::context_provider::stdio().await,

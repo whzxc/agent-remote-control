@@ -23,6 +23,7 @@ pub async fn start() -> Result<Value> {
         }
         return status().await;
     }
+    crate::front_door::process::prepare_install().await?;
     private_dir(&root())?;
     let log = std::fs::OpenOptions::new()
         .create(true)

@@ -159,33 +159,30 @@ pub async fn listen(
     service: Arc<Service>,
     desktop: Option<Arc<dyn DesktopAccess>>,
 ) -> Result<tokio::task::JoinHandle<()>> {
-    service.execution.front_door.bind(&service);
-    service.subscriptions.start();
+    crate::front_door::process::attach_core(service, desktop).await
+}
+pub(crate) async fn listen_gateway(
+    service: Arc<crate::front_door::owner::Gateway>,
+) -> Result<tokio::task::JoinHandle<()>> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| e.to_string())?;
-    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
-    service
-        .port
-        .store(port, std::sync::atomic::Ordering::SeqCst);
-    let build = crate::runtime::process_build_id()?;
-    save(
-        &root().join("app/native.json"),
-        &json!({"port":port,"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()),"token":service.token,"instance":service.control.session,"runtime":"rust","version":env!("ARC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(std::sync::atomic::Ordering::SeqCst),"build":build}),
-    )?;
+    service.port.store(
+        listener.local_addr().map_err(|e| e.to_string())?.port(),
+        std::sync::atomic::Ordering::SeqCst,
+    );
     Ok(tokio::spawn(async move {
+        let mut connections = tokio::task::JoinSet::new();
         loop {
-            let Ok((stream, peer)) = listener.accept().await else {
-                break;
-            };
-            if !peer.ip().is_loopback() {
-                continue;
+            tokio::select! {
+                Some(_) = connections.join_next(), if !connections.is_empty() => {},
+                accepted = listener.accept() => {
+                    let Ok((stream,peer)) = accepted else { break };
+                    if !peer.ip().is_loopback() || connections.len() >= 128 { continue; }
+                    let service=service.clone();
+                    connections.spawn(async move {let _=handle(stream,service).await;});
+                }
             }
-            let s = service.clone();
-            let desktop = desktop.clone();
-            tokio::spawn(async move {
-                let _ = handle(stream, s, desktop).await;
-            });
         }
     }))
 }
@@ -220,11 +217,7 @@ fn local_reply(code: u16, value: Value) -> hyper::Response<LocalBody> {
         .body(http_body_util::Full::new(hyper::body::Bytes::from(value.to_string())).boxed())
         .unwrap()
 }
-async fn handle(
-    stream: TcpStream,
-    s: Arc<Service>,
-    desktop: Option<Arc<dyn DesktopAccess>>,
-) -> Result<()> {
+async fn handle(stream: TcpStream, s: Arc<crate::front_door::owner::Gateway>) -> Result<()> {
     use hyper::{server::conn::http1, service::service_fn};
     let socket = stream.into_std().map_err(|e| e.to_string())?;
     let disconnect = Arc::new(
@@ -233,10 +226,8 @@ async fn handle(
     );
     let stream = TcpStream::from_std(socket).map_err(|e| e.to_string())?;
     let service = service_fn(move |request| {
-        let (s, desktop, disconnect) = (s.clone(), desktop.clone(), disconnect.clone());
-        async move {
-            Ok::<_, std::convert::Infallible>(local_request(request, s, desktop, disconnect).await)
-        }
+        let (s, disconnect) = (s.clone(), disconnect.clone());
+        async move { Ok::<_, std::convert::Infallible>(local_request(request, s, disconnect).await) }
     });
     http1::Builder::new()
         .timer(hyper_util::rt::TokioTimer::new())
@@ -264,8 +255,7 @@ pub(crate) async fn wait_disconnect(stream: &TcpStream) {
 }
 async fn local_request(
     request: hyper::Request<hyper::body::Incoming>,
-    s: Arc<Service>,
-    desktop: Option<Arc<dyn DesktopAccess>>,
+    s: Arc<crate::front_door::owner::Gateway>,
     disconnect: Arc<TcpStream>,
 ) -> hyper::Response<LocalBody> {
     use http_body_util::{BodyExt, Limited};
@@ -353,10 +343,13 @@ async fn local_request(
             "/api/browser/events" => crate::front_door::Snapshot::Browser,
             _ => crate::front_door::Snapshot::Status,
         };
-        let rx = match crate::front_door::local_stream(&s, kind).await {
-            Ok(rx) => rx,
-            Err(error) => return local_reply(400, json!({"error":error})),
-        };
+        let rx =
+            match crate::front_door::process::stream(crate::front_door::management_context(), kind)
+                .await
+            {
+                Ok(rx) => rx,
+                Err(error) => return local_reply(400, json!({"error":error})),
+            };
         return hyper::Response::builder()
             .header("Content-Type", "text/event-stream")
             .header("Cache-Control", "no-store")
@@ -390,13 +383,29 @@ async fn local_request(
             };
             crate::front_door::mcp_ingress(&ingress, body).await
         } else if method == "GET" && path == "/healthz" {
-            crate::front_door::health(&s).await
+            crate::front_door::process::call(
+                crate::front_door::management_context(),
+                crate::front_door::Operation::Health,
+                json!({}),
+            )
+            .await
         } else if path == "/api/cli/control" && method == "POST" {
-            crate::front_door::local_control(&s, body).await
+            crate::front_door::process::call(
+                crate::front_door::management_context(),
+                crate::front_door::Operation::LocalControl,
+                body,
+            )
+            .await
         } else if let Some(route) = path.strip_prefix("/api/") {
             let cancel = method == "GET" || route == "app/snapshot";
-            let response =
-                crate::front_door::management(&s, desktop.as_ref(), route, &method, body);
+            let response = crate::front_door::process::call(
+                crate::front_door::management_context(),
+                crate::front_door::Operation::Management {
+                    route: route.into(),
+                    method: method.clone(),
+                },
+                body,
+            );
             if cancel {
                 tokio::select! {
                     biased;

@@ -24,7 +24,7 @@ pub struct Ingress {
     pub meta: Mutex<Value>,
     pub(crate) oauth: Mutex<crate::oauth::OAuth>,
     pub(crate) dir: PathBuf,
-    pub(crate) execution: Arc<crate::execution::Execution>,
+    pub(crate) execution: Option<Arc<crate::execution::Execution>>,
     pub(crate) wait_calls: crate::core_requests::WaitCalls,
     pub token: String,
     pub port: std::sync::atomic::AtomicU16,
@@ -56,12 +56,22 @@ impl Drop for Ingress {
         if let Some(supervisor) = self.supervisor.get_mut().take() {
             supervisor.abort();
         }
+        if let Some(listener) = self.https.get_mut().take() {
+            listener.abort();
+        }
     }
 }
 impl Ingress {
     pub fn new(
         entry: Value,
         execution: Arc<crate::execution::Execution>,
+        token: String,
+    ) -> Result<Arc<Self>> {
+        Self::with_execution(entry, Some(execution), token)
+    }
+    pub(crate) fn with_execution(
+        entry: Value,
+        execution: Option<Arc<crate::execution::Execution>>,
         token: String,
     ) -> Result<Arc<Self>> {
         let ingress_id = string(&entry, "id").to_owned();
@@ -72,7 +82,9 @@ impl Ingress {
         validate_config(&settings)?;
         let verification = load(&dir.join("verification.json"))
             .unwrap_or_else(|_| json!({"code":id(),"verifiedAt":null}));
-        save(&dir.join("verification.json"), &verification)?;
+        if execution.is_none() || cfg!(test) {
+            save(&dir.join("verification.json"), &verification)?;
+        }
         Ok(Arc::new(Self {
             id: ingress_id,
             meta: Mutex::new(entry),
@@ -170,6 +182,14 @@ impl Ingress {
         save(&self.dir.join("verification.json"), &verification)
     }
     pub async fn summary(&self) -> Result<Value> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("ingress/{}", self.id),
+                "GET",
+                json!({}),
+            )
+            .await;
+        }
         let status = self.status().await?;
         let meta = self.meta.lock().await;
         let config = status["config"].clone();
@@ -178,10 +198,10 @@ impl Ingress {
             result["oauth"] = self.oauth.lock().await.snapshot()?;
         }
         if meta["auth"] != "oauth" && self.dir.join("config.json").exists() {
-            crate::sources::ensure_ingress(&meta).await?;
+            crate::front_door::authority::ensure_ingress(&meta).await?;
         }
-        crate::sources::connection_state(&self.id, result["running"] == true).await?;
-        result["sources"] = json!(crate::sources::control_sources()?
+        crate::front_door::authority::connection_state(&self.id, result["running"] == true).await?;
+        result["sources"] = json!(crate::front_door::authority::control_sources()?
             .into_iter()
             .filter(|s| s["ingressId"] == self.id)
             .collect::<Vec<_>>());
@@ -296,6 +316,29 @@ impl Ingress {
         }).await
     }
     pub(crate) async fn transport_status(&self) -> Result<TransportStatus> {
+        if self.execution.is_some() && !cfg!(test) {
+            let status = crate::front_door::process::gateway_request(
+                &format!("_status/{}", self.id),
+                "GET",
+                json!({}),
+            )
+            .await?;
+            return Ok(TransportStatus {
+                state: match status["tunnel"]["state"].as_str() {
+                    Some("ready") => "ready",
+                    Some("starting") => "starting",
+                    Some("degraded") => "degraded",
+                    Some("error") => "error",
+                    _ => "stopped",
+                },
+                running: status["connection"]["running"] == true,
+                error: string(&status["tunnel"], "error").into(),
+                urls: serde_json::from_value(status["discoveredUrls"].clone()).unwrap_or_default(),
+                tunnel_health: status["tunnel"]["health"].clone(),
+                control_plane: status["tunnel"]["controlPlane"].clone(),
+            });
+        }
+
         let tunnel_running = self.tunnel.lock().await.is_some();
         let https_running = self
             .https
@@ -424,6 +467,14 @@ impl Ingress {
         })
     }
     pub async fn status(&self) -> Result<Value> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("_status/{}", self.id),
+                "GET",
+                json!({}),
+            )
+            .await;
+        }
         let TransportStatus {
             state,
             running,
@@ -444,10 +495,19 @@ impl Ingress {
         let logs = self.logs.lock().await.clone();
         let core = json!({"chatgpt":chat,"transport":{"state":state,"error":error}});
         Ok(
-            json!({"discoveredUrls":urls,"requests":self.requests.snapshot(),"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health,"controlPlane":control_plane,"dependency":self.tunnel_dependency.lock().await.clone(),"lastError":self.tunnel_error.lock().await.clone(),"lastErrorAt":self.tunnel_error_at.lock().await.clone()},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":crate::device_name().await,"taskApprovalEnabled":self.execution.approval_mode()?,"autoOpenCodex":self.execution.auto_open_codex()?,"notificationsEnabled":crate::claude_notify::settings()?["notificationsEnabled"],"chatgptUrl":"https://chatgpt.com/plugins"}),
+            json!({"discoveredUrls":urls,"requests":self.requests.snapshot(),"core":core,"connection":{"running":running,"updateAvailable":false,"mcpUrl":mcp_url},"config":config,"tunnel":{"state":state,"error":error,"health":tunnel_health,"controlPlane":control_plane,"dependency":self.tunnel_dependency.lock().await.clone(),"lastError":self.tunnel_error.lock().await.clone(),"lastErrorAt":self.tunnel_error_at.lock().await.clone()},"connector":{"state":state},"logs":logs,"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"deviceName":crate::device_name().await,"taskApprovalEnabled":crate::claude_notify::settings()?["enabled"] == true,"autoOpenCodex":!cfg!(target_os="linux") && crate::claude_notify::settings()?["autoOpenCodex"] != false,"notificationsEnabled":crate::claude_notify::settings()?["notificationsEnabled"],"chatgptUrl":"https://chatgpt.com/plugins"}),
         )
     }
     pub(crate) async fn relay_ready(&self) -> Result<()> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("_relay_ready/{}", self.id),
+                "GET",
+                json!({}),
+            )
+            .await
+            .map(|_| ());
+        }
         let status = self
             .relay
             .lock()
@@ -459,6 +519,15 @@ impl Ingress {
         crate::relay::transport::Runtime::ready(status).await
     }
     pub async fn stop(&self) -> Result<()> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("ingress/{}/stop", self.id),
+                "POST",
+                json!({}),
+            )
+            .await
+            .map(|_| ());
+        }
         if let Some(supervisor) = self.supervisor.lock().await.take() {
             supervisor.abort();
             let _ = supervisor.await;
@@ -519,12 +588,27 @@ impl Ingress {
         if was_connected {
             self.log("INFO", "Connection closed").await;
         }
-        if let Err(error) = crate::sources::connection_state(&self.id, false).await {
+        if let Err(error) = crate::front_door::authority::connection_state(&self.id, false).await {
             crate::logs::record("ERROR", &error, Some(&self.id));
         }
         Ok(())
     }
     pub(crate) async fn start(self: &Arc<Self>) -> Result<()> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("ingress/{}/start", self.id),
+                "POST",
+                json!({}),
+            )
+            .await
+            .map(|_| ());
+        }
+        // Core attachment restores intent without replacing surviving provider processes.
+        if self.connected.load(std::sync::atomic::Ordering::SeqCst)
+            && !self.stopping.load(std::sync::atomic::Ordering::SeqCst)
+        {
+            return Ok(());
+        }
         self.starting
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let result = self.start_inner().await;
@@ -876,6 +960,14 @@ impl Ingress {
         method: &str,
         body: Value,
     ) -> Result<Value> {
+        if self.execution.is_some() && !cfg!(test) {
+            return crate::front_door::process::gateway_request(
+                &format!("_ingress_request/{}/{route}", self.id),
+                method,
+                body,
+            )
+            .await;
+        }
         let _guard = if method != "GET" {
             Some(self.operation.lock().await)
         } else {

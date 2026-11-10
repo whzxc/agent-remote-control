@@ -1,4 +1,4 @@
-//! Recover Core-owned process trees before starting replacements after a crash.
+//! Recover one process owner's children before starting replacements after a crash.
 //! Detached execution hosts deliberately never enter this registry.
 use crate::*;
 use std::{io, time::Duration};
@@ -49,9 +49,15 @@ pub(crate) fn reclaimable(
         && (owner_start.is_none() || record["owner"]["processStart"].as_str() != owner_start)
 }
 
-/// Called with core.lock held, before any ingress or provider is restored.
+/// Called with core.lock held, before Core-owned children are started.
 pub(crate) async fn recover() -> Result<()> {
-    let directory = root().join("core-children");
+    recover_owner("core-children").await
+}
+pub(crate) async fn recover_front_door() -> Result<()> {
+    recover_owner("front-door-children").await
+}
+async fn recover_owner(name: &str) -> Result<()> {
+    let directory = root().join(name);
     private_dir(&directory)?;
     for entry in std::fs::read_dir(&directory).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -74,7 +80,7 @@ pub(crate) async fn recover() -> Result<()> {
         ) {
             crate::logs::record(
                 "WARN",
-                &format!("Reclaiming process {pid} left by a previous Core"),
+                &format!("Reclaiming process {pid} left by the previous {name} owner"),
                 None,
             );
             crate::codex_host::signal(pid, false);

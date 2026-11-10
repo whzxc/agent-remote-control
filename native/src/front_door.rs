@@ -1,4 +1,7 @@
 //! Transport/auth adapters and the in-process implementation of the private Core protocol.
+pub(crate) mod authority;
+pub(crate) mod owner;
+pub mod process;
 mod protocol;
 use crate::{ingress::Ingress, service::Service, *};
 pub(crate) use protocol::*;
@@ -216,7 +219,7 @@ impl Drop for Pending {
 fn deadline() -> Deadline {
     Deadline::after(Duration::from_secs(1830))
 }
-fn management_context() -> AuthenticatedContext {
+pub(crate) fn management_context() -> AuthenticatedContext {
     AuthenticatedContext {
         authority: protocol::Authority::Management,
     }
@@ -242,49 +245,41 @@ pub(crate) async fn mcp_ingress_authenticated(
     if local && (!s.connected.load(Ordering::SeqCst) || !enabled) {
         return Err("Local connection disabled".into());
     }
+    if s.execution.is_none() {
+        let rpc_id = body.get("id").cloned();
+        let result = async {
+            let context = process::call(
+                management_context(),
+                Operation::IngressContext {
+                    ingress_id: s.id.clone(),
+                },
+                json!({"principal":principal,"header":header}),
+            )
+            .await?;
+            let context: AuthenticatedContext =
+                serde_json::from_value(context).map_err(|e| e.to_string())?;
+            process::call(context, Operation::Mcp, body).await
+        }
+        .await;
+        return match result {
+            Err(error)
+                if error.starts_with("FRONT_DOOR_")
+                    || serde_json::from_str::<Value>(&error)
+                        .is_ok_and(|v| v["data"]["state"] == "unconfirmed") =>
+            {
+                let error=serde_json::from_str::<Value>(&error).unwrap_or_else(|_|json!({"code":-32603,"message":error,"data":{"arcVersion":crate::egress::arc_version()}}));
+                Ok(rpc_id.map_or(
+                    Value::Null,
+                    |id| json!({"jsonrpc":"2.0","id":id,"error":error}),
+                ))
+            }
+            result => result,
+        };
+    }
     let context = authenticated_context(s, principal, header).await?;
-    let endpoint = &s.execution.front_door;
+    let endpoint = &s.execution.as_ref().unwrap().front_door;
     let request = endpoint.request(context, Operation::Mcp, body, deadline())?;
     endpoint.send(request, Target::Ingress(s)).await
-}
-pub(crate) async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value> {
-    let endpoint = &s.execution.front_door;
-    let request = endpoint.request(
-        management_context(),
-        Operation::LocalControl,
-        body,
-        deadline(),
-    )?;
-    endpoint.send(request, Target::Service(s, None)).await
-}
-pub(crate) async fn management(
-    s: &Arc<Service>,
-    desktop: Option<&Arc<dyn crate::transport::DesktopAccess>>,
-    route: &str,
-    method: &str,
-    body: Value,
-) -> Result<Value> {
-    let endpoint = &s.execution.front_door;
-    let request = endpoint.request(
-        management_context(),
-        Operation::Management {
-            route: route.into(),
-            method: method.into(),
-        },
-        body,
-        deadline(),
-    )?;
-    endpoint.send(request, Target::Service(s, desktop)).await
-}
-pub(crate) async fn health(s: &Arc<Service>) -> Result<Value> {
-    let endpoint = &s.execution.front_door;
-    let request = endpoint.request(
-        management_context(),
-        Operation::Health,
-        json!({}),
-        deadline(),
-    )?;
-    endpoint.send(request, Target::Service(s, None)).await
 }
 pub(crate) async fn browser_request(
     ingress: &Arc<Ingress>,
@@ -293,7 +288,23 @@ pub(crate) async fn browser_request(
     method: &str,
     body: Value,
 ) -> Result<Value> {
-    let endpoint = &ingress.execution.front_door;
+    if ingress.execution.is_none() {
+        return process::call(
+            AuthenticatedContext {
+                authority: protocol::Authority::Browser {
+                    ingress_id: ingress.id.clone(),
+                    key_digest: hash(key),
+                },
+            },
+            Operation::Management {
+                route: route.into(),
+                method: method.into(),
+            },
+            body,
+        )
+        .await;
+    }
+    let endpoint = &ingress.execution.as_ref().unwrap().front_door;
     let service = endpoint.service()?;
     let context = AuthenticatedContext {
         authority: protocol::Authority::Browser {
@@ -315,7 +326,7 @@ pub(crate) async fn browser_request(
         .await
 }
 
-async fn authenticated_context(
+pub(crate) async fn authenticated_context(
     s: &Ingress,
     principal: &Value,
     header: Option<&str>,
@@ -331,7 +342,9 @@ async fn authenticated_context(
     };
     let mut origin = crate::sources::touch(&source, string(&meta, "auth")).await?;
     drop(meta);
-    if let Ok(principal) = crate::claude_notify::mcp_events::principal(s, header).await {
+    if principal["type"] == "oauth-grant" {
+        origin["eventPrincipal"] = principal["grantId"].clone();
+    } else if let Ok(principal) = crate::claude_notify::mcp_events::principal(s, header).await {
         origin["eventPrincipal"] = json!(principal);
     }
     Ok(AuthenticatedContext {
@@ -362,7 +375,7 @@ impl Ingress {
             || meta["auth"] == "bearer"
                 && !string(&meta, "bearerToken").is_empty()
                 && hash(header) == hash(format!("Bearer {}", string(&meta, "bearerToken")));
-        (allowed && !crate::sources::ingress_retired(&self.id))
+        (allowed && !crate::front_door::authority::ingress_retired(&self.id))
             .then(|| json!({"type":"ingress","ingressId":self.id}))
     }
 }
@@ -474,25 +487,24 @@ async fn stream_bytes(
     });
     Ok(rx)
 }
-pub(crate) async fn local_stream(
-    service: &Arc<Service>,
-    kind: Snapshot,
-) -> Result<tokio::sync::mpsc::Receiver<hyper::body::Bytes>> {
-    let endpoint = service.execution.front_door.clone();
-    let request = endpoint.request(
-        management_context(),
-        Operation::Snapshot { kind },
-        json!({}),
-        deadline(),
-    )?;
-    stream_bytes(endpoint, request, service.clone(), None).await
-}
 pub(crate) async fn browser_stream(
     ingress: &Arc<Ingress>,
     key: &str,
     kind: Snapshot,
 ) -> Result<tokio::sync::mpsc::Receiver<hyper::body::Bytes>> {
-    let endpoint = ingress.execution.front_door.clone();
+    if ingress.execution.is_none() {
+        return process::stream(
+            AuthenticatedContext {
+                authority: protocol::Authority::Browser {
+                    ingress_id: ingress.id.clone(),
+                    key_digest: hash(key),
+                },
+            },
+            kind,
+        )
+        .await;
+    }
+    let endpoint = ingress.execution.as_ref().unwrap().front_door.clone();
     let service = endpoint.service()?;
     let context = AuthenticatedContext {
         authority: protocol::Authority::Browser {

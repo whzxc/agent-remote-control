@@ -68,8 +68,15 @@ impl arc_core::transport::DesktopAccess for SnapshotDesktop {
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 #[tokio::main]
 async fn main() {
+    if std::env::args().nth(1).as_deref() == Some("front-door") {
+        arc_core::front_door::process::run().await.unwrap();
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("runtime") {
         arc_core::runtime::serve_mode(false).await.unwrap();
+        arc_core::front_door::process::stop_for_fixture()
+            .await
+            .unwrap();
         return;
     }
     if std::env::args().nth(1).as_deref() == Some("cli") {
@@ -79,6 +86,7 @@ async fn main() {
         arc_core::transport::stdio().await.unwrap();
         return;
     }
+    std::env::set_var("ARC_FIXTURE_CONNECTED", "1");
     let service =
         arc_core::service::Service::fixture(std::env::var("ARC_FIXTURE_BINARY").unwrap().into())
             .unwrap();
@@ -98,6 +106,9 @@ async fn main() {
         );
         let _ = BufReader::new(tokio::io::stdin()).lines().next_line().await;
         service.control.close().await;
+        arc_core::front_door::process::stop_for_fixture()
+            .await
+            .unwrap();
         return;
     }
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
@@ -113,4 +124,7 @@ async fn main() {
         }
     }
     service.control.close().await;
+    arc_core::front_door::process::stop_for_fixture()
+        .await
+        .unwrap();
 }

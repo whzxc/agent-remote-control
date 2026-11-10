@@ -4,82 +4,108 @@
 
 ## Processes and responsibilities
 
-Existing HTTPS ingress listeners also serve the read-only browser dashboard. Core embeds its static assets after the frontend build. The public browser surface uses a separate 256-bit key generated through local `browser.access`; `browser.access.rotate` replaces it. The initial key URL establishes a persistent Secure, HttpOnly, SameSite=Strict cookie derived from the current key. The browser saves the key in path-scoped LocalStorage and removes the query parameter before rendering. Later document and resource requests use the cookie; API requests also accept the stored key as a Bearer credential. Authentication precedes browser route lookup, so unauthenticated pages, assets, and data return empty HTTP 401 responses. Browser routes allow only explicit reads and validate their management schemas. Mixed-purpose task control, request routing, and resource operations accept only queue reads, routing reads, and image reads respectively. The browser shares the desktop topology, panels, account cards, conversation list, and task timeline; write controls are disabled. The local management API remains private. Existing MCP/OAuth routes retain their own authentication and authority. Browser presence and preference writes are disabled. The browser forwards the existing status, activity, and quota streams and closes them when the key changes. OpenAI Secure Tunnel remains MCP-only. See [Remote browser](../guides/remote-browser.md).
+Existing HTTPS ingress listeners also serve the read-only browser dashboard. The front door embeds its static assets after the frontend build. The public browser surface uses a separate 256-bit key generated through local `browser.access`; `browser.access.rotate` replaces it. The initial key URL establishes a persistent Secure, HttpOnly, SameSite=Strict cookie derived from the current key. The browser saves the key in path-scoped LocalStorage and removes the query parameter before rendering. Later document and resource requests use the cookie; API requests also accept the stored key as a Bearer credential. Authentication precedes browser route lookup, so unauthenticated pages, assets, and data return empty HTTP 401 responses. Browser routes allow only explicit reads and validate their management schemas. Mixed-purpose task control, request routing, and resource operations accept only queue reads, routing reads, and image reads respectively. The browser shares the desktop topology, panels, account cards, conversation list, and task timeline; write controls are disabled. The local management API remains private. Existing MCP/OAuth routes retain their own authentication and authority. Browser presence and preference writes are disabled. The browser forwards the existing status, activity, and quota streams and closes them when the key changes. OpenAI Secure Tunnel remains MCP-only. See [Remote browser](../guides/remote-browser.md).
 
 ```text
-React / Tauri Desktop ── authenticated local management API ── Core
-                                                               ├─ Ingress A ─ HTTPS / OAuth
-CLI / management MCP ── authenticated local management API ─────┤─ Ingress B ─ OpenAI Tunnel
-                                                               └─ Execution
-                                                                   ├─ Control → Codex owner
-                                                                   └─ AgentHost → Pi / ACP
+React / Tauri Desktop ─┐
+CLI / management MCP ──┼─ authenticated local HTTP ─ Front door ─ private IPC ─ Core
+HTTPS / OAuth / relay ─┘                             ├─ listeners              ├─ Control
+                                                    ├─ ingress auth/config    ├─ AgentHost
+                                                    └─ providers / relay      └─ business state
+Detached Codex app-servers and task-hosts ────────────────────────────────────────┘
 ```
 
 React renders in the system WebView. Desktop owns the main window, tray, native panels, permissions, and updates. arc-core provides shared business and runtime capabilities. runtime maintains one file-locked Core per state directory. Local entry points such as Desktop and CLI hold leases. A live Desktop lease keeps Core resident even if its heartbeat is delayed. Different builds cannot share an active owner. Core exits when the final owner releases its lease or is gone. Daemon mode can remain resident independently.
 
 Updater scheduling starts after Core is attached. Desktop reads effective network settings through Core's network operation, including first-launch defaults. Desktop owns one serialized updater pipeline for scheduled checks, manual checks, downloads, and installation. A successful check downloads its offered update while keeping the same operation lock. Overlapping checks join the current result; queued downloads reuse verified bytes. Frontend code never starts an automatic download. Update events and polling carry complete snapshots with increasing revision numbers. The UI rejects older snapshots. Starting a check clears the old offer and progress; check failures expose no stale version. Download failures retain only the current retryable offer and identify the failed stage. Restart discards historical offers and in-memory download readiness. Production-identity packages support updates in both release and debug profiles; the separate development identity cannot install production updates.
 
-service::Service owns one Control, AgentHost, execution::Execution, and ingress collection. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
+service::Service owns one Control, AgentHost and execution::Execution. Its ingress handles are derived dispatch projections. front_door::owner::Gateway owns the live ingress collection and configuration. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
 
-### In-process front-door/Core protocol
+### Front-door process and private Core protocol
 
-`front_door::protocol` defines the private version-1 boundary. `Hello` negotiates the
-version, a UUID-backed `Generation`, readiness and encoded frame limits. `Request`
-carries that generation, a transport `RequestId`, `Deadline`, `AuthenticatedContext`,
-`Operation` and JSON body. Transport IDs correlate frames; public receipt IDs remain
-unchanged in the body. `ResponseFrame` carries the correlated result.
-`StreamFrame` adds a monotonically increasing sequence; a null body is a snapshot
-stream keepalive. `Cancellation` addresses an
-admitted request in one generation. `DrainAck` acknowledges zero admitted requests.
-Incompatible versions, stale generations, expired deadlines and oversized frames
-return explicit `FRONT_DOOR_*` errors internally. Existing public adapters retain
-their HTTP, MCP and CLI error projections.
+`arc front-door` owns the local HTTP endpoint, HTTPS listeners, TLS-facing routing,
+OpenAI Tunnel providers, managed HTTPS providers, relay links, OAuth grants and
+pairing, browser authentication, HTTP/MCP transport state and bounded buffers.
+It constructs no Control, AgentHost, account manager, scheduler or receipt store.
+`arc serve` and `arc daemon` keep `core.lock`, dispatch, receipts, source authority,
+accounts, coordination, scheduling and detached executor adoption. Core shutdown
+closes its private IPC connections and business observers. It leaves the front door,
+listener addresses and provider processes running. Restoring connection intent is
+idempotent for surviving ingress runtimes; explicit ingress restart replaces them.
 
-`front_door::InProcess`, shared by Service and its ingresses through Execution,
-implements the boundary without another process or listener. Admissions are capped
-at 128, including streams, with no replay or waiting request queue. Encoded requests
-are capped at 36 MiB, retaining the existing 35 MiB pet-import HTTP allowance.
-Response and stream frames are capped at 64 MiB. Existing smaller HTTP body limits
-still apply. Ordinary requests and streams retain an absolute 1830-second deadline;
-browser reads use 30 seconds. Each stream channel holds one frame and delivery waits
-at most two seconds for its consumer. Dropping a request releases its future and
-admission; explicit cancellation has the same scope and never stops an Agent turn.
-Drain closes admissions under the admission lock and waits for all permits until
-its supplied deadline. Shutdown closes admissions before stopping existing owners.
+Core first binds its private IPC endpoint, then attaches to the front door. If none
+is running, it copies the installed standalone executable to
+`<state>/front-door-bin/v<protocol>/arc` (`arc.exe` on Windows) and launches its
+`front-door` mode with the existing detached-spawn helper. Unix uses `setsid`.
+Windows uses the existing process-group and job-breakaway launch policy. The copied
+image permits Windows installer file replacement while the front door is running.
+`front-door.lock` admits one owner per state directory. `app/front-door.json`
+publishes its PID, process creation identity, protocol and stable local endpoint.
+`app/native.json` keeps the current Core identity and that same endpoint for existing
+Desktop and CLI clients. No business request automatically launches or replaces Core.
+Desktop leases and the existing headless entry points retain that responsibility.
 
-The transport/auth side owns `transport`'s private local listener, `https`,
-`https_tunnel`, relay forwarding, HTTP/MCP framing, `oauth` grants and pairing, and
-`browser` key/cookie verification. The existing OpenAI tunnel authenticates its
-upstream and enters through the private local listener. Private local authentication
-still verifies loopback peer, Host, Bearer and Origin. `front_door` derives MCP
-source identity from the configured ingress and authenticated credential, including
-the credential anchor and event principal. Headers never supply ingress or source authority. Browser
-contexts carry the verified key digest and server-selected ingress; private
-management contexts represent the authenticated local peer. These contexts cannot
-be deserialized or constructed from public input.
+macOS and Linux use mode-0600 Unix sockets in a mode-0700 directory under
+`/tmp/arc-ipc-<uid>-<state-hash>/`. The hash uses the canonical state path and avoids
+the Unix socket path-length limit. Windows uses per-state named pipes and rejects
+remote clients. Both peers authenticate with the private per-state token before
+context decoding. `Hello` negotiates protocol version, generation, readiness and
+encoded frame bounds. `Request` carries its generation, request ID, deadline,
+server-derived authenticated context, operation and body. Responses correlate the
+request ID and generation. Stream frames add an ordered sequence number. Core
+revalidates current source authority at admission and delivery. A completed response
+is checked against the latest attached Core generation before public delivery.
 
-`core_requests` owns MCP dispatch, tool validation and authorization, local control,
-management operation routing, browser operation restrictions, snapshot observation
-and result projection. Core receives the authenticated context, checks its target
-and current source authority, and retains existing task association and resource
-boundaries in Execution and domain owners. Browser API reads and streams use this
-boundary directly. They no longer forward through the private management HTTP API.
+`front_door::InProcess` is Core's bounded request executor behind the IPC server.
+Admissions, including streams, are capped at 128 without a waiting request queue.
+Encoded requests are capped at 36 MiB and responses at 64 MiB. Existing smaller HTTP
+limits still apply. Ordinary calls and streams retain an absolute 1830-second
+deadline; browser reads use 30 seconds. Each stream channel holds one frame and
+waits at most two seconds for its consumer. Closing a private connection cancels
+only its admitted request future. Explicit cancellation is generation-fenced and
+never cancels an Agent turn. Shutdown closes Core admissions before business teardown.
 
-The source authority cache remains the sole revocation owner. Transport admission,
-Core admission and result/frame delivery consult its current state; source writes
-publish to this same cache. Cached principals and MCP session headers cannot bypass
-revocation. Browser streams recheck the current key and connection every two seconds.
-Every delivered result and stream frame is fenced against the receiving endpoint's
-Core generation, request identity and deadline. A stale result is discarded before
-public serialization. No credential, grant, receipt or transcript store is copied.
-The adapters do not select accounts, dispatch or restart Agents, replay writes, or
-classify turn completion.
+Authentication stays in the existing modules: `oauth`, `browser`, local Host,
+loopback-peer, Bearer and Origin checks, and the official OpenAI Tunnel upstream
+identity. Headers cannot manufacture an ingress or source identity. The front door
+owns grant and ingress mutations. `front_door::authority` forwards source-store
+operations to Core, which remains the single revocation owner. It keeps no source
+authority cache in the front door. When current authority is unavailable, admission
+fails closed. Revoked sources remain rejected after Core reconnects. Core keeps
+operation authorization, task association and resource boundaries in `core_requests`
+and the business owners. The public MCP, notification and CLI envelopes are unchanged.
 
-`runtime::serve_mode` still owns the Core lock, all listeners, provider supervision
-and shutdown. The process placement and detached executor ownership are unchanged.
-The separate socket/pipe peer, surviving listener/provider owner and Core attachment
-lifecycle belong to the subsequent process extraction described in
-[Runtime invariants](runtime-invariants-proposal.md#d3-stable-front-door-replaceable-core-detached-executors).
+A read sent to a lost Core fails explicitly. A sent write returns an uncertain
+outcome with its original request ID and an `act receipt` read action. When an act
+request omits its optional receipt ID, the adapter assigns it before transmission
+so the uncertain response and Core receipt use the same ID. There is no write
+resend, turn-completion inference, account selection or Agent restart in the front
+door. Lost snapshot streams send an explicit error and close. Drain queues and
+subscription reattachment belong to D3c. An unavailable front door reports reduced
+continuity for Core-bound fallback transports; Core does not open a second listener.
+
+Core and front-door children use disjoint `core-children/` and
+`front-door-children/` process indexes. Each lock owner reclaims only its own dead
+predecessor's process trees, checking process creation identity before signalling.
+The detached front door itself never enters the Core index. Uninstall stops Core,
+the front door and its providers, then the detached executor owners.
+
+`arc front-door-prepare` is the install compatibility check. A compatible running
+front door is retained regardless of the installed build ID. An incompatible one
+is stopped through the authenticated lifecycle endpoint; the next Core attachment
+starts the installed protocol image. The local installer runs the candidate's
+check before replacing files. Desktop/CLI Core startup and `arc start` also run
+this check from the installed build. Direct Core attachment refuses an incompatible
+protocol with an actionable error. Platform supervision and front-door self-update
+belong to D3d.
+
+The targeted process fixture uses synthetic providers and isolated state. Run it
+serially from the main checkout after `npm run check:tests`:
+`cargo test --locked -p arc-core --test front_door -- --ignored --test-threads=1`.
+It covers listener/provider identity, new-Core reads, compatible install retention,
+and rejected unauthorized/revoked sources. Real native-turn survival remains a
+separate runtime acceptance step. Fast private-protocol and HTTP authentication
+cases run with `cargo test --locked -p arc-core --lib front_door`.
 
 Core's `resources` module owns process resource policy. It runs at runtime startup and Service initialization, and checks again before each Rpc creates app-server. Desktop, login startup, and Linux daemon share this path. Login items do not maintain separate limits. macOS/Linux attempt to raise the `RLIMIT_NOFILE` soft limit to 8192 while preserving higher soft limits and the original hard limit. macOS also respects `OPEN_MAX` and the read-only `kern.maxfilesperproc`. Global system limits remain unchanged. Each attempt records the original, target, attempted, and measured values and failure reason. Failure or a below-target limit does not stop Core.
 
@@ -305,13 +331,13 @@ Manual notifications, reachability handshakes, and scheduled notifications use t
 
 ## Ingress and authentication
 
-Each ingress owns its lifecycle lock, listener, provider process, temporary directory, URL, verification challenge, logs, and errors. Stop/failure affects only that ingress. Core shuts down ingresses before its AgentHost/Control. All ingresses share project and task space. Ingress names are not authenticated users.
+Each ingress owns its lifecycle lock, listener, provider process, temporary directory, URL, verification challenge, logs, and errors. Stop/failure affects only that ingress. The front door stops ingresses on explicit ingress shutdown or uninstall. Core shutdown closes only its business owners. All ingresses share project and task space. Ingress names are not authenticated users.
 
-A running ingress owns a two-second health supervisor. It probes managed providers and performs cleanup and recovery without UI activity or status requests. Stop, removal, failed startup, and ingress destruction cancel supervision. Status reads report observed provider health and never restart a provider. Cloudflare uses HTTP/2 and its own edge reconnects first. After a previously ready provider remains unavailable, ARC restarts it with 60–300-second backoff; two stable minutes reset consecutive attempts. Lifetime restart count and degradation/recovery timestamps remain available separately. The provider remains an ARC-owned child, so a Core replacement still interrupts the listener and tunnel together. Core-owned providers, MCP stdio servers, authentication helpers, disposable Codex proxies and direct Agent fallbacks publish PID and creation-time indexes under `<state>/core-children/` before their handles are returned. With `core.lock` held, startup reclaims process trees belonging to a dead Core before restoring any provider. A reused PID is never signalled; failed reclamation blocks replacement startup. Detached Codex servers and task-hosts are excluded from this registry. This recovery applies on macOS, Windows and Linux, including detached daemons outside systemd.
+A running ingress owns a two-second health supervisor. It probes managed providers and performs cleanup and recovery without UI activity or status requests. Stop, removal, failed startup, and ingress destruction cancel supervision. Status reads report observed provider health and never restart a provider. Cloudflare uses HTTP/2 and its own edge reconnects first. After a previously ready provider remains unavailable, ARC restarts it with 60–300-second backoff; two stable minutes reset consecutive attempts. Lifetime restart count and degradation/recovery timestamps remain available separately. The provider remains a front-door-owned child across Core replacement. Providers and ingress helpers publish PID and creation-time indexes under `<state>/front-door-children/`. Core-owned MCP stdio servers, authentication helpers, disposable Codex proxies and direct Agent fallbacks use `<state>/core-children/` before their handles are returned. With `core.lock` held, startup reclaims process trees belonging to a dead Core before starting Core-owned children. The front-door lock owner independently recovers its own provider children. A reused PID is never signalled; failed reclamation blocks replacement startup. Detached Codex servers and task-hosts are excluded from this registry. This recovery applies on macOS, Windows and Linux, including detached daemons outside systemd.
 
 HTTPS ingress observations use the retained diagnostic log. Each parsed HTTP request records receipt, MCP dispatch when applicable, response headers, and response completion or cancellation. Locally generated trace and connection IDs correlate phases; a syntactically valid Cloudflare Ray ID is diagnostic metadata, never authentication. Records contain route categories, known operation names, valid UUID request IDs, status, duration, and produced bytes. They exclude URL/query strings, credentials, arguments, and response content. Connection parser errors, header timeouts, and capacity rejection have connection-level records. A dropped response does not prove a client received any output. A missing ingress record alone does not establish an upstream failure.
 
-Each ingress instance exposes request counters in status, including in-flight requests, HTTP errors, body timeouts, dropped responses, and aggregate duration/bytes. Counters reset on Core restart or ingress recreation. Retained events survive Core restart under the existing seven-day/16 MiB log budget. Current errors and historical tunnel errors have separate fields; historical errors retain their observation time after recovery.
+Each ingress instance exposes request counters in status, including in-flight requests, HTTP errors, body timeouts, dropped responses, and aggregate duration/bytes. Counters reset on front-door restart or ingress recreation. Retained events survive Core restart under the existing seven-day/16 MiB log budget. Current errors and historical tunnel errors have separate fields; historical errors retain their observation time after recovery.
 
 OpenAI Tunnel uses official identities and clients. Its stdio adapter forwards to local management using ARC_NATIVE_PORT, ARC_NATIVE_TOKEN, and ARC_INGRESS_ID. Each HTTPS ingress exposes MCP and OAuth routes on its own listener. A tunnel or reverse proxy terminates TLS. Listener creation fixes the ingress. Requests cannot select another ingress through headers or parameters.
 

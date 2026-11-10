@@ -26,7 +26,10 @@ fn stored_key() -> Option<String> {
 pub(crate) fn key_digest() -> Option<String> {
     stored_key().map(hash)
 }
-pub(crate) async fn access(service: &service::Service, rotate: bool) -> Result<Value> {
+pub(crate) async fn access(
+    entries: Vec<Arc<crate::ingress::Ingress>>,
+    rotate: bool,
+) -> Result<Value> {
     static WRITE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = WRITE.lock().await;
     let key = match stored_key().filter(|_| !rotate) {
@@ -42,7 +45,7 @@ pub(crate) async fn access(service: &service::Service, rotate: bool) -> Result<V
         }
     };
     let mut links = Vec::new();
-    for ingress in service.entries().await {
+    for ingress in entries {
         let meta = ingress.meta.lock().await.clone();
         if !matches!(string(&meta, "transport"), "https" | "relay") {
             continue;
