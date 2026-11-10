@@ -20,9 +20,10 @@ const env = { ...buildEnv(), ARC_STATE_DIR: stateDir };
 const devUrl = developmentConfig(env).build.devUrl;
 const binary = path.join(root, 'target/debug', process.platform === 'win32' ? 'agent-remote-control-desktop.exe' : 'agent-remote-control-desktop');
 const lockPath = path.join(stateDir, 'app/dev.json');
-let server, app, build, restoreExecutable, currentInstance, developmentBuild, coreOwner;
+let server, app, build, restoreExecutable, currentInstance, developmentBuild;
 // Only fresh isolated generations receive supervisor shutdown authority.
 const isolatedOwnerId = env.ARC_DEV_INSTANCE_ID ? randomUUID() : undefined;
+const coreOwner = isolatedOwnerId ? { instance: env.ARC_DEV_INSTANCE_ID, id: isolatedOwnerId } : undefined;
 let stopping = false, dirty = true, rebuilding = false, timer;
 let rebuildPromise;
 const watchers = [];
@@ -51,11 +52,10 @@ async function waitForCore() {
 }
 async function stopDevelopment() {
   const endpoint = await readCore(stateDir);
-  if (endpoint && (endpoint.instance === currentInstance || app && endpoint.build === developmentBuild)) await stopCore(endpoint, coreOwner);
+  if (endpoint && (coreOwner || endpoint.instance === currentInstance || app && endpoint.build === developmentBuild)) await stopCore(endpoint, coreOwner);
   if (app?.stdin && !app.stdin.destroyed) app.stdin.end();
   if (app) { await app.done; app = undefined; }
   currentInstance = undefined;
-  coreOwner = undefined;
 }
 async function restoreInstalled() {
   if (!restoreExecutable || await readCore(stateDir)) return;
@@ -121,7 +121,6 @@ async function rebuildGeneration() {
       const endpoint = await waitForCore();
       if (endpoint) {
         currentInstance = endpoint.instance;
-        coreOwner = isolatedOwnerId ? { ...endpoint, id: isolatedOwnerId } : undefined;
         console.log(`Development Core ready (PID ${endpoint.pid}). DEV WEB: ${devUrl}/`);
       }
       const launched = app;

@@ -40,14 +40,12 @@ export async function readCore(stateDirectory) {
 
 // Keep the installed Core's other-client guard and wait for process exit, not just HTTP teardown.
 export async function stopCore(endpoint, owner) {
-  if (owner && (owner.instance !== endpoint.instance || owner.pid !== endpoint.pid || owner.token !== endpoint.token)) {
-    throw new Error('Core ownership changed. No Core was stopped.');
-  }
   const clients = await coreRequest(endpoint, 'runtime/clients');
   if (clients.some(client => client.kind !== 'desktop')) {
     throw new Error('Other local CLI/MCP clients still use Core. Close those clients before starting or restarting dev.');
   }
-  const lease = { id: randomUUID(), kind: 'cli', pid: process.pid };
+  // Core validates the stable isolated identity before any Desktop quit request.
+  const lease = { id: randomUUID(), kind: 'cli', pid: process.pid, ...(owner ? { isolatedOwner: owner } : {}) };
   await coreRequest(endpoint, 'runtime/lease', 'POST', lease);
   const heartbeat = setInterval(() => { void coreRequest(endpoint, 'runtime/lease', 'POST', lease).catch(() => {}); }, 2000);
   let closing = false;

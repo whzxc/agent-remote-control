@@ -83,6 +83,18 @@ impl State {
         let mut leases = self.active();
         match route {
             "runtime/lease" => {
+                if let Some(owner) = body.get("isolatedOwner") {
+                    let matches = |key: &str, field: &str| {
+                        std::env::var(key).is_ok_and(|value| {
+                            !value.is_empty() && owner[field].as_str() == Some(value.as_str())
+                        })
+                    };
+                    if !matches("ARC_DEV_INSTANCE_ID", "instance")
+                        || !matches("ARC_DEV_OWNER_ID", "id")
+                    {
+                        return Err("Core ownership changed. No Core was stopped.".into());
+                    }
+                }
                 if self.closing.load(std::sync::atomic::Ordering::SeqCst) {
                     return Err("core shutting down".into());
                 }

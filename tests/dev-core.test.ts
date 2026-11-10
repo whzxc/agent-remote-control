@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { stopCore } from '../tooling/dev-core.mjs';
 
-test('isolated owner can stop Core after Desktop disappears during quit', async () => {
-  // Regression: supervisor stayed alive with its port after Desktop exited and Core refused the CLI shutdown lease.
-  const endpoint = { instance: 'isolated-instance', pid: 0, port: 12345, token: 'endpoint-token' };
-  const owner = { ...endpoint, id: 'private-startup-identity' };
+test('isolated owner can stop restarted Core after Desktop disappears during quit', async () => {
+  // Regression: supervisor shutdown rejected a restarted isolated Core because its PID and token changed.
+  const initial = { instance: 'core-before-restart', pid: 123, port: 12344, token: 'old-token' };
+  const endpoint = { ...initial, instance: 'core-after-restart', pid: 0, port: 12345, token: 'new-token' };
+  const owner = { instance: 'isolated-instance', id: 'private-startup-identity' };
   let desktop = true;
   let stopped = false;
   const original = globalThis.fetch;
@@ -18,6 +19,9 @@ test('isolated owner can stop Core after Desktop disappears during quit', async 
       return Response.json({ error: 'Desktop is not running' }, { status: 400 });
     }
     if (route === '/api/runtime/lease') {
+      if (body.isolatedOwner?.instance !== owner.instance || body.isolatedOwner?.id !== owner.id) {
+        return Response.json({ error: 'Core ownership changed. No Core was stopped.' }, { status: 403 });
+      }
       assert.notEqual(body.id, owner.id);
       return Response.json({});
     }
@@ -30,7 +34,29 @@ test('isolated owner can stop Core after Desktop disappears during quit', async 
   };
   try {
     await assert.rejects(stopCore(endpoint, { ...owner, instance: 'replacement' }), /ownership changed/);
+    assert.equal(desktop, true);
+    assert.equal(stopped, false);
+    await assert.rejects(stopCore(endpoint, { ...owner, id: 'another-supervisor' }), /ownership changed/);
+    assert.equal(desktop, true);
     await stopCore(endpoint, owner);
     assert.equal(stopped, true);
+  } finally { globalThis.fetch = original; }
+});
+
+test('isolated owner cannot quit the installed Core', async () => {
+  // Regression: following isolated Core restarts must not grant shutdown authority over installed Core.
+  const endpoint = { instance: 'installed-core', pid: 0, port: 12345, token: 'installed-token' };
+  let desktop = true;
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const route = new URL(String(input)).pathname;
+    if (route === '/api/runtime/clients') return Response.json([{ kind: 'desktop' }]);
+    if (route === '/api/runtime/lease') return Response.json({ error: 'Core ownership changed. No Core was stopped.' }, { status: 403 });
+    if (route === '/api/app/quit' || route === '/api/runtime/shutdown') desktop = false;
+    return Response.json({});
+  };
+  try {
+    await assert.rejects(stopCore(endpoint, { instance: 'isolated-instance', id: 'private-startup-identity' }), /ownership changed/);
+    assert.equal(desktop, true);
   } finally { globalThis.fetch = original; }
 });
