@@ -1,16 +1,16 @@
 # Runtime invariants roadmap
 
-Status: proposed; awaiting user review
+Status: approved
 
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
 ## Scope and boundaries
 
-ARC distributes correctness across string-valued lifecycle projections, regression cases and control-source instructions. The proposed direction is correctness by construction: one evidence-aware turn transition function, activity-bounded scheduling, independent ingress and execution lifetimes, and decision-ready Agent surfaces backed by mechanisms. Existing caches, typed coordination events and detached executors are foundations, not replacements for these invariants.
+ARC distributes correctness across string-valued lifecycle projections, regression cases and control-source instructions. The adopted direction is correctness by construction: one evidence-aware turn transition function, activity-bounded scheduling, independent ingress and execution lifetimes, and decision-ready Agent surfaces backed by mechanisms. Existing caches, typed coordination events and detached executors are foundations, not replacements for these invariants.
 
-The user decides before implementation. Each proposed increment below is independently compilable and landable. This proposal changes no runtime contract. The frozen `guide`/`query`/`act` parameter structures, `notification` event and `{op,args}` subscription envelope remain unchanged. CLI JSON envelopes, error contracts and existing wire status strings remain unchanged. Catalog operations can acquire documented projections behind those boundaries.
+Each increment below is independently compilable and landable. The plan preserves existing runtime contracts. The frozen `guide`/`query`/`act` parameter structures, `notification` event and `{op,args}` subscription envelope remain unchanged. CLI JSON envelopes, error contracts and existing wire status strings remain unchanged. Catalog operations can acquire documented projections behind those boundaries.
 
-Agent runtimes retain canonical sessions, transcripts and history indexes in native storage. ARC stores only its operation receipts, associations, coordination state and bounded derived observations. The `poll-cost` lane owns accounts revision recomputation; this roadmap consumes that result. No UI redesign, automatic task resubmission, new Agent authority, release gate or public service is proposed.
+Agent runtimes retain canonical sessions, transcripts and history indexes in native storage. ARC stores only its operation receipts, associations, coordination state and bounded derived observations. The `poll-cost` lane owns accounts revision recomputation; this roadmap consumes that result. The plan excludes UI redesign, automatic task resubmission, new Agent authority, release gates and public services.
 
 ## Current implementation and runtime evidence
 
@@ -71,7 +71,7 @@ Adjacent operation-state sites also belong in the migration boundary: `kernel/re
 
 ### Model
 
-Use an internal `TurnKey { agent, native_session, turn_id }` and a single `advance(previous, evidence) -> Transition`. Only protocol adapters construct native evidence. Proposed types:
+Use an internal `TurnKey { agent, native_session, turn_id }` and a single `advance(previous, evidence) -> Transition`. Only protocol adapters construct native evidence. The lifecycle types are:
 
 ```rust
 enum TurnState { Unconfirmed, Active, AwaitingInteraction, Terminal(TerminalRecord) }
@@ -274,11 +274,11 @@ Assign one actual lane per listed increment through repository tooling only afte
 
 Completion means selected-turn reads and pushes agree, repeated idle work does not grow with history, Core replacement preserves ingress/execution within the documented request boundary, and a control source can decide from bounded digests with explicit quality coverage. These are independent acceptance axes; no one passing counter or unit test substitutes for the others.
 
-## Open decisions for the user
+## Adopted decisions
 
-1. Approve the evidence model, including unconfirmed after owner loss, native confirmation for interrupt, and explicit conflict handling for contradictory terminal records?
-2. Adopt files plus a derived activity index first, with unchanged retention, and defer SQLite until measurements justify moving canonical lifecycle storage?
-3. Adopt the initial front-door contract of bounded drain and explicit uncertain write/readback, plus a reconnecting front-door update, or require in-flight MCP preservation/socket handoff in the first release?
-4. Keep automatic continuation after genuine interruption separate from executor continuity, with no new turn submitted by default?
-5. Approve digest budgets/default overflow projection, advisory dispatch-derived notices/conflicts and computed recommendations with explicit overrides?
-6. Adopt structured found-by metadata and a bounded later-fix correlation window; which window should the quality digest use before it labels an outcome mature?
+1. The evidence model preserves unconfirmed liveness after owner loss. Interrupt requires native confirmation. Contradictory terminal records retain an explicit conflict diagnostic and suppress a new push pending reconciliation.
+2. Files plus a derived activity index are the initial storage design, with unchanged retention. SQLite is deferred until measurements justify moving canonical lifecycle storage.
+3. The initial front-door contract uses bounded drain, explicit uncertain write/readback and a reconnecting front-door update. In-flight MCP preservation and socket handoff are outside the initial contract.
+4. Automatic continuation after genuine interruption remains separate from executor continuity. No new turn is submitted by default.
+5. Digests use 8 KiB and 20-row budgets with the default overflow projection. Dispatch-derived notices and conflicts are advisory. Recommendations are computed and support explicit overrides.
+6. Quality records use structured found-by metadata. Later-fix correlation uses a 14-day maturity window before an outcome is labeled mature.
