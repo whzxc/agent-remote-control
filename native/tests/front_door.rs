@@ -16,6 +16,7 @@ mod unix {
     }
     impl Fixture {
         async fn new() -> Self {
+            arc_core::init_crypto();
             use std::os::unix::fs::PermissionsExt;
             let directory = std::env::temp_dir().join(format!("arc-fd-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(directory.join("home")).unwrap();
