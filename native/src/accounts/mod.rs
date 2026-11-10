@@ -16,32 +16,72 @@ static STORE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn path() -> PathBuf {
     root().join("accounts/index.json")
 }
-fn read() -> Result<Vec<Value>> {
-    crate::runtime_metrics::cost::sync(
-        crate::runtime_metrics::cost::Owner::Accounts,
-        crate::runtime_metrics::cost::Reason::Poll,
-        || {
-            if !path().exists() {
-                return Ok(vec![]);
-            }
-            match load(&path())? {
-                Value::Array(rows) => {
-                    crate::runtime_metrics::cost::scan_set(rows.len());
-                    crate::runtime_metrics::cost::rows(rows.len());
-                    Ok(rows)
-                }
-                _ => Err("ACCOUNTS_INVALID: expected an array".into()),
-            }
-        },
-    )
+/// The index is one file. Stamp each read, but decode and visit rows only when it changes.
+#[derive(Default)]
+struct Index {
+    path: PathBuf,
+    stamp: Option<crate::kernel::file_cache::Stamp>,
+    rows: Arc<Vec<Value>>,
 }
+impl Index {
+    fn read(&mut self, path: &Path) -> Result<Arc<Vec<Value>>> {
+        use crate::runtime_metrics::cost::{self, Owner, Reason};
+        let stamp = crate::kernel::file_cache::Stamp::read(path)?;
+        if self.path == path && self.stamp == stamp {
+            return Ok(self.rows.clone());
+        }
+        cost::sync(Owner::Accounts, Reason::Dirty, || {
+            let rows = if stamp.is_some() {
+                match load(path)? {
+                    Value::Array(rows) => rows,
+                    _ => return Err("ACCOUNTS_INVALID: expected an array".into()),
+                }
+            } else {
+                Vec::new()
+            };
+            cost::scan_set(rows.len());
+            cost::rows(rows.len());
+            let previous: std::collections::HashMap<_, _> = self
+                .rows
+                .iter()
+                .map(|row| (string(row, "id"), row))
+                .collect();
+            let current: std::collections::HashMap<_, _> =
+                rows.iter().map(|row| (string(row, "id"), row)).collect();
+            cost::changed(
+                current
+                    .iter()
+                    .filter(|(id, row)| previous.get(*id) != Some(*row))
+                    .count()
+                    + previous
+                        .keys()
+                        .filter(|id| !current.contains_key(*id))
+                        .count(),
+            );
+            let rows = Arc::new(rows);
+            // A racing replacement must be read again on the next request.
+            if crate::kernel::file_cache::Stamp::read(path)? == stamp {
+                self.path = path.into();
+                self.stamp = stamp;
+                self.rows = rows.clone();
+            }
+            Ok(rows)
+        })
+    }
+}
+pub(crate) fn read() -> Result<Arc<Vec<Value>>> {
+    static INDEX: std::sync::LazyLock<std::sync::Mutex<Index>> =
+        std::sync::LazyLock::new(Default::default);
+    INDEX.lock().map_err(|e| e.to_string())?.read(&path())
+}
+
 fn change<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
     let _scope = crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::Accounts);
     let _lock = STORE.lock().map_err(|e| e.to_string())?;
     change_locked(f)
 }
 fn change_locked<T>(f: impl FnOnce(&mut Vec<Value>) -> Result<T>) -> Result<T> {
-    let mut rows = read()?;
+    let mut rows = read()?.as_ref().clone();
     let before = rows.clone();
     let result = f(&mut rows)?;
     if rows != before {
@@ -466,8 +506,10 @@ pub(crate) fn confirm_source(source: &str, evidence: Value) -> Result<Value> {
 }
 
 pub(crate) fn resolve(reference: &str) -> Result<Value> {
-    let rows = read()?;
-    let canonical = merge::canonical(&rows, reference)?;
+    resolve_rows(&read()?, reference)
+}
+fn resolve_rows(rows: &[Value], reference: &str) -> Result<Value> {
+    let canonical = merge::canonical(rows, reference)?;
     if let Some(row) = rows.iter().find(|a| a["id"] == canonical) {
         let mut row = row.clone();
         row["mergedAccountIds"] = json!(rows
@@ -490,12 +532,16 @@ pub(crate) fn resolve(reference: &str) -> Result<Value> {
         _ => Err("ACCOUNT_ALIAS_AMBIGUOUS: Use an account ID from query accounts".into()),
     }
 }
-pub(crate) fn profile_account(profile: &str) -> Result<Value> {
-    read()?
-        .into_iter()
+pub(crate) fn profile_owner<'a>(rows: &'a [Value], profile: &str) -> Option<&'a Value> {
+    rows.iter()
         .find(|a| live(a) && profiles(a).any(|p| p["profileId"] == profile))
+}
+pub(crate) fn profile_account(profile: &str) -> Result<Value> {
+    profile_owner(&read()?, profile)
+        .cloned()
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND".into())
 }
+
 /// Execution profile evidence wins. Otherwise follow the retried turn, retaining
 /// the last confirmed thread attribution when execution evidence is unavailable.
 pub fn codex_dispatch_account(
@@ -610,7 +656,7 @@ pub(crate) fn select(agent: &str, reference: Option<&str>) -> Result<Value> {
     let row = if let Some(reference) = reference {
         resolve(reference)?
     } else {
-        read()?.into_iter().find(|a| live(a) && profiles(a).any(|p| p["agent"] == agent && p["default"] == true)).ok_or_else(|| json!({"code":"ACCOUNT_DEFAULT_MISSING","message":"Select an account explicitly or set its defaultFor before dispatch.","next":{"via":"query","op":"accounts","args":{"agent":agent}}}).to_string())?
+        read()?.iter().find(|a| live(a) && profiles(a).any(|p| p["agent"] == agent && p["default"] == true)).cloned().ok_or_else(|| json!({"code":"ACCOUNT_DEFAULT_MISSING","message":"Select an account explicitly or set its defaultFor before dispatch.","next":{"via":"query","op":"accounts","args":{"agent":agent}}}).to_string())?
     };
     if !live(&row) {
         return Err("ACCOUNT_REMOVED: Select an active account".into());
@@ -710,9 +756,10 @@ impl Manager {
             return Ok(());
         }
         let observations = claude::observations()?;
+        let accounts = read()?;
         for profile in observations {
             let id = string(&profile, "profileId");
-            if profile_account(id).is_ok() {
+            if profile_owner(&accounts, id).is_some() {
                 let _ = claude::refresh_profile(id).await;
             }
         }
@@ -772,14 +819,15 @@ impl Manager {
     pub async fn query(&self, args: &Value) -> Result<Value> {
         let routes = claude::routing::list()?;
         let mut notifications = crate::claude_notify::account_sessions().await?;
+        let snapshot = read()?;
         for session in &mut notifications {
             if let Some(profile) = session["accountId"].as_str() {
-                if let Ok(account) = profile_account(profile) {
+                if let Some(account) = profile_owner(&snapshot, profile) {
                     session["accountId"] = account["id"].clone();
                 }
             }
         }
-        let mut rows = read()?;
+        let mut rows = snapshot.as_ref().clone();
         let canonical = rows
             .iter()
             .map(|row| {
@@ -845,7 +893,7 @@ impl Manager {
             }
         }
         if let Some(id) = args["id"].as_str() {
-            let id = resolve(id)?["id"].clone();
+            let id = resolve_rows(&snapshot, id)?["id"].clone();
             return rows
                 .into_iter()
                 .find(|a| a["id"] == id)
@@ -1284,16 +1332,16 @@ fn parity_attention(profile: &Value) -> bool {
         )
 }
 
-pub(crate) fn dispatch_accounts(agent: &str) -> Result<Value> {
+pub(crate) fn dispatch_accounts(rows: &[Value], agent: &str) -> Result<Value> {
     let parity = std::cell::OnceCell::new();
-    Ok(json!(read()?.into_iter().map(|mut account| { project_parity(&mut account, &parity); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
+    Ok(json!(rows.iter().cloned().map(|mut account| { project_parity(&mut account, &parity); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
         let profiles: Vec<_> = profiles(&a).filter(|p| p["agent"] == agent).cloned().collect();
         json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quota":a["quota"]})
     }).collect::<Vec<_>>()))
 }
 
 pub(crate) fn notification_accounts() -> Result<Vec<Value>> {
-    Ok(read()?.into_iter().filter(|a| live(a) && profiles(a).any(|p| p["agent"] == "claude")).map(|a| json!({"accountId":a["id"],"alias":a["alias"],"identity":{"email":a["email"],"orgName":a["orgName"]}})).collect())
+    Ok(read()?.iter().filter(|a| live(a) && profiles(a).any(|p| p["agent"] == "claude")).map(|a| json!({"accountId":a["id"],"alias":a["alias"],"identity":{"email":a["email"],"orgName":a["orgName"]}})).collect())
 }
 
 /// Read-time labels preserve the recorded ID, including after account removal or merge.
@@ -1410,7 +1458,8 @@ pub(crate) fn source_rows() -> Result<Vec<Value>> {
     // Reconcile every current source before projecting account inventory.
     crate::sources::list()?;
     Ok(read()?
-        .into_iter()
+        .iter()
         .filter(|a| live(a) && a["sources"].as_array().is_some_and(|s| !s.is_empty()))
+        .cloned()
         .collect())
 }

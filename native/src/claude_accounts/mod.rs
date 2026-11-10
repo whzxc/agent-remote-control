@@ -137,9 +137,10 @@ fn list_accounts() -> Result<Vec<Account>> {
 
 /// Only allowlisted non-secret identity is visible to control sources.
 pub(crate) fn profiles() -> Result<Vec<Value>> {
+    let rows = super::read()?;
     Ok(list_accounts()?
         .into_iter()
-        .filter(|a| crate::accounts::profile_account(&a.id).is_ok())
+        .filter(|a| super::profile_owner(&rows, &a.id).is_some())
         .map(|a| json!({"accountId":a.id,"identity":safe_identity(&a.identity)}))
         .collect())
 }

@@ -766,9 +766,10 @@ pub(crate) async fn query(
     let policies = read()?;
     let mut rows = agents.dispatch_facts(args).await?;
     let snapshot = subscriptions.snapshot().await;
+    let accounts = crate::accounts::read()?;
     for row in &mut rows {
         let agent = string(row, "agent").to_owned();
-        row["accounts"] = crate::accounts::dispatch_accounts(&agent)?;
+        row["accounts"] = crate::accounts::dispatch_accounts(&accounts, &agent)?;
         let providers = snapshot["providers"]
             .as_array()
             .into_iter()

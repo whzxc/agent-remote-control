@@ -83,6 +83,64 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
   } finally { await fixture.close(); }
 });
 
+test('unchanged account reads reuse the index without account cost passes or row scans', async () => {
+  // Regression: ax-28de53a4 visible Desktop account polling rescanned unchanged rows tens of times per second.
+  const fixture = await nativeControl(server);
+  try {
+    const list = await fixture.api('accounts');
+    const account = list.accounts.find((a: any) => a.agentProfiles.some((p: any) => p.agent === 'codex'));
+    await fixture.api(`accounts/${account.id}`);
+    const before = (await fixture.call('runtime_metrics')).cost.accounts;
+    for (let n = 0; n < 6; n++) {
+      assert.equal((await fixture.api(`accounts/${account.id}`)).id, account.id);
+      assert.ok((await fixture.api('accounts')).accounts.some((a: any) => a.id === account.id));
+      await fixture.api('agents/activity');
+    }
+    const after = (await fixture.call('runtime_metrics')).cost.accounts;
+    for (const key of ['passes', 'rowsVisited', 'bytesParsed', 'recordsChanged']) {
+      assert.equal(after[key] - before[key], 0, key);
+    }
+  } finally { await fixture.close(); }
+});
+
+test('account reads observe a replaced index and retain add remove default and quota changes', async () => {
+  // Regression: ax-28de53a4 account index caching must expose changed records on the next UI or op read.
+  const { readFile, writeFile, rename } = await import('node:fs/promises');
+  const fixture = await nativeControl(server);
+  try {
+    let directory = '';
+    await fixture.restart(async state => { directory = state; });
+    const list = await fixture.api('accounts');
+    const account = list.accounts.find((a: any) => a.agentProfiles.some((p: any) => p.agent === 'codex'));
+    await fixture.api(`accounts/${account.id}`);
+    const path = `${directory}/accounts/index.json`;
+    const rows = JSON.parse(await readFile(path, 'utf8'));
+    const changed = rows.find((a: any) => a.id === account.id);
+    changed.alias = 'Changed fixture';
+    changed.agentProfiles.forEach((p: any) => { p.default = false; });
+    changed.quota = { state: 'ready', observedAt: new Date().toISOString(), windows: [{ usedPercent: 73 }] };
+    const extra = { ...changed, id: 'fixture-added', identityKey: 'other:unidentified:fixture-added', agentProfiles: [] };
+    rows.push(extra);
+    const before = (await fixture.call('runtime_metrics')).cost.accounts;
+    await writeFile(`${path}.tmp`, JSON.stringify(rows));
+    await rename(`${path}.tmp`, path);
+    const detail = await fixture.api(`accounts/${account.id}`);
+    assert.equal(detail.alias, changed.alias);
+    assert.ok(detail.agentProfiles.every((p: any) => !p.default));
+    assert.equal(detail.quota.windows[0].usedPercent, 73);
+    const listed = await fixture.call('accounts');
+    assert.ok(listed.accounts.some((a: any) => a.id === extra.id));
+    const after = (await fixture.call('runtime_metrics')).cost.accounts;
+    assert.equal(after.passes - before.passes, 1);
+    assert.equal(after.rowsVisited - before.rowsVisited, rows.length + 1);
+    assert.equal(after.recordsChanged - before.recordsChanged, 2);
+    await writeFile(path, JSON.stringify(rows.filter((a: any) => a.id !== extra.id)));
+    assert.ok(!(await fixture.api('accounts')).accounts.some((a: any) => a.id === extra.id));
+    const quota = await fixture.api('accounts/refresh-quota', { id: account.id });
+    assert.equal(quota.quota.windows[0].usedPercent, 25);
+  } finally { await fixture.close(); }
+});
+
 test('Targeted credential import refuses a different Codex identity', async () => {
   // Regression: replacing credentials from an account card could import a different provider identity.
   const fixture = await nativeControl(server);

@@ -1101,13 +1101,14 @@ async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
     }
     let target = string(&route, "target");
     let candidates = crate::accounts::claude::candidates(target).await?;
+    let accounts = crate::accounts::read()?;
     let visible: Vec<_> = candidates
         .iter()
         .filter(|p| p["visibility"] == "visible")
         .collect();
     let owners: std::collections::HashSet<_> = visible
         .iter()
-        .filter_map(|p| crate::accounts::profile_account(string(p, "accountId")).ok())
+        .filter_map(|p| crate::accounts::profile_owner(&accounts, string(p, "accountId")))
         .map(|a| string(&a, "id").to_owned())
         .collect();
     // Several visible profiles of one provider identity still represent one account.
@@ -1121,8 +1122,8 @@ async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
             candidates
                 .iter()
                 .find(|p| {
-                    crate::accounts::profile_account(string(p, "accountId"))
-                        .is_ok_and(|a| a["id"] == account_id)
+                    crate::accounts::profile_owner(&accounts, string(p, "accountId"))
+                        .is_some_and(|a| a["id"] == account_id)
                 })
                 .map(|p| string(p, "accountId").to_owned())
         })
@@ -1131,7 +1132,9 @@ async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
     };
     let mut candidates = candidates;
     for candidate in &mut candidates {
-        if let Ok(account) = crate::accounts::profile_account(string(candidate, "accountId")) {
+        if let Some(account) =
+            crate::accounts::profile_owner(&accounts, string(candidate, "accountId"))
+        {
             candidate["accountId"] = account["id"].clone();
         }
     }

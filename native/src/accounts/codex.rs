@@ -203,8 +203,9 @@ pub(crate) fn observe_thread(profile: &str, thread: &str) -> Result<()> {
         return Ok(());
     }
     uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
-    let account = super::read()?
-        .into_iter()
+    let snapshot = super::read()?;
+    let account = snapshot
+        .iter()
         .find(|a| super::profiles(a).any(|p| p["profileId"] == profile))
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND")?;
     let path = root().join("execution").join(format!("{thread}.json"));
