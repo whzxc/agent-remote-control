@@ -129,7 +129,14 @@ impl State {
                 Ok(json!({"released":true}))
             }
             "runtime/shutdown" => {
-                if !leases.get(key).is_some_and(|lease| lease.kind == "desktop") {
+                // A fresh isolated supervisor passes its private startup identity only to
+                // its Desktop/Core children. Installed Core has no such authority.
+                let isolated_owner = std::env::var("ARC_DEV_INSTANCE_ID")
+                    .is_ok_and(|instance| !instance.is_empty())
+                    && std::env::var("ARC_DEV_OWNER_ID")
+                        .is_ok_and(|owner| !owner.is_empty() && owner == key);
+                if !isolated_owner && !leases.get(key).is_some_and(|lease| lease.kind == "desktop")
+                {
                     return Err("Only the registered Desktop can stop Core.".into());
                 }
                 self.begin_shutdown();

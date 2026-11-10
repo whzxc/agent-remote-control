@@ -6,7 +6,7 @@ import path from 'node:path';
 import { cpSync, readFileSync, readdirSync, writeFileSync, watch } from 'node:fs';
 import { open, mkdir, readFile, rm } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'vite';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stateDir } from './dev-state.mjs';
@@ -20,7 +20,9 @@ const env = { ...buildEnv(), ARC_STATE_DIR: stateDir };
 const devUrl = developmentConfig(env).build.devUrl;
 const binary = path.join(root, 'target/debug', process.platform === 'win32' ? 'agent-remote-control-desktop.exe' : 'agent-remote-control-desktop');
 const lockPath = path.join(stateDir, 'app/dev.json');
-let server, app, build, restoreExecutable, currentInstance, developmentBuild;
+let server, app, build, restoreExecutable, currentInstance, developmentBuild, coreOwner;
+// Only fresh isolated generations receive supervisor shutdown authority.
+const isolatedOwnerId = env.ARC_DEV_INSTANCE_ID ? randomUUID() : undefined;
 let stopping = false, dirty = true, rebuilding = false, timer;
 let rebuildPromise;
 const watchers = [];
@@ -49,10 +51,11 @@ async function waitForCore() {
 }
 async function stopDevelopment() {
   const endpoint = await readCore(stateDir);
-  if (endpoint && (endpoint.instance === currentInstance || app && endpoint.build === developmentBuild)) await stopCore(endpoint);
+  if (endpoint && (endpoint.instance === currentInstance || app && endpoint.build === developmentBuild)) await stopCore(endpoint, coreOwner);
   if (app?.stdin && !app.stdin.destroyed) app.stdin.end();
   if (app) { await app.done; app = undefined; }
   currentInstance = undefined;
+  coreOwner = undefined;
 }
 async function restoreInstalled() {
   if (!restoreExecutable || await readCore(stateDir)) return;
@@ -104,7 +107,7 @@ async function rebuildGeneration() {
       }
       if (stopping) return;
       if (process.platform === 'darwin') {
-        app = child(process.execPath, ['tooling/macos-dev-app.mjs', binary], { stdio: ['pipe', 'inherit', 'inherit'] });
+        app = child(process.execPath, ['tooling/macos-dev-app.mjs', binary], { env: { ...env, ARC_DEV_OWNER_ID: isolatedOwnerId || '' }, stdio: ['pipe', 'inherit', 'inherit'] });
       } else {
         // Windows locks running executables. Keep Cargo's outputs separate from the running generation.
         const directory = path.join(root, 'target/dev-app', env.ARC_DEV_INSTANCE_ID || 'default');
@@ -113,11 +116,12 @@ async function rebuildGeneration() {
         cpSync(binary, executable);
         cpSync(path.join(root, 'dist/native'), path.join(directory, 'bin'), { recursive: true });
         cpSync(path.join(root, 'skills'), path.join(directory, 'skills'), { recursive: true });
-        app = child(executable, [], { env: { ...env, ARC_DEV_SUPERVISED: '1' }, stdio: ['pipe', 'inherit', 'inherit'] });
+        app = child(executable, [], { env: { ...env, ARC_DEV_SUPERVISED: '1', ARC_DEV_OWNER_ID: isolatedOwnerId || '' }, stdio: ['pipe', 'inherit', 'inherit'] });
       }
       const endpoint = await waitForCore();
       if (endpoint) {
         currentInstance = endpoint.instance;
+        coreOwner = isolatedOwnerId ? { ...endpoint, id: isolatedOwnerId } : undefined;
         console.log(`Development Core ready (PID ${endpoint.pid}). DEV WEB: ${devUrl}/`);
       }
       const launched = app;
@@ -143,9 +147,9 @@ function shutdown() {
     try { await stopDevelopment(); }
     catch (error) {
       console.error(error.message);
-      console.error('Development remains running. Close the other clients, then retry shutdown.');
-      stopping = false; shutdownPromise = undefined;
-      return;
+      console.error('Core cleanup is incomplete. Stop remaining clients and close this instance manually.');
+      process.exitCode = 1;
+      app?.stdin?.end();
     }
     for (const watcher of watchers) watcher.close();
     try { await restoreInstalled(); }

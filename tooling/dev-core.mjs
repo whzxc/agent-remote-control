@@ -39,7 +39,10 @@ export async function readCore(stateDirectory) {
 }
 
 // Keep the installed Core's other-client guard and wait for process exit, not just HTTP teardown.
-export async function stopCore(endpoint) {
+export async function stopCore(endpoint, owner) {
+  if (owner && (owner.instance !== endpoint.instance || owner.pid !== endpoint.pid || owner.token !== endpoint.token)) {
+    throw new Error('Core ownership changed. No Core was stopped.');
+  }
   const clients = await coreRequest(endpoint, 'runtime/clients');
   if (clients.some(client => client.kind !== 'desktop')) {
     throw new Error('Other local CLI/MCP clients still use Core. Close those clients before starting or restarting dev.');
@@ -49,13 +52,18 @@ export async function stopCore(endpoint) {
   const heartbeat = setInterval(() => { void coreRequest(endpoint, 'runtime/lease', 'POST', lease).catch(() => {}); }, 2000);
   let closing = false;
   try {
-    if (clients.some(client => client.kind === 'desktop')) await coreRequest(endpoint, 'app/quit', 'POST', {});
+    if (clients.some(client => client.kind === 'desktop')) {
+      try { await coreRequest(endpoint, 'app/quit', 'POST', {}); }
+      catch (error) {
+        if ((await coreRequest(endpoint, 'runtime/clients')).some(client => client.kind === 'desktop')) throw error;
+      }
+    }
     const deadline = Date.now() + 30000;
     while ((await coreRequest(endpoint, 'runtime/clients')).some(client => client.kind === 'desktop')) {
       if (Date.now() >= deadline) throw new Error('Desktop did not quit. Core was left running.');
       await delay(100);
     }
-    await coreRequest(endpoint, 'runtime/shutdown', 'POST', { id: lease.id });
+    await coreRequest(endpoint, 'runtime/shutdown', 'POST', { id: owner?.id || lease.id });
     closing = true;
     clearInterval(heartbeat);
     while (processAlive(endpoint.pid)) {
