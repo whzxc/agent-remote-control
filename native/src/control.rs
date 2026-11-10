@@ -848,6 +848,11 @@ impl Control {
             &root().join("execution").join(format!("{thread}.json")),
             &json!({"owner":"connector","reason":reason}),
         )?;
+        crate::logs::record(
+            "WARN",
+            &format!("Thread {thread} resumed in ARC app-server after {reason}"),
+            None,
+        );
         Ok(())
     }
     async fn archive_empty_creation(&self, thread: &str) -> Result<Value> {

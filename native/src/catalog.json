@@ -2992,7 +2992,7 @@
     },
     {
       "name": "codex_query",
-      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback.",
+      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification.",
       "inputSchema": {
         "type": "object",
         "properties": {
