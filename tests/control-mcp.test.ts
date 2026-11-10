@@ -1408,6 +1408,11 @@ test('inbox_wait filters unread events before limiting, isolates ingress and coo
   assert.equal(receipt.arcInbox.events, undefined);
   assert.equal(receipt.arcInbox.unchangedEvents, undefined);
   assert.equal(receipt.arcInbox.outputId, undefined);
+  for (const result of [receipt, (await call('guide', {op:'agent_send'})).result,
+    (await call('receipt', {requestId:receipt.requestId})).result]) {
+    assert.deepEqual(Object.keys(result.arcInbox).sort(), ['next', 'unread']);
+    assert.equal(result.arcInbox.next.op, 'inbox_wait');
+  }
   const backlog = await inbox({timeoutMs:100,threadIds:unrelated});
   assert.equal(backlog.unread, unrelated.length);
   const summaryTask=await dispatchFixture('fixture-dispatch-completed');

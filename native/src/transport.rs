@@ -842,11 +842,7 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
         if !value.is_object() {
             value = json!({"value":value});
         }
-        value["arcInbox"] = if matches!(name, "codex_create" | "codex_send" | "agent_create" | "ax_triage") {
-            json!({"unread":inbox["unread"],"next":inbox["next"]})
-        } else {
-            crate::kernel::results::page_output(inbox, 4096)?
-        };
+        value["arcInbox"] = json!({"unread":inbox["unread"],"next":inbox["next"]});
     }
     let mut result = crate::egress::tool(value, error);
     result["content"].as_array_mut().unwrap().extend(images);
