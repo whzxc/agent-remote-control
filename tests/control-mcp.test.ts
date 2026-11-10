@@ -442,6 +442,19 @@ test('mutation receipts remain idempotent across domain and escape hatch, includ
   assert.equal(conflict.result.error.code, 'REQUEST_ID_CONFLICT');
 });
 
+test('receipt reads retain their target when the installed front door injects an outer ID', async () => {
+  // Regression: ax-8011a7fc D3b replaced the receipt target with the front door transport requestId.
+  const original = await completed('fs', { action: 'writeFile', params: { path: '/tmp/receipt-target', dataBase64: '' }, requestId: randomUUID() });
+  const response = await client.callTool({ name: 'act', arguments: { op: 'receipt', requestId: randomUUID(), args: { action: 'read', requestId: original.requestId } } });
+  const read = toolResult(response);
+  assert.equal(read.requestId, original.requestId);
+  assert.equal(read.state, 'completed');
+  assert.deepEqual(read.result, original.result);
+  const local = toolResult(await management('cli/control', 'POST', { op: 'receipt', requestId: randomUUID(), args: { action: 'read', requestId: original.requestId } }));
+  assert.equal(local.requestId, original.requestId);
+  assert.equal(local.state, 'completed');
+});
+
 test('native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive', async () => {
   // Contract: native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive.
   const rpcError = { code: -32042, message: 'native fixture rejection', data: { retryable: false, detail: 'bad argument' } };

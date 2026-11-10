@@ -252,11 +252,24 @@ fn request(
     operation: Operation,
     mut body: Value,
 ) -> Request {
-    let original = body["params"]["arguments"]["requestId"]
-        .as_str()
-        .or_else(|| body["requestId"].as_str());
+    let envelope = match operation {
+        Operation::Mcp => &body["params"]["arguments"],
+        _ => &body,
+    };
+    let receipt_mode = catalog()["ops"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|op| op["name"] == envelope["op"])
+        .is_some_and(|op| crate::egress::retry_contract(op)["mode"] == "receipt");
+    let original = envelope["args"]["requestId"].as_str().or_else(|| {
+        body["params"]["arguments"]["requestId"]
+            .as_str()
+            .or_else(|| body["requestId"].as_str())
+    });
     let request_id = original.map(str::to_owned).unwrap_or_else(id);
-    if matches!(operation, Operation::Mcp)
+    if receipt_mode
+        && matches!(operation, Operation::Mcp)
         && body["method"] == "tools/call"
         && body["params"]["name"] == "act"
         && body["params"]["arguments"].is_object()
@@ -264,7 +277,8 @@ fn request(
     {
         body["params"]["arguments"]["requestId"] = json!(request_id);
     }
-    if matches!(operation, Operation::LocalControl)
+    if receipt_mode
+        && matches!(operation, Operation::LocalControl)
         && body.is_object()
         && body.get("requestId").is_none()
     {
@@ -286,6 +300,16 @@ fn request(
     }
 }
 fn is_write(request: &Request) -> bool {
+    let envelope = match request.operation {
+        Operation::Mcp => &request.body["params"]["arguments"],
+        Operation::LocalControl => &request.body,
+        _ => &Value::Null,
+    };
+    if envelope["op"] == "receipt"
+        && envelope["args"]["action"].as_str().unwrap_or("read") == "read"
+    {
+        return false;
+    }
     match &request.operation {
         Operation::Health | Operation::Snapshot { .. } | Operation::IngressContext { .. } => false,
         Operation::Mcp => {
@@ -933,6 +957,26 @@ mod tests {
             request.body["params"]["arguments"]["requestId"],
             request.id.0
         );
+        for operation in [Operation::Mcp, Operation::LocalControl] {
+            for op in ["receipt", "logs", "codex_account"] {
+                let envelope = json!({"op":op,"args":{"action":"read","requestId":"target"}});
+                let body = if matches!(operation, Operation::Mcp) {
+                    json!({"method":"tools/call","params":{"name":"act","arguments":envelope}})
+                } else {
+                    envelope
+                };
+                let read = super::request(&hello(), management_context(), operation.clone(), body);
+                let sent = if matches!(operation, Operation::Mcp) {
+                    &read.body["params"]["arguments"]
+                } else {
+                    &read.body
+                };
+                assert!(sent.get("requestId").is_none());
+                if op == "receipt" {
+                    assert!(!is_write(&read));
+                }
+            }
+        }
     }
     #[tokio::test]
     async fn private_framing_refuses_an_oversized_length_before_reading_a_body() {

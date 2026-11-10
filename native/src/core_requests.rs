@@ -189,8 +189,13 @@ async fn call_tool_inner(
         if name == "guide" {
             return Ok(crate::egress::guide(&s.origin().await, &args, &crate::i18n::locale(), &enabled_ops(s).await));
         }
-        if let Some(request_id) = envelope.get("requestId") {
-            args["requestId"] = request_id.clone();
+        let accepts_request_id = name == "receipt" || catalog()["ops"].as_array().unwrap().iter()
+            .find(|op| op["name"] == name)
+            .is_some_and(|op| crate::egress::retry_contract(op)["mode"] == "receipt");
+        if accepts_request_id && args.get("requestId").is_none() {
+            if let Some(request_id) = envelope.get("requestId") {
+                args["requestId"] = request_id.clone();
+            }
         }
         if matches!(name, "codex_wait" | "agent_wait" | "inbox_wait") {
             let op = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == name).unwrap();
