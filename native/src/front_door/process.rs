@@ -69,6 +69,66 @@ impl Drop for SocketPath {
 fn info_path() -> PathBuf {
     root().join("app/front-door.json")
 }
+/// Compare the observed front-door image with the build used by the local entry point.
+pub(crate) fn status(installed_build: &str) -> Value {
+    let Ok(info) = load(&info_path()) else {
+        return Value::Null;
+    };
+    json!({"pid":info["pid"],"protocol":info["protocol"],"build":info["build"],"installedBuild":installed_build,"matchesInstalledBuild":info["build"].as_str().map(|build|build == installed_build)})
+}
+
+fn stage_image(source: &Path, images: &Path) -> Result<PathBuf> {
+    let build = crate::runtime::build_id(source)?;
+    let directory = images.join(format!("v{VERSION}")).join(&build);
+    private_dir(&directory)?;
+    let binary = directory.join(if cfg!(windows) { "arc.exe" } else { "arc" });
+    if !binary.exists() {
+        let staging = directory.join(format!("install-{}", id()));
+        let result = (|| {
+            std::fs::copy(source, &staging).map_err(|e| e.to_string())?;
+            if crate::runtime::build_id(&staging)? != build {
+                return Err("FRONT_DOOR_BUILD_CHANGED: The installed executable changed while copying; retry after installation finishes.".into());
+            }
+            std::fs::rename(&staging, &binary).map_err(|e| e.to_string())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_file(staging);
+        }
+        result?;
+    }
+    Ok(binary)
+}
+
+/// Called only by the front-door lock owner after recovering the previous owner's children.
+fn prune_images(images: &Path, build: &str) -> Result<()> {
+    let keep = images.join(format!("v{VERSION}")).join(build);
+    let Ok(protocols) = std::fs::read_dir(images) else {
+        return Ok(());
+    };
+    for protocol in protocols {
+        let protocol = protocol.map_err(|e| e.to_string())?;
+        let path = protocol.path();
+        if path == keep.parent().unwrap() {
+            for entry in std::fs::read_dir(&path).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                if entry.path() == keep {
+                    continue;
+                }
+                if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+                    std::fs::remove_dir_all(entry.path()).map_err(|e| e.to_string())?;
+                } else {
+                    std::fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
+                }
+            }
+        } else if protocol.file_type().map_err(|e| e.to_string())?.is_dir() {
+            std::fs::remove_dir_all(path).map_err(|e| e.to_string())?;
+        } else {
+            std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn ensure_secret() -> Result<String> {
     private_dir(&root().join("app"))?;
     let path = root().join("app/front-door-secret.json");
@@ -493,19 +553,23 @@ async fn serve_connection<S: AsyncRead + AsyncWrite + Unpin>(
         _ => Err("FRONT_DOOR_CONTEXT_MISMATCH".into()),
     }
 }
+#[cfg(unix)]
+fn bind_socket(name: &str, address: &str) -> Result<tokio::net::UnixListener> {
+    use std::os::unix::fs::PermissionsExt;
+    prepare_socket_directory()?;
+    let _ = std::fs::remove_file(address);
+    let listener = tokio::net::UnixListener::bind(address)
+        .map_err(|e| format!("Cannot bind private {name} socket: {e}"))?;
+    std::fs::set_permissions(address, std::fs::Permissions::from_mode(0o600))
+        .map_err(|e| e.to_string())?;
+    Ok(listener)
+}
 async fn listen(name: &str, owner: Owner) -> Result<tokio::task::JoinHandle<()>> {
     let address = endpoint(name);
     #[cfg(unix)]
-    let listener = {
-        use std::os::unix::fs::PermissionsExt;
-        prepare_socket_directory()?;
-        let _ = std::fs::remove_file(&address);
-        let listener = tokio::net::UnixListener::bind(&address)
-            .map_err(|e| format!("Cannot bind private {name} socket: {e}"))?;
-        std::fs::set_permissions(&address, std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| e.to_string())?;
-        listener
-    };
+    let mut listener = bind_socket(name, &address)?;
+    #[cfg(unix)]
+    let name = name.to_owned();
     #[cfg(windows)]
     let mut listener = tokio::net::windows::named_pipe::ServerOptions::new()
         .first_pipe_instance(true)
@@ -515,6 +579,8 @@ async fn listen(name: &str, owner: Owner) -> Result<tokio::task::JoinHandle<()>>
     Ok(tokio::spawn(async move {
         #[cfg(unix)]
         let _socket_path = SocketPath(address.clone());
+        #[cfg(unix)]
+        let mut path_check = tokio::time::interval(Duration::from_secs(5));
         let slots = Arc::new(tokio::sync::Semaphore::new(MAX_IN_FLIGHT));
         let mut connections = tokio::task::JoinSet::new();
         loop {
@@ -530,6 +596,21 @@ async fn listen(name: &str, owner: Owner) -> Result<tokio::task::JoinHandle<()>>
             };
             let stream = tokio::select! {
                 Some(_) = connections.join_next(), if !connections.is_empty() => continue,
+                _ = async {
+                    #[cfg(unix)]
+                    path_check.tick().await;
+                    #[cfg(not(unix))]
+                    std::future::pending::<()>().await;
+                } => {
+                    #[cfg(unix)]
+                    if !Path::new(&address).exists() {
+                        match bind_socket(&name,&address) {
+                            Ok(rebound)=>listener=rebound,
+                            Err(error)=>crate::logs::record("ERROR",&error,None),
+                        }
+                    }
+                    continue;
+                },
                 stream = accepted => match stream {Ok(stream)=>stream,Err(_)=>break},
             };
             let Ok(permit) = slots.clone().try_acquire_owned() else {
@@ -615,21 +696,13 @@ pub(crate) async fn ensure() -> Result<Value> {
     if guard.try_lock().is_err() {
         return Err("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.".into());
     }
-    drop(guard);
     let log = File::options()
         .create(true)
         .append(true)
         .open(root().join("front-door.log"))
         .map_err(|e| e.to_string())?;
     let source = crate::runtime::binary()?;
-    let directory = root().join("front-door-bin").join(format!("v{VERSION}"));
-    private_dir(&directory)?;
-    let binary = directory.join(if cfg!(windows) { "arc.exe" } else { "arc" });
-    if !binary.exists() {
-        let staging = directory.join(format!("install-{}", id()));
-        std::fs::copy(&source, &staging).map_err(|e| e.to_string())?;
-        std::fs::rename(&staging, &binary).map_err(|e| e.to_string())?;
-    }
+    let binary = stage_image(&source, &root().join("front-door-bin"))?;
     let mut command = std::process::Command::new(binary);
     command
         .arg("front-door")
@@ -651,6 +724,7 @@ pub(crate) async fn ensure() -> Result<Value> {
         }
     }
     // Detached launch deliberately bypasses the Core-owned child registry.
+    drop(guard);
     let mut child = crate::codex_host::detached_spawn(&mut command)?;
     let until = Instant::now() + Duration::from_secs(10);
     loop {
@@ -723,12 +797,14 @@ pub async fn run() -> Result<()> {
         return Ok(());
     }
     crate::owned_children::recover_front_door().await?;
+    let build = crate::runtime::process_build_id()?;
+    prune_images(&root().join("front-door-bin"), build)?;
     let gateway = owner::Gateway::new()?;
     let stop = Arc::new(tokio::sync::Notify::new());
     let http = crate::transport::listen_gateway(gateway.clone()).await?;
     save(
         &info_path(),
-        &json!({"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()),"protocol":VERSION,"port":gateway.port.load(Ordering::SeqCst),"token":gateway.token}),
+        &json!({"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()),"protocol":VERSION,"build":build,"port":gateway.port.load(Ordering::SeqCst),"token":gateway.token}),
     )?;
     let private = listen("front-door", Owner::Gateway(gateway.clone(), stop.clone())).await?;
     let listeners = Listeners(vec![private, http]);
@@ -758,6 +834,60 @@ mod tests {
             max_request_bytes: MAX_REQUEST_BYTES,
             max_frame_bytes: MAX_FRAME_BYTES,
         }
+    }
+    #[cfg(unix)]
+    struct ImageFixture {
+        directory: PathBuf,
+        installed: PathBuf,
+        images: PathBuf,
+    }
+    #[cfg(unix)]
+    impl ImageFixture {
+        fn new() -> Self {
+            let directory = std::env::temp_dir().join(format!("arc-image-{}", id()));
+            std::fs::create_dir_all(&directory).unwrap();
+            Self {
+                installed: directory.join("installed"),
+                images: directory.join("images"),
+                directory,
+            }
+        }
+        fn install(&self, build: &str) {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::write(&self.installed, format!("#!/bin/sh\necho '{build}'\n")).unwrap();
+            std::fs::set_permissions(&self.installed, std::fs::Permissions::from_mode(0o700))
+                .unwrap();
+        }
+        fn launch(binary: &Path) -> std::io::Result<String> {
+            let output = std::process::Command::new(binary)
+                .arg("--version")
+                .output()?;
+            assert!(output.status.success());
+            Ok(String::from_utf8(output.stdout).unwrap().trim().to_owned())
+        }
+    }
+    #[cfg(unix)]
+    impl Drop for ImageFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn fresh_front_door_launch_uses_the_installed_build_with_the_same_protocol() {
+        // Regression: 6dc72941 cached the first image for a protocol forever, so installing build B still launched build A.
+        let fixture = ImageFixture::new();
+        fixture.install("build-A");
+        let first = stage_image(&fixture.installed, &fixture.images).unwrap();
+        assert_eq!(ImageFixture::launch(&first).unwrap(), "build-A");
+        fixture.install("build-B");
+        let second = stage_image(&fixture.installed, &fixture.images).unwrap();
+        prune_images(&fixture.images, &crate::runtime::build_id(&second).unwrap()).unwrap();
+        assert_eq!(ImageFixture::launch(&second).unwrap(), "build-B");
+        assert_eq!(
+            ImageFixture::launch(&first).unwrap_err().kind(),
+            std::io::ErrorKind::NotFound
+        );
     }
     #[tokio::test]
     async fn sent_reads_fail_and_sent_writes_retain_the_original_receipt_action() {

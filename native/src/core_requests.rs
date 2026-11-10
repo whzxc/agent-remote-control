@@ -754,7 +754,7 @@ pub(crate) fn handle<'a>(
             }
             (Target::Service(service, _), Operation::Health) if request.context.is_management() => {
                 Ok(
-                    json!({"runtime":"rust","instance":service.control.session,"pid":std::process::id(),"owner":"core","version":env!("ARC_BUILD_VERSION"),"build":load(&root().join("app/native.json"))?["build"]}),
+                    json!({"runtime":"rust","instance":service.control.session,"pid":std::process::id(),"owner":"core","version":env!("ARC_BUILD_VERSION"),"build":load(&root().join("app/native.json"))?["build"],"frontDoor":crate::front_door::process::status(crate::runtime::process_build_id()?)}),
                 )
             }
             (Target::Service(_service, _), Operation::Authority { op })

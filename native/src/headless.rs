@@ -10,9 +10,11 @@ async fn current() -> Result<Option<Value>> {
 pub async fn status() -> Result<Value> {
     match current().await? {
         Some(info) => Ok(
-            json!({"running":true,"pid":info["pid"],"daemon":info["daemon"],"stateDirectory":root(),"version":info["version"]}),
+            json!({"running":true,"pid":info["pid"],"daemon":info["daemon"],"stateDirectory":root(),"version":info["version"],"frontDoor":crate::front_door::process::status(crate::runtime::process_build_id()?)}),
         ),
-        None => Ok(json!({"running":false,"stateDirectory":root()})),
+        None => Ok(
+            json!({"running":false,"stateDirectory":root(),"frontDoor":crate::front_door::process::status(crate::runtime::process_build_id()?)}),
+        ),
     }
 }
 

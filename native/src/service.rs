@@ -232,6 +232,7 @@ impl Service {
         status["core"]["desktop"] = desktop;
         status["core"]["appServer"] = health["appServer"].clone();
         status["core"]["resources"] = health["resources"].clone();
+        status["frontDoor"]=crate::front_door::process::status(crate::runtime::process_build_id()?);
         status["core"]["version"] = json!(env!("ARC_BUILD_VERSION"));
         status["core"]["backendSession"] = json!(self.control.session);
         status["core"]["activeWrites"] = health["activeWrites"].clone();
@@ -526,7 +527,7 @@ impl Service {
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
                 return Ok(
-                    json!({"state":"ready","version":env!("ARC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("app/native.json"))?["build"]}),
+                    json!({"state":"ready","version":env!("ARC_BUILD_VERSION"),"pid":std::process::id(),"instance":self.control.session,"build":load(&root().join("app/native.json"))?["build"],"frontDoor":crate::front_door::process::status(crate::runtime::process_build_id()?)}),
                 )
             }
             ("GET", "preferences") => return Ok(crate::preferences::read()),

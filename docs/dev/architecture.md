@@ -35,19 +35,28 @@ idempotent for surviving ingress runtimes; explicit ingress restart replaces the
 
 Core first binds its private IPC endpoint, then attaches to the front door. If none
 is running, it copies the installed standalone executable to
-`<state>/front-door-bin/v<protocol>/arc` (`arc.exe` on Windows) and launches its
+`<state>/front-door-bin/v<protocol>/<build-id>/arc` (`arc.exe` on Windows) and launches its
 `front-door` mode with the existing detached-spawn helper. Unix uses `setsid`.
 Windows uses the existing process-group and job-breakaway launch policy. The copied
 image permits Windows installer file replacement while the front door is running.
+Every fresh launch selects the installed executable's content build ID, even when
+the protocol is unchanged. After recovering old children, the new front-door lock
+owner removes superseded image copies while retaining its current build.
 `front-door.lock` admits one owner per state directory. `app/front-door.json`
-publishes its PID, process creation identity, protocol and stable local endpoint.
+publishes its PID, process creation identity, protocol, running build ID and stable
+local endpoint. Existing ingress, service, health and headless runtime status include
+`frontDoor.build`, `installedBuild` and `matchesInstalledBuild`. A retained compatible
+front door can therefore report a different build from the current local entry point.
 `app/native.json` keeps the current Core identity and that same endpoint for existing
 Desktop and CLI clients. No business request automatically launches or replaces Core.
 Desktop leases and the existing headless entry points retain that responsibility.
 
 macOS and Linux use mode-0600 Unix sockets in a mode-0700 directory under
 `/tmp/arc-ipc-<uid>-<state-hash>/`. The hash uses the canonical state path and avoids
-the Unix socket path-length limit. Windows uses per-state named pipes and rejects
+the Unix socket path-length limit. Each Unix listener checks its socket path every
+five seconds. If a temporary-file cleaner removes the path or its directory, the
+owner rebinds it without restarting Core, providers or accepted connections.
+Windows uses per-state named pipes and rejects
 remote clients. Both peers authenticate with the private per-state token before
 context decoding. `Hello` negotiates protocol version, generation, readiness and
 encoded frame bounds. `Request` carries its generation, request ID, deadline,
