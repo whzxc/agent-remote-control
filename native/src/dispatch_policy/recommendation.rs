@@ -374,6 +374,10 @@ fn context(row: &Value, pack_name: Option<&str>, pack: &Value) -> Value {
                 .into_iter()
                 .map(|v| v.get("id").cloned().unwrap_or(v))
                 .collect();
+            // Codex lists optional tiers; standard service is implicit for known models.
+            if codex && !tiers.contains(&json!("default")) {
+                tiers.push(json!("default"));
+            }
             let effort_option = option(
                 model,
                 catalog,
@@ -856,6 +860,19 @@ mod tests {
         input["packs"] =
             json!({"codex-only":{"agent":"codex"},"pi-only":{"agent":"pi"},"shared":{}});
         input
+    }
+    #[test]
+    fn standard_tier_selects_model_with_only_optional_native_tiers() {
+        // Regression: a pack with serviceTier default excluded every candidate as capability_unsupported when native tiers listed only priority.
+        let mut input = facts();
+        input["packs"]["review"]["serviceTier"] = json!("default");
+        input["agents"][0]["models"][0]["serviceTiers"] = json!([{"id":"priority","name":"Fast"}]);
+        let result = compute(&input, true);
+        let row = &result["rows"][1];
+        let selected = row["selected"].as_u64().expect("selected candidate") as usize;
+        assert!(row["eligibleCount"].as_u64().unwrap() > 0);
+        assert_eq!(row["candidates"][selected]["model"], "native-b");
+        assert_eq!(row["candidates"][selected]["serviceTier"], "default");
     }
     #[test]
     fn identical_inputs_keep_revisions_order_and_reasons() {
