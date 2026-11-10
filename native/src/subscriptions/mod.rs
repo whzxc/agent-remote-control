@@ -557,9 +557,18 @@ pub(crate) fn codex_dispatch_quota(value: &Value) -> Value {
         vec![]
     };
     json!({"ordinaryUsageAllowed":value["ordinaryUsageAllowed"],"pools":pools.into_iter().map(|(id, pool)| {
-        json!({"id":id,"rateLimitReachedType":pool["rateLimitReachedType"],
-            "spendControlReached":pool["spendControlReached"],"credits":pool["credits"],
-            "primary":pool["primary"],"secondary":pool["secondary"]})
+        let mut projected = json!({"id":id});
+        for key in ["rateLimitReachedType","spendControlReached","credits"] {
+            if !pool[key].is_null() { projected[key] = pool[key].clone(); }
+        }
+        for slot in ["primary","secondary"] {
+            if pool[slot].is_object() {
+                let window = pool[slot].as_object().unwrap();
+                projected[slot] = Value::Object(["usedPercent","windowDurationMins","resetsAt"].into_iter()
+                    .filter_map(|key| window.get(key).filter(|v| !v.is_null()).map(|v| (key.to_owned(),v.clone()))).collect());
+            }
+        }
+        projected
     }).collect::<Vec<_>>()})
 }
 

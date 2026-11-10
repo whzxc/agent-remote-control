@@ -218,41 +218,7 @@ fn diagnostic(
     json!({"agentAccountId":account["id"],"model":model,"reasonCodes":reasons,"unknown":unknown,"quotaAt":account["quota"]["observedAt"]})
 }
 
-fn context(row: &Value, pack_name: Option<&str>, pack: &Value) -> Value {
-    let codex = row["agent"] == "codex";
-    let policy = &row["policy"];
-    let catalog = if codex { row } else { &row["capabilities"] };
-    let models = list(&catalog["models"]);
-    let mut unknown = BTreeSet::new();
-    let mut reasons = BTreeSet::new();
-    if row["availability"]["installed"] != true
-        || row["availability"]["enabled"] != true
-        || row["availability"]["available"] != true
-    {
-        reasons.insert("agent_unavailable");
-    }
-    if catalog["authoritative"] != true || models.is_empty() {
-        reasons.insert("capability_unavailable");
-        unknown.insert("capabilities");
-    }
-    if pack["agent"].as_str().is_some_and(|a| row["agent"] != a) {
-        reasons.insert("pack_agent_mismatch");
-    }
-    let mut preferred_model = preference(pack, policy, "model");
-    if preferred_model.is_null() {
-        let defaults: Vec<_> = models.iter().filter(|m| m["isDefault"] == true).collect();
-        if defaults.len() == 1 {
-            preferred_model = defaults[0]["model"].clone();
-        } else if models.len() == 1 {
-            preferred_model = models[0]["model"].clone();
-        } else {
-            unknown.insert("modelPreference");
-        }
-    }
-    if at(&catalog["observedAt"]).is_none() {
-        reasons.insert("capability_unknown");
-        unknown.insert("capabilities.observedAt");
-    }
+fn effective_accounts(row: &Value) -> Vec<Value> {
     let mut accounts = list(&row["accounts"]);
     // Accounts bound to one provider consume one allowance observation. Prefer the
     // latest evidence; contradictory observations at the same time stay unknown.
@@ -283,6 +249,42 @@ fn context(row: &Value, pack_name: Option<&str>, pack: &Value) -> Value {
             }
         }
     }
+    accounts
+}
+
+fn context(row: &Value, pack_name: Option<&str>, pack: &Value) -> Value {
+    let codex = row["agent"] == "codex";
+    let policy = &row["policy"];
+    let catalog = if codex { row } else { &row["capabilities"] };
+    let models = list(&catalog["models"]);
+    let mut unknown = BTreeSet::new();
+    let mut reasons = BTreeSet::new();
+    if row["availability"]["installed"] != true
+        || row["availability"]["enabled"] != true
+        || row["availability"]["available"] != true
+    {
+        reasons.insert("agent_unavailable");
+    }
+    if catalog["authoritative"] != true || models.is_empty() {
+        reasons.insert("capability_unavailable");
+        unknown.insert("capabilities");
+    }
+    let mut preferred_model = preference(pack, policy, "model");
+    if preferred_model.is_null() {
+        let defaults: Vec<_> = models.iter().filter(|m| m["isDefault"] == true).collect();
+        if defaults.len() == 1 {
+            preferred_model = defaults[0]["model"].clone();
+        } else if models.len() == 1 {
+            preferred_model = models[0]["model"].clone();
+        } else {
+            unknown.insert("modelPreference");
+        }
+    }
+    if at(&catalog["observedAt"]).is_none() {
+        reasons.insert("capability_unknown");
+        unknown.insert("capabilities.observedAt");
+    }
+    let accounts = effective_accounts(row);
     if accounts.is_empty() {
         unknown.insert("accounts");
         reasons.insert("account_unavailable");
@@ -627,6 +629,127 @@ fn context(row: &Value, pack_name: Option<&str>, pack: &Value) -> Value {
         "excluded":excluded,"omittedExclusions":excluded_count.saturating_sub(EXCLUSIONS),"next":next})
 }
 
+fn fields(value: &Value, keys: &[&str]) -> Value {
+    Value::Object(
+        keys.iter()
+            .map(|key| ((*key).to_owned(), value[*key].clone()))
+            .collect(),
+    )
+}
+
+fn quota_inputs(quota: &Value, inventory_at: &Value) -> Value {
+    let mut inputs = fields(
+        quota,
+        &[
+            "state",
+            "source",
+            "ordinaryUsageAllowed",
+            "pools",
+            "windows",
+            "accountBlocked",
+            "blockedPoolIds",
+        ],
+    );
+    let observed = at(&quota["observedAt"]);
+    let windows: Vec<_> = if list(&quota["pools"]).is_empty() {
+        list(&quota["windows"])
+    } else {
+        list(&quota["pools"])
+            .iter()
+            .flat_map(|p| [p["primary"].clone(), p["secondary"].clone()])
+            .filter(Value::is_object)
+            .collect()
+    };
+    // Hash the resulting availability state, never absolute observation times.
+    inputs["observationKnown"] = json!(observed.is_some());
+    inputs["stale"] = json!(at(inventory_at)
+        .zip(observed)
+        .is_some_and(|(now, observed)| now - observed >= 900));
+    inputs["resetRequiresRefresh"] = json!(windows.iter().any(|w| at(&w["resetsAt"])
+        .is_some_and(|reset| observed.is_some_and(|observed| reset <= observed)
+            || at(inventory_at).is_some_and(|now| reset <= now))));
+    inputs
+}
+
+// Observation times describe evidence freshness, not a new allowance or capability.
+// Keep only the policy and native inputs that this computation consumes.
+fn decision_inputs(facts: &Value) -> Value {
+    let agents: Vec<_> = list(&facts["agents"]).iter().map(|row| {
+        let catalog = if row["agent"] == "codex" { row } else { &row["capabilities"] };
+        let accounts: Vec<_> = effective_accounts(row).iter().map(|account| json!({
+            "id":account["id"],"default":account["default"],"health":account["health"]["state"],"healthObservationKnown":!account["observedAt"].is_null(),
+            "quotaProviderId":account["quotaProviderId"],
+            "roles":list(&account["agentProfiles"]).iter().map(|p| p["role"].clone()).collect::<Vec<_>>(),
+            "quota":quota_inputs(&account["quota"], &row["availability"]["observedAt"])
+        })).collect();
+        json!({"agent":row["agent"],
+            "availability":fields(&row["availability"], &["installed","enabled","available"]),
+            "policy":fields(&row["policy"], &["model","effort","serviceTier","serviceTiers","options","allowModels","denyModels","allowEfforts","denyEfforts","allowOptions","denyOptions","accountCreditUse"]),
+            "capabilities":fields(catalog, &["authoritative","models","options","currentModel","optionsForModel","modelSelectionUnavailable"]),
+            "capabilityObservationKnown":at(&catalog["observedAt"]).is_some(),
+            "accounts":accounts,
+            "quota":quota_inputs(&row["quota"], &row["availability"]["observedAt"]),
+            "history":row["history"]["groups"]})
+    }).collect();
+    let packs: BTreeMap<_, _> = facts["packs"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(name, pack)| {
+            (
+                name,
+                fields(
+                    pack,
+                    &["agent", "model", "effort", "serviceTier", "options"],
+                ),
+            )
+        })
+        .collect();
+    json!({"agents":agents,"packs":packs})
+}
+
+fn decision_context(row: &Value) -> Value {
+    let candidate = row["selected"]
+        .as_u64()
+        .and_then(|index| row["candidates"].get(index as usize));
+    let strings = |values: &Value| {
+        list(values)
+            .into_iter()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect::<BTreeSet<String>>()
+    };
+    let mut reasons = strings(&row["reasonCodes"]);
+    let mut unknown = strings(&row["unknown"]);
+    let details = candidate
+        .map(|c| vec![c.clone()])
+        .unwrap_or_else(|| list(&row["excluded"]));
+    for detail in details {
+        reasons.extend(strings(&detail["reasonCodes"]));
+        unknown.extend(strings(&detail["unknown"]));
+    }
+    let next = if candidate.is_some() {
+        Value::Null
+    } else {
+        let actions = list(&row["next"]);
+        let account_read = reasons.iter().any(|r| {
+            r.starts_with("quota_")
+                || r.starts_with("credit")
+                || r.starts_with("account_")
+                || r == "pool_blocked"
+                || r == "spend_control_reached"
+        });
+        actions
+            .iter()
+            .find(|a| account_read && a["op"] == "accounts")
+            .or_else(|| actions.first())
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+    json!({"agent":row["agent"],"pack":row["pack"],
+        "selected":candidate.map(|c| fields(c,&["agentAccountId","model","effort","serviceTier","options","creditUse","notExposed"])),
+        "eligibleCount":row["eligibleCount"],"reasonCodes":reasons,"unknown":unknown,"next":next})
+}
+
 /// Identical structured inputs produce identical revisions, order and reasons.
 /// Model order is native catalog order, never an inferred model-name quality score.
 pub(crate) fn compute(facts: &Value, full: bool) -> Value {
@@ -641,17 +764,25 @@ pub(crate) fn compute(facts: &Value, full: bool) -> Value {
         .collect();
     let revision = hash(json!({"global":facts["criteria"],"agents":criteria}).to_string());
     let mut result = json!({"advisory":true,"judgment":"Prose criteria own risk, task complexity and judgment. Explicit authorized dispatch arguments win; recommendations do not change omitted-field dispatch defaults.",
-        "inputsRevision":{"criteriaHash":revision,"factsRevision":hash(facts.to_string())},"rows":[],"omitted":0});
+        "inputsRevision":{"criteriaHash":revision,"factsRevision":hash(decision_inputs(facts).to_string())},"rows":[],"omitted":0});
     let mut rows = vec![];
     let agents = list(&facts["agents"]);
-    // Always compute the no-pack contexts first, then every pack for each Agent.
+    // No-pack contexts precede each pack applied only to its declared Agents.
     for row in &agents {
         rows.push(context(row, None, &Value::Null));
     }
     for (name, pack) in facts["packs"].as_object().into_iter().flatten() {
         for row in &agents {
-            rows.push(context(row, Some(name), pack));
+            if pack["agent"]
+                .as_str()
+                .is_none_or(|agent| row["agent"] == agent)
+            {
+                rows.push(context(row, Some(name), pack));
+            }
         }
+    }
+    if !full {
+        rows = rows.iter().map(decision_context).collect();
     }
     let budget = if full { FULL_BYTES } else { DECISION_BYTES };
     let total = rows.len();
@@ -705,13 +836,34 @@ mod tests {
                 {"model":"native-b","effort":"high","serviceTier":"default","options":{},"dispatches":100,"durationSamples":100,"medianObservedDurationMs":1}]}
         }]})
     }
+    fn synthetic_installation() -> Value {
+        let mut input = facts();
+        let native = input["agents"][0].clone();
+        for agent in ["pi", "grok", "claude"] {
+            let mut row = native.clone();
+            row["agent"] = json!(agent);
+            row["policy"] =
+                json!({"model":"native-a","options":{"effort":"low","serviceTier":"default"}});
+            row["capabilities"] = json!({"authoritative":true,"observedAt":"2026-01-01T00:00:00Z","models":native["models"]});
+            for model in row["capabilities"]["models"].as_array_mut().unwrap() {
+                model["options"] = json!([{"id":"effort","values":["low","high"]},{"id":"serviceTier","values":["default","priority"]}]);
+            }
+            for account in row["accounts"].as_array_mut().unwrap() {
+                account["id"] = json!(format!("{agent}-{}", string(account, "id")));
+            }
+            input["agents"].as_array_mut().unwrap().push(row);
+        }
+        input["packs"] =
+            json!({"codex-only":{"agent":"codex"},"pi-only":{"agent":"pi"},"shared":{}});
+        input
+    }
     #[test]
     fn identical_inputs_keep_revisions_order_and_reasons() {
-        // Property: identical facts and criteria produce identical candidate order, reasons and input revisions.
+        // Property: observation-only refreshes preserve input revisions, order and reasons while changed allowance values revise facts.
         let input = facts();
-        let first = compute(&input, false);
+        let first = compute(&input, true);
         for _ in 0..4 {
-            assert_eq!(first, compute(&input, false));
+            assert_eq!(first, compute(&input, true));
         }
         let default = &first["rows"][0];
         assert_eq!(default["selected"], 0);
@@ -730,11 +882,54 @@ mod tests {
             let output = super::super::decision::present(projected, &json!({"view":view}));
             assert_eq!(output["recommendation"], recommendation);
         }
+        fn refresh_times(value: &mut Value) {
+            match value {
+                Value::Object(map) => {
+                    for (key, value) in map {
+                        if key == "observedAt" {
+                            *value = json!("2026-01-01T00:01:00Z");
+                        } else {
+                            refresh_times(value);
+                        }
+                    }
+                }
+                Value::Array(values) => values.iter_mut().for_each(refresh_times),
+                _ => {}
+            }
+        }
+        fn without_evidence(value: &mut Value) {
+            match value {
+                Value::Object(map) => {
+                    map.remove("evidence");
+                    map.remove("quotaAt");
+                    map.values_mut().for_each(without_evidence);
+                }
+                Value::Array(values) => values.iter_mut().for_each(without_evidence),
+                _ => {}
+            }
+        }
+        let installation = synthetic_installation();
+        let mut refreshed = installation.clone();
+        refresh_times(&mut refreshed);
+        for full in [false, true] {
+            let mut before = compute(&installation, full);
+            let mut after = compute(&refreshed, full);
+            assert_eq!(before["inputsRevision"], after["inputsRevision"]);
+            without_evidence(&mut before);
+            without_evidence(&mut after);
+            assert_eq!(before, after);
+        }
+        refreshed["agents"][0]["accounts"][0]["quota"]["pools"][0]["primary"]["usedPercent"] =
+            json!(41);
+        assert_ne!(
+            compute(&installation, true)["inputsRevision"]["factsRevision"],
+            compute(&refreshed, true)["inputsRevision"]["factsRevision"]
+        );
         let mut changed = input;
         changed["agents"][0]["policy"]["criteria"] = json!("Changed judgment.");
         assert_ne!(
             first["inputsRevision"],
-            compute(&changed, false)["inputsRevision"]
+            compute(&changed, true)["inputsRevision"]
         );
     }
     #[test]
@@ -743,7 +938,7 @@ mod tests {
         let mut input = facts();
         input["agents"][0]["accounts"][0]["quota"]["state"] = json!("unavailable");
         input["agents"][0]["accounts"][1]["quota"]["state"] = json!("unavailable");
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert!(result["rows"][0]["selected"].is_null());
         assert_eq!(result["rows"][0]["eligibleCount"], 0);
         assert!(contains(
@@ -753,7 +948,7 @@ mod tests {
         assert!(!list(&result["rows"][0]["next"]).is_empty());
         let mut input = facts();
         input["agents"][0]["policy"]["effort"] = json!("unsupported-effort");
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert!(result["rows"][0]["selected"].is_null());
         assert_eq!(result["rows"][0]["eligibleCount"], 0);
         assert!(contains(
@@ -769,7 +964,7 @@ mod tests {
             account["quota"]["ordinaryUsageAllowed"] = json!(false);
         }
         input["agents"][0]["policy"]["criteria"] = json!("Credits are allowed for every account.");
-        let denied = compute(&input, false);
+        let denied = compute(&input, true);
         assert!(denied["rows"][0]["selected"].is_null());
         assert!(contains(
             &denied["rows"][0]["excluded"][0]["unknown"],
@@ -781,14 +976,14 @@ mod tests {
         ));
         input["agents"][0]["policy"]["accountCreditUse"] =
             json!({"account-a":"allowed","account-b":"never"});
-        let allowed = compute(&input, false);
+        let allowed = compute(&input, true);
         assert_eq!(
             allowed["rows"][0]["candidates"][0]["agentAccountId"],
             "account-a"
         );
         assert_eq!(allowed["rows"][0]["selected"], 0);
         input["agents"][0]["accounts"][1]["quota"]["pools"][0]["spendControlReached"] = json!(true);
-        let blocked = compute(&input, false);
+        let blocked = compute(&input, true);
         assert!(blocked["rows"][0]["selected"].is_null());
         assert!(list(&blocked["rows"][0]["excluded"])
             .iter()
@@ -806,19 +1001,19 @@ mod tests {
         account["quotaProviderId"] = json!("provider-one");
         account["quota"]["source"] = json!("subscription");
         account["quota"]["pools"].as_array_mut().unwrap().push(json!({"id":"another","spendControlReached":true,"primary":{"usedPercent":1,"resetsAt":1767312000}}));
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert!(result["rows"][0]["selected"].is_null());
         input["agents"][0]["accounts"][0]["quota"]["pools"]
             .as_array_mut()
             .unwrap()
             .pop();
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert_eq!(
             result["rows"][0]["candidates"][0]["evidence"]["pools"][0]["scope"],
             "provider:provider-one"
         );
         input["agents"][0]["accounts"][0]["quota"]["pools"][0]["primary"]["resetsAt"] = json!(1);
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert!(result["rows"][0]["selected"].is_null());
         assert!(contains(
             &result["rows"][0]["excluded"][0]["unknown"],
@@ -829,7 +1024,7 @@ mod tests {
             account["quotaProviderId"] = json!("provider-one");
             account["quota"]["source"] = json!("subscription");
         }
-        let conflict = compute(&shared, false);
+        let conflict = compute(&shared, true);
         assert!(conflict["rows"][0]["selected"].is_null());
         assert_eq!(conflict["rows"][0]["eligibleCount"], 0);
     }
@@ -837,7 +1032,7 @@ mod tests {
     fn explicit_dispatch_arguments_win_over_pack_policy_and_advisory_choices() {
         // Property: explicit authorized dispatch arguments override pack and policy defaults regardless of the advisory recommendation.
         let input = facts();
-        let recommendation = compute(&input, false);
+        let recommendation = compute(&input, true);
         assert_eq!(
             recommendation["rows"][0]["candidates"][0]["model"],
             "native-a"
@@ -861,7 +1056,7 @@ mod tests {
         let mut input = facts();
         input["agents"][0]["policy"]["serviceTiers"] = json!({"native-a":"priority"});
         input["packs"]["review"]["serviceTier"] = json!("default");
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert_eq!(
             result["rows"][0]["candidates"][0]["serviceTier"],
             "priority"
@@ -877,7 +1072,7 @@ mod tests {
             account["quota"] = json!({"source":"subscription","state":"ready","observedAt":"2026-01-01T00:00:00Z","windows":[{"poolId":"shared","usedPercent":20,"resetsAt":1767312000}]});
             account["quotaProviderId"] = json!("provider-one");
         }
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert_eq!(result["rows"][0]["selected"], 0);
         for candidate in list(&result["rows"][0]["candidates"]) {
             assert_eq!(candidate["effort"], "high");
@@ -892,14 +1087,14 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("options");
-        let missing = compute(&unscoped, false);
+        let missing = compute(&unscoped, true);
         assert!(missing["rows"][0]["selected"].is_null());
         assert!(contains(
             &missing["rows"][0]["unknown"],
             &json!("optionsForModel")
         ));
         input["agents"][0]["capabilities"]["authoritative"] = json!(false);
-        let stale = compute(&input, false);
+        let stale = compute(&input, true);
         assert!(stale["rows"][0]["selected"].is_null());
         assert_eq!(stale["rows"][0]["eligibleCount"], 0);
         assert!(contains(
@@ -924,14 +1119,14 @@ mod tests {
         quota["state"] = json!("ready");
         quota["observedAt"] = json!("2026-01-01T00:00:00Z");
         input["agents"][0]["quota"] = quota;
-        let result = compute(&input, false);
+        let result = compute(&input, true);
         assert_eq!(result["rows"][0]["selected"], 0);
         assert!(contains(
             &result["rows"][0]["candidates"][0]["reasonCodes"],
             &json!("credit_use_allowed")
         ));
         input["agents"][0]["policy"]["model"] = Value::Null;
-        let unknown = compute(&input, false);
+        let unknown = compute(&input, true);
         assert!(unknown["rows"][0]["selected"].is_null());
         assert!(contains(
             &unknown["rows"][0]["unknown"],
@@ -939,18 +1134,87 @@ mod tests {
         ));
     }
     #[test]
+    fn decision_contexts_keep_only_applicable_packs_and_selected_configuration() {
+        // Property: decision contexts retain only selected configurations and applicable Agent packs, with detailed evidence available in full view.
+        let input = synthetic_installation();
+        let decision = compute(&input, false);
+        let full = compute(&input, true);
+        assert_eq!(decision["omitted"], 0);
+        assert_eq!(decision["rows"].as_array().unwrap().len(), 10);
+        for row in list(&decision["rows"]) {
+            if row["pack"] == "codex-only" {
+                assert_eq!(row["agent"], "codex");
+            }
+            if row["pack"] == "pi-only" {
+                assert_eq!(row["agent"], "pi");
+            }
+            let detailed = full["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["agent"] == row["agent"] && r["pack"] == row["pack"])
+                .unwrap();
+            assert_eq!(row["eligibleCount"], detailed["eligibleCount"]);
+            assert_eq!(
+                row["selected"]["agentAccountId"],
+                detailed["candidates"][0]["agentAccountId"]
+            );
+            assert!(row.get("candidates").is_none());
+            assert!(row.get("excluded").is_none());
+            assert!(row["selected"].get("evidence").is_none());
+            assert!(detailed["candidates"][0]["evidence"].is_object());
+        }
+        assert!(decision.to_string().len() <= DECISION_BYTES);
+    }
+    #[test]
     fn decision_budget_retains_valid_json_and_a_full_read() {
         // Property: bounded recommendations disclose omitted contexts and retain an actionable full read.
-        let mut input = facts();
-        for n in 0..15 {
-            input["packs"][format!("pack-{n}")] = json!({"model":"native-a"});
+        let mut input = synthetic_installation();
+        for n in 0..13 {
+            input["packs"][format!("pack-{n}")] = json!({});
         }
         let result = compute(&input, false);
         assert!(result.to_string().len() <= DECISION_BYTES);
         assert!(result["omitted"].as_u64().unwrap() > 0);
         assert_eq!(result["next"]["op"], "dispatch_policy");
-        let full = compute(&input, true);
+        let mut filtered = input.clone();
+        filtered["agents"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|a| a["agent"] == "codex");
+        let full = compute(&filtered, true);
         assert_eq!(full["omitted"], 0);
-        assert_eq!(full["rows"][0], result["rows"][0]);
+        assert!(full.to_string().len() <= FULL_BYTES);
+        assert_eq!(
+            full["rows"][0]["candidates"][0]["agentAccountId"],
+            result["rows"][0]["selected"]["agentAccountId"]
+        );
+    }
+    #[test]
+    fn compact_missing_selection_keeps_actionable_credit_diagnostics() {
+        // Property: a compact missing selection retains credit permission diagnostics and an actionable account read.
+        let mut input = facts();
+        for account in input["agents"][0]["accounts"].as_array_mut().unwrap() {
+            account["quota"]["ordinaryUsageAllowed"] = json!(false);
+        }
+        let result = compute(&input, false);
+        let row = &result["rows"][0];
+        assert!(row["selected"].is_null());
+        assert!(contains(&row["reasonCodes"], &json!("credit_use_unknown")));
+        assert!(contains(&row["unknown"], &json!("creditUse")));
+        assert_eq!(row["next"]["op"], "accounts");
+    }
+    #[test]
+    fn native_pool_projection_retains_compact_allowance_fields() {
+        // Regression: 848f7ea copied extra native window fields and null slots into public quota pool projections.
+        let projected = crate::subscriptions::codex_dispatch_quota(
+            &json!({"ordinaryUsageAllowed":true,"rateLimitsByLimitId":{"shared":{
+            "primary":{"usedPercent":20,"windowDurationMins":300,"resetsAt":1767312000,"extraNativeField":true},
+            "secondary":null,"credits":null,"spendControlReached":false}}}),
+        );
+        assert_eq!(
+            projected,
+            json!({"ordinaryUsageAllowed":true,"pools":[{"id":"shared","primary":{"usedPercent":20,"windowDurationMins":300,"resetsAt":1767312000},"spendControlReached":false}]})
+        );
     }
 }
