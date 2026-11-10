@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const text = 'A fictional task checks the repository, updates the requested behavior, and records the result. ';
@@ -31,7 +31,7 @@ export function retainedBinding(threadId: string, n: number) {
     })),
   };
 }
-export async function writeRetainedState(state: string, receipts = 7832, bindings = 1078, agents = 52) {
+export async function writeRetainedState(state: string, receipts = 7860, bindings = 1080, agents = 52) {
   await Promise.all(['', 'agents/requests', 'notifications/tasks'].map(dir => mkdir(path.join(state, dir, '.activity-index/dirty'), { recursive: true })));
   const ids: string[] = [];
   const totals = { receipts: 0, bindings: 0, agents: 0 };
@@ -42,6 +42,11 @@ export async function writeRetainedState(state: string, receipts = 7832, binding
       if (n < receipts) {
         const id = randomUUID(); ids.push(id);
         const row = retainedReceipt(id, randomUUID());
+        row.task = { kind: 'send', title: 'Fixture task', prompt: text, input: [] };
+        row.arguments = { threadId: row.threadId, input: [], cwd: '/fictional/workspace' };
+        row.result.turn.items = [];
+        // Match the installed receipt corpus: 7860 records, about 16 MB.
+        (row.result as any).payload = 'x'.repeat(2048 - Buffer.byteLength(JSON.stringify(row)));
         // Exercise actual legacy provenance conversion, as well as unchanged records.
         if (n % 8 === 0) delete (row.origin as any).sourceId;
         const bytes = JSON.stringify(row); totals.receipts += Buffer.byteLength(bytes);
@@ -65,4 +70,29 @@ export async function writeRetainedState(state: string, receipts = 7832, binding
     await Promise.all(writes);
   }
   return { ids, totals };
+}
+
+// Observe fixture-owned canonical files without coupling assertions to index layout.
+export async function canonicalSnapshot(state: string) {
+  const files = new Map<string, { bytes: string; mtime: number }>();
+  for (const owner of ['', 'agents/requests', 'notifications/tasks']) {
+    const directory = path.join(state, owner);
+    for (const name of await readdir(directory)) {
+      if (!name.endsWith('.json') || (!owner && !/^[0-9a-f-]{36}\.json$/.test(name))) continue;
+      const file = path.join(directory, name);
+      files.set(file, { bytes: await readFile(file, 'utf8'), mtime: (await stat(file)).mtimeMs });
+    }
+  }
+  return files;
+}
+
+export async function indexPublications(state: string) {
+  const publications: { at: number; profile: any }[] = [];
+  for (const name of await readdir(path.join(state, 'logs'))) {
+    for (const line of (await readFile(path.join(state, 'logs', name), 'utf8')).split('\n').filter(Boolean)) {
+      const row = JSON.parse(line);
+      if (row.msg.startsWith('Index startup ')) publications.push({ at: Date.parse(row.time), profile: JSON.parse(row.msg.slice('Index startup '.length)) });
+    }
+  }
+  return publications;
 }

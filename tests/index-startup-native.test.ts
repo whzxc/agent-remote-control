@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { writeRetainedState } from './helpers/index-state.ts';
+import { canonicalSnapshot, indexPublications, writeRetainedState } from './helpers/index-state.ts';
 
 const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
 const binary = path.join(target, 'debug', process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
@@ -22,7 +22,7 @@ async function start(directory: string) {
   await mkdir(home, { recursive: true });
   const env = { ...process.env, HOME: home, USERPROFILE: home, ARC_STATE_DIR: state, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'), ARC_FIXTURE_INDEX_GATE: path.join(directory, 'index-gate') };
   for (const key of ['ARC_DEV_INSTANCE_ID', 'ARC_DEV_OWNER_ID', 'ARC_DEV_TAKEOVER']) delete env[key];
-  const at = performance.now();
+  const wallAt = Date.now(), at = performance.now();
   const child = spawn(binary, ['runtime'], { env, stdio: ['ignore', 'ignore', 'pipe'] });
   const exited = once(child, 'exit');
   let errors = ''; child.stderr.on('data', bytes => { errors += bytes; });
@@ -43,13 +43,13 @@ async function start(directory: string) {
       const metadata = await json(path.join(state, 'app/native.json'));
       return metadata?.pid === child.pid ? metadata : undefined;
     }, 5000);
-    const request = async (route: string, body?: any) => {
+    const request = async (route: string, body?: any, allowError = false) => {
       const response = await fetch(`http://127.0.0.1:${endpoint.port}/${route}`, {
-        method: body === undefined ? 'GET' : 'POST', signal: AbortSignal.timeout(5000),
+        method: body === undefined ? 'GET' : 'POST', signal: AbortSignal.timeout(20000),
         headers: { authorization: `Bearer ${endpoint.token}`, 'content-type': 'application/json' },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const value = await response.json(); assert.ok(response.ok, JSON.stringify(value)); return value as any;
+      const value = await response.json(); if (!allowError) assert.ok(response.ok, JSON.stringify(value)); return value as any;
     };
     const call = async (op: string, args = {}) => {
       const response = await request('api/cli/control', { op, args });
@@ -68,12 +68,12 @@ async function start(directory: string) {
     await call('runtime_metrics');
     phases.queryMs = performance.now() - at;
     console.log('Core readiness phases:', phases);
-    return { stop, call, request, readinessMs: performance.now() - at };
+    return { stop, call, request, metadataWallAt: wallAt + phases.metadataMs, metadataAt: at + phases.metadataMs, readinessMs: performance.now() - at };
   } catch (error) { await stop(); throw error; }
 }
 
 test('real Core serves health, leases, guide and query before realistic retained-state migration publishes', { timeout: 120000 }, async () => {
-  // Regression: de8da748 still migrated 44 MB of root receipts and dirtied every key before opening the Core listener, exceeding 30 seconds.
+  // Regression: ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-index-runtime-'));
   const state = path.join(directory, 'state');
@@ -86,33 +86,81 @@ test('real Core serves health, leases, guide and query before realistic retained
     assert.ok(core.readinessMs < 5000, `readiness: ${core.readinessMs} ms`);
     const owners = ['notifications/tasks', '', 'agents/requests'];
     for (const owner of owners) assert.equal(await json(path.join(state, owner, '.activity-index/current.json')), undefined, 'Readiness must precede every index publish');
+    const coreMetadataWallAt = core.metadataWallAt;
     const rebuilding = performance.now();
+    const latencies: Record<string, number[]> = { guide: [], unrelated: [], pending: [], published: [] };
+    const pendingCodes: string[] = [];
+    let finished = false;
+    const sample = async (name: string, read: () => Promise<any>) => {
+      const at = performance.now();
+      const result = await read();
+      const elapsed = performance.now() - at;
+      latencies[name].push(elapsed);
+      if (elapsed > 100) console.log(JSON.stringify({ slow: name, startMs: at - rebuilding, elapsedMs: elapsed }));
+      return result;
+    };
+    const pending = async () => {
+      const result = await sample('pending', () => core!.request('api/tasks', undefined, true));
+      pendingCodes.push(JSON.stringify(result));
+    };
+    // Keep requests outstanding throughout actual rebuild and durable publication.
+    const load = async (name: string, read: () => Promise<any>) => {
+      while (!finished) { await sample(name, read); await pause(20); }
+    };
     await rm(path.join(directory, 'index-gate'));
-    for (const owner of owners) {
-      await eventually(() => json(path.join(state, owner, '.activity-index/current.json')));
-      // A published owner is immediately queryable while other owners may still rebuild.
-      if (owner === 'notifications/tasks') await core.call('notify_status', { all: true });
-    }
-    const migrationMs = performance.now() - rebuilding;
+    let codexPublished = false;
+    const pendingRequests = async () => { while (!codexPublished && !finished) { await pending(); await pause(20); } };
+    const requests = [pendingRequests(), load('guide', () => core!.call('guide', { op: 'receipt' })), load('unrelated', () => core!.call('runtime_metrics'))];
+    const publish: Record<string, number> = {};
+    try {
+      const observations = await Promise.allSettled(owners.map(async owner => {
+        await eventually(() => json(path.join(state, owner, '.activity-index/current.json')), 20000);
+        publish[owner || 'codex'] = performance.now() - rebuilding;
+        if (!owner) codexPublished = true;
+        if (owner === 'notifications/tasks') await eventually(async () => {
+          const result = await sample('published', () => core!.request('api/cli/control', { op: 'notify_status', args: { threadId: 'unrelated-fixture-thread' } }));
+          if (result.isError) { assert.ok(JSON.stringify(result).includes('INDEX_NOT_READY')); return undefined; }
+          return true;
+        });
+      }));
+      for (const observation of observations) if (observation.status === 'rejected') throw observation.reason;
+    } finally { finished = true; await Promise.all(requests); }
+    const metrics = await core.call('runtime_metrics');
+    assert.equal((await core.call('receipt', { requestId: fixture.ids[0] })).state, 'completed');
+    console.log(JSON.stringify({ publish, metadataToCodexMs: rebuilding - core.metadataAt + publish.codex, latencies: Object.fromEntries(Object.entries(latencies).map(([key, values]) => [key, { samples: values.length, maxMs: Math.max(...values) }])), pendingErrors: [...new Set(pendingCodes)], seed: { receipts: metrics.cost.receiptSeed, notifications: metrics.cost.notificationSeed } }));
+    // Wait for one real observer pass, then compare every canonical byte and mtime.
+    await eventually(async () => (await core!.call('runtime_metrics')).notificationObserve.totals.completedPasses > 0 ? true : undefined);
+    const publication = (await indexPublications(state)).find(row => row.profile.owner === 'receipts' && row.profile.rows === fixture.ids.length && row.profile.mode === 'rebuild');
+    assert.ok(publication);
+    const receiptReadyAfterMetadataMs = publication.at - coreMetadataWallAt;
+    console.log(JSON.stringify({ receiptReadyAfterMetadataMs, receiptRebuild: publication.profile }));
+    await core.stop(); core = undefined;
+    const before = await canonicalSnapshot(state);
+    core = await start(directory);
+    await eventually(async () => (await core!.call('runtime_metrics')).notificationObserve.totals.completedPasses > 0 ? true : undefined);
+    const adopted = await core.call('runtime_metrics');
     const tasks = await core.request('api/tasks');
     assert.ok(tasks.records.length > 0);
-    assert.ok(migrationMs < 12000, `migration: ${migrationMs} ms`);
-    const metrics = await core.call('runtime_metrics');
-    assert.ok(metrics.cost.receiptSeed.bytesParsed >= fixture.totals.receipts + fixture.totals.agents);
-    assert.ok(metrics.cost.notificationSeed.bytesParsed >= fixture.totals.bindings);
-    assert.equal((await core.call('receipt', { requestId: fixture.ids[0] })).state, 'completed');
-    console.log(JSON.stringify({ readinessMs: core.readinessMs, migrationMs, seed: { receipts: metrics.cost.receiptSeed, notifications: metrics.cost.notificationSeed } }));
+    const reused = await core.call('runtime_metrics');
+    assert.deepEqual(reused.cost.receiptAdopt, adopted.cost.receiptAdopt);
+    assert.equal(reused.cost.receiptProjection.bytesParsed, 0);
     await core.stop(); core = undefined;
-    const restarted = await start(directory); core = restarted;
-    await eventually(async () => {
-      const metrics = await restarted.call('runtime_metrics');
-      return metrics.cost.receiptAdopt.rowsVisited >= 7884 && metrics.cost.notificationAdopt.rowsVisited >= 1078 ? metrics : undefined;
-    });
-    const adopted = await core.call('runtime_metrics');
+    const after = await canonicalSnapshot(state);
+    const rewritten = [...before].filter(([key, value]) => after.get(key)?.mtime !== value.mtime || after.get(key)?.bytes !== value.bytes);
+    console.log(JSON.stringify({ canonicalFiles: before.size, rewritten: rewritten.length, adopt: { receipts: adopted.cost.receiptAdopt, notifications: adopted.cost.notificationAdopt }, receiptSeed: adopted.cost.receiptSeed }));
+    assert.ok(receiptReadyAfterMetadataMs < 5000, `receipt ready after metadata: ${receiptReadyAfterMetadataMs} ms`);
+    for (const [name, values] of Object.entries(latencies)) {
+      assert.ok(values.length > 0, `${name} has concurrent samples`);
+      assert.ok(Math.max(...values) < 200, `${name} max latency: ${Math.max(...values)} ms`);
+    }
+    assert.ok(pendingCodes.some(code => code.includes('INDEX_NOT_READY')));
+    assert.equal(after.size, before.size);
+    assert.equal(rewritten.length, 0, 'Idle restart preserves canonical bytes and mtimes');
+    assert.equal(adopted.cost.receiptAdopt.passes, 1);
+    assert.equal(adopted.cost.receiptAdopt.rowsVisited, fixture.ids.length + 52);
+    assert.ok(adopted.cost.receiptAdopt.bytesRead < fixture.totals.receipts + fixture.totals.agents);
     assert.equal(adopted.cost.receiptSeed.bytesParsed, 0);
     assert.equal(adopted.cost.notificationSeed.bytesParsed, 0);
-    assert.equal((await core.call('receipt', { requestId: fixture.ids[0] })).state, 'completed');
-    console.log(JSON.stringify({ restartReadinessMs: core.readinessMs, adopt: { receipts: adopted.cost.receiptAdopt, notifications: adopted.cost.notificationAdopt } }));
   } finally {
     try {
       await core?.stop();

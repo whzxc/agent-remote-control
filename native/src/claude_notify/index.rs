@@ -837,6 +837,11 @@ pub(super) fn next_delivery(dir: &Path) -> Result<Option<i64>> {
 // Track effective controls, not store mtimes or transport bookkeeping. Owned writes
 // and external readback use this same invalidation path, including writes during sends.
 pub(super) fn controls_changed(dir: &Path, data: Arc<governance::Data>) {
+    // The initial resident receives current controls when scheduling starts.
+    // A control read must not wait for a resident that is still being built.
+    if crate::kernel::derived_index::available(&dir.join("tasks")).is_err() {
+        return;
+    }
     let Ok(mut indexes) = INDEXES.lock() else {
         return;
     };

@@ -192,15 +192,18 @@ fn persist(dir: &Path, b: &Binding) -> Result<()> {
     let _own_write = index::own_write(dir, &path);
     let before = file_cache::Stamp::read(path.parent().unwrap())?;
     let mut cache = BINDINGS.lock().map_err(|e| e.to_string())?;
-    if cache.read(&path).is_ok_and(|old| {
-        let mut candidate = b.clone();
-        candidate.observation["observedAt"] = old.observation["observedAt"].clone();
-        let mut previous = (*old).clone();
-        previous.observation["observedAt"] = old.observation["observedAt"].clone();
-        previous == candidate
-    }) {
-        return Ok(());
+    let mut next = b.clone();
+    if let Ok(old) = cache.read(&path) {
+        // Preserve the durable observation time even when a different binding field
+        // changes. Recovery may write and later restore those fields in one pass.
+        if !observation_changed(&old.observation, &next.observation) {
+            next.observation = old.observation.clone();
+        }
+        if *old == next {
+            return Ok(());
+        }
     }
+    let b = &next;
     crate::kernel::derived_index::change(&path, || {
         save(&path, &serde_json::to_value(b).map_err(|e| e.to_string())?)?;
         Ok(((), Some(index::projection(b)?)))
@@ -2494,8 +2497,7 @@ async fn flush(
 pub(crate) fn initialize_index() -> Result<()> {
     index::initialize(&directory())?;
     index::reschedule_pending(&directory(), &settings()?)?;
-    crate::kernel::receipts::ReceiptStore::new("").seed()?;
-    crate::kernel::receipts::ReceiptStore::new("agents/requests").seed()
+    crate::kernel::receipts::ReceiptStore::initialize_indexes()
 }
 
 pub(crate) async fn migrate() -> Result<()> {
@@ -5485,6 +5487,17 @@ mod tests {
 }
 
 pub(crate) fn push_available(notification: &Value) -> bool {
+    // Most responses carry no push destination. Do not enter notification owners
+    // or probe an Agent executable for guide and unrelated query responses.
+    if notification["reachability"] != "verified"
+        || !matches!(
+            notification["channel"].as_str(),
+            Some("claude-session" | "antigravity-session")
+        )
+        || !notification["target"].is_string()
+    {
+        return false;
+    }
     let (Ok(settings), Ok(state)) = (settings(), State::load(&directory())) else {
         return false;
     };

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::time::{Duration, Instant};
 
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 const BATCH: usize = 64;
 static WRITERS: std::sync::LazyLock<
     std::sync::Mutex<BTreeMap<PathBuf, std::sync::Weak<std::sync::Mutex<()>>>>,
@@ -101,17 +101,33 @@ fn clear(path: &Path) -> Result<()> {
         Err(e) => Err(e.to_string()),
     }
 }
-fn replace(generation: &Path, name: &str, row: Option<&Entry>) -> Result<()> {
-    let path = generation.join(name);
-    if let Some(row) = row {
-        write(&path, row)
+fn shard(name: &str) -> String {
+    format!("{}.json", name.chars().take(2).collect::<String>())
+}
+fn read_shard(generation: &Path, name: &str) -> Result<BTreeMap<String, Entry>> {
+    let path = generation.join(shard(name));
+    if path.exists() {
+        read(&path)
     } else {
-        match std::fs::remove_file(&path) {
-            Ok(()) => sync_dir(generation),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.to_string()),
-        }
+        Ok(BTreeMap::new())
     }
+}
+fn replace(generation: &Path, name: &str, row: Option<&Entry>) -> Result<bool> {
+    let mut rows = read_shard(generation, name)?;
+    let existed = rows.remove(name).is_some();
+    if let Some(row) = row {
+        rows.insert(name.into(), row.clone());
+    }
+    let path = generation.join(shard(name));
+    if rows.is_empty() {
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+            sync_dir(generation)?;
+        }
+    } else {
+        write(&path, &rows)?;
+    }
+    Ok(existed)
 }
 fn commit(path: &Path, row: Option<Value>) -> Result<()> {
     let owner = path.parent().unwrap();
@@ -119,7 +135,6 @@ fn commit(path: &Path, row: Option<Value>) -> Result<()> {
     if let Ok(mut current) = current(owner) {
         let generation = directory(owner).join(&current.generation);
         let name = key(path)?;
-        let existed = generation.join(&name).exists();
         let row = row
             .map(|row| -> Result<Entry> {
                 Ok(Entry {
@@ -128,7 +143,7 @@ fn commit(path: &Path, row: Option<Value>) -> Result<()> {
                 })
             })
             .transpose()?;
-        replace(&generation, &name, row.as_ref())?;
+        let existed = replace(&generation, &name, row.as_ref())?;
         if existed != row.is_some() {
             current.count = if existed {
                 current.count.saturating_sub(1)
@@ -188,10 +203,13 @@ pub(crate) fn update(path: &Path, row: Option<Value>) -> Result<()> {
     }
     if cost::sync(Owner::IndexUpdate, Reason::Dirty, || -> Result<bool> {
         if let Ok(current) = current(path.parent().unwrap()) {
-            let stored = directory(path.parent().unwrap())
-                .join(current.generation)
-                .join(key(path)?);
-            let previous = read::<Entry>(&stored).ok();
+            let name = key(path)?;
+            let previous = read_shard(
+                &directory(path.parent().unwrap()).join(current.generation),
+                &name,
+            )
+            .ok()
+            .and_then(|mut rows| rows.remove(&name));
             if previous.as_ref().map(|entry| &entry.row) == row.as_ref()
                 && previous.as_ref().and_then(|entry| entry.stamp.clone()) == Stamp::read(path)?
             {
@@ -211,7 +229,6 @@ struct Profile {
     read: Duration,
     project: Duration,
     write: Duration,
-    verify: Duration,
 }
 fn canonical(
     path: &Path,
@@ -252,8 +269,9 @@ fn read_rows(generation: &Path) -> Result<BTreeMap<String, Entry>> {
     for item in std::fs::read_dir(generation).map_err(|e| e.to_string())? {
         let path = item.map_err(|e| e.to_string())?.path();
         if path.extension().is_some_and(|v| v == "json") {
-            cost::rows(1);
-            rows.insert(key(&path)?, read(&path)?);
+            let entries: BTreeMap<String, Entry> = read(&path)?;
+            cost::rows(entries.len());
+            rows.extend(entries);
         }
     }
     Ok(rows)
@@ -288,6 +306,7 @@ pub(crate) fn open<T>(
         .map_err(|e| e.to_string())?
         .map(|e| e.map_err(|e| e.to_string()).and_then(|e| key(&e.path())))
         .collect::<Result<Vec<_>>>()?;
+    let had_dirty = !dirty_keys.is_empty();
     let adopting = Instant::now();
     let adopted = cost::sync(adopt_cost, Reason::Startup, || -> Result<_> {
         let current = current(owner)?;
@@ -311,7 +330,6 @@ pub(crate) fn open<T>(
             private_dir(&generation)?;
             let mut entries = std::fs::read_dir(owner).map_err(|e| e.to_string())?;
             let mut rows = BTreeMap::new();
-            let mut hashes = BTreeMap::new();
             loop {
                 let batch = entries
                     .by_ref()
@@ -326,15 +344,7 @@ pub(crate) fn open<T>(
                     if selected(&path) {
                         if let Some(row) = canonical(&path, &project, &mut profile)? {
                             let name = key(&path)?;
-                            let writing = Instant::now();
-                            let bytes = serde_json::to_vec(&row).map_err(|e| e.to_string())?;
-                            // Unpublished derived data is disposable. Only the manifest is
-                            // durable; missing/torn entries after a power loss rebuild.
-                            std::fs::write(generation.join(&name), &bytes)
-                                .map_err(|e| e.to_string())?;
-                            hashes.insert(name.clone(), hash(&bytes));
                             rows.insert(name, row);
-                            profile.write += writing.elapsed();
                         }
                     }
                 }
@@ -346,24 +356,22 @@ pub(crate) fn open<T>(
                     return Err("INTERRUPTED_INDEX_REBUILD".into());
                 }
             }
-            let verifying = Instant::now();
-            // Verify count and bytes without parsing all projected JSON a second time.
-            for (name, expected) in &hashes {
-                let bytes = std::fs::read(generation.join(name)).map_err(|e| e.to_string())?;
-                cost::bytes_read(bytes.len());
-                if hash(&bytes) != *expected {
-                    return Err("DERIVED_INDEX_READBACK_FAILED".into());
-                }
+            // Bound file I/O by key prefixes instead of retained row count. Updates
+            // replace only the selected shard; no whole-owner rewrite is needed.
+            let writing = Instant::now();
+            let mut shards = BTreeMap::<String, BTreeMap<&str, &Entry>>::new();
+            for (name, row) in &rows {
+                shards.entry(shard(name)).or_default().insert(name, row);
             }
-            if std::fs::read_dir(&generation)
-                .map_err(|e| e.to_string())?
-                .count()
-                != rows.len()
-            {
-                return Err("DERIVED_INDEX_READBACK_FAILED".into());
+            for (name, rows) in shards {
+                check_cancelled()?;
+                let bytes = serde_json::to_vec(&rows).map_err(|e| e.to_string())?;
+                // Unpublished derived data is disposable. A torn or missing shard
+                // fails adoption and rebuilds from durable canonical files.
+                std::fs::write(generation.join(name), bytes).map_err(|e| e.to_string())?;
             }
             sync_dir(&generation)?;
-            profile.verify += verifying.elapsed();
+            profile.write += writing.elapsed();
             let current = Current {
                 version: VERSION,
                 generation: generation_id,
@@ -394,22 +402,22 @@ pub(crate) fn open<T>(
         Ok(())
     })?;
     let repair = repairing.elapsed();
-    let cleaning = Instant::now();
-    cleanup(owner, &generation)?;
-    let cleanup = cleaning.elapsed();
     let loading = Instant::now();
     let loaded = install(rows)?;
     let load = loading.elapsed();
     check_cancelled()?;
     let publishing = Instant::now();
-    // Callers hold their resident-index lock through this call and insertion. Readers
-    // checking availability wait on this gate until durable publish and installation
-    // agree. Each owner opens independently of the remaining startup work.
-    let mut preparing = PREPARING.lock().unwrap();
+    // The owner remains unavailable through durable publication and marker cleanup.
+    // Never hold the shared availability gate over filesystem work: other owners
+    // and pending reads must answer without waiting for this owner to publish.
     write(&directory(owner).join("current.json"), &current)?;
     let clearing = Instant::now();
-    for item in std::fs::read_dir(&dirty).map_err(|e| e.to_string())? {
-        std::fs::remove_file(item.map_err(|e| e.to_string())?.path()).map_err(|e| e.to_string())?;
+    if had_dirty {
+        // The new manifest already covers every dirty key. Retire the old marker
+        // tree with one rename and reclaim it after resident installation.
+        std::fs::rename(&dirty, directory(owner).join(format!("retired-{}", id())))
+            .map_err(|e| e.to_string())?;
+        private_dir(&dirty)?;
     }
     sync_dir(&dirty)?;
     let clear_markers = clearing.elapsed();
@@ -419,8 +427,8 @@ pub(crate) fn open<T>(
     }
     sync_dir(&directory(owner))?;
     sync_dir(owner)?;
-    preparing.remove(&super::file_changes::physical(owner));
-    drop(preparing);
+    let physical_owner = super::file_changes::physical(owner);
+    PREPARING.lock().unwrap().remove(&physical_owner);
     let publish = publishing.elapsed();
     crate::logs::record(
         "INFO",
@@ -430,16 +438,33 @@ pub(crate) fn open<T>(
                 "owner": if seed == Owner::NotificationSeed {"notifications"} else {"receipts"},
                 "mode": if rebuilt {"rebuild"} else {"adopt"}, "rows":current.count,
                 "readMs":profile.read.as_millis(), "projectMs":profile.project.as_millis(),
-                "writeMs":profile.write.as_millis(), "verifyMs":profile.verify.as_millis(),
+                "writeMs":profile.write.as_millis(),
                 "repairMs":repair.as_millis(), "loadMs":load.as_millis(),
                 "publishMs":publish.as_millis(), "clearMarkersMs":clear_markers.as_millis(),
-                "cleanupMs":cleanup.as_millis(), "adoptMs":adopt.as_millis(),
+                "adoptMs":adopt.as_millis(),
                 "totalMs":started.elapsed().as_millis()
             })
         ),
         None,
     );
+    if !INITIALIZER.get() {
+        cleanup(owner, &generation)?;
+        cleanup_retired(owner)?;
+    }
     Ok(loaded)
+}
+fn cleanup_retired(owner: &Path) -> Result<()> {
+    for item in std::fs::read_dir(directory(owner)).map_err(|e| e.to_string())? {
+        let item = item.map_err(|e| e.to_string())?;
+        if item
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with("retired-"))
+        {
+            std::fs::remove_dir_all(item.path()).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -487,12 +512,11 @@ static PREPARING: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet
 static CANCELLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 thread_local! { static INITIALIZER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 pub(crate) fn available(owner: &Path) -> Result<()> {
-    if PREPARING
-        .lock()
-        .unwrap()
-        .contains(&super::file_changes::physical(owner))
-        && !INITIALIZER.get()
-    {
+    if INITIALIZER.get() {
+        return Ok(());
+    }
+    let owner = super::file_changes::physical(owner);
+    if PREPARING.lock().unwrap().contains(&owner) {
         return Err(
             "INDEX_NOT_READY: Background index initialization is pending; retry this owner read."
                 .into(),
@@ -501,10 +525,11 @@ pub(crate) fn available(owner: &Path) -> Result<()> {
     Ok(())
 }
 pub(crate) fn prepare(owners: &[PathBuf]) {
-    PREPARING
-        .lock()
-        .unwrap()
-        .extend(owners.iter().map(|p| super::file_changes::physical(p)));
+    let owners: Vec<_> = owners
+        .iter()
+        .map(|p| super::file_changes::physical(p))
+        .collect();
+    PREPARING.lock().unwrap().extend(owners);
     CANCELLED.store(false, std::sync::atomic::Ordering::Relaxed);
 }
 pub(crate) fn background(
@@ -515,6 +540,25 @@ pub(crate) fn background(
     tokio::task::spawn_blocking(move || {
         INITIALIZER.set(true);
         let result = work();
+        // All resident locks have been released before bulk marker reclamation.
+        for owner in owners {
+            if let Ok(current) = current(&owner) {
+                if let Err(error) = cleanup(&owner, &directory(&owner).join(current.generation)) {
+                    crate::logs::record(
+                        "WARN",
+                        &format!("Cannot reclaim obsolete index generation: {error}"),
+                        None,
+                    );
+                }
+            }
+            if let Err(error) = cleanup_retired(&owner) {
+                crate::logs::record(
+                    "WARN",
+                    &format!("Cannot reclaim retired index markers: {error}"),
+                    None,
+                );
+            }
+        }
         INITIALIZER.set(false);
         result
     })

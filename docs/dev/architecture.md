@@ -114,11 +114,13 @@ reuse the same snapshots. A reader behind the journal's coverage rebuilds its
 projection from indexed summaries. Explicit receipt reads retain the ordinary
 JSON cache and return complete payloads.
 
-Both owners use format version 1 in `.activity-index/` inside their canonical
+Both owners use format version 2 in `.activity-index/` inside their canonical
 directories: `notifications/tasks/`, the state root for Codex receipts, and
 `agents/requests/`. `current.json` names a generation and its row count. Each
-canonical filename has one derived JSON entry containing its file stamp and
-projection. Notification entries retain lifecycle, scope and scheduling metadata;
+canonical filename has a derived entry containing its file stamp and projection.
+Entries are grouped by the first two filename characters into JSON shards. A key
+update atomically replaces only its shard. Notification entries retain lifecycle,
+scope and scheduling metadata;
 delivery payload snapshots stay in canonical files. Receipt entries retain the
 existing summary projection. Canonical files remain the authoritative data.
 
@@ -135,14 +137,18 @@ deletes the derived entry together with its canonical binding. No retained snaps
 keeps deleted entries.
 
 A missing, incompatible or corrupt index triggers reconstruction in batches of at
-most 64 canonical paths. Reconstruction writes a fresh generation without per-row fsync, verifies its
-count and content hashes without decoding the projections again, derives the
-resident partitions, and durably publishes `current.json`. Availability and publish
-share a gate while the caller holds the resident-index lock. Each owner becomes
-readable at its publish, independently of other owners. Dirty-marker cleanup syncs
-the directory once per startup instead of once per retained key. Derived generation
-files are disposable: a missing or
-torn file after power loss triggers reconstruction from durable canonical data.
+most 64 canonical paths. Reconstruction groups projections into prefix shards,
+writes a fresh generation without per-row fsync, derives resident partitions, and
+durably publishes `current.json`. Missing, torn or incomplete shards fail adoption
+and rebuild from canonical data. Each owner becomes readable independently after
+its manifest and marker retirement are durable. The shared availability gate holds
+no filesystem work. Receipt residents have separate owner locks.
+
+Startup retires an existing dirty-marker tree with one rename and creates an empty
+replacement. After resident installation releases all owner locks, the same tracked
+startup worker reclaims retired trees and obsolete generations, including leftovers
+from an interrupted startup. Shutdown joins that worker. This cleanup cannot delay
+owner availability.
 The loaded rows derive latest scopes and deadline partitions before observation.
 Interrupted generations are never adopted. Successful adoption or reconstruction
 removes obsolete generations. Versions change when projection semantics or the
@@ -158,19 +164,25 @@ keys. Source history conversion, legacy notification conversion, output pruning,
 index adoption/reconstruction, and execution reattachment run after the listener
 and lease service are ready, under the same Core ownership lock. Reads of a
 preparing owner return `INDEX_NOT_READY`; health, guide and unrelated queries stay
-available. Notification, dispatch and coordination recovery wait for migration.
+available. Responses without a verified push destination skip notification state
+and executable discovery. Control-state reads skip resident synchronization while
+that owner is preparing. Notification, dispatch and coordination recovery wait for
+migration.
 Shutdown cancels history batches and joins initialization before releasing ownership.
 
 `cost.notificationSeed` and `cost.receiptSeed` report canonical rebuild input.
-`cost.notificationAdopt` and `cost.receiptAdopt` report derived entry reads,
-while rebuild byte reads also include hash verification. Normal adoption has zero seed bytes. Changed-key
-crash repair and bounded watcher repair use `cost.indexRepair`. Derived per-key
+`cost.notificationAdopt` and `cost.receiptAdopt` report derived entry reads.
+Receipt adoption groups Codex and Agent stores into one startup pass. Later reads
+reuse residents without reloading persisted shards. Observation timestamps remain
+unchanged until observation evidence changes, including writes to other binding
+fields. Normal adoption has zero seed bytes. Changed-key crash repair and bounded
+watcher repair use `cost.indexRepair`. Derived per-key
 writes use `cost.indexUpdate`, separately from canonical projection reads. `caches.notificationBindings.activityIndex` exposes partition
 sizes, pending bindings, latest resumable scopes, dirty keys and watcher coverage.
 `indexWatches.coverageGaps` counts failed watchers. Counters contain no record keys
 or task content. Content-free `Index startup` logs separate canonical reads,
-projection, derived writes, hash verification, repair, resident loading, publication,
-cleanup and adoption time. Source history migration has its own duration.
+projection, derived writes, repair, resident loading, publication, marker retirement
+and adoption time. Source history migration has its own duration.
 Coordination startup replay still reads retained owners for
 pending transitions using its own uncached path.
 

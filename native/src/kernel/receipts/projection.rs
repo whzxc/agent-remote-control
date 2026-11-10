@@ -19,7 +19,8 @@ struct Index {
     repair_after: Option<PathBuf>,
     repair_directory: Option<std::fs::ReadDir>,
 }
-static INDEXES: std::sync::LazyLock<std::sync::Mutex<HashMap<PathBuf, Index>>> =
+type Resident = Arc<std::sync::Mutex<Option<Index>>>;
+static INDEXES: std::sync::LazyLock<std::sync::Mutex<HashMap<PathBuf, Resident>>> =
     std::sync::LazyLock::new(Default::default);
 fn fields(value: &Value, keys: &[&str]) -> Value {
     Value::Object(
@@ -174,11 +175,17 @@ impl Index {
 fn with<T>(directory: &Path, work: impl FnOnce(&mut Index, &Path) -> Result<T>) -> Result<T> {
     let directory = physical(directory);
     crate::kernel::derived_index::available(&directory)?;
-    let mut indexes = INDEXES.lock().map_err(|e| e.to_string())?;
-    if !indexes.contains_key(&directory) {
-        indexes.insert(directory.clone(), Index::open(&directory)?);
+    let resident = INDEXES
+        .lock()
+        .map_err(|e| e.to_string())?
+        .entry(directory.clone())
+        .or_default()
+        .clone();
+    let mut resident = resident.lock().map_err(|e| e.to_string())?;
+    if resident.is_none() {
+        *resident = Some(Index::open(&directory)?);
     }
-    let index = indexes.get_mut(&directory).unwrap();
+    let index = resident.as_mut().unwrap();
     index.drain(&directory)?;
     work(index, &directory)
 }

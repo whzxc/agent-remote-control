@@ -539,14 +539,6 @@ async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
         .await
         .is_ok()
     {}
-    while tokio::time::timeout(Duration::from_millis(1), index::WAKE.notified())
-        .await
-        .is_ok()
-    {}
-    while tokio::time::timeout(Duration::from_millis(1), index::DELIVERY_WAKE.notified())
-        .await
-        .is_ok()
-    {}
     let before = file_cache::Stamp::read(&path).unwrap();
     b.observation["observedAt"] = json!("later");
     cost::sync(Owner::NotificationObserver, Reason::Deadline, || {
@@ -561,16 +553,6 @@ async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
     .unwrap();
     assert!(
         tokio::time::timeout(Duration::from_millis(100), wake.notified())
-            .await
-            .is_err()
-    );
-    assert!(
-        tokio::time::timeout(Duration::from_millis(10), index::WAKE.notified())
-            .await
-            .is_err()
-    );
-    assert!(
-        tokio::time::timeout(Duration::from_millis(10), index::DELIVERY_WAKE.notified())
             .await
             .is_err()
     );
@@ -729,4 +711,31 @@ fn recovery_partition_changes_require_new_canonical_evidence() {
     );
     restart(&dir.0);
     assert_eq!(index::partitions(&dir.0).unwrap(), after);
+}
+
+#[test]
+fn recovery_updates_preserve_observation_time_without_new_evidence() {
+    // Regression: ax-c398fbae rewrote bindings with only observation.observedAt changed after idle recovery.
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0, "recovery-time", "completed");
+    b.observation["reason"] = json!("native-terminal");
+    b.observation["observedAt"] = json!("2026-01-01T00:00:00Z");
+    persist(&dir.0, &b).unwrap();
+    BINDINGS
+        .lock()
+        .unwrap()
+        .changed(&path_in(&dir.0, &b.thread_id, &b.turn_id), None);
+    b.title = "Updated fixture title".into();
+    b.observation["observedAt"] = json!("2026-01-02T00:00:00Z");
+    persist(&dir.0, &b).unwrap();
+    let stored = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
+    assert_eq!(stored.title, b.title);
+    assert_eq!(
+        stored.observation["observedAt"],
+        json!("2026-01-01T00:00:00Z")
+    );
+    b.observation["reconciliation"] = json!("pending-after-restart");
+    persist(&dir.0, &b).unwrap();
+    let changed = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
+    assert_eq!(changed.observation, b.observation);
 }

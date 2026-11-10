@@ -57,6 +57,14 @@ impl ReceiptStore {
         let path = self.path(&uuid::Uuid::nil().to_string())?;
         projection::seed(path.parent().unwrap())
     }
+    /// Adopt both receipt stores as one startup pass; later reads reuse residents.
+    pub(crate) fn initialize_indexes() -> Result<()> {
+        use crate::runtime_metrics::cost::{self, Owner, Reason};
+        cost::sync(Owner::ReceiptAdopt, Reason::Startup, || {
+            Self::new("").seed()?;
+            Self::new("agents/requests").seed()
+        })
+    }
     /// Derived summaries remain resident independently of full receipt payload sizes.
     pub fn read_for_projection(&self, request: &str, session: &str) -> Result<Value> {
         crate::runtime_metrics::cost::sync(
@@ -671,5 +679,48 @@ mod tests {
             1
         );
         assert_eq!(delta(&before, &after, "taskRecords", "rowsVisited"), 2);
+    }
+    #[test]
+    fn receipt_updates_and_restart_preserve_neighbors_in_the_same_prefix() {
+        // Regression: ax-c398fbae per-receipt index files exceeded the migration budget; grouped updates must retain neighboring receipts.
+        let fixture = Sandbox::new();
+        let mut first = json!({"requestId":"aa000000-0000-4000-8000-000000000001","state":"completed","operation":"send","backendSession":"fixture-session"});
+        let second = json!({"requestId":"aa000000-0000-4000-8000-000000000002","state":"completed","operation":"send","backendSession":"fixture-session"});
+        fixture.store.reserve(&first).unwrap();
+        fixture.store.reserve(&second).unwrap();
+        fixture.store.seed().unwrap();
+        first["state"] = json!("failed");
+        fixture.store.checkpoint(&mut first).unwrap();
+        projection::forget(&fixture.dir);
+        fixture.store.seed().unwrap();
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(string(&first, "requestId"), "fixture-session")
+                .unwrap()["state"],
+            first["state"]
+        );
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(string(&second, "requestId"), "fixture-session")
+                .unwrap()["state"],
+            second["state"]
+        );
+        let path = fixture.store.path(string(&first, "requestId")).unwrap();
+        crate::kernel::derived_index::change(&path, || {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+            Ok(((), None))
+        })
+        .unwrap();
+        projection::forget(&fixture.dir);
+        fixture.store.seed().unwrap();
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(string(&second, "requestId"), "fixture-session")
+                .unwrap()["state"],
+            second["state"]
+        );
     }
 }
