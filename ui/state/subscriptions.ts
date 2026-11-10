@@ -14,11 +14,14 @@ export function platformQuotaForAgent(snapshot: Snapshot | undefined, agent: str
     : undefined;
 }
 const retired = new Set<string>();
-export function acceptSubscriptions(next: Snapshot) {
+export function acceptSubscriptions(next: Snapshot | null | undefined) {
+  // Core can disappear between the request and snapshot publication.
+  if (!next || typeof next.instanceId !== "string" || !Number.isFinite(next.revision)
+    || !next.settings || !Array.isArray(next.providers)) return;
   const old = subscriptions.get().snapshot;
   if (
     retired.has(next.instanceId) ||
-    (old?.instanceId === next.instanceId && old.revision > next.revision)
+    (old && old.instanceId === next.instanceId && old.revision > next.revision)
   )
     return;
   if (old && old.instanceId !== next.instanceId) retired.add(old.instanceId);

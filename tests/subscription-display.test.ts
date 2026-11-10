@@ -49,3 +49,22 @@ test('capsule quota states reflect availability and exhaustion before usage or t
   assert.equal(groupQuotaState({ ...current(0), state: 'stale' }, now), 'unknown');
   assert.equal(groupQuotaState({ ...provider, windows: [] }, now), 'unknown');
 });
+
+test('Core restart gaps preserve the last complete subscription snapshot', async () => {
+  // Regression: Core restart returned partial snapshots and crashed on old.revision or next.providers.map.
+  const { acceptSubscriptions, subscriptions } = await server.ssrLoadModule('/ui/state/subscriptions.ts');
+  acceptSubscriptions(undefined);
+  acceptSubscriptions({});
+  assert.equal(subscriptions.get().snapshot, undefined);
+  const snapshot = { instanceId: 'before-restart', revision: 2, settings: { enabled: true, refreshMinutes: 5, agentProviders: {} }, providers: [provider] };
+  acceptSubscriptions(snapshot);
+  const previous = subscriptions.get().snapshot;
+  for (const next of [undefined, null, {}, { instanceId: 'restarting', revision: 1 }, { ...snapshot, providers: undefined }]) {
+    acceptSubscriptions(next);
+    assert.equal(subscriptions.get().snapshot, previous);
+  }
+  acceptSubscriptions({ ...snapshot, instanceId: 'after-restart', revision: 1 });
+  assert.equal(subscriptions.get().snapshot.instanceId, 'after-restart');
+  acceptSubscriptions(snapshot);
+  assert.equal(subscriptions.get().snapshot.instanceId, 'after-restart');
+});
