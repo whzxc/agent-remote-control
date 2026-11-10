@@ -105,8 +105,9 @@ mod unix {
                 .send()
                 .await
                 .unwrap();
+            let status = response.status();
             let value: Value = response.json().await.unwrap();
-            assert!(value.get("error").is_none(), "{value}");
+            assert!(status.is_success(), "{status}: {value}");
             value
         }
         fn provider_pid(&self) -> u32 {
@@ -117,7 +118,7 @@ mod unix {
                 .unwrap()
         }
         async fn add_provider(&self) {
-            self.management("ingress","POST",json!({"id":"provider","name":"Synthetic provider","controlSource":"custom","transport":"openai-tunnel","auth":"openai","config":{"tunnelId":"synthetic","apiKey":"synthetic","tunnelBinary":self.directory.join("provider")}})).await;
+            self.management("ingress","POST",json!({"id":"provider","name":"Synthetic provider","controlSource":"custom","transport":"openai-tunnel","auth":"openai","config":{"tunnelId":"tunnel_synthetic","apiKey":"synthetic","tunnelBinary":self.directory.join("provider")}})).await;
             self.management("ingress/provider/start", "POST", json!({}))
                 .await;
             let until = Instant::now() + Duration::from_secs(3);
