@@ -782,14 +782,33 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|e| e.to_string())?;
     crate::claude_notify::migrate().await?;
-    // The ownership lock excludes another Core; no listener or observer sees a partial rebuild.
-    tokio::task::spawn_blocking(crate::claude_notify::initialize_index)
-        .await
-        .map_err(|e| e.to_string())??;
     crate::sources::complete_migration().await?;
-    service.agents.reattach().await;
     let listener = crate::transport::listen(service.clone(), None).await?;
-    crate::claude_notify::start(&service);
+    let index_service = service.clone();
+    let rebuild = crate::kernel::derived_index::background(
+        vec![
+            root(),
+            root().join("agents/requests"),
+            root().join("notifications/tasks"),
+        ],
+        crate::claude_notify::initialize_index,
+    );
+    let index_startup = tokio::spawn(async move {
+        match rebuild.await {
+            Ok(Ok(())) if *index_service.control.shutdown.borrow() == 0 => {
+                let mut stopping = index_service.control.shutdown.subscribe();
+                tokio::select! {
+                    _ = stopping.changed() => return,
+                    _ = async { tokio::join!(index_service.agents.reattach(), index_service.control.reattach()); } => {}
+                }
+                crate::claude_notify::start(&index_service)
+            }
+            Ok(Ok(())) => {}
+            result => {
+                crate::logs::record("ERROR", &format!("Index startup failed: {result:?}"), None)
+            }
+        }
+    });
     crate::coordination::messages::start(&service);
     crate::dispatch_queue::start(&service.control);
     let coordination = crate::coordination::observers::start(&service);
@@ -806,7 +825,6 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
                     crate::logs::record("WARN", &format!("MCP hub startup failed: {error}"), None);
                 }
             },
-            startup_service.control.reattach(),
         );
     });
     let monitor_service = Arc::downgrade(&service);
@@ -841,6 +859,9 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
         }
     }
     service.begin_shutdown();
+    service.control.stop_waits();
+    crate::kernel::derived_index::cancel();
+    let _ = index_startup.await;
     coordination.abort();
     let _ = coordination.await;
     startup.abort();

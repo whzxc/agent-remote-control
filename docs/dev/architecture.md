@@ -56,8 +56,13 @@ may exceed the byte budget until expiry so native history reads remain supported
 Serialized weight is not a heap bound; the IPC frame limit remains independent.
 Eviction never deletes native history, changes authorization, or cancels a task.
 
-Notification bindings have a persistent derived activity index adopted before
-observation starts under the Core ownership lock. Per-key updates maintain observing, reconciliation,
+Notification bindings have a persistent derived activity index initialized in a
+background blocking task under the Core ownership lock. Lease/health and guide/query
+serving start independently of initialization. Notification observation waits for
+successful initialization. Reads and writes for a preparing index owner return
+`INDEX_NOT_READY` with retry guidance; unrelated owners remain available. Shutdown
+cancels reconstruction at a batch boundary and joins the worker before releasing
+Core ownership. Per-key updates maintain observing, reconciliation,
 dormant, pending-delivery and retention partitions, and the latest resumable scope
 per source/thread. Ordered deadline queues supply due work. Completed history is
 absent from recurring observation and delivery passes. Native events, selected
@@ -67,7 +72,11 @@ file stamps before reading and validates them after installing evidence watches.
 Historical reads use the read-only app-server; owner discovery is limited to
 active turns, pending interactions and changed evidence.
 
-Producer writes publish changed paths synchronously. Filesystem watches cover
+Producer writes publish changed paths synchronously. Notification watchers suppress
+in-flight own writes and matching published stamps, and exclude derived directories
+and unrelated neighbors. Only semantic delivery changes wake delivery; observation
+output does not requeue its own observer. Top-level observation timestamps and
+receipt update timestamps alone do not rewrite canonical files. Filesystem watches cover
 external writes. Watch failures expose a coverage gap and repair at most 64
 candidates per batch, including directory discovery. Repair has its own cost owner;
 normal ticks never use a full-history repair path.
@@ -123,8 +132,10 @@ deletes the derived entry together with its canonical binding. No retained snaps
 keeps deleted entries.
 
 A missing, incompatible or corrupt index triggers reconstruction in batches of at
-most 64 canonical paths. Reconstruction writes a fresh generation, verifies its
-count and every projected row by readback, and atomically publishes `current.json`.
+most 64 canonical paths. Reconstruction writes a fresh generation without per-row fsync, verifies its
+count and content hashes without decoding the projections again, and durably
+publishes `current.json`. Derived generation files are disposable: a missing or
+torn file after power loss triggers reconstruction from durable canonical data.
 The loaded rows derive latest scopes and deadline partitions before observation.
 Interrupted generations are never adopted. Successful adoption or reconstruction
 removes obsolete generations. Versions change when projection semantics or the
@@ -136,7 +147,7 @@ No SQLite store or additional retention policy is involved.
 
 `cost.notificationSeed` and `cost.receiptSeed` report canonical rebuild input.
 `cost.notificationAdopt` and `cost.receiptAdopt` report derived entry reads,
-including migration readback. Normal adoption has zero seed bytes. Changed-key
+while rebuild byte reads also include hash verification. Normal adoption has zero seed bytes. Changed-key
 crash repair and bounded watcher repair use `cost.indexRepair`. Derived per-key
 writes use `cost.indexUpdate`, separately from canonical projection reads. `caches.notificationBindings.activityIndex` exposes partition
 sizes, pending bindings, latest resumable scopes, dirty keys and watcher coverage.

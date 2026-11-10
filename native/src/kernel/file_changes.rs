@@ -15,9 +15,43 @@ pub(crate) fn physical(path: &Path) -> PathBuf {
 #[derive(Default)]
 struct Pending {
     paths: BTreeSet<PathBuf>,
-    directories: BTreeSet<PathBuf>,
+    files: BTreeSet<PathBuf>,
+    discovery: BTreeSet<PathBuf>,
+    owned: std::collections::HashMap<PathBuf, Option<Option<super::file_cache::Stamp>>>,
     failed: bool,
     wake: Option<Arc<tokio::sync::Notify>>,
+}
+impl Pending {
+    fn accepts(&self, path: &Path) -> bool {
+        if path
+            .components()
+            .any(|part| part.as_os_str() == ".activity-index")
+        {
+            return false;
+        }
+        if let Some(stamp) = self.owned.get(path) {
+            if stamp.is_none()
+                || stamp.as_ref() == Some(&super::file_cache::Stamp::read(path).ok().flatten())
+            {
+                return false;
+            }
+        }
+        self.files.contains(path)
+            || (path.extension().is_some_and(|e| e == "json")
+                && path.parent().is_some_and(|p| self.discovery.contains(p)))
+    }
+}
+pub(crate) struct OwnWrite {
+    path: PathBuf,
+    pending: Arc<std::sync::Mutex<Pending>>,
+}
+impl Drop for OwnWrite {
+    fn drop(&mut self) {
+        self.pending.lock().unwrap().owned.insert(
+            self.path.clone(),
+            Some(super::file_cache::Stamp::read(&self.path).ok().flatten()),
+        );
+    }
 }
 static QUEUES: std::sync::LazyLock<
     std::sync::Mutex<Vec<std::sync::Weak<std::sync::Mutex<Pending>>>>,
@@ -30,10 +64,7 @@ pub(crate) fn changed(path: &Path) {
             return false;
         };
         let mut queue = queue.lock().unwrap();
-        if path
-            .parent()
-            .is_some_and(|parent| queue.directories.contains(parent))
-        {
+        if queue.accepts(&path) {
             queue.paths.insert(path.clone());
             if let Some(wake) = &queue.wake {
                 wake.notify_one();
@@ -62,7 +93,15 @@ impl Default for Watch {
             match event {
                 Ok(event) if !matches!(event.kind, notify::EventKind::Access(_)) => {
                     queue.failed |= event.need_rescan();
-                    queue.paths.extend(event.paths);
+                    let paths: Vec<_> = event
+                        .paths
+                        .into_iter()
+                        .filter(|path| queue.accepts(path))
+                        .collect();
+                    if paths.is_empty() && !queue.failed {
+                        return;
+                    }
+                    queue.paths.extend(paths);
                 }
                 Err(_) => queue.failed = true,
                 _ => return,
@@ -87,22 +126,19 @@ impl Watch {
             return;
         }
         let desired = path.parent().unwrap_or(&path);
-        self.pending
-            .lock()
-            .unwrap()
-            .directories
-            .insert(desired.into());
+        {
+            let mut pending = self.pending.lock().unwrap();
+            pending.files.insert(path.clone());
+            if path.file_name().is_some_and(|name| name == ".index-watch") {
+                pending.discovery.insert(desired.into());
+            }
+        }
         let mut parent = desired;
         while !parent.is_dir() {
             let Some(next) = parent.parent() else { return };
             parent = next;
         }
         self.files.insert(path.clone(), parent.into());
-        self.pending
-            .lock()
-            .unwrap()
-            .directories
-            .insert(parent.into());
         if self.directories.insert(parent.into()) {
             if self.watcher.as_mut().is_none_or(|watcher| {
                 watcher
@@ -122,14 +158,33 @@ impl Watch {
     }
     pub fn remove(&mut self, path: &Path) {
         let path = physical(path);
+        {
+            let mut pending = self.pending.lock().unwrap();
+            pending.files.remove(&path);
+            pending.owned.remove(&path);
+            if path.file_name().is_some_and(|name| name == ".index-watch") {
+                if let Some(parent) = path.parent() {
+                    pending.discovery.remove(parent);
+                }
+            }
+        }
         if let Some(parent) = self.files.remove(&path) {
             if !self.files.values().any(|p| p == &parent) {
                 self.directories.remove(&parent);
-                self.pending.lock().unwrap().directories.remove(&parent);
                 if let Some(watcher) = &mut self.watcher {
                     let _ = watcher.unwatch(&parent);
                 }
             }
+        }
+    }
+    pub fn own_write(&self, path: &Path) -> OwnWrite {
+        let path = physical(path);
+        let mut pending = self.pending.lock().unwrap();
+        pending.owned.insert(path.clone(), None);
+        pending.paths.remove(&path);
+        OwnWrite {
+            path,
+            pending: self.pending.clone(),
         }
     }
     pub fn drain(&self) -> (BTreeSet<PathBuf>, bool) {

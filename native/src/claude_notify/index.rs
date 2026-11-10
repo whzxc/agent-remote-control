@@ -134,6 +134,7 @@ impl Index {
         )?;
         let mut index = Self::default();
         index.watch.add(&dir.join("tasks/.index-watch"));
+        index.watch.add(&dir.join("subscriptions/state.json"));
         for (_, row) in rows {
             let value = row.row;
             let b: Binding = serde_json::from_value(value["binding"].clone())
@@ -247,6 +248,12 @@ impl Index {
             .entry(b.thread_id.clone())
             .or_default()
             .insert(key.clone());
+        let delivery_changed = self.rows.get(&key).is_none_or(|old| {
+            old.binding.deliveries != b.deliveries
+                || old.binding.turn_state() != b.turn_state()
+                || old.binding.source_id != b.source_id
+                || old.binding.target != b.target
+        });
         self.unindex_delivery(&key);
         self.rows.insert(
             key.clone(),
@@ -277,9 +284,11 @@ impl Index {
                     .or_default()
                     .insert(key.clone());
             }
-            self.delivery.set(&key, Some(0));
-            if changed {
-                DELIVERY_WAKE.notify_one();
+            if delivery_changed {
+                self.delivery.set(&key, Some(0));
+                if changed && cost::current() != Some(Owner::NotificationDelivery) {
+                    DELIVERY_WAKE.notify_one();
+                }
             }
         } else {
             self.pending.remove(&key);
@@ -300,7 +309,10 @@ impl Index {
         }
         self.watch_base(&key);
         self.watch_paths(&key, routing::paths(dir, &self.rows[&key].binding));
-        if changed {
+        if changed
+            && cost::current() != Some(Owner::NotificationObserver)
+            && cost::current() != Some(Owner::NotificationDelivery)
+        {
             WAKE.notify_one();
         }
     }
@@ -451,6 +463,11 @@ impl Index {
         let (paths, failed) = self.watch.drain();
         self.coverage_gap = failed;
         for path in paths {
+            if path == physical(&dir.join("subscriptions/state.json")) {
+                for key in self.pending.clone() {
+                    self.wake_delivery(&key);
+                }
+            }
             if path.parent() == Some(physical(&dir.join("tasks")).as_path())
                 && path.extension().is_some_and(|e| e == "json")
             {
@@ -527,11 +544,20 @@ impl Index {
     }
 }
 fn with<T>(dir: &Path, f: impl FnOnce(&mut Index) -> Result<T>) -> Result<T> {
+    crate::kernel::derived_index::available(&dir.join("tasks"))?;
     let mut indexes = INDEXES.lock().map_err(|e| e.to_string())?;
     if !indexes.contains_key(dir) {
         indexes.insert(dir.into(), Index::open(dir)?);
     }
     f(indexes.get_mut(dir).unwrap())
+}
+pub(super) fn own_write(dir: &Path, path: &Path) -> Option<crate::kernel::file_changes::OwnWrite> {
+    crate::kernel::derived_index::available(&dir.join("tasks")).ok()?;
+    INDEXES
+        .lock()
+        .ok()?
+        .get(dir)
+        .map(|index| index.watch.own_write(path))
 }
 pub(super) fn updated(dir: &Path, b: &Binding) {
     if let Ok(mut indexes) = INDEXES.lock() {
@@ -955,5 +981,37 @@ pub(super) fn interested_thread(dir: &Path, thread: &str) -> Result<Vec<Binding>
             .flatten()
             .map(|key| hydrate(key).map(|row| (*row).clone()))
             .collect::<Result<_>>()?)
+    })
+}
+
+#[cfg(test)]
+pub(super) fn partitions(dir: &Path) -> Result<Value> {
+    with(dir, |i| {
+        let keys = |set: &HashSet<Key>| {
+            let mut v: Vec<_> = set
+                .iter()
+                .map(|k| k.file_name().unwrap().to_string_lossy().to_string())
+                .collect();
+            v.sort();
+            v
+        };
+        let deadlines = |d: &Deadlines| {
+            let mut v: Vec<_> = d
+                .keys
+                .keys()
+                .map(|k| k.file_name().unwrap().to_string_lossy().to_string())
+                .collect();
+            v.sort();
+            v
+        };
+        let mut resumable: Vec<_> = i
+            .resumable
+            .values()
+            .map(|k| k.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        resumable.sort();
+        Ok(
+            json!({"observing":keys(&i.observing),"reconciliation":keys(&i.reconciliation),"dormant":keys(&i.dormant),"pending":keys(&i.pending),"recovery":keys(&i.recovery),"exhausted":keys(&i.exhausted),"dirty":keys(&i.dirty),"deliveryDirty":keys(&i.delivery_dirty),"observation":deadlines(&i.observation),"delivery":deadlines(&i.delivery),"retention":deadlines(&i.retention),"resumable":resumable,"scopes":i.scopes.len(),"rows":i.rows.len()}),
+        )
     })
 }

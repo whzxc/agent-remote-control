@@ -221,6 +221,7 @@ impl State {
         })
     }
     pub fn save(&mut self, dir: &Path) -> Result<()> {
+        crate::kernel::derived_index::available(&dir.join("tasks"))?;
         if self
             .saved
             .as_ref()
@@ -229,6 +230,7 @@ impl State {
             return Ok(());
         }
         let path = dir.join("subscriptions/state.json");
+        let _own_write = index::own_write(dir, &path);
         let value = serde_json::to_value(self.data.as_ref()).map_err(|e| e.to_string())?;
         let before = file_cache::Stamp::read(path.parent().unwrap())?;
         save(&path, &value)?;

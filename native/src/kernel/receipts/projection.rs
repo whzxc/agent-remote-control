@@ -171,6 +171,7 @@ impl Index {
 }
 fn with<T>(directory: &Path, work: impl FnOnce(&mut Index, &Path) -> Result<T>) -> Result<T> {
     let directory = physical(directory);
+    crate::kernel::derived_index::available(&directory)?;
     let mut indexes = INDEXES.lock().map_err(|e| e.to_string())?;
     if !indexes.contains_key(&directory) {
         indexes.insert(directory.clone(), Index::open(&directory)?);

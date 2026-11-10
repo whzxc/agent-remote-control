@@ -124,7 +124,7 @@ impl Cost {
 static COSTS: [Cost; 36] = [const { Cost::new() }; 36];
 tokio::task_local! { static OWNER: Owner; }
 thread_local! { static SYNC_OWNER: Cell<Option<Owner>> = const { Cell::new(None) }; }
-fn current() -> Option<Owner> {
+pub(crate) fn current() -> Option<Owner> {
     SYNC_OWNER.get().or_else(|| OWNER.try_with(|o| *o).ok())
 }
 fn update(f: impl FnOnce(&Cost)) {

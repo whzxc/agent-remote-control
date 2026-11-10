@@ -8,7 +8,20 @@ use std::io::Write;
 
 const VERSION: u32 = 1;
 const BATCH: usize = 64;
-static WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static WRITERS: std::sync::LazyLock<
+    std::sync::Mutex<BTreeMap<PathBuf, std::sync::Weak<std::sync::Mutex<()>>>>,
+> = std::sync::LazyLock::new(Default::default);
+fn writer(owner: &Path) -> Arc<std::sync::Mutex<()>> {
+    let mut writers = WRITERS.lock().unwrap();
+    writers.retain(|_, lock| lock.strong_count() > 0);
+    let owner = super::file_changes::physical(owner);
+    if let Some(lock) = writers.get(&owner).and_then(std::sync::Weak::upgrade) {
+        return lock;
+    }
+    let lock = Arc::new(std::sync::Mutex::new(()));
+    writers.insert(owner, Arc::downgrade(&lock));
+    lock
+}
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Entry {
     pub stamp: Option<Stamp>,
@@ -127,7 +140,9 @@ fn commit(path: &Path, row: Option<Value>) -> Result<()> {
 }
 /// One-time source migration runs under Core ownership before indexes are opened.
 pub(crate) fn invalidate(path: &Path) -> Result<()> {
-    let _lock = WRITER.lock().map_err(|e| e.to_string())?;
+    available(path.parent().unwrap())?;
+    let writer = writer(path.parent().unwrap());
+    let _lock = writer.lock().map_err(|e| e.to_string())?;
     mark(path)
 }
 /// Failure leaves this key invalidated, including failure after canonical publication.
@@ -135,7 +150,9 @@ pub(crate) fn change<T>(
     path: &Path,
     work: impl FnOnce() -> Result<(T, Option<Value>)>,
 ) -> Result<T> {
-    let _lock = WRITER.lock().map_err(|e| e.to_string())?;
+    available(path.parent().unwrap())?;
+    let writer = writer(path.parent().unwrap());
+    let _lock = writer.lock().map_err(|e| e.to_string())?;
     mark(path)?;
     let (result, row) = work()?;
     if path.exists() {
@@ -149,12 +166,30 @@ pub(crate) fn change<T>(
 }
 /// Watcher repair or scheduling replaces one record, never clears an unfinished owner write.
 pub(crate) fn update(path: &Path, row: Option<Value>) -> Result<()> {
-    let _lock = WRITER.lock().map_err(|e| e.to_string())?;
+    available(path.parent().unwrap())?;
+    let writer = writer(path.parent().unwrap());
+    let _lock = writer.lock().map_err(|e| e.to_string())?;
     if directory(path.parent().unwrap())
         .join("dirty")
         .join(key(path)?)
         .exists()
     {
+        return Ok(());
+    }
+    if cost::sync(Owner::IndexUpdate, Reason::Dirty, || -> Result<bool> {
+        if let Ok(current) = current(path.parent().unwrap()) {
+            let stored = directory(path.parent().unwrap())
+                .join(current.generation)
+                .join(key(path)?);
+            let previous = read::<Entry>(&stored).ok();
+            if previous.as_ref().map(|entry| &entry.row) == row.as_ref()
+                && previous.as_ref().and_then(|entry| entry.stamp.clone()) == Stamp::read(path)?
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    })? {
         return Ok(());
     }
     // Index-only writes also need a boundary for interruption between row and count.
@@ -216,7 +251,8 @@ pub(crate) fn open(
     validate: impl Fn(&Value) -> bool,
     project: impl Fn(Value) -> Result<Value>,
 ) -> Result<BTreeMap<String, Entry>> {
-    let _lock = WRITER.lock().map_err(|e| e.to_string())?;
+    let writer = writer(owner);
+    let _lock = writer.lock().map_err(|e| e.to_string())?;
     private_dir(owner)?;
     let dirty = directory(owner).join("dirty");
     private_dir(&dirty)?;
@@ -244,6 +280,7 @@ pub(crate) fn open(
             private_dir(&generation)?;
             let mut entries = std::fs::read_dir(owner).map_err(|e| e.to_string())?;
             let mut rows = BTreeMap::new();
+            let mut hashes = BTreeMap::new();
             loop {
                 let batch = entries
                     .by_ref()
@@ -258,22 +295,42 @@ pub(crate) fn open(
                     if selected(&path) {
                         if let Some(row) = canonical(&path, &project)? {
                             let name = key(&path)?;
-                            replace(&generation, &name, Some(&row))?;
+                            let bytes = serde_json::to_vec(&row).map_err(|e| e.to_string())?;
+                            // Unpublished derived data is disposable. Only the manifest is
+                            // durable; missing/torn entries after a power loss rebuild.
+                            std::fs::write(generation.join(&name), &bytes)
+                                .map_err(|e| e.to_string())?;
+                            hashes.insert(name.clone(), hash(&bytes));
                             rows.insert(name, row);
                         }
                     }
                 }
                 cost::scan_set(rows.len());
+                if CANCELLED.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err("INDEX_STARTUP_CANCELLED".into());
+                }
+                std::thread::yield_now();
                 #[cfg(test)]
                 if INTERRUPT_REBUILD.replace(false) {
                     return Err("INTERRUPTED_INDEX_REBUILD".into());
                 }
             }
-            // Verify count and every persisted projection before publishing this generation.
-            let verified = cost::sync(adopt_cost, Reason::Startup, || read_rows(&generation))?;
-            if verified != rows {
+            // Verify count and bytes without parsing all projected JSON a second time.
+            for (name, expected) in &hashes {
+                let bytes = std::fs::read(generation.join(name)).map_err(|e| e.to_string())?;
+                cost::bytes_read(bytes.len());
+                if hash(&bytes) != *expected {
+                    return Err("DERIVED_INDEX_READBACK_FAILED".into());
+                }
+            }
+            if std::fs::read_dir(&generation)
+                .map_err(|e| e.to_string())?
+                .count()
+                != rows.len()
+            {
                 return Err("DERIVED_INDEX_READBACK_FAILED".into());
             }
+            sync_dir(&generation)?;
             let current = Current {
                 version: VERSION,
                 generation: generation_id,
@@ -317,7 +374,8 @@ pub(crate) fn open(
 
 #[cfg(test)]
 pub(crate) fn interrupt(path: &Path, bytes: &[u8]) -> Result<()> {
-    let _lock = WRITER.lock().unwrap();
+    let writer = writer(path.parent().unwrap());
+    let _lock = writer.lock().unwrap();
     mark(path)?;
     atomic(path, bytes)
 }
@@ -352,4 +410,49 @@ thread_local! { static INTERRUPT_REBUILD: std::cell::Cell<bool> = const { std::c
 #[cfg(test)]
 pub(crate) fn interrupt_next_rebuild() {
     INTERRUPT_REBUILD.set(true);
+}
+
+static PREPARING: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<PathBuf>>> =
+    std::sync::LazyLock::new(Default::default);
+static CANCELLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+thread_local! { static INITIALIZER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+pub(crate) fn available(owner: &Path) -> Result<()> {
+    if PREPARING
+        .lock()
+        .unwrap()
+        .contains(&super::file_changes::physical(owner))
+        && !INITIALIZER.get()
+    {
+        return Err(
+            "INDEX_NOT_READY: Background index initialization is pending; retry this owner read."
+                .into(),
+        );
+    }
+    Ok(())
+}
+pub(crate) fn background(
+    owners: Vec<PathBuf>,
+    work: impl FnOnce() -> Result<()> + Send + 'static,
+) -> tokio::task::JoinHandle<Result<()>> {
+    let owners: Vec<_> = owners
+        .iter()
+        .map(|p| super::file_changes::physical(p))
+        .collect();
+    PREPARING.lock().unwrap().extend(owners.clone());
+    CANCELLED.store(false, std::sync::atomic::Ordering::Relaxed);
+    tokio::task::spawn_blocking(move || {
+        INITIALIZER.set(true);
+        let result = work();
+        INITIALIZER.set(false);
+        if result.is_ok() {
+            let mut preparing = PREPARING.lock().unwrap();
+            for owner in owners {
+                preparing.remove(&owner);
+            }
+        }
+        result
+    })
+}
+pub(crate) fn cancel() {
+    CANCELLED.store(true, std::sync::atomic::Ordering::Relaxed);
 }

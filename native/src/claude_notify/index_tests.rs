@@ -477,3 +477,218 @@ async fn interrupted_binding_write_repairs_one_key_and_invalid_indexes_rebuild_o
         );
     }
 }
+
+#[test]
+fn adopted_and_rebuilt_partitions_agree_for_mixed_canonical_states() {
+    // Property: adopting unchanged canonical metadata preserves every activity/deadline partition after the same scheduling inputs.
+    let dir = Sandbox::new();
+    for n in 0..24 {
+        let state = ["completed", "cancelled", "running", "unconfirmed"][n % 4];
+        let mut b = fixture(&dir.0, &format!("mixed-{n}"), state);
+        b.thread_id = format!("scope-{}", n / 4);
+        b.created_at = 100 + n as i64;
+        if n % 3 == 0 {
+            b.scope_end = Some("scope-ended".into());
+        }
+        if n % 5 == 0 {
+            b.observation["reconciliation"] = json!("unavailable-after-restart");
+        }
+        if n % 7 == 0 {
+            b.source_id.clear();
+        }
+        if n % 2 == 1 {
+            b.deliveries.push(Delivery {
+                key: "terminal".into(),
+                state: state.into(),
+                task_state: state.into(),
+                status: "pending".into(),
+                target: if n % 3 == 1 {
+                    "target".into()
+                } else {
+                    String::new()
+                },
+                ..Default::default()
+            });
+        }
+        persist(&dir.0, &b).unwrap();
+    }
+    let snapshot = || {
+        index::initialize(&dir.0).unwrap();
+        let pending = index::all(&dir.0).unwrap();
+        index::schedule_deliveries(&dir.0, &pending, &json!({}), 100).unwrap();
+        index::partitions(&dir.0).unwrap()
+    };
+    let rebuilt = snapshot();
+    index::forget(&dir.0);
+    let adopted = snapshot();
+    assert_eq!(adopted, rebuilt);
+    crate::kernel::derived_index::damage(&dir.0.join("tasks"), "missing");
+    index::forget(&dir.0);
+    assert_eq!(snapshot(), adopted);
+}
+
+#[tokio::test]
+async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
+    // Regression: reconciliation writes woke notification delivery through its recursive index-directory watch about 108 times in 31 seconds.
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0, "owned", "running");
+    index::initialize(&dir.0).unwrap();
+    let wake = index::file_wake(&dir.0).unwrap();
+    let path = path_in(&dir.0, &b.thread_id, &b.turn_id);
+    while tokio::time::timeout(Duration::from_millis(1), wake.notified())
+        .await
+        .is_ok()
+    {}
+    while tokio::time::timeout(Duration::from_millis(1), index::WAKE.notified())
+        .await
+        .is_ok()
+    {}
+    while tokio::time::timeout(Duration::from_millis(1), index::DELIVERY_WAKE.notified())
+        .await
+        .is_ok()
+    {}
+    let before = file_cache::Stamp::read(&path).unwrap();
+    b.observation["observedAt"] = json!("later");
+    cost::sync(Owner::NotificationObserver, Reason::Deadline, || {
+        persist(&dir.0, &b)
+    })
+    .unwrap();
+    assert_eq!(file_cache::Stamp::read(&path).unwrap(), before);
+    b.observation["reconciliation"] = json!("unavailable-after-restart");
+    cost::sync(Owner::NotificationObserver, Reason::Deadline, || {
+        persist(&dir.0, &b)
+    })
+    .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), wake.notified())
+            .await
+            .is_err()
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), index::WAKE.notified())
+            .await
+            .is_err()
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), index::DELIVERY_WAKE.notified())
+            .await
+            .is_err()
+    );
+    assert!(
+        index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10)
+            .unwrap()
+            .is_empty()
+    );
+    b.observation["reconciliation"] = json!("pending-after-restart");
+    std::fs::write(&path, serde_json::to_vec(&b).unwrap()).unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), wake.notified())
+            .await
+            .is_ok()
+    );
+    assert_eq!(
+        index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scale_rebuild_is_batched_and_never_gates_lease_or_query_readiness() {
+    // Regression: 1076 notification records took 40 seconds to migrate before readiness and exceeded the supervisor's 30-second timeout.
+    let dir = Sandbox::new();
+    let root_receipts = dir.0.join("root");
+    std::fs::create_dir_all(&root_receipts).unwrap();
+    let receipts = crate::kernel::receipts::ReceiptStore::fixture(root_receipts.clone());
+    let receipt = json!({"requestId":uuid::Uuid::nil().to_string(),"state":"completed","backendSession":"fixture","result":{"payload":"x".repeat(6000)}});
+    for _ in 0..9000 {
+        let mut row = receipt.clone();
+        row["requestId"] = json!(id());
+        std::fs::write(
+            root_receipts.join(format!("{}.json", string(&row, "requestId"))),
+            row.to_string(),
+        )
+        .unwrap();
+    }
+    std::fs::create_dir_all(dir.0.join("tasks")).unwrap();
+    for n in 0..1100 {
+        let mut b: Binding = serde_json::from_value(json!({"threadId":format!("scale-{n}"),"turnId":"turn","sourceId":"fixture-source","target":null,"project":"fixture","createdAt":100,"waiting":[],"deliveries":[],"observation":{"state":"completed","recordedStatus":"completed","reconciliation":"reconciled"}})).unwrap();
+        tests::fixture_state(&mut b, "completed");
+        b.scope_end = Some("scope-ended".into());
+        std::fs::write(
+            path_in(&dir.0, &b.thread_id, &b.turn_id),
+            serde_json::to_vec(&b).unwrap(),
+        )
+        .unwrap();
+    }
+    let (release, blocked) = std::sync::mpsc::channel();
+    let work_dir = dir.0.clone();
+    let job = crate::kernel::derived_index::background(
+        vec![root_receipts.clone(), dir.0.join("tasks")],
+        move || {
+            blocked.recv().unwrap();
+            let start = std::time::Instant::now();
+            receipts.seed()?;
+            index::initialize(&work_dir)?;
+            let elapsed = start.elapsed();
+            println!("scale migration: 9000 root receipts + 1100 bindings in {elapsed:?}");
+            assert!(
+                elapsed < Duration::from_secs(12),
+                "migration exceeded fixture bound: {elapsed:?}"
+            );
+            Ok(())
+        },
+    );
+    let start = std::time::Instant::now();
+    let leases = crate::runtime::State::default();
+    leases
+        .request(
+            "runtime/lease",
+            json!({"id":id(),"kind":"desktop","pid":std::process::id()}),
+        )
+        .unwrap();
+    assert_eq!(leases.clients().as_array().unwrap().len(), 1);
+    let guide = crate::egress::guide(&json!({}), &json!({}), "en", &[]);
+    assert!(!guide.is_null());
+    let control = control::Control::new(PathBuf::new());
+    assert!(control.tool("runtime_metrics", json!({})).await.is_ok());
+    let pending = index::initialize(&dir.0);
+    assert!(pending.unwrap_err().starts_with("INDEX_NOT_READY"));
+    let ready_time = start.elapsed();
+    release.send(()).unwrap();
+    job.await.unwrap().unwrap();
+    assert!(ready_time < Duration::from_secs(1));
+    println!("lease/guide/query readiness while rebuild blocked: {ready_time:?}");
+    assert_eq!(index::partitions(&dir.0).unwrap()["rows"], 1100);
+}
+
+#[test]
+fn recovery_partition_changes_require_new_canonical_evidence() {
+    // Regression: installed restart counters changed during reconciliation and must distinguish owner transitions from index adoption drift.
+    let dir = Sandbox::new();
+    let mut interrupted = fixture(&dir.0, "latest", "cancelled");
+    let mut exhausted = fixture(&dir.0, "reconciling", "unconfirmed");
+    exhausted.observation["reconciliationAttempts"] = json!(2);
+    exhausted.observation["reconciliation"] = json!("pending-after-restart");
+    persist(&dir.0, &exhausted).unwrap();
+    index::initialize(&dir.0).unwrap();
+    let before = index::partitions(&dir.0).unwrap();
+    restart(&dir.0);
+    assert_eq!(index::partitions(&dir.0).unwrap(), before);
+    exhausted.observation = observer::unavailable(&mut exhausted, "unavailable");
+    persist(&dir.0, &exhausted).unwrap();
+    interrupted.scope_end = Some("scope-ended".into());
+    persist(&dir.0, &interrupted).unwrap();
+    let after = index::partitions(&dir.0).unwrap();
+    assert_eq!(
+        after["exhausted"].as_array().unwrap().len(),
+        before["exhausted"].as_array().unwrap().len() + 1
+    );
+    assert_eq!(
+        after["resumable"].as_array().unwrap().len() + 1,
+        before["resumable"].as_array().unwrap().len()
+    );
+    restart(&dir.0);
+    assert_eq!(index::partitions(&dir.0).unwrap(), after);
+}

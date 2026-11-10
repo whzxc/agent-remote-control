@@ -9,6 +9,13 @@ pub struct ReceiptStore {
     base: Option<PathBuf>,
 }
 impl ReceiptStore {
+    #[cfg(test)]
+    pub(crate) fn fixture(base: PathBuf) -> Self {
+        Self {
+            directory: "",
+            base: Some(base),
+        }
+    }
     pub const fn new(directory: &'static str) -> Self {
         Self {
             directory,
@@ -145,8 +152,22 @@ impl ReceiptStore {
         })
     }
     pub fn checkpoint(&self, receipt: &mut Value) -> Result<()> {
-        receipt["updatedAt"] = json!(now());
         let path = self.path(string(receipt, "requestId"))?;
+        if let Ok(previous) = load(&path) {
+            let mut old = previous.clone();
+            let mut next = receipt.clone();
+            for value in [&mut old, &mut next] {
+                if let Some(object) = value.as_object_mut() {
+                    object.remove("updatedAt");
+                    object.remove("coordinationPending");
+                }
+            }
+            if old == next {
+                *receipt = previous;
+                return Ok(());
+            }
+        }
+        receipt["updatedAt"] = json!(now());
         super::derived_index::change(&path, || {
             crate::coordination::observers::save_owner(
                 &path,

@@ -189,9 +189,16 @@ pub(crate) fn diagnostics() -> Value {
 }
 fn persist(dir: &Path, b: &Binding) -> Result<()> {
     let path = path_in(dir, &b.thread_id, &b.turn_id);
+    let _own_write = index::own_write(dir, &path);
     let before = file_cache::Stamp::read(path.parent().unwrap())?;
     let mut cache = BINDINGS.lock().map_err(|e| e.to_string())?;
-    if cache.read(&path).is_ok_and(|old| old.as_ref() == b) {
+    if cache.read(&path).is_ok_and(|old| {
+        let mut candidate = b.clone();
+        candidate.observation["observedAt"] = old.observation["observedAt"].clone();
+        let mut previous = (*old).clone();
+        previous.observation["observedAt"] = old.observation["observedAt"].clone();
+        previous == candidate
+    }) {
         return Ok(());
     }
     crate::kernel::derived_index::change(&path, || {
@@ -2750,8 +2757,6 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
             let mut idle = DeliveryIdle::default();
             let dir = directory();
             let paths = [
-                "tasks",
-                "subscriptions/state.json",
                 "request-routing",
                 "../sources.json",
                 "../accounts/index.json",
