@@ -21,6 +21,7 @@ pub(crate) struct InProcess {
     readiness: AtomicU8,
     admission: std::sync::Mutex<()>,
     slots: Arc<tokio::sync::Semaphore>,
+    stream_slots: Arc<tokio::sync::Semaphore>,
     pending: std::sync::Mutex<std::collections::BTreeMap<String, tokio::sync::watch::Sender<bool>>>,
     service: std::sync::Mutex<std::sync::Weak<Service>>,
 }
@@ -31,6 +32,7 @@ impl InProcess {
             readiness: AtomicU8::new(0),
             admission: Default::default(),
             slots: Arc::new(tokio::sync::Semaphore::new(MAX_IN_FLIGHT)),
+            stream_slots: Arc::new(tokio::sync::Semaphore::new(MAX_IN_FLIGHT)),
             pending: Default::default(),
             service: Default::default(),
         }
@@ -159,7 +161,6 @@ impl InProcess {
         let _admission = self.admission.lock().unwrap();
         self.readiness.store(1, Ordering::SeqCst);
     }
-    #[allow(dead_code)] // The process-swap owner will consume the bounded drain operation.
     pub(crate) async fn drain(&self, deadline: Deadline) -> Result<DrainAck> {
         self.begin_drain();
         let remaining = deadline.remaining().map_err(|_| {
@@ -246,26 +247,43 @@ pub(crate) async fn mcp_ingress_authenticated(
         return Err("Local connection disabled".into());
     }
     if s.execution.is_none() {
-        let rpc_id = body.get("id").cloned();
-        let result = async {
-            let context = process::call(
-                management_context(),
-                Operation::IngressContext {
-                    ingress_id: s.id.clone(),
-                },
-                json!({"principal":principal,"header":header}),
-            )
-            .await?;
-            let context: AuthenticatedContext =
-                serde_json::from_value(context).map_err(|e| e.to_string())?;
-            process::call(context, Operation::Mcp, body).await
+        // Cancel the exact front-door wait future. Its private socket is tied to
+        // the admitted generation; cancellation is never queued for a newer Core.
+        if body["method"] == "notifications/cancelled" {
+            s.wait_calls
+                .cancel(&body["params"]["requestId"].to_string());
+            return Ok(Value::Null);
         }
-        .await;
+        let rpc_id = body.get("id").cloned();
+        let registration = if crate::transport::is_wait(&body) {
+            Some(s.wait_calls.register(body["id"].to_string())?)
+        } else {
+            None
+        };
+        let call = process::call(
+            AuthenticatedContext {
+                authority: protocol::Authority::Ingress {
+                    ingress_id: s.id.clone(),
+                    principal: principal.clone(),
+                    header: header.map(str::to_owned),
+                },
+            },
+            Operation::Mcp,
+            body,
+        );
+        let result = if let Some((_guard, mut cancelled)) = registration {
+            tokio::select! {
+                biased;
+                _ = cancelled.changed() => Err("FRONT_DOOR_CANCELLED: Request cancelled; Agent execution is unchanged.".into()),
+                result = call => result,
+            }
+        } else {
+            call.await
+        };
         return match result {
             Err(error)
                 if error.starts_with("FRONT_DOOR_")
-                    || serde_json::from_str::<Value>(&error)
-                        .is_ok_and(|v| v["data"]["state"] == "unconfirmed") =>
+                    || serde_json::from_str::<Value>(&error).is_ok_and(|v| v["code"] == -32603) =>
             {
                 let error=serde_json::from_str::<Value>(&error).unwrap_or_else(|_|json!({"code":-32603,"message":error,"data":{"arcVersion":crate::egress::arc_version()}}));
                 Ok(rpc_id.map_or(
@@ -364,19 +382,24 @@ impl Ingress {
             drop(meta);
             let resource = self.mcp_url.lock().await.clone();
             let resource = reqwest::Url::parse(&resource).ok()?;
-            return self
-                .oauth
-                .lock()
-                .await
-                .authenticate(header, resource.as_str())
-                .await;
+            let mut oauth = self.oauth.lock().await;
+            return if self.execution.is_none() {
+                oauth.authenticate_transport(header, resource.as_str())
+            } else {
+                oauth.authenticate(header, resource.as_str()).await
+            };
         }
         let allowed = meta["auth"] == "none"
             || meta["auth"] == "bearer"
                 && !string(&meta, "bearerToken").is_empty()
                 && hash(header) == hash(format!("Bearer {}", string(&meta, "bearerToken")));
-        (allowed && !crate::front_door::authority::ingress_retired(&self.id))
-            .then(|| json!({"type":"ingress","ingressId":self.id}))
+        // The detached transport owns ingress credentials. Current source authority
+        // is resolved by Core at business admission, after bounded swap-time waiting.
+        (allowed
+            && !self.retired.load(Ordering::SeqCst)
+            && (self.execution.is_none()
+                || !crate::front_door::authority::ingress_retired(&self.id)))
+        .then(|| json!({"type":"ingress","ingressId":self.id}))
     }
 }
 
@@ -397,7 +420,7 @@ impl InProcess {
             return Err("FRONT_DOOR_CORE_DRAINING".into());
         }
         let permit = self
-            .slots
+            .stream_slots
             .clone()
             .try_acquire_owned()
             .map_err(|_| "FRONT_DOOR_BUSY")?;
@@ -603,7 +626,7 @@ mod tests {
     }
     #[tokio::test]
     async fn protocol_handshake_cancellation_and_drain_acknowledgement() {
-        // Contract: private version 1 refuses incompatible attachment and acknowledges drain only after admitted work releases.
+        // Contract: private protocol refuses incompatible attachment and acknowledges drain only after admitted work releases.
         let endpoint = Arc::new(InProcess::new());
         assert_eq!(endpoint.hello(VERSION).unwrap().readiness, Readiness::Ready);
         assert!(endpoint
@@ -613,6 +636,13 @@ mod tests {
         let request = request(&endpoint);
         let permit = endpoint.slots.clone().try_acquire_owned().unwrap();
         let (pending, mut cancellation) = endpoint.register(&request).unwrap();
+        assert!(endpoint
+            .cancel(&Cancellation {
+                generation: InProcess::new().generation(),
+                request_id: request.id.clone(),
+            })
+            .is_err());
+        assert!(!*cancellation.borrow());
         endpoint
             .cancel(&Cancellation {
                 generation: request.generation,
@@ -630,6 +660,12 @@ mod tests {
             endpoint.hello(VERSION).unwrap().readiness,
             Readiness::Draining
         );
+        assert!(tokio::time::timeout(
+            Duration::from_millis(10),
+            endpoint.drain(Deadline::after(Duration::from_secs(1))),
+        )
+        .await
+        .is_err());
         drop((permit, pending));
         let ack = endpoint
             .drain(Deadline::after(Duration::from_secs(1)))

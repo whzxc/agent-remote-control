@@ -57,8 +57,18 @@ fn public_ip(ip: IpAddr) -> bool {
         }
     }
 }
+#[cfg(feature = "test-fixture")]
+fn fixture_callback(url: &reqwest::Url) -> bool {
+    std::env::var("ARC_FIXTURE_WEBHOOK").as_deref() == Ok(url.as_str())
+        && url.scheme() == "http"
+        && url.host_str() == Some("127.0.0.1")
+}
 fn callback_url(raw: &str) -> Result<reqwest::Url> {
     let u = reqwest::Url::parse(raw).map_err(|_| rpc(-32015, "invalid_url"))?;
+    #[cfg(feature = "test-fixture")]
+    if fixture_callback(&u) {
+        return Ok(u);
+    }
     if u.scheme() != "https"
         || u.host_str().is_none()
         || !u.username().is_empty()
@@ -85,7 +95,10 @@ async fn post(s: &Subscription, id: &str, body: &[u8]) -> Result<(u16, Vec<u8>)>
             .await
             .map_err(|_| "dns_failed")?
             .collect();
-        if addresses.is_empty() || addresses.iter().any(|a| !public_ip(a.ip())) {
+        let synthetic = false;
+        #[cfg(feature = "test-fixture")]
+        let synthetic = synthetic || fixture_callback(&url);
+        if addresses.is_empty() || (!synthetic && addresses.iter().any(|a| !public_ip(a.ip()))) {
             crate::logs::record(
                 "WARN",
                 &format!("MCP callback DNS rejected: host={host}; addresses={addresses:?}"),
@@ -299,7 +312,9 @@ pub(crate) async fn request(
         return Ok(json!({}));
     }
     if !params["cursor"].is_null() {
-        return Err(invalid("replay_not_supported"));
+        let mut error: Value = serde_json::from_str(&invalid("replay_not_supported")).unwrap();
+        error["data"]["next"] = json!({"via":"query","op":"notify_status","args":{},"hint":"Event replay is unavailable. Read subscription expiry and delivery diagnosis, read the referenced tasks, then renew the same subscription without a cursor if expired."});
+        return Err(error.to_string());
     }
     let secret = string(&params["delivery"], "secret").to_owned();
     key(&secret)?;

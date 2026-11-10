@@ -3,10 +3,13 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub(crate) const VERSION: u16 = 1;
+pub(crate) const VERSION: u16 = 2;
 pub(crate) const MAX_REQUEST_BYTES: usize = 36 * 1024 * 1024;
 pub(crate) const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) const MAX_IN_FLIGHT: usize = 128;
+pub(crate) const MAX_QUEUED: usize = 64;
+pub(crate) const MAX_QUEUE_BYTES: usize = 64 * 1024 * 1024;
+pub(crate) const DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Generation(pub [u8; 16]);
@@ -59,7 +62,6 @@ pub(crate) enum Operation {
     Snapshot { kind: Snapshot },
     Health,
     Authority { op: String },
-    IngressContext { ingress_id: String },
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub(crate) enum Snapshot {
@@ -80,6 +82,13 @@ pub(super) enum Authority {
     Browser {
         ingress_id: String,
         key_digest: String,
+    },
+    // The front door has authenticated this principal. Core resolves current source
+    // authority only when it can admit the queued request.
+    Ingress {
+        ingress_id: String,
+        principal: Value,
+        header: Option<String>,
     },
     Mcp {
         ingress_id: String,
@@ -111,6 +120,7 @@ impl AuthenticatedContext {
                     return Err("FRONT_DOOR_BROWSER_UNAUTHORIZED".into());
                 }
             }
+            Authority::Ingress { .. } => return Err("FRONT_DOOR_CONTEXT_MISMATCH".into()),
             Authority::Management => {}
         }
         Ok(())
@@ -123,9 +133,9 @@ impl AuthenticatedContext {
     }
     pub(crate) fn ingress_id(&self) -> Option<&str> {
         match &self.authority {
-            Authority::Mcp { ingress_id, .. } | Authority::Browser { ingress_id, .. } => {
-                Some(ingress_id)
-            }
+            Authority::Mcp { ingress_id, .. }
+            | Authority::Ingress { ingress_id, .. }
+            | Authority::Browser { ingress_id, .. } => Some(ingress_id),
             _ => None,
         }
     }
@@ -171,7 +181,6 @@ pub(crate) struct Cancellation {
     pub generation: Generation,
     pub request_id: RequestId,
 }
-#[allow(dead_code)] // The process-swap owner will consume drain acknowledgements.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct DrainAck {
     pub generation: Generation,
@@ -185,6 +194,9 @@ pub(crate) fn fence(current: Generation, tagged: Generation) -> Result<()> {
     }
 }
 pub(crate) fn bounded(value: &impl Serialize, limit: usize) -> Result<()> {
+    encoded_size(value, limit).map(|_| ())
+}
+pub(crate) fn encoded_size(value: &impl Serialize, limit: usize) -> Result<usize> {
     // Count without allocating a second serialized frame or retaining an oversized body.
     struct Counter {
         bytes: usize,
@@ -202,7 +214,9 @@ pub(crate) fn bounded(value: &impl Serialize, limit: usize) -> Result<()> {
             Ok(())
         }
     }
-    serde_json::to_writer(Counter { bytes: 0, limit }, value).map_err(|_| {
-        "FRONT_DOOR_FRAME_TOO_LARGE: Reduce the request or read a smaller result page.".into()
-    })
+    let mut counter = Counter { bytes: 0, limit };
+    serde_json::to_writer(&mut counter, value).map_err(|_| {
+        "FRONT_DOOR_FRAME_TOO_LARGE: Reduce the request or read a smaller result page.".to_owned()
+    })?;
+    Ok(counter.bytes)
 }

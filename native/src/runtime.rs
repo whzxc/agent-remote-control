@@ -890,6 +890,17 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
             }
         }
     }
+    // Keep business owners alive until admitted calls settle or the bounded drain ends.
+    if let Err(error) = service
+        .execution
+        .front_door
+        .drain(crate::front_door::Deadline::after(
+            crate::front_door::DRAIN_TIMEOUT,
+        ))
+        .await
+    {
+        crate::logs::record("WARN", &error, None);
+    }
     service.begin_shutdown();
     service.control.stop_waits();
     crate::kernel::derived_index::cancel();

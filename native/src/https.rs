@@ -169,14 +169,17 @@ async fn handle_inner(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_owned();
-    let principal = service.authenticate(&event_header).await;
-    let Some(principal) = principal else {
+    let unauthorized = || {
         let mut response = reply(401, Some(json!({"error":"unauthorized"})));
         response.headers_mut().insert(
             "www-authenticate",
             hyper::header::HeaderValue::from_str(&if oauth { format!("Bearer resource_metadata=\"{origin}/.well-known/oauth-protected-resource{}\", scope=\"mcp\"", url.path()) } else { "Bearer".to_owned() }).unwrap(),
         );
-        return Ok(response);
+        response
+    };
+    let principal = service.authenticate(&event_header).await;
+    let Some(principal) = principal else {
+        return Ok(unauthorized());
     };
     observation.authenticated(&principal);
     if let Some(value) = request.headers().get("origin") {
@@ -311,6 +314,13 @@ async fn handle_inner(
     observation.trace().result(&result);
     match result {
         Ok(value) => Ok(reply(200, Some(value))),
+        Err(reason)
+            if (oauth
+                && (reason.starts_with("SOURCE_REVOKED:") || reason == "SOURCE_NOT_FOUND"))
+                || reason.starts_with("CONNECTION_RETIRED:") =>
+        {
+            Ok(unauthorized())
+        }
         Err(_) => error(400, "invalid MCP request"),
     }
 }

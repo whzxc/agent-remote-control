@@ -532,7 +532,7 @@ pub(crate) async fn dispatch(s: &Arc<crate::ingress::Ingress>, request: Value) -
 pub(crate) struct WaitCalls(
     Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::watch::Sender<bool>>>>,
 );
-struct WaitCallGuard {
+pub(crate) struct WaitCallGuard {
     calls:
         Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::watch::Sender<bool>>>>,
     key: String,
@@ -543,7 +543,10 @@ impl Drop for WaitCallGuard {
     }
 }
 impl WaitCalls {
-    fn register(&self, key: String) -> Result<(WaitCallGuard, tokio::sync::watch::Receiver<bool>)> {
+    pub(crate) fn register(
+        &self,
+        key: String,
+    ) -> Result<(WaitCallGuard, tokio::sync::watch::Receiver<bool>)> {
         let mut calls = self.0.lock().unwrap();
         if calls.contains_key(&key) {
             return Err("duplicate active wait request id".into());
@@ -558,7 +561,7 @@ impl WaitCalls {
             rx,
         ))
     }
-    fn cancel(&self, key: &str) {
+    pub(crate) fn cancel(&self, key: &str) {
         if let Some(tx) = self.0.lock().unwrap().get(key) {
             let _ = tx.send(true);
         }
@@ -766,25 +769,6 @@ pub(crate) fn handle<'a>(
                 if request.context.is_management() =>
             {
                 crate::front_door::authority::handle(op, request.body.clone()).await
-            }
-            (Target::Service(service, _), Operation::IngressContext { ingress_id })
-                if request.context.is_management() =>
-            {
-                let ingress = service.ingress(ingress_id).await?;
-                if !ingress.connected.load(std::sync::atomic::Ordering::SeqCst)
-                    || ingress.meta.lock().await["enabled"] != true
-                {
-                    return Err("Connection closed".into());
-                }
-                serde_json::to_value(
-                    crate::front_door::authenticated_context(
-                        &ingress,
-                        &request.body["principal"],
-                        request.body["header"].as_str(),
-                    )
-                    .await?,
-                )
-                .map_err(|e| e.to_string())
             }
             _ => Err("FRONT_DOOR_CONTEXT_MISMATCH".into()),
         }

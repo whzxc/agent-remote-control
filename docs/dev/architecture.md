@@ -66,21 +66,47 @@ revalidates current source authority at admission and delivery. A completed resp
 is checked against the latest attached Core generation before public delivery.
 
 `front_door::InProcess` is Core's bounded request executor behind the IPC server.
-Admissions, including streams, are capped at 128 without a waiting request queue.
-Encoded requests are capped at 36 MiB and responses at 64 MiB. Existing smaller HTTP
-limits still apply. Ordinary calls and streams retain an absolute 1830-second
-deadline; browser reads use 30 seconds. Each stream channel holds one frame and
-waits at most two seconds for its consumer. Closing a private connection cancels
-only its admitted request future. Explicit cancellation is generation-fenced and
-never cancels an Agent turn. Shutdown closes Core admissions before business teardown.
+It admits at most 128 business calls. Snapshot streams have a separate 128-slot
+budget and do not delay business drain; the private listener caps total concurrent
+connections at 128. Encoded requests are capped at 36 MiB and responses at 64 MiB.
+Existing smaller HTTP limits still apply. Ordinary calls and streams retain an
+absolute 1830-second deadline; browser reads use 30 seconds. Each stream channel
+holds one frame and waits at most two seconds for its consumer.
+
+On normal Core replacement, Core closes business admissions, drains admitted calls
+for at most five seconds, then stops business observers and private connections.
+Drain acknowledgement belongs to the original generation. If the deadline expires,
+shutdown continues and callers reconcile original receipts. Crash skips drain.
+The front door retains the listeners and provider processes throughout either path.
+
+Before transmission, waiting futures own permits in a front-door memory queue:
+at most 64 requests and 64 MiB of aggregate encoded request data. Queue admission
+assigns or preserves request identity before waiting. Full capacity rejects the new
+request with the existing JSON-RPC internal-error code, `FRONT_DOOR_BUSY` message,
+request ID and guide next action. An accepted identity is never evicted. The queue
+waits for a ready compatible Core, preserving the original absolute deadline.
+Expiry returns `FRONT_DOOR_DEADLINE_EXPIRED`, the request ID and a guide next action
+identifying that the request was not sent. Cancelling a waiting future releases its
+entry and byte permits. Front-door shutdown closes the queue before provider teardown,
+so its authority updates cannot wait for an absent Core. There is no persistent
+front-door queue or receipt store.
+
+Closing a private request connection cancels only that generation's admitted request
+future. Explicit cancellation is generation-fenced and never cancels an Agent turn.
+MCP cancellation releases the matching front-door wait future and its private
+connection; a cancellation notification is never queued for a new Core generation.
 
 Authentication stays in the existing modules: `oauth`, `browser`, local Host,
 loopback-peer, Bearer and Origin checks, and the official OpenAI Tunnel upstream
 identity. Headers cannot manufacture an ingress or source identity. The front door
 owns grant and ingress mutations. `front_door::authority` forwards source-store
 operations to Core, which remains the single revocation owner. It keeps no source
-authority cache in the front door. When current authority is unavailable, admission
-fails closed. Revoked sources remain rejected after Core reconnects. Core keeps
+authority cache in the front door. During a swap, authenticated MCP principals wait
+in the bounded queue before Core resolves current source authority and admits the
+business call. Bearer and OAuth transport authentication validates local credentials;
+OAuth also preserves resource and access-token expiry checks. It does not wait on
+Core source queries before queue admission or cancellation. Authority failure rejects admission. Revoked sources remain rejected
+after Core reconnects. Core keeps
 operation authorization, task association and resource boundaries in `core_requests`
 and the business owners. The public MCP, notification and CLI envelopes are unchanged.
 
@@ -89,9 +115,28 @@ outcome with its original request ID and an `act receipt` read action. When an a
 request omits its optional receipt ID, the adapter assigns it before transmission
 so the uncertain response and Core receipt use the same ID. There is no write
 resend, turn-completion inference, account selection or Agent restart in the front
-door. Lost snapshot streams send an explicit error and close. Drain queues and
-subscription reattachment belong to D3c. An unavailable front door reports reduced
-continuity for Core-bound fallback transports; Core does not open a second listener.
+door. Forwarding begins at the first transmitted byte; a partial send is ambiguous
+and has no retry path. The completed-write receipt remains Core-owned and uses the
+same progress model as other operation receipts.
+
+Snapshot streams keep their public transport connected after losing Core. They send
+an explicit snapshot-gap error with a fresh-snapshot recovery action, wait within
+the original deadline, and reattach to ready Core with a new generation and a reset
+private sequence. The next snapshot replaces prior state. Authority failures,
+correlation errors, deadline expiry and slow consumers end the stream.
+Waiting streams send keepalives every 15 seconds and retain one-frame backpressure.
+
+MCP `notification` subscriptions use the existing persistent webhook owner rather
+than a Core socket stream. The new Core reads the original subscription identities,
+filters, pending deliveries and expiry; the front door retains the ingress transport.
+Replacement does not resubscribe, extend TTL, synthesize events or add replay.
+Existing delivery retry, retention and expiry semantics remain notification-owned.
+A requested cursor replay still returns `-32602` and `replay_not_supported`, with a
+`query notify_status` next action to inspect subscription expiry and delivery diagnosis
+and reconcile referenced tasks. Expired subscriptions must be renewed without a
+cursor. The event name, payload and `{op,args}` subscription envelope are unchanged.
+An unavailable front door reports reduced continuity for Core-bound fallback
+transports; Core does not open a second listener.
 
 Core and front-door children use disjoint `core-children/` and
 `front-door-children/` process indexes. Each lock owner reclaims only its own dead
@@ -106,14 +151,21 @@ starts the installed protocol image. The local installer runs the candidate's
 check before replacing files. Desktop/CLI Core startup and `arc start` also run
 this check from the installed build. Direct Core attachment refuses an incompatible
 protocol with an actionable error. Platform supervision and front-door self-update
-belong to D3d.
+belong to D3d. Private protocol v2 adds the queued authenticated-ingress context.
+Installing v2 replaces a running v1 front door through this compatibility path;
+a compatible v2 front door remains retained until it restarts.
 
 The targeted process fixture uses synthetic providers and isolated state. Run it
-serially from the main checkout after `npm run check:tests`:
-`cargo test --locked -p arc-core --test front_door -- --ignored --test-threads=1`.
-It covers listener/provider identity, new-Core reads, compatible install retention,
-and rejected unauthorized/revoked sources. Real native-turn survival remains a
-separate runtime acceptance step. Fast private-protocol and HTTP authentication
+serially from the main checkout, or an explicitly authorized lane, after
+`npm run check:tests`:
+`cargo test --locked -p arc-core --features test-fixture --test front_door -- --ignored --test-threads=1`.
+It covers listener/provider identity, swap-time queued reads, snapshot reattachment,
+persisted MCP subscription identity/expiry, actionable unsupported event replay,
+completed-write receipt reconciliation after response loss, compatible install
+retention and rejected unauthorized/revoked sources. Fixture-only hooks hold a
+selected write response and permit one selected synthetic loopback callback URL.
+Production builds include neither hook. Real native-turn survival and public webhook
+notification delivery remain separate runtime acceptance steps. Fast private-protocol and HTTP authentication
 cases run with `cargo test --locked -p arc-core --lib front_door`.
 
 Core's `resources` module owns process resource policy. It runs at runtime startup and Service initialization, and checks again before each Rpc creates app-server. Desktop, login startup, and Linux daemon share this path. Login items do not maintain separate limits. macOS/Linux attempt to raise the `RLIMIT_NOFILE` soft limit to 8192 while preserving higher soft limits and the original hard limit. macOS also respects `OPEN_MAX` and the read-only `kern.maxfilesperproc`. Global system limits remain unchanged. Each attempt records the original, target, attempted, and measured values and failure reason. Failure or a below-target limit does not stop Core.

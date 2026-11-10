@@ -171,6 +171,16 @@ async fn respond<S: AsyncWrite + Unpin>(
     frame: ResponseFrame,
     deadline: Deadline,
 ) -> Result<()> {
+    #[cfg(feature = "test-fixture")]
+    if std::env::var("ARC_FIXTURE_LOST_RESPONSE_ID").as_deref() == Ok(&frame.request_id.0) {
+        if let Some(gate) = std::env::var_os("ARC_FIXTURE_LOST_RESPONSE_GATE") {
+            let gate = PathBuf::from(gate);
+            save(&gate.with_extension("ready"), &json!({"ready":true}))?;
+            while gate.exists() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
+    }
     tokio::time::timeout(deadline.remaining()?,write(stream,&frame)).await.map_err(|_|"FRONT_DOOR_DEADLINE_EXPIRED: Response delivery expired; read the original receipt before retrying a write.".to_owned())?
 }
 async fn read<S: AsyncRead + Unpin, T: DeserializeOwned>(
@@ -311,7 +321,7 @@ fn is_write(request: &Request) -> bool {
         return false;
     }
     match &request.operation {
-        Operation::Health | Operation::Snapshot { .. } | Operation::IngressContext { .. } => false,
+        Operation::Health | Operation::Snapshot { .. } => false,
         Operation::Mcp => {
             request.body["method"] == "tools/call" && request.body["params"]["name"] == "act"
         }
@@ -343,20 +353,127 @@ fn lost(request: &Request, reason: &str) -> String {
         format!("FRONT_DOOR_CORE_LOST: {reason}. Read failed; issue a new authorized read when Core is ready.")
     }
 }
+// A permit owns the waiting future's request identity and encoded memory budget.
+// Dropping a caller removes only that queued request; nothing has been sent yet.
+struct AdmissionQueue {
+    entries: Arc<tokio::sync::Semaphore>,
+    bytes: Arc<tokio::sync::Semaphore>,
+}
+impl AdmissionQueue {
+    fn new() -> Self {
+        Self {
+            entries: Arc::new(tokio::sync::Semaphore::new(MAX_QUEUED)),
+            bytes: Arc::new(tokio::sync::Semaphore::new(MAX_QUEUE_BYTES)),
+        }
+    }
+    fn reserve(&self, request: &Request) -> Result<QueueEntry> {
+        if self.entries.is_closed() {
+            return Err(not_sent(
+                request,
+                "FRONT_DOOR_UNAVAILABLE",
+                "The front door is stopping. Reconnect after it restarts.",
+            ));
+        }
+        let size = encoded_size(request, MAX_REQUEST_BYTES)?;
+        let full = || {
+            not_sent(request, "FRONT_DOOR_BUSY", "The Core admission queue is full. Wait for Core readiness, then retry with the same requestId.")
+        };
+        let entry = self
+            .entries
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| full())?;
+        let bytes = self
+            .bytes
+            .clone()
+            .try_acquire_many_owned(size as u32)
+            .map_err(|_| full())?;
+        Ok(QueueEntry {
+            _entry: entry,
+            _bytes: bytes,
+        })
+    }
+}
+struct QueueEntry {
+    _entry: tokio::sync::OwnedSemaphorePermit,
+    _bytes: tokio::sync::OwnedSemaphorePermit,
+}
+fn queue() -> &'static AdmissionQueue {
+    static QUEUE: std::sync::OnceLock<AdmissionQueue> = std::sync::OnceLock::new();
+    QUEUE.get_or_init(AdmissionQueue::new)
+}
+fn not_sent(request: &Request, code: &str, reason: &str) -> String {
+    json!({"code":-32603,"message":format!("{code}: {reason} Request was not sent to Core."),"data":{"requestId":request.id.0,"next":{"via":"query","op":"guide","args":{"topic":"loop"}}}}).to_string()
+}
+fn waiting_request(context: AuthenticatedContext, operation: Operation, body: Value) -> Request {
+    request(
+        &Hello {
+            version: VERSION,
+            generation: Generation([0; 16]),
+            readiness: Readiness::Unavailable,
+            max_request_bytes: MAX_REQUEST_BYTES,
+            max_frame_bytes: MAX_FRAME_BYTES,
+        },
+        context,
+        operation,
+        body,
+    )
+}
+async fn ready(request: &mut Request) -> Result<Stream> {
+    let expired = || {
+        not_sent(request, "FRONT_DOOR_DEADLINE_EXPIRED", "The original admission deadline expired. Read current state before retrying with the same requestId.")
+    };
+    let remaining = request.deadline.remaining().map_err(|_| expired())?;
+    let connection = tokio::time::timeout(remaining, async {
+        loop {
+            if queue().entries.is_closed() {
+                return Err(not_sent(
+                    request,
+                    "FRONT_DOOR_UNAVAILABLE",
+                    "The front door is stopping. Reconnect after it restarts.",
+                ));
+            }
+            match connect("core").await {
+                Ok((stream, hello)) => return Ok((stream, hello)),
+                Err(error)
+                    if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH")
+                        || error.starts_with("FRONT_DOOR_PEER_UNAUTHORIZED") =>
+                {
+                    return Err(error)
+                }
+                Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await
+    .map_err(|_| expired())??;
+    request.generation = connection.1.generation;
+    Ok(connection.0)
+}
 pub(crate) async fn call(
     context: AuthenticatedContext,
     operation: Operation,
     body: Value,
 ) -> Result<Value> {
-    let (mut stream, hello) = connect("core").await?;
-    let request = request(&hello, context, operation, body);
-    bounded(&request, MAX_REQUEST_BYTES)?;
-    // A partial send is ambiguous too. There is no resend path.
+    let mut request = waiting_request(context, operation, body);
+    let waiting = queue().reserve(&request)?;
+    let mut stream = ready(&mut request).await?;
+    drop(waiting);
+    // From the first byte written, even a partial send is ambiguous. Never resend.
     let frame = exchange(&mut stream, &request).await?;
     if let Some(current) = *CORE_GENERATION.lock().unwrap() {
         fence(current, frame.generation).map_err(|e| lost(&request, &e))?;
     }
-    frame.body
+    match frame.body {
+        Err(error)
+            if is_write(&request)
+                && (error.starts_with("FRONT_DOOR_DEADLINE_EXPIRED")
+                    || error.starts_with("FRONT_DOOR_CANCELLED")) =>
+        {
+            Err(lost(&request, &error))
+        }
+        result => result,
+    }
 }
 async fn exchange<S: AsyncRead + AsyncWrite + Unpin>(
     stream: &mut S,
@@ -371,7 +488,9 @@ async fn exchange<S: AsyncRead + AsyncWrite + Unpin>(
         }
         Ok::<_, String>(frame)
     };
-    tokio::time::timeout(request.deadline.remaining()?, result)
+    let remaining = request.deadline.remaining().map_err(|_| not_sent(request,
+        "FRONT_DOOR_DEADLINE_EXPIRED", "The original admission deadline expired. Read current state before retrying with the same requestId."))?;
+    tokio::time::timeout(remaining, result)
         .await
         .map_err(|_| lost(request, "deadline expired"))?
         .map_err(|e| lost(request, &e))
@@ -389,51 +508,112 @@ pub(crate) async fn stream(
     context: AuthenticatedContext,
     kind: Snapshot,
 ) -> Result<tokio::sync::mpsc::Receiver<hyper::body::Bytes>> {
-    let (mut socket, hello) = connect("core").await?;
-    let request = request(&hello, context, Operation::Snapshot { kind }, json!({}));
-    write(&mut socket, &Message::Stream(request.clone())).await?;
+    let mut request = waiting_request(context, Operation::Snapshot { kind }, json!({}));
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     tokio::spawn(async move {
-        let mut sequence = 0;
         loop {
-            let frame = tokio::select! {
-                _ = tx.closed() => return,
-                frame = tokio::time::timeout(request.deadline.remaining().unwrap_or_default(), read::<_,Result<StreamFrame>>(&mut socket,MAX_FRAME_BYTES)) => frame.map_err(|_|"stream deadline expired".to_owned()).and_then(|r|r).and_then(|r|r),
-            };
-            let body = frame.and_then(|frame| {
-                fence(request.generation, frame.generation)?;
-                if let Some(current) = *CORE_GENERATION.lock().unwrap() {
-                    fence(current, frame.generation)?;
+            let socket = {
+                let attach = async {
+                    let waiting = queue().reserve(&request)?;
+                    let socket = ready(&mut request).await;
+                    drop(waiting);
+                    let mut socket = socket?;
+                    write(&mut socket, &Message::Stream(request.clone())).await?;
+                    Ok::<_, String>(socket)
+                };
+                tokio::pin!(attach);
+                loop {
+                    tokio::select! {
+                        _ = tx.closed() => return,
+                        result = &mut attach => break result,
+                        _ = tokio::time::sleep(Duration::from_secs(15)) => {
+                            if !send_stream_bytes(&tx, ": keepalive\n\n".into()).await { return; }
+                        }
+                    }
                 }
-                if frame.request_id.0 != request.id.0 || frame.sequence != sequence {
-                    return Err("FRONT_DOOR_REQUEST_MISMATCH".into());
-                }
-                Ok(frame.body)
-            });
-            let failed = body.is_err();
-            let bytes = match body {
-                Ok(value) if value.is_null() => ": keepalive\n\n".into(),
-                Ok(value) => format!("event: snapshot\ndata: {value}\n\n"),
-                Err(error) => format!(
-                    "event: error\ndata: {}\n\n",
-                    json!({"error":format!("FRONT_DOOR_CORE_LOST: {error}; reconnect the subscription after Core is ready.")})
-                ),
             };
-            if !matches!(
-                tokio::time::timeout(
-                    Duration::from_secs(2),
-                    tx.send(hyper::body::Bytes::from(bytes))
-                )
-                .await,
-                Ok(Ok(()))
-            ) || failed
-            {
-                return;
+            let mut socket = match socket {
+                Ok(socket) => socket,
+                Err(error) => {
+                    send_stream_error(
+                        &tx,
+                        &format!("{error} Reconnect the snapshot stream after Core is ready."),
+                    )
+                    .await;
+                    return;
+                }
+            };
+            let mut sequence = 0;
+            loop {
+                let received = tokio::select! {
+                    _ = tx.closed() => return,
+                    result = tokio::time::timeout(request.deadline.remaining().unwrap_or_default(), read::<_,Result<StreamFrame>>(&mut socket,MAX_FRAME_BYTES)) => result.map_err(|_|"stream deadline expired".to_owned()).and_then(|r|r),
+                };
+                let frame = match received {
+                    Ok(Ok(frame)) => frame,
+                    Ok(Err(error)) if error.starts_with("FRONT_DOOR_CORE_DRAINING") => {
+                        if !send_stream_error(&tx, "FRONT_DOOR_CORE_DRAINING: Snapshot gap; reattaching after Core is ready. Read a fresh snapshot if reattachment expires.").await { return; }
+                        break;
+                    }
+                    Ok(Err(error)) => {
+                        send_stream_error(&tx, &format!("{error} Read current source authority and reconnect the snapshot stream.")).await;
+                        return;
+                    }
+                    Err(error) => {
+                        // Snapshots replace state; reattach reads only, retaining the public body and deadline.
+                        if !send_stream_error(&tx, &format!("FRONT_DOOR_CORE_LOST: {error}. Snapshot gap; reattaching to Core. Read a fresh snapshot if reattachment expires.")).await { return; }
+                        break;
+                    }
+                };
+                let body = (|| {
+                    fence(request.generation, frame.generation)?;
+                    if let Some(current) = *CORE_GENERATION.lock().unwrap() {
+                        fence(current, frame.generation)?;
+                    }
+                    if frame.request_id.0 != request.id.0 || frame.sequence != sequence {
+                        return Err("FRONT_DOOR_REQUEST_MISMATCH".to_owned());
+                    }
+                    Ok(frame.body)
+                })();
+                let bytes = match body {
+                    Ok(value) if value.is_null() => ": keepalive\n\n".into(),
+                    Ok(value) => format!("event: snapshot\ndata: {value}\n\n"),
+                    Err(error) => {
+                        send_stream_error(
+                            &tx,
+                            &format!("{error} Read a fresh snapshot and reconnect the stream."),
+                        )
+                        .await;
+                        return;
+                    }
+                };
+                if !send_stream_bytes(&tx, bytes).await {
+                    return;
+                }
+                sequence += 1;
             }
-            sequence += 1;
         }
     });
     Ok(rx)
+}
+async fn send_stream_bytes(
+    tx: &tokio::sync::mpsc::Sender<hyper::body::Bytes>,
+    bytes: String,
+) -> bool {
+    matches!(
+        tokio::time::timeout(Duration::from_secs(2), tx.send(bytes.into())).await,
+        Ok(Ok(()))
+    )
+}
+async fn send_stream_error(
+    tx: &tokio::sync::mpsc::Sender<hyper::body::Bytes>,
+    error: &str,
+) -> bool {
+    send_stream_bytes(
+        tx,
+        format!("event: error\ndata: {}\n\n", json!({"error":error})),
+    )
+    .await
 }
 
 #[derive(Clone)]
@@ -519,7 +699,7 @@ async fn serve_connection<S: AsyncRead + AsyncWrite + Unpin>(
             )
             .await
         }
-        (Owner::Core(service, desktop), Message::Request(request)) => {
+        (Owner::Core(service, desktop), Message::Request(mut request)) => {
             let endpoint = service.execution.front_door.clone();
             let target_ingress = if matches!(request.operation, Operation::Mcp) {
                 Some(
@@ -535,15 +715,31 @@ async fn serve_connection<S: AsyncRead + AsyncWrite + Unpin>(
             } else {
                 None
             };
-            let target = match &target_ingress {
-                Some(i) => Target::Ingress(i),
-                None => Target::Service(&service, desktop.as_ref()),
-            };
-            let body = tokio::select! {
-                body = endpoint.send(request.clone(),target) => body,
-                // Closing a private request connection cancels its future, never an Agent turn.
-                _ = stream.read_u8() => Err("FRONT_DOOR_CANCELLED".into()),
-            };
+            let body = async {
+                let hello = endpoint.hello(request.version)?;
+                fence(hello.generation, request.generation)?;
+                request.deadline.remaining()?;
+                bounded(&request, MAX_REQUEST_BYTES)?;
+                if hello.readiness != Readiness::Ready {
+                    return Err("FRONT_DOOR_CORE_DRAINING: Wait for Core readiness before retrying with the same requestId.".into());
+                }
+                if let protocol::Authority::Ingress { principal, header, .. } = &request.context.authority {
+                    let ingress = target_ingress.as_ref().ok_or("FRONT_DOOR_CONTEXT_MISMATCH")?;
+                    if !ingress.connected.load(Ordering::SeqCst) || ingress.meta.lock().await["enabled"] != true {
+                        return Err("Connection closed".into());
+                    }
+                    request.context = authenticated_context(ingress, principal, header.as_deref()).await?;
+                }
+                let target = match &target_ingress {
+                    Some(i) => Target::Ingress(i),
+                    None => Target::Service(&service, desktop.as_ref()),
+                };
+                tokio::select! {
+                    body = endpoint.send(request.clone(), target) => body,
+                    // The socket belongs to this generation, so closing it cannot cancel a newer request.
+                    _ = stream.read_u8() => Err("FRONT_DOOR_CANCELLED: Request cancelled; Agent execution is unchanged.".into()),
+                }
+            }.await;
             respond(
                 &mut stream,
                 ResponseFrame {
@@ -556,11 +752,23 @@ async fn serve_connection<S: AsyncRead + AsyncWrite + Unpin>(
             .await
         }
         (Owner::Core(service, _), Message::Stream(request)) => {
-            let mut frames = service
+            let mut frames = match service
                 .execution
                 .front_door
                 .open_stream(request, service.clone())
-                .await?;
+                .await
+            {
+                Ok(frames) => frames,
+                Err(error) => {
+                    tokio::time::timeout(
+                        Duration::from_secs(2),
+                        write(&mut stream, &Err::<StreamFrame, String>(error)),
+                    )
+                    .await
+                    .map_err(|_| "private stream backpressure")??;
+                    return Ok(());
+                }
+            };
             loop {
                 tokio::select! {
                     _ = stream.read_u8() => return Ok(()),
@@ -840,6 +1048,9 @@ pub async fn run() -> Result<()> {
         _=tokio::signal::ctrl_c()=>{},
         _=async { #[cfg(unix)] terminate.recv().await; #[cfg(not(unix))] std::future::pending::<()>().await; }=>{},
     }
+    // Provider teardown must not wait for a missing Core through the business queue.
+    queue().entries.close();
+    queue().bytes.close();
     let result = gateway.stop().await;
     drop(listeners);
     let _ = std::fs::remove_file(info_path());
@@ -858,6 +1069,51 @@ mod tests {
             max_request_bytes: MAX_REQUEST_BYTES,
             max_frame_bytes: MAX_FRAME_BYTES,
         }
+    }
+    #[test]
+    fn queued_admissions_retain_identity_and_release_both_bounds() {
+        // Property: rejected admissions cannot evict accepted identities and release restores count and byte capacity.
+        let queue = AdmissionQueue::new();
+        let request = waiting_request(
+            management_context(),
+            Operation::LocalControl,
+            json!({"op":"ax_report","requestId":"original-request","args":{}}),
+        );
+        let entries: Vec<_> = (0..MAX_QUEUED)
+            .map(|_| queue.reserve(&request).unwrap())
+            .collect();
+        let error: Value = serde_json::from_str(&queue.reserve(&request).err().unwrap()).unwrap();
+        assert_eq!(error["data"]["requestId"], "original-request");
+        assert_eq!(error["data"]["next"]["op"], "guide");
+        let spec = catalog()["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|op| op["name"] == "guide")
+            .unwrap();
+        crate::egress::validate_op(spec, &error["data"]["next"]["args"]).unwrap();
+        drop(entries);
+        let mut large = request.clone();
+        large.body = json!("x".repeat(MAX_QUEUE_BYTES / 3));
+        let first = queue.reserve(&large).unwrap();
+        let second = queue.reserve(&large).unwrap();
+        assert!(queue.reserve(&large).is_err());
+        drop((first, second));
+        assert!(queue.reserve(&large).is_ok());
+    }
+    #[tokio::test]
+    async fn waiting_requests_expire_without_changing_identity_or_deadline() {
+        // Regression: swap-time waiting restarted deadlines and lost the identity before Core attachment.
+        let mut request = waiting_request(
+            management_context(),
+            Operation::LocalControl,
+            json!({"op":"ax_report","requestId":"original-request","args":{}}),
+        );
+        request.deadline = Deadline::after(Duration::ZERO);
+        let error: Value = serde_json::from_str(&ready(&mut request).await.err().unwrap()).unwrap();
+        assert_eq!(error["data"]["requestId"], "original-request");
+        assert_eq!(error["data"]["next"]["via"], "query");
+        assert!(request.deadline.remaining().is_err());
     }
     #[cfg(unix)]
     struct ImageFixture {

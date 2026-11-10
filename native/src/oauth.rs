@@ -220,16 +220,18 @@ impl OAuth {
     }
     pub async fn authenticate(&mut self, header: &str, resource: &str) -> Option<Value> {
         self.prepare(resource).await.ok()?;
+        let principal = self.authenticate_transport(header, resource)?;
+        crate::front_door::authority::grant_active(self.ingress_id(), string(&principal, "grantId"))
+            .then_some(principal)
+    }
+    // Local credential validation can precede bounded waiting. Core resolves the
+    // grant's current source authority when the business request is admitted.
+    pub(crate) fn authenticate_transport(&self, header: &str, resource: &str) -> Option<Value> {
         let digest = hash(header.strip_prefix("Bearer ")?);
         self.stored
             .grants
             .iter()
-            .find(|g| {
-                g.resource == resource
-                    && g.access == digest
-                    && g.access_expires > clock()
-                    && crate::front_door::authority::grant_active(self.ingress_id(), &g.id)
-            })
+            .find(|g| g.resource == resource && g.access == digest && g.access_expires > clock())
             .map(|g| json!({"type":"oauth-grant","grantId":g.id,"clientId":g.client}))
     }
     pub(crate) fn event_principal(&self, header: &str) -> Option<String> {
@@ -1195,6 +1197,16 @@ mod front_door_tests {
             pending: Default::default(),
             registrations: vec![],
         };
+        oauth.stored.grants[0].access = hash("synthetic-token");
+        assert_eq!(
+            oauth
+                .authenticate_transport("Bearer synthetic-token", resource)
+                .unwrap()["grantId"],
+            "grant"
+        );
+        assert!(oauth
+            .authenticate_transport("Bearer synthetic-token", "https://other.example/mcp")
+            .is_none());
         assert!(oauth
             .apply_authority_snapshot(Err("FRONT_DOOR_CORE_UNAVAILABLE".into()))
             .is_err());
