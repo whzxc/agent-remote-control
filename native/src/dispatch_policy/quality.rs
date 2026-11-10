@@ -112,7 +112,7 @@ pub(super) fn aggregate(
         mut immature,
         mut mature,
     ) = (0, 0, 0, 0, 0, 0, 0);
-    let mut gap = rows.len() >= MAX_ROWS;
+    let mut gap = rows.len() > MAX_ROWS;
     let mut history_unknown = 0;
     let mut maturity_unknown = 0;
     let mut running_unknown = 0;
@@ -351,6 +351,158 @@ mod tests {
             result["agents"][0]["history"]["quality"]["laterFixCorrelation"],
             Value::Null
         );
+    }
+
+    #[test]
+    fn retained_history_keeps_newest_window_rows_and_bounds_only_window_overflow() {
+        // Regression: an oldest-first retained-history cap discarded recent turns once retention exceeded 4096 records.
+        struct Sandbox(PathBuf);
+        impl Drop for Sandbox {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let dir = Sandbox(std::env::temp_dir().join(format!("arc-history-recency-{}", id())));
+        let old_thread = dir
+            .0
+            .join("dispatches/00000001-0000-7000-8000-000000000000");
+        let new_thread = dir
+            .0
+            .join("dispatches/000000ff-0000-7000-8000-000000000000");
+        let time = chrono::Utc::now();
+        let old = time - chrono::Duration::days(60);
+        let row = |id: &str, at: chrono::DateTime<chrono::Utc>| json!({"agent":"codex","threadId":"thread","turnId":id,"dispatchMode":"new-turn","submittedAt":at.to_rfc3339(),"terminal":{"state":"completed","endedAt":at.to_rfc3339()}});
+        for n in 0..MAX_ROWS + 1 {
+            let path = old_thread.join(format!("{n:05}.json"));
+            save(&path, &row(&format!("old-{n}"), old)).unwrap();
+            std::fs::File::open(&path)
+                .unwrap()
+                .set_times(std::fs::FileTimes::new().set_modified(old.into()))
+                .unwrap();
+        }
+        save(
+            &old_thread.join("recent.json"),
+            &row("recent-old-thread", time - chrono::Duration::days(29)),
+        )
+        .unwrap();
+        save(&new_thread.join("recent.json"), &row("newest-thread", time)).unwrap();
+        let mut external = row("external", old);
+        external["dispatchOrigin"] = json!("external");
+        external["review"] = json!({"verdict":"pass","reviewedAt":time.to_rfc3339(),"foundBy":"controller","defects":0,"advisory":0,"qualityVersion":1});
+        save(
+            &dir.0
+                .join("reviews/00000001-0000-7000-8000-000000000000/recent.json"),
+            &external,
+        )
+        .unwrap();
+        // Recently modified old execution records must still be excluded by their actual timestamp.
+        save(
+            &new_thread.join("updated-old.json"),
+            &row("updated-old", old),
+        )
+        .unwrap();
+        let io = file_cache::thread_io();
+        let selected = history_rows_in(&dir.0).unwrap();
+        assert_eq!(selected.len(), 3);
+        assert_eq!(file_cache::thread_io().file_opens - io.file_opens, 4);
+        let initial = history_from_rows(&selected, "codex", false, &dir.0);
+        assert_eq!(initial["coverage"], "exact");
+        assert_eq!(initial["quality"]["reviewCoverage"]["unreviewed"], 2);
+        assert_eq!(initial["quality"]["externalReviews"]["reviews"], 1);
+        for n in 0..MAX_ROWS - 3 {
+            save(
+                &new_thread.join(format!("{n:05}.json")),
+                &row(
+                    &format!("current-{n}"),
+                    time - chrono::Duration::minutes(n as i64 + 1),
+                ),
+            )
+            .unwrap();
+        }
+        let exact = history_rows_in(&dir.0).unwrap();
+        assert_eq!(exact.len(), MAX_ROWS);
+        assert_eq!(
+            history_from_rows(&exact, "codex", false, &dir.0)["coverage"],
+            "exact"
+        );
+        save(
+            &new_thread.join("latest.json"),
+            &row("latest", time + chrono::Duration::seconds(1)),
+        )
+        .unwrap();
+        let bounded = history_rows_in(&dir.0).unwrap();
+        assert_eq!(bounded.len(), MAX_ROWS + 1);
+        assert_eq!(bounded[0]["turnId"], "latest");
+        assert!(bounded[..MAX_ROWS]
+            .iter()
+            .any(|r| r["turnId"] == "newest-thread"));
+        assert!(!bounded[..MAX_ROWS]
+            .iter()
+            .any(|r| r["turnId"] == "recent-old-thread"));
+        assert_eq!(
+            history_from_rows(&bounded, "codex", false, &dir.0)["coverage"],
+            "bounded"
+        );
+        let io = file_cache::thread_io();
+        assert_eq!(history_rows_in(&dir.0).unwrap(), bounded);
+        assert_eq!(file_cache::thread_io().file_opens, io.file_opens);
+    }
+
+    #[test]
+    fn legacy_file_import_writes_once_and_warm_reads_never_write() {
+        // Regression: legacy found-by imports must persist once and leave repeated warm history reads write-free.
+        struct Sandbox(PathBuf);
+        impl Drop for Sandbox {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let dir = Sandbox(std::env::temp_dir().join(format!("arc-review-import-{}", id())));
+        for (name, note) in [
+            (
+                "structured",
+                "found-by: controller; defects: 2; advisory: 1",
+            ),
+            ("prose", "Tests passed"),
+        ] {
+            save(
+                &dir.0.join(format!("{name}.json")),
+                &json!({"turnId":name,"review":{"verdict":"pass","note":note}}),
+            )
+            .unwrap();
+        }
+        use crate::runtime_metrics::cost::{self, Owner, Reason};
+        let metrics = || crate::runtime_metrics::snapshot()["cost"]["taskRead"].clone();
+        let read = || {
+            cost::sync(Owner::TaskRead, Reason::Poll, || {
+                read_rows_limit(&dir.0, usize::MAX).unwrap()
+            })
+        };
+        let before = metrics();
+        let first = read();
+        assert_eq!(
+            metrics()["recordsChanged"].as_u64().unwrap()
+                - before["recordsChanged"].as_u64().unwrap(),
+            2
+        );
+        let stamps = || {
+            ["structured", "prose"]
+                .map(|name| file_cache::Stamp::read(&dir.0.join(format!("{name}.json"))).unwrap())
+        };
+        let imported = stamps();
+        assert_eq!(read(), first);
+        let warm = metrics();
+        for _ in 0..3 {
+            assert_eq!(read(), first);
+        }
+        let after = metrics();
+        assert_eq!(after["recordsChanged"], warm["recordsChanged"]);
+        assert_eq!(
+            after["recordsChanged"].as_u64().unwrap() - before["recordsChanged"].as_u64().unwrap(),
+            2
+        );
+        assert_eq!(after["bytesParsed"], warm["bytesParsed"]);
+        assert_eq!(stamps(), imported);
     }
 
     #[test]

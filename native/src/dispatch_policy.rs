@@ -792,25 +792,53 @@ fn history_rows() -> Result<Vec<Value>> {
 }
 
 fn history_rows_in(base: &Path) -> Result<Vec<Value>> {
-    let mut rows = Vec::new();
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+    let oldest: std::time::SystemTime = cutoff.into();
+    let mut rows = std::collections::BTreeMap::new();
     for kind in ["dispatches", "reviews"] {
         let dir = base.join(kind);
         if !dir.exists() {
             continue;
         }
-        for entry in file_cache::entries(&dir)?.iter().take(quality::MAX_ROWS) {
+        for thread in file_cache::entries(&dir)?
+            .iter()
+            .filter(|e| e.kind.is_dir())
+        {
             crate::runtime_metrics::cost::rows(1);
-            if !entry.path.is_dir() {
-                continue;
-            }
-            let remaining = quality::MAX_ROWS.saturating_sub(rows.len());
-            rows.extend(read_rows_limit(&entry.path, remaining)?);
-            if rows.len() >= quality::MAX_ROWS {
-                return Ok(rows);
+            for entry in file_cache::entries(&thread.path)?
+                .iter()
+                .filter(|e| e.path.extension().is_some_and(|v| v == "json"))
+            {
+                crate::runtime_metrics::cost::rows(1);
+                // Thread creation time cannot exclude recent turns in an old thread.
+                // Owner writes atomically replace records, giving mtime a cheap window bound.
+                let modified = std::fs::metadata(&entry.path)
+                    .and_then(|m| m.modified())
+                    .map_err(|e| e.to_string())?;
+                if modified < oldest {
+                    continue;
+                }
+                let row = read_row(&entry.path)?;
+                let time = if row["dispatchOrigin"] == "external" {
+                    &row["review"]["reviewedAt"]
+                } else {
+                    &row["submittedAt"]
+                };
+                let at = chrono::DateTime::parse_from_rfc3339(time.as_str().unwrap_or(""))
+                    .map(|t| t.with_timezone(&chrono::Utc))
+                    .unwrap_or_else(|_| modified.into());
+                if at < cutoff {
+                    continue;
+                }
+                rows.insert((at, entry.path.clone()), row);
+                // One extra in-window record distinguishes an exact cap from overflow.
+                if rows.len() > quality::MAX_ROWS + 1 {
+                    rows.pop_first();
+                }
             }
         }
     }
-    Ok(rows)
+    Ok(rows.into_iter().rev().map(|(_, row)| row).collect())
 }
 
 fn history_view(agent: &str, compact: bool) -> Result<Value> {
@@ -823,6 +851,7 @@ fn history_from_rows(rows: &[Value], agent: &str, compact: bool, base: &Path) ->
     let mut result = summarize_history(rows, agent, compact, cutoff);
     let selected = rows
         .iter()
+        .take(quality::MAX_ROWS)
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
         .filter(|r| {
             r["agent"].as_str().unwrap_or("codex") == agent
@@ -847,7 +876,7 @@ pub(crate) fn summarize_packs(
     let mut stats = std::collections::BTreeMap::<String, [u64; 6]>::new();
     let mut durations = std::collections::BTreeMap::<String, Vec<u64>>::new();
     let mut seen = std::collections::HashSet::new();
-    for row in rows {
+    for row in rows.iter().take(quality::MAX_ROWS) {
         let Some(name) = row["pack"]["name"].as_str() else {
             continue;
         };
@@ -972,7 +1001,7 @@ pub(crate) fn summarize_history(
     }
     let mut groups = std::collections::BTreeMap::<(String, String, String, String), Group>::new();
     let mut seen = std::collections::HashSet::new();
-    for row in rows {
+    for row in rows.iter().take(quality::MAX_ROWS) {
         crate::runtime_metrics::cost::rows(1);
         let external = row["dispatchOrigin"] == "external";
         if row["agent"].as_str().unwrap_or("codex") != agent
@@ -1193,17 +1222,19 @@ fn read_rows_limit(dir: &Path, limit: usize) -> Result<Vec<Value>> {
         .take(limit)
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
         .filter(|entry| entry.path.extension().is_some_and(|v| v == "json"))
-        .map(|entry| {
-            let mut row = load(&entry.path)?;
-            if quality::import(&mut row) {
-                save(&entry.path, &row)?;
-            }
-            Ok(row)
-        })
+        .map(|entry| read_row(&entry.path))
         .collect::<Result<Vec<_>>>()?;
     rows.sort_by_key(|r| string(r, "submittedAt").to_owned());
     Ok(rows)
 }
+fn read_row(path: &Path) -> Result<Value> {
+    let mut row = load(path)?;
+    if quality::import(&mut row) {
+        save(path, &row)?;
+    }
+    Ok(row)
+}
+
 pub(crate) fn record(receipt: &Value) -> Result<()> {
     crate::src_conversations::record(receipt).map_err(|e| {
         format!("SUBMISSION_UNCONFIRMED: dispatch accepted; conversation record failed: {e}")
