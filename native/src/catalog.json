@@ -2264,7 +2264,8 @@
           },
           "note": {
             "type": "string",
-            "maxLength": 1000
+            "maxLength": 4000,
+            "description": "Per-invariant evidence and follow-up summary. Maximum 4000 characters."
           }
         },
         "required": [
@@ -4106,7 +4107,8 @@
           },
           "note": {
             "type": "string",
-            "maxLength": 1000
+            "maxLength": 4000,
+            "description": "Per-invariant evidence and follow-up summary. Maximum 4000 characters."
           },
           "agent": {
             "type": "string",
