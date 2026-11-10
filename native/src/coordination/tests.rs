@@ -1050,7 +1050,9 @@ fn executing_command_is_not_a_stalled_submission() {
             &receipt,
             f.time + 300_000,
             ResourceKey::parse("host:fixture").unwrap(),
-        ).unwrap().is_none());
+        )
+        .unwrap()
+        .is_none());
     }
     assert!(f.query(json!({"kinds":["receipt.stalled"]}))["events"]
         .as_array()

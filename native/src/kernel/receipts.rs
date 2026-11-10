@@ -1,8 +1,8 @@
 //! Durable operation receipts. Owners retain execution and task lifecycle semantics.
 use super::file_cache::load;
 use crate::*;
-mod projection;
 pub mod progress;
+mod projection;
 
 pub struct ReceiptStore {
     directory: &'static str,
@@ -374,7 +374,10 @@ mod tests {
         assert_eq!(restarted["requestId"], request);
         let _owner = fixture.store.begin(&mut row).unwrap();
         drop(_owner);
-        assert_eq!(fixture.store.read(&request, "fixture-session").unwrap()["state"], "unconfirmed");
+        assert_eq!(
+            fixture.store.read(&request, "fixture-session").unwrap()["state"],
+            "unconfirmed"
+        );
         let _owner = fixture.store.begin(&mut row).unwrap();
         let (sender, receiver) = tokio::sync::oneshot::channel();
         drop(sender);
@@ -571,14 +574,21 @@ mod tests {
         fixture.store.seed().unwrap();
         crate::kernel::derived_index::invalidate_owner(&fixture.dir).unwrap();
         receipt["origin"] = json!({"sourceId":"migrated-source","ingressId":"fixture-ingress"});
-        std::fs::write(fixture.store.path(string(&receipt, "requestId")).unwrap(), receipt.to_string()).unwrap();
+        std::fs::write(
+            fixture.store.path(string(&receipt, "requestId")).unwrap(),
+            receipt.to_string(),
+        )
+        .unwrap();
         projection::forget(&fixture.dir);
         let control = control::Control::new(PathBuf::new());
         let before = control.tool("runtime_metrics", json!({})).await.unwrap();
         fixture.store.seed().unwrap();
         let rebuilt = control.tool("runtime_metrics", json!({})).await.unwrap();
         assert_eq!(delta(&before, &rebuilt, "receiptSeed", "rowsVisited"), 1);
-        let read = fixture.store.read_for_projection(string(&receipt, "requestId"), "fixture-session").unwrap();
+        let read = fixture
+            .store
+            .read_for_projection(string(&receipt, "requestId"), "fixture-session")
+            .unwrap();
         assert_eq!(read["origin"], receipt["origin"]);
         projection::forget(&fixture.dir);
         fixture.store.seed().unwrap();

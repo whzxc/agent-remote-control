@@ -703,7 +703,8 @@ fn render(output: &str, snapshot: &Value, offset: usize, rpc_id: Option<&Value>)
                 .as_object_mut()
                 .unwrap()
                 .remove("summary");
-            if crate::egress::wire_bytes(&crate::egress::tool(out.clone(), false), rpc_id) > BUDGET {
+            if crate::egress::wire_bytes(&crate::egress::tool(out.clone(), false), rpc_id) > BUDGET
+            {
                 out["rows"].as_array_mut().unwrap().pop();
                 update(&mut out, i);
                 break;

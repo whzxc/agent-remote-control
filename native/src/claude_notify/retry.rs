@@ -154,7 +154,8 @@ pub(super) async fn handle(
             Ok(true)
         }
         Ok(r)
-            if crate::kernel::receipts::progress::Progress::read(string(&r, "state"), true).active() =>
+            if crate::kernel::receipts::progress::Progress::read(string(&r, "state"), true)
+                .active() =>
         {
             Ok(true)
         }

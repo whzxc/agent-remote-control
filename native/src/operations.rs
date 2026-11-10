@@ -30,7 +30,8 @@ pub fn project(receipt: Value, instance: &str, time_ms: i64) -> Value {
     let owner_live = receipt["instance"] == instance;
     let mut receipt = crate::kernel::receipts::progress::project(receipt, owner_live, time_ms);
     if receipt["state"] == "unconfirmed" {
-        receipt["next"] = json!({"operation":"operations.get","arguments":{"id":receipt["requestId"]}});
+        receipt["next"] =
+            json!({"operation":"operations.get","arguments":{"id":receipt["requestId"]}});
         receipt.as_object_mut().unwrap().remove("nextAction");
     }
     receipt
@@ -66,7 +67,11 @@ pub fn submit(body: Value, instance: String) -> Result<Value> {
     private_dir(file.parent().unwrap())?;
     let receipt = json!({"requestId":request,"operation":operation,"state":"reserved","startedAt":now(),"instance":instance,"fingerprint":fingerprint});
     save(&file, &receipt)?;
-    let response = project(receipt.clone(), &instance, chrono::Utc::now().timestamp_millis());
+    let response = project(
+        receipt.clone(),
+        &instance,
+        chrono::Utc::now().timestamp_millis(),
+    );
     let mut result = receipt;
     tokio::spawn(async move {
         result["state"] = json!("executing");

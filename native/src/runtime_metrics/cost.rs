@@ -300,7 +300,8 @@ pub(crate) fn bindings(retained: usize, observed: usize, dormant: usize) {
     });
 }
 pub(super) fn snapshot() -> Value {
-    with_costs(|costs| Value::Object(OWNERS.iter().zip(costs).map(|(name, c)| ((*name).into(), json!({
+    with_costs(|costs| {
+        Value::Object(OWNERS.iter().zip(costs).map(|(name, c)| ((*name).into(), json!({
         "passes":c.passes.load(Relaxed),
         "wakesByReason":REASONS.iter().zip(&c.wakes).map(|(name,c)|((*name).into(),json!(c.load(Relaxed)))).collect::<serde_json::Map<_,_>>(),
         "rowsVisited":c.rows.load(Relaxed), "recordsChanged":c.changed.load(Relaxed),
@@ -308,7 +309,8 @@ pub(super) fn snapshot() -> Value {
         "cacheHits":c.hits.load(Relaxed), "cacheMisses":c.misses.load(Relaxed),
         "scanSetSize":c.scan_set.load(Relaxed),
         "bindings":if *name == "notificationObserver" { json!({"retained":c.retained.load(Relaxed),"observed":c.observed.load(Relaxed),"dormant":c.dormant.load(Relaxed)}) } else { Value::Null }
-    }))).collect()))
+    }))).collect())
+    })
 }
 
 #[cfg(test)]

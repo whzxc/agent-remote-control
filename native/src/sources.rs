@@ -560,9 +560,11 @@ pub async fn update(id: &str, body: &Value) -> Result<Value> {
     let id = id.to_owned();
     let body = body.clone();
     if !body.is_object()
-        || body.as_object().unwrap().keys().any(|k| {
-            !["label", "product", "capabilityProfile"].contains(&k.as_str())
-        })
+        || body
+            .as_object()
+            .unwrap()
+            .keys()
+            .any(|k| !["label", "product", "capabilityProfile"].contains(&k.as_str()))
     {
         return Err("Expected label, product, and/or capabilityProfile".into());
     }

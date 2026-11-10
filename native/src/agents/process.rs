@@ -846,7 +846,9 @@ impl Process {
         };
         let progress =
             crate::kernel::receipts::progress::Progress::read(string(&receipt, "state"), true);
-        if !progress.active() && progress != crate::kernel::receipts::progress::Progress::Unconfirmed {
+        if !progress.active()
+            && progress != crate::kernel::receipts::progress::Progress::Unconfirmed
+        {
             return;
         }
         let received = state["taskHost"]["receivedSequence"].as_u64().unwrap_or(0);

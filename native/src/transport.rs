@@ -796,7 +796,13 @@ async fn call_tool_inner(
                 || (digest_continuation && value["error"].is_null()))
                 && args["digestCursor"].is_null()
             {
-                crate::kernel::digests::present(name, &args, value.clone(), &s.origin().await, rpc_id)?
+                crate::kernel::digests::present(
+                    name,
+                    &args,
+                    value.clone(),
+                    &s.origin().await,
+                    rpc_id,
+                )?
             } else if default_list || (args["digestCursor"].is_string() && args["view"] != "full") {
                 value.clone()
             } else {
@@ -901,8 +907,7 @@ async fn call_tool_inner(
     // pass through generic paging first: that would hide the owner's full list shape.
     if default_list && crate::egress::wire_bytes(&result, rpc_id) > 12 * 1024 {
         let full = crate::egress::tool_value(&result)?;
-        let digest =
-            crate::kernel::digests::present(name, &args, full, &s.origin().await, rpc_id)?;
+        let digest = crate::kernel::digests::present(name, &args, full, &s.origin().await, rpc_id)?;
         result = crate::egress::tool(digest, false);
     }
     result["content"].as_array_mut().unwrap().extend(images);

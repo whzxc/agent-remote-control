@@ -919,7 +919,12 @@ impl AgentHost {
                 drop(ops);
                 drop(_request_lock);
                 return RECEIPTS
-                    .wait(request, &self.session, num(&args, "waitMs", 25000).min(120000) as u64, rx)
+                    .wait(
+                        request,
+                        &self.session,
+                        num(&args, "waitMs", 25000).min(120000) as u64,
+                        rx,
+                    )
                     .await;
             }
         }
@@ -1134,7 +1139,12 @@ impl AgentHost {
         drop(ops);
         drop(request_lock);
         RECEIPTS
-            .wait(&request, &self.session, num(&args, "waitMs", 25000).min(120000) as u64, rx)
+            .wait(
+                &request,
+                &self.session,
+                num(&args, "waitMs", 25000).min(120000) as u64,
+                rx,
+            )
             .await
     }
 
@@ -1155,12 +1165,14 @@ impl AgentHost {
             let owner = RECEIPTS.begin(&mut r);
             let result = match &owner {
                 Err(error) => Err(error.clone()),
-                Ok(_) => crate::dispatch_caller::CALLER
-                    .scope(
-                        crate::dispatch_caller::validated(&r["caller"]),
-                        host.perform(&driver, &name, &arguments, &task),
-                    )
-                    .await,
+                Ok(_) => {
+                    crate::dispatch_caller::CALLER
+                        .scope(
+                            crate::dispatch_caller::validated(&r["caller"]),
+                            host.perform(&driver, &name, &arguments, &task),
+                        )
+                        .await
+                }
             };
             match result {
                 Ok(v) => {

@@ -124,7 +124,9 @@ pub(crate) fn wire_bytes(result: &Value, rpc_id: Option<&Value>) -> usize {
         Some(id) => {
             let mut result = result.clone();
             result["resultType"] = json!("complete");
-            json!({"jsonrpc":"2.0","id":id,"result":result}).to_string().len()
+            json!({"jsonrpc":"2.0","id":id,"result":result})
+                .to_string()
+                .len()
         }
         None => result.to_string().len(),
     }
@@ -200,7 +202,11 @@ pub fn receipt(value: Value) -> Value {
     if !value["requestId"].is_string() || !value["state"].is_string() {
         return value;
     }
-    let value = crate::kernel::receipts::progress::project(value, true, chrono::Utc::now().timestamp_millis());
+    let value = crate::kernel::receipts::progress::project(
+        value,
+        true,
+        chrono::Utc::now().timestamp_millis(),
+    );
     let mut out = json!({});
     for key in [
         "requestId",
@@ -972,8 +978,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
             arguments["timeoutMs"] = timeout.clone();
         }
         json!({"hint":"Continue waiting with the same task and turn.","via":"query","op":wait_tool,"args":arguments})
-    } else if value["state"] == "reserved" && value["requestId"].is_string()
-    {
+    } else if value["state"] == "reserved" && value["requestId"].is_string() {
         json!({"hint":"Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"retryAfterMs":1000})
     } else if (matches!(
         name,
@@ -1053,12 +1058,19 @@ mod tests {
         for source in ["claude", "chatgpt", "other"] {
             let result = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
             let bytes = wire_bytes(&tool(result.clone(), false), Some(&json!(1)));
-            println!("{source} default guide MCP response: {bytes} / {DEFAULT_GUIDE_MCP_BUDGET} bytes");
+            println!(
+                "{source} default guide MCP response: {bytes} / {DEFAULT_GUIDE_MCP_BUDGET} bytes"
+            );
             assert!(bytes <= DEFAULT_GUIDE_MCP_BUDGET);
             let entries = result["ops"].as_array().unwrap();
             assert!(!entries.is_empty());
             for entry in entries {
-                let per_op = guide(&json!({"controlSource":source}), &json!({"op":entry["op"]}), "en", &ops);
+                let per_op = guide(
+                    &json!({"controlSource":source}),
+                    &json!({"op":entry["op"]}),
+                    "en",
+                    &ops,
+                );
                 assert!(entry["signature"].as_str().is_some_and(|s| !s.is_empty()));
                 assert_eq!(entry["signature"], per_op["signature"]);
             }

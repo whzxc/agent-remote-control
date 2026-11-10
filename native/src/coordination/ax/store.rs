@@ -334,11 +334,20 @@ impl Store {
         if self.data.entries.contains_key(prefix) {
             return Ok(prefix.into());
         }
-        let matches: Vec<_> = self.data.entries.keys().filter(|id| id.starts_with(prefix)).cloned().collect();
+        let matches: Vec<_> = self
+            .data
+            .entries
+            .keys()
+            .filter(|id| id.starts_with(prefix))
+            .cloned()
+            .collect();
         match matches.as_slice() {
             [id] => Ok(id.clone()),
             [] => Err("AX_NOT_FOUND: query ax_list".into()),
-            _ => Err(format!("INVALID_ARGUMENT: ambiguous prefix; use a full AX id: {}", matches.join(", "))),
+            _ => Err(format!(
+                "INVALID_ARGUMENT: ambiguous prefix; use a full AX id: {}",
+                matches.join(", ")
+            )),
         }
     }
     fn canonical(&self, id: &str) -> Result<String> {
