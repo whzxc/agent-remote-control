@@ -62,12 +62,16 @@ Desktop leases and the existing headless entry points retain that responsibility
 
 On macOS, the Core supervisor observes installed-image identity and performs
 compatible front-door updates under exclusive `front-door-install.lock` ownership.
-It stages the target, verifies the previous image, pauses business admissions and
-waits up to five seconds for admitted calls. A drain timeout leaves the old owner
-serving and resumes admissions. Requests waiting for admission retain their original
+It stages the target, verifies the previous image and pauses business admissions.
+Maintenance ends admitted reads, including long waits and snapshot streams, with the
+existing retryable draining error and a guide next action. It waits up to five
+seconds for admitted writes. Only outstanding writes can expire the drain, leaving
+the old owner serving and resuming admissions. Update status records `endedReads`
+and `outstandingWrites`. Requests waiting for admission retain their original
 identities and deadlines. Front-door shutdown closes the queue with its existing
-not-sent result and waits up to one second for waiting futures to release their
-permits before listener teardown. Clients reconnect after the bounded outage. Sent calls are never repeated. The new image must answer the
+not-sent result and waits up to one second for queued futures and forwarded
+responses before listener teardown. Clients reconnect after the bounded outage.
+Sent calls are never repeated. The new image must answer the
 private protocol handshake with its expected PID, protocol and content build ID
 within ten seconds. Failed readiness kills the candidate and launches the previous
 image. The restored owner reclaims stale provider children through its own index.

@@ -350,7 +350,7 @@ fn request(
         body,
     }
 }
-fn is_write(request: &Request) -> bool {
+pub(super) fn is_write(request: &Request) -> bool {
     let envelope = match request.operation {
         Operation::Mcp => &request.body["params"]["arguments"],
         Operation::LocalControl => &request.body,
@@ -399,12 +399,16 @@ fn lost(request: &Request, reason: &str) -> String {
 struct AdmissionQueue {
     entries: Arc<tokio::sync::Semaphore>,
     bytes: Arc<tokio::sync::Semaphore>,
+    #[cfg(target_os = "macos")]
+    active: std::sync::atomic::AtomicUsize,
 }
 impl AdmissionQueue {
     fn new() -> Self {
         Self {
             entries: Arc::new(tokio::sync::Semaphore::new(MAX_QUEUED)),
             bytes: Arc::new(tokio::sync::Semaphore::new(MAX_QUEUE_BYTES)),
+            #[cfg(target_os = "macos")]
+            active: std::sync::atomic::AtomicUsize::new(0),
         }
     }
     fn reserve(&self, request: &Request) -> Result<QueueEntry> {
@@ -433,6 +437,22 @@ impl AdmissionQueue {
             _entry: entry,
             _bytes: bytes,
         })
+    }
+}
+// Shutdown lets forwarded results reach their transport before closing listeners.
+#[cfg(target_os = "macos")]
+struct Forwarded;
+#[cfg(target_os = "macos")]
+impl Forwarded {
+    fn new() -> Self {
+        queue().active.fetch_add(1, Ordering::SeqCst);
+        Self
+    }
+}
+#[cfg(target_os = "macos")]
+impl Drop for Forwarded {
+    fn drop(&mut self) {
+        queue().active.fetch_sub(1, Ordering::SeqCst);
     }
 }
 struct QueueEntry {
@@ -500,6 +520,8 @@ pub(crate) async fn call(
     let waiting = queue().reserve(&request)?;
     let mut stream = ready(&mut request).await?;
     drop(waiting);
+    #[cfg(target_os = "macos")]
+    let _forwarded = Forwarded::new();
     // From the first byte written, even a partial send is ambiguous. Never resend.
     let frame = exchange(&mut stream, &request).await?;
     if let Some(current) = *CORE_GENERATION.lock().unwrap() {
@@ -552,6 +574,8 @@ pub(crate) async fn stream(
     let mut request = waiting_request(context, Operation::Snapshot { kind }, json!({}));
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     tokio::spawn(async move {
+        #[cfg(target_os = "macos")]
+        let _forwarded = Forwarded::new();
         loop {
             let socket = {
                 let attach = async {
@@ -592,6 +616,17 @@ pub(crate) async fn stream(
                 };
                 let frame = match received {
                     Ok(Ok(frame)) => frame,
+                    #[cfg(target_os = "macos")]
+                    Ok(Err(error))
+                        if serde_json::from_str::<Value>(&error).is_ok_and(|value| {
+                            value["message"].as_str().is_some_and(|message| {
+                                message.starts_with("FRONT_DOOR_CORE_DRAINING:")
+                            })
+                        }) =>
+                    {
+                        send_stream_error(&tx, &error).await;
+                        return;
+                    }
                     Ok(Err(error)) if error.starts_with("FRONT_DOOR_CORE_DRAINING") => {
                         if !send_stream_error(&tx, "FRONT_DOOR_CORE_DRAINING: Snapshot gap; reattaching after Core is ready. Read a fresh snapshot if reattachment expires.").await { return; }
                         break;
@@ -1040,7 +1075,7 @@ impl Updater {
             .join("arc");
         let path = root().join("app/front-door-update.json");
         let mut state = json!({"state":"staging","currentBuild":previous_build,"targetBuild":target,
-            "lastOutcome":observed["lastOutcome"],"rollback":false,"retryAt":chrono::Utc::now().timestamp_millis() + UPDATE_BACKOFF.as_millis() as i64});
+            "lastOutcome":observed["lastOutcome"],"rollback":false,"endedReads":0,"outstandingWrites":0,"retryAt":chrono::Utc::now().timestamp_millis() + UPDATE_BACKOFF.as_millis() as i64});
         save(&path, &state)?;
         // Stage and verify both runnable images before pausing admissions.
         let staged = (|| {
@@ -1053,10 +1088,15 @@ impl Updater {
             let binary = staged?;
             let maintenance = service.execution.front_door.maintenance()?;
             state["state"] = json!("draining");
+            state["endedReads"] = json!(maintenance.ended_reads);
+            state["outstandingWrites"] = json!(maintenance.outstanding_writes());
             save(&path, &state)?;
             // D3c admission fencing retains queued identities/deadlines and never repeats a send.
-            // A drain timeout aborts this update while the old front door is still available.
-            maintenance.drain().await?;
+            // Reads end explicitly. Only outstanding writes can abort the bounded drain.
+            let drained = maintenance.drain().await;
+            state["outstandingWrites"] = json!(maintenance.outstanding_writes());
+            save(&path, &state)?;
+            drained?;
             state["state"] = json!("starting");
             save(&path, &state)?;
             stop().await?;
@@ -1437,7 +1477,10 @@ pub async fn run() -> Result<()> {
     #[cfg(target_os = "macos")]
     {
         let until = Instant::now() + Duration::from_secs(1);
-        while queue().entries.available_permits() < MAX_QUEUED && Instant::now() < until {
+        while (queue().entries.available_permits() < MAX_QUEUED
+            || queue().active.load(Ordering::SeqCst) != 0)
+            && Instant::now() < until
+        {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         // Let transport tasks deliver the explicit not-sent result before closing sockets.

@@ -22,7 +22,9 @@ pub(crate) struct InProcess {
     admission: std::sync::Mutex<()>,
     slots: Arc<tokio::sync::Semaphore>,
     stream_slots: Arc<tokio::sync::Semaphore>,
-    pending: std::sync::Mutex<std::collections::BTreeMap<String, tokio::sync::watch::Sender<bool>>>,
+    pending: std::sync::Mutex<std::collections::BTreeMap<String, AdmittedRequest>>,
+    #[cfg(target_os = "macos")]
+    pending_changed: tokio::sync::Notify,
     service: std::sync::Mutex<std::sync::Weak<Service>>,
 }
 impl InProcess {
@@ -34,6 +36,8 @@ impl InProcess {
             slots: Arc::new(tokio::sync::Semaphore::new(MAX_IN_FLIGHT)),
             stream_slots: Arc::new(tokio::sync::Semaphore::new(MAX_IN_FLIGHT)),
             pending: Default::default(),
+            #[cfg(target_os = "macos")]
+            pending_changed: Default::default(),
             service: Default::default(),
         }
     }
@@ -102,11 +106,19 @@ impl InProcess {
             .slots
             .try_acquire()
             .map_err(|_| "FRONT_DOOR_BUSY: Wait for an admitted request to finish.")?;
-        drop(_admission);
         let (_pending, mut cancelled) = self.register(&request)?;
+        drop(_admission);
+        #[cfg(feature = "test-fixture")]
+        if std::env::var("ARC_FIXTURE_ADMITTED_RPC_ID").ok().as_deref()
+            == Some(&request.body["id"].to_string())
+        {
+            if let Some(path) = std::env::var_os("ARC_FIXTURE_ADMITTED_GATE") {
+                save(&PathBuf::from(path), &json!({"admitted":true}))?;
+            }
+        }
         let body = tokio::select! {
             biased;
-            _ = cancelled.changed() => return Err("FRONT_DOOR_CANCELLED: Request cancelled; Agent execution is unchanged.".into()),
+            _ = cancelled.changed() => return Err(cancelled.borrow().unwrap_or(Interruption::Cancelled).error(&request)),
             result = tokio::time::timeout(request.deadline.remaining()?, crate::core_requests::handle(target, &request)) =>
                 result.map_err(|_| "FRONT_DOOR_DEADLINE_EXPIRED: Read current state before retrying a write.".to_owned())?,
         };
@@ -131,13 +143,20 @@ impl InProcess {
     fn register(
         self: &Arc<Self>,
         request: &Request,
-    ) -> Result<(Pending, tokio::sync::watch::Receiver<bool>)> {
+    ) -> Result<(Pending, tokio::sync::watch::Receiver<Option<Interruption>>)> {
         let mut pending = self.pending.lock().unwrap();
         if pending.contains_key(&request.id.0) {
             return Err("FRONT_DOOR_DUPLICATE_REQUEST".into());
         }
-        let (tx, rx) = tokio::sync::watch::channel(false);
-        pending.insert(request.id.0.clone(), tx);
+        let (tx, rx) = tokio::sync::watch::channel(None);
+        pending.insert(
+            request.id.0.clone(),
+            AdmittedRequest {
+                interruption: tx,
+                #[cfg(target_os = "macos")]
+                write: process::is_write(request),
+            },
+        );
         Ok((
             Pending {
                 endpoint: self.clone(),
@@ -152,8 +171,8 @@ impl InProcess {
     // Cancellation releases only an admitted request future, never an Agent turn.
     pub(crate) fn cancel(&self, cancellation: &Cancellation) -> Result<()> {
         fence(self.generation(), cancellation.generation)?;
-        if let Some(tx) = self.pending.lock().unwrap().get(&cancellation.request_id.0) {
-            let _ = tx.send(true);
+        if let Some(request) = self.pending.lock().unwrap().get(&cancellation.request_id.0) {
+            let _ = request.interruption.send(Some(Interruption::Cancelled));
         }
         Ok(())
     }
@@ -193,7 +212,23 @@ impl InProcess {
         self.readiness
             .compare_exchange(0, 3, Ordering::SeqCst, Ordering::SeqCst)
             .map_err(|_| "FRONT_DOOR_CORE_DRAINING: Core is shutting down.".to_owned())?;
-        Ok(Maintenance(self))
+        let mut ended_reads = 0;
+        for request in self.pending.lock().unwrap().values() {
+            let active = request.interruption.borrow().is_none();
+            if !request.write
+                && active
+                && request
+                    .interruption
+                    .send(Some(Interruption::Maintenance))
+                    .is_ok()
+            {
+                ended_reads += 1;
+            }
+        }
+        Ok(Maintenance {
+            endpoint: self,
+            ended_reads,
+        })
     }
     pub(crate) fn stream_frame(
         &self,
@@ -214,21 +249,75 @@ impl InProcess {
         Ok(frame)
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Interruption {
+    Cancelled,
+    #[cfg(target_os = "macos")]
+    Maintenance,
+}
+impl Interruption {
+    fn error(self, request: &Request) -> String {
+        #[cfg(not(target_os = "macos"))]
+        let _ = request;
+        match self {
+            Self::Cancelled => "FRONT_DOOR_CANCELLED: Request cancelled; Agent execution is unchanged.".into(),
+            #[cfg(target_os = "macos")]
+            Self::Maintenance => json!({"code":-32603,
+                "message":"FRONT_DOOR_CORE_DRAINING: Front-door maintenance ended this read. Issue a new authorized read after Core is ready.",
+                "data":{"requestId":request.id.0,"next":{"via":"query","op":"guide","args":{"topic":"loop"}}}}).to_string(),
+        }
+    }
+}
+struct AdmittedRequest {
+    interruption: tokio::sync::watch::Sender<Option<Interruption>>,
+    #[cfg(target_os = "macos")]
+    write: bool,
+}
 #[cfg(target_os = "macos")]
-pub(crate) struct Maintenance<'a>(&'a InProcess);
+pub(crate) struct Maintenance<'a> {
+    endpoint: &'a InProcess,
+    pub(crate) ended_reads: usize,
+}
 #[cfg(target_os = "macos")]
 impl Maintenance<'_> {
+    pub(crate) fn outstanding_writes(&self) -> usize {
+        self.endpoint
+            .pending
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|request| request.write)
+            .count()
+    }
     pub(crate) async fn drain(&self) -> Result<DrainAck> {
-        self.0.wait_drained(Deadline::after(DRAIN_TIMEOUT)).await
+        let deadline = Deadline::after(DRAIN_TIMEOUT);
+        let expired = || {
+            "FRONT_DOOR_DRAIN_DEADLINE: Admitted writes remain; read their original receipts."
+                .to_owned()
+        };
+        loop {
+            let changed = self.endpoint.pending_changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if self.outstanding_writes() == 0 {
+                return Ok(DrainAck {
+                    generation: self.endpoint.generation(),
+                    outstanding: 0,
+                });
+            }
+            let remaining = deadline.remaining().map_err(|_| expired())?;
+            // Recheck the write count at the deadline before reporting a timeout.
+            let _ = tokio::time::timeout(remaining, changed).await;
+        }
     }
 }
 #[cfg(target_os = "macos")]
 impl Drop for Maintenance<'_> {
     fn drop(&mut self) {
         // Shutdown can supersede maintenance and must never be resumed by it.
-        let _admission = self.0.admission.lock().unwrap();
+        let _admission = self.endpoint.admission.lock().unwrap();
         let _ = self
-            .0
+            .endpoint
             .readiness
             .compare_exchange(3, 0, Ordering::SeqCst, Ordering::SeqCst);
     }
@@ -245,6 +334,8 @@ impl Drop for Pending {
             .lock()
             .unwrap()
             .remove(&self.cancellation.request_id.0);
+        #[cfg(target_os = "macos")]
+        self.endpoint.pending_changed.notify_waiters();
     }
 }
 fn deadline() -> Deadline {
@@ -454,14 +545,19 @@ impl InProcess {
             .clone()
             .try_acquire_owned()
             .map_err(|_| "FRONT_DOOR_BUSY")?;
-        drop(_admission);
         let (pending, mut cancelled) = self.register(&request)?;
+        drop(_admission);
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let endpoint = self.clone();
         tokio::spawn(async move {
             let (_permit, _pending) = (permit, pending);
             tokio::select! {
-                _ = cancelled.changed() => {},
+                _ = cancelled.changed() => {
+                    #[cfg(target_os = "macos")]
+                    if *cancelled.borrow() == Some(Interruption::Maintenance) {
+                        let _ = tokio::time::timeout(Duration::from_secs(2), tx.send(Err(Interruption::Maintenance.error(&request)))).await;
+                    }
+                },
                 _ = crate::core_requests::stream(&service, &request, &endpoint, &tx) => {},
             }
         });
@@ -603,6 +699,56 @@ mod tests {
             Readiness::Draining
         );
     }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn maintenance_ends_reads_and_only_writes_can_expire_the_drain() {
+        // Regression: cf9cf2e included long reads in the maintenance drain and prevented compatible image updates.
+        let endpoint = Arc::new(InProcess::new());
+        let read = request(&endpoint);
+        let (reading, mut interrupted) = endpoint.register(&read).unwrap();
+        let mut snapshot = request(&endpoint);
+        snapshot.operation = Operation::Snapshot {
+            kind: Snapshot::Subscriptions,
+        };
+        let (streaming, mut ended_stream) = endpoint.register(&snapshot).unwrap();
+        let mut write = request(&endpoint);
+        write.operation = Operation::Mcp;
+        write.body =
+            json!({"method":"tools/call","params":{"name":"act","arguments":{"op":"ax_report"}}});
+        let (writing, write_interruption) = endpoint.register(&write).unwrap();
+        let maintenance = endpoint.maintenance().unwrap();
+        assert_eq!(maintenance.ended_reads, 2);
+        assert_eq!(maintenance.outstanding_writes(), 1);
+        interrupted.changed().await.unwrap();
+        ended_stream.changed().await.unwrap();
+        let error: Value =
+            serde_json::from_str(&interrupted.borrow().unwrap().error(&read)).unwrap();
+        assert_eq!(error["data"]["requestId"], read.id.0);
+        assert_eq!(error["data"]["next"]["op"], "guide");
+        assert_eq!(*ended_stream.borrow(), Some(Interruption::Maintenance));
+        assert!(!write_interruption.has_changed().unwrap());
+        {
+            let drain = maintenance.drain();
+            tokio::pin!(drain);
+            assert!(tokio::time::timeout(Duration::from_millis(10), &mut drain)
+                .await
+                .is_err());
+            drop(writing);
+            assert_eq!(drain.await.unwrap().outstanding, 0);
+        }
+        // Read cancellation delivery can still be in progress without gating writes.
+        assert_eq!(maintenance.outstanding_writes(), 0);
+        drop(maintenance);
+        let (writing, _) = endpoint.register(&write).unwrap();
+        let maintenance = endpoint.maintenance().unwrap();
+        assert!(maintenance
+            .drain()
+            .await
+            .unwrap_err()
+            .starts_with("FRONT_DOOR_DRAIN_DEADLINE:"));
+        assert_eq!(maintenance.outstanding_writes(), 1);
+        drop((writing, reading, streaming));
+    }
     #[test]
     fn generations_fence_responses_from_other_core_incarnations() {
         // Property: only responses tagged with the current Core generation pass the fence.
@@ -693,7 +839,7 @@ mod tests {
                 request_id: request.id.clone(),
             })
             .is_err());
-        assert!(!*cancellation.borrow());
+        assert!(cancellation.borrow().is_none());
         endpoint
             .cancel(&Cancellation {
                 generation: request.generation,
@@ -701,7 +847,7 @@ mod tests {
             })
             .unwrap();
         cancellation.changed().await.unwrap();
-        assert!(*cancellation.borrow());
+        assert_eq!(*cancellation.borrow(), Some(Interruption::Cancelled));
         assert!(endpoint
             .drain(Deadline::after(Duration::ZERO))
             .await

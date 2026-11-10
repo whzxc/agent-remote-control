@@ -58,6 +58,10 @@ mod unix {
                     "ARC_FIXTURE_LOST_RESPONSE_GATE",
                     self.directory.join("response-gate"),
                 );
+            command.env("ARC_FIXTURE_ADMITTED_RPC_ID", "777").env(
+                "ARC_FIXTURE_ADMITTED_GATE",
+                self.directory.join("admitted-read"),
+            );
             if let Some(callback) = &self.callback {
                 command.env("ARC_FIXTURE_WEBHOOK", callback);
             }
@@ -570,6 +574,110 @@ mod unix {
         assert!(records("core-children")
             .iter()
             .all(|r| r["pid"] != restored && r["pid"] != executor.child.id()));
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn long_poll_and_snapshot_end_explicitly_during_bounded_image_update() {
+        // Regression: cf9cf2e waited for long-poll reads on every drain attempt and could postpone front-door updates indefinitely.
+        let mut fixture = Fixture::new().await;
+        let core = fixture.core.as_ref().unwrap().id();
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = port.local_addr().unwrap().port();
+        drop(port);
+        fixture.management("ingress","POST",json!({"id":"public","name":"Synthetic HTTPS","controlSource":"custom","transport":"https","auth":"bearer","bearerToken":"synthetic-bearer-token-with-32-characters","config":{"httpsProvider":"custom","httpsHost":"127.0.0.1","httpsPort":address,"httpsUrl":"https://fixture.example/mcp"}})).await;
+        fixture
+            .management("ingress/public/start", "POST", json!({}))
+            .await;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(25))
+            .build()
+            .unwrap();
+        let mut snapshots = client
+            .get(format!(
+                "http://127.0.0.1:{}/api/subscriptions/events",
+                fixture.endpoint["port"]
+            ))
+            .bearer_auth(fixture.endpoint["token"].as_str().unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert!(Fixture::frame(&mut snapshots)
+            .await
+            .contains("event: snapshot"));
+        let response = client.post(format!("http://127.0.0.1:{address}/mcp"))
+            .bearer_auth("synthetic-bearer-token-with-32-characters")
+            .header("Accept","application/json")
+            .json(&json!({"jsonrpc":"2.0","id":777,"method":"tools/call","params":{"name":"query","arguments":{"op":"inbox_wait","args":{"timeoutMs":170000}}}}))
+            .send().await.unwrap();
+        let admitted = fixture.directory.join("admitted-read");
+        let until = Instant::now() + Duration::from_secs(5);
+        while !admitted.exists() {
+            assert!(
+                Instant::now() < until,
+                "long poll did not reach Core admission"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let reading = response.json::<Value>();
+        tokio::pin!(reading);
+        tokio::select! {
+            result = &mut reading => panic!("long poll completed before maintenance: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_millis(100)) => {},
+        }
+        let started = Instant::now();
+        let target = fixture.install_image(false);
+        let status =
+            tokio::time::timeout(Duration::from_secs(15), fixture.update_outcome("updated"))
+                .await
+                .expect("long poll blocked front-door update");
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < Duration::from_secs(15),
+            "image update took {elapsed:?}"
+        );
+        let read = reading.await.unwrap();
+        assert_eq!(read["id"], 777);
+        assert_eq!(read["error"]["code"], -32603, "{read}");
+        assert!(read["error"]["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("FRONT_DOOR_CORE_DRAINING:"));
+        assert_eq!(
+            read["error"]["data"]["next"],
+            json!({"via":"query","op":"guide","args":{"topic":"loop"}})
+        );
+        let frame = Fixture::frame(&mut snapshots).await;
+        assert!(frame.contains("event: error"), "{frame}");
+        let error: Value = serde_json::from_str(
+            frame
+                .lines()
+                .find_map(|line| line.strip_prefix("data: "))
+                .unwrap(),
+        )
+        .unwrap();
+        let error: Value = serde_json::from_str(error["error"].as_str().unwrap()).unwrap();
+        assert_eq!(error["code"], -32603);
+        assert_eq!(error["data"]["next"]["op"], "guide");
+        assert_eq!(status["build"], target);
+        assert!(
+            status["update"]["endedReads"].as_u64().unwrap() >= 2,
+            "{status}"
+        );
+        assert_eq!(status["update"]["outstandingWrites"], 0);
+        assert_eq!(
+            fixture.management("health", "GET", json!({})).await["pid"],
+            core
+        );
+        assert!(Fixture::public_ping(address, true)
+            .await
+            .get("result")
+            .is_some());
+        eprintln!(
+            "Long-poll maintenance fixture updated and returned retry outcomes in {:.3}s",
+            elapsed.as_secs_f64()
+        );
     }
     #[cfg(target_os = "macos")]
     #[tokio::test]
