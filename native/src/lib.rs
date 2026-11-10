@@ -80,6 +80,7 @@ mod sources;
 pub mod subscriptions;
 pub mod task_host;
 pub mod transport;
+pub mod turn_lifecycle;
 pub mod waiter;
 pub mod writer;
 pub type Result<T> = std::result::Result<T, String>;

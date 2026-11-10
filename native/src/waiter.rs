@@ -1,4 +1,8 @@
 //! Bounded, read-only waiting. Notifications are hints; only fresh owner reads decide state.
+use crate::turn_lifecycle::{
+    adapters::{self, WaitState},
+    advance, Transition, TurnKey,
+};
 use crate::{control::Control, desktop::Ipc, rpc::Rpc, *};
 use std::{future::Future, time::Duration};
 use tokio::{
@@ -81,7 +85,7 @@ pub(crate) async fn wait(
                 let state = string(&last, "state").to_owned();
                 // Terminal and interaction states always break a wait; until only
                 // determines conditionMet. Content changes do not end the wait.
-                if state != "running" {
+                if WaitState::from_wire(&state) != Some(WaitState::Running) {
                     let reason = string(&last, "reason").to_owned();
                     return finish(last, &state, &reason, started, baseline.as_deref());
                 }
@@ -125,7 +129,7 @@ pub(crate) async fn wait(
     }
 }
 fn deadline_result(last: Value, started: Instant, baseline: Option<&str>) -> Value {
-    if last["state"] == "unconfirmed" {
+    if WaitState::from_wire(string(&last, "state")) == Some(WaitState::Unconfirmed) {
         let reason = string(&last, "reason").to_owned();
         finish(last, "unconfirmed", &reason, started, baseline)
     } else {
@@ -157,10 +161,7 @@ pub(crate) fn compact_response(v: &mut Value, args: &Value) {
     let Some(expected) = args["expectedHash"].as_str() else {
         return;
     };
-    if matches!(
-        string(v, "state"),
-        "completed" | "failed" | "cancelled" | "interaction-required"
-    ) {
+    if WaitState::from_wire(string(v, "state")).is_some_and(WaitState::keeps_response) {
         return;
     }
     let text_hash = response_text_hash(v);
@@ -202,7 +203,7 @@ pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Va
         *selected = turns
             .iter()
             .rev()
-            .find(|t| t["status"] == "inProgress")
+            .find(|t| adapters::codex_active(string(t, "status")))
             .or_else(|| turns.last())
             .and_then(|t| t["id"].as_str())
             .map(str::to_owned);
@@ -244,24 +245,30 @@ pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Va
         a.iter()
             .any(|f| matches!(f.as_str(), Some("waitingOnApproval" | "waitingOnUserInput")))
     });
-    let recorded = string(&turn, "status");
-    let (state, reason) = if turn.is_null() {
-        ("unconfirmed", "turn-not-found")
-    } else if recorded == "completed" {
-        ("completed", "native-turn-terminal")
-    } else if recorded == "failed" {
-        ("failed", "native-turn-terminal")
-    } else if matches!(recorded, "interrupted" | "cancelled") {
-        ("cancelled", "native-turn-terminal")
-    } else if matches!(runtime, "unknown" | "notLoaded" | "") {
-        ("unconfirmed", "runtime-ownership-unknown")
-    } else if !interactions.is_empty() || blocked {
-        ("interaction-required", "native-interaction")
-    } else if recorded == "inProgress" && runtime == "active" {
-        ("running", "native-turn-active")
-    } else {
-        ("unconfirmed", "inconsistent-native-state")
-    };
+    let key = TurnKey::new("codex", string(t, "id"), selected.as_deref().unwrap_or(""));
+    let mut lifecycle = advance(
+        &Transition::new(key.clone()),
+        &adapters::codex_owner(
+            key.clone(),
+            (!turn.is_null()).then(|| string(&turn, "status")),
+            runtime,
+            !interactions.is_empty() || blocked,
+            0,
+        ),
+    );
+    // Read all records for the selected key. Contradictory native records must
+    // reconcile instead of allowing array order to pick a terminal outcome.
+    for native in turns
+        .iter()
+        .filter(|t| t["id"].as_str() == selected.as_deref())
+    {
+        if let Some(evidence) =
+            adapters::codex_terminal(key.clone(), string(native, "status"), None)
+        {
+            lifecycle = advance(&lifecycle, &evidence);
+        }
+    }
+    let (state, reason) = adapters::wait(&lifecycle.state());
     let assistant = turn["items"]
         .as_array()
         .into_iter()
@@ -269,10 +276,8 @@ pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Va
         .rev()
         .find(|i| {
             i["type"] == "agentMessage"
-                && (matches!(
-                    state,
-                    "completed" | "failed" | "cancelled" | "interaction-required"
-                ) || i["status"] == "completed"
+                && (state.keeps_response()
+                    || i["status"] == "completed"
                     || turn["completedItemIds"][string(i, "id")] == true
                     || turn["agentMessageCompletedAtMsById"][string(i, "id")].is_number())
         })
@@ -290,7 +295,7 @@ pub(crate) fn classify(observation: &Value, selected: &mut Option<String>) -> Va
         .take(5)
         .map(|r| r["questionSummary"].clone())
         .collect::<Vec<_>>());
-    json!({"state":state,"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
+    json!({"state":state.as_wire(),"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
         "runtimeSource":t["runtimeSource"],"archived":crate::control::summary(t)["archived"],"externalUserInputs":observation["externalUserInputs"].as_array().into_iter().flatten().filter(|r| r["turnId"].as_str()==selected.as_deref() || (r["answeredTurnId"].is_string() && r["answeredTurnId"].as_str()==selected.as_deref())).collect::<Vec<_>>(),"finalResponse":assistant,"error":turn["error"],"interaction":interactions,
         "activeFlags":flags,"interactionAction":if blocked && interactions.is_empty(){Some("Inspect Codex Desktop for the pending interaction; this owner exposes no callback ID to Agent Remote Control")}else if !interactions.is_empty(){Some("Use codex_respond with id=responseId and backendSession; do not resend the task")}else{None},
         "progress":progress,"observedAt":now()})
@@ -310,10 +315,7 @@ struct CodexSource {
 impl WaitSource for CodexSource {
     fn classify(&mut self, observation: &Value, selected: &mut Option<String>) -> Value {
         let mut result = classify(observation, selected);
-        if matches!(
-            string(&result, "state"),
-            "completed" | "cancelled" | "failed"
-        ) {
+        if WaitState::from_wire(string(&result, "state")).is_some_and(WaitState::is_terminal) {
             let turns = observation["thread"]["turns"].as_array();
             if let Some(turns) = turns {
                 if let Some(index) = turns.iter().position(|t| t["id"] == result["turnId"]) {
@@ -510,7 +512,9 @@ pub(crate) async fn codex_notification_observe(
         &observation,
         &mut args["turnId"].as_str().map(str::to_owned),
     );
-    if result["recordedStatus"] == "inProgress" || result["state"] == "interaction-required" {
+    if adapters::codex_active(string(&result, "recordedStatus"))
+        || WaitState::from_wire(string(&result, "state")) == Some(WaitState::InteractionRequired)
+    {
         return codex_observe_with_path(control, args).await;
     }
     Ok((
@@ -546,17 +550,17 @@ pub async fn codex_wait(control: &Arc<Control>, args: &Value) -> Result<Value> {
         ),
     };
     condition(&mut result, args);
-    if result["state"] == "timeout" && result["progress"].is_object() {
+    if WaitState::from_wire(string(&result, "state")) == Some(WaitState::Timeout)
+        && result["progress"].is_object()
+    {
         crate::review::enrich_progress(string(args, "threadId"), &mut result["progress"]).await;
     }
     Ok(result)
 }
 pub(crate) fn condition(result: &mut Value, args: &Value) {
-    let terminal = matches!(
-        string(result, "state"),
-        "completed" | "failed" | "cancelled"
-    );
-    let interaction = result["state"] == "interaction-required";
+    let state = WaitState::from_wire(string(result, "state"));
+    let terminal = state.is_some_and(WaitState::is_terminal);
+    let interaction = state == Some(WaitState::InteractionRequired);
     result["conditionMet"] = json!(match string(args, "until") {
         "terminal" => terminal,
         "interaction-required" => interaction,
@@ -587,8 +591,12 @@ mod tests {
         fn alive(&self) -> bool {
             self.alive
         }
-        fn classify(&mut self, value: &Value, _: &mut Option<String>) -> Value {
-            value.clone()
+        fn classify(&mut self, value: &Value, selected: &mut Option<String>) -> Value {
+            if value["thread"].is_object() {
+                classify(value, selected)
+            } else {
+                value.clone()
+            }
         }
     }
     fn snapshot(state: &str, text: &str) -> Value {
@@ -598,7 +606,7 @@ mod tests {
     }
     async fn run(reads: Vec<(u64, Result<Value>)>, timeout: u64) -> Value {
         let (_tx, rx) = watch::channel(0);
-        let args = json!({"timeoutMs":timeout,"until":"terminal","expectedHash":"previous"});
+        let args = json!({"threadId":"thread","turnId":"turn","timeoutMs":timeout,"until":"terminal","expectedHash":"previous"});
         let mut value = wait(
             &mut Source {
                 reads: reads.into(),
@@ -612,6 +620,94 @@ mod tests {
         .await;
         condition(&mut value, &args);
         value
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn native_wait_results_preserve_wire_states_and_reasons() {
+        // Contract: wait results preserve state, reason and recorded status wire strings.
+        for (recorded, runtime, blocked, state, reason) in [
+            (
+                Some("completed"),
+                "unknown",
+                false,
+                "completed",
+                "native-turn-terminal",
+            ),
+            (
+                Some("failed"),
+                "notLoaded",
+                false,
+                "failed",
+                "native-turn-terminal",
+            ),
+            (
+                Some("interrupted"),
+                "active",
+                false,
+                "cancelled",
+                "native-turn-terminal",
+            ),
+            (
+                Some("cancelled"),
+                "idle",
+                false,
+                "cancelled",
+                "native-turn-terminal",
+            ),
+            (
+                Some("inProgress"),
+                "unknown",
+                true,
+                "unconfirmed",
+                "runtime-ownership-unknown",
+            ),
+            (
+                Some("inProgress"),
+                "active",
+                true,
+                "interaction-required",
+                "native-interaction",
+            ),
+            (Some("inProgress"), "active", false, "timeout", "deadline"),
+            (
+                Some("inProgress"),
+                "idle",
+                false,
+                "unconfirmed",
+                "inconsistent-native-state",
+            ),
+            (None, "active", true, "unconfirmed", "turn-not-found"),
+        ] {
+            let turns = recorded
+                .map(|status| vec![json!({"id":"turn","status":status})])
+                .unwrap_or_default();
+            let observation = json!({"thread":{"id":"thread","status":{"type":runtime,"activeFlags":if blocked {vec!["waitingOnApproval"]}else{vec![]}},"turns":turns}});
+            let result = run(vec![(0, Ok(observation))], 1000).await;
+            assert_eq!(result["state"], state);
+            assert_eq!(result["reason"], reason);
+            assert_eq!(result["recordedStatus"], json!(recorded));
+            assert_eq!(result["runtimeStatus"], runtime);
+            assert_eq!(
+                result["conditionMet"],
+                matches!(state, "completed" | "failed" | "cancelled")
+            );
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn conflicting_selected_records_do_not_choose_a_terminal_by_array_order() {
+        // Regression: contradictory selected native records must return unconfirmed rather than an arbitrary terminal.
+        for statuses in [["completed", "failed"], ["failed", "completed"]] {
+            let observation = json!({"thread":{"id":"thread","status":{"type":"active"},"turns":[
+                {"id":"turn","status":statuses[0]}, {"id":"turn","status":statuses[1]},
+                {"id":"other","status":"interrupted"}
+            ]}});
+            let result = run(vec![(0, Ok(observation))], 1000).await;
+            assert_eq!(result["state"], "unconfirmed");
+            assert_eq!(result["reason"], "inconsistent-native-state");
+            assert_eq!(result["conditionMet"], false);
+            assert_eq!(result["turnId"], "turn");
+        }
     }
 
     #[test]
