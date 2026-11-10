@@ -93,17 +93,58 @@ pub fn compact_failure(value: &mut Value) {
     value["error"] = error;
 }
 
-/// Remove Core-only fields recursively at public payload boundaries.
-pub(crate) fn strip_internal(value: &mut Value) {
-    match value {
-        Value::Object(fields) => {
-            fields.retain(|key, _| !key.starts_with('_'));
-            for value in fields.values_mut() {
-                strip_internal(value);
+/// Strip internal keys only at ARC-owned notification and task-feed paths.
+/// Native values (interaction, finalResponse, routing, recovery, etc.) are opaque,
+/// even when their own fields happen to have names from this allowlist.
+pub(crate) fn strip_notification_internal(value: &mut Value) {
+    fn at(value: &mut Value, path: &[&str]) {
+        let Some((key, rest)) = path.split_first() else {
+            if let Some(fields) = value.as_object_mut() {
+                fields.retain(|key, _| !key.starts_with('_'));
             }
+            return;
+        };
+        if *key == "*" {
+            if let Some(rows) = value.as_array_mut() {
+                for row in rows {
+                    at(row, rest);
+                }
+            }
+        } else if let Some(child) = value.get_mut(*key) {
+            at(child, rest);
         }
-        Value::Array(values) => values.iter_mut().for_each(strip_internal),
-        _ => {}
+    }
+    // These are complete paths from an ARC-built root, not field names to match
+    // recursively. In particular, dispatch options and terminal errors can carry
+    // native data and must not be traversed.
+    for path in [
+        &[][..],
+        &["dispatches", "*"],
+        &["dispatches", "*", "terminal"],
+        &["dispatches", "*", "coordinationPending"],
+        &["dispatches", "*", "coordinationPending", "*"],
+        &["terminal"],
+        &["coordinationPending"],
+        &["coordinationPending", "*"],
+        &["task"],
+        &["runtime"],
+        &["runtime", "ownership"],
+        &["subscriptions", "*"],
+        &["deliveries", "*"],
+        &["deliveries", "*", "timing"],
+        &["targets", "*"],
+        &["targets", "*", "pending", "*"],
+        &["targets", "*", "pending", "*", "timing"],
+        &["targets", "*", "recentBatches", "*"],
+        &["threads", "*"],
+        &["threads", "*", "turns", "*"],
+        &["unboundPending", "*"],
+        &["unboundPending", "*", "timing"],
+        &["mostWokenThreads", "*"],
+        &["summary"],
+        &["summary", "hidden"],
+    ] {
+        at(value, path);
     }
 }
 

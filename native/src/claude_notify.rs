@@ -659,7 +659,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
     let mut event = json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}});
-    crate::egress::strip_internal(&mut event);
+    crate::egress::strip_notification_internal(&mut event);
     event
 }
 fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
@@ -1602,7 +1602,7 @@ fn inbox_select(
         let mut visible = row.clone();
         visible.as_object_mut().unwrap().remove("attached");
         visible.as_object_mut().unwrap().remove("attachedHash");
-        crate::egress::strip_internal(&mut visible);
+        crate::egress::strip_notification_internal(&mut visible);
         let fingerprint = hash(visible.to_string());
         if filters.is_none() && !claude && row["attachedHash"] == fingerprint {
             if repeated.len() < 5 {
@@ -4293,8 +4293,20 @@ pub(crate) mod tests {
         let mut binding = fixture(&dir.0);
         let checkpoint = turn_adapter::checkpoint(&binding.lifecycle());
         let turn_id = binding.turn_id.clone();
-        process(&Fake::success(), &dir.0, &mut binding, &json!({"state":"completed",
-            "dispatches":[{"turnId":turn_id,"_turnLifecycle":checkpoint,"terminal":{"state":"completed","_private":true}}]})).await.unwrap();
+        let native_interaction = json!({
+            "id":42,"method":"item/commandExecution/requestApproval",
+            "_meta":{"source":"native","_opaque":true},
+            "params":{"command":"fixture command","_meta":{"trace":"native-trace"},
+                "nested":{"_meta":{"_opaque":true}}}
+        });
+        let mut observation = interaction(json!(42));
+        observation["interaction"] = json!([native_interaction]);
+        observation["dispatches"] = json!([{"turnId":turn_id,"_turnLifecycle":checkpoint,
+            "terminal":{"state":"completed","_private":true},
+            "coordinationPending":[{"_private":true,"kind":"fixture"}]}]);
+        process(&Fake::success(), &dir.0, &mut binding, &observation)
+            .await
+            .unwrap();
         let restored = super::binding(&dir.0, &binding.thread_id, &binding.turn_id)
             .unwrap()
             .unwrap();
@@ -4313,10 +4325,23 @@ pub(crate) mod tests {
             .get("_private")
             .is_none());
         assert_eq!(delivered["dispatches"][0]["terminal"]["state"], "completed");
+        assert!(delivered["dispatches"][0]["coordinationPending"][0]
+            .get("_private")
+            .is_none());
+        assert_eq!(delivered["interaction"], restored.deliveries[0].interaction);
+        assert_eq!(
+            delivered["interaction"]["_meta"],
+            native_interaction["_meta"]
+        );
+        assert_eq!(
+            delivered["interaction"]["params"],
+            native_interaction["params"]
+        );
         let inbox = inbox_in(&dir.0, "claude", &[], false, None).unwrap();
         assert!(inbox["events"][0]["dispatches"][0]
             .get("_turnLifecycle")
             .is_none());
+        assert_eq!(inbox["events"][0]["interaction"], delivered["interaction"]);
     }
 
     #[tokio::test]

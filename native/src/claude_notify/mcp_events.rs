@@ -233,7 +233,7 @@ pub(crate) fn payload(op: &str, event: &Value) -> Value {
     if let Some(recovery) = data["recovery"].as_object_mut() {
         recovery.remove("message");
     }
-    crate::egress::strip_internal(&mut data);
+    crate::egress::strip_notification_internal(&mut data);
     data
 }
 pub(crate) async fn request(
