@@ -584,13 +584,34 @@ fn ax_history_discloses_access_and_missing_reasons() {
     let entry = f.report("Fixture history projection");
     let closed = f.decide(&entry, "wontfix");
     let owned = f.call("ax_list", json!({"id":closed["id"]}));
-    assert_eq!(owned["entries"][0]["history"].as_array().unwrap().last().unwrap()["detail"]["reason"], "Fixture decision");
-    assert!(owned["entries"][0]["history"][0]["reasonUnavailable"].is_string());
+    assert_eq!(
+        owned["entries"][0]["history"]
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap()["detail"]["reason"],
+        "Fixture decision"
+    );
+    assert!(owned["entries"][0]["history"][0]["reasonUnavailable"].is_null());
+    assert!(owned["entries"][0]["history"][1]["reasonUnavailable"].is_null());
+    // Reproduce a legacy decision recorded without the now-required reason.
+    f.store.mutate("ax_triage", &json!({"id":closed["id"],"expectedRevision":closed["revision"],"action":"reopen","requestId":id()}), &f.actor, vec![], f.time).unwrap();
+    let legacy = f.call("ax_list", json!({"id":closed["id"]}));
+    assert!(legacy["entries"][0]["history"][2]["reasonUnavailable"].is_string());
     f.actor = json!({"type":"source","sourceId":"other"});
     let read = f.call("ax_list", json!({"id":closed["id"]}));
     let history = read["entries"][0]["history"].as_array().unwrap();
     let last = history.last().unwrap();
     assert!(last["detail"].is_null());
-    assert_eq!(last["evidenceUnavailable"]["next"]["op"], "ax_list");
-    assert_eq!(last["evidenceUnavailable"]["next"]["args"]["id"], closed["id"]);
+    let next = &last["evidenceUnavailable"]["next"];
+    assert_eq!(next["via"], "cli");
+    assert!(next["op"].is_null());
+    assert_eq!(next["command"], "arc cli control ax_list --stdin");
+    assert_eq!(next["stdin"], json!({"id":closed["id"]}));
+    f.actor = json!({"type":"local-authority"});
+    let local = f.call("ax_list", next["stdin"].clone());
+    assert_eq!(
+        local["entries"][0]["history"][1]["detail"]["reason"],
+        "Fixture decision"
+    );
 }

@@ -138,7 +138,11 @@ impl Entry {
         }
         if let Some(history) = obj.get_mut("history").and_then(Value::as_array_mut) {
             for entry in history {
-                if entry["detail"]["reason"].is_null() {
+                if matches!(
+                    string(entry, "action"),
+                    "fix" | "document" | "wontfix" | "merged" | "reopen" | "confirm" | "reject"
+                ) && entry["detail"]["reason"].is_null()
+                {
                     entry["reasonUnavailable"] = json!("No reason was recorded for this action.");
                 }
             }
@@ -147,7 +151,7 @@ impl Entry {
             obj.remove("reproductionHints");
             obj.remove("evidence");
             // Decisions remain visible, but free-form reasons and references are private.
-            obj.insert("history".into(), json!(self.history.iter().map(|h| json!({"action":h["action"],"at":h["at"],"actor":h["actor"],"revision":h["revision"],"evidenceUnavailable":{"reason":"Decision details are restricted to the reporting source and local authority.","next":{"via":"query","op":"ax_list","args":{"id":self.id},"hint":"The reporting source or authenticated local authority can read recorded decision details. Older actions may have no recorded reason."}}})).collect::<Vec<_>>()));
+            obj.insert("history".into(), json!(self.history.iter().map(|h| json!({"action":h["action"],"at":h["at"],"actor":h["actor"],"revision":h["revision"],"evidenceUnavailable":{"reason":"Decision details are restricted to the reporting source and local authority.","next":{"via":"cli","op":null,"command":"arc cli control ax_list --stdin","stdin":{"id":self.id},"hint":"Run locally to read recorded decision details as local authority. Older actions may have no recorded reason."}}})).collect::<Vec<_>>()));
         }
         v
     }
