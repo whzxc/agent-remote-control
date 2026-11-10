@@ -23,7 +23,6 @@ pub struct State {
     pub shutdown: Notify,
     closing: std::sync::atomic::AtomicBool,
     pub daemon: std::sync::atomic::AtomicBool,
-    remote_restored: std::sync::atomic::AtomicBool,
 }
 impl State {
     pub(crate) fn with_launches(launches: Arc<crate::launches::Launches>) -> Self {
@@ -64,11 +63,6 @@ impl State {
                 leases
             },
         )
-    }
-    pub(crate) fn take_remote_restore(&self) -> bool {
-        !self
-            .remote_restored
-            .swap(true, std::sync::atomic::Ordering::AcqRel)
     }
     pub fn clients(&self) -> Value {
         json!(self
@@ -276,20 +270,30 @@ pub(crate) async fn owner(build: &str) -> Result<Option<Value>> {
     let Some(port) = info["port"].as_u64().filter(|p| *p > 0 && *p <= 65535) else {
         return Ok(None);
     };
-    let response = reqwest::Client::builder()
-        .no_proxy()
-        .build()
-        .map_err(|e| e.to_string())?
-        .get(format!("http://127.0.0.1:{port}/healthz"))
-        .bearer_auth(string(&info, "token"))
-        .timeout(Duration::from_secs(2))
-        .send()
-        .await;
-    let Ok(response) = response else {
-        return Ok(None);
-    };
-    let Ok(health) = response.json::<Value>().await else {
-        return Ok(None);
+    let health = if let Some(result) =
+        crate::front_door::process::local_request("healthz", "GET", json!({})).await
+    {
+        match result {
+            Ok(health) => health,
+            Err(_) => return Ok(None),
+        }
+    } else {
+        let response = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .map_err(|e| e.to_string())?
+            .get(format!("http://127.0.0.1:{port}/healthz"))
+            .bearer_auth(string(&info, "token"))
+            .timeout(Duration::from_secs(2))
+            .send()
+            .await;
+        let Ok(response) = response else {
+            return Ok(None);
+        };
+        let Ok(health) = response.json::<Value>().await else {
+            return Ok(None);
+        };
+        health
     };
     if health["instance"] != info["instance"] {
         return Ok(None);
@@ -407,7 +411,7 @@ impl Client {
             if !core_unlocked()? {
                 return Err("CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists.".into());
             }
-            crate::front_door::process::prepare_install().await?;
+            let replacement = crate::front_door::process::prepare_install().await?;
             private_dir(&root())?;
             let log = std::fs::OpenOptions::new()
                 .create(true)
@@ -430,6 +434,7 @@ impl Client {
                 use std::os::windows::process::CommandExt;
                 child.creation_flags(0x08000200);
             }
+            drop(replacement);
             let mut child = child
                 .spawn()
                 .map_err(|e| format!("Core start failed: {e}"))?;
@@ -622,7 +627,7 @@ fn clear_stopped() -> Result<()> {
     }
 }
 
-fn core_unlocked() -> Result<bool> {
+pub(crate) fn core_unlocked() -> Result<bool> {
     match File::options()
         .read(true)
         .write(true)
@@ -747,6 +752,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     crate::resources::initialize();
     init_crypto();
     private_dir(&root())?;
+    let startup_guard = crate::front_door::process::startup_guard()?;
     let lock = File::options()
         .create(true)
         .truncate(false)
@@ -793,6 +799,7 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     ];
     crate::kernel::derived_index::prepare(&owners);
     let listener = crate::transport::listen(service.clone(), None).await?;
+    drop(startup_guard);
     let index_service = service.clone();
     let runtime = tokio::runtime::Handle::current();
     let rebuild = crate::kernel::derived_index::background(owners, move || {

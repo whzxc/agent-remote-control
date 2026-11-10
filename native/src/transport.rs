@@ -538,6 +538,11 @@ pub(crate) async fn stdio_connection(port: u16, token: String, ingress: String) 
 
 pub async fn forward_request(route: &str, method: &str, body: Value) -> Result<Value> {
     crate::init_crypto();
+    if let Some(result) =
+        crate::front_door::process::local_request(route, method, body.clone()).await
+    {
+        return result;
+    }
     let unavailable =
         "Cannot connect to local Core. Run the CLI again or open Agent Remote Control.";
     let info = load(&root().join("app/native.json")).map_err(|_| unavailable)?;
@@ -567,6 +572,13 @@ pub async fn forward_request(route: &str, method: &str, body: Value) -> Result<V
     forward_to(&info, route, method, body).await
 }
 pub async fn forward_to(info: &Value, route: &str, method: &str, body: Value) -> Result<Value> {
+    if info["owner"] == "core" {
+        if let Some(result) =
+            crate::front_door::process::local_request(route, method, body.clone()).await
+        {
+            return result;
+        }
+    }
     let port = info["port"]
         .as_u64()
         .filter(|p| *p > 0 && *p <= 65535)

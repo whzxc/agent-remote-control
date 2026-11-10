@@ -48,7 +48,12 @@ local endpoint. Existing ingress, service, health and headless runtime status in
 `frontDoor.build`, `installedBuild` and `matchesInstalledBuild`. A retained compatible
 front door can therefore report a different build from the current local entry point.
 `app/native.json` keeps the current Core identity and that same endpoint for existing
-Desktop and CLI clients. No business request automatically launches or replaces Core.
+Desktop and CLI clients. Local Core discovery and management requests first use
+that same authenticated private Core socket or pipe. This includes `cli app quit`
+and lease/shutdown requests while the front door is absent. Older installed peers
+may use the existing authenticated local HTTP path when private attachment fails.
+Once a request is submitted over IPC, it is never retried over HTTP.
+No business request automatically launches or replaces Core.
 Desktop leases and the existing headless entry points retain that responsibility.
 
 macOS and Linux use mode-0600 Unix sockets in a mode-0700 directory under
@@ -148,9 +153,31 @@ the front door and its providers, then the detached executor owners.
 front door is retained regardless of the installed build ID. An incompatible one
 is stopped through the authenticated lifecycle endpoint; the next Core attachment
 starts the installed protocol image. The local installer runs the candidate's
-check before replacing files. Desktop/CLI Core startup and `arc start` also run
-this check from the installed build. Direct Core attachment refuses an incompatible
-protocol with an actionable error. Platform supervision and front-door self-update
+check after Desktop and Core have exited and before replacing files. Preparation
+holds `front-door-install.lock` exclusively and refuses to stop a front door while
+Core still owns `core.lock`. The local installer uses `front-door-prepare --hold`
+and keeps its stdin pipe open through replacement or rollback. EOF or installer
+exit releases the kernel lock. Startup and `ensure()` hold shared locks while
+attaching or launching; they cannot launch during replacement.
+
+Desktop/CLI Core startup and `arc start` first discover the existing Core through
+private IPC. They reuse a matching owner, reject a different build, and prepare
+front-door compatibility only after Core ownership is free. A new Core binds IPC
+and ensures the front door before publishing its endpoint. Direct Core attachment
+refuses an incompatible protocol with an actionable error. The built-in updater
+pauses Desktop's Core client, stops Core, acquires replacement ownership, then
+stops the front door before the official installer replaces files. Its downloaded
+image may change the protocol. Failure releases replacement ownership and resumes
+the installed Core; its next start recreates the front door.
+
+While Core is alive, its attachment supervisor checks the front door once per
+second. Lost attachment runs the existing `ensure()` path, which retains the
+single-owner front-door lock and honors replacement ownership. Failed attempts
+back off for 250 ms, 500 ms, 1 s, 2 s, 4 s, then at most 8 s; success resets the
+backoff. Each launched process is logged. Every newly attached front-door
+generation republishes the local endpoint and restores persisted remote connection
+intent, including providers, independently of Desktop leases. Core shutdown aborts
+this supervisor with its IPC listener. Platform supervision and front-door self-update
 belong to D3d. Private protocol v2 adds the queued authenticated-ingress context.
 Installing v2 replaces a running v1 front door through this compatibility path;
 a compatible v2 front door remains retained until it restarts.

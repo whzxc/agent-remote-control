@@ -590,16 +590,7 @@ impl Service {
             return Ok(json!(self.remote_faults().await?));
         }
         if route.starts_with("runtime/") && method == "POST" {
-            let desktop = route == "runtime/lease" && body["kind"] == "desktop";
             let result = self.runtime.request(route, body)?;
-            if desktop && self.runtime.take_remote_restore() {
-                let service = self.clone();
-                tokio::spawn(async move {
-                    if let Err(error) = service.restore_remote().await {
-                        crate::logs::record("ERROR", &error, None);
-                    }
-                });
-            }
             return Ok(result);
         }
         if route == "app/env" && method == "GET" {

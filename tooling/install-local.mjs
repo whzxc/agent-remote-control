@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -25,22 +25,52 @@ const staging = mkdtempSync('/Applications/.arc-install-');
 const staged = path.join(staging, 'Agent Remote Control.app');
 run('/usr/bin/ditto', [candidate, staged]);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', staged]);
-run(path.join(staged, 'Contents/Resources/bin/arc'), ['front-door-prepare']);
-read('app', 'quit');
-for (const pid of [desktop.pid, core.pid]) {
-  try { process.kill(pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
-}
-const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; throw error; } };
-const deadline = Date.now() + 10_000;
-while ([desktop.pid, core.pid].some(alive)) {
-  if (Date.now() > deadline) throw new Error(`Installed processes did not exit. Candidate retained at ${staged}`);
-  await new Promise(resolve => setTimeout(resolve, 100));
-}
+// The candidate holds a kernel lock until replacement or rollback is complete.
+let preparation;
+let preparedExit;
+const release = async () => {
+  if (!preparation) return;
+  preparation.stdin.end();
+  await preparedExit;
+  preparation = undefined;
+};
 const previous = path.join(directory, 'previous.bundle');
-renameSync(target, previous);
-try { renameSync(staged, target); }
-catch (error) { renameSync(previous, target); throw error; }
-run('/usr/bin/open', ['-g', target]);
-console.log(`Installed: ${target}`);
-rmSync(staging, { recursive: true });
-rmSync(previous, { recursive: true });
+try {
+  read('app', 'quit');
+  for (const pid of [desktop.pid, core.pid]) {
+    try { process.kill(pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; throw error; } };
+  const deadline = Date.now() + 10_000;
+  while ([desktop.pid, core.pid].some(alive)) {
+    if (Date.now() > deadline) throw new Error(`Installed processes did not exit. Candidate retained at ${staged}`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  preparation = spawn(path.join(staged, 'Contents/Resources/bin/arc'), ['front-door-prepare', '--hold'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  preparedExit = new Promise(resolve => preparation.once('close', resolve));
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Front-door preparation timed out.')), 35_000);
+    const finish = error => { clearTimeout(timer); error ? reject(error) : resolve(); };
+    preparation.once('error', finish);
+    preparation.once('exit', code => finish(new Error(`Front-door preparation exited (${code}).`)));
+    let output = '';
+    preparation.stdout.on('data', bytes => {
+      output += bytes;
+      if (output.includes('ready\n')) finish();
+    });
+  });
+  renameSync(target, previous);
+  try { renameSync(staged, target); }
+  catch (error) { renameSync(previous, target); throw error; }
+  await release();
+  run('/usr/bin/open', ['-g', target]);
+  console.log(`Installed: ${target}`);
+  rmSync(staging, { recursive: true });
+  rmSync(previous, { recursive: true });
+} catch (error) {
+  await release();
+  // The old bundle remains runnable on prepare/replace failure. A fresh Core
+  // ensures its own front door even when an incompatible one was already stopped.
+  run('/usr/bin/open', ['-g', target]);
+  throw error;
+}

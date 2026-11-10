@@ -22,6 +22,8 @@ mod unix {
             use std::os::unix::fs::PermissionsExt;
             let directory = std::env::temp_dir().join(format!("arc-fd-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(directory.join("home")).unwrap();
+            std::fs::create_dir_all(directory.join("installed")).unwrap();
+            std::fs::copy(env!("CARGO_BIN_EXE_arc"), directory.join("installed/arc")).unwrap();
             let provider = directory.join("provider");
             std::fs::write(&provider,"#!/bin/sh\ncase \"$1\" in\n--version) echo 'tunnel-client 0.0.16'; exit 0;;\ninit) exit 0;;\nrun) echo $$ > \"$ARC_PROVIDER_FIXTURE_PID\"; trap 'exit 0' TERM INT; while :; do sleep 1; done;;\nesac\n").unwrap();
             std::fs::set_permissions(&provider, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -37,7 +39,7 @@ mod unix {
             fixture
         }
         fn command(&self) -> Command {
-            let mut command = Command::new(env!("CARGO_BIN_EXE_arc"));
+            let mut command = Command::new(self.directory.join("installed/arc"));
             command
                 .env("ARC_STATE_DIR", self.directory.join("state"))
                 .env("HOME", self.directory.join("home"))
@@ -46,6 +48,10 @@ mod unix {
                     "ARC_PROVIDER_FIXTURE_PID",
                     self.directory.join("provider.pid"),
                 );
+            command.env(
+                "ARC_FIXTURE_FRONT_DOOR_INCOMPATIBLE",
+                self.directory.join("incompatible"),
+            );
             command
                 .env("ARC_FIXTURE_LOST_RESPONSE_ID", &self.lost_response)
                 .env(
@@ -216,7 +222,8 @@ mod unix {
                 let _ = core.kill();
                 let _ = core.wait();
             }
-            if let Some(pid) = self.front {
+            let latest = self.observation("front")["pid"].as_u64().map(|p| p as u32);
+            if let Some(pid) = latest.or(self.front) {
                 unsafe {
                     libc::kill(pid as i32, libc::SIGTERM);
                 }
@@ -239,6 +246,200 @@ mod unix {
             }
             let _ = std::fs::remove_dir_all(&self.directory);
         }
+    }
+    struct Desktop;
+    impl arc_core::transport::DesktopAccess for Desktop {
+        fn check_write(&self) -> Result<(), String> {
+            Ok(())
+        }
+        fn request(
+            &self,
+            request: arc_core::transport::DesktopRequest,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send>>
+        {
+            Box::pin(async move {
+                match request {
+                    arc_core::transport::DesktopRequest::Route(route, _, _)
+                        if route == "app/quit" =>
+                    {
+                        Ok(json!({"closing":true}))
+                    }
+                    _ => Err("unexpected fixture Desktop operation".into()),
+                }
+            })
+        }
+    }
+    impl Fixture {
+        async fn desktop(&self) -> tokio::task::JoinHandle<()> {
+            let (endpoint, task) =
+                arc_core::transport::listen_desktop(std::sync::Arc::new(Desktop))
+                    .await
+                    .unwrap();
+            self.management("runtime/lease", "POST", json!({"id":uuid::Uuid::new_v4().to_string(),"kind":"desktop","pid":std::process::id(),"desktop":endpoint})).await;
+            task
+        }
+        async fn quit_desktop(&self) {
+            let mut command = self.command();
+            command
+                .args(["cli", "app", "quit"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            let output = tokio::task::spawn_blocking(move || command.output().unwrap())
+                .await
+                .unwrap();
+            let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert!(
+                output.status.success(),
+                "{value}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(value["result"]["closing"], true, "{value}");
+        }
+        fn stop_core(&mut self) {
+            let mut core = self.core.take().unwrap();
+            unsafe {
+                libc::kill(core.id() as i32, libc::SIGTERM);
+            }
+            assert!(core.wait().unwrap().success());
+        }
+        async fn wait_for_new_front(&mut self, previous: u32) {
+            let until = Instant::now() + Duration::from_secs(20);
+            loop {
+                let info = self.observation("front");
+                if info["pid"]
+                    .as_u64()
+                    .is_some_and(|pid| pid != previous as u64)
+                {
+                    self.front = info["pid"].as_u64().map(|pid| pid as u32);
+                    self.endpoint = self.observation("native");
+                    if self.endpoint["port"] == info["port"] {
+                        break;
+                    }
+                }
+                assert!(Instant::now() < until, "front door did not reattach");
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
+    }
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn incompatible_front_door_install_stops_core_before_replacement() {
+        // Regression: ax-327c543d stopped the v1 front door before app quit and stranded the live Core.
+        let mut fixture = Fixture::new().await;
+        for fail_replacement in [false, true] {
+            let desktop = fixture.desktop().await;
+            std::fs::write(fixture.directory.join("incompatible"), b"v1").unwrap();
+            let rejected = fixture
+                .command()
+                .arg("front-door-prepare")
+                .stderr(Stdio::piped())
+                .output()
+                .unwrap();
+            assert!(!rejected.status.success());
+            assert!(String::from_utf8_lossy(&rejected.stderr).contains("CORE_UNAVAILABLE"));
+            assert_eq!(fixture.observation("front")["pid"], fixture.front.unwrap());
+            // Quit reaches Core despite the incompatible gateway.
+            fixture.quit_desktop().await;
+            fixture.stop_core();
+            let mut hold = fixture
+                .command()
+                .args(["front-door-prepare", "--hold"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            use std::io::BufRead;
+            let mut ready = String::new();
+            std::io::BufReader::new(hold.stdout.take().unwrap())
+                .read_line(&mut ready)
+                .unwrap();
+            assert_eq!(ready.trim(), "ready");
+            assert!(fixture.observation("front").is_null());
+            let blocked = fixture
+                .command()
+                .arg("daemon")
+                .stderr(Stdio::piped())
+                .output()
+                .unwrap();
+            assert!(!blocked.status.success());
+            assert!(String::from_utf8_lossy(&blocked.stderr).contains("CORE_UNAVAILABLE"));
+            let installed = fixture.directory.join("installed/arc");
+            let candidate = fixture.directory.join("candidate");
+            let previous = fixture.directory.join("previous");
+            std::fs::copy(env!("CARGO_BIN_EXE_arc"), &candidate).unwrap();
+            std::fs::rename(&installed, &previous).unwrap();
+            if fail_replacement {
+                assert!(
+                    std::fs::rename(fixture.directory.join("missing-candidate"), &installed)
+                        .is_err()
+                );
+                std::fs::rename(&previous, &installed).unwrap();
+            } else {
+                std::fs::rename(&candidate, &installed).unwrap();
+                std::fs::remove_file(previous).unwrap();
+            }
+            drop(hold.stdin.take());
+            assert!(hold.wait().unwrap().success());
+            std::fs::remove_file(fixture.directory.join("incompatible")).unwrap();
+            // Both a successful install and a rollback must start Core and its
+            // front door from the runnable image left at the installed path.
+            fixture.start().await;
+            let health = fixture.management("health", "GET", json!({})).await;
+            assert_eq!(health["pid"], fixture.core.as_ref().unwrap().id());
+            desktop.abort();
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn exited_front_door_is_relaunched_and_restores_providers() {
+        // Regression: ax-327c543d left a live Core without a front door or remote providers until Desktop restarted.
+        let mut fixture = Fixture::new().await;
+        let desktop = fixture.desktop().await;
+        fixture.add_provider().await;
+        let previous = fixture.front.unwrap();
+        let provider = fixture.provider_pid();
+        let core = fixture.core.as_ref().unwrap().id();
+        let gate = std::fs::File::options()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(fixture.directory.join("state/front-door-install.lock"))
+            .unwrap();
+        gate.try_lock().unwrap();
+        unsafe {
+            libc::kill(previous as i32, libc::SIGKILL);
+        }
+        // CLI app quit must work during the outage without starting another listener.
+        fixture.quit_desktop().await;
+        tokio::time::sleep(Duration::from_millis(1300)).await;
+        assert_eq!(fixture.observation("front")["pid"], previous);
+        drop(gate);
+        fixture.wait_for_new_front(previous).await;
+        let until = Instant::now() + Duration::from_secs(10);
+        loop {
+            let status = fixture
+                .management("ingress/provider", "GET", json!({}))
+                .await;
+            if status["running"] == true && fixture.provider_pid() != provider {
+                break;
+            }
+            assert!(
+                Instant::now() < until,
+                "provider intent was not restored: {status}"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert_eq!(
+            fixture.management("health", "GET", json!({})).await["pid"],
+            core
+        );
+        assert_ne!(fixture.front.unwrap(), previous);
+        // Repeated startup reuses the same locked front door.
+        assert!(fixture.command().arg("start").status().unwrap().success());
+        assert_eq!(fixture.observation("front")["pid"], fixture.front.unwrap());
+        desktop.abort();
     }
     #[tokio::test]
     #[ignore = "Run serially with isolated state: cargo test -p arc-core --features test-fixture --test front_door -- --ignored --test-threads=1"]
@@ -476,6 +677,7 @@ mod unix {
             denied.json::<Value>().await.unwrap(),
             json!({"error":"invalid MCP request"})
         );
+        fixture.kill_core();
         assert!(fixture
             .command()
             .arg("front-door-prepare")

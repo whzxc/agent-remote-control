@@ -256,6 +256,26 @@ pub(crate) async fn gateway_request(route: &str, method: &str, body: Value) -> R
     frame.body
 }
 
+/// Local callers use the existing authenticated private Core endpoint. Failure to
+/// attach may fall back to an older installed build; submitted writes never do.
+pub(crate) async fn local_request(route: &str, method: &str, body: Value) -> Option<Result<Value>> {
+    let (mut stream, hello) = connect("core").await.ok()?;
+    let operation = match route {
+        "healthz" => Operation::Health,
+        "cli/control" => Operation::LocalControl,
+        _ => Operation::Management {
+            route: route.into(),
+            method: method.into(),
+        },
+    };
+    let request = request(&hello, management_context(), operation, body);
+    Some(
+        exchange(&mut stream, &request)
+            .await
+            .and_then(|frame| frame.body),
+    )
+}
+
 fn request(
     hello: &Hello,
     context: AuthenticatedContext,
@@ -629,6 +649,14 @@ impl Owner {
         match self {
             Self::Core(s, _) => s.execution.front_door.hello(version),
             Self::Gateway(gateway, _) => {
+                #[cfg(feature = "test-fixture")]
+                let version = if std::env::var_os("ARC_FIXTURE_FRONT_DOOR_INCOMPATIBLE")
+                    .is_some_and(|path| Path::new(&path).exists())
+                {
+                    0
+                } else {
+                    version
+                };
                 if version != VERSION {
                     return Err("FRONT_DOOR_PROTOCOL_MISMATCH: Run arc front-door-prepare from the new installation before restarting Core.".into());
                 }
@@ -903,7 +931,82 @@ pub(crate) async fn attach_core(
         &root().join("app/native.json"),
         &json!({"port":info["port"],"token":info["token"],"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()),"instance":service.control.session,"runtime":"rust","version":env!("ARC_BUILD_VERSION"),"owner":"core","daemon":service.runtime.daemon.load(Ordering::SeqCst),"build":crate::runtime::process_build_id()?}),
     )?;
-    Ok(listener)
+    Ok(tokio::spawn(async move {
+        let _listeners = Listeners(vec![listener]);
+        supervise(service).await;
+    }))
+}
+
+fn publish_core(service: &Service, info: &Value) -> Result<()> {
+    service.port.store(
+        info["port"].as_u64().ok_or("FRONT_DOOR_PORT_MISSING")? as u16,
+        Ordering::SeqCst,
+    );
+    let mut native = load(&root().join("app/native.json"))?;
+    native["port"] = info["port"].clone();
+    native["token"] = info["token"].clone();
+    save(&root().join("app/native.json"), &native)
+}
+async fn supervise(service: Arc<Service>) {
+    let mut attached = None;
+    let mut delay = Duration::from_millis(250);
+    loop {
+        let result = async {
+            let info = match connect("front-door").await {
+                Ok(_) => load(&info_path())?,
+                Err(_) => {
+                    // ensure holds the shared replacement lock for the entire launch.
+                    ensure().await?
+                }
+            };
+            let (_, hello) = connect("front-door").await?;
+            if attached != Some(hello.generation) {
+                publish_core(&service, &info)?;
+                service.restore_remote().await?;
+                attached = Some(hello.generation);
+            }
+            Ok::<(), String>(())
+        }
+        .await;
+        match result {
+            Ok(()) => {
+                delay = Duration::from_millis(250);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(error) => {
+                crate::logs::record(
+                    "WARN",
+                    &format!(
+                        "Front door reattachment: {error}; retry in {} ms",
+                        delay.as_millis()
+                    ),
+                    None,
+                );
+                tokio::time::sleep(delay).await;
+                delay = (delay * 2).min(Duration::from_secs(8));
+            }
+        }
+    }
+}
+
+/// Kernel-owned replacement exclusion is released even if an installer exits.
+fn replacement_lock() -> Result<File> {
+    private_dir(&root())?;
+    File::options()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(root().join("front-door-install.lock"))
+        .map_err(|e| e.to_string())
+}
+pub(crate) fn startup_guard() -> Result<File> {
+    let guard = replacement_lock()?;
+    guard.try_lock_shared().map_err(|_| {
+        "CORE_UNAVAILABLE: Installation holds the replacement path; retry after it finishes."
+            .to_owned()
+    })?;
+    Ok(guard)
 }
 
 fn lock() -> Result<File> {
@@ -919,6 +1022,7 @@ fn lock() -> Result<File> {
 /// Keep a compatible front door across build changes. Only the install path may stop an incompatible one.
 #[cfg_attr(test, allow(dead_code))]
 pub(crate) async fn ensure() -> Result<Value> {
+    let _replacement = startup_guard()?;
     match connect("front-door").await {
         Ok(_) => return load(&info_path()),
         Err(error) if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH") => return Err(error),
@@ -958,6 +1062,11 @@ pub(crate) async fn ensure() -> Result<Value> {
     // Detached launch deliberately bypasses the Core-owned child registry.
     drop(guard);
     let mut child = crate::codex_host::detached_spawn(&mut command)?;
+    crate::logs::record(
+        "INFO",
+        &format!("Front door launched: pid {}", child.id()),
+        None,
+    );
     let until = Instant::now() + Duration::from_secs(10);
     loop {
         if connect("front-door").await.is_ok() {
@@ -980,7 +1089,17 @@ pub(crate) async fn ensure() -> Result<Value> {
     }
 }
 /// Called by installers before replacing files. Compatible running front doors are retained.
-pub async fn prepare_install() -> Result<()> {
+pub async fn prepare_install() -> Result<File> {
+    let guard = replacement_lock()?;
+    guard.try_lock().map_err(|_| {
+        "CORE_UNAVAILABLE: Another installer or Core startup holds the replacement path.".to_owned()
+    })?;
+    if !crate::runtime::core_unlocked()? {
+        return Err(
+            "CORE_UNAVAILABLE: Stop Desktop and Core before preparing front-door replacement."
+                .into(),
+        );
+    }
     match connect("front-door").await {
         Ok(_) => Ok(()),
         Err(error) if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH") => stop().await,
@@ -991,7 +1110,27 @@ pub async fn prepare_install() -> Result<()> {
                 Err(error)
             }
         }
-    }
+    }?;
+    Ok(guard)
+}
+/// Updater bytes may contain a new protocol, so stop the front door after Core.
+pub async fn prepare_update() -> Result<File> {
+    let guard = prepare_install().await?;
+    stop().await?;
+    Ok(guard)
+}
+/// Keep the replacement guard until the independent installer's pipe closes.
+pub async fn hold_install() -> Result<()> {
+    let _guard = prepare_install().await?;
+    use std::io::Write;
+    println!("ready");
+    std::io::stdout().flush().map_err(|e| e.to_string())?;
+    let mut byte = [0];
+    tokio::io::stdin()
+        .read(&mut byte)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 pub(crate) async fn stop() -> Result<()> {
     let guard = lock()?;

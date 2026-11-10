@@ -7,6 +7,7 @@ use tauri_plugin_updater::UpdaterExt;
 #[derive(Default)]
 pub struct State {
     pub closing: AtomicBool,
+    replacement: std::sync::Mutex<Option<std::fs::File>>,
 }
 
 #[tauri::command]
@@ -53,11 +54,20 @@ pub async fn prepare_update(app: tauri::AppHandle) -> Result<(), String> {
         state.closing.store(false, Ordering::SeqCst);
         return Err(error);
     }
+    match arc_core::front_door::process::prepare_update().await {
+        Ok(guard) => *state.replacement.lock().unwrap() = Some(guard),
+        Err(error) => {
+            service.resume().await;
+            state.closing.store(false, Ordering::SeqCst);
+            return Err(error);
+        }
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn resume_after_update_failure(app: tauri::AppHandle) {
+    app.state::<State>().replacement.lock().unwrap().take();
     app.state::<std::sync::Arc<arc_core::runtime::Client>>()
         .resume()
         .await;
