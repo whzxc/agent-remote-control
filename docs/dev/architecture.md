@@ -186,6 +186,9 @@ The targeted process fixture uses synthetic providers and isolated state. Run it
 serially from the main checkout, or an explicitly authorized lane, after
 `npm run check:tests`:
 `cargo test --locked -p arc-core --features test-fixture --test front_door -- --ignored --test-threads=1`.
+The target requires `test-fixture` so the spawned Core and front door include its
+synthetic protocol-mismatch, webhook and response-loss hooks. Cargo rejects an
+explicit invocation without that feature before starting any fixture processes.
 It covers listener/provider identity, swap-time queued reads, snapshot reattachment,
 persisted MCP subscription identity/expiry, actionable unsupported event replay,
 completed-write receipt reconciliation after response loss, compatible install

@@ -8,8 +8,12 @@ license = "MIT"
 name = "arc"
 path = "src/main.rs"
 
+[[test]]
+name = "front_door"
+required-features = ["test-fixture"]
+
 [features]
-# Compiled only by the contract fixture, never desktop builds.
+# Synthetic hooks for contract and isolated process fixtures; never desktop builds.
 test-fixture = []
 
 [dependencies]
