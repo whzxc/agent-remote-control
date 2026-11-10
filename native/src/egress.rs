@@ -1064,8 +1064,17 @@ mod tests {
         // Regression: review notes for multi-invariant turns exceeded the 1000-character bound.
         let c = catalog();
         for name in ["codex_review", "agent_review"] {
-            let spec = c["ops"].as_array().unwrap().iter().find(|op| op["name"] == name).unwrap();
-            let mut args = if name == "codex_review" { json!({"threadId":"fixture","verdict":"pass"}) } else { json!({"agent":"pi","taskId":"fixture","verdict":"pass"}) };
+            let spec = c["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            let mut args = if name == "codex_review" {
+                json!({"threadId":"fixture","verdict":"pass"})
+            } else {
+                json!({"agent":"pi","taskId":"fixture","verdict":"pass"})
+            };
             args["note"] = json!("x".repeat(4000));
             validate_op(spec, &args).unwrap();
             args["note"] = json!("x".repeat(4001));

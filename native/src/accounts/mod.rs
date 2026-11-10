@@ -1261,7 +1261,9 @@ fn project_parity(account: &mut Value, parity: &std::cell::OnceCell<Value>) {
         .flatten()
     {
         if profile["agent"] == "codex" {
-            profile["parity"] = parity.get_or_init(|| codex::inspect_profile("codex-home")).clone();
+            profile["parity"] = parity
+                .get_or_init(|| codex::inspect_profile("codex-home"))
+                .clone();
             if profile["profileId"] != "codex-home" && profile["parity"]["state"] == "primary" {
                 profile["parity"]["state"] = json!("shared");
             }
