@@ -214,6 +214,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     emit({ id, result: { method, params, echoedParams: params } });
   };
   if (method==='command/exec' && params.command?.at(-1)==='fixture-delayed') setTimeout(() => params.timeoutMs === 2000 ? reply() : emit({id,error:{code:-32602,message:'process timeout changed'}}),100);
+  else if (method==='command/exec' && params.command?.at(-1)==='fixture-mcp-deadline') setTimeout(reply,46000);
   else if (params?.delay) setTimeout(reply, params.delay); else reply();
 }
 `);
@@ -1609,6 +1610,29 @@ test('cmd waitMs returns a pending receipt without changing the process timeout'
   assert.equal(first.response.isError,false);assert.equal(first.result.state,'pending');
   const done=await completed('command',{cmd:'fixture-delayed',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
 
+});
+
+test('MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits', async () => {
+  // Regression: AX ax-e22612d0-aa1c-4b2f-808d-8e8006fd9868; long cmd defaults exceeded the remote MCP tool-call deadline and lost the receipt.
+  const args = {cmd:'fixture-mcp-deadline',cwd:directory,timeoutMs:120000};
+  const [remote, explicit, local] = await Promise.all([
+    call('command', args),
+    fetch(`http://127.0.0.1:${endpoint.port}/mcp/default`, {
+      method:'POST',headers:{Authorization:`Bearer ${endpoint.token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:'explicit-command-wait',method:'tools/call',params:opCall('command',{...args,waitMs:55000})}),
+      signal:AbortSignal.timeout(60000),
+    }).then(response => response.json()),
+    management('cli/control', 'POST', {op:'command',args}),
+  ]);
+  assert.equal(remote.response.isError, false);
+  assert.equal(remote.result.state, 'pending');
+  assert.ok(remote.result.requestId);
+  assert.equal(remote.result.next.op, 'receipt');
+  assert.equal(remote.result.next.args.requestId, remote.result.requestId);
+  assert.equal(explicit.result.structuredContent.result.state, 'completed');
+  assert.equal(local.structuredContent.result.state, 'completed');
+  const receipt = await call('receipt', {requestId:remote.result.requestId});
+  assert.equal(receipt.result.state, 'completed');
 });
 
 test('multi-root projects preserve legacy selection and resolve project cwd alternatives', async () => {

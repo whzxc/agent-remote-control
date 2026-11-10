@@ -1063,7 +1063,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 120000,
-            "description": "Milliseconds to wait for a receipt. Timeout returns pending without cancelling execution. When omitted, cmd mode waits for the execution timeout plus 10 seconds. Native mode defaults to 25000."
+            "description": "Milliseconds to wait for a receipt. Timeout returns pending without cancelling execution. When omitted, cmd mode waits for the execution timeout plus 10 seconds, capped at 45000ms over MCP so a pending receipt arrives before client tool-call deadlines. Local CLI cmd mode keeps the execution timeout plus 10 seconds. Explicit waitMs is unchanged. Native mode defaults to 25000."
           },
           "cmd": {
             "type": "string",

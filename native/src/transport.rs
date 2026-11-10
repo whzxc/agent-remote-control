@@ -706,6 +706,11 @@ async fn call_tool_inner(s: &ControlSource<'_>, tool: &str, envelope: Value) -> 
             crate::egress::validate_op(op, &args)?;
             wait_limit = crate::control_sources::limit_wait(&s.origin().await, &mut args);
         }
+        if name == "command" && args["cmd"].is_string() && args.get("waitMs").is_none()
+            && matches!(s, ControlSource::Ingress(_))
+        {
+            args["waitMs"] = json!(args["timeoutMs"].as_u64().unwrap_or(60000).saturating_add(10000).min(45000));
+        }
         s.call(name, args.clone()).await
     }.await;
     let mut images = Vec::new();
