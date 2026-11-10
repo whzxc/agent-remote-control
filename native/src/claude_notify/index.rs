@@ -48,6 +48,7 @@ struct Index {
     reconciliation: HashSet<Key>,
     dormant: HashSet<Key>,
     pending: HashSet<Key>,
+    recovery: HashSet<Key>,
     destinations: HashMap<(String, Channel, String), HashSet<Key>>,
     sources: HashMap<String, HashSet<Key>>,
     controls: Option<Arc<governance::Data>>,
@@ -76,24 +77,75 @@ fn clock() -> i64 {
 fn scope(b: &Binding) -> Scope {
     (b.source_id.clone(), b.thread_id.clone())
 }
+// Payload snapshots remain canonical; deadlines and scope discovery need only metadata.
+pub(super) fn projection(b: &Binding) -> Result<Value> {
+    let mut b = b.clone();
+    for d in &mut b.deliveries {
+        d.final_response = Value::Null;
+        d.external_user_inputs = Value::Null;
+        d.changes = Value::Null;
+        d.dispatches = Value::Null;
+        d.task_error = Value::Null;
+        d.reconciliation = Value::Null;
+        d.continuation = Value::Null;
+        d.recovery = Value::Null;
+    }
+    Ok(json!({"binding":b,"scheduled":false}))
+}
+fn hydrate(key: &Path) -> Result<Arc<Binding>> {
+    shared_binding(key)?.ok_or_else(|| "INVALID_BINDING".into())
+}
+pub(super) fn initialize(dir: &Path) -> Result<()> {
+    with(dir, |_| Ok(()))
+}
+// Restart recovery is bounded by live scopes and unsettled deliveries. Dormant
+// exhausted scopes remain discoverable and reactivate through the usual evidence path.
+pub(super) fn restart_due(dir: &Path) -> Result<Vec<(Arc<Binding>, bool, bool)>> {
+    with(dir, |index| {
+        let keys: BTreeSet<_> = index
+            .observing
+            .iter()
+            .chain(&index.reconciliation)
+            .chain(&index.pending)
+            .chain(index.resumable.values())
+            .cloned()
+            .chain(index.retention.take(clock()))
+            .chain(index.recovery.iter().cloned())
+            .collect();
+        cost::rows(keys.len());
+        keys.into_iter()
+            .map(|key| {
+                let b = hydrate(&key)?;
+                let superseded = index.superseded(&b);
+                Ok((b, false, superseded))
+            })
+            .collect()
+    })
+}
 impl Index {
-    fn seed(dir: &Path) -> Result<Self> {
-        cost::sync(Owner::NotificationSeed, Reason::Startup, || {
-            private_dir(&dir.join("tasks"))?;
-            let mut index = Self::default();
-            index.watch.add(&dir.join("tasks/.index-watch"));
-            for entry in binding_paths(dir)?
-                .iter()
-                .filter(|e| e.path.extension().is_some_and(|e| e == "json"))
-            {
-                cost::rows(1);
-                if let Some(b) = shared_binding(&entry.path)? {
-                    index.put(dir, b, false);
-                }
+    fn open(dir: &Path) -> Result<Self> {
+        let rows = crate::kernel::derived_index::open(
+            &dir.join("tasks"),
+            Owner::NotificationSeed,
+            Owner::NotificationAdopt,
+            |path| path.extension().is_some_and(|v| v == "json"),
+            |value| serde_json::from_value::<Binding>(value["binding"].clone()).is_ok(),
+            |value| projection(&serde_json::from_value(value).map_err(|e| e.to_string())?),
+        )?;
+        let mut index = Self::default();
+        index.watch.add(&dir.join("tasks/.index-watch"));
+        for (_, row) in rows {
+            let value = row.row;
+            let b: Binding = serde_json::from_value(value["binding"].clone())
+                .map_err(|e| format!("INVALID_BINDING_INDEX: {e}"))?;
+            let key = path_in(dir, &b.thread_id, &b.turn_id);
+            index.put(dir, Arc::new(b), false);
+            index.rows.get_mut(&key).unwrap().stamp = row.stamp;
+            if value["scheduled"] == true {
+                index.delivery.set(&key, value["deliveryAt"].as_i64());
             }
-            cost::scan_set(index.rows.len());
-            Ok(index)
-        })
+        }
+        Ok(index)
     }
     fn latest(&self, b: &Binding) -> Option<&(i64, Key)> {
         self.scopes.get(&scope(b))?.last()
@@ -127,6 +179,16 @@ impl Index {
             self.exhausted.insert(key.into());
         } else {
             self.exhausted.remove(key);
+        }
+        if !b.source_id.is_empty()
+            && (matches!(
+                b.turn_state(),
+                TurnState::Active | TurnState::AwaitingInteraction
+            ) || b.deliveries.iter().any(delivery_needs_recovery))
+        {
+            self.recovery.insert(key.into());
+        } else {
+            self.recovery.remove(key);
         }
         let scope_key = scope(b);
         if self.resumable.get(&scope_key).is_some_and(|old| old == key) {
@@ -359,6 +421,7 @@ impl Index {
                 &mut self.reconciliation,
                 &mut self.dormant,
                 &mut self.pending,
+                &mut self.recovery,
                 &mut self.delivery_dirty,
                 &mut self.dirty,
             ] {
@@ -453,13 +516,20 @@ impl Index {
         } else {
             self.remove(key);
         }
+        crate::kernel::derived_index::update(
+            key,
+            self.rows
+                .get(key)
+                .map(|row| projection(&row.binding))
+                .transpose()?,
+        )?;
         Ok(())
     }
 }
 fn with<T>(dir: &Path, f: impl FnOnce(&mut Index) -> Result<T>) -> Result<T> {
     let mut indexes = INDEXES.lock().map_err(|e| e.to_string())?;
     if !indexes.contains_key(dir) {
-        indexes.insert(dir.into(), Index::seed(dir)?);
+        indexes.insert(dir.into(), Index::open(dir)?);
     }
     f(indexes.get_mut(dir).unwrap())
 }
@@ -498,7 +568,11 @@ pub(super) fn all(dir: &Path) -> Result<Arc<Vec<Arc<Binding>>>> {
         index.refresh(dir)?;
         cost::rows(index.rows.len());
         Ok(Arc::new(
-            index.rows.values().map(|row| row.binding.clone()).collect(),
+            index
+                .rows
+                .keys()
+                .map(|key| hydrate(key))
+                .collect::<Result<_>>()?,
         ))
     })
 }
@@ -509,9 +583,8 @@ pub(super) fn thread(dir: &Path, thread: &str) -> Result<Vec<Binding>> {
             .get(thread)
             .into_iter()
             .flatten()
-            .filter_map(|key| index.rows.get(key))
-            .map(|row| (*row.binding).clone())
-            .collect())
+            .map(|key| hydrate(key).map(|row| (*row).clone()))
+            .collect::<Result<_>>()?)
     })
 }
 pub(super) fn observation_due(dir: &Path, now: i64) -> Result<Vec<(Arc<Binding>, bool, bool)>> {
@@ -615,6 +688,7 @@ pub(super) fn diagnostics(dir: &Path) -> Value {
     INDEXES.try_lock().ok().and_then(|indexes| indexes.get(dir).map(|i| json!({"retained":i.rows.len(),"observing":i.observing.len(),"reconciliationDue":i.reconciliation.len(),"dormant":i.dormant.len(),"deliveryDue":i.delivery.keys.len(),"retentionDue":i.retention.keys.len(),"latestScopes":i.scopes.len(),"latestResumable":i.resumable.len(),"reconciliationExhausted":i.exhausted.len(),"pendingBindings":i.pending.len(),"dirtyKeys":i.dirty.len(),"watchCoverage":if i.coverage_gap {"repairing"} else {"watched"},"revision":i.revision}))).unwrap_or(Value::Null)
 }
 
+#[cfg(test)]
 pub(super) fn is_superseded(dir: &Path, b: &Binding) -> Result<bool> {
     with(dir, |i| Ok(i.superseded(b)))
 }
@@ -629,10 +703,7 @@ pub(super) fn delivery_due(dir: &Path, now: i64) -> Result<Arc<Vec<Arc<Binding>>
         }
         cost::rows(keys.len());
         Ok(Arc::new(
-            keys.iter()
-                .filter_map(|key| i.rows.get(key))
-                .map(|row| row.binding.clone())
-                .collect(),
+            keys.iter().map(|key| hydrate(key)).collect::<Result<_>>()?,
         ))
     })
 }
@@ -699,9 +770,22 @@ pub(super) fn schedule_deliveries(
                 at
             };
             i.delivery.set(&key, at);
+            let mut value = projection(&i.rows[&key].binding)?;
+            value["scheduled"] = json!(true);
+            value["deliveryAt"] = json!(at);
+            crate::kernel::derived_index::update(&key, Some(value))?;
         }
         Ok(())
     })
+}
+pub(super) fn reschedule_pending(dir: &Path, settings: &Value) -> Result<()> {
+    let rows = with(dir, |i| {
+        Ok(i.pending
+            .iter()
+            .map(|key| i.rows[key].binding.clone())
+            .collect::<Vec<_>>())
+    })?;
+    schedule_deliveries(dir, &rows, settings, clock())
 }
 pub(super) fn has_pending_target(
     dir: &Path,
@@ -851,7 +935,7 @@ pub(super) fn successors(dir: &Path, b: &Binding) -> Result<Vec<Binding>> {
                 break;
             }
             current = &row.binding;
-            rows.push(current.clone());
+            rows.push((*hydrate(&path_in(dir, &current.thread_id, &current.turn_id))?).clone());
         }
         Ok(rows)
     })
@@ -869,8 +953,7 @@ pub(super) fn interested_thread(dir: &Path, thread: &str) -> Result<Vec<Binding>
             .get(thread)
             .into_iter()
             .flatten()
-            .filter_map(|key| index.rows.get(key))
-            .map(|row| (*row.binding).clone())
-            .collect())
+            .map(|key| hydrate(key).map(|row| (*row).clone()))
+            .collect::<Result<_>>()?)
     })
 }

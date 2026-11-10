@@ -56,8 +56,8 @@ may exceed the byte budget until expiry so native history reads remain supported
 Serialized weight is not a heap bound; the IPC frame limit remains independent.
 Eviction never deletes native history, changes authorization, or cancels a task.
 
-Notification bindings have an in-memory activity index seeded from canonical files
-before observation starts. Per-key updates maintain observing, reconciliation,
+Notification bindings have a persistent derived activity index adopted before
+observation starts under the Core ownership lock. Per-key updates maintain observing, reconciliation,
 dormant, pending-delivery and retention partitions, and the latest resumable scope
 per source/thread. Ordered deadline queues supply due work. Completed history is
 absent from recurring observation and delivery passes. Native events, selected
@@ -97,17 +97,48 @@ history or ownership time. These fields must not be summed as elapsed pass time;
 the existing work counter reports elapsed pass wall time.
 
 Receipt metadata has a resident derived index independent of the full JSON
-cache's source-byte and entry limits. Startup seeds each receipt directory once.
+cache's source-byte and entry limits. Startup adopts each receipt directory's index.
 Changed paths update individual summaries and a bounded revision journal.
 Codex and Agent task-record projections consume changed keys and invalidate only
 records depending on changed runtime or execution-owner files. Unchanged polls
 reuse the same snapshots. A reader behind the journal's coverage rebuilds its
 projection from indexed summaries. Explicit receipt reads retain the ordinary
-JSON cache and return complete payloads. Neither index is persisted.
+JSON cache and return complete payloads.
 
-`cost.notificationSeed` and `cost.receiptSeed` separate cold construction from
-recurring observation and receipt projection. `cost.indexRepair` accounts for
-watcher repair. `caches.notificationBindings.activityIndex` exposes partition
+Both owners use format version 1 in `.activity-index/` inside their canonical
+directories: `notifications/tasks/`, the state root for Codex receipts, and
+`agents/requests/`. `current.json` names a generation and its row count. Each
+canonical filename has one derived JSON entry containing its file stamp and
+projection. Notification entries retain lifecycle, scope and scheduling metadata;
+delivery payload snapshots stay in canonical files. Receipt entries retain the
+existing summary projection. Canonical files remain the authoritative data.
+
+Binding persist/removal and receipt reserve/checkpoint sync a per-key dirty marker
+before changing canonical bytes. They sync the canonical write, replace or delete
+the derived entry, publish a changed count, and then clear the marker. Scheduling
+and watcher updates use the same interruption boundary. One-time source migration
+invalidates affected canonical keys and skips the derived directories. A restart repairs dirty
+keys before exposing the index; unchanged stamps avoid duplicate decoding. Retention
+deletes the derived entry together with its canonical binding. No retained snapshot
+keeps deleted entries.
+
+A missing, incompatible or corrupt index triggers reconstruction in batches of at
+most 64 canonical paths. Reconstruction writes a fresh generation, verifies its
+count and every projected row by readback, and atomically publishes `current.json`.
+The loaded rows derive latest scopes and deadline partitions before observation.
+Interrupted generations are never adopted. Successful adoption or reconstruction
+removes obsolete generations. Versions change when projection semantics or the
+stored representation change; incompatible versions rebuild from canonical data.
+Startup recovery selects indexed live scopes, resumable scopes, unsettled deliveries
+and due retention keys. Pending schedules are recomputed against current controls.
+Old notification-layout migration scans bindings only when old-layout files exist.
+No SQLite store or additional retention policy is involved.
+
+`cost.notificationSeed` and `cost.receiptSeed` report canonical rebuild input.
+`cost.notificationAdopt` and `cost.receiptAdopt` report derived entry reads,
+including migration readback. Normal adoption has zero seed bytes. Changed-key
+crash repair and bounded watcher repair use `cost.indexRepair`. Derived per-key
+writes use `cost.indexUpdate`, separately from canonical projection reads. `caches.notificationBindings.activityIndex` exposes partition
 sizes, pending bindings, latest resumable scopes, dirty keys and watcher coverage.
 `indexWatches.coverageGaps` counts failed watchers. Counters contain no record keys
 or task content. Coordination startup replay still reads retained owners for

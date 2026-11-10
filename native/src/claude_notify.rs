@@ -187,12 +187,6 @@ pub(crate) fn diagnostics() -> Value {
     diagnostics["activityIndex"] = index::diagnostics(&directory());
     diagnostics
 }
-fn binding_paths(dir: &Path) -> Result<Arc<Vec<file_cache::Entry>>> {
-    BINDINGS
-        .lock()
-        .map_err(|e| e.to_string())?
-        .entries(&dir.join("tasks"))
-}
 fn persist(dir: &Path, b: &Binding) -> Result<()> {
     let path = path_in(dir, &b.thread_id, &b.turn_id);
     let before = file_cache::Stamp::read(path.parent().unwrap())?;
@@ -200,7 +194,10 @@ fn persist(dir: &Path, b: &Binding) -> Result<()> {
     if cache.read(&path).is_ok_and(|old| old.as_ref() == b) {
         return Ok(());
     }
-    save(&path, &serde_json::to_value(b).map_err(|e| e.to_string())?)?;
+    crate::kernel::derived_index::change(&path, || {
+        save(&path, &serde_json::to_value(b).map_err(|e| e.to_string())?)?;
+        Ok(((), Some(index::projection(b)?)))
+    })?;
     cache.written(&path, before, b.clone())?;
     drop(cache);
     index::updated(dir, b);
@@ -546,7 +543,10 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64, superseded: bool) -> Result
     }
     let path = path_in(dir, &b.thread_id, &b.turn_id);
     let before = file_cache::Stamp::read(path.parent().unwrap())?;
-    std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    crate::kernel::derived_index::change(&path, || {
+        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        Ok(((), None))
+    })?;
     file_cache::changed(&path, before.clone());
     BINDINGS
         .lock()
@@ -1041,19 +1041,19 @@ async fn deliver_target(
         error
     })
 }
+fn delivery_needs_recovery(d: &Delivery) -> bool {
+    (d.status == "sending"
+        || (d.status == "failed"
+            && matches!(
+                d.error.as_deref(),
+                None | Some("delivery-failed-or-unconfirmed" | "wake-limit" | "disabled")
+            )))
+        && d.failures < 6
+}
 fn recover(dir: &Path, b: &mut Binding) -> Result<bool> {
-    let retry = |d: &Delivery| {
-        (d.status == "sending"
-            || (d.status == "failed"
-                && matches!(
-                    d.error.as_deref(),
-                    None | Some("delivery-failed-or-unconfirmed" | "wake-limit" | "disabled")
-                )))
-            && d.failures < 6
-    };
-    if b.deliveries.iter().any(retry) {
+    if b.deliveries.iter().any(delivery_needs_recovery) {
         for d in &mut b.deliveries {
-            if retry(d) {
+            if delivery_needs_recovery(d) {
                 d.failures = d.failures.saturating_add(1);
                 d.status = if d.failures < 6 { "pending" } else { "failed" }.into();
                 d.token_charged = d.attempted_at > 0;
@@ -2483,6 +2483,13 @@ async fn flush(
     Ok(())
 }
 
+pub(crate) fn initialize_index() -> Result<()> {
+    index::initialize(&directory())?;
+    index::reschedule_pending(&directory(), &settings()?)?;
+    crate::kernel::receipts::ReceiptStore::new("").seed()?;
+    crate::kernel::receipts::ReceiptStore::new("agents/requests").seed()
+}
+
 pub(crate) async fn migrate() -> Result<()> {
     let _guard = LOCK.lock().await;
     settings()?;
@@ -2504,13 +2511,16 @@ pub(crate) async fn migrate() -> Result<()> {
         }
     }
     let old_control = dir.join("control/state.json");
+    let old_events = dir.join("mcp-events/state.json");
+    if old_tasks.is_empty() && !old_control.exists() && !old_events.exists() {
+        return Ok(());
+    }
     let new_control = dir.join("subscriptions/state.json");
     let mut state = if !new_control.exists() && old_control.exists() {
         State::decode(load(&old_control)?)?
     } else {
         State::load(&dir)?
     };
-    let old_events = dir.join("mcp-events/state.json");
     let mut all = records(&dir)?;
     if old_events.exists() {
         let old = load(&old_events)?;
@@ -2814,11 +2824,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 break;
             };
             let cycle = crate::runtime_metrics::cost::scope(
-                if recovering {
-                    crate::runtime_metrics::cost::Owner::NotificationSeed
-                } else {
-                    crate::runtime_metrics::cost::Owner::NotificationObserver
-                },
+                crate::runtime_metrics::cost::Owner::NotificationObserver,
                 reason,
                 async {
                     use crate::runtime_metrics::{
@@ -2830,12 +2836,8 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     let pass = ObservationPass::new();
                     OBSERVATION.scope(pass.sample.clone(), async {
                     let scan = ObservationTimer::new(ObservationPhase::Scan);
-                    if recovering {
-                        crate::kernel::receipts::ReceiptStore::new("").seed()?;
-                        crate::kernel::receipts::ReceiptStore::new("agents/requests").seed()?;
-                    }
                     let due = if recovering {
-                        index::all(&directory())?.iter().map(|b| Ok((b.clone(), false, index::is_superseded(&directory(), b)?))).collect::<Result<Vec<_>>>()?
+                        index::restart_due(&directory())?
                     } else {
                         index::observation_due(&directory(), chrono::Utc::now().timestamp())?
                     };

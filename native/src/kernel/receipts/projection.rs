@@ -28,7 +28,7 @@ fn fields(value: &Value, keys: &[&str]) -> Value {
             .collect(),
     )
 }
-fn summary(mut row: Value) -> Result<Value> {
+pub(super) fn summary(mut row: Value) -> Result<Value> {
     if !row.is_object() {
         return Err("INVALID_RECEIPT".into());
     }
@@ -69,22 +69,27 @@ fn receipt(path: &Path) -> bool {
             .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
 }
 impl Index {
-    fn seed(directory: &Path) -> Result<Self> {
-        cost::sync(Owner::ReceiptSeed, Reason::Startup, || {
-            private_dir(directory)?;
-            let mut index = Self::default();
-            index.watch.add(&directory.join(".index-watch"));
-            if directory.is_dir() {
-                for entry in std::fs::read_dir(directory).map_err(|e| e.to_string())? {
-                    let path = entry.map_err(|e| e.to_string())?.path();
-                    if receipt(&path) {
-                        index.refresh(&path)?;
-                    }
-                }
-            }
-            cost::scan_set(index.rows.len());
-            Ok(index)
-        })
+    fn open(directory: &Path) -> Result<Self> {
+        let rows = crate::kernel::derived_index::open(
+            directory,
+            Owner::ReceiptSeed,
+            Owner::ReceiptAdopt,
+            receipt,
+            Value::is_object,
+            summary,
+        )?;
+        let mut index = Self::default();
+        index.watch.add(&directory.join(".index-watch"));
+        for (key, entry) in rows {
+            index.rows.insert(
+                directory.join(key),
+                Summary {
+                    stamp: entry.stamp,
+                    row: entry.row,
+                },
+            );
+        }
+        Ok(index)
     }
     fn refresh(&mut self, path: &Path) -> Result<()> {
         let stamp = Stamp::read(path)?;
@@ -116,6 +121,7 @@ impl Index {
                 }
             }
         }
+        crate::kernel::derived_index::update(path, self.rows.get(path).map(|s| s.row.clone()))?;
         self.revision += 1;
         self.changes.insert(self.revision, path.into());
         while self.changes.len() > 8192 {
@@ -167,7 +173,7 @@ fn with<T>(directory: &Path, work: impl FnOnce(&mut Index, &Path) -> Result<T>) 
     let directory = physical(directory);
     let mut indexes = INDEXES.lock().map_err(|e| e.to_string())?;
     if !indexes.contains_key(&directory) {
-        indexes.insert(directory.clone(), Index::seed(&directory)?);
+        indexes.insert(directory.clone(), Index::open(&directory)?);
     }
     let index = indexes.get_mut(&directory).unwrap();
     index.drain(&directory)?;

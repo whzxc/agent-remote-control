@@ -1180,6 +1180,9 @@ fn migrate_files(dir: &Path, rows: &[Value]) -> Result<()> {
     }
     for e in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let p = e.map_err(|e| e.to_string())?.path();
+        if p.file_name().is_some_and(|name| name == ".activity-index") {
+            continue;
+        }
         if p.is_dir() {
             migrate_files(&p, rows)?;
         } else if p.extension().is_some_and(|e| e == "json") {
@@ -1342,6 +1345,12 @@ fn migrate_file(path: &Path, rows: &[Value]) -> Result<()> {
             std::fs::remove_file(path).map_err(|e| e.to_string())?;
             return Ok(());
         }
+    }
+    if parent == root()
+        || parent.ends_with("agents/requests")
+        || parent.ends_with("notifications/tasks")
+    {
+        crate::kernel::derived_index::invalidate(path)?;
     }
     save(path, &value)
 }

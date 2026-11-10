@@ -4,6 +4,9 @@ use std::{cell::Cell, future::Future};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Owner {
+    IndexUpdate,
+    NotificationAdopt,
+    ReceiptAdopt,
     NotificationSeed,
     ReceiptSeed,
     IndexRepair,
@@ -38,7 +41,10 @@ pub(crate) enum Owner {
     ScopedWait,
     DraftExpiry,
 }
-const OWNERS: [&str; 33] = [
+const OWNERS: [&str; 36] = [
+    "indexUpdate",
+    "notificationAdopt",
+    "receiptAdopt",
     "notificationSeed",
     "receiptSeed",
     "indexRepair",
@@ -115,7 +121,7 @@ impl Cost {
         }
     }
 }
-static COSTS: [Cost; 33] = [const { Cost::new() }; 33];
+static COSTS: [Cost; 36] = [const { Cost::new() }; 36];
 tokio::task_local! { static OWNER: Owner; }
 thread_local! { static SYNC_OWNER: Cell<Option<Owner>> = const { Cell::new(None) }; }
 fn current() -> Option<Owner> {

@@ -782,6 +782,10 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|e| e.to_string())?;
     crate::claude_notify::migrate().await?;
+    // The ownership lock excludes another Core; no listener or observer sees a partial rebuild.
+    tokio::task::spawn_blocking(crate::claude_notify::initialize_index)
+        .await
+        .map_err(|e| e.to_string())??;
     crate::sources::complete_migration().await?;
     service.agents.reattach().await;
     let listener = crate::transport::listen(service.clone(), None).await?;

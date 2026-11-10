@@ -285,3 +285,195 @@ async fn restart_seed_preserves_pending_delivery_and_latest_interrupted_scope() 
         next.turn_id
     );
 }
+
+fn restart(dir: &Path) {
+    index::forget(dir);
+    *BINDINGS.lock().unwrap() = file_cache::Cache::default();
+    index::initialize(dir).unwrap();
+}
+#[tokio::test]
+async fn persisted_restart_keeps_delivery_resume_and_dormant_reactivation_without_seed_reads() {
+    // Regression: D2b reconstructed retained binding payloads at every restart instead of adopting derived scopes and deadlines.
+    let control = control::Control::new(PathBuf::new());
+    for history in [4, 40] {
+        let dir = Sandbox::new();
+        for n in 0..history {
+            let mut b = fixture(&dir.0, &format!("history-{n}"), "completed");
+            b.scope_end = Some("scope-ended".into());
+            b.deliveries.push(Delivery {
+                key: "terminal".into(),
+                state: "completed".into(),
+                status: "delivered".into(),
+                final_response: json!("x".repeat(8192)),
+                ..Default::default()
+            });
+            persist(&dir.0, &b).unwrap();
+        }
+        let mut pending = fixture(&dir.0, "resume", "cancelled");
+        pending.continuation_until = i64::MAX;
+        let mut older = pending.clone();
+        older.turn_id = "previous-interrupted".into();
+        older.created_at -= 1;
+        persist(&dir.0, &older).unwrap();
+        pending.deliveries.push(Delivery {
+            target: "session_010000000000000000000001".into(),
+            key: "terminal".into(),
+            state: "interrupted".into(),
+            task_state: "cancelled".into(),
+            status: "pending".into(),
+            next_attempt_at: 200,
+            timing: DeliveryTiming {
+                queue_reason: Some("retry-backoff".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        pending.deliveries[0].final_response = json!("pending-payload");
+        persist(&dir.0, &pending).unwrap();
+        let mut parked = fixture(&dir.0, "parked", "completed");
+        parked.deliveries.push(Delivery {
+            key: "terminal".into(),
+            state: "completed".into(),
+            task_state: "completed".into(),
+            status: "pending".into(),
+            timing: DeliveryTiming {
+                queue_reason: Some("unbound".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        persist(&dir.0, &parked).unwrap();
+        let mut dormant = fixture(&dir.0, "dormant", "running");
+        for _ in 0..observer::RECONCILIATION_ATTEMPTS {
+            dormant.observation = observer::unavailable(&mut dormant, "unavailable");
+        }
+        persist(&dir.0, &dormant).unwrap();
+        let before = metrics(&control).await;
+        index::initialize(&dir.0).unwrap();
+        let cold = metrics(&control).await;
+        index::schedule_deliveries(
+            &dir.0,
+            &[Arc::new(pending.clone()), Arc::new(parked.clone())],
+            &json!({}),
+            100,
+        )
+        .unwrap();
+        restart(&dir.0);
+        let adopted = metrics(&control).await;
+        assert_eq!(delta(&cold, &adopted, "notificationSeed", "bytesParsed"), 0);
+        assert_eq!(
+            delta(&cold, &adopted, "notificationAdopt", "rowsVisited"),
+            history + 4
+        );
+        assert_eq!(delta(&cold, &adopted, "indexRepair", "rowsVisited"), 0);
+        assert!(
+            delta(&cold, &adopted, "notificationAdopt", "bytesParsed")
+                < delta(&before, &cold, "notificationSeed", "bytesParsed")
+        );
+        let recovering = cost::sync(Owner::NotificationObserver, Reason::Startup, || {
+            index::restart_due(&dir.0)
+        })
+        .unwrap();
+        assert_eq!(recovering.len(), 2);
+        assert!(recovering
+            .iter()
+            .any(|(b, _, _)| b.turn_id == pending.turn_id));
+        assert!(recovering
+            .iter()
+            .any(|(b, _, _)| b.turn_id == parked.turn_id));
+        assert_eq!(index::next_delivery(&dir.0).unwrap(), Some(200));
+        assert!(index::delivery_due(&dir.0, 199).unwrap().is_empty());
+        let due = index::delivery_due(&dir.0, 200).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].turn_id, pending.turn_id);
+        assert_eq!(
+            due[0].deliveries[0].final_response,
+            json!("pending-payload")
+        );
+        assert!(
+            index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10)
+                .unwrap()
+                .is_empty()
+        );
+        let status = governance::status_in(
+            &dir.0,
+            &pending.source_id,
+            &json!({"threadId":pending.thread_id,"all":false}),
+            201,
+            &json!({}),
+        )
+        .unwrap();
+        assert_eq!(status["threads"][0]["turns"][0]["turnId"], pending.turn_id);
+        index::read_key(&dir.0, &dormant.thread_id, &dormant.turn_id).unwrap();
+        let due = index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].0.turn_id, dormant.turn_id);
+        println!("notification restart history={history} rebuildBytes={} adoptBytes={} seedBytes=0 pending=1 parked=1 dormantWake=1",delta(&before,&cold,"notificationSeed","bytesParsed"),delta(&cold,&adopted,"notificationAdopt","bytesParsed"));
+    }
+}
+#[tokio::test]
+async fn interrupted_binding_write_repairs_one_key_and_invalid_indexes_rebuild_once() {
+    // Regression: a canonical binding written before an interrupted derived update must be repaired before restart observation.
+    let dir = Sandbox::new();
+    let control = control::Control::new(PathBuf::new());
+    for n in 0..40 {
+        fixture(&dir.0, &format!("history-{n}"), "completed");
+    }
+    let mut active = fixture(&dir.0, "active", "running");
+    index::initialize(&dir.0).unwrap();
+    tests::fixture_state(&mut active, "completed");
+    active.scope_end = Some("scope-ended".into());
+    crate::kernel::derived_index::interrupt(
+        &path_in(&dir.0, &active.thread_id, &active.turn_id),
+        &serde_json::to_vec(&active).unwrap(),
+    )
+    .unwrap();
+    let before = metrics(&control).await;
+    restart(&dir.0);
+    let repaired = metrics(&control).await;
+    assert_eq!(delta(&before, &repaired, "indexRepair", "rowsVisited"), 1);
+    assert_eq!(
+        delta(&before, &repaired, "notificationSeed", "bytesParsed"),
+        0
+    );
+    assert!(
+        index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10)
+            .unwrap()
+            .is_empty()
+    );
+    restart(&dir.0);
+    assert_eq!(
+        delta(
+            &repaired,
+            &metrics(&control).await,
+            "indexRepair",
+            "rowsVisited"
+        ),
+        0
+    );
+    for mode in ["missing", "corrupt", "version"] {
+        crate::kernel::derived_index::damage(&dir.0.join("tasks"), mode);
+        let before = metrics(&control).await;
+        restart(&dir.0);
+        let rebuilt = metrics(&control).await;
+        assert_eq!(
+            delta(&before, &rebuilt, "notificationSeed", "rowsVisited"),
+            41
+        );
+        restart(&dir.0);
+        assert_eq!(
+            delta(
+                &rebuilt,
+                &metrics(&control).await,
+                "notificationSeed",
+                "rowsVisited"
+            ),
+            0
+        );
+        assert!(
+            index::observation_due(&dir.0, chrono::Utc::now().timestamp() + 10)
+                .unwrap()
+                .is_empty()
+        );
+    }
+}

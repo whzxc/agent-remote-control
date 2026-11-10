@@ -122,33 +122,39 @@ impl ReceiptStore {
     pub fn reserve(&self, receipt: &Value) -> Result<()> {
         use std::io::Write;
         let path = self.path(string(receipt, "requestId"))?;
-        let parent = path.parent().ok_or("INVALID_RECEIPT_PATH")?;
-        let before = super::file_cache::Stamp::read(parent)?;
-        private_dir(parent)?;
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options
-            .open(&path)
-            .map_err(|e| format!("RECEIPT_RESERVATION_FAILED:{e}"))?;
-        file.write_all(receipt.to_string().as_bytes())
-            .map_err(|e| e.to_string())?;
-        file.sync_all().map_err(|e| e.to_string())?;
-        super::file_cache::changed(&path, before);
-        crate::coordination::observers::watch_receipt(&path);
-        Ok(())
+        super::derived_index::change(&path, || {
+            let parent = path.parent().ok_or("INVALID_RECEIPT_PATH")?;
+            let before = super::file_cache::Stamp::read(parent)?;
+            private_dir(parent)?;
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options
+                .open(&path)
+                .map_err(|e| format!("RECEIPT_RESERVATION_FAILED:{e}"))?;
+            file.write_all(receipt.to_string().as_bytes())
+                .map_err(|e| e.to_string())?;
+            file.sync_all().map_err(|e| e.to_string())?;
+            super::file_cache::changed(&path, before);
+            crate::coordination::observers::watch_receipt(&path);
+            Ok(((), Some(projection::summary(receipt.clone())?)))
+        })
     }
     pub fn checkpoint(&self, receipt: &mut Value) -> Result<()> {
         receipt["updatedAt"] = json!(now());
-        crate::coordination::observers::save_owner(
-            &self.path(string(receipt, "requestId"))?,
-            receipt,
-            crate::coordination::observers::Owner::Receipt,
-        )
+        let path = self.path(string(receipt, "requestId"))?;
+        super::derived_index::change(&path, || {
+            crate::coordination::observers::save_owner(
+                &path,
+                receipt,
+                crate::coordination::observers::Owner::Receipt,
+            )?;
+            Ok(((), Some(projection::summary(receipt.clone())?)))
+        })
     }
 }
 
@@ -301,6 +307,92 @@ mod tests {
         }
         assert_eq!(counts[0], counts[1]);
         assert_eq!(counts[0].2, 1);
+    }
+    #[tokio::test]
+    async fn restart_adopts_receipts_and_repairs_only_the_interrupted_key() {
+        // Regression: D2b reparsed every retained receipt at each Core restart and lost an interrupted projection update.
+        let control = control::Control::new(PathBuf::new());
+        for history in [4, 40] {
+            let fixture = Sandbox::new();
+            for _ in 0..history {
+                let row = json!({"requestId":id(),"state":"completed","backendSession":"fixture-session","result":{"payload":"x".repeat(8192)}});
+                fixture.store.reserve(&row).unwrap();
+            }
+            let mut active = fixture.receipt(false);
+            let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+            fixture.store.seed().unwrap();
+            let cold = control.tool("runtime_metrics", json!({})).await.unwrap();
+            projection::forget(&fixture.dir);
+            fixture.store.seed().unwrap();
+            let adopted = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(delta(&cold, &adopted, "receiptSeed", "bytesParsed"), 0);
+            assert_eq!(delta(&cold, &adopted, "receiptSeed", "rowsVisited"), 0);
+            assert_eq!(
+                delta(&cold, &adopted, "receiptAdopt", "rowsVisited"),
+                history + 1
+            );
+            assert!(
+                delta(&cold, &adopted, "receiptAdopt", "bytesParsed")
+                    < delta(&before, &cold, "receiptSeed", "bytesParsed")
+            );
+            active["state"] = json!("completed");
+            let path = fixture.store.path(string(&active, "requestId")).unwrap();
+            crate::kernel::derived_index::interrupt(&path, &serde_json::to_vec(&active).unwrap())
+                .unwrap();
+            projection::forget(&fixture.dir);
+            fixture.store.seed().unwrap();
+            let repaired = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(delta(&adopted, &repaired, "indexRepair", "rowsVisited"), 1);
+            assert_eq!(delta(&adopted, &repaired, "receiptSeed", "bytesParsed"), 0);
+            assert_eq!(
+                fixture
+                    .store
+                    .read_for_projection(string(&active, "requestId"), "another-session")
+                    .unwrap()["state"],
+                "completed"
+            );
+            println!("receipt restart history={history} rebuildBytes={} adoptBytes={} seedBytes=0 repairRows=1 repairBytes={}", delta(&before,&cold,"receiptSeed","bytesParsed"), delta(&cold,&adopted,"receiptAdopt","bytesParsed"), delta(&adopted,&repaired,"indexRepair","bytesParsed"));
+            projection::forget(&fixture.dir);
+            fixture.store.seed().unwrap();
+            let again = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(delta(&repaired, &again, "indexRepair", "rowsVisited"), 0);
+        }
+    }
+    #[tokio::test]
+    async fn invalid_receipt_index_rebuilds_once_and_partial_migration_is_not_adopted() {
+        // Regression: D2c index publication must recover missing, corrupt, incompatible and interrupted generations before reads.
+        let fixture = Sandbox::new();
+        let active = fixture.receipt(false);
+        let control = control::Control::new(PathBuf::new());
+        crate::kernel::derived_index::interrupt_next_rebuild();
+        assert!(fixture.store.seed().is_err());
+        fixture.store.seed().unwrap();
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(string(&active, "requestId"), "new-session")
+                .unwrap()["state"],
+            "unconfirmed"
+        );
+        for mode in ["missing", "corrupt", "version"] {
+            crate::kernel::derived_index::damage(&fixture.dir, mode);
+            projection::forget(&fixture.dir);
+            let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+            fixture.store.seed().unwrap();
+            let rebuilt = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(delta(&before, &rebuilt, "receiptSeed", "rowsVisited"), 1);
+            projection::forget(&fixture.dir);
+            fixture.store.seed().unwrap();
+            let adopted = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(delta(&rebuilt, &adopted, "receiptSeed", "rowsVisited"), 0);
+            assert_eq!(
+                fixture
+                    .store
+                    .read_for_projection(string(&active, "requestId"), "new-session")
+                    .unwrap()["state"],
+                "unconfirmed"
+            );
+        }
     }
     #[tokio::test]
     async fn oversized_receipt_payload_does_not_evict_its_summary() {

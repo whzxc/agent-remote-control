@@ -96,7 +96,7 @@ impl Changes {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Stamp {
     modified: Option<SystemTime>,
     created: Option<SystemTime>,

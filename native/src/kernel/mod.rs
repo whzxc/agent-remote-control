@@ -1,4 +1,5 @@
 //! Shared execution infrastructure, independent of transports and providers.
+pub(crate) mod derived_index;
 pub mod event_store;
 pub mod file_cache;
 pub(crate) mod file_changes;
