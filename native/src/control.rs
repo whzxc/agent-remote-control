@@ -2345,35 +2345,13 @@ impl Control {
             retry_args["_retryTurn"] = retry_turn(&params);
             if let Some(active) = active {
                 self.check_steer(thread, &active["id"]).await?;
-                let model = active
-                    .get("model")
-                    .or_else(|| state["latestThreadSettings"].get("model"))
-                    .or_else(|| state.get("latestModel"))
-                    .or_else(|| state.get("model"))
-                    .cloned()
-                    .unwrap_or(Value::Null);
-                let effort = active
-                    .get("effort")
-                    .or_else(|| state["latestThreadSettings"].get("effort"))
-                    .or_else(|| state.get("latestReasoningEffort"))
-                    .or_else(|| state.get("reasoningEffort"))
-                    .cloned()
-                    .unwrap_or(Value::Null);
-                let tier = active
-                    .get("serviceTier")
-                    .or_else(|| state["latestThreadSettings"].get("serviceTier"))
-                    .cloned()
-                    .unwrap_or(json!("unknown"));
-                for (field, value) in [("model", model), ("effort", effort), ("serviceTier", tier)]
-                {
-                    if r["task"]["dispatch"]["source"][field] == "explicit"
-                        && r["task"]["dispatch"][field] != value
-                    {
-                        return Err("ACTIVE_TURN_CONFIGURATION: cannot change model/effort/serviceTier with steer; wait for completion or use sendMode:queue".into());
-                    }
-                    r["task"]["dispatch"][field] = value;
-                    r["task"]["dispatch"]["source"][field] = json!("active-turn");
-                }
+                let records = crate::dispatch_policy::records(thread)?;
+                reconcile_active_configuration(
+                    &mut r["task"]["dispatch"],
+                    active,
+                    &state,
+                    &records,
+                )?;
                 r["dispatchMode"] = json!("steered");
                 method = "turn/steer".into();
                 params["expectedTurnId"] = active.get("turnId").unwrap_or(&active["id"]).clone();
@@ -3142,6 +3120,47 @@ fn task_input(args: &Value) -> Result<Value> {
             .unwrap_or_else(|| json!([{"type":"text","text":args["prompt"]}])),
     )
 }
+/// Reconcile steering receipts with native evidence and the dispatch that started this turn.
+pub fn reconcile_active_configuration(
+    dispatch: &mut Value,
+    active: &Value,
+    state: &Value,
+    records: &[Value],
+) -> Result<()> {
+    let turn_id = active.get("turnId").unwrap_or(&active["id"]);
+    let started = records.iter().rev().find(|row| {
+        !turn_id.is_null() && row["turnId"] == *turn_id && row["dispatchMode"] != "steered"
+    });
+    let known = |value: &Value| {
+        value
+            .as_str()
+            .is_some_and(|v| !v.is_empty() && v != "unknown")
+    };
+    for (field, latest, native) in [
+        ("model", "latestModel", "model"),
+        ("effort", "latestReasoningEffort", "reasoningEffort"),
+        ("serviceTier", "serviceTier", "serviceTier"),
+    ] {
+        let value = [
+            &active[field],
+            &state["latestThreadSettings"][field],
+            &state[latest],
+            &state[native],
+        ]
+        .into_iter()
+        .find(|v| known(v))
+        .or_else(|| started.map(|row| &row[field]).filter(|v| known(v)))
+        .cloned()
+        .unwrap_or(json!("unknown"));
+        if known(&value) && dispatch["source"][field] == "explicit" && dispatch[field] != value {
+            return Err("ACTIVE_TURN_CONFIGURATION: cannot change model/effort/serviceTier with steer; wait for completion or use sendMode:queue".into());
+        }
+        dispatch[field] = value;
+        dispatch["source"][field] = json!("active-turn");
+    }
+    Ok(())
+}
+
 fn retry_turn(params: &Value) -> Value {
     let mut params = params.clone();
     if let Some(p) = params.as_object_mut() {
