@@ -1402,6 +1402,12 @@ test('inbox_wait filters unread events before limiting, isolates ingress and coo
     await eventually(() => inbox({timeoutMs:100,threadIds:[task.threadId]}), r => r.state === 'events');
     unrelated.push(task.threadId);
   }
+  const receipt = await dispatchFixture('fixture-dispatch-completed');
+  assert.ok(receipt.arcInbox.unread > 0);
+  assert.equal(receipt.arcInbox.next.op, 'inbox_wait');
+  assert.equal(receipt.arcInbox.events, undefined);
+  assert.equal(receipt.arcInbox.unchangedEvents, undefined);
+  assert.equal(receipt.arcInbox.outputId, undefined);
   const backlog = await inbox({timeoutMs:100,threadIds:unrelated});
   assert.equal(backlog.unread, unrelated.length);
   const summaryTask=await dispatchFixture('fixture-dispatch-completed');
