@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { prepareCoreBinary } from '../tests/helpers/native-control.ts';
 import { toolResult } from './mcp-result.mjs';
-import { createNormalizer, coverage, diffJSON, expandJSON } from './agent-scenarios-lib.mjs';
+import { createNormalizer, coverage, diffJSON, expandJSON, receiptRead } from './agent-scenarios-lib.mjs';
 import { gallery } from './agent-scenarios-gallery.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -37,7 +38,7 @@ function resolveValues(value, bindings) {
   return value;
 }
 
-async function captureScenario(scenario) {
+async function captureScenario(scenario, catalog) {
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-agent-scenarios-'));
   const stateDir = path.join(directory, 'arc-state'), home = path.join(directory, 'home');
   const client = new Client({ name: 'agent-remote-control-test', version: '1' });
@@ -79,7 +80,7 @@ async function captureScenario(scenario) {
         await new Promise(resolve => setTimeout(resolve, 100));
         // Only the scenario's explicit readiness condition is retried. Writes use their receipt.
         const retry = call.name === 'act'
-          ? { name: 'query', arguments: { op: 'receipt', args: { requestId: call.arguments.requestId } } } : call;
+          ? receiptRead(catalog, call.arguments.requestId, randomUUID()) : call;
         response = await client.callTool(retry);
         result = toolResult(response);
       }
@@ -136,7 +137,7 @@ async function main() {
     }
     await rm(path.join(output, 'index.html'), { force: true });
     for (const scenario of scenarios) {
-      sizes[scenario.id] = await captureScenario(scenario);
+      sizes[scenario.id] = await captureScenario(scenario, catalog);
       console.log(`Captured ${scenario.id}: ${sizes[scenario.id].characters} characters`);
     }
     await writeJSON(path.join(output, 'sizes.json'), sizes);

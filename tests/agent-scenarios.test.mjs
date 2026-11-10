@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createNormalizer, coverage, diffJSON, expandJSON, NOTIFICATION_KINDS } from '../tooling/agent-scenarios-lib.mjs';
+import { createNormalizer, coverage, diffJSON, expandJSON, NOTIFICATION_KINDS, receiptRead } from '../tooling/agent-scenarios-lib.mjs';
+
+test('receipt reads separate transport identity from the original write identity', () => {
+  // Property: receipt reads follow catalog routing and retain their target across distinct transport request IDs.
+  for (const readOnlyHint of [false, true]) {
+    const catalog = { ops: [{ name: 'receipt', annotations: { readOnlyHint } }] };
+    for (const requestId of ['read-one', 'read-two']) {
+      const call = receiptRead(catalog, 'original-write', requestId);
+      assert.equal(call.name, readOnlyHint ? 'query' : 'act');
+      assert.deepEqual(call.arguments.args, { action: 'read', requestId: 'original-write' });
+      assert.equal(call.arguments.requestId, readOnlyHint ? undefined : requestId);
+    }
+  }
+});
 
 test('capture normalization preserves identities and behavior across independent runs', () => {
   // Property: equivalent captures normalize equally while distinct identities and behavioral changes stay distinct.

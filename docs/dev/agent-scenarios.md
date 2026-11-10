@@ -52,6 +52,9 @@ Setup steps use MCP `call` objects and save their parsed results under `id`.
 previous setup result. An optional `until` condition names a result `path` with
 either `equals` or `nonEmpty`. These conditions have a bounded 15-second readiness
 wait. Write readiness reads its durable receipt; it never resubmits the write.
+Receipt reads select `query` or `act` from the catalog's `readOnlyHint`. The current
+catalog requires `act`, with a fresh top-level `requestId` and
+`args: {action: "read", requestId: <original write requestId>}`.
 The captured call is made once. Setup failures abort capture.
 
 `check` always captures fresh responses. It exits nonzero for invalid coverage

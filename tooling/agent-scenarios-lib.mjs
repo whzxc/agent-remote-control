@@ -2,6 +2,12 @@
 export const MASKS = ['guideHash', 'next.hash', 'phaseAgeMs', 'elapsedMs', 'snapshotHash', 'arcVersion', 'cliPath'];
 export const NOTIFICATION_KINDS = ['completed', 'failed', 'interrupted', 'needs-input', 'handoff', 'recovered', 'ping'];
 
+export function receiptRead(catalog, originalRequestId, requestId) {
+  const name = catalog.ops.find(op => op.name === 'receipt').annotations.readOnlyHint ? 'query' : 'act';
+  return { name, arguments: { op: 'receipt', ...(name === 'act' ? { requestId } : {}),
+    args: { action: 'read', requestId: originalRequestId } } };
+}
+
 export function createNormalizer({ directory, cliPath } = {}) {
   const ids = new Map();
   const replacements = [[directory, '<fixture>'], [cliPath, '<cli>']]
