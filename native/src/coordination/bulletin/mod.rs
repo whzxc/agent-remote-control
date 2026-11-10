@@ -1,6 +1,7 @@
 //! Shared notices and blockers. Recovery uses the coordination message outbox.
 mod store;
 use super::*;
+use crate::turn_lifecycle::{adapters as turn_adapter, Transition};
 use std::sync::{LazyLock, Mutex};
 use store::{Clock, Link, Store};
 static STORE: LazyLock<Mutex<Option<Store>>> = LazyLock::new(|| Mutex::new(None));
@@ -187,28 +188,23 @@ fn linked(args: &Value, actor: &Principal) -> Result<Vec<Link>> {
             _ => false,
         };
         if !owns { return Err("COORDINATION_OWNER_REQUIRED: thread links require your own dispatch origin".into()); }
-        let terminal = string(&row["terminal"],"state");
-        Ok(Link { session_binding_id: super::messages::binding_id(&row["origin"]["sourceId"], &args["sessionId"] )?, thread_id: thread, observed_turn_id: row["turnId"].as_str().map(str::to_owned), scope_state: match terminal {"completed"|"failed" => "completed", "interrupted"|"cancelled" => "interrupted", _ => "unknown"}.into(), observed_at: None, terminals: Default::default() })
+        let turn = crate::dispatch_policy::turn_lifecycle(row);
+        Ok(Link { session_binding_id: super::messages::binding_id(&row["origin"]["sourceId"], &args["sessionId"] )?, thread_id: thread, observed_turn_id: row["turnId"].as_str().map(str::to_owned), scope_state: turn_adapter::work_scope(&turn.state()).into(), observed_at: None, terminals: std::collections::BTreeMap::from([(turn.key().turn_id.clone(), turn_adapter::checkpoint(&turn))]) })
     }).collect()
 }
-fn apply_link_observations(
-    links: &mut [Link],
-    observed: &[(String, String, String)],
-    clock: Clock,
-) {
+fn apply_link_observations(links: &mut [Link], observed: &[(String, Transition)], clock: Clock) {
     for link in links {
-        if let Some((_, turn, status)) = observed.iter().find(|(thread, turn, _)| {
-            thread == &link.thread_id && link.observed_turn_id.as_deref() == Some(turn.as_str())
+        if let Some((_, turn)) = observed.iter().find(|(thread, turn)| {
+            thread == &link.thread_id
+                && link.observed_turn_id.as_deref() == Some(turn.key().turn_id.as_str())
         }) {
-            link.scope_state = match status.as_str() {
-                "running" | "inProgress" | "pending" => "running",
-                "completed" | "failed" => "completed",
-                "interrupted" | "cancelled" => "interrupted",
-                _ => "unknown",
-            }
-            .into();
-            link.observed_turn_id = Some(turn.clone());
-            if link.scope_state != "unknown" {
+            link.merge(turn);
+            link.scope_state = turn_adapter::work_scope(&link.selected().state()).into();
+            if !matches!(
+                link.selected().state(),
+                crate::turn_lifecycle::TurnState::Unconfirmed(_)
+                    | crate::turn_lifecycle::TurnState::Conflict(_)
+            ) {
                 link.observed_at = Some(clock.elapsed);
             }
         }
@@ -314,13 +310,13 @@ pub(crate) async fn call(
             let threads = links.iter().map(|l| l.thread_id.clone()).collect::<Vec<_>>();
             let mut observed = control.coordination_observations(&threads).await;
             for thread in &threads {
-                if observed.iter().any(|(id, _, state)| id == thread && state != "unknown") { continue; }
+                if observed.iter().any(|(id, turn)| id == thread && !matches!(turn.state(), crate::turn_lifecycle::TurnState::Unconfirmed(_) | crate::turn_lifecycle::TurnState::Conflict(_))) { continue; }
                 let rows = crate::dispatch_policy::records(thread)?;
                 if rows.last().is_none_or(|r| r["agent"] != "codex") { continue; }
                 if let Ok(Ok(state)) = tokio::time::timeout(std::time::Duration::from_secs(2), control.dispatch_state(thread)).await {
                     if let Some(turn) = state["turns"].as_array().and_then(|v| v.first()) {
-                        observed.retain(|(id, _, _)| id != thread);
-                        observed.push((thread.clone(), string(turn,"id").into(), string(turn,"status").into()));
+                        observed.retain(|(id, _)| id != thread);
+                        observed.push((thread.clone(), turn_adapter::codex_turn(thread, turn)));
                     }
                 }
             }
@@ -457,15 +453,10 @@ pub(super) fn from_event(input: &EventInput) -> Result<()> {
     if input.kind != EventKind::TurnTerminal {
         return Ok(());
     }
-    let state = match input.status {
-        Some(EventStatus::Completed | EventStatus::Failed) => "completed",
-        Some(EventStatus::Interrupted | EventStatus::Cancelled) => "interrupted",
-        _ => return Ok(()),
-    };
     with_store(|s| {
         for thread in &input.thread_refs {
             if let Some(turn) = &thread.turn_id {
-                s.observe(&thread.thread_id, turn, state, clock(), false);
+                s.observe_event(&thread.thread_id, turn, input.status.as_ref(), clock());
             }
         }
         s.checkpoint_observation(clock())
@@ -491,18 +482,12 @@ pub(crate) async fn tick(control: &crate::control::Control, agents: &crate::agen
         s.missing(
             &observed
                 .iter()
-                .map(|(thread, _, _)| thread.clone())
+                .map(|(thread, _)| thread.clone())
                 .collect::<Vec<_>>(),
         );
-        for (thread, turn, status) in &observed {
+        for (thread, turn) in &observed {
             crate::runtime_metrics::cost::rows(1);
-            let state = match status.as_str() {
-                "running" | "inProgress" | "pending" => "running",
-                "completed" | "failed" => "completed",
-                "interrupted" | "cancelled" => "interrupted",
-                _ => "unknown",
-            };
-            s.observe(thread, turn, state, clock(), true);
+            s.observe(thread, turn, clock(), true);
         }
         Ok(())
     })

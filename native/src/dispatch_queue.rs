@@ -1,5 +1,6 @@
 //! Durable FIFO messages. A reservation is never replayed after uncertain submission.
 use crate::kernel::file_cache::{self, load};
+use crate::turn_lifecycle::{adapters, Outcome, Transition, TurnState};
 use crate::*;
 static LOCK: Mutex<()> = Mutex::const_new(());
 fn directory() -> PathBuf {
@@ -198,6 +199,48 @@ pub(crate) async fn query(args: &Value) -> Result<Value> {
         json!({"items":rows.iter().rev().take(100).map(public).collect::<Vec<_>>(),"total":rows.len(),"order":"FIFO per thread; display newest first"}),
     )
 }
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Admission {
+    Ready,
+    Waiting(&'static str),
+    Blocked,
+    Unconfirmed,
+}
+pub(crate) fn admission(
+    row: &Value,
+    turn: Option<&Transition>,
+    waiting: bool,
+    retry: bool,
+) -> Admission {
+    if waiting {
+        return Admission::Waiting("waiting-input");
+    }
+    if turn.is_some_and(|turn| {
+        matches!(
+            turn.state(),
+            TurnState::Active | TurnState::AwaitingInteraction
+        )
+    }) {
+        return Admission::Waiting("active-turn");
+    }
+    if retry {
+        return Admission::Waiting("automatic-retry");
+    }
+    match turn.map(Transition::state) {
+        None => Admission::Ready,
+        Some(TurnState::Terminal(record)) => {
+            if record.outcome == Outcome::Completed
+                || row["allowFailedTurn"].as_str() == turn.map(|turn| turn.key().turn_id.as_str())
+            {
+                Admission::Ready
+            } else {
+                Admission::Blocked
+            }
+        }
+        _ => Admission::Unconfirmed,
+    }
+}
+
 pub(crate) async fn control(control: &Arc<control::Control>, args: &Value) -> Result<Value> {
     let thread = string(args, "threadId");
     if args["action"] == "promote" && !args["queueId"].is_string() {
@@ -224,7 +267,12 @@ pub(crate) async fn control(control: &Arc<control::Control>, args: &Value) -> Re
                 if args["action"] == "promote" {
                     let latest = control.dispatch_state(thread).await?;
                     let turn = &latest["turns"][0];
-                    if turn["status"] != "inProgress" {
+                    let lifecycle = adapters::codex_turns(
+                        thread,
+                        latest["turns"].as_array().ok_or("NATIVE_TURNS_MISSING")?,
+                        string(turn, "id"),
+                    );
+                    if !matches!(lifecycle.state(), TurnState::Active) {
                         return Err("NO_ACTIVE_TURN: keep the message queued or resume it after an interrupted turn".into());
                     }
                     control.check_steer(thread, &turn["id"]).await?;
@@ -281,40 +329,24 @@ async fn tick(control: &Arc<control::Control>, mut row: Value) -> Result<()> {
                     .pending
                     .values()
                     .any(|r| r["params"]["threadId"] == thread);
+                let lifecycle = (!turn.is_null())
+                    .then(|| adapters::codex_turns(&thread, turns, string(turn, "id")));
+                let retry = crate::claude_notify::retry_pending(&thread, string(turn, "id"))?;
                 let _guard = LOCK.lock().await;
-                if waiting_input
-                    || turn["status"] == "inProgress"
-                    || crate::claude_notify::retry_pending(&thread, string(turn, "id"))?
-                {
-                    row["state"] = json!("queued");
-                    row["reason"] = json!(if waiting_input {
-                        "waiting-input"
-                    } else if turn["status"] == "inProgress" {
-                        "active-turn"
-                    } else {
-                        "automatic-retry"
-                    });
-                    save(&path(string(&row, "queueId"))?, &row)?;
-                    return Ok(());
-                }
-                if matches!(
-                    string(turn, "status"),
-                    "failed" | "interrupted" | "cancelled"
-                ) && row["allowFailedTurn"] != turn["id"]
-                {
-                    row["state"] = json!("blocked");
-                    row["blockedTurn"] = turn["id"].clone();
-                    row["reason"] = json!("previous-turn-failed-or-interrupted");
-                    save(&path(string(&row, "queueId"))?, &row)?;
-                    return Ok(());
-                }
-                if !turn.is_null()
-                    && !matches!(
-                        string(turn, "status"),
-                        "completed" | "failed" | "interrupted" | "cancelled"
-                    )
-                {
-                    return Ok(());
+                match admission(&row, lifecycle.as_ref(), waiting_input, retry) {
+                    Admission::Waiting(reason) => {
+                        row["state"] = json!("queued");
+                        row["reason"] = json!(reason);
+                        return save(&path(string(&row, "queueId"))?, &row);
+                    }
+                    Admission::Blocked => {
+                        row["state"] = json!("blocked");
+                        row["blockedTurn"] = turn["id"].clone();
+                        row["reason"] = json!("previous-turn-failed-or-interrupted");
+                        return save(&path(string(&row, "queueId"))?, &row);
+                    }
+                    Admission::Unconfirmed => return Ok(()),
+                    Admission::Ready => {}
                 }
                 row["state"] = json!("dispatching");
                 row["expectedPreviousTurn"] = turn["id"].clone();
@@ -437,6 +469,37 @@ pub(crate) fn start(control: &Arc<control::Control>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn interrupted_predecessor_requires_explicit_queue_resume() {
+        // Regression: a completed display status could admit a queue item whose native predecessor was interrupted.
+        let native = adapters::snapshot(
+            crate::turn_lifecycle::TurnKey::new("codex", "thread", "old"),
+            "interrupted",
+            &Value::Null,
+        );
+        let recorded =
+            json!({"id":"old","status":"completed","_turnLifecycle":adapters::checkpoint(&native)});
+        let selected = adapters::codex_turns("thread", &[recorded], "old");
+        assert_eq!(
+            admission(
+                &json!({"expectedPreviousTurn":"old"}),
+                Some(&selected),
+                false,
+                false
+            ),
+            Admission::Blocked
+        );
+        assert_eq!(
+            admission(
+                &json!({"allowFailedTurn":"old"}),
+                Some(&selected),
+                false,
+                false
+            ),
+            Admission::Ready
+        );
+    }
+
     #[test]
     fn queue_poll_reuses_history_and_reads_only_the_changed_message() {
         // Regression: the one-second send queue poll reread completed messages indefinitely.

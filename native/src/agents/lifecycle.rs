@@ -12,16 +12,9 @@ pub(super) fn key(task: &Value) -> TurnKey {
         string(task, "turnId"),
     )
 }
-pub(super) fn read(task: &Value) -> Transition {
+pub(crate) fn read(task: &Value) -> Transition {
     let key = key(task);
-    adapters::restore(&task["_turnLifecycle"])
-        .filter(|turn| turn.key() == &key)
-        .unwrap_or_else(|| {
-            advance(
-                &Transition::new(key.clone()),
-                &adapters::recorded(key, string(task, "status"), 0),
-            )
-        })
+    adapters::snapshot(key, string(task, "status"), &task["_turnLifecycle"])
 }
 pub(super) fn apply(task: &mut Value, evidence: Evidence) {
     let turn = advance(&read(task), &evidence);

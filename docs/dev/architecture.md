@@ -27,6 +27,17 @@ Status requests read resources on demand without a monitoring task. Core limits 
 
 Service status, CLI status/doctor, and Settings share resource snapshots and diagnostics. doctor uses `permissions/passive`. Codex login and command permissions remain unknown in passive reads. The explicit permission page retains active probing. Resource diagnostics never start app-server. See [CLI resource diagnostics](../reference/cli.md#resource-diagnostics).
 
+Turn lifecycle consumers classify decoded owner snapshots through `turn_lifecycle`.
+Dispatch policy retains a scoped frontier with each outcome projection and uses it
+for review admission, history and duration classification. Queue admission consumes
+the selected native turn frontier; explicit resume can permit a failed or interrupted
+predecessor without changing that predecessor's outcome. Coordination passes typed
+frontiers between live owners and bulletin links. Work scopes end on native completion
+or failure, while interrupted scopes retain successor eligibility. Owner loss and
+unordered terminal conflicts cannot create terminal events or close work scopes.
+Resident changed-path collections and runnable queue indexes own discovery and reuse;
+lifecycle classification does not reload retained task or receipt payloads.
+
 ## Browser transfer policy
 
 Browser status snapshots omit diagnostic logs, request counters, and duplicated platform catalogs. They include the source identities needed by the topology. The browser status stream compares semantic state without observation-only timestamps and sends keepalive comments while unchanged. Receiving a snapshot does not trigger a second status request. Reconnection uses the existing snapshot read.

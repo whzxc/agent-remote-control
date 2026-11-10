@@ -1,11 +1,51 @@
 //! User-owned dispatch choices; native capability and quota facts stay upstream.
 use crate::kernel::file_cache::{self, load};
+use crate::turn_lifecycle::{adapters as turn_adapter, Outcome, Transition, TurnKey, TurnState};
 use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
 mod quality;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Dispatch records carry an outcome projection, never an operation phase.
+/// Classify the resident decoded row without reading its backing file.
+pub(crate) fn turn_lifecycle(row: &Value) -> Transition {
+    let key = TurnKey::new(
+        row["agent"].as_str().unwrap_or("codex"),
+        row["threadId"]
+            .as_str()
+            .or(row["taskId"].as_str())
+            .unwrap_or(""),
+        string(row, "turnId"),
+    );
+    turn_adapter::snapshot(
+        key,
+        string(&row["terminal"], "state"),
+        &row["_turnLifecycle"],
+    )
+}
+fn record_outcome(
+    row: &mut Value,
+    incoming: &Transition,
+    timing: &Value,
+    last_activity: Option<&str>,
+    reconciled: bool,
+) {
+    let previous = turn_lifecycle(row);
+    let merged = turn_adapter::observe(&previous, incoming);
+    // Timing is a projection of the native verdict, not an alternate latch.
+    if turn_adapter::terminal(&merged.state()) {
+        if merged.state() != previous.state() || !row["terminal"].is_object() {
+            row["terminal"] = terminal_snapshot(row, &merged, timing, last_activity, reconciled);
+        } else {
+            row["terminal"]["state"] = json!(turn_adapter::wait(&merged.state()).0.as_wire());
+        }
+    } else {
+        row["terminal"] = Value::Null;
+    }
+    row["_turnLifecycle"] = turn_adapter::checkpoint(&merged);
+}
+
 /// Advisory only: criteria are never rejected or truncated.
 const CRITERIA_ADVISORY_CHARS: usize = 2000;
 
@@ -899,15 +939,25 @@ pub(crate) fn summarize_packs(
             "rework" => s[2] += 1,
             _ => s[5] += 1,
         }
-        match string(&row["terminal"], "state") {
-            "failed" => s[3] += 1,
-            "interrupted" | "cancelled" => s[4] += 1,
+        let outcome = turn_lifecycle(row).state();
+        match outcome {
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Failed,
+                ..
+            }) => s[3] += 1,
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Interrupted,
+                ..
+            }) => s[4] += 1,
             _ => {}
         }
         if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
-            if !matches!(
-                string(&row["terminal"], "state"),
-                "failed" | "interrupted" | "cancelled"
+            if matches!(
+                outcome,
+                TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                    outcome: Outcome::Completed,
+                    ..
+                })
             ) {
                 durations.entry(name.to_owned()).or_default().push(ms);
             }
@@ -1071,16 +1121,26 @@ pub(crate) fn summarize_history(
             "rework" => group.rework += 1,
             _ => {}
         }
-        match string(&row["terminal"], "state") {
-            "failed" => {
+        match turn_lifecycle(row).state() {
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Failed,
+                ..
+            }) => {
                 group.failed += 1;
                 continue;
             }
-            "interrupted" | "cancelled" => {
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Interrupted,
+                ..
+            }) => {
                 group.interrupted += 1;
                 continue;
             }
-            _ => {}
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Completed,
+                ..
+            }) => {}
+            _ => continue,
         }
         if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
             group.durations.push(ms);
@@ -1335,11 +1395,15 @@ pub(crate) fn record_native_retry(thread: &str, previous: &str, retry: &Value) -
 // Reconciliation time is an observation, never evidence of continued execution.
 pub(crate) fn terminal_snapshot(
     row: &Value,
-    state: &str,
+    turn: &Transition,
     timing: &Value,
     last_activity: Option<&str>,
     reconciled: bool,
 ) -> Value {
+    if !turn_adapter::terminal(&turn.state()) {
+        return Value::Null;
+    }
+    let state = turn_adapter::wait(&turn.state()).0.as_wire();
     let observed = now();
     let native_end = timing["endedAt"].as_str();
     let ended = native_end
@@ -1362,7 +1426,7 @@ pub(crate) async fn complete(
     c: &control::Control,
     thread: &str,
     turn: &str,
-    state: &str,
+    incoming: &Transition,
     last_activity: Option<&str>,
     reconciled: bool,
 ) -> Result<Value> {
@@ -1387,15 +1451,13 @@ pub(crate) async fn complete(
         .filter(|r| r["turnId"] == turn)
         .collect::<Vec<_>>();
     for row in &mut rows {
-        if row["terminal"].is_null() {
-            row["terminal"] = terminal_snapshot(
-                row,
-                state,
-                persisted.timings.get(turn).unwrap_or(&Value::Null),
-                last_activity,
-                reconciled,
-            );
-        }
+        record_outcome(
+            row,
+            incoming,
+            persisted.timings.get(turn).unwrap_or(&Value::Null),
+            last_activity,
+            reconciled,
+        );
         if let Some(config) = persisted.configurations.get(turn) {
             row["effectiveConfiguration"] = json!({"model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],"threadServiceTier":config["threadServiceTier"],"source":config["source"]});
         }
@@ -1416,7 +1478,7 @@ pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> 
         let page = c.request("thread/turns/list",
             json!({"threadId":thread,"limit":20,"sortDirection":"desc","itemsView":"notLoaded","cursor":cursor}), 10000).await?;
         let turns = page["data"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
-        if let Some(turn) = select_review_turn(turns, args["turnId"].as_str())? {
+        if let Some(turn) = select_review_turn(thread, turns, args["turnId"].as_str())? {
             break turn.clone();
         }
         cursor = page["nextCursor"].clone();
@@ -1425,11 +1487,9 @@ pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> 
         }
     };
     let turn = string(&selected, "id");
-    let state = match string(&selected, "status") {
-        "interrupted" => "cancelled",
-        other => other,
-    };
-    complete(c, thread, turn, state, None, false).await?;
+    let lifecycle = turn_adapter::codex_turn(thread, &selected);
+    let state = turn_adapter::wait(&lifecycle.state()).0.as_wire();
+    complete(c, thread, turn, &lifecycle, None, false).await?;
     if records(thread)?.iter().any(|row| row["turnId"] == turn) {
         return save_review(thread, turn, args, &Value::Null);
     }
@@ -1449,18 +1509,18 @@ pub(crate) async fn review(c: &control::Control, args: &Value) -> Result<Value> 
     let configuration = review_configuration(&[&persisted, &selected, thread_metadata]);
     let external = json!({"agent":"codex","threadId":thread,"taskId":thread,"turnId":turn,
         "dispatchOrigin":"external","model":configuration["model"],"effort":configuration["effort"],
-        "serviceTier":configuration["serviceTier"],"options":{},"terminal":{"state":state}});
+        "serviceTier":configuration["serviceTier"],"options":{},"terminal":{"state":state},"_turnLifecycle":turn_adapter::checkpoint(&lifecycle)});
     save_review(thread, turn, args, &external)
 }
 
 pub(crate) fn select_review_turn<'a>(
+    thread: &str,
     turns: &'a [Value],
     requested: Option<&str>,
 ) -> Result<Option<&'a Value>> {
     let terminal = |turn: &Value| {
-        matches!(
-            string(turn, "status"),
-            "completed" | "failed" | "interrupted" | "cancelled"
+        turn_adapter::terminal(
+            &turn_adapter::codex_turns(thread, turns, string(turn, "id")).state(),
         )
     };
     let selected = turns
@@ -1666,21 +1726,14 @@ pub(crate) fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()
         if let Some(status) = submission {
             row["submission"] = json!(status);
         }
-        let state = string(task, "status");
-        if matches!(state, "completed" | "cancelled" | "failed")
-            && row["terminal"].is_null()
-            && row["submission"] == "accepted"
-        {
-            let end = chrono::Utc::now();
-            let elapsed = chrono::DateTime::parse_from_rfc3339(string(&row, "submittedAt"))
-                .ok()
-                .map(|start| {
-                    (end - start.with_timezone(&chrono::Utc))
-                        .num_milliseconds()
-                        .max(0)
-                });
-            row["terminal"] =
-                json!({"state":state,"observedAt":end.to_rfc3339(),"observedDurationMs":elapsed});
+        if row["submission"] == "accepted" {
+            record_outcome(
+                &mut row,
+                &crate::agents::lifecycle::read(task),
+                &Value::Null,
+                None,
+                false,
+            );
         }
         if task["turnEvidence"].is_object() {
             row["turnEvidence"] = task["turnEvidence"].clone();
@@ -1728,7 +1781,7 @@ pub(crate) fn select_agent_review(
         rows.push(json!({"agent":snapshot["agent"],"taskId":task,"threadId":task,"turnId":snapshot["turnId"],
             "dispatchOrigin":"external","model":configuration["model"],"effort":configuration["effort"],
             "serviceTier":configuration["serviceTier"],"options":snapshot.get("options").cloned().unwrap_or(json!({})),"observedAt":snapshot["updatedAt"],
-            "terminal":if matches!(string(snapshot,"status"),"completed"|"failed"|"cancelled") {json!({"state":snapshot["status"]})} else {Value::Null}}));
+            "_turnLifecycle":snapshot["_turnLifecycle"],"terminal":null}));
     }
     for (turn, status) in snapshot["tracking"]["turnStatuses"]
         .as_object()
@@ -1744,7 +1797,26 @@ pub(crate) fn select_agent_review(
             "dispatchOrigin":"external","model":configuration["model"],"effort":configuration["effort"],
             "serviceTier":configuration["serviceTier"],"options":{},
             "observedAt":snapshot["tracking"]["turnTimings"][turn]["endedAt"],
-            "terminal":if matches!(status.as_str(),Some("completed"|"failed"|"cancelled")) {json!({"state":status})} else {Value::Null}}));
+            "_turnLifecycle":snapshot["tracking"]["turnLifecycles"][turn],"terminal":{"state":status}}));
+    }
+    for row in &mut rows {
+        let key = TurnKey::new(
+            snapshot["agent"].as_str().unwrap_or(""),
+            task,
+            string(row, "turnId"),
+        );
+        let incoming = if row["turnId"] == snapshot["turnId"] {
+            turn_adapter::snapshot(key, string(snapshot, "status"), &snapshot["_turnLifecycle"])
+        } else {
+            turn_adapter::snapshot(
+                key,
+                snapshot["tracking"]["turnStatuses"][string(row, "turnId")]
+                    .as_str()
+                    .unwrap_or("unknown"),
+                &snapshot["tracking"]["turnLifecycles"][string(row, "turnId")],
+            )
+        };
+        record_outcome(row, &incoming, &Value::Null, None, true);
     }
     let row = rows
         .iter()
@@ -1753,7 +1825,7 @@ pub(crate) fn select_agent_review(
             if args["turnId"].is_string() {
                 r["turnId"] == args["turnId"]
             } else {
-                r["terminal"].is_object()
+                turn_adapter::terminal(&turn_lifecycle(r).state())
             }
         })
         .max_by_key(|r| {
@@ -1767,7 +1839,7 @@ pub(crate) fn select_agent_review(
             }
         })
         .ok_or("REVIEW_TERMINAL_TURN_NOT_FOUND")?;
-    if !row["terminal"].is_object() {
+    if !turn_adapter::terminal(&turn_lifecycle(row).state()) {
         return Err("REVIEW_REQUIRES_TERMINAL_TURN".into());
     }
     Ok(row.clone())
@@ -1776,6 +1848,26 @@ pub(crate) fn select_agent_review(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn history_uses_confirmed_native_outcome_over_a_contradictory_projection() {
+        // Regression: policy history counted a stale failed projection over a confirmed native completion.
+        let native = turn_adapter::snapshot(
+            TurnKey::new("pi", "thread", "turn"),
+            "completed",
+            &Value::Null,
+        );
+        let row = json!({"agent":"pi","threadId":"thread","turnId":"turn","submission":"accepted","dispatchMode":"new-turn","submittedAt":now(),"model":"fixture","pack":{"name":"fixture"},
+            "terminal":{"state":"failed","observedDurationMs":60000},"_turnLifecycle":turn_adapter::checkpoint(&native)});
+        let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+        let history = summarize_history(&[row.clone()], "pi", false, cutoff);
+        assert_eq!(history["groups"][0]["failed"], 0);
+        assert_eq!(history["groups"][0]["interrupted"], 0);
+        assert_eq!(history["groups"][0]["durationSamples"], 1);
+        assert_eq!(history["quality"]["unreviewedCompletions"]["count"], 1);
+        let packs = summarize_packs(&[row], cutoff);
+        assert!(!packs["fixture"].contains("fail"));
+    }
+
     #[test]
     fn dispatch_history_polls_read_only_changed_turns() {
         // Regression: notification and timeline polls repeatedly opened every dispatch in a thread.
@@ -1815,26 +1907,21 @@ mod tests {
     fn reconciled_terminal_snapshot_uses_execution_evidence() {
         // Regression: restart observation time inflated terminal dispatch duration by downtime.
         let row = json!({"submittedAt":"2026-01-01T00:00:00Z"});
+        let turn = turn_adapter::snapshot(TurnKey::new("codex", "", ""), "cancelled", &Value::Null);
         let timing = json!({"startedAt":"2026-01-01T00:00:00Z","endedAt":"2026-01-01T00:10:00Z"});
-        let native = terminal_snapshot(
-            &row,
-            "cancelled",
-            &timing,
-            Some("2026-01-01T00:09:00Z"),
-            true,
-        );
+        let native = terminal_snapshot(&row, &turn, &timing, Some("2026-01-01T00:09:00Z"), true);
         assert_eq!(native["observedDurationMs"], 600000);
         assert_eq!(native["timeBasis"], "native-terminal");
         let fallback = terminal_snapshot(
             &row,
-            "cancelled",
+            &turn,
             &Value::Null,
             Some("2026-01-01T00:09:00Z"),
             true,
         );
         assert_eq!(fallback["observedDurationMs"], 540000);
         assert_eq!(fallback["timeBasis"], "last-observed-activity");
-        let unknown = terminal_snapshot(&row, "cancelled", &Value::Null, None, true);
+        let unknown = terminal_snapshot(&row, &turn, &Value::Null, None, true);
         assert!(unknown["observedDurationMs"].is_null());
         assert!(unknown["endedAt"].is_null());
     }
@@ -1890,19 +1977,19 @@ mod tests {
             json!({"id":"done","status":"completed"}),
         ];
         assert_eq!(
-            select_review_turn(&turns, None).unwrap().unwrap()["id"],
+            select_review_turn("", &turns, None).unwrap().unwrap()["id"],
             "done"
         );
-        assert!(select_review_turn(&turns, Some("missing"))
+        assert!(select_review_turn("", &turns, Some("missing"))
             .unwrap()
             .is_none());
         assert_eq!(
-            select_review_turn(&turns, Some("running")).unwrap_err(),
+            select_review_turn("", &turns, Some("running")).unwrap_err(),
             "REVIEW_REQUIRES_TERMINAL_TURN"
         );
         for status in ["completed", "failed", "interrupted", "cancelled"] {
             assert!(
-                select_review_turn(&[json!({"id":"turn","status":status})], Some("turn"))
+                select_review_turn("", &[json!({"id":"turn","status":status})], Some("turn"))
                     .unwrap()
                     .is_some()
             );

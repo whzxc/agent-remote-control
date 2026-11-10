@@ -1,3 +1,4 @@
+use crate::turn_lifecycle::{adapters as turn_adapter, Outcome, TerminalRecord, TurnState};
 use crate::*;
 use crate::{
     desktop::{self, Ipc},
@@ -310,7 +311,7 @@ impl Control {
     pub(crate) async fn coordination_observations(
         &self,
         threads: &[String],
-    ) -> Vec<(String, String, String)> {
+    ) -> Vec<(String, crate::turn_lifecycle::Transition)> {
         let monitor = self.monitor.lock().await.clone();
         let profiles = self.profile_rpcs.lock().await.clone();
         let rpc = profiles.get("codex-home");
@@ -327,15 +328,18 @@ impl Control {
                     .map(|p| profiles.get(&p).is_some_and(|cached| cached.alive()))
                     .unwrap_or(connected);
                 events.timelines.get(thread).map(|t| {
-                    (
-                        thread.clone(),
-                        t.turn.clone(),
-                        if connected && !t.observation_lost && t.observed_events > 0 {
-                            t.status.clone()
-                        } else {
-                            "unknown".into()
-                        },
-                    )
+                    let mut turn = t.turn_lifecycle(&t.turn);
+                    if !connected || t.observation_lost || t.observed_events == 0 {
+                        turn = crate::turn_lifecycle::advance(
+                            &turn,
+                            &crate::turn_lifecycle::Evidence::loss(
+                                turn.key().clone(),
+                                crate::turn_lifecycle::LossReason::OwnerUnavailable,
+                                turn.revision().saturating_add(1),
+                            ),
+                        );
+                    }
+                    (thread.clone(), turn)
                 })
             })
             .collect()
@@ -911,7 +915,14 @@ impl Control {
             return Ok(None);
         };
         // Live and failed turns use the complete projection for interactions and retry evidence.
-        if turn["status"] != "completed" || !turn["id"].is_string() {
+        if !matches!(
+            turn_adapter::codex_turn(thread, &turn).state(),
+            TurnState::Terminal(TerminalRecord {
+                outcome: Outcome::Completed,
+                ..
+            })
+        ) || !turn["id"].is_string()
+        {
             return Ok(None);
         }
         let items = self
@@ -1452,7 +1463,12 @@ impl Control {
                 let state = self.dispatch_state(thread).await?;
                 let records = crate::dispatch_policy::records(thread)?;
                 let inherited = crate::dispatch_policy::inherited_configuration(&state, &records);
-                if args["sendMode"] == "next" && state["turns"][0]["status"] == "inProgress" {
+                if args["sendMode"] == "next"
+                    && matches!(
+                        turn_adapter::codex_turn(thread, &state["turns"][0]).state(),
+                        TurnState::Active
+                    )
+                {
                     crate::dispatch_policy::resolve_with_inheritance(
                         &mut args.clone(),
                         &inherited,
@@ -1780,7 +1796,12 @@ impl Control {
             .await?;
         let turns = latest["data"].as_array().ok_or("NATIVE_TURNS_MISSING")?;
         if state["status"]["type"] == "active"
-            && turns.first().is_none_or(|t| t["status"] != "inProgress")
+            && turns.first().is_none_or(|t| {
+                !matches!(
+                    turn_adapter::codex_turn(thread, t).state(),
+                    TurnState::Active
+                )
+            })
         {
             return Err("THREAD_STATE_UNCONFIRMED: native runtime is active without a confirmed active turn; read codex_read and keep queued messages pending".into());
         }
@@ -1877,7 +1898,13 @@ impl Control {
                 .and_then(|turns| turns.last())
                 .ok_or("RESUME_TURN_MISSING")?;
             if latest["id"] != previous
-                || !matches!(string(latest, "status"), "interrupted" | "cancelled")
+                || !matches!(
+                    turn_adapter::codex_turn(thread, latest).state(),
+                    TurnState::Terminal(TerminalRecord {
+                        outcome: Outcome::Interrupted,
+                        ..
+                    })
+                )
                 || state["status"]["type"] == "active"
             {
                 return Err(json!({"code":"RESUME_TURN_ADVANCED","message":"Only the latest interrupted turn can resume. No input was submitted.","next":{"via":"query","op":"codex_read","args":{"threadId":thread,"statusOnly":true}}}).to_string());
@@ -2271,7 +2298,12 @@ impl Control {
             let active = state["turns"]
                 .as_array()
                 .and_then(|turns| turns.first())
-                .filter(|t| t["status"] == "inProgress");
+                .filter(|t| {
+                    matches!(
+                        turn_adapter::codex_turn(thread, t).state(),
+                        TurnState::Active
+                    )
+                });
             if args["sendMode"] == "next" && active.is_some() {
                 return crate::dispatch_queue::enqueue(args, r).await;
             }
@@ -2373,7 +2405,10 @@ impl Control {
                 }
                 let page = self.request("thread/turns/list", json!({"threadId":args["threadId"],"limit":1,"sortDirection":"desc","itemsView":"full"}), 10000).await?;
                 let active = &page["data"][0];
-                if active["status"] != "inProgress" {
+                if !matches!(
+                    turn_adapter::codex_turn(string(args, "threadId"), active).state(),
+                    TurnState::Active
+                ) {
                     return Err("NO_ACTIVE_TURN: latest native turn is not active; read codex_read(statusOnly:true) before interrupting.".into());
                 }
                 active["id"]

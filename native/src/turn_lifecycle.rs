@@ -343,6 +343,74 @@ pub mod adapters {
             _ => Evidence::loss(key, LossReason::OwnerUnavailable, revision),
         }
     }
+    /// Read an already-decoded owning snapshot. A captured frontier is the
+    /// authority; its display status never supplies a second native verdict.
+    pub fn snapshot(key: TurnKey, status: &str, checkpoint: &serde_json::Value) -> Transition {
+        restore(checkpoint)
+            .filter(|turn| turn.key() == &key)
+            .unwrap_or_else(|| advance(&Transition::new(key.clone()), &recorded(key, status, 0)))
+    }
+    /// Reconcile a fresh owner read while retaining native terminal ordering.
+    pub fn observe(previous: &Transition, incoming: &Transition) -> Transition {
+        if previous.key() != incoming.key() {
+            return previous.clone();
+        }
+        let mut merged = previous.clone();
+        for evidence in incoming.evidence() {
+            merged = advance(&merged, &evidence);
+        }
+        let revision = previous
+            .revision()
+            .max(incoming.revision())
+            .saturating_add(1);
+        let evidence = match incoming.state() {
+            TurnState::Active => {
+                Evidence::owner_live(incoming.key().clone(), LiveState::Active, revision)
+            }
+            TurnState::AwaitingInteraction => Evidence::owner_live(
+                incoming.key().clone(),
+                LiveState::AwaitingInteraction,
+                revision,
+            ),
+            TurnState::Unconfirmed(reason) => {
+                Evidence::loss(incoming.key().clone(), reason, revision)
+            }
+            _ => return merged,
+        };
+        advance(&merged, &evidence)
+    }
+    pub fn codex_turn(thread: &str, turn: &serde_json::Value) -> Transition {
+        snapshot(
+            TurnKey::new("codex", thread, turn["id"].as_str().unwrap_or("")),
+            turn["status"].as_str().unwrap_or(""),
+            &turn["_turnLifecycle"],
+        )
+    }
+    pub fn codex_turns(thread: &str, turns: &[serde_json::Value], selected: &str) -> Transition {
+        let mut merged = Transition::new(TurnKey::new("codex", thread, selected));
+        for turn in turns.iter().filter(|turn| turn["id"] == selected) {
+            for evidence in codex_turn(thread, turn).evidence() {
+                merged = advance(&merged, &evidence);
+            }
+        }
+        merged
+    }
+    /// Shared work scopes end on either completion or failure. Interruption
+    /// remains separate from an ended work scope and from successful execution.
+    pub fn work_scope(state: &TurnState) -> &'static str {
+        match state {
+            TurnState::Terminal(TerminalRecord {
+                outcome: Outcome::Completed | Outcome::Failed,
+                ..
+            }) => "completed",
+            TurnState::Terminal(TerminalRecord {
+                outcome: Outcome::Interrupted,
+                ..
+            }) => "interrupted",
+            TurnState::Active | TurnState::AwaitingInteraction => "running",
+            _ => "unknown",
+        }
+    }
     pub fn projection(state: &TurnState) -> &'static str {
         match state {
             TurnState::Active => "running",

@@ -1,5 +1,9 @@
 //! Bounded owner snapshot. Only typed metadata reaches the shared projection.
 use super::*;
+use crate::turn_lifecycle::{
+    adapters as turn_adapter, advance, Evidence, LossReason, Outcome, Transition, TurnKey,
+    TurnState,
+};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -49,7 +53,83 @@ pub(super) struct Link {
     pub scope_state: String,
     pub observed_at: Option<i64>,
     #[serde(default)]
-    pub terminals: BTreeMap<String, String>,
+    pub terminals: BTreeMap<String, Value>,
+}
+impl Link {
+    fn turn(&self, id: &str) -> Transition {
+        let stored = self.terminals.get(id).unwrap_or(&Value::Null);
+        if let Some(turn) = turn_adapter::restore(stored) {
+            return turn;
+        }
+        let key = self
+            .terminals
+            .values()
+            .find_map(turn_adapter::restore)
+            .map(|turn| TurnKey::new(&turn.key().agent, &self.thread_id, id))
+            .unwrap_or_else(|| TurnKey::new("codex", &self.thread_id, id));
+        let recorded = stored.as_str().unwrap_or_else(|| {
+            if self.observed_turn_id.as_deref() == Some(id) {
+                &self.scope_state
+            } else {
+                "unknown"
+            }
+        });
+        turn_adapter::snapshot(key, recorded, &Value::Null)
+    }
+    pub(super) fn selected(&self) -> Transition {
+        self.turn(self.observed_turn_id.as_deref().unwrap_or(""))
+    }
+    fn ended(&self) -> bool {
+        matches!(
+            self.selected().state(),
+            TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                outcome: Outcome::Completed | Outcome::Failed,
+                ..
+            })
+        )
+    }
+    pub(super) fn merge(&mut self, incoming: &Transition) -> bool {
+        let id = &incoming.key().turn_id;
+        let previous = self
+            .terminals
+            .get(id)
+            .filter(|v| v.is_object())
+            .and_then(turn_adapter::restore)
+            .unwrap_or_else(|| {
+                let legacy = self
+                    .terminals
+                    .get(id)
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| {
+                        if self.observed_turn_id.as_deref() == Some(id) {
+                            &self.scope_state
+                        } else {
+                            "unknown"
+                        }
+                    });
+                turn_adapter::snapshot(incoming.key().clone(), legacy, &Value::Null)
+            });
+        let next = turn_adapter::observe(&previous, incoming);
+        if self.terminals.contains_key(id)
+            && next.state() == previous.state()
+            && next.last_live().map(|l| l.state) == previous.last_live().map(|l| l.state)
+        {
+            return false;
+        }
+        if !self.terminals.contains_key(id) && self.terminals.len() == 16 {
+            if let Some(old) = self
+                .terminals
+                .keys()
+                .find(|old| Some(old.as_str()) != self.observed_turn_id.as_deref())
+                .cloned()
+            {
+                self.terminals.remove(&old);
+            }
+        }
+        self.terminals
+            .insert(id.clone(), turn_adapter::checkpoint(&next));
+        true
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -101,11 +181,17 @@ impl Record {
         let age = clock.age(self.last_active_at);
         let coverage = if age.is_none() {
             "clock-uncertain"
-        } else if self
-            .thread_links
-            .iter()
-            .any(|l| l.scope_state == "unknown" || l.scope_state == "interrupted")
-        {
+        } else if self.thread_links.iter().any(|l| {
+            matches!(
+                l.selected().state(),
+                TurnState::Unconfirmed(_)
+                    | TurnState::Conflict(_)
+                    | TurnState::Terminal(crate::turn_lifecycle::TerminalRecord {
+                        outcome: Outcome::Interrupted,
+                        ..
+                    })
+            )
+        }) {
             "thread-observation-gap"
         } else if restarted && !self.fresh_activity {
             "restart-gap"
@@ -305,8 +391,21 @@ impl Store {
         // Persisted running is historical evidence, never a new heartbeat after restart.
         for n in &mut result.state.notices {
             for link in &mut n.thread_links {
-                if link.scope_state == "running" {
-                    link.scope_state = "unknown".into();
+                let previous = link.selected();
+                if matches!(
+                    previous.state(),
+                    TurnState::Active | TurnState::AwaitingInteraction
+                ) {
+                    let lost = advance(
+                        &previous,
+                        &Evidence::loss(
+                            previous.key().clone(),
+                            LossReason::OwnerUnavailable,
+                            previous.revision().saturating_add(1),
+                        ),
+                    );
+                    link.merge(&lost);
+                    link.scope_state = turn_adapter::work_scope(&link.selected().state()).into();
                 }
             }
         }
@@ -514,9 +613,18 @@ impl Store {
             crate::runtime_metrics::cost::rows(1);
             let notice = &mut self.state.notices[*index];
             for link in &mut notice.thread_links {
-                if link.scope_state == "running" && !observed.contains(&link.thread_id) {
-                    link.scope_state = "unknown".into();
-                    self.dirty = true;
+                if !observed.contains(&link.thread_id) {
+                    let previous = link.selected();
+                    let lost = advance(
+                        &previous,
+                        &Evidence::loss(
+                            previous.key().clone(),
+                            LossReason::OwnerUnavailable,
+                            previous.revision().saturating_add(1),
+                        ),
+                    );
+                    self.dirty |= link.merge(&lost);
+                    link.scope_state = turn_adapter::work_scope(&link.selected().state()).into();
                 }
             }
         }
@@ -530,12 +638,9 @@ impl Store {
             for link in notice.thread_links.iter_mut().filter(|l| {
                 l.thread_id == thread && l.observed_turn_id.as_deref() == Some(previous)
             }) {
+                let scope = turn_adapter::work_scope(&link.turn(next).state());
                 link.observed_turn_id = Some(next.into());
-                link.scope_state = link
-                    .terminals
-                    .get(next)
-                    .cloned()
-                    .unwrap_or_else(|| "unknown".into());
+                link.scope_state = scope.into();
                 self.dirty = true;
                 self.maintained = None;
             }
@@ -547,8 +652,28 @@ impl Store {
         }
         Ok(())
     }
-    pub fn observe(&mut self, thread: &str, turn: &str, state: &str, clock: Clock, live: bool) {
-        if types::identifier(turn).is_err() {
+    pub fn observe_event(
+        &mut self,
+        thread: &str,
+        id: &str,
+        status: Option<&EventStatus>,
+        clock: Clock,
+    ) {
+        let key = self
+            .live_notices
+            .iter()
+            .flat_map(|index| &self.state.notices[*index].thread_links)
+            .find(|link| link.thread_id == thread)
+            .map(|link| link.turn(id).key().clone())
+            .unwrap_or_else(|| TurnKey::new("codex", thread, id));
+        let turn = super::super::turns::event(key, status);
+        if turn_adapter::terminal(&turn.state()) {
+            self.observe(thread, &turn, clock, false);
+        }
+    }
+    pub fn observe(&mut self, thread: &str, incoming: &Transition, clock: Clock, live: bool) {
+        let turn = &incoming.key().turn_id;
+        if types::identifier(turn).is_err() || incoming.key().native_session != thread {
             return;
         }
         for index in &self.live_notices {
@@ -559,42 +684,39 @@ impl Store {
                 .iter_mut()
                 .filter(|l| l.thread_id == thread)
             {
-                // Retain bounded terminal evidence if a successor descriptor arrives later.
-                if matches!(state, "completed" | "interrupted")
-                    && link.terminals.get(turn).is_none_or(|old| old != state)
-                {
-                    if link.terminals.len() == 16 {
-                        link.terminals
-                            .remove(&link.terminals.keys().next().unwrap().clone());
-                    }
-                    link.terminals.insert(turn.into(), state.into());
-                    self.dirty = true;
-                }
-                // Only a durable source-matched successor descriptor can advance the scope.
+                self.dirty |= link.merge(incoming);
                 if link.observed_turn_id.as_deref() != Some(turn) {
-                    if link.scope_state == "running" {
-                        link.scope_state = "unknown".into();
-                        self.dirty = true;
+                    if live {
+                        let selected = link.selected();
+                        let lost = advance(
+                            &selected,
+                            &Evidence::loss(
+                                selected.key().clone(),
+                                LossReason::OwnerUnavailable,
+                                selected.revision().saturating_add(1),
+                            ),
+                        );
+                        self.dirty |= link.merge(&lost);
+                        link.scope_state =
+                            turn_adapter::work_scope(&link.selected().state()).into();
                     }
                     continue;
                 }
-                if state == "running"
-                    && link.scope_state == "completed"
-                    && link.observed_turn_id.as_deref() == Some(turn)
-                {
-                    continue;
-                }
-                let changed =
-                    link.observed_turn_id.as_deref() != Some(turn) || link.scope_state != state;
-                if !changed && state != "running" {
-                    continue;
-                }
-                if changed && state == "completed" {
+                let state = link.selected().state();
+                let scope = turn_adapter::work_scope(&state);
+                let changed = link.scope_state != scope;
+                if changed && link.ended() {
                     self.maintained = None;
                 }
-                link.observed_turn_id = Some(turn.into());
-                link.scope_state = state.into();
-                if clock.certain && live && state != "unknown" {
+                link.scope_state = scope.into();
+                if !changed && !matches!(state, TurnState::Active | TurnState::AwaitingInteraction)
+                {
+                    continue;
+                }
+                if clock.certain
+                    && live
+                    && !matches!(state, TurnState::Unconfirmed(_) | TurnState::Conflict(_))
+                {
                     link.observed_at = Some(clock.elapsed);
                     notice.last_active_at = notice.last_active_at.max(clock.elapsed);
                     notice.fresh_activity = true;
@@ -626,11 +748,8 @@ impl Store {
                 let inactive = clock
                     .age(row.last_active_at)
                     .is_some_and(|age| age >= (INACTIVE_MS / 1000) as u64);
-                let ended = !row.thread_links.is_empty()
-                    && row
-                        .thread_links
-                        .iter()
-                        .all(|l| l.scope_state == "completed");
+                let ended =
+                    !row.thread_links.is_empty() && row.thread_links.iter().all(Link::ended);
                 let state = if blocker {
                     if revoked {
                         Some(("uncertain", "source-revoked"))

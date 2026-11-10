@@ -19,6 +19,9 @@ fn fixture(dir: &Path, name: &str, state: &str) -> Binding {
     b
 }
 async fn pass(dir: &Path, at: i64) -> Result<()> {
+    // A selected read is scheduled against the current clock, even when a
+    // parallel fixture has already outlived its initial observation deadline.
+    let at = at.max(chrono::Utc::now().timestamp().saturating_add(10));
     cost::scope(Owner::NotificationObserver, Reason::Deadline, async {
         for (original, changed, superseded) in index::observation_due(dir, at)? {
             if original.source_id.is_empty() && !changed { continue; }

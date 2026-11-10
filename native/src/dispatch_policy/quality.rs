@@ -153,10 +153,16 @@ pub(super) fn aggregate(
             } else {
                 unreviewed += 1;
             }
-            match string(&row["terminal"], "state") {
-                "completed" if !row["review"].is_object() => completed += 1,
-                "completed" | "failed" | "interrupted" | "cancelled" => {}
-                "running" | "inProgress" => running += 1,
+            match super::turn_lifecycle(row).state() {
+                crate::turn_lifecycle::TurnState::Terminal(record) => {
+                    if record.outcome == crate::turn_lifecycle::Outcome::Completed
+                        && !row["review"].is_object()
+                    {
+                        completed += 1;
+                    }
+                }
+                crate::turn_lifecycle::TurnState::Active
+                | crate::turn_lifecycle::TurnState::AwaitingInteraction => running += 1,
                 _ => {
                     unknown += 1;
                     if row["terminal"].is_null() {

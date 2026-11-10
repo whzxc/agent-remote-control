@@ -1,5 +1,6 @@
 //! Evidence-only advisory recovery. Selection and delivery never dispatch a task.
 use super::*;
+use crate::turn_lifecycle::{Outcome, TerminalRecord, TurnState};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn at(row: &Value) -> i64 {
@@ -53,7 +54,13 @@ pub(super) fn obsolete(reference: &Value, events: &[Value]) -> bool {
     events.iter().any(|e| {
         let thread = |r: &&Value| r["threadId"] == reference["threadId"];
         (e["kind"] == "turn.terminal"
-            && e["status"] == "completed"
+            && matches!(
+                turns::journal(e).state(),
+                TurnState::Terminal(TerminalRecord {
+                    outcome: Outcome::Completed,
+                    ..
+                })
+            )
             && refs(e)
                 .filter(thread)
                 .any(|r| turns.contains(string(r, "turnId"))))
@@ -81,7 +88,13 @@ pub(crate) fn select(blocker: &Value, events: &[Value], retained_gap: bool) -> V
     for page in events.chunks(100) {
         for event in page.iter().filter(|e| {
             e["kind"] == "turn.terminal"
-                && matches!(string(e, "status"), "interrupted" | "failed" | "cancelled")
+                && matches!(
+                    turns::journal(e).state(),
+                    TurnState::Terminal(TerminalRecord {
+                        outcome: Outcome::Interrupted | Outcome::Failed,
+                        ..
+                    })
+                )
         }) {
             if at(event) < opened || at(event) > cleared {
                 continue;

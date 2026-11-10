@@ -1137,7 +1137,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             .filter(|terminal| terminal["reconciledAfterRestart"] == true)
             .unwrap_or_else(|| crate::dispatch_policy::terminal_snapshot(
                 &json!({"submittedAt":chrono::DateTime::from_timestamp(b.created_at,0).map(|t|t.to_rfc3339())}),
-                string(observation, "state"), &observation["turnTiming"],
+                &b.lifecycle(), &observation["turnTiming"],
                 b.observation["observedAt"].as_str(), true));
         json!({"endedAt":terminal["endedAt"],"durationMs":terminal["observedDurationMs"],"timeBasis":terminal["timeBasis"]})
     } else {
@@ -5558,7 +5558,7 @@ async fn enrich_completion(control: &Arc<control::Control>, b: &Binding, observe
             control,
             &b.thread_id,
             &b.turn_id,
-            string(observed, "state"),
+            &lifecycle::observed(&b.key(), observed, 0),
             b.observation["observedAt"].as_str().filter(|_| {
                 b.observation["reconciliation"] == "pending-after-restart" || observer::exhausted(b)
             }),

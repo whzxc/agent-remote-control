@@ -1,4 +1,11 @@
 use super::*;
+fn observed_turn(thread: &str, turn: &str, status: &str) -> crate::turn_lifecycle::Transition {
+    turn_adapter::snapshot(
+        crate::turn_lifecycle::TurnKey::new("codex", thread, turn),
+        status,
+        &Value::Null,
+    )
+}
 
 #[test]
 fn board_notification_attention_keeps_source_owned_route_details_and_compact_next() {
@@ -478,32 +485,74 @@ fn thread_end_and_replacement_successor() {
     let n = f.post();
     f.link(&n);
     f.advance(store::INACTIVE_MS);
-    f.store
-        .observe("thread-a", "turn-a", "running", f.clock, true);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-a", "running"),
+        f.clock,
+        true,
+    );
     assert_eq!(f.board(&n["id"])["notices"][0]["state"], "active");
-    f.store
-        .observe("thread-a", "turn-a", "interrupted", f.clock, true);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-a", "interrupted"),
+        f.clock,
+        true,
+    );
     assert_eq!(f.board(&n["id"])["notices"][0]["state"], "active");
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-a", "running"),
+        f.clock,
+        true,
+    );
+    assert_eq!(
+        f.board(&n["id"])["notices"][0]["threadLinks"][0]["scopeState"],
+        "interrupted"
+    );
     f.store.flush(f.clock).unwrap();
     f.store = Store::open(f.path.join("state.json")).unwrap();
     f.store.successor("thread-a", "turn-a", "turn-b", &f.actor);
-    f.store
-        .observe("thread-a", "turn-b", "running", f.clock, true);
-    f.store
-        .observe("thread-a", "turn-a", "completed", f.clock, false);
+    assert_eq!(
+        f.board(&n["id"])["notices"][0]["threadLinks"][0]["scopeState"],
+        "unknown"
+    );
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-b", "running"),
+        f.clock,
+        true,
+    );
+    assert_eq!(
+        f.board(&n["id"])["notices"][0]["threadLinks"][0]["scopeState"],
+        "running"
+    );
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-a", "completed"),
+        f.clock,
+        false,
+    );
     assert_eq!(
         f.board(&n["id"])["notices"][0]["threadLinks"][0]["observedTurnId"],
         "turn-b"
     );
     assert_eq!(f.board(&n["id"])["notices"][0]["state"], "active");
     f.advance(1000);
-    f.store
-        .observe("thread-a", "turn-b", "completed", f.clock, true);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-b", "completed"),
+        f.clock,
+        true,
+    );
     let ended = f.board(&n["id"]);
     assert_eq!(ended["notices"][0]["closedReason"], "threads-ended");
     f.advance(1000);
-    f.store
-        .observe("thread-a", "turn-b", "completed", f.clock, true);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-b", "completed"),
+        f.clock,
+        true,
+    );
     assert_eq!(
         f.board(&n["id"])["notices"][0]["lastActiveAt"],
         ended["notices"][0]["lastActiveAt"]
@@ -611,8 +660,12 @@ fn successor_requires_owner_evidence_and_handles_projection_order() {
     let mut f = Fixture::new();
     let n = f.post();
     f.link(&n);
-    f.store
-        .observe("thread-a", "turn-b", "running", f.clock, true);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-b", "running"),
+        f.clock,
+        true,
+    );
     assert_eq!(
         f.board(&n["id"])["notices"][0]["threadLinks"][0]["observedTurnId"],
         "turn-a"
@@ -626,8 +679,12 @@ fn successor_requires_owner_evidence_and_handles_projection_order() {
         f.board(&n["id"])["notices"][0]["threadLinks"][0]["observedTurnId"],
         "turn-a"
     );
-    f.store
-        .observe("thread-a", "turn-b", "completed", f.clock, false);
+    f.store.observe(
+        "thread-a",
+        &observed_turn("thread-a", "turn-b", "completed"),
+        f.clock,
+        false,
+    );
     f.store.checkpoint_observation(f.clock).unwrap();
     f.store = Store::open(f.path.join("state.json")).unwrap();
     f.store.successor("thread-a", "turn-a", "turn-b", &f.actor);
@@ -833,7 +890,10 @@ fn linked_running_thread_is_observed_at_post() {
     }];
     apply_link_observations(
         &mut links,
-        &[("thread-a".into(), "turn-a".into(), "inProgress".into())],
+        &[(
+            "thread-a".into(),
+            observed_turn("thread-a", "turn-a", "inProgress"),
+        )],
         f.clock,
     );
     let args = json!({"requestId":id(),"intent":"Work","resources":["app:installed"],"expectedDurationSeconds":60});
@@ -918,8 +978,12 @@ fn active_observation_cost_is_independent_of_closed_notice_history() {
             || {
                 assert_eq!(f.store.linked_threads(), vec!["thread-a"]);
                 f.store.missing(&["thread-a".into()]);
-                f.store
-                    .observe("thread-a", "turn-a", "running", f.clock, true);
+                f.store.observe(
+                    "thread-a",
+                    &observed_turn("thread-a", "turn-a", "running"),
+                    f.clock,
+                    true,
+                );
                 f.store.maintain(&[], f.clock).unwrap();
             },
         );
@@ -937,8 +1001,12 @@ fn active_observation_cost_is_independent_of_closed_notice_history() {
             before["coordinationObservers"]["bytesParsed"]
         );
         f.advance(5000);
-        f.store
-            .observe("thread-a", "turn-a", "completed", f.clock, true);
+        f.store.observe(
+            "thread-a",
+            &observed_turn("thread-a", "turn-a", "completed"),
+            f.clock,
+            true,
+        );
         f.store.maintain(&[], f.clock).unwrap();
         assert!(f.call("board", json!({}))["notices"]
             .as_array()

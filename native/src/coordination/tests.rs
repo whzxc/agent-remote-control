@@ -511,6 +511,23 @@ fn emit_observation(f: &mut Fixture, input: EventInput) {
     f.store.as_mut().unwrap().emit(input, f.time).unwrap();
 }
 #[test]
+fn owner_loss_alone_never_projects_a_terminal_turn() {
+    // Regression: stale completed status on an owner-loss snapshot fabricated a coordination terminal event.
+    use crate::turn_lifecycle::{adapters, advance, Evidence, LossReason, Transition, TurnKey};
+    let key = TurnKey::new("pi", "thread-loss", "turn-loss");
+    let lost = advance(
+        &Transition::new(key.clone()),
+        &Evidence::loss(key, LossReason::OwnerUnavailable, 1),
+    );
+    let row = json!({"agent":"pi","taskId":"thread-loss","threadId":"thread-loss","turnId":"turn-loss","requestId":"request-loss","status":"completed","terminal":{"state":"completed"},"_turnLifecycle":adapters::checkpoint(&lost)});
+    for owner in [observers::Owner::Agent, observers::Owner::Dispatch] {
+        assert!(observer_events(owner, row.clone())
+            .iter()
+            .all(|event| event.kind != EventKind::TurnTerminal));
+    }
+}
+
+#[test]
 fn observed_dispatch_and_all_terminal_states_are_metadata_only() {
     // Contract: events projects submitted dispatch metadata and observed terminal states without task content.
     let mut f = Fixture::new();

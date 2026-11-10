@@ -1,5 +1,6 @@
 //! Owner-persisted descriptors; only Core projects them after releasing owner locks.
 use super::*;
+use crate::turn_lifecycle::{adapters as turn_adapter, Transition, TurnState};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{LazyLock, Mutex},
@@ -161,21 +162,6 @@ pub(crate) enum Owner {
     Receipt,
     Agent,
 }
-fn status(value: &str) -> Option<EventStatus> {
-    Some(match value {
-        "completed" => EventStatus::Completed,
-        "failed" => EventStatus::Failed,
-        "interrupted" => EventStatus::Interrupted,
-        "cancelled" => EventStatus::Cancelled,
-        "succeeded" => EventStatus::Succeeded,
-        "rolled-back" => EventStatus::RolledBack,
-        "unconfirmed" => EventStatus::Unconfirmed,
-        _ => return None,
-    })
-}
-fn terminal(value: &str) -> bool {
-    matches!(value, "completed" | "failed" | "interrupted" | "cancelled")
-}
 fn base(row: &Value, key: &str, kind: EventKind) -> Result<EventInput> {
     let resources = vec![host()?, ResourceKey::parse("app:installed")?];
     base_on(row, key, kind, resources)
@@ -289,8 +275,8 @@ pub(super) fn inputs_on(
                 evidence(&mut input, EvidenceKind::Request, request);
                 events.push(input);
             }
-            let state = string(&row["terminal"], "state");
-            if terminal(state) {
+            let turn = crate::dispatch_policy::turn_lifecycle(row);
+            if let Some(status) = turns::status(&turn, string(&row["terminal"], "state")) {
                 super::git_watch::terminal(string(row, "threadId"), string(row, "turnId"));
                 let mut input = base(
                     row,
@@ -301,7 +287,7 @@ pub(super) fn inputs_on(
                     ),
                     EventKind::TurnTerminal,
                 )?;
-                input.status = status(state);
+                input.status = Some(status);
                 input.occurred_at = row["terminal"]["endedAt"].as_str().map(str::to_owned);
                 events.push(input);
             }
@@ -339,8 +325,10 @@ pub(super) fn inputs_on(
             }
         }
         Owner::Agent => {
-            let state = string(row, "status");
-            if terminal(state) && row["turnId"].is_string() {
+            let turn = crate::agents::lifecycle::read(row);
+            if let Some(status) =
+                turns::status(&turn, "cancelled").filter(|_| row["turnId"].is_string())
+            {
                 let mut record = row.clone();
                 record["threadId"] = row["taskId"].clone();
                 super::git_watch::terminal(string(row, "taskId"), string(row, "turnId"));
@@ -353,7 +341,7 @@ pub(super) fn inputs_on(
                     ),
                     EventKind::TurnTerminal,
                 )?;
-                input.status = status(state);
+                input.status = Some(status);
                 events.push(input);
             }
         }
@@ -474,6 +462,22 @@ pub(super) fn project_at(
             .map_err(|_| "COORDINATION_STORAGE: invalid owner descriptor")?;
         if done.get(&input.transition_id).is_some() {
             continue;
+        }
+        if input.kind == EventKind::TurnTerminal && row["_turnLifecycle"].is_object() {
+            let Some(turn) = turn_adapter::restore(&row["_turnLifecycle"]) else {
+                continue;
+            };
+            if turns::status(
+                &turn,
+                if matches!(input.status, Some(EventStatus::Cancelled)) {
+                    "cancelled"
+                } else {
+                    "interrupted"
+                },
+            ) != input.status
+            {
+                continue;
+            }
         }
         let transition = input.transition_id.clone();
         // No owner/discovery lock is held here. The checkpoint survives feed retention.
@@ -778,28 +782,74 @@ pub(crate) async fn native_terminal(method: &str, params: &Value) {
     if turns.len() > 128 {
         gap("terminal", "snapshot-turn-capacity");
     }
+    let mut native = BTreeMap::<String, Transition>::new();
     for turn in turns.into_iter().rev().take(128) {
-        let turn_id = string(&turn, "id");
-        let state = string(&turn, "status");
-        if !terminal(state) || types::identifier(turn_id).is_err() {
+        let id = string(&turn, "id");
+        if types::identifier(id).is_err() {
             continue;
         }
-        super::git_watch::terminal(thread, turn_id);
-        if let Some(capture) = crate::changes::terminal(thread, turn_id) {
-            let _ = capture.await;
+        let incoming = turn_adapter::codex_turn(thread, &turn);
+        let previous = native
+            .entry(id.into())
+            .or_insert_with(|| Transition::new(incoming.key().clone()));
+        *previous = turn_adapter::observe(previous, &incoming);
+    }
+    for (turn_id, incoming) in native {
+        if !matches!(
+            incoming.state(),
+            TurnState::Terminal(_) | TurnState::Conflict(_)
+        ) {
+            continue;
         }
         let row = json!({"threadId":thread,"turnId":turn_id});
-        if let Ok(mut input) = base(
+        let Ok(mut input) = base(
             &row,
             &format!("terminal:{thread}:{turn_id}"),
             EventKind::TurnTerminal,
-        ) {
-            input.status = status(state);
-            input.origin = Some(Principal::Arc);
-            if persist(input).is_err() {
-                gap("terminal", "persistence-failed");
+        ) else {
+            continue;
+        };
+        input.origin = Some(Principal::Arc);
+        let path = root()
+            .join("coordination/observations")
+            .join(format!("{}.json", input.transition_id));
+        let previous = crate::kernel::file_cache::load(&path).unwrap_or(Value::Null);
+        let mut known = turn_adapter::snapshot(
+            incoming.key().clone(),
+            "unknown",
+            &previous["_turnLifecycle"],
+        );
+        if previous["_turnLifecycle"].is_null() {
+            for descriptor in previous["coordinationPending"]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                let legacy = turn_adapter::snapshot(
+                    incoming.key().clone(),
+                    string(descriptor, "status"),
+                    &Value::Null,
+                );
+                known = turn_adapter::observe(&known, &legacy);
             }
         }
+        let merged = turn_adapter::observe(&known, &incoming);
+        if merged.state() == known.state() && previous["_turnLifecycle"].is_object() {
+            continue;
+        }
+        let pending = if let Some(status) = turns::status(&merged, "interrupted") {
+            input.status = Some(status);
+            super::git_watch::terminal(thread, &turn_id);
+            if let Some(capture) = crate::changes::terminal(thread, &turn_id) {
+                let _ = capture.await;
+            }
+            vec![input]
+        } else {
+            vec![]
+        };
+        if durable(&path, &json!({"_turnLifecycle":turn_adapter::checkpoint(&merged),"coordinationPending":pending})).is_err() {
+            gap("terminal", "persistence-failed");
+        } else { dirty(&path); }
     }
 }
 

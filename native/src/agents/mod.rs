@@ -8,7 +8,7 @@ mod archive;
 mod conversations;
 mod dispatch;
 pub(crate) mod driver;
-mod lifecycle;
+pub(crate) mod lifecycle;
 mod manifest;
 mod mcp;
 mod process;
@@ -81,7 +81,7 @@ impl AgentHost {
     pub(crate) async fn coordination_observations(
         &self,
         threads: &[String],
-    ) -> Vec<(String, String, String)> {
+    ) -> Vec<(String, crate::turn_lifecycle::Transition)> {
         let processes: Vec<_> = {
             let processes = self.processes.lock().await;
             threads
@@ -91,17 +91,19 @@ impl AgentHost {
         };
         let mut result = vec![];
         for (thread, process) in processes {
-            let events = process.events.lock().await;
-            if let Some(t) = events.timelines.get(&thread) {
-                let status = if !process.alive.load(std::sync::atomic::Ordering::SeqCst)
-                    || t.observation_lost
-                {
-                    "unknown".into()
-                } else {
-                    t.status.clone()
-                };
-                result.push((thread, t.turn.clone(), status));
+            let state = process.state.lock().await;
+            let mut turn = lifecycle::read(&state);
+            if !process.alive.load(std::sync::atomic::Ordering::SeqCst) {
+                turn = crate::turn_lifecycle::advance(
+                    &turn,
+                    &crate::turn_lifecycle::Evidence::loss(
+                        turn.key().clone(),
+                        crate::turn_lifecycle::LossReason::OwnerUnavailable,
+                        turn.revision().saturating_add(1),
+                    ),
+                );
             }
+            result.push((thread, turn));
         }
         result
     }
