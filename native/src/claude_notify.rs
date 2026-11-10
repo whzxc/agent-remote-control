@@ -627,13 +627,18 @@ pub(crate) fn retry_status(thread: &str, turn: &str) -> Result<Value> {
         json!({"status":b.retry["status"],"attempts":b.retry["attempts"],"nextAttempt":b.retry["nextAttempt"],"notBefore":b.retry["notBefore"],"reason":b.retry["reason"],"successorTurnId":b.retry["successorTurnId"]}),
     )
 }
-fn event(b: &Binding, d: &Delivery) -> Value {
-    let kind = match d.task_state.as_str() {
+fn event_kind(d: &Delivery) -> &'static str {
+    match d.task_state.as_str() {
         "handoff" => "handoff",
         "recovered" => "recovered",
-        _ if d.key == "terminal" => turn_adapter::push(&b.turn_state()).unwrap_or("needs-input"),
+        "completed" if d.key == "terminal" => "completed",
+        "failed" if d.key == "terminal" => "failed",
+        "cancelled" if d.key == "terminal" => "interrupted",
         _ => "needs-input",
-    };
+    }
+}
+fn event(b: &Binding, d: &Delivery) -> Value {
+    let kind = event_kind(d);
     let agent = !b.agent.is_empty() && b.agent != "codex";
     let next = if kind == "recovered" {
         json!({"via":"query","op":"notify_status","args":{"target":d.target},"hint":"Inspect affected bindings and reconnect the control-source client if needed."})
@@ -650,7 +655,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(b,d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
+    json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}})
 }
 fn empty_answered_completion(b: &Binding, observed: &Value) -> bool {
     observed["state"] == "completed"
@@ -687,13 +692,8 @@ const GLYPHS: [&str; 9] = [
 ];
 const MAIL: &str = "✉ mail";
 
-fn glyph(b: &Binding, d: &Delivery) -> &'static str {
-    let kind = match d.task_state.as_str() {
-        "handoff" => "handoff",
-        "recovered" => "recovered",
-        _ => turn_adapter::push(&b.turn_state()).unwrap_or("needs-input"),
-    };
-    match kind {
+fn glyph(d: &Delivery) -> &'static str {
+    match event_kind(d) {
         "recovered" => GLYPHS[7],
         "handoff" => GLYPHS[6],
         "completed" => GLYPHS[5],
@@ -726,7 +726,7 @@ fn doorbell<'a>(glyphs: impl IntoIterator<Item = &'a str>) -> String {
 }
 #[cfg(test)]
 fn message(b: &Binding) -> String {
-    doorbell(b.deliveries.iter().map(|d| glyph(b, d)))
+    doorbell(b.deliveries.iter().map(glyph))
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
@@ -1514,7 +1514,12 @@ fn inbox_select(
                 && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
         });
         if let Some(b) = bound {
-            if matches!(b.turn_state(), TurnState::Conflict(_)) {
+            if matches!(b.turn_state(), TurnState::Conflict(_))
+                && !b
+                    .deliveries
+                    .iter()
+                    .any(|d| row["eventId"] == d.event_id && d.attempted_at > 0)
+            {
                 continue;
             }
             if row["interaction"].is_object() && row["interaction"]["resolved"] != true {
@@ -2183,7 +2188,7 @@ async fn flush(
             single.deliveries = vec![b.deliveries[*di].clone()];
             single.channel = channel;
             single.target = Some(target.clone());
-            glyphs.push(glyph(b, &b.deliveries[*di]));
+            glyphs.push(glyph(&b.deliveries[*di]));
             if let Some(r) = reserved
                 .iter_mut()
                 .find(|r| r.thread_id == b.thread_id && r.turn_id == b.turn_id)
@@ -2294,11 +2299,7 @@ async fn flush(
                     state.save(dir)?;
                     continue;
                 }
-                body = doorbell(
-                    batch
-                        .iter()
-                        .flat_map(|b| b.deliveries.iter().map(move |d| glyph(b, d))),
-                );
+                body = doorbell(batch.iter().flat_map(|b| b.deliveries.iter().map(glyph)));
             }
             let breaker = state.targets.iter().any(|t| {
                 t.source_id == batch[0].source_id
@@ -5633,14 +5634,24 @@ pub(crate) async fn read_turns(
                 }
                 evidence
             });
+        let interruption_snapshot = read_evidence
+            .as_ref()
+            .is_some_and(|turn| turn_adapter::push(&turn.state()) == Some("interrupted"));
+        // An ordinary read can beat the observer with the same reconstructed
+        // interruption. Re-read through its native-history verification before
+        // retaining that snapshot as terminal evidence.
+        let read_evidence = read_evidence.filter(|_| !interruption_snapshot);
         // Item/change pages identify the read turn but carry no lifecycle state.
         // Reconcile a pending binding now, before inbox() acknowledges it, so the
         // observer cannot append an already-read completion on its next cycle.
-        if matches!(name, "codex_read" | "codex_items" | "codex_changes")
-            && (observation["recordedStatus"].is_null()
-                || observation["state"].is_null()
-                || observation["reason"] == "inconsistent-native-state"
-                || value["reason"] == "inconsistent-native-state")
+        if matches!(
+            name,
+            "codex_read" | "codex_items" | "codex_changes" | "codex_wait"
+        ) && (observation["recordedStatus"].is_null()
+            || observation["state"].is_null()
+            || observation["reason"] == "inconsistent-native-state"
+            || value["reason"] == "inconsistent-native-state"
+            || interruption_snapshot)
             && bound.is_some()
         {
             match tokio::time::timeout(Duration::from_secs(10), async {
@@ -5655,11 +5666,20 @@ pub(crate) async fn read_turns(
             .await
             {
                 Ok(Ok(value)) => observation = value,
-                error => crate::logs::record(
-                    "WARN",
-                    &format!("Inbox turn observation unavailable: {error:?}"),
-                    None,
-                ),
+                error => {
+                    if interruption_snapshot {
+                        observation["_turnLifecycle"] = turn_adapter::checkpoint(
+                            &crate::turn_lifecycle::Transition::new(bound.as_ref().unwrap().key()),
+                        );
+                        observation["state"] = json!("unconfirmed");
+                        observation["reason"] = json!("inconsistent-native-state");
+                    }
+                    crate::logs::record(
+                        "WARN",
+                        &format!("Inbox turn observation unavailable: {error:?}"),
+                        None,
+                    );
+                }
             }
         }
         if let Some(first_read) = read_evidence {

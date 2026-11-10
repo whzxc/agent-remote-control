@@ -286,6 +286,47 @@ pub mod adapters {
         })
     }
 
+    /// Only top-level records from this native session can confirm an interruption.
+    /// The rollout ordinal orders records within the selected native turn.
+    pub fn codex_rollout_terminal(key: TurnKey, text: &str) -> Result<Option<Evidence>, String> {
+        let mut active = String::new();
+        let mut terminal = None;
+        let mut history_start = 0;
+        for (ordinal, line) in text.lines().enumerate() {
+            let record: serde_json::Value = serde_json::from_str(line)
+                .map_err(|error| format!("INVALID_NATIVE_HISTORY: {error}"))?;
+            let payload = &record["payload"];
+            if ordinal == 0 {
+                if record["type"] != "session_meta" || payload["id"] != key.native_session {
+                    return Err("NATIVE_THREAD_ID_MISMATCH".into());
+                }
+                history_start = payload["subagent_history_start_ordinal"]
+                    .as_u64()
+                    .unwrap_or(0);
+            }
+            if (ordinal as u64) < history_start {
+                continue;
+            }
+            if record["type"] == "turn_context"
+                || (record["type"] == "event_msg" && payload["type"] == "task_started")
+            {
+                active = payload["turn_id"].as_str().unwrap_or("").into();
+            }
+            if record["type"] != "event_msg"
+                || payload["turn_id"].as_str().unwrap_or(&active) != key.turn_id
+            {
+                continue;
+            }
+            let status = match payload["type"].as_str() {
+                Some("task_complete") => "completed",
+                Some("turn_aborted") => "interrupted",
+                _ => continue,
+            };
+            terminal = codex_terminal(key.clone(), status, Some(ordinal as u64));
+        }
+        Ok(terminal)
+    }
+
     pub fn codex_active(status: &str) -> bool {
         status == "inProgress"
     }

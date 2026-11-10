@@ -271,6 +271,176 @@ fn selected_native(b: &Binding, status: &str, runtime: &str) -> Value {
 }
 
 #[tokio::test]
+async fn ax_halted_snapshot_uses_the_bound_turns_native_completion() {
+    // Regression: ax-1dda0f9e halted wake without inbox event
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0);
+    let history = [
+        json!({"type":"session_meta","payload":{"id":b.thread_id}}),
+        json!({"type":"event_msg","payload":{"type":"task_started","turn_id":b.turn_id}}),
+        // Tool output and a different turn's native interruption cannot end this turn.
+        json!({"type":"response_item","payload":{"type":"function_call_output","output":json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":b.turn_id}}).to_string()}}),
+        json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":"isolated-turn"}}),
+        json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":b.turn_id}}),
+    ].iter().map(Value::to_string).collect::<Vec<_>>().join("\n");
+    // The stale snapshot arrives both before and after a normal completion read.
+    for status in ["interrupted", "completed", "interrupted"] {
+        let mut snapshot = json!({"thread":{"id":b.thread_id,"status":{"type":"active"},"turns":[
+            {"id":b.turn_id,"status":status,"items":[]}
+        ]}});
+        crate::waiter::reconcile_interruption(&mut snapshot, &b.turn_id, Some(&history));
+        let (mut observed, lifecycle) =
+            crate::waiter::classify_with_lifecycle(&snapshot, &mut Some(b.turn_id.clone()));
+        observed["_turnLifecycle"] = turn_adapter::checkpoint(&lifecycle);
+        super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+            .await
+            .unwrap();
+    }
+    let at = chrono::Utc::now().timestamp() + 60;
+    let fake = Fake::success();
+    flush(&fake, &dir.0, &Mutex::new(()), at, 0, &json!({}))
+        .await
+        .unwrap();
+    let status = governance::status_in(
+        &dir.0,
+        &b.source_id,
+        &json!({"target":b.target}),
+        at,
+        &json!({}),
+    )
+    .unwrap();
+    let deliveries = status["deliveries"].as_array().unwrap();
+    assert!(!deliveries.is_empty());
+    assert!(deliveries.iter().all(|d| d["kind"] == "completed"
+        && d["state"] == "delivered"
+        && d["threadId"] == b.thread_id
+        && d["turnId"] == b.turn_id));
+    let inbox = inbox_select(
+        &dir.0,
+        &b.source_id,
+        &[],
+        true,
+        b.target.as_deref(),
+        Some(&json!({})),
+    )
+    .unwrap();
+    assert_eq!(inbox["events"][0]["eventId"], deliveries[0]["eventId"]);
+    assert_eq!(inbox["events"][0]["kind"], "completed");
+    assert_eq!(inbox["events"][0]["summary"], GLYPHS[5]);
+    assert!(fake
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|call| call[1].contains(GLYPHS[5]) && !call[1].contains(GLYPHS[3])));
+}
+
+#[tokio::test]
+async fn ax_unconfirmed_interruption_waits_for_its_own_native_terminal() {
+    // Regression: ax-1dda0f9e halted wake without inbox event
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0);
+    let records = [
+        json!({"type":"session_meta","payload":{"id":b.thread_id}}),
+        json!({"type":"event_msg","payload":{"type":"task_started","turn_id":b.turn_id}}),
+        json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":"other-turn"}}),
+    ];
+    let mut history = records
+        .iter()
+        .map(Value::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+    for native in [None, Some(history.as_str())] {
+        let mut snapshot = json!({"thread":{"id":b.thread_id,"status":{"type":"notLoaded"},"turns":[{"id":b.turn_id,"status":"interrupted"}]}});
+        crate::waiter::reconcile_interruption(&mut snapshot, &b.turn_id, native);
+        let (mut observed, lifecycle) =
+            crate::waiter::classify_with_lifecycle(&snapshot, &mut Some(b.turn_id.clone()));
+        observed["_turnLifecycle"] = turn_adapter::checkpoint(&lifecycle);
+        super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+            .await
+            .unwrap();
+    }
+    let at = chrono::Utc::now().timestamp() + 60;
+    flush(&Fake::success(), &dir.0, &Mutex::new(()), at, 0, &json!({}))
+        .await
+        .unwrap();
+    let status =
+        governance::status_in(&dir.0, &b.source_id, &json!({"all":true}), at, &json!({})).unwrap();
+    assert!(status["deliveries"].as_array().unwrap().is_empty());
+    history.push_str(&format!(
+        "\n{}",
+        json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":b.turn_id}})
+    ));
+    let mut snapshot = json!({"thread":{"id":b.thread_id,"status":{"type":"notLoaded"},"turns":[{"id":b.turn_id,"status":"interrupted"}]}});
+    crate::waiter::reconcile_interruption(&mut snapshot, &b.turn_id, Some(&history));
+    let (mut observed, lifecycle) =
+        crate::waiter::classify_with_lifecycle(&snapshot, &mut Some(b.turn_id.clone()));
+    observed["_turnLifecycle"] = turn_adapter::checkpoint(&lifecycle);
+    super::process(&dir.0, &Mutex::new(()), &mut b, &observed)
+        .await
+        .unwrap();
+    flush(&Fake::success(), &dir.0, &Mutex::new(()), at, 0, &json!({}))
+        .await
+        .unwrap();
+    let inbox = inbox_select(
+        &dir.0,
+        &b.source_id,
+        &[],
+        true,
+        b.target.as_deref(),
+        Some(&json!({})),
+    )
+    .unwrap();
+    assert_eq!(inbox["events"][0]["kind"], "interrupted");
+    assert_eq!(inbox["events"][0]["threadId"], b.thread_id);
+    assert_eq!(inbox["events"][0]["turnId"], b.turn_id);
+}
+
+#[tokio::test]
+async fn ax_sent_terminal_remains_readable_after_a_later_native_conflict() {
+    // Regression: ax-1dda0f9e halted wake without inbox event
+    let dir = Sandbox::new();
+    let mut b = fixture(&dir.0);
+    let interrupted = selected_native(&b, "interrupted", "active");
+    super::process(&dir.0, &Mutex::new(()), &mut b, &interrupted)
+        .await
+        .unwrap();
+    let at = chrono::Utc::now().timestamp() + 60;
+    flush(&Fake::success(), &dir.0, &Mutex::new(()), at, 0, &json!({}))
+        .await
+        .unwrap();
+    let completed = selected_native(&b, "completed", "active");
+    super::process(&dir.0, &Mutex::new(()), &mut b, &completed)
+        .await
+        .unwrap();
+    let status = governance::status_in(
+        &dir.0,
+        &b.source_id,
+        &json!({"target":b.target}),
+        at,
+        &json!({}),
+    )
+    .unwrap();
+    let delivery = &status["deliveries"][0];
+    assert_eq!(delivery["kind"], "interrupted");
+    assert_eq!(delivery["state"], "delivered");
+    let inbox = inbox_select(
+        &dir.0,
+        &b.source_id,
+        &[],
+        true,
+        b.target.as_deref(),
+        Some(&json!({})),
+    )
+    .unwrap();
+    assert_eq!(inbox["events"][0]["eventId"], delivery["eventId"]);
+    assert_eq!(inbox["events"][0]["kind"], delivery["kind"]);
+    assert_eq!(inbox["events"][0]["summary"], GLYPHS[3]);
+    assert_eq!(inbox["events"][0]["threadId"], b.thread_id);
+    assert_eq!(inbox["events"][0]["turnId"], b.turn_id);
+}
+
+#[tokio::test]
 async fn ax_delayed_loss_and_stale_projection_push_agree_with_selected_native_completion() {
     // Regression: ax-0d9fb1f7 and ax-27840e50 pushed interrupted/halted while the selected native turn was completed.
     for order in [

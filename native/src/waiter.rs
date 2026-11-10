@@ -274,8 +274,15 @@ pub(crate) fn classify_with_lifecycle(
         .iter()
         .filter(|t| t["id"].as_str() == selected.as_deref())
     {
-        if let Some(evidence) =
-            adapters::codex_terminal(key.clone(), string(native, "status"), None)
+        if let Some(evidence) = (!native["_terminalUnconfirmed"].as_bool().unwrap_or(false))
+            .then(|| {
+                adapters::codex_terminal(
+                    key.clone(),
+                    string(native, "status"),
+                    native["nativeSequence"].as_u64(),
+                )
+            })
+            .flatten()
         {
             lifecycle = advance(&lifecycle, &evidence);
         }
@@ -414,6 +421,28 @@ impl WaitSource for CodexSource {
         if value["thread"]["id"] != self.thread {
             return Err("native-thread-id-mismatch".into());
         }
+        let selected = self
+            .turn
+            .as_deref()
+            .or_else(|| value["thread"]["turns"].as_array()?.last()?["id"].as_str());
+        if let Some(turn) = selected.filter(|turn| {
+            value["thread"]["turns"].as_array().is_some_and(|turns| {
+                turns.iter().any(|t| {
+                    t["id"] == *turn
+                        && matches!(
+                            string(t, "status"),
+                            "completed" | "interrupted" | "cancelled"
+                        )
+                })
+            })
+        }) {
+            // A detached reader can reconstruct an interrupted snapshot while the
+            // owning server has completed the turn. Verify the exact native key
+            // before that snapshot can produce a terminal event or wake.
+            let turn = turn.to_owned();
+            let history = crate::control::persisted_history(&value["thread"]);
+            reconcile_interruption(&mut value, &turn, history.as_deref().ok());
+        }
         let events = self.events.lock().await;
         // App-server agent messages may omit status. Only an explicit completion
         // event for this exact turn/item/text can confirm such a message.
@@ -462,6 +491,43 @@ impl WaitSource for CodexSource {
         value["externalUserInputs"] = crate::external_inputs::inputs(&self.thread, None)?;
         value["pending"] = json!(pending);
         Ok(value)
+    }
+}
+
+pub(crate) fn reconcile_interruption(value: &mut Value, selected: &str, history: Option<&str>) {
+    let key = TurnKey::new("codex", string(&value["thread"], "id"), selected);
+    let terminal = history
+        .and_then(|text| {
+            adapters::codex_rollout_terminal(key.clone(), text)
+                .ok()
+                .flatten()
+        })
+        .map(|evidence| advance(&Transition::new(key), &evidence).state());
+    for turn in value["thread"]["turns"]
+        .as_array_mut()
+        .into_iter()
+        .flatten()
+        .filter(|turn| {
+            turn["id"] == selected
+                && matches!(
+                    string(turn, "status"),
+                    "completed" | "interrupted" | "cancelled"
+                )
+        })
+    {
+        if turn["status"] == "completed"
+            && terminal.as_ref().and_then(adapters::push) != Some("completed")
+        {
+            continue;
+        }
+        if let Some(crate::turn_lifecycle::TurnState::Terminal(record)) = &terminal {
+            turn["status"] = json!(adapters::push_outcome(record.outcome));
+            turn["nativeSequence"] = json!(record.sequence);
+        } else {
+            // Preserve the upstream status for diagnosis without promoting an
+            // incomplete/missing rollout into native terminal evidence.
+            turn["_terminalUnconfirmed"] = json!(true);
+        }
     }
 }
 async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSource> {
