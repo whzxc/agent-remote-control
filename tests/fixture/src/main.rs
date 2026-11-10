@@ -68,6 +68,10 @@ impl arc_core::transport::DesktopAccess for SnapshotDesktop {
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 #[tokio::main]
 async fn main() {
+    if std::env::args().nth(1).as_deref() == Some("runtime") {
+        arc_core::runtime::serve_mode(false).await.unwrap();
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("cli") {
         std::process::exit(arc_core::cli::run(std::env::args().skip(2).collect()).await);
     }

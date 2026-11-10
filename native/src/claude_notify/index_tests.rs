@@ -595,6 +595,44 @@ async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn published_owner_is_readable_while_another_owner_is_still_preparing() {
+    // Regression: current.json was published while every owner still returned INDEX_NOT_READY until the last rebuild finished.
+    let dir = Sandbox::new();
+    let receipt_dir = dir.0.join("receipts");
+    std::fs::create_dir_all(&receipt_dir).unwrap();
+    let request = id();
+    std::fs::write(
+        receipt_dir.join(format!("{request}.json")),
+        json!({"requestId":request,"state":"completed","result":{"threadId":"fixture"}})
+            .to_string(),
+    )
+    .unwrap();
+    let binding = fixture(&dir.0, "closed", "completed");
+    let (published, ready) = tokio::sync::oneshot::channel();
+    let (release, blocked) = std::sync::mpsc::channel();
+    let work_dir = dir.0.clone();
+    let work_receipts = receipt_dir.clone();
+    let job = crate::kernel::derived_index::background(
+        vec![receipt_dir.clone(), dir.0.join("tasks")],
+        move || {
+            crate::kernel::receipts::ReceiptStore::fixture(work_receipts).seed()?;
+            published.send(()).unwrap();
+            blocked.recv().map_err(|e| e.to_string())?;
+            index::initialize(&work_dir)
+        },
+    );
+    ready.await.unwrap();
+    let receipts = crate::kernel::receipts::ReceiptStore::fixture(receipt_dir);
+    let receipt = receipts.read_for_projection(&request, "fixture");
+    let pending = index::read_key(&dir.0, &binding.thread_id, &binding.turn_id);
+    release.send(()).unwrap();
+    job.await.unwrap().unwrap();
+    assert_eq!(receipt.unwrap()["result"]["threadId"], "fixture");
+    assert!(pending.unwrap_err().starts_with("INDEX_NOT_READY"));
+    assert!(index::read_key(&dir.0, &binding.thread_id, &binding.turn_id).is_ok());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn scale_rebuild_is_batched_and_never_gates_lease_or_query_readiness() {
     // Regression: 1076 notification records took 40 seconds to migrate before readiness and exceeded the supervisor's 30-second timeout.
     let dir = Sandbox::new();

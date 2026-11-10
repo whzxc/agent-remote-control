@@ -781,37 +781,64 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|e| e.to_string())?;
-    crate::claude_notify::migrate().await?;
-    crate::sources::complete_migration().await?;
+    let owners = vec![
+        root(),
+        root().join("agents/requests"),
+        root().join("notifications/tasks"),
+    ];
+    crate::kernel::derived_index::prepare(&owners);
     let listener = crate::transport::listen(service.clone(), None).await?;
     let index_service = service.clone();
-    let rebuild = crate::kernel::derived_index::background(
-        vec![
-            root(),
-            root().join("agents/requests"),
-            root().join("notifications/tasks"),
-        ],
-        crate::claude_notify::initialize_index,
-    );
+    let runtime = tokio::runtime::Handle::current();
+    let rebuild = crate::kernel::derived_index::background(owners, move || {
+        #[cfg(feature = "test-fixture")]
+        if let Some(gate) = std::env::var_os("ARC_FIXTURE_INDEX_GATE") {
+            while Path::new(&gate).exists() {
+                crate::kernel::derived_index::check_cancelled()?;
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        if let Err(error) = crate::kernel::results::prune() {
+            crate::logs::record(
+                "WARN",
+                &format!("Cannot prune temporary outputs: {error}"),
+                None,
+            );
+        }
+        let started = Instant::now();
+        crate::sources::migrate_history()?;
+        runtime.block_on(crate::claude_notify::migrate())?;
+        runtime.block_on(crate::sources::complete_migration())?;
+        crate::logs::record(
+            "INFO",
+            &format!(
+                "Source history migration completed in {} ms",
+                started.elapsed().as_millis()
+            ),
+            None,
+        );
+        crate::claude_notify::initialize_index()
+    });
     let index_startup = tokio::spawn(async move {
         match rebuild.await {
             Ok(Ok(())) if *index_service.control.shutdown.borrow() == 0 => {
                 let mut stopping = index_service.control.shutdown.subscribe();
                 tokio::select! {
-                    _ = stopping.changed() => return,
+                    _ = stopping.changed() => return None,
                     _ = async { tokio::join!(index_service.agents.reattach(), index_service.control.reattach()); } => {}
                 }
-                crate::claude_notify::start(&index_service)
+                crate::claude_notify::start(&index_service);
+                crate::coordination::messages::start(&index_service);
+                crate::dispatch_queue::start(&index_service.control);
+                return Some(crate::coordination::observers::start(&index_service));
             }
             Ok(Ok(())) => {}
             result => {
                 crate::logs::record("ERROR", &format!("Index startup failed: {result:?}"), None)
             }
         }
+        None
     });
-    crate::coordination::messages::start(&service);
-    crate::dispatch_queue::start(&service.control);
-    let coordination = crate::coordination::observers::start(&service);
     let startup_service = service.clone();
     let startup = tokio::spawn(async move {
         tokio::join!(
@@ -861,9 +888,10 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
     service.begin_shutdown();
     service.control.stop_waits();
     crate::kernel::derived_index::cancel();
-    let _ = index_startup.await;
-    coordination.abort();
-    let _ = coordination.await;
+    if let Ok(Some(coordination)) = index_startup.await {
+        coordination.abort();
+        let _ = coordination.await;
+    }
     startup.abort();
     let _ = startup.await;
     monitor.abort();

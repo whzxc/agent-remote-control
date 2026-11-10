@@ -220,13 +220,6 @@ impl Service {
         if !index.exists() {
             save(&index, &json!([]))?;
         }
-        if let Err(error) = crate::kernel::results::prune() {
-            crate::logs::record(
-                "WARN",
-                &format!("Cannot prune temporary outputs: {error}"),
-                None,
-            );
-        }
         if let Err(error) = crate::ingress::prune_tunnel_versions() {
             crate::logs::record(
                 "WARN",
@@ -295,6 +288,7 @@ impl Service {
     #[cfg(feature = "test-fixture")]
     pub fn fixture(binary: PathBuf) -> Result<Arc<Self>> {
         crate::sources::initialize()?;
+        crate::sources::migrate_history()?;
         let mut service = Self::new()?;
         let service_mut = Arc::get_mut(&mut service).unwrap();
         service_mut.control = Control::new(binary);

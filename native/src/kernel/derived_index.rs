@@ -5,6 +5,7 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::time::{Duration, Instant};
 
 const VERSION: u32 = 1;
 const BATCH: usize = 64;
@@ -77,6 +78,9 @@ fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     serde_json::from_slice(&bytes).map_err(|e| e.to_string())
 }
 fn current(owner: &Path) -> Result<Current> {
+    if directory(owner).join("invalid").exists() {
+        return Err("DERIVED_INDEX_INVALIDATED: rebuild required".into());
+    }
     let current: Current = read(&directory(owner).join("current.json"))?;
     if current.version != VERSION || uuid::Uuid::parse_str(&current.generation).is_err() {
         return Err("DERIVED_INDEX_VERSION: rebuild required".into());
@@ -138,12 +142,13 @@ fn commit(path: &Path, row: Option<Value>) -> Result<()> {
     }
     Ok(())
 }
-/// One-time source migration runs under Core ownership before indexes are opened.
-pub(crate) fn invalidate(path: &Path) -> Result<()> {
-    available(path.parent().unwrap())?;
-    let writer = writer(path.parent().unwrap());
+/// A whole-owner migration invalidates once before its first canonical change.
+pub(crate) fn invalidate_owner(owner: &Path) -> Result<()> {
+    available(owner)?;
+    let writer = writer(owner);
     let _lock = writer.lock().map_err(|e| e.to_string())?;
-    mark(path)
+    atomic(&directory(owner).join("invalid"), b"migration")?;
+    sync_dir(owner)
 }
 /// Failure leaves this key invalidated, including failure after canonical publication.
 pub(crate) fn change<T>(
@@ -153,7 +158,10 @@ pub(crate) fn change<T>(
     available(path.parent().unwrap())?;
     let writer = writer(path.parent().unwrap());
     let _lock = writer.lock().map_err(|e| e.to_string())?;
-    mark(path)?;
+    let migrating = INITIALIZER.get() && directory(path.parent().unwrap()).join("invalid").exists();
+    if !migrating {
+        mark(path)?;
+    }
     let (result, row) = work()?;
     if path.exists() {
         std::fs::File::open(path)
@@ -161,7 +169,9 @@ pub(crate) fn change<T>(
             .map_err(|e| e.to_string())?;
     }
     sync_dir(path.parent().unwrap())?;
-    cost::sync(Owner::IndexUpdate, Reason::Dirty, || commit(path, row))?;
+    if !migrating {
+        cost::sync(Owner::IndexUpdate, Reason::Dirty, || commit(path, row))?;
+    }
     Ok(result)
 }
 /// Watcher repair or scheduling replaces one record, never clears an unfinished owner write.
@@ -196,18 +206,33 @@ pub(crate) fn update(path: &Path, row: Option<Value>) -> Result<()> {
     mark(path)?;
     cost::sync(Owner::IndexUpdate, Reason::Dirty, || commit(path, row))
 }
-fn canonical(path: &Path, project: &impl Fn(Value) -> Result<Value>) -> Result<Option<Entry>> {
+#[derive(Default)]
+struct Profile {
+    read: Duration,
+    project: Duration,
+    write: Duration,
+    verify: Duration,
+}
+fn canonical(
+    path: &Path,
+    project: &impl Fn(Value) -> Result<Value>,
+    profile: &mut Profile,
+) -> Result<Option<Entry>> {
     cost::rows(1);
     if !path.exists() {
         return Ok(None);
     }
+    let started = Instant::now();
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    profile.read += started.elapsed();
     cost::bytes_read(bytes.len());
     cost::bytes_parsed(bytes.len());
-    match serde_json::from_slice(&bytes)
+    let started = Instant::now();
+    let projected = serde_json::from_slice(&bytes)
         .map_err(|e| e.to_string())
-        .and_then(project)
-    {
+        .and_then(project);
+    profile.project += started.elapsed();
+    match projected {
         Ok(row) => Ok(Some(Entry {
             stamp: Stamp::read(path)?,
             row,
@@ -243,14 +268,17 @@ fn cleanup(owner: &Path, keep: &Path) -> Result<()> {
     Ok(())
 }
 /// Core owns migration before observation. Each batch holds at most 64 canonical paths.
-pub(crate) fn open(
+pub(crate) fn open<T>(
     owner: &Path,
     seed: Owner,
     adopt_cost: Owner,
     selected: impl Fn(&Path) -> bool,
     validate: impl Fn(&Value) -> bool,
     project: impl Fn(Value) -> Result<Value>,
-) -> Result<BTreeMap<String, Entry>> {
+    install: impl FnOnce(BTreeMap<String, Entry>) -> Result<T>,
+) -> Result<T> {
+    let started = Instant::now();
+    let mut profile = Profile::default();
     let writer = writer(owner);
     let _lock = writer.lock().map_err(|e| e.to_string())?;
     private_dir(owner)?;
@@ -260,6 +288,7 @@ pub(crate) fn open(
         .map_err(|e| e.to_string())?
         .map(|e| e.map_err(|e| e.to_string()).and_then(|e| key(&e.path())))
         .collect::<Result<Vec<_>>>()?;
+    let adopting = Instant::now();
     let adopted = cost::sync(adopt_cost, Reason::Startup, || -> Result<_> {
         let current = current(owner)?;
         let rows = read_rows(&directory(owner).join(&current.generation))?;
@@ -272,6 +301,8 @@ pub(crate) fn open(
         }
         Ok((current, rows))
     });
+    let adopt = adopting.elapsed();
+    let rebuilt = adopted.is_err();
     let (mut current, mut rows) = match adopted {
         Ok(result) => result,
         Err(_) => cost::sync(seed, Reason::Startup, || -> Result<_> {
@@ -293,8 +324,9 @@ pub(crate) fn open(
                 for item in batch {
                     let path = item.path();
                     if selected(&path) {
-                        if let Some(row) = canonical(&path, &project)? {
+                        if let Some(row) = canonical(&path, &project, &mut profile)? {
                             let name = key(&path)?;
+                            let writing = Instant::now();
                             let bytes = serde_json::to_vec(&row).map_err(|e| e.to_string())?;
                             // Unpublished derived data is disposable. Only the manifest is
                             // durable; missing/torn entries after a power loss rebuild.
@@ -302,19 +334,19 @@ pub(crate) fn open(
                                 .map_err(|e| e.to_string())?;
                             hashes.insert(name.clone(), hash(&bytes));
                             rows.insert(name, row);
+                            profile.write += writing.elapsed();
                         }
                     }
                 }
                 cost::scan_set(rows.len());
-                if CANCELLED.load(std::sync::atomic::Ordering::Relaxed) {
-                    return Err("INDEX_STARTUP_CANCELLED".into());
-                }
+                check_cancelled()?;
                 std::thread::yield_now();
                 #[cfg(test)]
                 if INTERRUPT_REBUILD.replace(false) {
                     return Err("INTERRUPTED_INDEX_REBUILD".into());
                 }
             }
+            let verifying = Instant::now();
             // Verify count and bytes without parsing all projected JSON a second time.
             for (name, expected) in &hashes {
                 let bytes = std::fs::read(generation.join(name)).map_err(|e| e.to_string())?;
@@ -331,24 +363,24 @@ pub(crate) fn open(
                 return Err("DERIVED_INDEX_READBACK_FAILED".into());
             }
             sync_dir(&generation)?;
+            profile.verify += verifying.elapsed();
             let current = Current {
                 version: VERSION,
                 generation: generation_id,
                 count: rows.len(),
             };
-            write(&directory(owner).join("current.json"), &current)?;
-            sync_dir(owner)?;
             Ok((current, rows))
         })?,
     };
     let generation = directory(owner).join(&current.generation);
+    let repairing = Instant::now();
     cost::sync(Owner::IndexRepair, Reason::Startup, || -> Result<()> {
         for name in dirty_keys {
             let path = owner.join(&name);
-            if selected(&path) {
+            if !rebuilt && selected(&path) {
                 let stamp = Stamp::read(&path)?;
                 if !rows.get(&name).is_some_and(|row| row.stamp == stamp) {
-                    let row = canonical(&path, &project)?;
+                    let row = canonical(&path, &project, &mut profile)?;
                     replace(&generation, &name, row.as_ref())?;
                     if let Some(row) = row {
                         rows.insert(name, row);
@@ -358,18 +390,56 @@ pub(crate) fn open(
                 }
             }
         }
-        // Publish repaired count before clearing any markers, including create/delete crashes.
-        if current.count != rows.len() {
-            current.count = rows.len();
-            write(&directory(owner).join("current.json"), &current)?;
-        }
-        for item in std::fs::read_dir(&dirty).map_err(|e| e.to_string())? {
-            clear(&owner.join(key(&item.map_err(|e| e.to_string())?.path())?))?;
-        }
+        current.count = rows.len();
         Ok(())
     })?;
+    let repair = repairing.elapsed();
+    let cleaning = Instant::now();
     cleanup(owner, &generation)?;
-    Ok(rows)
+    let cleanup = cleaning.elapsed();
+    let loading = Instant::now();
+    let loaded = install(rows)?;
+    let load = loading.elapsed();
+    check_cancelled()?;
+    let publishing = Instant::now();
+    // Callers hold their resident-index lock through this call and insertion. Readers
+    // checking availability wait on this gate until durable publish and installation
+    // agree. Each owner opens independently of the remaining startup work.
+    let mut preparing = PREPARING.lock().unwrap();
+    write(&directory(owner).join("current.json"), &current)?;
+    let clearing = Instant::now();
+    for item in std::fs::read_dir(&dirty).map_err(|e| e.to_string())? {
+        std::fs::remove_file(item.map_err(|e| e.to_string())?.path()).map_err(|e| e.to_string())?;
+    }
+    sync_dir(&dirty)?;
+    let clear_markers = clearing.elapsed();
+    let invalid = directory(owner).join("invalid");
+    if invalid.exists() {
+        std::fs::remove_file(invalid).map_err(|e| e.to_string())?;
+    }
+    sync_dir(&directory(owner))?;
+    sync_dir(owner)?;
+    preparing.remove(&super::file_changes::physical(owner));
+    drop(preparing);
+    let publish = publishing.elapsed();
+    crate::logs::record(
+        "INFO",
+        &format!(
+            "Index startup {}",
+            json!({
+                "owner": if seed == Owner::NotificationSeed {"notifications"} else {"receipts"},
+                "mode": if rebuilt {"rebuild"} else {"adopt"}, "rows":current.count,
+                "readMs":profile.read.as_millis(), "projectMs":profile.project.as_millis(),
+                "writeMs":profile.write.as_millis(), "verifyMs":profile.verify.as_millis(),
+                "repairMs":repair.as_millis(), "loadMs":load.as_millis(),
+                "publishMs":publish.as_millis(), "clearMarkersMs":clear_markers.as_millis(),
+                "cleanupMs":cleanup.as_millis(), "adoptMs":adopt.as_millis(),
+                "totalMs":started.elapsed().as_millis()
+            })
+        ),
+        None,
+    );
+    Ok(loaded)
 }
 
 #[cfg(test)]
@@ -430,29 +500,33 @@ pub(crate) fn available(owner: &Path) -> Result<()> {
     }
     Ok(())
 }
+pub(crate) fn prepare(owners: &[PathBuf]) {
+    PREPARING
+        .lock()
+        .unwrap()
+        .extend(owners.iter().map(|p| super::file_changes::physical(p)));
+    CANCELLED.store(false, std::sync::atomic::Ordering::Relaxed);
+}
 pub(crate) fn background(
     owners: Vec<PathBuf>,
     work: impl FnOnce() -> Result<()> + Send + 'static,
 ) -> tokio::task::JoinHandle<Result<()>> {
-    let owners: Vec<_> = owners
-        .iter()
-        .map(|p| super::file_changes::physical(p))
-        .collect();
-    PREPARING.lock().unwrap().extend(owners.clone());
-    CANCELLED.store(false, std::sync::atomic::Ordering::Relaxed);
+    prepare(&owners);
     tokio::task::spawn_blocking(move || {
         INITIALIZER.set(true);
         let result = work();
         INITIALIZER.set(false);
-        if result.is_ok() {
-            let mut preparing = PREPARING.lock().unwrap();
-            for owner in owners {
-                preparing.remove(&owner);
-            }
-        }
         result
     })
 }
 pub(crate) fn cancel() {
     CANCELLED.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub(crate) fn check_cancelled() -> Result<()> {
+    if CANCELLED.load(std::sync::atomic::Ordering::Relaxed) {
+        Err("INDEX_STARTUP_CANCELLED".into())
+    } else {
+        Ok(())
+    }
 }

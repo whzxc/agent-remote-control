@@ -70,26 +70,28 @@ fn receipt(path: &Path) -> bool {
 }
 impl Index {
     fn open(directory: &Path) -> Result<Self> {
-        let rows = crate::kernel::derived_index::open(
+        crate::kernel::derived_index::open(
             directory,
             Owner::ReceiptSeed,
             Owner::ReceiptAdopt,
             receipt,
             Value::is_object,
             summary,
-        )?;
-        let mut index = Self::default();
-        index.watch.add(&directory.join(".index-watch"));
-        for (key, entry) in rows {
-            index.rows.insert(
-                directory.join(key),
-                Summary {
-                    stamp: entry.stamp,
-                    row: entry.row,
-                },
-            );
-        }
-        Ok(index)
+            |rows| {
+                let mut index = Self::default();
+                index.watch.add(&directory.join(".index-watch"));
+                for (key, entry) in rows {
+                    index.rows.insert(
+                        directory.join(key),
+                        Summary {
+                            stamp: entry.stamp,
+                            row: entry.row,
+                        },
+                    );
+                }
+                Ok(index)
+            },
+        )
     }
     fn refresh(&mut self, path: &Path) -> Result<()> {
         let stamp = Stamp::read(path)?;

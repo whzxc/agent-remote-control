@@ -124,29 +124,31 @@ pub(super) fn restart_due(dir: &Path) -> Result<Vec<(Arc<Binding>, bool, bool)>>
 }
 impl Index {
     fn open(dir: &Path) -> Result<Self> {
-        let rows = crate::kernel::derived_index::open(
+        crate::kernel::derived_index::open(
             &dir.join("tasks"),
             Owner::NotificationSeed,
             Owner::NotificationAdopt,
             |path| path.extension().is_some_and(|v| v == "json"),
             |value| serde_json::from_value::<Binding>(value["binding"].clone()).is_ok(),
             |value| projection(&serde_json::from_value(value).map_err(|e| e.to_string())?),
-        )?;
-        let mut index = Self::default();
-        index.watch.add(&dir.join("tasks/.index-watch"));
-        index.watch.add(&dir.join("subscriptions/state.json"));
-        for (_, row) in rows {
-            let value = row.row;
-            let b: Binding = serde_json::from_value(value["binding"].clone())
-                .map_err(|e| format!("INVALID_BINDING_INDEX: {e}"))?;
-            let key = path_in(dir, &b.thread_id, &b.turn_id);
-            index.put(dir, Arc::new(b), false);
-            index.rows.get_mut(&key).unwrap().stamp = row.stamp;
-            if value["scheduled"] == true {
-                index.delivery.set(&key, value["deliveryAt"].as_i64());
-            }
-        }
-        Ok(index)
+            |rows| {
+                let mut index = Self::default();
+                index.watch.add(&dir.join("tasks/.index-watch"));
+                index.watch.add(&dir.join("subscriptions/state.json"));
+                for (_, row) in rows {
+                    let value = row.row;
+                    let b: Binding = serde_json::from_value(value["binding"].clone())
+                        .map_err(|e| format!("INVALID_BINDING_INDEX: {e}"))?;
+                    let key = path_in(dir, &b.thread_id, &b.turn_id);
+                    index.put(dir, Arc::new(b), false);
+                    index.rows.get_mut(&key).unwrap().stamp = row.stamp;
+                    if value["scheduled"] == true {
+                        index.delivery.set(&key, value["deliveryAt"].as_i64());
+                    }
+                }
+                Ok(index)
+            },
+        )
     }
     fn latest(&self, b: &Binding) -> Option<&(i64, Key)> {
         self.scopes.get(&scope(b))?.last()

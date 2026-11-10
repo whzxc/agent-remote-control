@@ -29,7 +29,7 @@ fn cache() -> Result<&'static RwLock<Cache>> {
 }
 /// Called once after the state lock, before serving requests.
 pub fn initialize() -> Result<()> {
-    let mut store = migrate()?;
+    let mut store = prepare_migration()?;
     let previous = store.clone();
     reconcile(
         store["sources"]
@@ -1038,13 +1038,13 @@ fn disambiguate_migration_labels(rows: &mut [Value]) {
 }
 
 /// Restartable one-time conversion. Persist identities before rewriting references.
-fn migrate() -> Result<Value> {
+fn prepare_migration() -> Result<Value> {
     let mut store = read()?;
     if store["version"] == MIGRATION_VERSION {
         return Ok(store);
     }
     let pref_path = root().join("ui-preferences.json");
-    let mut prefs = if pref_path.exists() {
+    let prefs = if pref_path.exists() {
         load(&pref_path)?
     } else {
         json!({"values":{}})
@@ -1132,6 +1132,23 @@ fn migrate() -> Result<Value> {
     if store != before_labels {
         save(&path(), &store)?;
     }
+    Ok(store)
+}
+
+/// History conversion runs after the listener, under the Core lock and owner gates.
+pub(crate) fn migrate_history() -> Result<()> {
+    let store = cache()?.read().map_err(|e| e.to_string())?.current.clone();
+    if store["version"] == MIGRATION_VERSION {
+        return Ok(());
+    }
+    // One durable boundary per owner replaces the old per-record dirty sweep.
+    for owner in [
+        root(),
+        root().join("agents/requests"),
+        root().join("notifications/tasks"),
+    ] {
+        crate::kernel::derived_index::invalidate_owner(&owner)?;
+    }
     let rows = store["sources"].as_array().ok_or("Invalid source store")?;
     // Explicit owned stores only: never rewrite upstream task/user content.
     for dir in [
@@ -1146,6 +1163,7 @@ fn migrate() -> Result<Value> {
     }
     // Codex operation receipts live directly under the state root.
     for e in std::fs::read_dir(root()).map_err(|e| e.to_string())? {
+        crate::kernel::derived_index::check_cancelled()?;
         let p = e.map_err(|e| e.to_string())?.path();
         if p.extension().is_some_and(|e| e == "json")
             && p.file_stem()
@@ -1157,14 +1175,20 @@ fn migrate() -> Result<Value> {
     }
     migrate_notification_keys()?;
     migrate_dispatch_origins()?;
-    if let Some(values) = prefs["values"].as_object_mut() {
-        values.remove("arc.approved-source-labels");
-    }
+    let pref_path = root().join("ui-preferences.json");
     if pref_path.exists() {
-        save(&pref_path, &prefs)?;
+        let mut prefs = load(&pref_path)?;
+        if prefs["values"]
+            .as_object_mut()
+            .and_then(|v| v.remove("arc.approved-source-labels"))
+            .is_some()
+        {
+            save(&pref_path, &prefs)?;
+        }
     }
-    Ok(store)
+    Ok(())
 }
+
 fn unique<'a>(rows: &'a [Value], ingress: &str) -> Option<&'a Value> {
     let mut matches = rows.iter().filter(|s| s["ingressId"] == ingress);
     let one = matches.next()?;
@@ -1179,6 +1203,7 @@ fn migrate_files(dir: &Path, rows: &[Value]) -> Result<()> {
         return Ok(());
     }
     for e in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+        crate::kernel::derived_index::check_cancelled()?;
         let p = e.map_err(|e| e.to_string())?.path();
         if p.file_name().is_some_and(|name| name == ".activity-index") {
             continue;
@@ -1209,6 +1234,7 @@ fn migrate_file(path: &Path, rows: &[Value]) -> Result<()> {
     let Some(mut value) = legacy_record(path)? else {
         return Ok(());
     };
+    let previous = value.clone();
     fn visit(v: &mut Value, rows: &[Value]) {
         match v {
             Value::Object(o) => {
@@ -1346,13 +1372,10 @@ fn migrate_file(path: &Path, rows: &[Value]) -> Result<()> {
             return Ok(());
         }
     }
-    if parent == root()
-        || parent.ends_with("agents/requests")
-        || parent.ends_with("notifications/tasks")
-    {
-        crate::kernel::derived_index::invalidate(path)?;
+    if value != previous {
+        save(path, &value)?;
     }
-    save(path, &value)
+    Ok(())
 }
 
 fn reconcile(rows: &mut Vec<Value>) -> Result<()> {
@@ -1411,6 +1434,7 @@ fn migrate_dispatch_origins() -> Result<()> {
             continue;
         }
         for e in std::fs::read_dir(folder).map_err(|e| e.to_string())? {
+            crate::kernel::derived_index::check_cancelled()?;
             let p = e.map_err(|e| e.to_string())?.path();
             if p.extension().is_none_or(|e| e != "json") {
                 continue;

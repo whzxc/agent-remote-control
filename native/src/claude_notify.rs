@@ -2509,7 +2509,14 @@ pub(crate) async fn migrate() -> Result<()> {
         .filter(|e| e.path().extension().is_some_and(|v| v == "json"))
         .map(|e| e.path())
         .collect::<Vec<_>>();
+    let old_control = dir.join("control/state.json");
+    let old_events = dir.join("mcp-events/state.json");
+    if old_tasks.is_empty() && !old_control.exists() && !old_events.exists() {
+        return Ok(());
+    }
+    crate::kernel::derived_index::invalidate_owner(&dir.join("tasks"))?;
     for path in &old_tasks {
+        crate::kernel::derived_index::check_cancelled()?;
         let Some(b) = read_binding(path)? else {
             continue;
         };
@@ -2517,18 +2524,23 @@ pub(crate) async fn migrate() -> Result<()> {
             persist(&dir, &b)?;
         }
     }
-    let old_control = dir.join("control/state.json");
-    let old_events = dir.join("mcp-events/state.json");
-    if old_tasks.is_empty() && !old_control.exists() && !old_events.exists() {
-        return Ok(());
-    }
     let new_control = dir.join("subscriptions/state.json");
     let mut state = if !new_control.exists() && old_control.exists() {
         State::decode(load(&old_control)?)?
     } else {
         State::load(&dir)?
     };
-    let mut all = records(&dir)?;
+    // Legacy conversion must finish before the first resident index is published.
+    let mut all = Vec::new();
+    for entry in std::fs::read_dir(dir.join("tasks")).map_err(|e| e.to_string())? {
+        crate::kernel::derived_index::check_cancelled()?;
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if path.extension().is_some_and(|v| v == "json") {
+            if let Some(binding) = read_binding(&path)? {
+                all.push(binding);
+            }
+        }
+    }
     if old_events.exists() {
         let old = load(&old_events)?;
         for row in old["deliveries"].as_array().into_iter().flatten() {

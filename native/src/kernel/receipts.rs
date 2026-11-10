@@ -416,6 +416,28 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn interrupted_owner_migration_rebuilds_changed_provenance_before_projection() {
+        // Regression: interrupted source conversion left a published index with stale canonical source references.
+        let fixture = Sandbox::new();
+        let mut receipt = fixture.receipt(true);
+        fixture.store.seed().unwrap();
+        crate::kernel::derived_index::invalidate_owner(&fixture.dir).unwrap();
+        receipt["origin"] = json!({"sourceId":"migrated-source","ingressId":"fixture-ingress"});
+        std::fs::write(fixture.store.path(string(&receipt, "requestId")).unwrap(), receipt.to_string()).unwrap();
+        projection::forget(&fixture.dir);
+        let control = control::Control::new(PathBuf::new());
+        let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+        fixture.store.seed().unwrap();
+        let rebuilt = control.tool("runtime_metrics", json!({})).await.unwrap();
+        assert_eq!(delta(&before, &rebuilt, "receiptSeed", "rowsVisited"), 1);
+        let read = fixture.store.read_for_projection(string(&receipt, "requestId"), "fixture-session").unwrap();
+        assert_eq!(read["origin"], receipt["origin"]);
+        projection::forget(&fixture.dir);
+        fixture.store.seed().unwrap();
+        let adopted = control.tool("runtime_metrics", json!({})).await.unwrap();
+        assert_eq!(delta(&rebuilt, &adopted, "receiptSeed", "bytesParsed"), 0);
+    }
+    #[tokio::test]
     async fn oversized_receipt_payload_does_not_evict_its_summary() {
         // Regression: the 32 MiB source-byte cache limit forced unchanged large receipts to be decoded on every task poll.
         let fixture = Sandbox::new();

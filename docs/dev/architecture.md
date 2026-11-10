@@ -125,16 +125,23 @@ existing summary projection. Canonical files remain the authoritative data.
 Binding persist/removal and receipt reserve/checkpoint sync a per-key dirty marker
 before changing canonical bytes. They sync the canonical write, replace or delete
 the derived entry, publish a changed count, and then clear the marker. Scheduling
-and watcher updates use the same interruption boundary. One-time source migration
-invalidates affected canonical keys and skips the derived directories. A restart repairs dirty
-keys before exposing the index; unchanged stamps avoid duplicate decoding. Retention
+and watcher updates use the same interruption boundary. One-time source and legacy
+notification migrations write a single durable `.activity-index/invalid` marker per
+owner before changing history, skip derived directories, and preserve unchanged
+canonical files. The marker forces reconstruction until that owner publishes
+successfully. A restart repairs dirty keys before exposing the index; unchanged
+stamps avoid duplicate decoding. Retention
 deletes the derived entry together with its canonical binding. No retained snapshot
 keeps deleted entries.
 
 A missing, incompatible or corrupt index triggers reconstruction in batches of at
 most 64 canonical paths. Reconstruction writes a fresh generation without per-row fsync, verifies its
-count and content hashes without decoding the projections again, and durably
-publishes `current.json`. Derived generation files are disposable: a missing or
+count and content hashes without decoding the projections again, derives the
+resident partitions, and durably publishes `current.json`. Availability and publish
+share a gate while the caller holds the resident-index lock. Each owner becomes
+readable at its publish, independently of other owners. Dirty-marker cleanup syncs
+the directory once per startup instead of once per retained key. Derived generation
+files are disposable: a missing or
 torn file after power loss triggers reconstruction from durable canonical data.
 The loaded rows derive latest scopes and deadline partitions before observation.
 Interrupted generations are never adopted. Successful adoption or reconstruction
@@ -145,6 +152,15 @@ and due retention keys. Pending schedules are recomputed against current control
 Old notification-layout migration scans bindings only when old-layout files exist.
 No SQLite store or additional retention policy is involved.
 
+Before listening, Core prepares only source identities/configuration and three
+owner gates; it never enumerates retained bindings, receipts, generations or dirty
+keys. Source history conversion, legacy notification conversion, output pruning,
+index adoption/reconstruction, and execution reattachment run after the listener
+and lease service are ready, under the same Core ownership lock. Reads of a
+preparing owner return `INDEX_NOT_READY`; health, guide and unrelated queries stay
+available. Notification, dispatch and coordination recovery wait for migration.
+Shutdown cancels history batches and joins initialization before releasing ownership.
+
 `cost.notificationSeed` and `cost.receiptSeed` report canonical rebuild input.
 `cost.notificationAdopt` and `cost.receiptAdopt` report derived entry reads,
 while rebuild byte reads also include hash verification. Normal adoption has zero seed bytes. Changed-key
@@ -152,7 +168,10 @@ crash repair and bounded watcher repair use `cost.indexRepair`. Derived per-key
 writes use `cost.indexUpdate`, separately from canonical projection reads. `caches.notificationBindings.activityIndex` exposes partition
 sizes, pending bindings, latest resumable scopes, dirty keys and watcher coverage.
 `indexWatches.coverageGaps` counts failed watchers. Counters contain no record keys
-or task content. Coordination startup replay still reads retained owners for
+or task content. Content-free `Index startup` logs separate canonical reads,
+projection, derived writes, hash verification, repair, resident loading, publication,
+cleanup and adoption time. Source history migration has its own duration.
+Coordination startup replay still reads retained owners for
 pending transitions using its own uncached path.
 
 The JSON cache uses an ordered LRU index to avoid scanning every resident entry
