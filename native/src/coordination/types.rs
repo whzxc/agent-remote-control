@@ -326,10 +326,23 @@ pub struct EvidenceRef {
     pub id: String,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DispatchAssociation {
+    pub resources: Vec<ResourceKey>,
+    pub project: String,
+    pub lane: String,
+    pub source: String,
+    pub session: String,
+    pub registry_observed_at: Option<String>,
+}
+
 /// Typed observation details. No diagnostic strings or task content are accepted.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Observation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch_association: Option<DispatchAssociation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

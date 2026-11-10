@@ -135,6 +135,10 @@ impl Link {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Record {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dispatch_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    association: Option<DispatchAssociation>,
     pub revision: u64,
     pub owner: Principal,
     owner_session_id: Option<String>,
@@ -203,7 +207,13 @@ impl Record {
             "inactivityAgeSeconds":age,"observedAt":timestamp(clock.utc),"activityCoverage":coverage,"state":self.state});
         match &self.owner {
             Principal::Source { source_id, .. } => result["ownerSourceId"] = json!(source_id),
-            _ => result["localOrigin"] = json!(true),
+            Principal::LocalAuthority => result["localOrigin"] = json!(true),
+            Principal::Arc => result["ownerSourceId"] = Value::Null,
+        }
+        if let Some(dispatch) = &self.dispatch_id {
+            result["dispatchId"] = json!(dispatch);
+            result["provenance"] = json!("dispatch-derived");
+            result["association"] = json!(self.association);
         }
         if let Some(intent) = &self.intent {
             result["intent"] = json!(intent);
@@ -250,6 +260,9 @@ pub(super) struct Store {
     stamp: Option<crate::kernel::file_cache::Stamp>,
     live_notices: std::collections::BTreeSet<usize>,
     live_blockers: std::collections::BTreeSet<usize>,
+    resource_notices: BTreeMap<ResourceKey, std::collections::BTreeSet<usize>>,
+    resource_blockers: BTreeMap<ResourceKey, std::collections::BTreeSet<usize>>,
+    dispatch_notices: BTreeMap<String, usize>,
     retention_at: Option<i64>,
     maintained: Option<(Vec<String>, i64, Option<i64>)>,
 }
@@ -385,6 +398,9 @@ impl Store {
             stamp: None,
             live_notices: Default::default(),
             live_blockers: Default::default(),
+            resource_notices: Default::default(),
+            resource_blockers: Default::default(),
+            dispatch_notices: Default::default(),
             retention_at: None,
             maintained: None,
         };
@@ -417,6 +433,33 @@ impl Store {
         Ok(crate::kernel::file_cache::Stamp::read(&self.path)? != self.stamp)
     }
     fn reindex(&mut self) {
+        self.resource_notices.clear();
+        self.resource_blockers.clear();
+        self.dispatch_notices.clear();
+        for (index, row) in self.state.notices.iter().enumerate() {
+            if let Some(dispatch) = &row.dispatch_id {
+                self.dispatch_notices.insert(dispatch.clone(), index);
+            }
+            if row.state == "active" {
+                for resource in &row.resources {
+                    self.resource_notices
+                        .entry(resource.clone())
+                        .or_default()
+                        .insert(index);
+                }
+            }
+        }
+        for (index, row) in self.state.blockers.iter().enumerate() {
+            if row.state != "cleared" {
+                for resource in &row.resources {
+                    self.resource_blockers
+                        .entry(resource.clone())
+                        .or_default()
+                        .insert(index);
+                }
+            }
+        }
+
         self.live_notices = self
             .state
             .notices
@@ -816,22 +859,90 @@ impl Store {
         exclude: Option<&str>,
         clock: Clock,
     ) -> Vec<Value> {
-        self.state.notices.iter().filter(|n| n.state == "active" && Some(n.id.as_str()) != exclude)
-            .flat_map(|n| n.resources.iter().filter(|r| resources.contains(r)).map(move |r| json!({"noticeId":n.id,"resource":r,"state":n.state,"lastActiveAt":timestamp(n.last_active_at),"inactivityAgeSeconds":clock.age(n.last_active_at)}))).collect()
+        self.lifecycle_conflicts(resources, None, clock)
+            .into_iter()
+            .filter(|c| c["id"].as_str() != exclude || exclude.is_none())
+            .collect()
     }
+
     pub fn lifecycle_conflicts(
         &self,
         resources: &[ResourceKey],
         source: Option<&str>,
         clock: Clock,
     ) -> Vec<Value> {
-        let owned: std::collections::HashSet<_> = self.state.notices.iter()
-            .filter(|n| matches!(&n.owner, Principal::Source { source_id, .. } if Some(source_id.as_str()) == source))
-            .map(|n| n.id.as_str()).collect();
-        self.conflicts(resources, None, clock)
-            .into_iter()
-            .filter(|n| !owned.contains(crate::string(n, "noticeId")))
-            .collect()
+        let mut result = Vec::new();
+        for resource in resources {
+            for (kind, indices) in [
+                ("notice", self.resource_notices.get(resource)),
+                ("blocker", self.resource_blockers.get(resource)),
+            ] {
+                for index in indices.into_iter().flatten() {
+                    let row = if kind == "notice" {
+                        &self.state.notices[*index]
+                    } else {
+                        &self.state.blockers[*index]
+                    };
+                    if matches!(&row.owner, Principal::Source { source_id, .. } if Some(source_id.as_str()) == source)
+                    {
+                        continue;
+                    }
+                    if result.len() == 100 {
+                        return result;
+                    }
+                    let mut conflict = json!({"id":row.id,"kind":kind,"resource":resource,"state":row.state,"lastActiveAt":timestamp(row.last_active_at),"inactivityAgeSeconds":clock.age(row.last_active_at),"boardRead":{"via":"query","op":"board","args":{"id":row.id,"view":"full"}}});
+                    conflict[if kind == "notice" {
+                        "noticeId"
+                    } else {
+                        "blockerId"
+                    }] = json!(row.id);
+                    result.push(conflict);
+                }
+            }
+        }
+        result
+    }
+    pub fn advisory(&self, resources: &[ResourceKey], source: Option<&str>, clock: Clock) -> Value {
+        let conflicts = self.lifecycle_conflicts(resources, source, clock);
+        json!({"conflictCoverage":if conflicts.len()==100 {"partial"}else{"observed"},"conflicts":conflicts,"boardRevision":{"epoch":self.state.epoch,"revision":self.state.revision},"boardRead":{"via":"query","op":"board","args":{}},"observedAt":timestamp(clock.utc)})
+    }
+    /// The deterministic dispatch key and owner checkpoint make replays idempotent.
+    /// A terminal notice is never reopened by a delayed acceptance projection.
+    pub fn dispatch_notice(&mut self, input: &EventInput, clock: Clock) -> Result<()> {
+        let Some(dispatch) = input
+            .evidence_refs
+            .iter()
+            .find(|r| matches!(r.kind, EvidenceKind::Request))
+            .map(|r| r.id.clone())
+        else {
+            return Ok(());
+        };
+        if self.dispatch_notices.contains_key(&dispatch) {
+            return Ok(());
+        }
+        self.transaction(clock, |s| {
+            s.prune(clock);
+            if s.state.notices.len() >= 256 { return Err("COORDINATION_CAPACITY: retain dispatch projection until bulletin capacity is available".into()); }
+            let owner = input.origin.clone().unwrap_or(Principal::Arc);
+            let association = input.observation.as_ref().and_then(|o|o.dispatch_association.clone()).unwrap_or(DispatchAssociation {
+                source: if input.origin.is_some(){"observed"}else{"unattributed"}.into(),
+                session: "unattributed".into(), project: "unattributed".into(), lane: "unattributed".into(), ..Default::default()
+            });
+            let links = input.thread_refs.iter().filter_map(|thread| {
+                let turn = thread.turn_id.as_ref()?;
+                Some(Link { thread_id:thread.thread_id.clone(), session_binding_id:None, observed_turn_id:Some(turn.clone()), scope_state:"unknown".into(), observed_at:None, terminals:Default::default() })
+            }).collect();
+            let at = input.occurred_at.as_deref().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).map(|at|at.timestamp_millis()).unwrap_or(clock.utc);
+            let row = Record {
+                id:format!("dispatch-{}", hash(&dispatch)), dispatch_id:Some(dispatch), association:Some(association), revision:1, owner, owner_session_id:None,
+                resources:input.resources.clone(), intent:Some("ARC dispatch".into()), expected_duration_seconds:None, thread_links:links,
+                cause_code:None, summary:None, evidence_ids:vec![], fixing_commit:None, reason:None, suggested_next_step:None,
+                created_at:at, last_active_at:at, fresh_activity:false, state:"active".into(), closed_reason:None, ended_at:None, recovery_selection:None, cleared_by:None
+            };
+            s.event(&row, false)?;
+            s.state.notices.push(row);
+            Ok(())
+        })
     }
     pub fn recipient_resources(&self, source: &str) -> Vec<ResourceKey> {
         self.state.notices.iter().filter(|n| n.state == "active")
@@ -1016,6 +1127,8 @@ impl Store {
             }
             let row = Record {
                 id: id(),
+                dispatch_id: None,
+                association: None,
                 revision: 1,
                 owner: actor.clone(),
                 owner_session_id: session.map(str::to_owned),
@@ -1233,6 +1346,9 @@ impl Store {
                     matches!(
                         key.as_str(),
                         "id" | "revision"
+                            | "dispatchId"
+                            | "provenance"
+                            | "association"
                             | "ownerSourceId"
                             | "localOrigin"
                             | "ownerSessionId"

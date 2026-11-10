@@ -1015,3 +1015,257 @@ fn active_observation_cost_is_independent_of_closed_notice_history() {
     }
     assert_eq!(costs, vec![3, 3]);
 }
+
+fn dispatch_fixture(
+    request: &str,
+    mode: &str,
+    origin: Value,
+    association: Value,
+) -> Vec<EventInput> {
+    super::super::observers::inputs_on(
+        super::super::observers::Owner::Dispatch,
+        &json!({"requestId":request,"threadId":"derived-thread","turnId":"first-turn","dispatchMode":mode,"origin":origin,"coordination":{"association":association}}),
+        ResourceKey::parse("host:fixture").unwrap(),
+    ).unwrap()
+}
+fn derived_association() -> Value {
+    let mut association = dispatch::dispatch_association(
+        &json!({"root":"/fixture/lane","commonDir":"/fixture/repo/.git","ref":"refs/heads/wt/worker"}),
+        &json!({"projects":[{"id":"fixture-project","roots":[{"path":"/fixture/repo","commonDir":"/fixture/repo/.git"}]}]}),
+    );
+    association["source"] = json!("observed");
+    association["session"] = json!("unattributed");
+    association
+}
+
+#[test]
+fn accepted_dispatch_and_same_request_retry_project_one_board_notice() {
+    // Regression: accepted ARC dispatches required a second manual notice and had no dispatch-key dedupe.
+    let mut f = Fixture::new();
+    let events = dispatch_fixture(
+        "accepted-request",
+        "new-turn",
+        json!({"sourceId":"source-a"}),
+        derived_association(),
+    );
+    for _ in 0..2 {
+        for event in &events {
+            f.store.dispatch_notice(event, f.clock).unwrap();
+        }
+    }
+    let board = f.call("board", json!({"view":"summary"}));
+    assert_eq!(
+        board["notices"][0]["association"]["session"],
+        "unattributed"
+    );
+    let board = f.call("board", json!({"view":"full"}));
+    let notices = board["notices"].as_array().unwrap();
+    assert_eq!(notices.len(), 1);
+    assert_eq!(notices[0]["dispatchId"], "accepted-request");
+    assert_eq!(notices[0]["ownerSourceId"], "source-a");
+    assert_eq!(notices[0]["threadLinks"][0]["threadId"], "derived-thread");
+    assert_eq!(
+        notices[0]["resources"],
+        json!([
+            "project:fixture-project/main",
+            "lane:fixture-project/worker"
+        ])
+    );
+    assert_eq!(notices[0]["association"]["session"], "unattributed");
+    assert!(notices[0]["ownerSessionId"].is_null());
+    assert!(dispatch_fixture(
+        "steer-request",
+        "steered",
+        json!({"sourceId":"source-a"}),
+        derived_association()
+    )
+    .is_empty());
+}
+
+#[test]
+fn dispatch_advisory_includes_notice_and_blocker_without_preventing_acceptance() {
+    // Regression: dispatch receipts omitted active overlapping notices and uncleared blockers.
+    let mut f = Fixture::new();
+    let notice = f.call("notice_post", json!({"intent":"Fixture work","resources":["project:fixture-project/main"],"expectedDurationSeconds":60}))["notice"].clone();
+    let blocker = f.call("blocker_open", json!({"resources":["lane:fixture-project/worker"],"causeCode":"fixture","summary":"Fixture blocker"}))["blocker"].clone();
+    let resources: Vec<ResourceKey> =
+        serde_json::from_value(derived_association()["resources"].clone()).unwrap();
+    let warning = f.store.advisory(&resources, None, f.clock);
+    assert_eq!(warning["conflicts"].as_array().unwrap().len(), 2);
+    assert!(warning["boardRevision"]["epoch"].is_string());
+    assert!(warning["boardRevision"]["revision"].is_u64());
+    for (id, kind) in [
+        (notice["id"].clone(), "notice"),
+        (blocker["id"].clone(), "blocker"),
+    ] {
+        let conflict = warning["conflicts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .unwrap();
+        assert_eq!(conflict["kind"], kind);
+        assert_eq!(conflict["inactivityAgeSeconds"], 0);
+        let read = f.call("board", conflict["boardRead"]["args"].clone());
+        assert!(!read[if kind == "notice" {
+            "notices"
+        } else {
+            "blockers"
+        }]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    }
+    for event in dispatch_fixture(
+        "overlap-request",
+        "new-turn",
+        json!({"sourceId":"source-b"}),
+        derived_association(),
+    ) {
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    assert_eq!(
+        f.call("board", json!({"view":"full"}))["notices"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn dispatch_missing_and_ambiguous_identity_never_guess_project_or_session() {
+    // Regression: dispatch coordination had no explicit coverage for missing or ambiguous associations.
+    let baseline = json!({"root":"/fixture/repo","ref":"refs/heads/wt/worker","prompt":"Use project:invented/main"});
+    let absent = dispatch::dispatch_association(&baseline, &Value::Null);
+    assert_eq!(absent["project"], "registry-unavailable");
+    assert_eq!(absent["resources"], json!([]));
+    let ambiguous = dispatch::dispatch_association(
+        &baseline,
+        &json!({"projects":[{"id":"one","roots":[{"path":"/fixture/repo"}]},{"id":"two","roots":[{"path":"/fixture/repo"}]}]}),
+    );
+    assert_eq!(ambiguous["project"], "ambiguous");
+    assert_eq!(ambiguous["resources"], json!([]));
+    let mut f = Fixture::new();
+    for event in dispatch_fixture("missing-request", "new-turn", Value::Null, Value::Null) {
+        f.store.dispatch_notice(&event, f.clock).unwrap();
+    }
+    let notice = &f.call("board", json!({"view":"full"}))["notices"][0];
+    assert_eq!(notice["association"]["source"], "unattributed");
+    assert_eq!(notice["association"]["project"], "unattributed");
+    assert_eq!(notice["association"]["session"], "unattributed");
+    assert!(notice["ownerSourceId"].is_null());
+    assert!(notice["ownerSessionId"].is_null());
+}
+
+#[test]
+fn derived_notice_follows_successor_and_late_predecessor_cannot_reopen_it() {
+    // Regression: derived dispatch scopes need the same D1 terminal and successor authority as manual notices.
+    let mut f = Fixture::new();
+    let event = dispatch_fixture(
+        "successor-request",
+        "new-turn",
+        json!({"sourceId":"source-a"}),
+        derived_association(),
+    )
+    .remove(0);
+    f.store.dispatch_notice(&event, f.clock).unwrap();
+    let notice = f.call("board", json!({"view":"full"}))["notices"][0].clone();
+    f.store.observe_event(
+        "derived-thread",
+        "first-turn",
+        Some(&EventStatus::Interrupted),
+        f.clock,
+    );
+    f.store
+        .successor("derived-thread", "first-turn", "next-turn", &f.actor);
+    f.store.observe_event(
+        "derived-thread",
+        "first-turn",
+        Some(&EventStatus::Completed),
+        f.clock,
+    );
+    let current = f.board(&notice["id"]);
+    assert_eq!(current["notices"][0]["state"], "active");
+    assert_eq!(
+        current["notices"][0]["threadLinks"][0]["observedTurnId"],
+        "next-turn"
+    );
+    f.store.observe_event(
+        "derived-thread",
+        "next-turn",
+        Some(&EventStatus::Completed),
+        f.clock,
+    );
+    let closed = f.board(&notice["id"]);
+    assert_eq!(closed["notices"][0]["state"], "closed");
+    f.store.dispatch_notice(&event, f.clock).unwrap();
+    f.store.observe_event(
+        "derived-thread",
+        "first-turn",
+        Some(&EventStatus::Running),
+        f.clock,
+    );
+    assert_eq!(f.board(&notice["id"])["notices"][0]["state"], "closed");
+}
+
+#[test]
+fn dispatch_receipt_replay_refreshes_advisory_without_changing_identity_or_admission() {
+    // Contract: receipt projections preserve dispatch identity while labeling refreshed advisory wire metadata.
+    let request = "replay-request";
+    let receipt = json!({"requestId":request,"operation":"create","state":"completed","threadId":"derived-thread","turnId":"first-turn","coordination":{"association":derived_association(),"admissionBoardRevision":{"epoch":"fixture","revision":1},"freshness":"admission"}});
+    let current = json!({"boardRevision":{"epoch":"fixture","revision":2},"conflictCoverage":"observed","conflicts":[{"noticeId":format!("dispatch-{}",hash(request)),"kind":"notice"},{"blockerId":"peer-blocker","kind":"blocker","resource":"project:fixture-project/main"}]});
+    let mut replay = receipt.clone();
+    replay["coordination"] = dispatch::refreshed_advisory(&receipt, current);
+    let wire = crate::egress::receipt(replay);
+    assert_eq!(wire["requestId"], receipt["requestId"]);
+    assert_eq!(wire["threadId"], receipt["threadId"]);
+    assert_eq!(wire["turnId"], receipt["turnId"]);
+    assert_eq!(wire["state"], "completed");
+    assert_eq!(
+        wire["coordination"]["admissionBoardRevision"]["revision"],
+        1
+    );
+    assert_eq!(wire["coordination"]["boardRevision"]["revision"], 2);
+    assert_eq!(wire["coordination"]["freshness"], "refreshed");
+    assert_eq!(
+        wire["coordination"]["conflicts"].as_array().unwrap().len(),
+        1
+    );
+    assert_eq!(
+        wire["coordination"]["conflicts"][0]["blockerId"],
+        "peer-blocker"
+    );
+}
+
+#[test]
+fn derived_notice_restart_and_inactivity_preserve_dispatch_dedupe() {
+    // Regression: replaying derived acceptance after restart must not renew six-hour inactive work.
+    let mut f = Fixture::new();
+    let event = dispatch_fixture(
+        "inactive-request",
+        "new-turn",
+        json!({"sourceId":"source-a"}),
+        derived_association(),
+    )
+    .remove(0);
+    f.store.dispatch_notice(&event, f.clock).unwrap();
+    let notice = f.call("board", json!({"view":"full"}))["notices"][0].clone();
+    f.store = Store::open(f.path.join("state.json")).unwrap();
+    f.advance(store::INACTIVE_MS);
+    f.store.dispatch_notice(&event, f.clock).unwrap();
+    let withdrawn = f.board(&notice["id"]);
+    assert_eq!(withdrawn["notices"][0]["state"], "withdrawn");
+    assert_eq!(
+        withdrawn["notices"][0]["lastActiveAt"],
+        notice["lastActiveAt"]
+    );
+    f.store.dispatch_notice(&event, f.clock).unwrap();
+    assert_eq!(
+        f.call("board", json!({"view":"full","state":"all"}))["notices"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}

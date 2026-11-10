@@ -51,7 +51,9 @@ impl ReceiptStore {
         Ok(root().join(self.directory).join(format!("{request}.json")))
     }
     pub fn read(&self, request: &str, session: &str) -> Result<Value> {
-        Self::normalize(load(&self.path(request)?)?, session)
+        let mut receipt = Self::normalize(load(&self.path(request)?)?, session)?;
+        crate::coordination::bulletin::dispatch::refresh(&mut receipt);
+        Ok(receipt)
     }
     pub(crate) fn seed(&self) -> Result<()> {
         let path = self.path(&uuid::Uuid::nil().to_string())?;

@@ -907,7 +907,9 @@ feed projection still needs reconciliation; reads and retries reconcile it.
 ## Shared bulletin and blockers
 
 Pull `query board` before multi-step work on shared resources and before land,
-application replacement, `dev:isolated` or push. Post a notice before multi-step work on shared resources.
+application replacement, `dev:isolated` or push. ARC dispatch derives notices automatically.
+Post `notice_post` for shared-resource work outside ARC dispatch, including land,
+replace, `dev:isolated`, push and manual edits.
 Prefer `board` and cursor-based `events` pulls to proactive wakeups.
 
 ```text
@@ -919,6 +921,84 @@ act notice_close({id, reason:owner-closed|completed|cancelled?, requestId?})
 act blocker_open({sessionId?, resources, causeCode, summary, evidenceIds?, requestId?})
 act blocker_clear({id, expectedRevision, fixingCommit?, reason?, evidenceIds, suggestedNextStep, requestId?})
 ```
+
+Accepted new-turn dispatches create one `dispatch-derived` notice keyed by the
+original dispatch `requestId` (`dispatchId` on the board).
+This includes Codex create/send, Agent create/send, native `turn/start` and explicit resume.
+A steer does not create another work scope.
+The durable dispatch descriptor projects through the existing coordination outbox.
+A repeated `requestId` reuses its notice and never reopens a terminal notice.
+Native retries update the evidenced successor scope.
+
+Project association matches the pre-submission `changes` Git baseline against
+registered root identity or Git common-dir identity.
+A unique match produces `project:<id>/main`.
+An evidenced `refs/heads/wt/<name>` baseline also produces `lane:<id>/<name>`.
+Prompt text, titles and project labels never establish identity.
+Missing or ambiguous identity retains a host-scoped notice with explicit coverage.
+Logical board sessions remain unattributed because dispatch arguments carry no
+authenticated logical session handle.
+The native `threadLinks` identify only the dispatched thread and turn.
+
+New-turn dispatch receipts include the following advisory metadata:
+
+```json
+{
+  "coordination": {
+    "association": {
+      "resources": ["project:example/main", "lane:example/worker"],
+      "project": "registered-root",
+      "lane": "git-baseline",
+      "source": "observed",
+      "session": "unattributed",
+      "registryObservedAt": "2026-01-01T00:00:00Z"
+    },
+    "conflicts": [{
+      "id": "notice-example",
+      "noticeId": "notice-example",
+      "kind": "notice",
+      "resource": "project:example/main",
+      "state": "active",
+      "lastActiveAt": "2026-01-01T00:00:00Z",
+      "inactivityAgeSeconds": 12,
+      "boardRead": {"via": "query", "op": "board", "args": {"id": "notice-example", "view": "full"}}
+    }],
+    "conflictCoverage": "observed",
+    "boardRevision": {"epoch": "board-epoch", "revision": 7},
+    "admissionBoardRevision": {"epoch": "board-epoch", "revision": 7},
+    "boardRead": {"via": "query", "op": "board", "args": {}},
+    "observedAt": "2026-01-01T00:00:12Z",
+    "freshness": "admission"
+  }
+}
+```
+
+Admission rechecks the resource index immediately before submitting the turn.
+Conflicts include matching active notices and uncleared blockers, including other
+work from the same source.
+`kind` is `notice` or `blocker`.
+Blocker conflicts use `blockerId` in place of `noticeId`.
+Age is null during clock uncertainty.
+Conflicts never prevent dispatch.
+`boardRevision` contains the bulletin epoch and revision used by the query.
+`admissionBoardRevision` retains the original admission snapshot.
+Receipt reads and same-request retries return `freshness:refreshed` with current
+advisory data and the original dispatch identity.
+The dispatch's own derived notice is omitted from its refreshed conflicts.
+A refreshed advisory does not renew notice activity.
+`conflictCoverage` is `observed`, `partial`, `unknown` or `unattributed`.
+`partial` means the 100-conflict cap was reached.
+`unknown` means the bulletin could not be read.
+`unattributed` means no repository resources could be associated.
+Association `project` is `registered-root`, `ambiguous`, `registry-unavailable` or `unattributed`.
+Association `lane` is `git-baseline`, `not-a-lane` or `unattributed`.
+Association `source` is `observed` or `unattributed`.
+Registry timestamps disclose the age of the last registered identity projection.
+
+Installed-scale limits are 32 projects, 8 roots per project, 256 notices,
+128 blockers, 128 sessions and 100 conflicts per receipt.
+Admission reads the cached project projection and resource indexes.
+Admission does not scan dispatch history, native history or board rows.
 
 All authorized sources can read shared metadata; only owners or built-in local
 authority may mutate a record. Session registration returns an opaque handle;
@@ -953,8 +1033,9 @@ Source revocation or explicit closure ends claims. Closed/withdrawn scopes requi
 a new notice. Terminal metadata is retained for seven days.
 
 Post/update returns advisory `conflicts` containing `noticeId`, `resource`, `state`,
-`lastActiveAt` and `inactivityAgeSeconds`. The same warning shape accompanies
-observable shared-resource operations. Warnings include same-source sessions,
+`lastActiveAt` and `inactivityAgeSeconds`. Conflicts also identify blocker overlaps with `kind`, `id` and `boardRead`.
+Dispatch receipts and observable shared-resource operations additionally return
+`boardRevision` and a board-level `boardRead` action. Warnings include same-source sessions,
 never block execution and grant neither permission nor exclusive ownership.
 Warnings cap at 100 with `conflictCoverage:partial`; pull the paginated board
 for complete metadata. Unknown conflict coverage is not an empty board. Read `board` explicitly before

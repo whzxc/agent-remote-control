@@ -1,4 +1,5 @@
 //! Shared notices and blockers. Recovery uses the coordination message outbox.
+pub(crate) mod dispatch;
 mod store;
 use super::*;
 use crate::kernel::receipts::progress::{
@@ -429,13 +430,13 @@ pub(crate) fn warnings(resources: &[ResourceKey]) -> Value {
     warnings_for_source(resources, None)
 }
 pub(crate) fn warnings_for_source(resources: &[ResourceKey], source: Option<&str>) -> Value {
-    let result = maintain()
-        .and_then(|_| with_store(|s| Ok(s.lifecycle_conflicts(resources, source, clock()))));
+    let result =
+        maintain().and_then(|_| with_store(|s| Ok(s.advisory(resources, source, clock()))));
     match result {
-        Ok(conflicts) => {
-            json!({"conflictCoverage":if conflicts.len()==100 {"partial"}else{"observed"},"conflicts":conflicts})
+        Ok(value) => value,
+        Err(_) => {
+            json!({"conflicts":[],"conflictCoverage":"unknown","boardRevision":null,"boardRead":{"via":"query","op":"board","args":{}},"observedAt":now()})
         }
-        Err(_) => json!({"conflicts":[],"conflictCoverage":"unknown"}),
     }
 }
 pub(super) fn recipient_resources(source: &str) -> Result<Vec<ResourceKey>> {
@@ -445,6 +446,9 @@ pub(super) fn recipient_resources(source: &str) -> Result<Vec<ResourceKey>> {
 /// Journal projection supplies canonical terminal evidence, including Agent turns.
 /// Replays never refresh activity; live caches supply freshness separately.
 pub(super) fn from_event(input: &EventInput) -> Result<()> {
+    if input.kind == EventKind::DispatchAccepted {
+        return with_store(|s| s.dispatch_notice(input, clock()));
+    }
     if input.kind == EventKind::TurnSuccessor {
         if let ([previous, next], Some(owner)) =
             (input.thread_refs.as_slice(), input.origin.as_ref())

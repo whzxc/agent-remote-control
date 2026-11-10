@@ -1934,6 +1934,9 @@ impl Control {
                 binding["reason"] = json!("explicit-interrupted-resume");
                 save(&path, &binding)?;
             }
+            let baseline = crate::changes::capture(string(&state, "cwd")).await;
+            r["coordination"] =
+                crate::coordination::bulletin::dispatch::admission(&r["origin"], &baseline);
             r["submissionStage"] = json!("submitting");
             self.checkpoint(r)?;
             let mut params = json!({"threadId":thread,"input":[],"turnTrigger":"resume_interrupted_task","parentTurnId":previous,"rootTurnId":previous});
@@ -1949,7 +1952,8 @@ impl Control {
             let result = if desktop {
                 self.ipc().await?.mutate("turn/start", &params).await?
             } else {
-                self.request("turn/start", params, 10000).await?
+                self.request_inner("turn/start", params, 10000, false)
+                    .await?
             };
             let turn = string(&result["turn"], "id");
             if turn.is_empty() {
@@ -1960,6 +1964,11 @@ impl Control {
             }
             r["turnId"] = json!(turn);
             r["dispatchMode"] = json!("resumed");
+            r["task"]["dispatch"] = json!({"submittedAt":now()});
+            crate::dispatch_policy::record(r)?;
+            if let Err(e) = crate::changes::record(thread, turn, &baseline) {
+                crate::logs::record("WARN", &e, None);
+            }
             r["executionOwner"] = json!(if desktop { "desktop" } else { "connector" });
             crate::claude_notify::record_binding(
                 r,
@@ -2251,6 +2260,8 @@ impl Control {
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["submissionStage"] = json!("turn-submitting");
             r["task"]["dispatch"]["submittedAt"] = json!(now());
+            r["coordination"] =
+                crate::coordination::bulletin::dispatch::admission(&r["origin"], &baseline);
             self.checkpoint(r)?;
             retry_args["_retryModel"] = turn
                 .get("model")
@@ -2415,10 +2426,36 @@ impl Control {
             }
             params["cwd"] = crate::projects::working_directory(self, &directory_args).await?;
         }
+        if operation == "native" && method == "turn/start" {
+            let baseline = if let Some(cwd) = params["cwd"].as_str() {
+                crate::changes::capture(cwd).await
+            } else {
+                let state = self
+                    .request(
+                        "thread/read",
+                        json!({"threadId":params["threadId"],"includeTurns":false}),
+                        10000,
+                    )
+                    .await?;
+                crate::changes::capture(string(&state["thread"], "cwd")).await
+            };
+            r["turnBaseline"] = baseline;
+            r["dispatchMode"] = json!("new-turn");
+            r["coordination"] = crate::coordination::bulletin::dispatch::admission(
+                &r["origin"],
+                &r["turnBaseline"],
+            );
+        }
         r["threadId"] = params["threadId"].clone();
         r["submissionStage"] = json!(method);
         if operation == "send" {
             r["task"]["dispatch"]["submittedAt"] = json!(now());
+            if r["dispatchMode"] == "new-turn" {
+                r["coordination"] = crate::coordination::bulletin::dispatch::admission(
+                    &r["origin"],
+                    &r["turnBaseline"],
+                );
+            }
         }
         self.checkpoint(r)?;
         let result = if method == "thread/start" && r["executionOwner"] == "connector" {
@@ -2448,6 +2485,10 @@ impl Control {
                     crate::logs::record("WARN", &e, None);
                 }
             }
+        }
+        if operation == "native" && method == "turn/start" {
+            r["task"]["dispatch"] = json!({"submittedAt":now()});
+            crate::dispatch_policy::record(r)?;
         }
         if operation == "send" {
             let turn = result["turn"]["id"]

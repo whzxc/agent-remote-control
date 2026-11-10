@@ -173,7 +173,9 @@ fn base_on(
     resources: Vec<ResourceKey>,
 ) -> Result<EventInput> {
     let mut input = EventInput::new(hash(key), kind, resources);
-    input.origin = if matches!(
+    input.origin = if input.kind == EventKind::DispatchAccepted {
+        Principal::from_origin(&row["origin"]).ok().flatten()
+    } else if matches!(
         input.kind,
         EventKind::ReceiptStalled | EventKind::ReceiptUnconfirmed
     ) {
@@ -217,6 +219,9 @@ fn evidence(input: &mut EventInput, kind: EvidenceKind, id: &str) {
 pub(super) fn inputs(owner: Owner, row: &Value) -> Result<Vec<EventInput>> {
     let mut events = inputs_on(owner, row, host()?)?;
     for event in &mut events {
+        if event.kind == EventKind::DispatchAccepted {
+            continue;
+        }
         event.resources.push(ResourceKey::parse("app:installed")?);
         if let Some(project) = row["projectId"]
             .as_str()
@@ -238,7 +243,8 @@ pub(super) fn inputs_on(
     let mut events = vec![];
     match owner {
         Owner::Dispatch => {
-            if row["dispatchSource"] != "native-retry"
+            if row["dispatchMode"] != "steered"
+                && row["dispatchSource"] != "native-retry"
                 && (row["agent"].is_null()
                     || row["agent"] == "codex"
                     || row["submissionObserved"] == true
@@ -249,8 +255,19 @@ pub(super) fn inputs_on(
                     &format!("dispatch:{request}"),
                     EventKind::DispatchAccepted,
                 )?;
+                let associated: Vec<ResourceKey> =
+                    serde_json::from_value(row["coordination"]["association"]["resources"].clone())
+                        .unwrap_or_default();
+                if !associated.is_empty() {
+                    input.resources = associated;
+                }
+                input.occurred_at = row["acceptedAt"].as_str().map(str::to_owned);
                 input.status = Some(EventStatus::Submitted);
                 input.observation = Some(Observation {
+                    dispatch_association: serde_json::from_value(
+                        row["coordination"]["association"].clone(),
+                    )
+                    .ok(),
                     model: row["model"].as_str().map(str::to_owned),
                     effort: row["effort"].as_str().map(str::to_owned),
                     ..Default::default()

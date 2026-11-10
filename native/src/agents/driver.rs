@@ -264,6 +264,21 @@ impl AgentDriver {
             .unwrap_or("")
             .to_owned();
         let baseline = crate::changes::capture(&cwd).await;
+        let coordination = crate::coordination::bulletin::dispatch::admission(
+            &crate::kernel::origin::current_origin(),
+            &baseline,
+        );
+        // Prompts can outlive the operation wait. Publish admission facts before
+        // transport submission so an executing receipt already carries conflicts.
+        let persisted = (|| -> Result<()> {
+            let path = RECEIPTS.path(string(args, "requestId"))?;
+            let mut receipt = load(&path)?;
+            receipt["coordination"] = coordination.clone();
+            RECEIPTS.checkpoint(&mut receipt)
+        })();
+        if persisted.is_err() {
+            crate::coordination::observers::gap("dispatch-advisory", "receipt-unavailable");
+        }
         {
             let mut t = p.state.lock().await;
             if !lifecycle::ready(&t) {
@@ -280,6 +295,7 @@ impl AgentDriver {
                 t["taskHost"]["requestId"] = args["requestId"].clone();
             }
             t["origin"] = crate::kernel::origin::current_origin();
+            t["coordination"] = coordination;
             if crate::changes::record(string(&t, "taskId"), string(&t, "turnId"), &baseline)
                 .is_err()
             {

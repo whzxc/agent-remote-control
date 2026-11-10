@@ -1169,6 +1169,14 @@ impl AgentHost {
                         .await
                 }
             };
+            if let Ok(saved) = RECEIPTS
+                .path(string(&r, "requestId"))
+                .and_then(|path| load(&path))
+            {
+                if saved["coordination"].is_object() {
+                    r["coordination"] = saved["coordination"].clone();
+                }
+            }
             match result {
                 Ok(v) => {
                     progress::apply(
@@ -1182,7 +1190,7 @@ impl AgentHost {
                     if v["configurationError"].is_string() {
                         r["error"] = v["configurationError"].clone();
                     }
-                    for key in ["notification", "notificationError"] {
+                    for key in ["notification", "notificationError", "coordination"] {
                         if let Some(value) = v.get(key) {
                             r[key] = value.clone();
                         }

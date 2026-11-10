@@ -1302,9 +1302,19 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
     })?;
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut row = receipt["task"]["dispatch"].clone();
-    for key in ["requestId", "threadId", "turnId", "dispatchMode"] {
+    for key in [
+        "requestId",
+        "threadId",
+        "turnId",
+        "dispatchMode",
+        "coordination",
+    ] {
         row[key] = receipt[key].clone();
     }
+    row["acceptedAt"] = receipt["task"]["dispatch"]["submittedAt"]
+        .as_str()
+        .map(|s| json!(s))
+        .unwrap_or_else(|| json!(now()));
     row["title"] = json!(crate::control::dispatch_title(&receipt["task"]));
     row["origin"] = receipt["origin"].clone();
     if let Some(caller) = crate::dispatch_caller::validated(&receipt["caller"]) {
@@ -1697,6 +1707,7 @@ pub(crate) fn agent_record(task: &Value, args: &Value) -> Result<()> {
     let mut receipt = json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
         "turnId":task["turnId"],"requestId":args["requestId"],"dispatchMode":"new-turn",
         "srcConversation":args["srcConversation"],"arguments":args,"task":{"dispatch":task["dispatch"]}});
+    receipt["coordination"] = task["coordination"].clone();
     crate::dispatch_caller::attach_current(&mut receipt);
     record(&receipt)
 }

@@ -523,7 +523,15 @@ pub(crate) fn registered(projects: &[Value]) {
     static WRITER: Mutex<()> = Mutex::new(());
     let _writer = WRITER.lock().unwrap();
     let path = root().join("coordination/projects.json");
-    let projects:Vec<_>=projects.iter().take(33).map(|p|json!({"id":p["id"],"name":p["name"],"roots":p["roots"].as_array().into_iter().flatten().take(9).map(|r|json!({"path":r["path"]})).collect::<Vec<_>>()})).collect();
+    let mut identity_reader = RefReader::default();
+    let projects: Vec<_> = projects.iter().take(33).map(|project| {
+        let roots: Vec<_> = project["roots"].as_array().into_iter().flatten().take(9).map(|root| {
+            let path = Path::new(string(root, "path"));
+            let canonical = path.canonicalize().ok();
+            json!({"path":canonical.as_deref().unwrap_or(path),"commonDir":identity_reader.common(path).ok()})
+        }).collect();
+        json!({"id":project["id"],"name":project["name"],"roots":roots})
+    }).collect();
     let row = json!({"projects":projects,"observedAt":now()});
     if observers::durable(&path, &row).is_err() {
         observers::gap("git", "project-catalog-persistence-failed");
