@@ -71,10 +71,25 @@ fn info_path() -> PathBuf {
 }
 /// Compare the observed front-door image with the build used by the local entry point.
 pub(crate) fn status(installed_build: &str) -> Value {
-    let Ok(info) = load(&info_path()) else {
+    let info = load(&info_path()).unwrap_or(Value::Null);
+    #[cfg(target_os = "macos")]
+    let update = load(&root().join("app/front-door-update.json")).unwrap_or_else(|_| {
+        json!({"state":"idle","targetBuild":installed_build,"lastOutcome":null,"rollback":false})
+    });
+    #[cfg(target_os = "macos")]
+    let installed_build = update["targetBuild"].as_str().unwrap_or(installed_build);
+    #[allow(unused_mut)]
+    let mut status = json!({"pid":info["pid"],"protocol":info["protocol"],"build":info["build"],"installedBuild":installed_build,"matchesInstalledBuild":info["build"].as_str().map(|build|build == installed_build)});
+    #[cfg(target_os = "macos")]
+    {
+        status["update"] = update;
+        status["update"]["currentBuild"] = info["build"].clone();
+    }
+    #[cfg(not(target_os = "macos"))]
+    if info.is_null() {
         return Value::Null;
-    };
-    json!({"pid":info["pid"],"protocol":info["protocol"],"build":info["build"],"installedBuild":installed_build,"matchesInstalledBuild":info["build"].as_str().map(|build|build == installed_build)})
+    }
+    status
 }
 
 fn stage_image(source: &Path, images: &Path) -> Result<PathBuf> {
@@ -95,6 +110,12 @@ fn stage_image(source: &Path, images: &Path) -> Result<PathBuf> {
             let _ = std::fs::remove_file(staging);
         }
         result?;
+    }
+    #[cfg(target_os = "macos")]
+    if crate::runtime::build_id(&binary)? != build {
+        return Err(
+            "FRONT_DOOR_BUILD_CHANGED: The staged image differs from the installed build.".into(),
+        );
     }
     Ok(binary)
 }
@@ -947,7 +968,145 @@ fn publish_core(service: &Service, info: &Value) -> Result<()> {
     native["token"] = info["token"].clone();
     save(&root().join("app/native.json"), &native)
 }
+
+#[cfg(target_os = "macos")]
+const UPDATE_BACKOFF: Duration = Duration::from_secs(60);
+
+/// Core alone owns compatible image replacement. Installers use the same kernel lock.
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+struct Updater {
+    installed: Option<((u64, u64, i64, i64), String)>,
+    attempts: std::collections::BTreeMap<String, Instant>,
+}
+#[cfg(target_os = "macos")]
+impl Updater {
+    async fn refresh(&mut self, service: &Service, info: Value) -> Result<(Value, Option<File>)> {
+        use std::os::unix::fs::MetadataExt;
+        let guard = replacement_lock()?;
+        if guard.try_lock().is_err() {
+            return Ok((info, None));
+        }
+        let source = crate::runtime::binary()?;
+        let metadata = std::fs::metadata(&source).map_err(|e| e.to_string())?;
+        let stamp = (
+            metadata.ino(),
+            metadata.len(),
+            metadata.mtime(),
+            metadata.mtime_nsec(),
+        );
+        if self
+            .installed
+            .as_ref()
+            .is_none_or(|(observed, _)| *observed != stamp)
+        {
+            self.installed = Some((stamp, crate::runtime::build_id(&source)?));
+        }
+        let target = self.installed.as_ref().unwrap().1.clone();
+        if info["build"] == target {
+            let path = root().join("app/front-door-update.json");
+            if let Ok(mut state) = load(&path) {
+                if state["targetBuild"] != target || state["state"] != "idle" {
+                    state["targetBuild"] = json!(target);
+                    state["currentBuild"] = info["build"].clone();
+                    state["state"] = json!("idle");
+                    state["lastOutcome"] = json!("updated");
+                    state["rollback"] = json!(false);
+                    save(&path, &state)?;
+                    prune_images(&root().join("front-door-bin"), &target)?;
+                }
+            }
+            return Ok((info, None));
+        }
+        self.attempts
+            .retain(|_, attempted| attempted.elapsed() < UPDATE_BACKOFF);
+        let observed = load(&root().join("app/front-door-update.json")).unwrap_or(Value::Null);
+        if self.attempts.contains_key(&target)
+            || (observed["targetBuild"] == target
+                && observed["retryAt"]
+                    .as_i64()
+                    .is_some_and(|at| at > chrono::Utc::now().timestamp_millis()))
+        {
+            return Ok((info, None));
+        }
+        self.attempts.insert(target.clone(), Instant::now());
+        let previous_build = info["build"]
+            .as_str()
+            .ok_or("FRONT_DOOR_START_FAILED: The current image build is unavailable.")?;
+        let previous = root()
+            .join("front-door-bin")
+            .join(format!("v{VERSION}"))
+            .join(previous_build)
+            .join("arc");
+        let path = root().join("app/front-door-update.json");
+        let mut state = json!({"state":"staging","currentBuild":previous_build,"targetBuild":target,
+            "lastOutcome":observed["lastOutcome"],"rollback":false,"retryAt":chrono::Utc::now().timestamp_millis() + UPDATE_BACKOFF.as_millis() as i64});
+        save(&path, &state)?;
+        // Stage and verify both runnable images before pausing admissions.
+        let staged = (|| {
+            if crate::runtime::build_id(&previous)? != previous_build {
+                return Err("FRONT_DOOR_START_FAILED: The rollback image is unavailable.".into());
+            }
+            stage_image(&source, &root().join("front-door-bin"))
+        })();
+        let result = async {
+            let binary = staged?;
+            let maintenance = service.execution.front_door.maintenance()?;
+            state["state"] = json!("draining");
+            save(&path, &state)?;
+            // D3c admission fencing retains queued identities/deadlines and never repeats a send.
+            // A drain timeout aborts this update while the old front door is still available.
+            maintenance.drain().await?;
+            state["state"] = json!("starting");
+            save(&path, &state)?;
+            stop().await?;
+            match launch_image(&binary).await {
+                Ok(next) => {
+                    state["lastOutcome"] = json!("updated");
+                    Ok(next)
+                }
+                Err(error) => {
+                    state["state"] = json!("rolling_back");
+                    state["lastError"] = json!(error);
+                    state["rollback"] = json!(true);
+                    save(&path, &state)?;
+                    match launch_image(&previous).await {
+                        Ok(previous) => {
+                            state["lastOutcome"] = json!("rolled_back");
+                            Ok(previous)
+                        }
+                        Err(rollback) => {
+                            state["lastOutcome"] = json!("rollback_failed");
+                            Err(rollback)
+                        }
+                    }
+                }
+            }
+        }
+        .await;
+        state["state"] = json!("idle");
+        match &result {
+            Ok(current) => state["currentBuild"] = current["build"].clone(),
+            Err(error) => {
+                if state["rollback"] != true {
+                    state["lastOutcome"] = json!("failed");
+                }
+                state["lastError"] = json!(error);
+            }
+        }
+        save(&path, &state)?;
+        // The new owner is ready before discarding the rollback copy. Failed targets
+        // retain the previous image for recovery and the next bounded attempt.
+        if state["lastOutcome"] == "updated" {
+            prune_images(&root().join("front-door-bin"), &target)?;
+        }
+        // Keep installation exclusion through endpoint publication and provider restoration.
+        result.map(|info| (info, Some(guard)))
+    }
+}
 async fn supervise(service: Arc<Service>) {
+    #[cfg(target_os = "macos")]
+    let mut updater = Updater::default();
     let mut attached = None;
     let mut delay = Duration::from_millis(250);
     loop {
@@ -959,6 +1118,8 @@ async fn supervise(service: Arc<Service>) {
                     ensure().await?
                 }
             };
+            #[cfg(target_os = "macos")]
+            let (info, _update_guard) = updater.refresh(&service, info).await?;
             let (_, hello) = connect("front-door").await?;
             if attached != Some(hello.generation) {
                 publish_core(&service, &info)?;
@@ -1019,7 +1180,8 @@ fn lock() -> Result<File> {
         .open(root().join("front-door.lock"))
         .map_err(|e| e.to_string())
 }
-/// Keep a compatible front door across build changes. Only the install path may stop an incompatible one.
+/// Attach to a compatible owner; Core supervision updates its image on macOS.
+/// Only the install path may stop a protocol-incompatible owner.
 #[cfg_attr(test, allow(dead_code))]
 pub(crate) async fn ensure() -> Result<Value> {
     let _replacement = startup_guard()?;
@@ -1028,6 +1190,35 @@ pub(crate) async fn ensure() -> Result<Value> {
         Err(error) if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH") => return Err(error),
         _ => {}
     }
+    let source = crate::runtime::binary()?;
+    let binary = stage_image(&source, &root().join("front-door-bin"))?;
+    #[cfg(target_os = "macos")]
+    let binary =
+        {
+            let state = load(&root().join("app/front-door-update.json")).unwrap_or(Value::Null);
+            if state["targetBuild"] == crate::runtime::build_id(&binary)?
+                && state["lastOutcome"] != "updated"
+                && state["retryAt"]
+                    .as_i64()
+                    .is_some_and(|at| at > chrono::Utc::now().timestamp_millis())
+            {
+                root()
+                    .join("front-door-bin")
+                    .join(format!("v{VERSION}"))
+                    .join(state["currentBuild"].as_str().ok_or(
+                        "FRONT_DOOR_START_FAILED: The current image build is unavailable.",
+                    )?)
+                    .join("arc")
+            } else {
+                binary
+            }
+        };
+    let info = launch_image(&binary).await?;
+    #[cfg(target_os = "macos")]
+    prune_images(&root().join("front-door-bin"), string(&info, "build"))?;
+    Ok(info)
+}
+async fn launch_image(binary: &Path) -> Result<Value> {
     let guard = lock()?;
     if guard.try_lock().is_err() {
         return Err("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.".into());
@@ -1037,8 +1228,8 @@ pub(crate) async fn ensure() -> Result<Value> {
         .append(true)
         .open(root().join("front-door.log"))
         .map_err(|e| e.to_string())?;
-    let source = crate::runtime::binary()?;
-    let binary = stage_image(&source, &root().join("front-door-bin"))?;
+    #[cfg(target_os = "macos")]
+    let expected_build = crate::runtime::build_id(binary)?;
     let mut command = std::process::Command::new(binary);
     command
         .arg("front-door")
@@ -1068,24 +1259,51 @@ pub(crate) async fn ensure() -> Result<Value> {
         None,
     );
     let until = Instant::now() + Duration::from_secs(10);
-    loop {
-        if connect("front-door").await.is_ok() {
+    let readiness = async {
+        loop {
+            if connect("front-door").await.is_ok() {
+                let info = load(&info_path())?;
+                #[cfg(target_os = "macos")]
+                if info["pid"] != child.id()
+                    || info["build"] != expected_build
+                    || info["protocol"] != VERSION
+                {
+                    return Err(
+                        "FRONT_DOOR_START_FAILED: The ready peer does not match the staged image."
+                            .into(),
+                    );
+                }
+                return Ok(info);
+            }
+            if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+                return Err(format!(
+                    "FRONT_DOOR_START_FAILED: {status}; inspect front-door.log"
+                ));
+            }
+            if Instant::now() >= until {
+                return Err("FRONT_DOOR_START_TIMEOUT: Inspect front-door.log.".into());
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    };
+    #[cfg(target_os = "macos")]
+    let readiness = tokio::time::timeout(Duration::from_secs(10), readiness)
+        .await
+        .unwrap_or_else(|_| Err("FRONT_DOOR_START_TIMEOUT: Inspect front-door.log.".into()));
+    #[cfg(not(target_os = "macos"))]
+    let readiness = readiness.await;
+    match readiness {
+        Ok(info) => {
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
-            return load(&info_path());
+            Ok(info)
         }
-        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
-            return Err(format!(
-                "FRONT_DOOR_START_FAILED: {status}; inspect front-door.log"
-            ));
-        }
-        if Instant::now() >= until {
+        Err(error) => {
             let _ = child.kill();
             let _ = child.wait();
-            return Err("FRONT_DOOR_START_TIMEOUT: Inspect front-door.log.".into());
+            Err(error)
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 /// Called by installers before replacing files. Compatible running front doors are retained.
@@ -1155,6 +1373,31 @@ pub(crate) async fn stop() -> Result<()> {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
+/// Core is already stopped. Hold replacement exclusion through owner cleanup.
+#[cfg(target_os = "macos")]
+pub(crate) async fn remove() -> Result<File> {
+    let guard = replacement_lock()?;
+    guard
+        .try_lock()
+        .map_err(|_| "CORE_UNAVAILABLE: Installation holds the replacement path.".to_owned())?;
+    stop().await?;
+    crate::owned_children::remove_front_door_children().await?;
+    for directory in [root().join("front-door-bin"), socket_directory()] {
+        match std::fs::remove_dir_all(directory) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    for path in [info_path(), root().join("app/front-door-update.json")] {
+        match std::fs::remove_file(path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(guard)
+}
 #[cfg(feature = "test-fixture")]
 pub async fn stop_for_fixture() -> Result<()> {
     stop().await
@@ -1169,6 +1412,7 @@ pub async fn run() -> Result<()> {
     }
     crate::owned_children::recover_front_door().await?;
     let build = crate::runtime::process_build_id()?;
+    #[cfg(not(target_os = "macos"))]
     prune_images(&root().join("front-door-bin"), build)?;
     let gateway = owner::Gateway::new()?;
     let stop = Arc::new(tokio::sync::Notify::new());
@@ -1190,6 +1434,15 @@ pub async fn run() -> Result<()> {
     // Provider teardown must not wait for a missing Core through the business queue.
     queue().entries.close();
     queue().bytes.close();
+    #[cfg(target_os = "macos")]
+    {
+        let until = Instant::now() + Duration::from_secs(1);
+        while queue().entries.available_permits() < MAX_QUEUED && Instant::now() < until {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // Let transport tasks deliver the explicit not-sent result before closing sockets.
+        tokio::task::yield_now().await;
+    }
     let result = gateway.stop().await;
     drop(listeners);
     let _ = std::fs::remove_file(info_path());

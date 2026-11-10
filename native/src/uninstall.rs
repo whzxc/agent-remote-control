@@ -136,6 +136,9 @@ pub async fn run(purge: bool) -> Result<Value> {
         }
     }
     crate::runtime::stop_for_uninstall().await?;
+    #[cfg(target_os = "macos")]
+    let _front_door_removal = crate::front_door::process::remove().await?;
+    #[cfg(not(target_os = "macos"))]
     crate::front_door::process::stop().await?;
     // Detached Codex app-servers outlive Core by design; removal ends them.
     crate::codex_host::stop_all().await?;

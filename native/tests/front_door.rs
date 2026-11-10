@@ -25,7 +25,7 @@ mod unix {
             std::fs::create_dir_all(directory.join("installed")).unwrap();
             std::fs::copy(env!("CARGO_BIN_EXE_arc"), directory.join("installed/arc")).unwrap();
             let provider = directory.join("provider");
-            std::fs::write(&provider,"#!/bin/sh\ncase \"$1\" in\n--version) echo 'tunnel-client 0.0.16'; exit 0;;\ninit) exit 0;;\nrun) echo $$ > \"$ARC_PROVIDER_FIXTURE_PID\"; trap 'exit 0' TERM INT; while :; do sleep 1; done;;\nesac\n").unwrap();
+            std::fs::write(&provider,"#!/bin/sh\ncase \"$1\" in\n--version) echo 'tunnel-client 0.0.16'; exit 0;;\ninit) exit 0;;\nrun) echo $$ > \"$ARC_PROVIDER_FIXTURE_PID.$$\"; /bin/mv \"$ARC_PROVIDER_FIXTURE_PID.$$\" \"$ARC_PROVIDER_FIXTURE_PID\"; trap 'exit 0' TERM INT; while :; do sleep 1; done;;\nesac\n").unwrap();
             std::fs::set_permissions(&provider, std::fs::Permissions::from_mode(0o700)).unwrap();
             let mut fixture = Self {
                 directory,
@@ -84,6 +84,21 @@ mod unix {
                 .ok()
                 .and_then(|b| serde_json::from_slice(&b).ok())
                 .unwrap_or(Value::Null)
+        }
+        async fn install_lock(&self) -> std::fs::File {
+            let gate = std::fs::File::options()
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
+                .open(self.directory.join("state/front-door-install.lock"))
+                .unwrap();
+            let until = Instant::now() + Duration::from_secs(3);
+            while gate.try_lock().is_err() {
+                assert!(Instant::now() < until, "replacement path remained locked");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            gate
         }
         async fn start(&mut self) {
             self.core = Some(self.command().arg("daemon").spawn().unwrap());
@@ -321,6 +336,374 @@ mod unix {
             }
         }
     }
+    #[cfg(target_os = "macos")]
+    struct Executor {
+        child: Child,
+        directory: PathBuf,
+        socket: PathBuf,
+    }
+    #[cfg(target_os = "macos")]
+    impl Executor {
+        async fn start(fixture: &Fixture) -> Self {
+            use std::{io::Write, os::unix::process::CommandExt};
+            let directory = fixture
+                .directory
+                .join("state/task-host/instances/synthetic");
+            std::fs::create_dir_all(&directory).unwrap();
+            let socket =
+                PathBuf::from("/tmp").join(format!("arc-executor-{}", uuid::Uuid::new_v4()));
+            let mut command = fixture.command();
+            command.arg("task-host").stdin(Stdio::piped());
+            unsafe {
+                command.pre_exec(|| {
+                    if libc::setsid() == -1 {
+                        Err(std::io::Error::last_os_error())
+                    } else {
+                        Ok(())
+                    }
+                });
+            }
+            let mut child = command.spawn().unwrap();
+            let script = "while IFS= read -r line; do printf '%s\\n' \"$line\"; done";
+            let spec = json!({"program":"/bin/sh","args":["-c",script],"cwd":fixture.directory,
+                "env":{},"directory":directory,"socket":socket,"taskId":"synthetic","agent":"pi",
+                "executable":fixture.directory.join("installed/arc")});
+            writeln!(child.stdin.take().unwrap(), "{spec}").unwrap();
+            let executor = Self {
+                child,
+                directory,
+                socket,
+            };
+            let until = Instant::now() + Duration::from_secs(5);
+            while !executor.directory.join("host.json").exists() {
+                assert!(Instant::now() < until, "executor startup timed out");
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            executor.request(json!({"op":"write","sequence":1,"frame":{"type":"prompt","message":"Synthetic active turn"}}));
+            assert_eq!(executor.request(json!({"op":"status"}))["alive"], true);
+            executor
+        }
+        fn request(&self, body: Value) -> Value {
+            use std::io::{BufRead, Write};
+            let stream = std::os::unix::net::UnixStream::connect(&self.socket).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut stream = std::io::BufReader::new(stream);
+            writeln!(stream.get_mut(), "{}", json!({"protocol":1})).unwrap();
+            let mut line = String::new();
+            stream.read_line(&mut line).unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&line).unwrap()["protocol"], 1);
+            writeln!(stream.get_mut(), "{body}").unwrap();
+            line.clear();
+            stream.read_line(&mut line).unwrap();
+            serde_json::from_str(&line).unwrap()
+        }
+    }
+    #[cfg(target_os = "macos")]
+    impl Drop for Executor {
+        fn drop(&mut self) {
+            if self.child.try_wait().ok().flatten().is_none() {
+                let index: Value = std::fs::read(self.directory.join("host.json"))
+                    .ok()
+                    .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                    .unwrap_or(Value::Null);
+                if let Some(pid) = index["agentPid"].as_u64() {
+                    unsafe {
+                        libc::kill(-(pid as i32), libc::SIGKILL);
+                    }
+                }
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+            }
+            let _ = std::fs::remove_file(&self.socket);
+        }
+    }
+    #[cfg(target_os = "macos")]
+    impl Fixture {
+        fn install_image(&self, fail_readiness: bool) -> String {
+            use std::os::unix::fs::PermissionsExt;
+            let candidate = self.directory.join("candidate");
+            std::fs::create_dir_all(&candidate).unwrap();
+            let binary = candidate.join("arc");
+            if fail_readiness {
+                std::fs::write(&binary, "#!/bin/sh\nexec /bin/sleep 60\n").unwrap();
+                std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+            } else {
+                std::fs::copy(env!("CARGO_BIN_EXE_arc"), &binary).unwrap();
+                let output = Command::new("/usr/bin/codesign")
+                    .args(["--force", "--sign", "-", "--identifier"])
+                    .arg(format!("arc.fixture.{}", uuid::Uuid::new_v4()))
+                    .arg(&binary)
+                    .output()
+                    .unwrap();
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            let build = arc_core::runtime::build_id(&binary).unwrap();
+            std::fs::rename(
+                self.directory.join("installed"),
+                self.directory.join("previous-install"),
+            )
+            .unwrap();
+            std::fs::rename(candidate, self.directory.join("installed")).unwrap();
+            build
+        }
+        async fn update_outcome(&mut self, expected: &str) -> Value {
+            let until = Instant::now() + Duration::from_secs(30);
+            loop {
+                self.endpoint = self.observation("native");
+                let response = reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .unwrap()
+                    .get(format!(
+                        "http://127.0.0.1:{}/api/health",
+                        self.endpoint["port"]
+                    ))
+                    .bearer_auth(self.endpoint["token"].as_str().unwrap())
+                    .timeout(Duration::from_millis(500))
+                    .send()
+                    .await;
+                if let Ok(response) = response {
+                    if let Ok(health) = response.json::<Value>().await {
+                        if health["frontDoor"]["update"]["lastOutcome"] == expected {
+                            self.front = health["frontDoor"]["pid"].as_u64().map(|p| p as u32);
+                            return health["frontDoor"].clone();
+                        }
+                    }
+                }
+                assert!(
+                    Instant::now() < until,
+                    "front-door update outcome timed out: {expected}"
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
+        async fn restored_provider(&self, previous: u32) -> u32 {
+            let until = Instant::now() + Duration::from_secs(10);
+            loop {
+                let status = self.management("ingress/provider", "GET", json!({})).await;
+                let pid = self.provider_pid();
+                if status["running"] == true && pid != previous {
+                    return pid;
+                }
+                assert!(
+                    Instant::now() < until,
+                    "provider was not restored: {status}"
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn changed_build_updates_only_front_door_and_preserves_active_executor() {
+        // Regression: protocol-compatible front doors retained their first build indefinitely after bundle replacement.
+        let mut fixture = Fixture::new().await;
+        let desktop = fixture.desktop().await;
+        fixture.add_provider().await;
+        let executor = Executor::start(&fixture).await;
+        let active = executor.request(json!({"op":"status"}));
+        let core = fixture.core.as_ref().unwrap().id();
+        let front = fixture.front.unwrap();
+        let provider = fixture.provider_pid();
+        assert_eq!(unsafe { libc::getsid(front as i32) }, front as i32);
+        assert_eq!(unsafe { libc::getsid(provider as i32) }, front as i32);
+        assert_eq!(
+            unsafe { libc::getsid(executor.child.id() as i32) },
+            executor.child.id() as i32
+        );
+        assert_ne!(unsafe { libc::getsid(core as i32) }, front as i32);
+        fixture.quit_desktop().await;
+        desktop.abort();
+        let gate = fixture.install_lock().await;
+        let target = fixture.install_image(false);
+        tokio::time::sleep(Duration::from_millis(1300)).await;
+        assert_eq!(fixture.observation("front")["pid"], front);
+        assert_eq!(fixture.provider_pid(), provider);
+        assert_eq!(
+            executor.request(json!({"op":"status"}))["agentPid"],
+            active["agentPid"]
+        );
+        drop(gate);
+        let status = fixture.update_outcome("updated").await;
+        assert_eq!(status["build"], target);
+        assert_eq!(status["update"]["currentBuild"], target);
+        assert_eq!(status["update"]["targetBuild"], target);
+        assert_eq!(status["matchesInstalledBuild"], true);
+        assert_eq!(status["update"]["rollback"], false);
+        assert_ne!(fixture.front.unwrap(), front);
+        assert_eq!(
+            fixture.management("health", "GET", json!({})).await["pid"],
+            core
+        );
+        let lock = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .open(fixture.directory.join("state/core.lock"))
+            .unwrap();
+        assert!(lock.try_lock().is_err());
+        let restored = fixture.restored_provider(provider).await;
+        assert_eq!(
+            unsafe { libc::getsid(restored as i32) },
+            fixture.front.unwrap() as i32
+        );
+        let resumed = executor.request(json!({"op":"status"}));
+        assert_eq!(resumed["agentPid"], active["agentPid"]);
+        assert_eq!(resumed["alive"], true);
+        let records = |name: &str| -> Vec<Value> {
+            std::fs::read_dir(fixture.directory.join("state").join(name))
+                .unwrap()
+                .map(|e| {
+                    serde_json::from_slice(&std::fs::read(e.unwrap().path()).unwrap()).unwrap()
+                })
+                .collect()
+        };
+        assert!(records("front-door-children")
+            .iter()
+            .any(|r| r["pid"] == restored && r["owner"]["pid"] == fixture.front.unwrap()));
+        assert!(records("core-children")
+            .iter()
+            .all(|r| r["pid"] != restored && r["pid"] != executor.child.id()));
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn failed_readiness_rolls_back_without_restarting_core_or_executor() {
+        // Regression: a front-door image that never becomes ready must restore the previous serving image.
+        let mut fixture = Fixture::new().await;
+        fixture.add_provider().await;
+        let executor = Executor::start(&fixture).await;
+        let active = executor.request(json!({"op":"status"}));
+        let core = fixture.core.as_ref().unwrap().id();
+        let old_build = fixture.observation("front")["build"].clone();
+        let provider = fixture.provider_pid();
+        let target = fixture.install_image(true);
+        let status = fixture.update_outcome("rolled_back").await;
+        assert_eq!(status["build"], old_build);
+        assert_eq!(status["update"]["targetBuild"], target);
+        assert_eq!(status["update"]["rollback"], true);
+        assert_eq!(status["matchesInstalledBuild"], false);
+        assert!(status["update"]["lastError"]
+            .as_str()
+            .unwrap()
+            .contains("START_TIMEOUT"));
+        assert_eq!(
+            fixture.management("health", "GET", json!({})).await["pid"],
+            core
+        );
+        fixture.restored_provider(provider).await;
+        let front = fixture.front.unwrap();
+        tokio::time::sleep(Duration::from_millis(1300)).await;
+        assert_eq!(fixture.observation("front")["pid"], front);
+        assert_eq!(
+            executor.request(json!({"op":"status"}))["agentPid"],
+            active["agentPid"]
+        );
+        assert_eq!(executor.request(json!({"op":"status"}))["alive"], true);
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn core_loss_without_desktop_keeps_owners_until_explicit_restart() {
+        // Regression: Core loss with Desktop closed leaves detached owners alive and business admissions waiting for an explicit Core start.
+        let mut fixture = Fixture::new().await;
+        fixture.add_provider().await;
+        let executor = Executor::start(&fixture).await;
+        let active = executor.request(json!({"op":"status"}));
+        let front = fixture.front.unwrap();
+        let provider = fixture.provider_pid();
+        fixture.kill_core();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let pending = client
+            .get(format!(
+                "http://127.0.0.1:{}/api/health",
+                fixture.endpoint["port"]
+            ))
+            .bearer_auth(fixture.endpoint["token"].as_str().unwrap())
+            .timeout(Duration::from_secs(10))
+            .send();
+        tokio::pin!(pending);
+        tokio::select! {
+            result = &mut pending => panic!("admission did not wait for Core: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_millis(1300)) => {},
+        }
+        let lock = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .open(fixture.directory.join("state/core.lock"))
+            .unwrap();
+        lock.try_lock().unwrap();
+        drop(lock);
+        assert_eq!(fixture.observation("front")["pid"], front);
+        assert_eq!(fixture.provider_pid(), provider);
+        assert_eq!(unsafe { libc::kill(provider as i32, 0) }, 0);
+        assert_eq!(
+            executor.request(json!({"op":"status"}))["agentPid"],
+            active["agentPid"]
+        );
+        fixture.start().await;
+        let health: Value = pending.await.unwrap().json().await.unwrap();
+        assert_eq!(health["pid"], fixture.core.as_ref().unwrap().id());
+        assert_eq!(fixture.front.unwrap(), front);
+        assert_eq!(executor.request(json!({"op":"status"}))["alive"], true);
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "Run serially with isolated state and test-fixture feature"]
+    async fn uninstall_removes_front_door_children_images_sockets_and_indexes() {
+        // Regression: uninstall left front-door images and private sockets outside the stopped Core owner.
+        use sha2::{Digest, Sha256};
+        let mut fixture = Fixture::new().await;
+        fixture.add_provider().await;
+        let mut executor = Executor::start(&fixture).await;
+        let front = fixture.front.unwrap();
+        let provider = fixture.provider_pid();
+        let state = fixture.directory.join("state").canonicalize().unwrap();
+        let digest = Sha256::digest(state.to_string_lossy().as_bytes());
+        let digest: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+        let sockets = PathBuf::from("/tmp").join(format!(
+            "arc-ipc-{}-{}",
+            unsafe { libc::geteuid() },
+            &digest[..24]
+        ));
+        assert!(sockets.exists());
+        let mut command = fixture.command();
+        command
+            .args(["cli", "uninstall", "--purge"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let output = tokio::task::spawn_blocking(move || command.output().unwrap())
+            .await
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(result["result"]["state"], "completed", "{result}");
+        assert!(fixture.core.as_mut().unwrap().wait().unwrap().success());
+        executor.child.wait().unwrap();
+        for pid in [front, provider, executor.child.id()] {
+            assert_eq!(
+                unsafe { libc::kill(pid as i32, 0) },
+                -1,
+                "process {pid} survived uninstall"
+            );
+        }
+        assert!(!state.join("front-door-bin").exists());
+        assert!(!state.join("app/front-door.json").exists());
+        assert!(!state.join("front-door-children").exists());
+        assert!(!sockets.exists());
+        assert!(!executor.socket.exists());
+    }
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn incompatible_front_door_install_stops_core_before_replacement() {
@@ -400,14 +783,7 @@ mod unix {
         let previous = fixture.front.unwrap();
         let provider = fixture.provider_pid();
         let core = fixture.core.as_ref().unwrap().id();
-        let gate = std::fs::File::options()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(fixture.directory.join("state/front-door-install.lock"))
-            .unwrap();
-        gate.try_lock().unwrap();
+        let gate = fixture.install_lock().await;
         unsafe {
             libc::kill(previous as i32, libc::SIGKILL);
         }

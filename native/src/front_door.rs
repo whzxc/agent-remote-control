@@ -62,7 +62,7 @@ impl InProcess {
             generation: self.generation(),
             readiness: match self.readiness.load(Ordering::SeqCst) {
                 0 => Readiness::Ready,
-                1 => Readiness::Draining,
+                1 | 3 => Readiness::Draining,
                 _ => Readiness::Unavailable,
             },
             max_request_bytes: MAX_REQUEST_BYTES,
@@ -163,6 +163,9 @@ impl InProcess {
     }
     pub(crate) async fn drain(&self, deadline: Deadline) -> Result<DrainAck> {
         self.begin_drain();
+        self.wait_drained(deadline).await
+    }
+    async fn wait_drained(&self, deadline: Deadline) -> Result<DrainAck> {
         let remaining = deadline.remaining().map_err(|_| {
             "FRONT_DOOR_DRAIN_DEADLINE: Admitted requests remain; read their original receipts."
                 .to_owned()
@@ -184,6 +187,14 @@ impl InProcess {
         drop(permits);
         Ok(ack)
     }
+    #[cfg(target_os = "macos")]
+    pub(crate) fn maintenance(&self) -> Result<Maintenance<'_>> {
+        let _admission = self.admission.lock().unwrap();
+        self.readiness
+            .compare_exchange(0, 3, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| "FRONT_DOOR_CORE_DRAINING: Core is shutting down.".to_owned())?;
+        Ok(Maintenance(self))
+    }
     pub(crate) fn stream_frame(
         &self,
         request: &Request,
@@ -201,6 +212,25 @@ impl InProcess {
         request.context.validate()?;
         bounded(&frame, MAX_FRAME_BYTES)?;
         Ok(frame)
+    }
+}
+#[cfg(target_os = "macos")]
+pub(crate) struct Maintenance<'a>(&'a InProcess);
+#[cfg(target_os = "macos")]
+impl Maintenance<'_> {
+    pub(crate) async fn drain(&self) -> Result<DrainAck> {
+        self.0.wait_drained(Deadline::after(DRAIN_TIMEOUT)).await
+    }
+}
+#[cfg(target_os = "macos")]
+impl Drop for Maintenance<'_> {
+    fn drop(&mut self) {
+        // Shutdown can supersede maintenance and must never be resumed by it.
+        let _admission = self.0.admission.lock().unwrap();
+        let _ = self
+            .0
+            .readiness
+            .compare_exchange(3, 0, Ordering::SeqCst, Ordering::SeqCst);
     }
 }
 struct Pending {
@@ -551,6 +581,27 @@ mod tests {
                 deadline(),
             )
             .unwrap()
+    }
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn maintenance_resumes_admissions_unless_shutdown_supersedes_it() {
+        // Regression: front-door maintenance must release queued admissions without reopening a shutting-down Core.
+        let endpoint = InProcess::new();
+        let maintenance = endpoint.maintenance().unwrap();
+        assert_eq!(
+            endpoint.hello(VERSION).unwrap().readiness,
+            Readiness::Draining
+        );
+        assert_eq!(maintenance.drain().await.unwrap().outstanding, 0);
+        drop(maintenance);
+        assert_eq!(endpoint.hello(VERSION).unwrap().readiness, Readiness::Ready);
+        let maintenance = endpoint.maintenance().unwrap();
+        endpoint.begin_drain();
+        drop(maintenance);
+        assert_eq!(
+            endpoint.hello(VERSION).unwrap().readiness,
+            Readiness::Draining
+        );
     }
     #[test]
     fn generations_fence_responses_from_other_core_incarnations() {

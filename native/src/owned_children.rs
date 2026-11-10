@@ -57,6 +57,17 @@ pub(crate) async fn recover_front_door() -> Result<()> {
     recover_owner("front-door-children").await
 }
 async fn recover_owner(name: &str) -> Result<()> {
+    reclaim_owner(name).await?;
+    OWNER.set((root().join(name), json!({"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()).ok_or("CORE_IDENTITY_UNAVAILABLE")?})))
+        .map_err(|_| "Core child registry already initialized".to_owned())?;
+    Ok(())
+}
+#[cfg(target_os = "macos")]
+pub(crate) async fn remove_front_door_children() -> Result<()> {
+    reclaim_owner("front-door-children").await?;
+    std::fs::remove_dir_all(root().join("front-door-children")).map_err(|e| e.to_string())
+}
+async fn reclaim_owner(name: &str) -> Result<()> {
     let directory = root().join(name);
     private_dir(&directory)?;
     for entry in std::fs::read_dir(&directory).map_err(|e| e.to_string())? {
@@ -109,8 +120,6 @@ async fn recover_owner(name: &str) -> Result<()> {
         }
         std::fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
     }
-    OWNER.set((directory, json!({"pid":std::process::id(),"processStart":crate::codex_host::process_start(std::process::id()).ok_or("CORE_IDENTITY_UNAVAILABLE")?})))
-        .map_err(|_| "Core child registry already initialized".to_owned())?;
     Ok(())
 }
 

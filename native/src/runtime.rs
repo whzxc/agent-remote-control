@@ -424,10 +424,23 @@ impl Client {
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(log);
-            #[cfg(unix)]
+            #[cfg(all(unix, not(target_os = "macos")))]
             {
                 use std::os::unix::process::CommandExt;
                 child.process_group(0);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                use std::os::unix::process::CommandExt;
+                unsafe {
+                    child.pre_exec(|| {
+                        if libc::setsid() == -1 {
+                            Err(std::io::Error::last_os_error())
+                        } else {
+                            Ok(())
+                        }
+                    });
+                }
             }
             #[cfg(windows)]
             {

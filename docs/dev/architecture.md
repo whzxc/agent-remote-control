@@ -40,13 +40,17 @@ is running, it copies the installed standalone executable to
 Windows uses the existing process-group and job-breakaway launch policy. The copied
 image permits Windows installer file replacement while the front door is running.
 Every fresh launch selects the installed executable's content build ID, even when
-the protocol is unchanged. After recovering old children, the new front-door lock
-owner removes superseded image copies while retaining its current build.
+the protocol is unchanged. Windows and Linux prune superseded images after child
+recovery. On macOS, Core prunes images after readiness validation so the previous
+image remains available throughout replacement.
 `front-door.lock` admits one owner per state directory. `app/front-door.json`
 publishes its PID, process creation identity, protocol, running build ID and stable
 local endpoint. Existing ingress, service, health and headless runtime status include
 `frontDoor.build`, `installedBuild` and `matchesInstalledBuild`. A retained compatible
 front door can therefore report a different build from the current local entry point.
+On macOS, `frontDoor.update` exposes `state`, `currentBuild`, `targetBuild`,
+`lastOutcome`, `rollback`, `retryAt` and an optional `lastError`. `installedBuild`
+uses the supervisor's latest installed-image observation after an update attempt.
 `app/native.json` keeps the current Core identity and that same endpoint for existing
 Desktop and CLI clients. Local Core discovery and management requests first use
 that same authenticated private Core socket or pipe. This includes `cli app quit`
@@ -55,6 +59,36 @@ may use the existing authenticated local HTTP path when private attachment fails
 Once a request is submitted over IPC, it is never retried over HTTP.
 No business request automatically launches or replaces Core.
 Desktop leases and the existing headless entry points retain that responsibility.
+
+On macOS, the Core supervisor observes installed-image identity and performs
+compatible front-door updates under exclusive `front-door-install.lock` ownership.
+It stages the target, verifies the previous image, pauses business admissions and
+waits up to five seconds for admitted calls. A drain timeout leaves the old owner
+serving and resumes admissions. Requests waiting for admission retain their original
+identities and deadlines. Front-door shutdown closes the queue with its existing
+not-sent result and waits up to one second for waiting futures to release their
+permits before listener teardown. Clients reconnect after the bounded outage. Sent calls are never repeated. The new image must answer the
+private protocol handshake with its expected PID, protocol and content build ID
+within ten seconds. Failed readiness kills the candidate and launches the previous
+image. The restored owner reclaims stale provider children through its own index.
+Core then republishes the endpoint and restores remote connection intent. Core's
+PID, lock and detached executors remain in place. Each target has a sixty-second
+attempt window, recorded with the update state to survive Core restart. Installers
+retain the stop-before-replace path for incompatible protocols.
+
+macOS Core launches from Desktop use `setsid`, as do front-door and detached
+executor launches. Providers remain in the front-door session with separate process
+groups and a separate child index. Desktop quit and file replacement do not signal
+these sessions. The login LaunchAgent starts Desktop with `RunAtLoad`. Desktop's
+heartbeat restores a missing Core while Desktop is running. When Desktop is closed,
+Core loss leaves front-door sockets and providers alive, but business requests wait
+within their admission deadlines until an explicit Desktop or headless Core start.
+There is no independent macOS Core restart owner.
+
+macOS uninstall stops Core, acquires replacement exclusion, stops the front door,
+reclaims any indexed provider children and removes the front-door image directory,
+metadata, private IPC directory and child index. Detached executor cleanup follows
+through the existing native host indexes.
 
 macOS and Linux use mode-0600 Unix sockets in a mode-0700 directory under
 `/tmp/arc-ipc-<uid>-<state-hash>/`. The hash uses the canonical state path and avoids
