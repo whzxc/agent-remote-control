@@ -232,3 +232,10 @@ test('isolated notify digest preserves full-row actions in both MCP representati
   }
   for(const row of expected)assert.ok(found.some(r=>isDeepStrictEqual(r,row)));
 });
+
+ test('account digest summaries retain visible aliases',async()=>{
+  // Regression: D4a account digest summaries omitted the account alias.
+  await fixture('accounts',{accounts:[{id:'account-fixture',alias:'Research account',health:{state:'ready'},quota:{state:'ready'},agentProfiles:[{agent:'codex',state:'signed-in'}]}]});
+  const result=await control.call('accounts',{view:'digest'});
+  assert.ok(result.rows[0].summary.includes('Research account'));
+ });

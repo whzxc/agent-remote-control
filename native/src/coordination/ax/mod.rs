@@ -78,6 +78,9 @@ fn validate(op: &str, args: &Value) -> Result<()> {
     Ok(())
 }
 fn failure(message: String, op: &str, args: &Value) -> Value {
+    if serde_json::from_str::<Value>(&message).is_ok_and(|v| v["code"] == "INVALID_ARGUMENTS") {
+        return json!({"error":crate::egress::failure(&message)});
+    }
     let code = message.split(':').next().unwrap_or("COORDINATION_STORAGE");
     let next = match code {
         "AX_REVISION_CONFLICT" | "AX_NOT_FOUND" | "AX_MERGED" | "AX_STATE_CONFLICT" => {

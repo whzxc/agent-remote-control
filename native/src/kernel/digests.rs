@@ -357,7 +357,8 @@ fn project(op: &str, args: &Value, value: &Value) -> Vec<Row> {
                         &json!(format!("{}:{agent}", text(&v["id"]))),
                         v,
                         format!(
-                            "{agent}; health {health}; quota {quota_summary}; default {default}"
+                            "{}; {agent}; health {health}; quota {quota_summary}; default {default}",
+                            text(v.get("alias").or_else(|| v.get("label")).unwrap_or(&v["id"]))
                         ),
                         attention(health)
                             || used.is_some_and(|n| n >= 100.0)

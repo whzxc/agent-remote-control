@@ -81,10 +81,12 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
         "approvals" => "profile-approvals",
         _ => name,
     };
-    let mut content = format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n{}", guides[key].as_str().unwrap_or(""));
+    let compact_key = format!("{key}-compact");
+    let content_key = if topic == "loop" && !full && guides[&compact_key].is_string() { compact_key.as_str() } else { key };
+    let mut content = format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n{}", guides[content_key].as_str().unwrap_or(""));
     if topic == "loop" {
         if name == "remote-push" {
-            content.push_str(guides["profile-notify"].as_str().unwrap_or(""));
+            content.push_str(guides[if full { "profile-notify" } else { "profile-notify-compact" }].as_str().unwrap_or(""));
         }
         if crate::context_provider::configured() {
             content.push_str(guides["contextProvider"].as_str().unwrap_or(""));
@@ -123,8 +125,8 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
         })
         .map(|op| {
             let mut entry = json!({"op":op["name"],"via":crate::egress::via(op)});
+            entry["signature"] = json!(crate::egress::signature(op));
             if topic != "loop" || full {
-                entry["signature"] = json!(crate::egress::signature(op));
                 entry["retry"] = json!({"mode":crate::egress::retry_contract(op)["mode"]});
             }
             entry

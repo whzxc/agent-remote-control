@@ -330,8 +330,20 @@ impl Store {
             .report_buckets
             .retain(|_, (at, _)| time.saturating_sub(*at) < 60_000);
     }
+    fn resolve_id(&self, prefix: &str) -> Result<String> {
+        if self.data.entries.contains_key(prefix) {
+            return Ok(prefix.into());
+        }
+        let matches: Vec<_> = self.data.entries.keys().filter(|id| id.starts_with(prefix)).cloned().collect();
+        match matches.as_slice() {
+            [id] => Ok(id.clone()),
+            [] => Err("AX_NOT_FOUND: query ax_list".into()),
+            _ => Err(format!("INVALID_ARGUMENT: ambiguous prefix; use a full AX id: {}", matches.join(", "))),
+        }
+    }
     fn canonical(&self, id: &str) -> Result<String> {
-        let mut key = id;
+        let resolved = self.resolve_id(id)?;
+        let mut key = resolved.as_str();
         for _ in 0..=MAX_ENTRIES {
             let e = self
                 .data
@@ -561,7 +573,8 @@ impl Store {
         evidence: &[Value],
         time: i64,
     ) -> Result<Value> {
-        let key = string(args, "id");
+        let resolved = self.resolve_id(string(args, "id"))?;
+        let key = resolved.as_str();
         let original = self
             .data
             .entries
@@ -711,16 +724,7 @@ impl Store {
             {
                 Some(prefix.to_owned())
             } else {
-                let matches: Vec<_> = self
-                    .data
-                    .entries
-                    .keys()
-                    .filter(|id| id.starts_with(prefix))
-                    .collect();
-                match matches.as_slice() {
-                    [id] => Some((*id).clone()),
-                    _ => return Err("INVALID_ARGUMENT: id must be a full AX id (ax-<UUID>) or a unique prefix; read ax_list without id and use rows[].id (or entries[].id in full view)".into()),
-                }
+                Some(self.resolve_id(prefix)?)
             }
         } else {
             None

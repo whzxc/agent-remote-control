@@ -516,6 +516,7 @@ pub(crate) fn example(spec: &Value) -> Value {
 
 pub(crate) fn invalid_arguments(op: &str, field: &str, message: &str) -> String {
     json!({"code":"INVALID_ARGUMENTS","op":op,"field":field,"message":message,
+        "signature":catalog()["ops"].as_array().and_then(|ops| ops.iter().find(|spec| spec["name"] == op)).map(signature),
         "guide":{"tool":"query","arguments":{"op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})}}}}).to_string()
 }
 
@@ -1061,6 +1062,25 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    // Regression: ax-806f786e default discovery omitted argument signatures.
+    fn ax_guide_common_signatures() {
+        let ops = catalog()["ops"].as_array().unwrap().clone();
+        for source in ["claude", "chatgpt", "other"] {
+            let result = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
+            let mut before = result.clone();
+            before["content"] = guide(&json!({"controlSource":source}), &json!({"view":"full"}), "en", &ops)["content"].clone();
+            for entry in before["ops"].as_array_mut().unwrap() { entry.as_object_mut().unwrap().remove("signature"); }
+            let growth = result.to_string().len() - before.to_string().len();
+            println!("{source} default guide bytes: {} -> {} (+{growth})", before.to_string().len(), result.to_string().len());
+            assert!(growth <= 3200);
+            for entry in result["ops"].as_array().unwrap() {
+                let per_op = guide(&json!({"controlSource":source}), &json!({"op":entry["op"]}), "en", &ops);
+                assert_eq!(entry["signature"], per_op["signature"]);
+            }
+        }
+    }
 
     #[test]
     fn review_notes_accept_per_invariant_evidence() {

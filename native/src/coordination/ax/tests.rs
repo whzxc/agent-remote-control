@@ -632,3 +632,32 @@ fn ax_short_id_reads_the_unique_entry_and_rejects_ambiguity() {
     assert!(string(&ambiguous["error"], "message").contains("full AX id"));
     assert_eq!(ambiguous["next"]["op"], "guide");
 }
+
+#[test]
+// Contract: invalid AX op arguments expose field, signature and guide recovery in the error payload.
+fn ax_invalid_signature() {
+    let mut f = Fixture::new();
+    let result = f.call("ax_triage", json!({"id":"ax-fixture","expectedRevision":1,"action":"accept","reason":"Fixture"}));
+    assert_eq!(result["error"]["code"], "INVALID_ARGUMENTS");
+    assert_eq!(result["error"]["field"], "/action");
+    assert!(string(&result["error"], "signature").starts_with("ax_triage("));
+    assert_eq!(result["error"]["guide"]["arguments"]["args"]["op"], "ax_triage");
+}
+
+#[test]
+// Regression: digest short AX ids failed in write operations with AX_NOT_FOUND.
+fn ax_short_id_writes() {
+    let mut f = Fixture::new();
+    let first = f.report("Short write fixture");
+    let short = &string(&first,"id")[..11];
+    let result = f.call("ax_triage", json!({"id":short,"expectedRevision":first["revision"],"action":"wontfix","reason":"Fixture"}));
+    assert_eq!(result["entry"]["id"], first["id"]);
+    assert_eq!(result["entry"]["status"], "closed");
+    let second = f.candidate("short-candidate", "fixture-build");
+    let mut candidate = second["entry"].clone();
+    if candidate.is_null() { candidate = second; }
+    candidate["id"] = json!(&string(&candidate,"id")[..11]);
+    assert_eq!(f.decide(&candidate, "confirm")["status"], "open");
+    let error = f.call("ax_triage", json!({"id":"ax-","expectedRevision":1,"action":"wontfix","reason":"Fixture"}));
+    assert!(string(&error["error"],"message").contains(string(&first,"id")));
+}
