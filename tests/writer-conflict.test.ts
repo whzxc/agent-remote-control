@@ -179,8 +179,8 @@ test('Codex Desktop records Fast settings immediately after its first turn conte
 });
 
 
-test('Held external writers allow read-only timelines while mutations retain owner recovery', {skip:process.platform==='win32'}, async()=>{
-  // Regression: completed parent-owned subagents stayed unconfirmed and their detail failed with THREAD_WRITER_BUSY.
+test('Held external writers allow all read views while mutations retain owner recovery', {skip:process.platform==='win32'}, async()=>{
+  // Regression: codex_read summary, compact, review and statusOnly were blocked by an external native writer after turn completion.
   const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-external-writer-')));
   const threadId='00000000-0000-4000-8000-000000000002';
   const turnId='00000000-0000-4000-8000-000000000004';
@@ -203,18 +203,15 @@ test('Held external writers allow read-only timelines while mutations retain own
     import {createInterface} from 'node:readline';
     for await(const line of createInterface({input:process.stdin})){
       const {id,method,params}=JSON.parse(line);if(id===undefined)continue;
+      if(['thread/resume','turn/start','turn/steer','turn/interrupt'].includes(method)) {
+        process.stdout.write(JSON.stringify({id,error:{code:-32600,message:'Read-only fixture refuses native writes'}})+'\\n');continue;
+      }
       const result=method==='thread/read'?{thread:{id:params.threadId,path:${JSON.stringify(rollout)},cwd:${JSON.stringify(directory)},status:{type:'notLoaded'}}}:
-        method==='thread/turns/list'?{data:[{id:${JSON.stringify(turnId)},status:'completed',items:[]}],nextCursor:null}:{};
+        method==='thread/turns/list'?{data:[{id:${JSON.stringify(turnId)},status:'completed',items:[{id:'final',type:'agentMessage',text:'Review complete',phase:'final_answer'}]}],nextCursor:null}:{};
       process.stdout.write(JSON.stringify({id,result})+'\\n');
     }
   `,{CODEX_HOME:directory,ARC_FIXTURE_DESKTOP:'1'});
   try {
-    for(const statusOnly of [false,true]) {
-      const result=await fixture.call('codex_read',{threadId,statusOnly});
-      assert.equal(result.error.code,'THREAD_WRITER_BUSY',JSON.stringify(result));
-      assert.equal(result.error.ownership.owner,'external');assert.equal(result.error.ownership.state,'held');
-      if(process.platform==='darwin')assert.ok(result.error.ownership.processes.some((p:any)=>p.pid===writer.pid));
-    }
     const timeline=()=>fixture.api('agents/conversations/timeline',{agent:'codex',id:threadId});
     const running=await timeline();
     assert.equal(running.readOnly,true,JSON.stringify(running));
@@ -227,6 +224,21 @@ test('Held external writers allow read-only timelines while mutations retain own
     assert.equal(completed.status,'completed');
     assert.equal(completed.turnStatuses[turnId],'completed');
     assert.ok(completed.entries.some((entry:any)=>entry.text==='Review complete'));
+    for(const args of [{view:'summary'},{view:'compact'},{view:'review'},{statusOnly:true},{statusOnly:true,turnId}]) {
+      const result=await fixture.call('codex_read',{threadId,...args});
+      assert.ok(result.error == null,JSON.stringify(result));
+      assert.equal(result.readObservation.source,'native-app-server');
+      assert.equal(result.readObservation.degraded,true);
+      assert.equal(result.readObservation.staleness,'unknown');
+      if('view' in args && args.view==='review')assert.equal(result.turns[0].turnId,turnId);
+      else assert.equal(result.state,'completed',JSON.stringify(result));
+      if(args.view==='summary')assert.equal(result.finalResponse,'Review complete');
+      if(args.view==='compact')assert.ok(result.turns[0].items.some((item:any)=>item.text==='Review complete'));
+    }
+    const send=await fixture.completed('codex_send',{threadId,prompt:'Writer must retain this task'});
+    assert.equal(send.error.code,'THREAD_WRITER_BUSY',JSON.stringify(send));
+    assert.equal(send.error.ownership.state,'held');
+
     assert.equal((await fixture.api(`agents/timeline/${threadId}`)).status,'completed');
     assert.equal((await fixture.call('task_timeline',{agent:'codex',id:threadId})).status,'completed');
     await appendFile(rollout,record('event_msg',{type:'task_started',turn_id:nextTurn})

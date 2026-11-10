@@ -127,6 +127,7 @@ pub(crate) fn project(name: &str, args: &Value, value: &Value) -> Value {
         "stateScope",
         "recordedStatus",
         "runtimeStatus",
+        "readObservation",
         "reason",
         "conditionMet",
         "snapshotHash",

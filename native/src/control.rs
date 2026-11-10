@@ -1217,16 +1217,26 @@ impl Control {
     }
     async fn request_native(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
         let thread = string(&args, "threadId");
+        let read_only = matches!(
+            method,
+            "thread/read" | "thread/turns/list" | "thread/items/list"
+        );
+        if read_only
+            && crate::writer::probe(thread)["state"] == "held"
+            && self.writer_ownership(thread).await["owner"] == "external"
+        {
+            // Native metadata/history reads never resume or acquire the writer.
+            crate::acceptance_fault::check_read(method, &args)?;
+            return self
+                .thread_rpc(thread)
+                .await?
+                .call(method, args, timeout)
+                .await;
+        }
         if !thread.is_empty()
             && matches!(
                 method,
-                "thread/read"
-                    | "thread/turns/list"
-                    | "thread/items/list"
-                    | "thread/resume"
-                    | "turn/start"
-                    | "turn/steer"
-                    | "turn/interrupt"
+                "thread/resume" | "turn/start" | "turn/steer" | "turn/interrupt"
             )
             && crate::writer::probe(thread)["state"] == "held"
         {
@@ -1249,7 +1259,8 @@ impl Control {
                 }
                 return Err(self.writer_conflict(thread, Some(error)).await.to_string());
             }
-            if !thread.is_empty()
+            if !read_only
+                && !thread.is_empty()
                 && desktop::owner_discovery_pending(error)
                 && crate::writer::probe(thread)["state"] == "held"
             {
@@ -1347,7 +1358,8 @@ impl Control {
                     if desktop::owner_missing(&e)
                         || (desktop::owner_discovery_pending(&e)
                             && crate::writer::probe(id)["state"] == "unheld")
-                        || desktop::endpoint_missing(&e) =>
+                        || desktop::endpoint_missing(&e)
+                        || e.contains("Connection refused") =>
                 {
                     if string(&args, "cursor").starts_with("desktop:") {
                         return Err("DESKTOP_CURSOR_STALE: Desktop history owner changed; omit cursor to restart pagination".into());
@@ -1897,11 +1909,11 @@ impl Control {
             None
         };
 
-        if operation == "send"
+        if matches!(operation, "send" | "interrupt")
             || (operation == "native"
                 && matches!(
                     string(args, "method"),
-                    "thread/resume" | "turn/start" | "turn/steer"
+                    "thread/resume" | "turn/start" | "turn/steer" | "turn/interrupt"
                 ))
         {
             let ownership = self.writer_ownership(thread_key).await;
@@ -2725,6 +2737,16 @@ impl Control {
             "codex_wait" => crate::waiter::codex_wait(self, &args).await,
             "codex_read" => {
                 let id = string(&args, "threadId");
+                let external = crate::writer::probe(id)["state"] == "held"
+                    && self.writer_ownership(id).await["owner"] == "external";
+                let project_read = |mut value: Value| {
+                    if external {
+                        value["readObservation"] = json!({"source":"native-app-server",
+                            "degraded":true,"staleness":"unknown","reason":"external-writer-held",
+                            "observedAt":now()});
+                    }
+                    value
+                };
                 let mut t = self
                     .request(
                         "thread/read",
@@ -2777,7 +2799,7 @@ impl Control {
                             })
                             .unwrap_or(Value::Null);
                     }
-                    return Ok(status);
+                    return Ok(project_read(status));
                 }
                 if args["statusOnly"] == true {
                     let mut progress = crate::review::progress(self, id, &t).await;
@@ -2799,7 +2821,7 @@ impl Control {
                     status["stateScope"] = json!("turn");
                     status["observedAt"] = json!(now());
                     status["progress"] = progress;
-                    return Ok(status);
+                    return Ok(project_read(status));
                 }
                 if args["view"] == "review" {
                     let page = crate::review::turn_page(self, &args).await?;
@@ -2813,9 +2835,9 @@ impl Control {
                         }
                         turns.push(row);
                     }
-                    return Ok(
+                    return Ok(project_read(
                         json!({"threadId":id,"turns":turns,"nextCursor":page["nextCursor"]}),
-                    );
+                    ));
                 }
                 let full = args["view"] == "full";
                 let mut result = if full {
@@ -2944,7 +2966,7 @@ impl Control {
                         }
                     }
                 }
-                Ok(result)
+                Ok(project_read(result))
             }
             "codex_items" => {
                 let full = args["view"] == "full";
