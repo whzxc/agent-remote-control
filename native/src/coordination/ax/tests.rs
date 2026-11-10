@@ -576,3 +576,21 @@ fn ax_issue_draft_sanitization() {
     }
     assert_eq!(draft, issue::draft(&args));
 }
+
+#[test]
+fn ax_history_discloses_access_and_missing_reasons() {
+    // Regression: non-owner AX history silently discarded recorded triage reasons and references.
+    let mut f = Fixture::new();
+    let entry = f.report("Fixture history projection");
+    let closed = f.decide(&entry, "wontfix");
+    let owned = f.call("ax_list", json!({"id":closed["id"]}));
+    assert_eq!(owned["entries"][0]["history"].as_array().unwrap().last().unwrap()["detail"]["reason"], "Fixture decision");
+    assert!(owned["entries"][0]["history"][0]["reasonUnavailable"].is_string());
+    f.actor = json!({"type":"source","sourceId":"other"});
+    let read = f.call("ax_list", json!({"id":closed["id"]}));
+    let history = read["entries"][0]["history"].as_array().unwrap();
+    let last = history.last().unwrap();
+    assert!(last["detail"].is_null());
+    assert_eq!(last["evidenceUnavailable"]["next"]["op"], "ax_list");
+    assert_eq!(last["evidenceUnavailable"]["next"]["args"]["id"], closed["id"]);
+}
