@@ -1048,17 +1048,18 @@ mod tests {
     #[test]
     // Regression: ax-806f786e default discovery omitted argument signatures.
     fn ax_guide_common_signatures() {
+        const DEFAULT_GUIDE_MCP_BUDGET: usize = 11_100;
         let ops = catalog()["ops"].as_array().unwrap().clone();
         for source in ["claude", "chatgpt", "other"] {
             let result = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
-            let mut before = result.clone();
-            before["content"] = guide(&json!({"controlSource":source}), &json!({"view":"full"}), "en", &ops)["content"].clone();
-            for entry in before["ops"].as_array_mut().unwrap() { entry.as_object_mut().unwrap().remove("signature"); }
-            let growth = result.to_string().len() - before.to_string().len();
-            println!("{source} default guide bytes: {} -> {} (+{growth})", before.to_string().len(), result.to_string().len());
-            assert!(growth <= 3200);
-            for entry in result["ops"].as_array().unwrap() {
+            let bytes = wire_bytes(&tool(result.clone(), false), Some(&json!(1)));
+            println!("{source} default guide MCP response: {bytes} / {DEFAULT_GUIDE_MCP_BUDGET} bytes");
+            assert!(bytes <= DEFAULT_GUIDE_MCP_BUDGET);
+            let entries = result["ops"].as_array().unwrap();
+            assert!(!entries.is_empty());
+            for entry in entries {
                 let per_op = guide(&json!({"controlSource":source}), &json!({"op":entry["op"]}), "en", &ops);
+                assert!(entry["signature"].as_str().is_some_and(|s| !s.is_empty()));
                 assert_eq!(entry["signature"], per_op["signature"]);
             }
         }
