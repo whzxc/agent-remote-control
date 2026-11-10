@@ -31,7 +31,7 @@ async function call(op,args={},expectError=false){
 }
 async function dispatch(op='codex_create',args={}){
  let r=await call(op,{...(op==='codex_create'?{project:dir}:{}),prompt:'Reply SELF_TEST_OK without tools.',model:'fixture-notify',effort:'high',purpose:'self-test',notify:{channel:'claude-session',target:'session_selftest'},requestId:randomUUID(),waitMs:1000,...args});
- while(['pending','reserved'].includes(r.state)){await new Promise(r=>setTimeout(r,50));r=await call('receipt',{requestId:r.requestId});}
+ while(['reserved','executing'].includes(r.state)){await new Promise(r=>setTimeout(r,50));r=await call('receipt',{requestId:r.requestId});}
  assert.equal(r.state,'completed',JSON.stringify(r));return r;
 }
 const status=async()=>{const s=await call('notify_status',{target:'session_selftest'});return s.targets.find(t=>t.target==='session_selftest');};
@@ -113,7 +113,7 @@ for await(const line of createInterface({input:process.stdin})){
   let a=await call('agent_create',{agent:'notification-fixture',cwd:dir,prompt:'Reply SELF_TEST_OK.',purpose:'self-test',notify:{channel:'claude-session',target:'session_selftest'},requestId:randomUUID()});
   for(const op of ['agent_create','agent_send']){
    if(op==='agent_send')a=await call(op,{agent:'notification-fixture',taskId:a.taskId,prompt:'Reply SELF_TEST_OK again.',purpose:'self-test',notify:{channel:'claude-session',target:'session_selftest'},requestId:randomUUID()});
-   while(['pending','reserved'].includes(a.state)){await new Promise(r=>setTimeout(r,50));a=await call('receipt',{requestId:a.requestId});}
+   while(['reserved','executing'].includes(a.state)){await new Promise(r=>setTimeout(r,50));a=await call('receipt',{requestId:a.requestId});}
    check(op+' '+(verified?'verified':'unverified')+' follow-up',verified?a.next?.hint.includes('You may end'):a.next?.op==='agent_wait'&&a.next.args.taskId===a.taskId&&a.next.args.agent==='notification-fixture');
    await call('agent_wait',{agent:'notification-fixture',taskId:a.taskId,turnId:a.turnId,until:'terminal',timeoutMs:1000});
   }

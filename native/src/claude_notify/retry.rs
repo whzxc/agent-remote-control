@@ -154,10 +154,7 @@ pub(super) async fn handle(
             Ok(true)
         }
         Ok(r)
-            if matches!(
-                string(&r, "state"),
-                "pending" | "reserved" | "submitting" | "turn-submitting"
-            ) =>
+            if crate::kernel::receipts::progress::Progress::read(string(&r, "state"), true).active() =>
         {
             Ok(true)
         }

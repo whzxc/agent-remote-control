@@ -933,7 +933,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
     wait_args["timeoutMs"] = json!(30000);
     let wait_tool = if agent { "agent_wait" } else { "codex_wait" };
     let mut next = if value["state"] == "unconfirmed" && value["requestId"].is_string() {
-        json!({"via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
+        json!({"via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"},"hint":"Submission is unconfirmed. Read this original receipt with the same requestId. Do not resubmit the operation."})
     } else if value["next"]["op"].is_string()
         || (value["next"].get("op") == Some(&Value::Null) && value["next"]["hint"].is_string())
     {
@@ -944,7 +944,7 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
     {
         json!({"via":"query","op":"codex_owner","args":{"threadId":thread},"hint":"Inspect this exact thread owner before retrying. Unheld threads can be read from persisted native state; do not reclaim a held writer."})
     } else if value["state"] == "executing" && value["requestId"].is_string() {
-        json!({"via":"act","op":"receipt","args":{"action":"read","requestId":value["requestId"]},"retryAfterMs":1000,"hint":"The foreground command is executing. Read the original receipt for its exit; elapsed execution time is not stalled submission."})
+        json!({"via":"act","op":"receipt","args":{"action":"read","requestId":value["requestId"]},"retryAfterMs":1000,"hint":"The operation is executing. Read the original receipt for its outcome. Elapsed execution time does not indicate stalled submission."})
     } else if value["error"]["code"] == "INVALID_ARGUMENTS" {
         let op = value["error"]["op"].as_str().unwrap_or(name);
         json!({"via":"query","op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})},"hint":format!("{}: {}",string(&value["error"],"field"),string(&value["error"],"message"))})

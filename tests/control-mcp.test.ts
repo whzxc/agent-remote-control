@@ -2691,7 +2691,7 @@ test('AX foreground command receipts expose execution and process spawn supports
   // Regression: AX-07 foreground executions remained reserved; AX-06 did not name the supported managed-process path.
   const pending=(await call('command',{cmd:'fixture-delayed',cwd:directory,timeoutMs:2000,waitMs:0,requestId:randomUUID()})).result;
   let receipt=pending;
-  for(let i=0;i<20 && ['reserved','pending'].includes(receipt.state);i++) {
+  for(let i=0;i<20 && receipt.state==='reserved';i++) {
     await new Promise(resolve=>setTimeout(resolve,5));
     receipt=(await call('receipt',{requestId:pending.requestId})).result;
   }

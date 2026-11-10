@@ -121,7 +121,21 @@ impl Cost {
         }
     }
 }
+#[cfg(not(test))]
 static COSTS: [Cost; 36] = [const { Cost::new() }; 36];
+#[cfg(test)]
+thread_local! { static COSTS: [Cost; 36] = [const { Cost::new() }; 36]; }
+
+fn with_costs<T>(read: impl FnOnce(&[Cost; 36]) -> T) -> T {
+    #[cfg(test)]
+    {
+        COSTS.with(read)
+    }
+    #[cfg(not(test))]
+    {
+        read(&COSTS)
+    }
+}
 tokio::task_local! { static OWNER: Owner; }
 thread_local! { static SYNC_OWNER: Cell<Option<Owner>> = const { Cell::new(None) }; }
 pub(crate) fn current() -> Option<Owner> {
@@ -129,14 +143,16 @@ pub(crate) fn current() -> Option<Owner> {
 }
 fn update(f: impl FnOnce(&Cost)) {
     if let Some(owner) = current() {
-        f(&COSTS[owner as usize]);
+        with_costs(|costs| f(&costs[owner as usize]));
     }
 }
 fn begin(owner: Owner, reason: Reason) {
     if current() != Some(owner) {
-        let c = &COSTS[owner as usize];
-        c.passes.fetch_add(1, Relaxed);
-        c.wakes[reason as usize].fetch_add(1, Relaxed);
+        with_costs(|costs| {
+            let c = &costs[owner as usize];
+            c.passes.fetch_add(1, Relaxed);
+            c.wakes[reason as usize].fetch_add(1, Relaxed);
+        });
     }
 }
 // Box before constructing the async block. An async fn would retain the inline
@@ -284,7 +300,7 @@ pub(crate) fn bindings(retained: usize, observed: usize, dormant: usize) {
     });
 }
 pub(super) fn snapshot() -> Value {
-    Value::Object(OWNERS.iter().zip(&COSTS).map(|(name, c)| ((*name).into(), json!({
+    with_costs(|costs| Value::Object(OWNERS.iter().zip(costs).map(|(name, c)| ((*name).into(), json!({
         "passes":c.passes.load(Relaxed),
         "wakesByReason":REASONS.iter().zip(&c.wakes).map(|(name,c)|((*name).into(),json!(c.load(Relaxed)))).collect::<serde_json::Map<_,_>>(),
         "rowsVisited":c.rows.load(Relaxed), "recordsChanged":c.changed.load(Relaxed),
@@ -292,7 +308,7 @@ pub(super) fn snapshot() -> Value {
         "cacheHits":c.hits.load(Relaxed), "cacheMisses":c.misses.load(Relaxed),
         "scanSetSize":c.scan_set.load(Relaxed),
         "bindings":if *name == "notificationObserver" { json!({"retained":c.retained.load(Relaxed),"observed":c.observed.load(Relaxed),"dormant":c.dormant.load(Relaxed)}) } else { Value::Null }
-    }))).collect())
+    }))).collect()))
 }
 
 #[cfg(test)]
