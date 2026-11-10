@@ -198,11 +198,14 @@ fn close_scope(dir: &Path, b: &mut Binding, reason: &str) -> Result<()> {
             b.scope_started_at
         }
     };
-    for mut member in records(dir)?.into_iter().filter(|member| {
-        member.thread_id == b.thread_id
-            && member.source_id == b.source_id
-            && start(member) == start(b)
-    }) {
+    for mut member in index::thread(dir, &b.thread_id)?
+        .into_iter()
+        .filter(|member| {
+            member.thread_id == b.thread_id
+                && member.source_id == b.source_id
+                && start(member) == start(b)
+        })
+    {
         member.scope_end = Some(reason.into());
         persist(dir, &member)?;
     }

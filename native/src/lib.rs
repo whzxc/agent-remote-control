@@ -366,6 +366,7 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
         if let Some(thread) = params[key].as_str() {
             let sequence = e.sequence;
             e.thread_sequences.insert(thread.into(), sequence);
+            crate::claude_notify::native_changed(thread);
         }
     }
     if e.thread_sequences.len() > 4096 {

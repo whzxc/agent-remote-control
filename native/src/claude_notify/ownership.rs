@@ -112,12 +112,15 @@ pub(crate) async fn observe(thread: &str, ownership: &Value) -> Result<Value> {
             .as_array()
             .is_some_and(|rows| !rows.is_empty())
         {
-            matching_records(&directory(), |b| {
-                b.thread_id == thread
-                    && b.scope_end.is_none()
-                    && !b.continuation_bound
-                    && (b.agent.is_empty() || b.agent == "codex")
-            })?
+            index::interested_thread(&directory(), thread)?
+                .into_iter()
+                .filter(|b| {
+                    b.thread_id == thread
+                        && b.scope_end.is_none()
+                        && !b.continuation_bound
+                        && (b.agent.is_empty() || b.agent == "codex")
+                })
+                .collect()
         } else {
             Vec::new()
         };
@@ -161,7 +164,7 @@ pub(crate) async fn observe(thread: &str, ownership: &Value) -> Result<Value> {
 
 pub(crate) async fn end_scope(thread: &str, reason: &str) -> Result<()> {
     let _guard = LOCK.lock().await;
-    for mut b in records(&directory())?
+    for mut b in index::thread(&directory(), thread)?
         .into_iter()
         .filter(|b| b.thread_id == thread && b.scope_end.is_none())
     {

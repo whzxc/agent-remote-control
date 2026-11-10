@@ -1,75 +1,75 @@
 //! Durable operation receipts. Owners retain execution and task lifecycle semantics.
 use super::file_cache::load;
 use crate::*;
+mod projection;
 
 pub struct ReceiptStore {
     directory: &'static str,
+    #[cfg(test)]
+    base: Option<PathBuf>,
 }
 impl ReceiptStore {
     pub const fn new(directory: &'static str) -> Self {
-        Self { directory }
+        Self {
+            directory,
+            #[cfg(test)]
+            base: None,
+        }
     }
     pub fn path(&self, request: &str) -> Result<PathBuf> {
         uuid::Uuid::parse_str(request).map_err(|_| "INVALID_REQUEST_ID")?;
+        #[cfg(test)]
+        if let Some(base) = &self.base {
+            return Ok(base.join(format!("{request}.json")));
+        }
         Ok(root().join(self.directory).join(format!("{request}.json")))
     }
     pub fn read(&self, request: &str, session: &str) -> Result<Value> {
         Self::normalize(load(&self.path(request)?)?, session)
     }
-    /// Bulk task projections retain their own metadata snapshot, not full receipt
-    /// payloads in the shared JSON cache.
+    pub(crate) fn seed(&self) -> Result<()> {
+        let path = self.path(&uuid::Uuid::nil().to_string())?;
+        projection::seed(path.parent().unwrap())
+    }
+    /// Derived summaries remain resident independently of full receipt payload sizes.
     pub fn read_for_projection(&self, request: &str, session: &str) -> Result<Value> {
         crate::runtime_metrics::cost::sync(
             crate::runtime_metrics::cost::Owner::ReceiptProjection,
             crate::runtime_metrics::cost::Reason::Poll,
             || {
-                crate::runtime_metrics::cost::scan_set(1);
-                type Snapshot = (String, super::file_cache::Cache<Value>);
-                static PROJECTIONS: std::sync::LazyLock<std::sync::Mutex<Snapshot>> =
-                    std::sync::LazyLock::new(Default::default);
-                let mut snapshots = PROJECTIONS.lock().map_err(|e| e.to_string())?;
-                if snapshots.0 != session {
-                    *snapshots = (session.into(), Default::default());
-                }
-                let record = snapshots.1.read_with(&self.path(request)?, |bytes| {
-                    let mut row = Self::normalize(
-                        serde_json::from_slice(bytes).map_err(|e| e.to_string())?,
-                        session,
-                    )?;
-                    // Keep only the result metadata consumed by the task projection. Full
-                    // receipts and arguments stay with explicit receipt reads.
-                    fn fields(value: &Value, keys: &[&str]) -> Value {
-                        Value::Object(
-                            keys.iter()
-                                .filter_map(|key| {
-                                    value.get(*key).map(|v| ((*key).into(), v.clone()))
-                                })
-                                .collect(),
-                        )
-                    }
-                    let result = &row["result"];
-                    let mut summary = fields(result, &["error", "threadId"]);
-                    for key in ["thread", "resolved"] {
-                        if let Some(value) = result.get(key) {
-                            summary[key] = fields(
-                                value,
-                                if key == "thread" {
-                                    &["id", "name", "cwd"]
-                                } else {
-                                    &["cwd"]
-                                },
-                            );
-                            if key == "resolved" && value.get("thread").is_some() {
-                                summary[key]["thread"] =
-                                    fields(&value["thread"], &["id", "name", "cwd"]);
-                            }
-                        }
-                    }
-                    row["result"] = summary;
-                    row.as_object_mut().unwrap().remove("arguments");
-                    Ok(row)
-                })?;
-                Ok(record.as_ref().clone())
+                let path = self.path(request)?;
+                let row = projection::read(&path)?;
+                Self::normalize(row, session)
+            },
+        )
+    }
+    pub(crate) fn projection_updates(
+        &self,
+        revision: Option<u64>,
+        session: &str,
+    ) -> Result<(u64, bool, Vec<(String, Option<Value>)>)> {
+        let directory = self
+            .path(&uuid::Uuid::nil().to_string())?
+            .parent()
+            .unwrap()
+            .to_owned();
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::ReceiptProjection,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                let (revision, reset, rows) = projection::updates(&directory, revision)?;
+                Ok((
+                    revision,
+                    reset,
+                    rows.into_iter()
+                        .map(|(key, row)| {
+                            Ok((
+                                key,
+                                row.map(|row| Self::normalize(row, session)).transpose()?,
+                            ))
+                        })
+                        .collect::<Result<_>>()?,
+                ))
             },
         )
     }
@@ -182,5 +182,219 @@ pub fn failure_state(error: &str) -> &'static str {
         "rejected"
     } else {
         "failed"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::kernel::task_projection::TaskProjection;
+    use crate::runtime_metrics::cost::{self, Owner, Reason};
+    struct Sandbox {
+        dir: PathBuf,
+        store: ReceiptStore,
+    }
+    impl Sandbox {
+        fn new() -> Self {
+            let dir = std::env::temp_dir().join(format!("arc-receipt-index-{}", id()));
+            Self {
+                store: ReceiptStore {
+                    directory: "",
+                    base: Some(dir.clone()),
+                },
+                dir,
+            }
+        }
+        fn receipt(&self, completed: bool) -> Value {
+            let row = json!({"requestId":id(),"operation":"create","state":if completed {"completed"} else {"running"},"backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z","result":{"thread":{"id":"fixture-thread","name":"fixture","cwd":"/fixture"}}});
+            self.store.reserve(&row).unwrap();
+            row
+        }
+    }
+    impl Drop for Sandbox {
+        fn drop(&mut self) {
+            projection::forget(&self.dir);
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+    fn delta(before: &Value, after: &Value, owner: &str, key: &str) -> u64 {
+        after["cost"][owner][key].as_u64().unwrap() - before["cost"][owner][key].as_u64().unwrap()
+    }
+    fn poll(projection: &mut TaskProjection, store: &ReceiptStore) -> Arc<Vec<Value>> {
+        cost::sync(Owner::TaskRecords, Reason::Poll, || {
+            projection
+                .update(
+                    store,
+                    "fixture-session",
+                    |_| Vec::new(),
+                    |row| Ok(Some(row)),
+                )
+                .unwrap()
+        })
+    }
+    #[tokio::test]
+    async fn receipt_and_task_polls_read_only_changed_summaries_after_warmup() {
+        // Regression: task-record invalidations revisited every retained receipt and could evict unchanged summaries by payload size.
+        let control = control::Control::new(PathBuf::new());
+        let mut counts = Vec::new();
+        for history in [4, 40] {
+            let fixture = Sandbox::new();
+            for _ in 0..history {
+                fixture.receipt(true);
+            }
+            let mut active = fixture.receipt(false);
+            let before_seed = control.tool("runtime_metrics", json!({})).await.unwrap();
+            fixture.store.seed().unwrap();
+            let seeded = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(
+                delta(&before_seed, &seeded, "receiptSeed", "rowsVisited"),
+                history + 1
+            );
+            let mut projection = TaskProjection::default();
+            assert_eq!(
+                poll(&mut projection, &fixture.store).len() as u64,
+                history + 1
+            );
+            let before_idle = control.tool("runtime_metrics", json!({})).await.unwrap();
+            assert_eq!(
+                poll(&mut projection, &fixture.store).len() as u64,
+                history + 1
+            );
+            let idle = control.tool("runtime_metrics", json!({})).await.unwrap();
+            for owner in ["receiptProjection", "taskRecords"] {
+                assert_eq!(delta(&before_idle, &idle, owner, "rowsVisited"), 0);
+                assert_eq!(delta(&before_idle, &idle, owner, "bytesParsed"), 0);
+            }
+            active["state"] = json!("completed");
+            fixture.store.checkpoint(&mut active).unwrap();
+            let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+            let rows = poll(&mut projection, &fixture.store);
+            assert_eq!(
+                rows.iter()
+                    .find(|r| r["requestId"] == active["requestId"])
+                    .unwrap()["state"],
+                "completed"
+            );
+            let after = control.tool("runtime_metrics", json!({})).await.unwrap();
+            let cost = (
+                delta(&before, &after, "receiptProjection", "rowsVisited"),
+                delta(&before, &after, "receiptProjection", "bytesParsed"),
+                delta(&before, &after, "taskRecords", "rowsVisited"),
+            );
+            println!("receipt-index history={history} changed=1 receiptRows={} parsed={} taskRows={} idleRows=0", cost.0,cost.1,cost.2);
+            counts.push(cost);
+            projection::forget(&fixture.dir);
+            assert_eq!(
+                fixture
+                    .store
+                    .read_for_projection(string(&active, "requestId"), "new-session")
+                    .unwrap()["state"],
+                "completed"
+            );
+            assert_eq!(
+                fixture
+                    .store
+                    .read(string(&active, "requestId"), "new-session")
+                    .unwrap()["state"],
+                "completed"
+            );
+        }
+        assert_eq!(counts[0], counts[1]);
+        assert_eq!(counts[0].2, 1);
+    }
+    #[tokio::test]
+    async fn oversized_receipt_payload_does_not_evict_its_summary() {
+        // Regression: the 32 MiB source-byte cache limit forced unchanged large receipts to be decoded on every task poll.
+        let fixture = Sandbox::new();
+        let control = control::Control::new(PathBuf::new());
+        let mut row = json!({"requestId":id(),"operation":"create","state":"completed","backendSession":"fixture-session","result":{"threadId":"fixture-thread","payload":"x".repeat(33*1024*1024)}});
+        fixture.store.reserve(&row).unwrap();
+        let request = string(&row, "requestId").to_owned();
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(&request, "fixture-session")
+                .unwrap()["result"]["threadId"],
+            "fixture-thread"
+        );
+        let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+        for _ in 0..3 {
+            let summary = fixture
+                .store
+                .read_for_projection(&request, "fixture-session")
+                .unwrap();
+            assert_eq!(summary["result"]["threadId"], "fixture-thread");
+            assert!(summary["result"].get("payload").is_none());
+        }
+        let after = control.tool("runtime_metrics", json!({})).await.unwrap();
+        assert_eq!(
+            delta(&before, &after, "receiptProjection", "bytesParsed"),
+            0
+        );
+        assert_eq!(delta(&before, &after, "receiptProjection", "bytesRead"), 0);
+        row["result"] = json!({"threadId":"changed-thread"});
+        fixture.store.checkpoint(&mut row).unwrap();
+        assert_eq!(
+            fixture
+                .store
+                .read_for_projection(&request, "fixture-session")
+                .unwrap()["result"]["threadId"],
+            "changed-thread"
+        );
+    }
+    #[tokio::test]
+    async fn runtime_changes_refresh_the_dependent_task_without_reading_other_receipts() {
+        // Regression: changing one native task snapshot rebuilt all retained receipt projections.
+        let fixture = Sandbox::new();
+        let control = control::Control::new(PathBuf::new());
+        for _ in 0..40 {
+            fixture.receipt(true);
+        }
+        let active = fixture.receipt(false);
+        let request = string(&active, "requestId");
+        let runtime = fixture.dir.join("runtime").join("fixture.json");
+        save(&runtime, &json!({"state":"running"})).unwrap();
+        let mut projection = TaskProjection::default();
+        let poll = |projection: &mut TaskProjection| {
+            cost::sync(Owner::TaskRecords, Reason::Poll, || {
+                projection
+                    .update(
+                        &fixture.store,
+                        "fixture-session",
+                        |row| {
+                            if row["requestId"] == request {
+                                vec![runtime.clone()]
+                            } else {
+                                Vec::new()
+                            }
+                        },
+                        |mut row| {
+                            if row["requestId"] == request {
+                                row["runtime"] = super::super::file_cache::load(&runtime)?;
+                            }
+                            Ok(Some(row))
+                        },
+                    )
+                    .unwrap()
+            })
+        };
+        assert_eq!(poll(&mut projection).len(), 41);
+        save(&runtime, &json!({"state":"completed"})).unwrap();
+        let before = control.tool("runtime_metrics", json!({})).await.unwrap();
+        let rows = poll(&mut projection);
+        assert_eq!(
+            rows.iter().find(|row| row["requestId"] == request).unwrap()["runtime"]["state"],
+            "completed"
+        );
+        let after = control.tool("runtime_metrics", json!({})).await.unwrap();
+        assert_eq!(
+            delta(&before, &after, "receiptProjection", "bytesParsed"),
+            0
+        );
+        assert_eq!(
+            delta(&before, &after, "receiptProjection", "rowsVisited"),
+            1
+        );
+        assert_eq!(delta(&before, &after, "taskRecords", "rowsVisited"), 2);
     }
 }

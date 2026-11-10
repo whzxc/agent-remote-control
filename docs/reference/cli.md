@@ -204,6 +204,15 @@ observation/delivery, and Desktop frames. `totalWallMs` and `maxWallMs` include
 waiting and overlapping work; they are not CPU attribution. `inFlight` includes
 unfinished scopes. Counters reset on Core restart.
 
+`cost.notificationSeed` and `cost.receiptSeed` report cold index construction.
+Compare steady `notificationObserver`, `notificationDelivery`, `receiptProjection`
+and task-record deltas after warmup. Fixed active work should have equal recurring
+row and parse counts as completed history grows. `cost.indexRepair` records
+bounded watcher repair; `indexWatches.coverageGaps` exposes failed watches.
+`caches.notificationBindings.activityIndex` reports activity/deadline partitions,
+pending bindings, latest resumable scopes and dirty keys. Indexes rebuild from
+canonical files on restart; retention is unchanged.
+
 `caches` reports entry counts, serialized source bytes and file/directory reads.
 `desktopIpc` reports pending requests, known owners and snapshot retention.
 `events` reports event bytes, timeline/entry counts and pending interactions.

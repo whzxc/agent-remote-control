@@ -7,8 +7,12 @@ mod diagnostics;
 mod lifecycle;
 use crate::turn_lifecycle::{adapters as turn_adapter, TurnState};
 mod governance;
+mod index;
+#[cfg(test)]
+mod index_tests;
 pub(crate) mod mcp_events;
 mod observer;
+pub(crate) use index::native_changed;
 pub(crate) mod ownership;
 mod reachability;
 mod retry;
@@ -176,10 +180,12 @@ fn path_in(dir: &Path, thread: &str, turn: &str) -> PathBuf {
 static BINDINGS: std::sync::LazyLock<std::sync::Mutex<file_cache::Cache<Binding>>> =
     std::sync::LazyLock::new(Default::default);
 pub(crate) fn diagnostics() -> Value {
-    BINDINGS
+    let mut diagnostics = BINDINGS
         .lock()
         .map(|cache| cache.diagnostics())
-        .unwrap_or(Value::Null)
+        .unwrap_or(Value::Null);
+    diagnostics["activityIndex"] = index::diagnostics(&directory());
+    diagnostics
 }
 fn binding_paths(dir: &Path) -> Result<Arc<Vec<file_cache::Entry>>> {
     BINDINGS
@@ -195,7 +201,10 @@ fn persist(dir: &Path, b: &Binding) -> Result<()> {
         return Ok(());
     }
     save(&path, &serde_json::to_value(b).map_err(|e| e.to_string())?)?;
-    cache.written(&path, before, b.clone())
+    cache.written(&path, before, b.clone())?;
+    drop(cache);
+    index::updated(dir, b);
+    Ok(())
 }
 fn binding(dir: &Path, thread: &str, turn: &str) -> Result<Option<Binding>> {
     let path = path_in(dir, thread, turn);
@@ -321,7 +330,7 @@ pub(crate) async fn bind(
     let created = binding(&dir, thread, turn)?.is_none();
     let origin = crate::kernel::origin::current_origin();
     let continued = if created && args.get("notify").is_none() && cause["op"] == "codex_send" {
-        records(&dir)?
+        index::thread(&dir, thread)?
             .into_iter()
             .filter(|b| {
                 b.thread_id == thread
@@ -338,7 +347,7 @@ pub(crate) async fn bind(
         && matches!(string(&cause, "op"), "codex_send" | "codex_create")
         && args["_retryAttempt"].as_u64().unwrap_or(0) == 0
     {
-        for mut previous in records(&dir)?
+        for mut previous in index::thread(&dir, thread)?
             .into_iter()
             .filter(|b| b.thread_id == thread && b.scope_end.is_none())
         {
@@ -543,6 +552,11 @@ fn remove_expired(dir: &Path, b: &Binding, now: i64, superseded: bool) -> Result
         .lock()
         .map_err(|e| e.to_string())?
         .changed(&path, before);
+    index::removed(dir, &path);
+    let mut state = State::load(dir)?;
+    let subscription = subscriptions::claude_id(b);
+    state.subscriptions.retain(|s| s.id != subscription);
+    state.save(dir)?;
     Ok(true)
 }
 fn notification(b: Option<Binding>) -> Value {
@@ -558,6 +572,9 @@ pub(crate) fn read_since(thread: &str, turn: &str, since: Option<&str>) -> Resul
     let origin = crate::kernel::origin::current_origin();
     let b = binding(&directory(), thread, turn)?
         .filter(|b| origin.is_null() || b.source_id == string(&origin, "sourceId"));
+    if b.is_some() {
+        index::read_key(&directory(), thread, turn)?;
+    }
     let mut result = notification_since(b, since);
     if result.is_object() {
         let state = State::load(&directory())?;
@@ -1148,7 +1165,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             .as_array()
             .is_some_and(|rows| !rows.is_empty())
     {
-        records(dir)?
+        index::thread(dir, &b.thread_id)?
     } else {
         Vec::new()
     };
@@ -1767,38 +1784,7 @@ fn matching_records(dir: &Path, matches: impl Fn(&Binding) -> bool) -> Result<Ve
         .collect())
 }
 fn shared_records(dir: &Path) -> Result<Arc<Vec<Arc<Binding>>>> {
-    // Bindings are owned by Core and atomically replaced. A directory stamp can
-    // reuse the parsed collection across nested routing/ownership queries.
-    type Snapshot = (PathBuf, file_cache::Projection<Arc<Vec<Arc<Binding>>>>);
-    static SNAPSHOT: std::sync::LazyLock<std::sync::Mutex<Option<Snapshot>>> =
-        std::sync::LazyLock::new(Default::default);
-    let dependencies = [dir.join("tasks")];
-    let mut snapshot = SNAPSHOT.lock().map_err(|e| e.to_string())?;
-    if snapshot.as_ref().is_none_or(|(path, _)| path != dir) {
-        *snapshot = Some((dir.into(), Default::default()));
-    }
-    let snapshot = &mut snapshot.as_mut().unwrap().1;
-    let stamps = file_cache::Projection::<Arc<Vec<Arc<Binding>>>>::stamps(&dependencies)?;
-    let bindings = if let Some(bindings) = snapshot.get(&stamps) {
-        crate::runtime_metrics::cost::cache(true);
-        bindings
-    } else {
-        crate::runtime_metrics::cost::cache(false);
-        let mut bindings = Vec::new();
-        for entry in binding_paths(dir)?
-            .iter()
-            .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|entry| entry.path.extension().is_some_and(|v| v == "json"))
-        {
-            if let Some(binding) = shared_binding(&entry.path)? {
-                bindings.push(binding);
-            }
-        }
-        let bindings = Arc::new(bindings);
-        snapshot.set(&dependencies, stamps, bindings.clone())?;
-        bindings
-    };
-    Ok(bindings)
+    index::all(dir)
 }
 
 pub(crate) fn settings() -> Result<Value> {
@@ -1875,7 +1861,7 @@ async fn flush(
         crate::runtime_metrics::Scope::new(crate::runtime_metrics::Work::NotificationDelivery);
     let _operation = mcp_events::OPERATION.lock().await;
     let guard = lock.lock().await;
-    let original = shared_records(dir)?;
+    let original = index::delivery_due(dir, now)?;
     crate::runtime_metrics::cost::scan_set(original.len());
     let mut all: Vec<_> = original
         .iter()
@@ -1902,7 +1888,11 @@ async fn flush(
                 .iter()
                 .any(|d| d.key == "terminal" && d.status == "pending")
             {
-                continuation::notice(b, &Value::Null, &all)
+                continuation::notice(
+                    b,
+                    &Value::Null,
+                    &index::successors(dir, b).unwrap_or_default(),
+                )
             } else {
                 Value::Null
             }
@@ -2064,7 +2054,13 @@ async fn flush(
                 .iter()
                 .any(|(bi, di, _)| !all[*bi].deliveries[*di].token_charged)
             && tokens == 0;
-        if settings["notificationsEnabled"] != false {
+        let observed_target = all.iter().any(|b| {
+            b.source_id == source_id
+                && b.deliveries
+                    .iter()
+                    .any(|d| d.channel == channel && d.target == target)
+        });
+        if settings["notificationsEnabled"] != false && (observed_target || tokens > 0 || breaker) {
             let t = state.target(&source_id, channel, &target, now, settings);
             if let Some(reason) = t.anomaly(now, waiting, settings) {
                 let threads = all
@@ -2206,7 +2202,13 @@ async fn flush(
                 .iter()
                 .any(|b| turn_adapter::push(&b.turn_state()) == Some("interrupted"))
             {
-                let latest = records(dir)?;
+                let mut latest = Vec::new();
+                for b in &batch {
+                    if let Some(current) = binding(dir, &b.thread_id, &b.turn_id)? {
+                        latest.extend(index::successors(dir, &current)?);
+                        latest.push(current);
+                    }
+                }
                 let batch_id = batch[0].deliveries[0].batch.clone();
                 for reserved in &mut batch {
                     if let Some(mut current) = latest
@@ -2447,6 +2449,7 @@ async fn flush(
         }
         state.save(dir)?;
     }
+    index::schedule_deliveries(dir, &original, settings, now)?;
     Ok(())
 }
 
@@ -2661,35 +2664,20 @@ impl DeliveryIdle {
             return Ok(());
         }
         crate::runtime_metrics::cost::cache(false);
+        if self.inputs.as_ref() != Some(&inputs) {
+            index::wake_deliveries(dir)?;
+        }
         self.inputs = None;
         flush(executor, dir, lock, now, 30, &inputs.settings).await?;
         let _guard = lock.lock().await;
         let state = State::load(dir)?;
-        let bindings = shared_records(dir)?;
-        let mut routing_at = None;
-        crate::runtime_metrics::cost::scan_set(bindings.len());
-        for b in bindings
-            .iter()
-            .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|b| delivery_source_active(&b.source_id))
-        {
-            for d in b.deliveries.iter().filter(|d| {
-                matches!(d.status.as_str(), "pending" | "sending")
-                    && d.interaction["routing"]["state"] == "deferred"
-            }) {
-                if let Some(at) = routing::deferred_deadline(b, d, now)? {
-                    routing_at = Some(routing_at.map_or(at, |old: i64| old.min(at)));
-                }
-            }
-        }
-        let next_at = scheduler::next_at(
-            &state,
-            &bindings,
-            &inputs.settings,
-            now,
-            routing_at,
-            delivery_source_active,
-        );
+        let next_at = [
+            index::next_delivery(dir)?,
+            governance::next_delivery_at(&state, &inputs.settings, delivery_source_active),
+        ]
+        .into_iter()
+        .flatten()
+        .min();
         // Compare against the inputs from BEFORE flush. A concurrent mutation or
         // this pass's own writes must trigger another pass, never be marked handled.
         if DeliveryInputs::read(dir, inputs.settings.clone(), inputs.revision)? == inputs {
@@ -2714,7 +2702,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
         let mut delivery_ready = delivery_ready.clone();
         let mut delivery_shutdown = control.shutdown.subscribe();
         let wake = control.events.clone();
-        tokio::spawn(async move {
+        tokio::spawn(Box::pin(async move {
             tokio::select! { _ = delivery_shutdown.changed() => return, _ = delivery_ready.wait_for(|ready| *ready) => {} }
             let mut idle = DeliveryIdle::default();
             let dir = directory();
@@ -2780,13 +2768,12 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     _ = wake.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
                 }
             }
-        });
+        }));
     }
     let mut shutdown = control.shutdown.subscribe();
-    tokio::spawn(async move {
+    tokio::spawn(Box::pin(async move {
         crate::logs::record("INFO", "Control-source notification observer started", None);
         let mut recovering = true;
-        let mut idle = observer::Idle::default();
         let mut reason = crate::runtime_metrics::cost::Reason::Startup;
         let mut terminal_watches =
             std::collections::HashMap::<PathBuf, observer::TerminalWatch>::new();
@@ -2798,7 +2785,11 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                 break;
             };
             let cycle = crate::runtime_metrics::cost::scope(
-                crate::runtime_metrics::cost::Owner::NotificationObserver,
+                if recovering {
+                    crate::runtime_metrics::cost::Owner::NotificationSeed
+                } else {
+                    crate::runtime_metrics::cost::Owner::NotificationObserver
+                },
                 reason,
                 async {
                     use crate::runtime_metrics::{
@@ -2810,54 +2801,29 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     let pass = ObservationPass::new();
                     OBSERVATION.scope(pass.sample.clone(), async {
                     let scan = ObservationTimer::new(ObservationPhase::Scan);
-                    let all = shared_records(&directory())?;
-                    let cursor = control.events.lock().await.sequence;
-                    crate::runtime_metrics::cost::scan_set(all.len());
-                    if !recovering && idle.unchanged(&all, cursor, chrono::Utc::now().timestamp()) {
-                        crate::runtime_metrics::cost::cache(true);
-                        crate::runtime_metrics::cost::bindings(all.len(), 0, all.len());
-                        pass.sample.lock().unwrap().completed_passes = 1;
-                        return Ok::<_, String>(());
+                    if recovering {
+                        crate::kernel::receipts::ReceiptStore::new("").seed()?;
+                        crate::kernel::receipts::ReceiptStore::new("agents/requests").seed()?;
                     }
-                    let events = {
-                        let events = control.events.lock().await;
-                        observer::ThreadEvents::new(&events)
+                    let due = if recovering {
+                        index::all(&directory())?.iter().map(|b| Ok((b.clone(), false, index::is_superseded(&directory(), b)?))).collect::<Result<Vec<_>>>()?
+                    } else {
+                        index::observation_due(&directory(), chrono::Utc::now().timestamp())?
                     };
-                    crate::runtime_metrics::cost::cache(false); // Global idle shortcut missed.
-                    let scan_set = observer::scan_for_pass(&directory(), &all);
-                    terminal_watches.retain(|path, _| scan_set.paths.contains(path));
-                    let latest = scan_set.latest;
-                    let mut observed_bindings = 0;
-                    let mut dormant_bindings = 0;
-                    crate::runtime_metrics::cost::bindings(all.len(), 0, 0);
                     let mut reads = tokio::task::JoinSet::new();
                     let permits = Arc::new(tokio::sync::Semaphore::new(8));
                     let mut owner_threads = std::collections::HashSet::new();
-                    for original in all.iter() {
-                        crate::runtime_metrics::cost::rows(1);
+                    for (original, changed, superseded) in due {
                         pass.sample.lock().unwrap().bindings_scanned += 1;
-                        if original.source_id.is_empty() {
-                            dormant_bindings += 1;
-                            crate::runtime_metrics::cost::bindings(all.len(), observed_bindings, dormant_bindings);
+                        if original.source_id.is_empty() && !changed {
                             pass.sample.lock().unwrap().unattributed_bindings += 1;
                             continue;
                         }
                         let path = path_in(&directory(), &original.thread_id, &original.turn_id);
-                        let superseded = observer::superseded(original, &latest);
-                        let watch = terminal_watches.get(&path);
-                        let changed = watch.map(|w|w.changed(original,&events).unwrap_or(true)).unwrap_or_else(||events.has_thread(&original.thread_id));
-                        let old_expired = expired(original, chrono::Utc::now().timestamp(), superseded);
-                        if !recovering && !old_expired && ((original.terminal() && original.observation["reconciliation"] != "pending-after-restart" && (original.scope_end.is_some() || original.continuation_bound))
-                            || watch.is_some_and(|w| w.unchanged(original,&events).unwrap_or(false))) {
-                            if let Some(watch) = terminal_watches.get_mut(&path) { watch.cursor = events.cursor; }
-                            dormant_bindings += 1;
-                            crate::runtime_metrics::cost::bindings(all.len(), observed_bindings, dormant_bindings);
-                            pass.sample.lock().unwrap().bindings_reused += 1;
-                            continue;
-                        }
                         let _guard = LOCK.lock().await;
                         let Some(mut b) = read_binding(&path)? else { continue; };
                         if remove_expired(&directory(), &b, chrono::Utc::now().timestamp(), superseded)? {
+                            terminal_watches.remove(&path);
                             pass.sample.lock().unwrap().retired_bindings += 1;
                             continue;
                         }
@@ -2880,8 +2846,6 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             persist(&directory(), &b)?;
                         }
                         if b.terminal() && (b.scope_end.is_some() || b.continuation_bound) {
-                            dormant_bindings += 1;
-                            crate::runtime_metrics::cost::bindings(all.len(), observed_bindings, dormant_bindings);
                             if b.observation["reconciliation"] == "pending-after-restart" {
                                 b.observation["reconciliation"] = json!("scope-ended");
                                 persist(&directory(), &b)?;
@@ -2889,8 +2853,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             continue;
                         }
                         drop(_guard);
-                        observed_bindings += 1;
-                        crate::runtime_metrics::cost::bindings(all.len(), observed_bindings, dormant_bindings);
+                        index::finish(&directory(), &b.thread_id, &b.turn_id, None)?;
                         let discover = observer::ownership_needed(&b, changed);
                         if discover { owner_threads.insert(b.thread_id.clone()); }
                         let previous = terminal_watches.remove(&path);
@@ -2898,12 +2861,10 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         let agents = agents.clone();
                         let permits = permits.clone();
                         let counters = pass.sample.clone();
-                        let cursor = events.cursor;
                         reads.spawn(crate::runtime_metrics::cost::inherit(async move { OBSERVATION.scope(counters.clone(), async move {
                             let _permit = permits.acquire_owned().await.expect("observer semaphore remains open");
                             let _history = ObservationTimer::new(ObservationPhase::History);
-                            let events = observer::ThreadEvents::new(&Events { sequence:cursor, ..Default::default() });
-                            let mut watch = observer::TerminalWatch::capture(&c,&b,previous.as_ref(),&events).await;
+                            let mut watch = observer::TerminalWatch::capture(&c,&b,previous.as_ref()).await;
                             let args = json!({"threadId":b.thread_id,"turnId":b.turn_id});
                             let result = tokio::time::timeout(Duration::from_secs(10), async {
                                 if b.agent.is_empty() || b.agent == "codex" {
@@ -2931,7 +2892,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         let _process = ObservationTimer::new(ObservationPhase::Process);
                         let Ok((old,result,watch)) = result else { continue; };
                         let path = path_in(&directory(),&old.thread_id,&old.turn_id);
-                        terminal_watches.insert(path,watch);
+                        terminal_watches.insert(path.clone(),watch);
                         let mut observed = match result {
                             Ok(observed) => observed,
                             Err(error) => {
@@ -2943,6 +2904,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                                         persist(&directory(),&b)?;
                                     }
                                 }
+                                index::finish(&directory(), &old.thread_id, &old.turn_id, terminal_watches.get(&path))?;
                                 continue;
                             }
                         };
@@ -2958,7 +2920,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             process(&directory(),&LOCK,&mut b,&observed).await?;
                         }
                         match retry::handle(&control,&mut b,&observed).await {
-                            Ok(true) => continue,
+                            Ok(true) => { index::finish(&directory(), &b.thread_id, &b.turn_id, terminal_watches.get(&path))?; continue; },
                             Ok(false) => {},
                             Err(error) => {
                                 b.retry["status"] = json!("skipped"); b.retry["reason"] = json!(error);
@@ -2966,18 +2928,16 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                             }
                         }
                         process(&directory(),&LOCK,&mut b,&observed).await?;
+                        index::finish(&directory(), &b.thread_id, &b.turn_id, terminal_watches.get(&path))?;
                     }
                     {
                         let _ownership = ObservationTimer::new(ObservationPhase::Ownership);
                         for thread in owner_threads { let _ = control.observe_ownership(&thread).await; }
                     }
-                    for b in shared_records(&directory())?.iter().inspect(|_| crate::runtime_metrics::cost::rows(1)).filter(|b| !b.source_id.is_empty()) {
-                        if b.observation["reconciliation"] == "pending-after-restart" { pass.sample.lock().unwrap().pending_reconciliations += 1; }
-                        if observer::exhausted(b) { pass.sample.lock().unwrap().reconciliation_exhausted += 1; }
-                    }
-                    if Arc::ptr_eq(&all, &shared_records(&directory())?) {
-                        idle.capture(&all, &terminal_watches, &events, &latest, chrono::Utc::now().timestamp());
-                    }
+                    let (retained, observed, dormant, pending, exhausted) = index::sample(&directory())?;
+                    pass.sample.lock().unwrap().pending_reconciliations = pending as u64;
+                    pass.sample.lock().unwrap().reconciliation_exhausted = exhausted as u64;
+                    crate::runtime_metrics::cost::bindings(retained, observed, dormant);
                     pass.sample.lock().unwrap().completed_passes = 1;
                     Ok::<_,String>(())
                 }).await
@@ -2994,15 +2954,29 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                     Err(error) => crate::logs::record("WARN", &format!("Control-source notification persistence/observation failed: {error}"), None),
                 },
             }
-            let wake = control.events.lock().await.wake.clone();
             drop(control);
+            let changed = index::file_wake(&directory()).unwrap_or_default();
+            let next =
+                index::next(&directory()).unwrap_or(Some(chrono::Utc::now().timestamp() + 2));
+            let deadline = async {
+                match next {
+                    Some(at) => {
+                        tokio::time::sleep(Duration::from_secs(
+                            at.saturating_sub(chrono::Utc::now().timestamp()).max(0) as u64,
+                        ))
+                        .await
+                    }
+                    None => std::future::pending().await,
+                }
+            };
             tokio::select! {
                 _ = shutdown.changed() => break,
-                _ = tokio::time::sleep(Duration::from_secs(2)) => reason = crate::runtime_metrics::cost::Reason::Timer,
-                _ = wake.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
+                _ = deadline => reason = crate::runtime_metrics::cost::Reason::Deadline,
+                _ = changed.notified() => reason = crate::runtime_metrics::cost::Reason::Dirty,
+                _ = index::WAKE.notified() => reason = crate::runtime_metrics::cost::Reason::Event,
             }
         }
-    });
+    }));
 }
 
 #[cfg(test)]
@@ -3169,6 +3143,7 @@ mod tests {
     }
     impl Drop for Sandbox {
         fn drop(&mut self) {
+            index::forget(&self.0);
             let _ = std::fs::remove_dir_all(self.0.parent().unwrap());
         }
     }

@@ -204,8 +204,9 @@ fn binding_for(dir: &Path, agent: &str, task: &str, turn: &Value) -> Result<Opti
     if !turn.is_null() {
         return Ok(None);
     }
-    Ok(matching_records(dir, matches)?
+    Ok(index::interested_thread(dir, task)?
         .into_iter()
+        .filter(matches)
         .max_by_key(|b| b.created_at))
 }
 

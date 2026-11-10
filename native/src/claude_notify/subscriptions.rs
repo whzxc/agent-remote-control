@@ -93,6 +93,10 @@ pub(super) fn validate(arguments: &Value) -> Result<Value> {
 pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
     // Derive each persistent identity once. Historical bindings must not turn
     // every delivery tick into a subscription-by-binding hash scan.
+    let touched: std::collections::HashSet<_> = bindings
+        .iter()
+        .map(|b| (b.thread_id.clone(), b.turn_id.clone()))
+        .collect();
     let bindings: Vec<_> = bindings
         .iter()
         .filter(|b| !b.source_id.is_empty() && b.target.is_some())
@@ -100,7 +104,17 @@ pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
         .collect();
     let ids: std::collections::HashSet<_> = bindings.iter().map(|(id, _)| id.as_str()).collect();
     state.subscriptions.retain(|s| {
-        !s.source_id.is_empty() && (!s.channel.session() || ids.contains(s.id.as_str()))
+        !s.source_id.is_empty()
+            && (!s.channel.session()
+                || !touched.contains(&(
+                    s.args["threadId"]
+                        .as_str()
+                        .or_else(|| s.args["taskId"].as_str())
+                        .unwrap_or("")
+                        .to_owned(),
+                    s.turn.clone().unwrap_or_default(),
+                ))
+                || ids.contains(s.id.as_str()))
     });
     let mut positions = std::collections::HashMap::new();
     for (index, subscription) in state.subscriptions.iter().enumerate() {

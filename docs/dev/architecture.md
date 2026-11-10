@@ -56,14 +56,21 @@ may exceed the byte budget until expiry so native history reads remain supported
 Serialized weight is not a heap bound; the IPC frame limit remains independent.
 Eviction never deletes native history, changes authorization, or cancels a task.
 
-The notification observer stamps native history before its first full read and
-reuses settled terminal evidence while rollout, execution configuration, writer
-state and per-thread event sequences are unchanged. Historical reads use the
-read-only app-server rather than discovering every Desktop owner. Owner discovery
-is limited to active turns, pending interactions and changed evidence. Events
-retain at most 4096 thread sequence numbers independently of the payload ring;
-forgetting a thread identity triggers conservative repair, while a busy peer's
-payload eviction does not invalidate unrelated histories.
+Notification bindings have an in-memory activity index seeded from canonical files
+before observation starts. Per-key updates maintain observing, reconciliation,
+dormant, pending-delivery and retention partitions, and the latest resumable scope
+per source/thread. Ordered deadline queues supply due work. Completed history is
+absent from recurring observation and delivery passes. Native events, selected
+reads, binding writes, rollout files, execution records and writer-lock changes
+wake affected keys. A successor also wakes its predecessor. Observation captures
+file stamps before reading and validates them after installing evidence watches.
+Historical reads use the read-only app-server; owner discovery is limited to
+active turns, pending interactions and changed evidence.
+
+Producer writes publish changed paths synchronously. Filesystem watches cover
+external writes. Watch failures expose a coverage gap and repair at most 64
+candidates per batch, including directory discovery. Repair has its own cost owner;
+normal ticks never use a full-history repair path.
 
 Reconciliation has three unsuccessful attempts per unchanged evidence revision.
 Exhaustion exposes `unavailable-after-restart` without manufacturing a task outcome
@@ -81,7 +88,7 @@ deliveries still prevent removal. See [Control loop](control-loop.md#72-native-r
 observation attempts, including an active-owner fallback; metadata-only reads are
 included in history phase time. Ownership discoveries count actual Desktop
 `thread-owner-discovery` calls, including calls inside backend selection and history
-reads. Pending/exhausted fields are binding-state gauges at pass completion; their
+reads. Pending/exhausted fields are index-state gauges at pass completion; their
 totals sum these per-pass samples, not retry attempts or unique bindings. `completedPasses` is one only after a
 successful pass, so partial passes never imply an empty pending set.
 `phaseWallMs` records scan, history, process, ownership and ownerDiscovery time.
@@ -89,12 +96,22 @@ History time sums concurrent task durations. OwnerDiscovery time is nested in
 history or ownership time. These fields must not be summed as elapsed pass time;
 the existing work counter reports elapsed pass wall time.
 
-Coordination startup replay and its checkpoints use uncached reads. Task-list
-receipt projection also reads full receipts without admitting their payloads to
-the shared JSON cache; its existing derived metadata projection remains cached.
-Explicit receipt reads retain the ordinary JSON cache. Startup replay still
-inspects retained owners for pending transitions, without retaining every decoded
-receipt after that inspection.
+Receipt metadata has a resident derived index independent of the full JSON
+cache's source-byte and entry limits. Startup seeds each receipt directory once.
+Changed paths update individual summaries and a bounded revision journal.
+Codex and Agent task-record projections consume changed keys and invalidate only
+records depending on changed runtime or execution-owner files. Unchanged polls
+reuse the same snapshots. A reader behind the journal's coverage rebuilds its
+projection from indexed summaries. Explicit receipt reads retain the ordinary
+JSON cache and return complete payloads. Neither index is persisted.
+
+`cost.notificationSeed` and `cost.receiptSeed` separate cold construction from
+recurring observation and receipt projection. `cost.indexRepair` accounts for
+watcher repair. `caches.notificationBindings.activityIndex` exposes partition
+sizes, pending bindings, latest resumable scopes, dirty keys and watcher coverage.
+`indexWatches.coverageGaps` counts failed watchers. Counters contain no record keys
+or task content. Coordination startup replay still reads retained owners for
+pending transitions using its own uncached path.
 
 The JSON cache uses an ordered LRU index to avoid scanning every resident entry
 for each eviction. Diagnostics include hits, evictions, evicted source bytes and

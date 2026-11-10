@@ -466,20 +466,8 @@ pub(crate) fn load(path: &Path) -> Result<Value> {
 pub(crate) fn entries(path: &Path) -> Result<Arc<Vec<Entry>>> {
     JSON.lock().map_err(|e| e.to_string())?.entries(path)
 }
-static RECEIPT_REVISION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-pub(crate) fn receipt_revision() -> u64 {
-    RECEIPT_REVISION.load(std::sync::atomic::Ordering::SeqCst)
-}
 pub(crate) fn changed(path: &Path, before: Option<Stamp>) {
-    if path.parent().is_some_and(|parent| parent == root())
-        && path.extension().is_some_and(|ext| ext == "json")
-        && path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
-    {
-        RECEIPT_REVISION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    }
+    super::file_changes::changed(path);
     if let Ok(mut cache) = JSON.lock() {
         cache.changed(path, before);
     }

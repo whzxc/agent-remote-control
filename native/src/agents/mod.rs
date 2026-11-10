@@ -45,7 +45,7 @@ pub struct AgentHost {
     operations: Mutex<HashMap<String, Operation>>,
     requests: crate::kernel::receipts::RequestLocks,
     session: String,
-    task_records: std::sync::Mutex<crate::kernel::file_cache::Projection<Arc<Vec<Value>>>>,
+    task_records: std::sync::Mutex<crate::kernel::task_projection::TaskProjection>,
     lifecycle: Mutex<()>,
     wake: Arc<tokio::sync::Notify>,
 }
@@ -410,53 +410,20 @@ impl AgentHost {
             crate::runtime_metrics::cost::Owner::AgentTaskRecords,
             crate::runtime_metrics::cost::Reason::Poll,
             || {
-                let directory = root().join("agents/requests");
-                if !directory.exists() {
-                    return Ok(Arc::default());
-                }
-                use crate::kernel::file_cache::{self, Projection};
-                let dependencies = [directory.clone(), root().join("agents/tasks")];
+                use crate::kernel::file_cache;
                 let mut cache = self.task_records.lock().map_err(|e| e.to_string())?;
-                let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
-                if let Some(records) = cache.get(&stamps) {
-                    crate::runtime_metrics::cost::cache(true);
-                    return Ok(records);
-                }
-                crate::runtime_metrics::cost::cache(false);
-                let mut complete = true;
-                let mut records = Vec::new();
-                let entries = file_cache::entries(&directory)?;
-                crate::runtime_metrics::cost::scan_set(entries.len());
-                for entry in entries.iter() {
-                    crate::runtime_metrics::cost::rows(1);
-                    let path = &entry.path;
-                    let Some(request) = path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .filter(|s| uuid::Uuid::parse_str(s).is_ok())
-                    else {
-                        continue;
-                    };
-                    if path.extension().is_none_or(|s| s != "json") {
-                        continue;
-                    }
-                    let receipt = RECEIPTS.read(request, &self.session)?;
+                cache.update(&RECEIPTS, &self.session, |receipt| task_path(string(receipt, "taskId")).ok().into_iter().collect(), |receipt| {
+                    let request = string(&receipt, "requestId");
                     if !matches!(string(&receipt, "operation"), "agent_create" | "agent_send") {
-                        continue;
+                        return Ok(None);
                     }
                     let args = &receipt["arguments"];
-                    let task = task_path(string(&receipt, "taskId"))
-                        .ok()
-                        .and_then(|p| match file_cache::load(&p) {
-                            Ok(task) => Some(task),
-                            Err(_) => {
-                                complete &= !p.exists();
-                                None
-                            }
-                        })
-                        .unwrap_or(Value::Null);
+                    let task = match task_path(string(&receipt, "taskId")) {
+                        Ok(path) if path.exists() => file_cache::load(&path)?,
+                        _ => Value::Null,
+                    };
                     if task["archived"] == true {
-                        continue;
+                        return Ok(None);
                     }
                     let state = string(&task, "status");
                     let runtime = match state {
@@ -466,23 +433,14 @@ impl AgentHost {
                         "completed" | "idle" | "cancelled" => "idle",
                         _ => "unknown",
                     };
-                    records.push(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
+                    Ok(Some(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
                 "origin":receipt["origin"],"state":receipt["state"],"createdAt":receipt["createdAt"],"updatedAt":receipt["updatedAt"],
                 "approval":{"decision":if receipt["state"] == "awaiting-approval" {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
                 "task":{"agentAccountId":receipt["agentAccountId"],"kind":if receipt["operation"] == "agent_create" {"create"}else{"send"},"origin":receipt["origin"],"title":task.get("title").unwrap_or(&args["title"]),"prompt":args["prompt"].as_str().unwrap_or(""),"input":[],"directory":task.get("cwd").unwrap_or(&args["cwd"]),"model":args["model"],"settings":{}},
                 "runtime":{"runtimeStatus":runtime,"title":task["title"],"observedAt":task["updatedAt"],"stale":receipt["backendSession"] != self.session && matches!(runtime, "active" | "waiting")},
-                "error":receipt.get("error").or_else(||receipt["result"].get("error"))}));
-                }
-                let records: Arc<Vec<Value>> = Arc::new(
-                    records
-                        .iter()
-                        .map(crate::task_overview::display_record)
-                        .collect(),
-                );
-                if complete {
-                    cache.set(&dependencies, stamps, records.clone())?;
-                }
-                Ok(records)
+                "error":receipt.get("error").or_else(||receipt["result"].get("error"))})))
+                })?;
+                Ok(cache.display.clone())
             },
         )
     }

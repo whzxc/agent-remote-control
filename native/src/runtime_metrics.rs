@@ -182,7 +182,7 @@ pub(crate) fn snapshot() -> Value {
         "work":NAMES.iter().zip(&COUNTERS).map(|(name,c)| json!({"name":name,
             "calls":c.calls.load(Relaxed),"inFlight":c.in_flight.load(Relaxed),
             "totalWallMs":c.total_us.load(Relaxed) as f64/1000.0,"maxWallMs":c.max_us.load(Relaxed) as f64/1000.0})).collect::<Vec<_>>(),
-        "notificationObserve":observation_metrics(),"cost":cost::snapshot(),
+        "notificationObserve":observation_metrics(),"cost":cost::snapshot(),"indexWatches":crate::kernel::file_changes::diagnostics(),
         "caches":{"json":crate::kernel::file_cache::diagnostics(),"notificationBindings":crate::claude_notify::diagnostics()}})
 }
 #[cfg(target_os = "macos")]

@@ -20,13 +20,7 @@ pub struct Control {
     pub(crate) projects: Mutex<Option<(std::time::Instant, Vec<Value>)>>,
     task_records: Mutex<TaskRecords>,
 }
-#[derive(Default)]
-struct TaskRecords {
-    projection: crate::kernel::file_cache::Projection<Arc<Vec<Value>>>,
-    revision: (u64, Option<u64>),
-    changes: Option<crate::kernel::file_cache::Changes>,
-    display: Arc<Vec<Value>>,
-}
+type TaskRecords = crate::kernel::task_projection::TaskProjection;
 const RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 // Fresh creations have no user history and may not be materialized until turn/start.
@@ -1654,72 +1648,15 @@ impl Control {
     }
     pub async fn task_records(&self) -> Result<Arc<Vec<Value>>> {
         crate::runtime_metrics::cost::scope(crate::runtime_metrics::cost::Owner::TaskRecords, crate::runtime_metrics::cost::Reason::Poll, async {
-        use crate::kernel::file_cache::{self, Projection};
+        use crate::kernel::file_cache;
         let mut cache = self.task_records.lock().await;
-        if cache.changes.is_none() {
-            let base = root();
-            let watched = base.canonicalize().unwrap_or_else(|_| base.clone());
-            cache.changes = file_cache::Changes::filtered(vec![base.clone()], move |path| {
-                path.starts_with(watched.join("tasks"))
-                    || path.starts_with(watched.join("execution"))
-                    || path.parent() == Some(watched.as_path())
-                        && path.extension().is_some_and(|e| e == "json")
-                        && path
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
-            })
-            .ok();
-        }
-        let revision = (
-            file_cache::receipt_revision(),
-            cache.changes.as_ref().and_then(|c| c.revision()),
-        );
-        let mut dependencies = vec![root().join("tasks"), root().join("execution")];
-        if revision.1.is_none() {
-            dependencies.push(root());
-        }
-        if cache.revision != revision {
-            cache.projection.clear();
-            cache.revision = revision;
-        }
-        let stamps = Projection::<Arc<Vec<Value>>>::stamps(&dependencies)?;
-        if let Some(records) = cache.projection.get(&stamps) {
-            crate::runtime_metrics::cost::cache(true);
-            return Ok(records);
-        }
-        crate::runtime_metrics::cost::cache(false);
-        let mut complete = true;
-        let mut records = Vec::new();
-        let entries = file_cache::entries(&root())?;
-        crate::runtime_metrics::cost::scan_set(entries.len());
-        for entry in entries.iter() {
-            crate::runtime_metrics::cost::rows(1);
-            let path = &entry.path;
-            if path.extension().is_none_or(|e| e != "json") {
-                continue;
-            }
-            let Some(request) = path.file_stem().and_then(|v| v.to_str()) else {
-                continue;
-            };
-            if uuid::Uuid::parse_str(request).is_err() {
-                continue;
-            }
-            let mut r = match RECEIPTS.read_for_projection(request, &self.session) {
-                Ok(r) => r,
-                Err(e) => {
-                    complete = false;
-                    crate::logs::record(
-                        "WARN",
-                        &format!("Skipping task receipt {request}: {e}"),
-                        None,
-                    );
-                    continue;
-                }
-            };
+        cache.update(&RECEIPTS, &self.session, |r| {
+            let thread = r["threadId"].as_str().or_else(|| r["task"]["threadId"].as_str()).or_else(|| r["result"]["threadId"].as_str()).or_else(|| r["result"]["thread"]["id"].as_str()).or_else(|| r["result"]["resolved"]["thread"]["id"].as_str());
+            thread.filter(|id| uuid::Uuid::parse_str(id).is_ok()).map(|thread| vec![root().join("tasks").join(format!("{thread}.json")), root().join("execution").join(format!("{thread}.json"))]).unwrap_or_default()
+        }, |mut r| {
             // Reviews update existing turn metadata; they are not execution tasks.
             if r["operation"] == "review" {
-                continue;
+                return Ok(None);
             }
             if !r["task"].is_object() {
                 let kind = string(&r, "operation");
@@ -1729,7 +1666,7 @@ impl Control {
                     .or_else(|| r["result"]["resolved"]["thread"]["id"].as_str())
                     .or_else(|| r["result"]["thread"]["id"].as_str());
                 if !matches!(kind, "create" | "send" | "interrupt") && thread_id.is_none() {
-                    continue;
+                    return Ok(None);
                 }
                 let thread_id = thread_id.map(str::to_owned);
                 let resolved = &r["result"]["resolved"];
@@ -1758,7 +1695,8 @@ impl Control {
                             runtime["stale"] = json!(true);
                             r["runtime"] = runtime;
                         }
-                        Err(_) => complete &= !path.exists(),
+                        Err(error) if path.exists() => return Err(error),
+                        Err(_) => {},
                     }
                 }
             }
@@ -1768,38 +1706,14 @@ impl Control {
                         r["executionOwner"] =
                             json!(if background { "connector" } else { "desktop" })
                     }
-                    Err(e) => {
-                        complete = false;
-                        crate::logs::record(
-                            "WARN",
-                            &format!("Skipping task {thread_id}: {e}"),
-                            None,
-                        );
-                        continue;
-                    }
+                    Err(e) => return Err(e),
                 }
             }
             r["error"] = r["result"]["error"].clone();
             r.as_object_mut().unwrap().remove("arguments");
             r.as_object_mut().unwrap().remove("result");
-            records.push(r);
-        }
-        records.sort_by(|a, b| string(b, "createdAt").cmp(string(a, "createdAt")));
-        cache.display = Arc::new(
-            records
-                .iter()
-                .map(crate::task_overview::display_record)
-                .collect(),
-        );
-        let records = Arc::new(records);
-        // A readable watcher invalidates repaired records too; one malformed row
-        // must not disable the entire unchanged collection cache indefinitely.
-        if (complete || revision.1.is_some()) && file_cache::receipt_revision() == revision.0 {
-            cache
-                .projection
-                .set(&dependencies, stamps, records.clone())?;
-        }
-        Ok(records)
+            Ok(Some(r))
+        })
         }).await
     }
     pub async fn task_display_records(&self) -> Result<Arc<Vec<Value>>> {
