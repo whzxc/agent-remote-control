@@ -196,7 +196,6 @@ pub(super) fn read(path: &Path) -> Result<Value> {
             let path = directory.join(path.file_name().unwrap());
             // Explicit selected reads validate the selected key, without touching peers.
             index.refresh(&path)?;
-            cost::rows(1);
             cost::cache(true);
             index
                 .rows

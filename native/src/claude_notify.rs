@@ -1805,7 +1805,7 @@ fn shared_records(dir: &Path) -> Result<Arc<Vec<Arc<Binding>>>> {
 pub(crate) fn settings() -> Result<Value> {
     let path = root().join("task-settings.json");
     let mut settings = if path.exists() {
-        load(&path)?
+        file_cache::load(&path)?
     } else {
         json!({})
     };
@@ -5900,3 +5900,6 @@ pub(super) fn coordination_attention_in(dir: &Path, now: i64) -> Result<Value> {
     problems.truncate(100);
     Ok(json!({"problems":problems,"coverage":if partial {"partial"}else{"observed"}}))
 }
+
+#[cfg(test)]
+pub(crate) use governance::scale_status as governance_scale_status;

@@ -161,6 +161,11 @@ pub(super) struct Store {
     pub restarted: bool,
     dirty: bool,
     saved_at: i64,
+    stamp: Option<crate::kernel::file_cache::Stamp>,
+    live_notices: std::collections::BTreeSet<usize>,
+    live_blockers: std::collections::BTreeSet<usize>,
+    retention_at: Option<i64>,
+    maintained: Option<(Vec<String>, i64, Option<i64>)>,
 }
 impl Store {
     pub fn session_routes(
@@ -291,6 +296,11 @@ impl Store {
             restarted: exists,
             dirty: false,
             saved_at: 0,
+            stamp: None,
+            live_notices: Default::default(),
+            live_blockers: Default::default(),
+            retention_at: None,
+            maintained: None,
         };
         // Persisted running is historical evidence, never a new heartbeat after restart.
         for n in &mut result.state.notices {
@@ -300,7 +310,45 @@ impl Store {
                 }
             }
         }
+        result.stamp = crate::kernel::file_cache::Stamp::read(&result.path)?;
+        result.reindex();
         Ok(result)
+    }
+    pub fn stale(&self) -> Result<bool> {
+        Ok(crate::kernel::file_cache::Stamp::read(&self.path)? != self.stamp)
+    }
+    fn reindex(&mut self) {
+        self.live_notices = self
+            .state
+            .notices
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.live())
+            .map(|(i, _)| i)
+            .collect();
+        self.live_blockers = self
+            .state
+            .blockers
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| row.live())
+            .map(|(i, _)| i)
+            .collect();
+        self.retention_at = self
+            .state
+            .notices
+            .iter()
+            .chain(&self.state.blockers)
+            .filter(|n| {
+                !self
+                    .state
+                    .pending
+                    .iter()
+                    .any(|p| p.evidence_refs.iter().any(|e| e.id == n.id))
+            })
+            .filter_map(|n| n.ended_at.map(|at| at.saturating_add(RETENTION_MS)))
+            .min();
+        self.maintained = None;
     }
     pub fn save(&mut self, clock: Clock) -> Result<()> {
         let bytes = serde_json::to_vec(&self.state)
@@ -312,6 +360,8 @@ impl Store {
         }
         private_dir(self.path.parent().unwrap())?;
         super::super::journal::atomic_bytes(&self.path, &bytes)?;
+        self.stamp = crate::kernel::file_cache::Stamp::read(&self.path)?;
+        self.reindex();
         self.dirty = false;
         self.saved_at = clock.elapsed;
         Ok(())
@@ -426,16 +476,18 @@ impl Store {
         if !clock.certain {
             return;
         }
-        for row in self
-            .state
-            .notices
-            .iter_mut()
-            .chain(&mut self.state.blockers)
-        {
-            if row.live() && same_owner(&row.owner, owner) && clock.elapsed > row.last_active_at {
-                row.last_active_at = clock.elapsed;
-                row.fresh_activity = true;
-                self.dirty = true;
+        for (blocker, indices) in [(false, &self.live_notices), (true, &self.live_blockers)] {
+            for index in indices {
+                let row = if blocker {
+                    &mut self.state.blockers[*index]
+                } else {
+                    &mut self.state.notices[*index]
+                };
+                if same_owner(&row.owner, owner) && clock.elapsed > row.last_active_at {
+                    row.last_active_at = clock.elapsed;
+                    row.fresh_activity = true;
+                    self.dirty = true;
+                }
             }
         }
         for session in &mut self.state.sessions {
@@ -446,12 +498,11 @@ impl Store {
         }
     }
     pub fn linked_threads(&self) -> Vec<String> {
-        crate::runtime_metrics::cost::scan_set(self.state.notices.len());
-        self.state
-            .notices
+        crate::runtime_metrics::cost::scan_set(self.live_notices.len());
+        self.live_notices
             .iter()
+            .map(|index| &self.state.notices[*index])
             .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|n| n.live())
             .flat_map(|n| &n.thread_links)
             .map(|l| l.thread_id.clone())
             .collect::<std::collections::BTreeSet<_>>()
@@ -459,13 +510,9 @@ impl Store {
             .collect()
     }
     pub fn missing(&mut self, observed: &[String]) {
-        for notice in self
-            .state
-            .notices
-            .iter_mut()
-            .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|n| n.live())
-        {
+        for index in &self.live_notices {
+            crate::runtime_metrics::cost::rows(1);
+            let notice = &mut self.state.notices[*index];
             for link in &mut notice.thread_links {
                 if link.scope_state == "running" && !observed.contains(&link.thread_id) {
                     link.scope_state = "unknown".into();
@@ -475,12 +522,11 @@ impl Store {
         }
     }
     pub fn successor(&mut self, thread: &str, previous: &str, next: &str, owner: &Principal) {
-        for notice in self
-            .state
-            .notices
-            .iter_mut()
-            .filter(|n| n.live() && same_owner(&n.owner, owner))
-        {
+        for index in &self.live_notices {
+            let notice = &mut self.state.notices[*index];
+            if !same_owner(&notice.owner, owner) {
+                continue;
+            }
             for link in notice.thread_links.iter_mut().filter(|l| {
                 l.thread_id == thread && l.observed_turn_id.as_deref() == Some(previous)
             }) {
@@ -491,6 +537,7 @@ impl Store {
                     .cloned()
                     .unwrap_or_else(|| "unknown".into());
                 self.dirty = true;
+                self.maintained = None;
             }
         }
     }
@@ -504,13 +551,9 @@ impl Store {
         if types::identifier(turn).is_err() {
             return;
         }
-        for notice in self
-            .state
-            .notices
-            .iter_mut()
-            .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|n| n.live())
-        {
+        for index in &self.live_notices {
+            crate::runtime_metrics::cost::rows(1);
+            let notice = &mut self.state.notices[*index];
             for link in notice
                 .thread_links
                 .iter_mut()
@@ -546,6 +589,9 @@ impl Store {
                 if !changed && state != "running" {
                     continue;
                 }
+                if changed && state == "completed" {
+                    self.maintained = None;
+                }
                 link.observed_turn_id = Some(turn.into());
                 link.scope_state = state.into();
                 if clock.certain && live && state != "unknown" {
@@ -558,9 +604,24 @@ impl Store {
         }
     }
     pub fn maintain(&mut self, revoked: &[String], clock: Clock) -> Result<()> {
+        if clock.certain
+            && self.maintained.as_ref().is_some_and(|(old, at, next)| {
+                old == revoked
+                    && clock.elapsed >= *at
+                    && next.is_none_or(|next| clock.elapsed < next)
+            })
+        {
+            return self.flush(clock);
+        }
         let mut updates = vec![];
-        for (blocker, rows) in [(false, &self.state.notices), (true, &self.state.blockers)] {
-            for (index, row) in rows.iter().enumerate().filter(|(_, n)| n.live()) {
+        for (blocker, indices) in [(false, &self.live_notices), (true, &self.live_blockers)] {
+            for index in indices.iter().copied() {
+                crate::runtime_metrics::cost::rows(1);
+                let row = if blocker {
+                    &self.state.blockers[index]
+                } else {
+                    &self.state.notices[index]
+                };
                 let revoked = matches!(&row.owner, Principal::Source { source_id, .. } if revoked.contains(source_id));
                 let inactive = clock
                     .age(row.last_active_at)
@@ -592,24 +653,20 @@ impl Store {
                 }
             }
         }
-        let removable = self
-            .state
-            .notices
-            .iter()
-            .chain(&self.state.blockers)
-            .any(|n| {
-                n.ended_at.is_some_and(|at| {
-                    clock
-                        .age(at)
-                        .is_some_and(|age| age >= (RETENTION_MS / 1000) as u64)
-                }) && !self
-                    .state
-                    .pending
-                    .iter()
-                    .any(|p| p.evidence_refs.iter().any(|e| e.id == n.id))
-            });
+        let removable = clock.certain && self.retention_at.is_some_and(|at| clock.elapsed >= at);
         if updates.is_empty() && !removable {
-            return self.flush(clock);
+            self.flush(clock)?;
+            let next = self
+                .live_notices
+                .iter()
+                .map(|i| &self.state.notices[*i])
+                .chain(self.live_blockers.iter().map(|i| &self.state.blockers[*i]))
+                .map(|row| row.last_active_at.saturating_add(INACTIVE_MS))
+                .chain(self.retention_at)
+                .filter(|at| *at > clock.elapsed)
+                .min();
+            self.maintained = Some((revoked.to_vec(), clock.elapsed, next));
+            return Ok(());
         }
         self.transaction(clock, |s| {
             for (blocker, index, state, reason) in updates {

@@ -25,7 +25,7 @@ fn with_store<T>(f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     let mut store = STORE
         .lock()
         .map_err(|_| "COORDINATION_STORAGE: bulletin lock unavailable")?;
-    if store.is_none() {
+    if store.as_ref().map_or(Ok(true), Store::stale)? {
         *store = Some(Store::open(root().join("coordination/state.json"))?);
     }
     let result = f(store.as_mut().unwrap());
@@ -654,4 +654,83 @@ pub(super) fn recovery_blocker(id: &str) -> Result<Option<Value>> {
 }
 pub(super) fn recovery_plan(id: &str, plan: Value) -> Result<Value> {
     with_store(|s| s.recovery_plan(id, plan, clock()))
+}
+
+#[cfg(test)]
+pub(crate) fn scale_seed(time: i64) -> Result<()> {
+    let path = root().join("coordination/state.json");
+    let mut s = Store::open(path.clone())?;
+    let clock = Clock {
+        utc: time * 1000,
+        elapsed: time * 1000,
+        certain: true,
+    };
+    s.mutate(
+        "notice_post",
+        &json!({"requestId":id(),"resources":["app:installed"],"intent":"Synthetic notice"}),
+        &Principal::LocalAuthority,
+        vec![],
+        clock,
+    )?;
+    let mut data = crate::load(&path)?;
+    let mut notice = data["notices"][0].clone();
+    notice["state"] = json!("closed");
+    notice["endedAt"] = json!(time * 1000);
+    data["notices"] = json!((0..256)
+        .map(|n| {
+            let mut row = notice.clone();
+            row["id"] = json!(format!("notice-{n}"));
+            row
+        })
+        .collect::<Vec<_>>());
+    data["pending"] = json!([]);
+    save(&path, &data)
+}
+#[cfg(test)]
+pub(crate) fn scale_poll(time: i64) -> Result<()> {
+    with_store(|s| {
+        let clock = Clock {
+            utc: time * 1000,
+            elapsed: time * 1000,
+            certain: true,
+        };
+        s.maintain(&[], clock)?;
+        assert!(s.linked_threads().is_empty());
+        s.missing(&[]);
+        Ok(())
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn scale_history(time: i64) -> Result<()> {
+    for rebuild in [false, true] {
+        if rebuild {
+            *STORE.lock().unwrap() = None;
+        }
+        let clock = Clock {
+            utc: time * 1000,
+            elapsed: time * 1000,
+            certain: true,
+        };
+        let mut cursor = Value::Null;
+        let mut ids = std::collections::BTreeSet::new();
+        loop {
+            let page = with_store(|s| {
+                s.board(
+                    &json!({"state":"all","view":"full","limit":100,"cursor":cursor}),
+                    "fixture",
+                    clock,
+                )
+            })?;
+            for row in page["notices"].as_array().unwrap() {
+                ids.insert(string(row, "id").to_owned());
+            }
+            if page["nextCursor"].is_null() {
+                break;
+            }
+            cursor = page["nextCursor"].clone();
+        }
+        assert_eq!(ids.len(), 256);
+    }
+    Ok(())
 }

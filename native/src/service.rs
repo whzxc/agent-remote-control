@@ -11,7 +11,8 @@ fn connection_intent() -> Result<ConnectionIntent> {
     if !path.exists() {
         return Ok(ConnectionIntent::new());
     }
-    serde_json::from_value(load(&path)?).map_err(|error| error.to_string())
+    serde_json::from_value(crate::kernel::file_cache::load(&path)?)
+        .map_err(|error| error.to_string())
 }
 
 pub(crate) fn expected_remote() -> Result<Vec<Value>> {
@@ -22,7 +23,7 @@ pub(crate) fn expected_remote() -> Result<Vec<Value>> {
         if !path.exists() {
             continue;
         }
-        let entry = load(&path)?;
+        let entry = crate::kernel::file_cache::load(&path)?;
         if entry["enabled"] == true && entry["transport"] != "local" {
             entries.push(json!({"id":id,"name":entry["name"]}));
         }
@@ -41,6 +42,21 @@ fn remember_connection(id: &str, connected: bool) -> Result<()> {
         ids.remove(id);
     }
     save(&root().join("desktop-session.json"), &json!(ids))
+}
+
+fn status_settings() -> Result<Value> {
+    use crate::kernel::file_cache::Projection;
+    static SETTINGS: std::sync::LazyLock<std::sync::Mutex<Projection<Value>>> =
+        std::sync::LazyLock::new(Default::default);
+    let paths = [root().join("task-settings.json")];
+    let mut cache = SETTINGS.lock().map_err(|e| e.to_string())?;
+    let before = Projection::<Value>::stamps(&paths)?;
+    if let Some(settings) = cache.get(&before) {
+        return Ok(settings);
+    }
+    let settings = crate::claude_notify::settings()?;
+    cache.set(&paths, before, settings.clone())?;
+    Ok(settings)
 }
 
 pub struct Service {
@@ -421,7 +437,7 @@ impl Service {
             json!({"config":config,"core":{"desktop":{"state":"unknown"},"appServer":{"state":"unknown"},"chatgpt":{},"logs":[]},"connection":{"running":false,"mcpUrl":""},"connector":{"state":"stopped"},"tunnel":{"state":"stopped","error":""},"logs":[],"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"taskApprovalEnabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?})
         };
         status["requestRoutingDelaySeconds"] =
-            crate::claude_notify::settings()?["requestRoutingDelaySeconds"].clone();
+            status_settings()?["requestRoutingDelaySeconds"].clone();
         status["cliPath"] = json!(crate::cli_shim::executable()?);
         let desktop = match self.control.ipc().await {
             Ok(_) => {
@@ -1685,4 +1701,13 @@ impl Service {
             .store(self.port.load(Ordering::SeqCst), Ordering::SeqCst);
         i.request(route, method, body).await
     }
+}
+
+#[cfg(test)]
+pub(crate) fn scale_seed() -> Result<()> {
+    let entry = normalize(
+        json!({"id":"synthetic","name":"Synthetic ingress","controlSource":"Synthetic source","transport":"https","auth":"bearer","bearerToken":"synthetic-token-for-fixture-only-000000","enabled":true,"config":{}}),
+    )?;
+    store_entry(&entry)?;
+    save(&root().join("ingresses/index.json"), &json!(["synthetic"]))
 }

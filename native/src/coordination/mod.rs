@@ -17,18 +17,28 @@ pub use types::*;
 
 // Lock order: read and release source authorization, then JOURNAL. Owner/notification
 // stores, network, Git and task-owner discovery never run under JOURNAL.
-static JOURNAL: LazyLock<Mutex<Option<Journal>>> = LazyLock::new(|| Mutex::new(None));
+static JOURNAL: LazyLock<Mutex<Option<(Option<crate::kernel::file_cache::Stamp>, Journal)>>> =
+    LazyLock::new(|| Mutex::new(None));
 fn with_journal<T>(f: impl FnOnce(&mut Journal) -> Result<T>) -> Result<T> {
     let mut journal = JOURNAL
         .lock()
         .map_err(|_| "COORDINATION_STORAGE: journal lock unavailable")?;
-    if journal.is_none() {
-        *journal = Some(Journal::open(
-            root().join("coordination/events"),
-            chrono::Utc::now().timestamp_millis(),
-        )?);
+    let path = root().join("coordination/events/manifest.json");
+    let before = crate::kernel::file_cache::Stamp::read(&path)?;
+    if journal.as_ref().is_none_or(|(stamp, _)| *stamp != before) {
+        *journal = None;
+        *journal = Some((
+            before,
+            Journal::open(
+                root().join("coordination/events"),
+                chrono::Utc::now().timestamp_millis(),
+            )?,
+        ));
     }
-    let result = f(journal.as_mut().unwrap());
+    let result = f(&mut journal.as_mut().unwrap().1);
+    if result.is_ok() {
+        journal.as_mut().unwrap().0 = crate::kernel::file_cache::Stamp::read(&path)?;
+    }
     if result.as_ref().is_err_and(|e| {
         e.starts_with("COORDINATION_STORAGE") || e.starts_with("COORDINATION_CORRUPT")
     }) {
@@ -176,3 +186,6 @@ pub(crate) fn desktop_resources() -> Result<Value> {
         Err(_) => Ok(json!({"resources":resources,"observedAt":null,"coverage":"unavailable"})),
     }
 }
+
+#[cfg(test)]
+pub(crate) mod cost_tests;

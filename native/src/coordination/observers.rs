@@ -454,9 +454,17 @@ pub(super) fn project_at(
     checkpoint: &Path,
     emit: &dyn Fn(EventInput) -> Result<Value>,
 ) -> Result<()> {
-    let row = crate::load(path)?;
+    use crate::kernel::file_cache::Stamp;
+    static PROJECTED: LazyLock<Mutex<BTreeMap<(PathBuf, PathBuf), Vec<Option<Stamp>>>>> =
+        LazyLock::new(Default::default);
+    let key = (path.to_path_buf(), checkpoint.to_path_buf());
+    let before = vec![Stamp::read(path)?, Stamp::read(checkpoint)?];
+    if PROJECTED.lock().unwrap().get(&key) == Some(&before) {
+        return Ok(());
+    }
+    let row = crate::kernel::file_cache::shared_load(path)?;
     let mut done = if checkpoint.exists() {
-        crate::load(checkpoint)?
+        crate::kernel::file_cache::load(checkpoint)?
     } else {
         json!({})
     };
@@ -472,6 +480,15 @@ pub(super) fn project_at(
         done[&transition] = emit(input)?;
         durable(checkpoint, &done)?;
     }
+    let after = vec![Stamp::read(path)?, Stamp::read(checkpoint)?];
+    if after[0] == before[0] {
+        let mut projected = PROJECTED.lock().unwrap();
+        if projected.len() >= MAX_PENDING {
+            projected.clear();
+        }
+        projected.insert(key, after);
+    }
+
     Ok(())
 }
 fn discover(dir: &Path, depth: usize, paths: &mut BTreeSet<PathBuf>) {
@@ -560,7 +577,7 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) -> tokio::task::Join
                         crate::runtime_metrics::cost::rows(1);
                         // Startup replay visits historical owners once. Do not fill the
                         // hot JSON cache with complete receipt payloads and checkpoints.
-                        if let Ok(row) = crate::load(&path) {
+                        if let Ok(row) = crate::kernel::file_cache::shared_load(&path) {
                             let receipt_path = (path.parent() == Some(receipt_directory.as_path())
                                 || path.parent() == Some(agent_receipt_directory.as_path()))
                                 && path

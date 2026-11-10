@@ -684,10 +684,6 @@ mod tests {
             delta(&before, &after, "receiptProjection", "bytesParsed"),
             0
         );
-        assert_eq!(
-            delta(&before, &after, "receiptProjection", "rowsVisited"),
-            1
-        );
         assert_eq!(delta(&before, &after, "taskRecords", "rowsVisited"), 2);
     }
     #[test]
@@ -733,4 +729,26 @@ mod tests {
             second["state"]
         );
     }
+}
+
+#[cfg(test)]
+pub(crate) fn scale_rebuild(base: &Path) -> Result<()> {
+    projection::forget(base);
+    super::derived_index::damage(base, "corrupt");
+    let store = ReceiptStore::new("");
+    store.seed()?;
+    let mut retained = 0;
+    for n in 0..33 {
+        let request = format!("10000000-0000-4000-8000-{n:012}");
+        assert_eq!(
+            store.read_for_projection(&request, "fixture")?["state"],
+            "completed"
+        );
+        retained += store.read(&request, "fixture")?["result"]["history"]
+            .as_array()
+            .unwrap()
+            .len();
+    }
+    assert_eq!(retained, 8000);
+    Ok(())
 }

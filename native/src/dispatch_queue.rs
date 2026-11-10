@@ -12,36 +12,88 @@ fn path(id: &str) -> Result<PathBuf> {
 fn records() -> Result<Vec<Value>> {
     records_in(&directory())
 }
-fn records_in(dir: &Path) -> Result<Vec<Value>> {
-    crate::runtime_metrics::cost::sync(
-        crate::runtime_metrics::cost::Owner::DispatchQueue,
-        crate::runtime_metrics::cost::Reason::Poll,
-        || {
-            if !dir.exists() {
-                return Ok(vec![]);
-            }
-            let entries = file_cache::entries(dir)?;
-            crate::runtime_metrics::cost::scan_set(entries.len());
-            let mut rows = entries
-                .iter()
-                .inspect(|_| crate::runtime_metrics::cost::rows(1))
-                .filter(|e| e.path.extension().is_some_and(|v| v == "json"))
-                .filter_map(|e| {
-                    let row = load(&e.path).ok()?;
-                    if !row.is_object()
-                        || uuid::Uuid::parse_str(string(&row, "queueId")).is_err()
-                        || string(&row, "threadId").is_empty()
-                        || !row["args"].is_object()
-                    {
-                        return None;
-                    }
-                    Some(row)
-                })
-                .collect::<Vec<_>>();
-            rows.sort_by_key(|r| r["sequence"].as_u64().unwrap_or(0));
-            Ok(rows)
-        },
+#[derive(Default)]
+struct Queues(std::collections::HashMap<PathBuf, Queue>);
+struct Queue {
+    files: file_cache::Collection<Value>,
+    active: std::collections::BTreeMap<(u64, PathBuf), Arc<Value>>,
+    ordered: std::collections::BTreeMap<(u64, PathBuf), Arc<Value>>,
+    sequences: std::collections::HashMap<PathBuf, u64>,
+}
+static QUEUES: std::sync::LazyLock<std::sync::Mutex<Queues>> =
+    std::sync::LazyLock::new(Default::default);
+fn runnable(row: &Value) -> bool {
+    matches!(
+        string(row, "state"),
+        "queued" | "blocked" | "dispatching" | "steering"
     )
+}
+fn with_queue<T>(dir: &Path, f: impl FnOnce(&Queue) -> T) -> Result<T> {
+    use crate::runtime_metrics::cost::{self, Owner, Reason};
+    if cost::current() != Some(Owner::DispatchQueue) {
+        return cost::sync(Owner::DispatchQueue, Reason::Poll, || {
+            with_queue_inner(dir, f)
+        });
+    }
+    with_queue_inner(dir, f)
+}
+fn with_queue_inner<T>(dir: &Path, f: impl FnOnce(&Queue) -> T) -> Result<T> {
+    let mut queues = QUEUES.lock().map_err(|e| e.to_string())?;
+    let queue = queues.0.entry(dir.into()).or_insert_with(|| Queue {
+        files: file_cache::Collection::new(dir),
+        active: Default::default(),
+        ordered: Default::default(),
+        sequences: Default::default(),
+    });
+    for path in queue.files.refresh(|path| {
+        file_cache::shared_load(path).or_else(|error| {
+            if error.starts_with("INVALID_JSON:") {
+                Ok(Arc::new(Value::Null))
+            } else {
+                Err(error)
+            }
+        })
+    })? {
+        if let Some(sequence) = queue.sequences.remove(&path) {
+            queue.active.remove(&(sequence, path.clone()));
+            queue.ordered.remove(&(sequence, path.clone()));
+        }
+        if let Some(row) = queue.files.rows.get(&path).filter(|row| valid(row)) {
+            let sequence = row["sequence"].as_u64().unwrap_or(0);
+            queue.sequences.insert(path.clone(), sequence);
+            queue.ordered.insert((sequence, path.clone()), row.clone());
+            if runnable(row) {
+                queue.active.insert((sequence, path), row.clone());
+            }
+        }
+    }
+    Ok(f(queue))
+}
+fn valid(row: &Value) -> bool {
+    row.is_object()
+        && uuid::Uuid::parse_str(string(row, "queueId")).is_ok()
+        && !string(row, "threadId").is_empty()
+        && row["args"].is_object()
+}
+fn records_in(dir: &Path) -> Result<Vec<Value>> {
+    with_queue(dir, |queue| {
+        queue.ordered.values().map(|row| (**row).clone()).collect()
+    })
+}
+fn scheduled() -> Result<(Vec<Value>, Arc<tokio::sync::Notify>, bool)> {
+    with_queue(&directory(), |queue| {
+        crate::runtime_metrics::cost::rows(queue.active.len());
+        (
+            queue
+                .active
+                .values()
+                .filter(|r| !string(&r["origin"], "sourceId").is_empty())
+                .map(|r| (**r).clone())
+                .collect(),
+            queue.files.wake(),
+            queue.files.repair_needed,
+        )
+    })
 }
 fn visible(row: &Value) -> bool {
     visible_to(row, &crate::kernel::origin::current_origin())
@@ -90,12 +142,12 @@ pub(crate) async fn enqueue(args: &Value, receipt: &mut Value) -> Result<Value> 
     let row = if target.exists() {
         load(&target)?
     } else {
-        let sequence = records()?
-            .iter()
-            .filter_map(|r| r["sequence"].as_u64())
-            .max()
-            .unwrap_or(0)
-            + 1;
+        let sequence = with_queue(&directory(), |queue| {
+            queue
+                .ordered
+                .last_key_value()
+                .map_or(0, |((sequence, _), _)| *sequence)
+        })? + 1;
         let mut row = json!({"queueId":id,"threadId":args["threadId"],"args":args,"origin":receipt["origin"],"state":"queued","sequence":sequence,"createdAt":now(),"dispatchRequestId":crate::id()});
         if let Some(caller) = crate::dispatch_caller::validated(&receipt["caller"]) {
             row["caller"] = caller;
@@ -111,7 +163,11 @@ pub(crate) async fn enqueue(args: &Value, receipt: &mut Value) -> Result<Value> 
 pub(crate) async fn counts() -> Result<std::collections::HashMap<String, Value>> {
     let _guard = LOCK.lock().await;
     let mut counts = std::collections::HashMap::new();
-    for row in records()?.into_iter().filter(|r| {
+    for row in with_queue(&directory(), |q| {
+        q.active.values().map(|r| (**r).clone()).collect::<Vec<_>>()
+    })?
+    .into_iter()
+    .filter(|r| {
         visible(r)
             && matches!(
                 string(r, "state"),
@@ -325,6 +381,8 @@ pub(crate) fn start(control: &Arc<control::Control>) {
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
         let mut reason = crate::runtime_metrics::cost::Reason::Startup;
+        let mut queue_wake = None;
+        let mut active = false;
         loop {
             let Some(c) = weak.upgrade() else {
                 break;
@@ -335,7 +393,9 @@ pub(crate) fn start(control: &Arc<control::Control>) {
                 async {
                     let mut threads = std::collections::HashSet::new();
                     let mut tasks = tokio::task::JoinSet::new();
-                    let mut rows = records()?;
+                    let (mut rows, wake, repair) = scheduled()?;
+                    queue_wake = Some(wake);
+                    active = !rows.is_empty() || repair;
                     // Reconcile reserved submissions before an older queued row can
                     // block their receipt readback behind a running turn.
                     rows.sort_by_key(|r| !matches!(string(r, "state"), "steering" | "dispatching"));
@@ -364,8 +424,12 @@ pub(crate) fn start(control: &Arc<control::Control>) {
             );
             tokio::select! {_=shutdown.changed()=>break,r=cycle=>if let Err(e)=r{crate::logs::record("WARN",&format!("Send queue: {e}"),None);}}
             drop(c);
-            reason = crate::runtime_metrics::cost::Reason::Timer;
-            tokio::select! {_=shutdown.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(1))=>{}}
+            let wake = queue_wake.clone();
+            tokio::select! {
+                _=shutdown.changed()=>break,
+                _=async { match wake { Some(wake) => wake.notified().await, None => std::future::pending().await } }=>reason = crate::runtime_metrics::cost::Reason::Dirty,
+                _=async { if active || queue_wake.is_none() { tokio::time::sleep(std::time::Duration::from_secs(1)).await } else { std::future::pending().await } }=>reason = crate::runtime_metrics::cost::Reason::Deadline,
+            }
         }
     });
 }
@@ -420,5 +484,50 @@ mod tests {
         let owned = json!({"origin":{"sourceId":"a"}});
         assert!(visible_to(&owned, &json!({"sourceId":"a"})));
         assert!(!visible_to(&owned, &json!({"sourceId":"b"})));
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn scale_poll() -> Result<()> {
+    let rows = records()?;
+    assert_eq!(rows.len(), 44);
+    Ok(())
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    #[test]
+    fn dormant_queue_reactivation_removal_and_rebuild_preserve_fifo_history() {
+        // Regression: unchanged queue ticks traversed all completed rows and dormant rows needed discovery after reactivation.
+        let dir = std::env::temp_dir().join(format!("arc-queue-projection-{}", id()));
+        for n in 0..44 {
+            save(&dir.join(format!("{n}.json")), &json!({"queueId":id(),"threadId":"fixture","args":{},"state":"completed","sequence":n,"origin":{"sourceId":"fixture"}})).unwrap();
+        }
+        assert_eq!(records_in(&dir).unwrap().len(), 44);
+        let warm = file_cache::thread_io();
+        assert!(with_queue(&dir, |q| q.active.is_empty()).unwrap());
+        assert_eq!(file_cache::thread_io(), warm);
+        let mut row = load(&dir.join("0.json")).unwrap();
+        row["state"] = json!("queued");
+        save(&dir.join("0.json"), &row).unwrap();
+        let selected = with_queue(&dir, |q| {
+            q.active.values().map(|r| (**r).clone()).collect::<Vec<_>>()
+        })
+        .unwrap();
+        assert_eq!(selected, vec![row]);
+        let before = file_cache::Stamp::read(&dir).unwrap();
+        std::fs::remove_file(dir.join("1.json")).unwrap();
+        file_cache::changed(&dir.join("1.json"), before);
+        assert_eq!(records_in(&dir).unwrap().len(), 43);
+        QUEUES.lock().unwrap().0.remove(&dir);
+        let rebuilt = records_in(&dir).unwrap();
+        assert_eq!(rebuilt.len(), 43);
+        assert_eq!(rebuilt[0]["state"], "queued");
+        assert!(rebuilt
+            .windows(2)
+            .all(|pair| pair[0]["sequence"].as_u64() < pair[1]["sequence"].as_u64()));
+        QUEUES.lock().unwrap().0.remove(&dir);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

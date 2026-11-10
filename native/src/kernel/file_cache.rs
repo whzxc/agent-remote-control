@@ -214,6 +214,25 @@ impl<T> Default for Cache<T> {
     }
 }
 impl<T> Cache<T> {
+    /// Simulated restarts invalidate only their fixture, preserving concurrent warm readers.
+    #[cfg(test)]
+    pub(crate) fn forget_under(&mut self, directory: &Path) {
+        let physical = super::file_changes::physical(directory);
+        let matches = |path: &Path| path.starts_with(directory) || path.starts_with(&physical);
+        let paths: Vec<_> = self
+            .files
+            .keys()
+            .filter(|path| matches(path))
+            .cloned()
+            .collect();
+        for path in paths {
+            if let Some(file) = self.files.remove(&path) {
+                self.bytes -= file.stamp.len;
+                self.recency.remove(&file.used);
+            }
+        }
+        self.directories.retain(|path, _| !matches(path));
+    }
     pub fn diagnostics(&self) -> Value {
         let base = root();
         let mut groups = BTreeMap::<&str, (usize, u64)>::new();
@@ -451,6 +470,129 @@ impl<T: Clone> Projection<T> {
         Ok(())
     }
 }
+/// Resident canonical snapshots refreshed by changed paths. Discovery happens once;
+/// watcher failure is an explicit, bounded repair path on subsequent reads.
+pub(crate) struct Collection<T> {
+    directory: PathBuf,
+    pub rows: BTreeMap<PathBuf, Arc<T>>,
+    stamps: BTreeMap<PathBuf, Option<Stamp>>,
+    watch: super::file_changes::Watch,
+    repair: Option<std::fs::ReadDir>,
+    repair_after: Option<PathBuf>,
+    pending: std::collections::BTreeSet<PathBuf>,
+    unpublished: std::collections::BTreeSet<PathBuf>,
+    initialized: bool,
+    pub repair_needed: bool,
+}
+impl<T> Collection<T> {
+    pub fn new(directory: &Path) -> Self {
+        let directory = super::file_changes::physical(directory);
+        let mut watch = super::file_changes::Watch::default();
+        watch.add(&directory.join(".index-watch"));
+        Self {
+            directory,
+            rows: BTreeMap::new(),
+            stamps: BTreeMap::new(),
+            watch,
+            repair: None,
+            repair_after: None,
+            pending: Default::default(),
+            unpublished: Default::default(),
+            initialized: false,
+            repair_needed: false,
+        }
+    }
+    pub fn wake(&self) -> Arc<tokio::sync::Notify> {
+        self.watch.wake.clone()
+    }
+    pub fn refresh(&mut self, decode: impl Fn(&Path) -> Result<Arc<T>>) -> Result<Vec<PathBuf>> {
+        let (mut paths, failed) = self.watch.drain();
+        self.repair_needed = failed;
+        if !self.initialized {
+            if self.directory.exists() {
+                let mut cursor = None;
+                loop {
+                    let batch =
+                        super::file_changes::repair_paths(&self.directory, &mut cursor, 32)?;
+                    crate::runtime_metrics::cost::rows(batch.len());
+                    paths.extend(batch);
+                    if cursor.is_none() {
+                        break;
+                    }
+                }
+            }
+            self.initialized = true;
+        }
+        if failed {
+            crate::runtime_metrics::cost::sync(
+                crate::runtime_metrics::cost::Owner::IndexRepair,
+                crate::runtime_metrics::cost::Reason::Dirty,
+                || -> Result<()> {
+                    use std::ops::Bound::{Excluded, Unbounded};
+                    let keys: Vec<_> = self
+                        .stamps
+                        .range((
+                            self.repair_after.clone().map_or(Unbounded, Excluded),
+                            Unbounded,
+                        ))
+                        .take(32)
+                        .map(|(key, _)| key.clone())
+                        .collect();
+                    self.repair_after = keys.last().cloned();
+                    crate::runtime_metrics::cost::rows(keys.len());
+                    paths.extend(keys);
+                    if self.directory.exists() {
+                        let keys = super::file_changes::repair_paths(
+                            &self.directory,
+                            &mut self.repair,
+                            32,
+                        )?;
+                        crate::runtime_metrics::cost::rows(keys.len());
+                        paths.extend(keys);
+                    }
+                    Ok(())
+                },
+            )?;
+        }
+        self.pending.extend(paths);
+        while let Some(path) = self.pending.pop_first() {
+            if path.parent() != Some(self.directory.as_path())
+                || path.extension().is_none_or(|e| e != "json")
+            {
+                continue;
+            }
+            let stamp = Stamp::read(&path)?;
+            if self.stamps.get(&path) == Some(&stamp) {
+                continue;
+            }
+            crate::runtime_metrics::cost::rows(1);
+            if stamp.is_some() {
+                // A failed read remains dirty so transient errors cannot hide an owner.
+                let value = match decode(&path) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        self.pending.insert(path.clone());
+                        super::file_changes::changed(&path);
+                        return Err(error);
+                    }
+                };
+                if Stamp::read(&path)? != stamp {
+                    self.pending.insert(path.clone());
+                    super::file_changes::changed(&path);
+                    break;
+                }
+                self.rows.insert(path.clone(), value);
+                self.stamps.insert(path.clone(), stamp);
+            } else {
+                self.rows.remove(&path);
+                self.stamps.insert(path.clone(), None);
+            }
+            crate::runtime_metrics::cost::changed(1);
+            self.unpublished.insert(path);
+        }
+        Ok(std::mem::take(&mut self.unpublished).into_iter().collect())
+    }
+}
 static JSON: LazyLock<std::sync::Mutex<Cache<Value>>> = LazyLock::new(Default::default);
 pub(crate) fn diagnostics() -> Value {
     JSON.lock()
@@ -606,5 +748,62 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
         assert!(cache.read(&path).is_err());
         assert!(cache.entries(&dir.0).unwrap().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod collection_tests {
+    use super::*;
+    #[test]
+    fn failed_refresh_retains_remaining_keys_and_unpublished_changes() {
+        // Regression: a transient read failure during changed-key discovery could hide later retained records or partial queue updates.
+        let dir = std::env::temp_dir().join(format!("arc-collection-{}", id()));
+        for n in 0..3 {
+            save(&dir.join(format!("{n}.json")), &json!({"id":n})).unwrap();
+        }
+        let mut collection = Collection::new(&dir);
+        assert!(collection
+            .refresh(|path| {
+                if path.file_stem().unwrap() == "1" {
+                    Err("unavailable".into())
+                } else {
+                    shared_load(path)
+                }
+            })
+            .is_err());
+        let changes = collection.refresh(shared_load).unwrap();
+        assert_eq!(changes.len(), 3);
+        assert_eq!(collection.rows.len(), 3);
+        assert_eq!(
+            collection.rows[&super::super::file_changes::physical(&dir.join("2.json"))]["id"],
+            2
+        );
+        assert!(collection.refresh(shared_load).unwrap().is_empty());
+        drop(collection);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod restart_tests {
+    use super::*;
+    #[test]
+    fn simulated_restart_preserves_concurrent_warm_readers() {
+        // Regression: a notification restart reset the shared cache and changed an unrelated test's no-read cost counters.
+        let base = std::env::temp_dir().join(format!("arc-cache-restart-{}", id()));
+        let first = base.join("first/value.json");
+        let second = base.join("second/value.json");
+        save(&first, &json!({"fixture":"first"})).unwrap();
+        save(&second, &json!({"fixture":"second"})).unwrap();
+        let mut cache = Cache::<Value>::default();
+        cache.read(&first).unwrap();
+        cache.read(&second).unwrap();
+        let warm = cache.io();
+        cache.forget_under(first.parent().unwrap());
+        assert_eq!(cache.read(&second).unwrap()["fixture"], "second");
+        assert_eq!(cache.io(), warm);
+        assert_eq!(cache.read(&first).unwrap()["fixture"], "first");
+        assert_eq!(cache.io().file_opens, warm.file_opens + 1);
+        std::fs::remove_dir_all(base).unwrap();
     }
 }

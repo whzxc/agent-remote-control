@@ -9,7 +9,7 @@ pub fn defaults() -> Value {
 }
 fn stored() -> Value {
     let path = root().join("ui-preferences.json");
-    load(&path).unwrap_or(json!({"values":{},"imported":false}))
+    crate::kernel::file_cache::load(&path).unwrap_or(json!({"values":{},"imported":false}))
 }
 fn effective(stored: &Value) -> Value {
     let mut values = defaults();

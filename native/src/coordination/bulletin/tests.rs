@@ -888,3 +888,62 @@ fn lifecycle_conflicts_exclude_only_core_verified_command_source() {
     )
     .is_none());
 }
+
+#[test]
+fn active_observation_cost_is_independent_of_closed_notice_history() {
+    // Regression: a live linked thread forced bulletin maintenance to traverse closed notices on every observer pass.
+    let mut costs = Vec::new();
+    for history in [4, 240] {
+        let mut f = Fixture::new();
+        let notice = f.post();
+        f.call("notice_close", json!({"id":notice["id"]}));
+        let closed = f.store.state.notices[0].clone();
+        f.store.state.notices = (0..history)
+            .map(|n| {
+                let mut row = closed.clone();
+                row.id = format!("closed-{n}");
+                row
+            })
+            .collect();
+        f.store.save(f.clock).unwrap();
+        let active = f.post();
+        f.link(&active);
+        f.drain();
+        f.store.maintain(&[], f.clock).unwrap();
+        f.advance(5000);
+        let before = crate::coordination::cost_tests::counters();
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::CoordinationObservers,
+            crate::runtime_metrics::cost::Reason::Timer,
+            || {
+                assert_eq!(f.store.linked_threads(), vec!["thread-a"]);
+                f.store.missing(&["thread-a".into()]);
+                f.store
+                    .observe("thread-a", "turn-a", "running", f.clock, true);
+                f.store.maintain(&[], f.clock).unwrap();
+            },
+        );
+        let after = crate::coordination::cost_tests::counters();
+        costs.push(
+            after["coordinationObservers"]["rowsVisited"]
+                .as_u64()
+                .unwrap()
+                - before["coordinationObservers"]["rowsVisited"]
+                    .as_u64()
+                    .unwrap(),
+        );
+        assert_eq!(
+            after["coordinationObservers"]["bytesParsed"],
+            before["coordinationObservers"]["bytesParsed"]
+        );
+        f.advance(5000);
+        f.store
+            .observe("thread-a", "turn-a", "completed", f.clock, true);
+        f.store.maintain(&[], f.clock).unwrap();
+        assert!(f.call("board", json!({}))["notices"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+    assert_eq!(costs, vec![3, 3]);
+}

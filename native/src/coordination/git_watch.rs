@@ -45,6 +45,7 @@ pub(super) fn terminal(thread: &str, turn: &str) {
 pub(super) struct RefReader {
     files: BTreeMap<PathBuf, (Option<Stamp>, String)>,
     pub opens: usize,
+    packed: BTreeMap<PathBuf, (Option<Stamp>, BTreeMap<String, String>)>,
     cached_bytes: usize,
     directories: BTreeMap<PathBuf, (Option<Stamp>, Vec<PathBuf>)>,
     pub directory_opens: usize,
@@ -107,19 +108,25 @@ impl RefReader {
         path.canonicalize().map_err(|_| "unreachable".into())
     }
     pub(super) fn refs(&mut self, common: &Path) -> Result<BTreeMap<String, String>> {
-        let mut refs = BTreeMap::new();
-        let packed = self.read(&common.join("packed-refs"))?;
-        for line in packed
-            .lines()
-            .inspect(|_| crate::runtime_metrics::cost::rows(1))
-            .filter(|l| !l.starts_with(['#', '^']))
-        {
-            if let Some((oid, name)) = line.split_once(' ') {
-                if watched(name) {
-                    insert(&mut refs, name, oid)?;
+        let path = common.join("packed-refs");
+        let stamp = Stamp::read(&path)?;
+        if self.packed.get(&path).is_none_or(|(old, _)| *old != stamp) {
+            let mut refs = BTreeMap::new();
+            let packed = self.read(&path)?;
+            for line in packed
+                .lines()
+                .inspect(|_| crate::runtime_metrics::cost::rows(1))
+                .filter(|l| !l.starts_with(['#', '^']))
+            {
+                if let Some((oid, name)) = line.split_once(' ') {
+                    if watched(name) {
+                        insert(&mut refs, name, oid)?;
+                    }
                 }
             }
+            self.packed.insert(path.clone(), (stamp, refs));
         }
+        let mut refs = self.packed[&path].1.clone();
         let heads = common.join("refs/heads");
         let main = self.read(&heads.join("main"))?;
         if !main.is_empty() {
@@ -159,7 +166,6 @@ impl RefReader {
         }
         let entries = self.directories[&directory].1.clone();
         for entry in &entries {
-            crate::runtime_metrics::cost::rows(1);
             let name = entry
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -169,6 +175,10 @@ impl RefReader {
             }
             if types::identifier(name).is_err() {
                 continue;
+            }
+            let stamp = Stamp::read(entry)?;
+            if self.files.get(entry).is_none_or(|(old, _)| *old != stamp) {
+                crate::runtime_metrics::cost::rows(1);
             }
             let oid = self.read(entry)?;
             if !oid.is_empty() {

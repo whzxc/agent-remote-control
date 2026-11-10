@@ -868,3 +868,41 @@ fn coordination_summary_limit_counts_unicode_characters_consistently() {
         assert!(validate("message_send", &args).is_err());
     }
 }
+
+#[test]
+fn caller_message_snapshot_reuses_payload_and_reloads_external_changes() {
+    // Regression: every messages/board routing read parsed the complete retained message snapshot.
+    let f = Fixture::new();
+    let read = || {
+        crate::runtime_metrics::cost::sync(
+            crate::runtime_metrics::cost::Owner::CoordinationRead,
+            crate::runtime_metrics::cost::Reason::Poll,
+            || {
+                with_store_at(f.path.clone(), |s| {
+                    s.list(&json!({}), "local-authority", "fixture", f.time)
+                })
+                .unwrap()
+            },
+        )
+    };
+    assert_eq!(read()["messages"], json!([]));
+    let warm = crate::coordination::cost_tests::counters();
+    assert_eq!(read()["messages"], json!([]));
+    assert_eq!(
+        crate::coordination::cost_tests::counters()["coordinationRead"]["bytesParsed"],
+        warm["coordinationRead"]["bytesParsed"]
+    );
+    with_store_at(f.path.clone(), |_| {
+        Err::<(), _>("MESSAGES_CURSOR_EXPIRED: fixture".into())
+    })
+    .unwrap_err();
+    assert_eq!(read()["messages"], json!([]));
+    let mut external = Store::open(f.path.clone()).unwrap();
+    external.send(&json!({"requestId":id(),"toSourceId":"two","type":"notice","summary":"Synthetic message","resources":[]}),"one",None,"pull-only",f.time).unwrap();
+    let changed = read();
+    assert_eq!(changed["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(changed["messages"][0]["toSourceId"], "two");
+    MESSAGES.lock().unwrap().remove(&f.path);
+    assert_eq!(read()["messages"], changed["messages"]);
+    MESSAGES.lock().unwrap().remove(&f.path);
+}

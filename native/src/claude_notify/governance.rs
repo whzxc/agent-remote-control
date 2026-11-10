@@ -388,6 +388,15 @@ pub(crate) async fn notify_status(args: &Value) -> Result<Value> {
         &settings()?,
     )
 }
+struct StatusProjection {
+    bindings: file_cache::Collection<Option<Arc<Binding>>>,
+    owners: crate::kernel::file_changes::Watch,
+    controls: Option<file_cache::Stamp>,
+    views: std::collections::HashMap<String, (i64, Option<i64>, Value)>,
+}
+static STATUS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<PathBuf, StatusProjection>>,
+> = std::sync::LazyLock::new(Default::default);
 pub(super) fn status_in(
     dir: &Path,
     source_id: &str,
@@ -395,15 +404,111 @@ pub(super) fn status_in(
     now: i64,
     settings: &Value,
 ) -> Result<Value> {
+    crate::kernel::derived_index::available(&dir.join("tasks"))?;
+    let mut projections = STATUS.lock().map_err(|e| e.to_string())?;
+    let projection = projections.entry(dir.into()).or_insert_with(|| {
+        let mut owners = crate::kernel::file_changes::Watch::default();
+        owners.add(&root().join("execution/handoffs/.index-watch"));
+        StatusProjection {
+            bindings: file_cache::Collection::new(&dir.join("tasks")),
+            owners,
+            controls: None,
+            views: Default::default(),
+        }
+    });
+    let changed = projection
+        .bindings
+        .refresh(|path| Ok(Arc::new(shared_binding(path)?)))?;
+    let controls = file_cache::Stamp::read(&dir.join("subscriptions/state.json"))?;
+    let (owners, failed) = projection.owners.drain();
+    if !changed.is_empty() || controls != projection.controls || !owners.is_empty() || failed {
+        projection.views.clear();
+    }
+    projection.controls = controls;
+    let key = json!([source_id, args, settings]).to_string();
+    if let Some((at, deadline, result)) = projection.views.get(&key) {
+        if now >= *at && deadline.is_none_or(|deadline| now < deadline) {
+            let mut result = result.clone();
+            result["at"] = json!(now);
+            return Ok(result);
+        }
+    }
+    let all: Vec<_> = projection
+        .bindings
+        .rows
+        .values()
+        .filter_map(|b| b.as_ref().as_ref().map(|row| (**row).clone()))
+        .collect();
+    let result = status_from(dir, source_id, args, now, settings, &all)?;
+    let state = State::load(dir)?;
+    let mut deadline = None;
+    let mut due = |at: i64| {
+        if at > now {
+            deadline = Some(deadline.map_or(at, |old: i64| old.min(at)));
+        }
+    };
+    for b in &all {
+        for d in &b.deliveries {
+            for at in [
+                d.created_at,
+                d.attempted_at,
+                d.timing.queued_at.unwrap_or(0) / 1000,
+                d.timing.started_at.unwrap_or(0) / 1000,
+                d.timing.finished_at.unwrap_or(0) / 1000,
+            ] {
+                due(at.saturating_add(3600));
+            }
+        }
+    }
+    for target in &state.targets {
+        if target.tokens < capacity(settings) {
+            due(target.refilled_at.saturating_add(refill_seconds(settings)));
+        }
+        if let Some(at) = target.reachability.deadline() {
+            due(at);
+        }
+        for batch in &target.batches {
+            due(batch.at.saturating_add(3600));
+        }
+    }
+    for thread in &state.threads {
+        if let Some(at) = thread.until {
+            due(at);
+        }
+    }
+    for subscription in &state.subscriptions {
+        if let Some(at) = subscription.expires_at {
+            due(at.saturating_add(999) / 1000);
+        }
+        if let Some(at) = subscription.until {
+            due(at);
+        }
+    }
+    projection.controls = file_cache::Stamp::read(&dir.join("subscriptions/state.json"))?;
+    if projection.views.len() >= 32 {
+        projection.views.clear();
+    }
+    projection
+        .views
+        .insert(key, (now, deadline, result.clone()));
+    Ok(result)
+}
+fn status_from(
+    dir: &Path,
+    source_id: &str,
+    args: &Value,
+    now: i64,
+    settings: &Value,
+    all: &[Binding],
+) -> Result<Value> {
     // Explicit false requests compact diagnostics even with a target/thread filter.
     let compact = args["all"] == false
         || (args["all"] != true && args["target"].is_null() && args["threadId"].is_null());
-    let all = records(dir)?;
     let mut state = State::load(dir)?;
     for target in &mut state.targets {
         target.reachability.expire(now);
     }
-    subscriptions::sync(&mut state, &all);
+    subscriptions::sync(&mut state, all);
     let bindings = all
         .iter()
         .cloned()
@@ -491,7 +596,7 @@ pub(super) fn status_in(
                 })
                 .filter_map(|d| d.timing.finished_at.map(|ms| ms / 1000))
                 .max();
-            let ownership = ownership::read(&b.thread_id).unwrap_or(Value::Null);
+            let ownership = status_ownership(&b.thread_id).unwrap_or(Value::Null);
             threads.push(json!({"threadId":b.thread_id,"title":latest.title,"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
         }
     }
@@ -621,6 +726,22 @@ pub(super) fn status_in(
     Ok(
         json!({"subscriptions":subscriptions.iter().map(|s|s.public(now)).collect::<Vec<_>>(),"deliveries":deliveries,"at":now,"summary":summary,"notificationsEnabled":settings["notificationsEnabled"]!=false,"unboundPending":unbound_pending,"recentWindowSeconds":3600,"targets":targets,"threads":threads,"mostWokenThreads":ranking}),
     )
+}
+fn status_ownership(thread: &str) -> Result<Value> {
+    uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
+    let path = root()
+        .join("execution/handoffs")
+        .join(format!("{thread}.json"));
+    let mut value = if path.exists() {
+        file_cache::load(&path)?
+    } else {
+        json!({"currentOwner":"unknown","history":[]})
+    };
+    if let Some(value) = value.as_object_mut() {
+        value.remove("enqueued");
+        value.remove("acquisition");
+    }
+    Ok(value)
 }
 fn pending(d: &Delivery) -> bool {
     matches!(d.status.as_str(), "pending" | "sending")
@@ -1037,4 +1158,106 @@ async fn ensure_account_route(source_id: &str, args: &Value) -> Result<Value> {
         json!({"target":target,"accountId":account.map(|a| a["id"].clone()),"profiles":candidates});
     state.save(&directory())?;
     Ok(result)
+}
+
+#[cfg(test)]
+pub(crate) fn scale_status(time: i64) -> Result<()> {
+    let view = status_in(
+        &directory(),
+        "synthetic",
+        &json!({"all":true}),
+        time,
+        &json!({"notificationsEnabled":true}),
+    )?;
+    assert_eq!(view["summary"]["totalBindings"], 1094);
+    assert_eq!(view["summary"]["totalDeliveries"], 1094);
+    assert_eq!(view["unboundPending"].as_array().unwrap().len(), 261);
+    Ok(())
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    struct Fixture {
+        dir: PathBuf,
+        row: Value,
+    }
+    impl Fixture {
+        fn new() -> Self {
+            let dir = std::env::temp_dir().join(format!("arc-status-projection-{}", id()));
+            let row = json!({"threadId":"fixture-thread","turnId":"fixture-turn","target":"session_010000000000000000000001","sourceId":"fixture-source","project":"synthetic","createdAt":100,"waiting":[],"deliveries":[{"key":"delivery","eventId":"event","target":"session_010000000000000000000001","createdAt":100,"state":"completed","taskState":"completed","status":"delivered","finalResponse":"s".repeat(12000)}]});
+            save(&path_in(&dir, "fixture-thread", "fixture-turn"), &row).unwrap();
+            Self { dir, row }
+        }
+        fn read(&self, time: i64, args: Value) -> Value {
+            crate::runtime_metrics::cost::sync(
+                crate::runtime_metrics::cost::Owner::CoordinationRead,
+                crate::runtime_metrics::cost::Reason::Poll,
+                || status_in(&self.dir, "fixture-source", &args, time, &json!({})).unwrap(),
+            )
+        }
+        fn write(&self) {
+            save(
+                &path_in(&self.dir, "fixture-thread", "fixture-turn"),
+                &self.row,
+            )
+            .unwrap();
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            STATUS.lock().unwrap().remove(&self.dir);
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+    #[test]
+    fn status_projection_preserves_history_changes_and_clock_transitions() {
+        // Regression: polled notification diagnostics hydrated all old binding payloads and must keep full views after invalidation.
+        let mut f = Fixture::new();
+        assert_eq!(
+            f.read(100, json!({}))["deliveries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let before = crate::coordination::cost_tests::counters();
+        assert_eq!(
+            f.read(101, json!({}))["deliveries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let after = crate::coordination::cost_tests::counters();
+        assert_eq!(
+            before["coordinationRead"]["bytesParsed"],
+            after["coordinationRead"]["bytesParsed"]
+        );
+        assert_eq!(
+            before["coordinationRead"]["rowsVisited"],
+            after["coordinationRead"]["rowsVisited"]
+        );
+        assert!(f.read(3700, json!({}))["deliveries"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let full = f.read(3700, json!({"all":true}));
+        assert_eq!(full["deliveries"].as_array().unwrap().len(), 1);
+        assert_eq!(full["summary"]["totalBindings"], 1);
+        f.row["title"] = json!("Synthetic changed title");
+        f.write();
+        let changed = f.read(3701, json!({"all":true}));
+        assert_eq!(changed["threads"][0]["title"], f.row["title"]);
+        STATUS.lock().unwrap().remove(&f.dir);
+        assert_eq!(f.read(3701, json!({"all":true})), changed);
+        let path = path_in(&f.dir, "fixture-thread", "fixture-turn");
+        let before = file_cache::Stamp::read(path.parent().unwrap()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        file_cache::changed(&path, before);
+        assert_eq!(
+            f.read(3702, json!({"all":true}))["summary"]["totalBindings"],
+            0
+        );
+    }
 }

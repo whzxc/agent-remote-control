@@ -127,6 +127,7 @@ fn sync_directory(dir: &Path) -> Result<()> {
 /// Same private directory/atomic rename convention as save_bytes, with fsync and a
 /// fixed temporary name so repeated disk-full failures cannot accumulate files.
 pub(super) fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    let before = crate::kernel::file_cache::Stamp::read(path.parent().unwrap())?;
     let temp = path.with_extension("tmp");
     let result = (|| {
         let mut file = private_file(&temp, false)?;
@@ -138,6 +139,7 @@ pub(super) fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     if result.is_err() {
         let _ = std::fs::remove_file(temp);
     }
+    crate::kernel::file_cache::changed(path, before);
     result
 }
 impl Journal {

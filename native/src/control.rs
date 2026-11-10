@@ -387,7 +387,7 @@ impl Control {
             return Ok(false);
         }
         let path = root().join("task-settings.json");
-        Ok(!path.exists() || load(&path)?["autoOpenCodex"] != false)
+        Ok(!path.exists() || crate::kernel::file_cache::load(&path)?["autoOpenCodex"] != false)
     }
     pub(crate) fn background(&self, thread: &str) -> Result<bool> {
         if cfg!(target_os = "linux") {
@@ -1593,7 +1593,7 @@ impl Control {
     }
     pub fn approval_mode(&self) -> Result<bool> {
         let path = root().join("task-settings.json");
-        Ok(path.exists() && load(&path)?["enabled"] == true)
+        Ok(path.exists() && crate::kernel::file_cache::load(&path)?["enabled"] == true)
     }
     pub async fn decide(
         self: &Arc<Self>,

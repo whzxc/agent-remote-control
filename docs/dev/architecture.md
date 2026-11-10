@@ -158,6 +158,16 @@ and due retention keys. Pending schedules are recomputed against current control
 Old notification-layout migration scans bindings only when old-layout files exist.
 No SQLite store or additional retention policy is involved.
 
+Queue and notification diagnostic reads retain canonical snapshots in memory and
+refresh only paths delivered by the shared file-change watcher. Queue scheduling
+keeps a separate runnable set; an empty queue waits for changes. Coordination
+message and AX reads reuse typed snapshots until their owner file changes.
+Git readers cache parsed packed refs independently of the retained tag count.
+Completed coordination descriptors reuse their owner/checkpoint stamps.
+Message delivery waits for a dependency change or its next deadline. Watcher
+failure exposes a coverage gap and bounded repair work through runtime metrics.
+Explicit history pages retain the complete canonical data and existing cursors.
+
 Before listening, Core prepares only source identities/configuration and three
 owner gates; it never enumerates retained bindings, receipts, generations or dirty
 keys. Source history conversion, legacy notification conversion, output pruning,

@@ -44,7 +44,7 @@ fn delta(before: &Value, after: &Value, owner: &str, key: &str) -> u64 {
 }
 #[tokio::test]
 async fn retained_history_has_flat_observation_cost_and_active_work_scales() {
-    // Regression: ax-090844fd one active binding visited 10 then 82 history-map rows as completed history grew from 4 to 40.
+    // Regression: parallel claude_notify run shares cost counters
     let control = control::Control::new(PathBuf::new());
     let mut totals = Vec::new();
     for (history, active) in [(4, 1), (40, 1), (40, 3), (40, 0)] {
@@ -288,7 +288,7 @@ async fn restart_seed_preserves_pending_delivery_and_latest_interrupted_scope() 
 
 fn restart(dir: &Path) {
     index::forget(dir);
-    *BINDINGS.lock().unwrap() = file_cache::Cache::default();
+    BINDINGS.lock().unwrap().forget_under(dir);
     index::initialize(dir).unwrap();
 }
 #[tokio::test]

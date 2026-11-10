@@ -7,15 +7,32 @@ use super::*;
 use std::sync::{LazyLock, Mutex};
 use store::Store;
 
-static AX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+static AX: LazyLock<Mutex<Option<(Option<crate::kernel::file_cache::Stamp>, Store)>>> =
+    LazyLock::new(Default::default);
 static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
 fn with_store<T>(f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
-    let _guard = AX
+    use crate::kernel::file_cache::Stamp;
+    let path = root().join("coordination/ax/state.json");
+    let before = Stamp::read(&path)?;
+    let mut resident = AX
         .lock()
         .map_err(|_| "COORDINATION_STORAGE: AX lock unavailable")?;
-    f(&mut Store::open(root().join("coordination/ax"))?)
+    if resident.as_ref().is_none_or(|(stamp, _)| *stamp != before) {
+        *resident = None;
+        *resident = Some((before, Store::open(root().join("coordination/ax"))?));
+    }
+    let result = f(&mut resident.as_mut().unwrap().1);
+    if result.is_ok() {
+        resident.as_mut().unwrap().0 = Stamp::read(&path)?;
+    } else if result.as_ref().is_err_and(|error| {
+        error.starts_with("COORDINATION_STORAGE") || error.starts_with("COORDINATION_CORRUPT")
+    }) {
+        *resident = None;
+    }
+    result
 }
+
 fn actor() -> Result<(Value, String)> {
     let origin = crate::kernel::origin::current_origin();
     let source = crate::sources::coordination_source(&origin)?;
@@ -412,3 +429,21 @@ pub(crate) fn observe_control_result(op: &str, args: &Value, result: &Result<Val
 }
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(crate) fn scale_history(time: i64) -> Result<()> {
+    let actor = json!({"type":"local-authority"});
+    let entry = with_store(|s| {
+        s.mutate("ax_report",&json!({"requestId":id(),"symptom":"Synthetic scale fixture","expected":"Complete retained list","severity":"workaround"}),&actor,vec![],time*1000)
+    })?;
+    let id = entry["entry"]["id"].clone();
+    for rebuild in [false, true] {
+        if rebuild {
+            *AX.lock().unwrap() = None;
+        }
+        let page = with_store(|s| s.list(&json!({"id":id}), &actor, "fixture", time * 1000))?;
+        assert_eq!(page["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(page["entries"][0]["id"], id);
+    }
+    Ok(())
+}

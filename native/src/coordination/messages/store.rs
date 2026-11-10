@@ -129,6 +129,7 @@ impl Data {
 pub(super) struct Store {
     path: PathBuf,
     data: Data,
+    next_at: std::cell::Cell<Option<Option<i64>>>,
 }
 impl Store {
     pub fn open(path: PathBuf) -> Result<Self> {
@@ -193,7 +194,11 @@ impl Store {
             }
         };
         crate::runtime_metrics::cost::scan_set(data.messages.len() + data.negotiations.len());
-        let store = Self { path, data };
+        let store = Self {
+            path,
+            data,
+            next_at: std::cell::Cell::new(None),
+        };
         if !store.path.exists() || migrated {
             store.save()?;
         }
@@ -215,6 +220,7 @@ impl Store {
         Ok(())
     }
     fn transaction<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        self.next_at.set(None);
         let before = self.data.clone();
         let result = f(self).and_then(|v| {
             if serde_json::to_vec(&self.data).map_err(|e| e.to_string())?
@@ -531,10 +537,12 @@ impl Store {
         Ok(result)
     }
     pub fn list(&mut self, args: &Value, actor: &str, revision: &str, time: i64) -> Result<Value> {
-        self.transaction(|s| {
-            s.maintain(time);
-            Ok(())
-        })?;
+        if self.next_background_at(time).is_some_and(|at| at <= time) {
+            self.transaction(|s| {
+                s.maintain(time);
+                Ok(())
+            })?;
+        }
         if let Some(mid) = args["recoveryMessageId"].as_str() {
             let row = self
                 .data
@@ -615,6 +623,7 @@ impl Store {
                         }] == n
                     })
             })
+            .take(limit.saturating_add(1))
             .collect();
         let rows: Vec<_> = matching
             .iter()
@@ -645,6 +654,9 @@ impl Store {
     }
     /// Clock-only work for the background delivery loop. Reads and writes still reconcile immediately.
     pub fn next_background_at(&self, time: i64) -> Option<i64> {
+        if let Some(next) = self.next_at.get() {
+            return next;
+        }
         let mut next = None;
         let mut due = |at: i64| {
             next = Some(next.map_or(at, |old: i64| old.min(at)));
@@ -693,6 +705,7 @@ impl Store {
         for at in self.data.last_push.values() {
             due(at.saturating_add(DAY));
         }
+        self.next_at.set(Some(next));
         next
     }
     pub fn batches(&mut self, time: i64) -> Result<Vec<Vec<Row>>> {

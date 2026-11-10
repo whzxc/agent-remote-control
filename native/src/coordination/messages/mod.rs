@@ -8,7 +8,9 @@ use crate::claude_notify::coordination_delivery::{deliver, Outcome, Request, Rou
 use std::sync::{LazyLock, Mutex};
 use store::Store;
 pub(crate) const SUMMARY_LIMIT: usize = 240;
-static MESSAGES: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+static MESSAGES: LazyLock<
+    Mutex<std::collections::HashMap<PathBuf, (Option<crate::kernel::file_cache::Stamp>, Store)>>,
+> = LazyLock::new(Default::default);
 static REQUESTS: crate::kernel::receipts::RequestLocks = crate::kernel::receipts::RequestLocks;
 static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
@@ -46,11 +48,28 @@ fn with_store<T>(f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     })
 }
 fn with_store_at<T>(path: PathBuf, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
-    let _guard = MESSAGES
+    use crate::kernel::file_cache::Stamp;
+    let mut stores = MESSAGES
         .lock()
         .map_err(|_| "COORDINATION_STORAGE: messages lock unavailable")?;
-    f(&mut Store::open(path)?)
+    let before = Stamp::read(&path)?;
+    if stores.get(&path).is_none_or(|(stamp, _)| *stamp != before) {
+        stores.remove(&path);
+        let store = Store::open(path.clone())?;
+        stores.insert(path.clone(), (Stamp::read(&path)?, store));
+    }
+    let (stamp, store) = stores.get_mut(&path).unwrap();
+    let result = f(store);
+    if result.is_ok() {
+        *stamp = Stamp::read(&path)?;
+    } else if result.as_ref().is_err_and(|error| {
+        error.starts_with("COORDINATION_STORAGE") || error.starts_with("COORDINATION_CORRUPT")
+    }) {
+        stores.remove(&path);
+    }
+    result
 }
+
 fn resources(args: &Value) -> Result<Vec<ResourceKey>> {
     let mut rows: Vec<_> = args["resources"]
         .as_array()
@@ -310,32 +329,63 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
         .iter()
         .map(|path| root().join(path))
         .collect();
+        let changes = crate::kernel::file_cache::Changes::new(dependencies.clone()).ok();
+        let wake = changes.as_ref().map(|changes| changes.wake());
         let mut handled: Option<Vec<Option<Stamp>>> = None;
         let mut next_at = None;
+        let mut handled_revision = None;
+        let mut reason = crate::runtime_metrics::cost::Reason::Startup;
         loop {
-            tokio::select! {_=shutdown.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(5))=>{}}
             let pass = crate::runtime_metrics::cost::scope(
                 crate::runtime_metrics::cost::Owner::CoordinationMessages,
-                crate::runtime_metrics::cost::Reason::Timer,
+                reason,
                 async {
                     let before = Projection::<()>::stamps(&dependencies)?;
                     let now = chrono::Utc::now().timestamp();
-                    if handled.as_ref() == Some(&before) && next_at.is_none_or(|at| now < at) {
+                    let revision = changes.as_ref().and_then(|changes| changes.revision());
+                    if handled.as_ref() == Some(&before)
+                        && revision == handled_revision
+                        && next_at.is_none_or(|at| now < at)
+                    {
                         crate::runtime_metrics::cost::cache(true);
                         return Ok::<_, String>(());
                     }
-                    crate::runtime_metrics::cost::cache(false);
                     handled = None;
                     flush().await?;
                     next_at =
                         with_store(|s| Ok(s.next_background_at(chrono::Utc::now().timestamp())))?;
                     if Projection::<()>::stamps(&dependencies)? == before {
                         handled = Some(before);
+                        handled_revision = revision;
                     }
                     Ok(())
                 },
             );
-            tokio::select! {_=shutdown.changed()=>break,result=pass=>{if result.is_err(){observers::gap("messages","projection-or-delivery-unavailable");}}}
+            let succeeded =
+                tokio::select! {_=shutdown.changed()=>break,result=pass=>result.is_ok()};
+            if !succeeded {
+                observers::gap("messages", "projection-or-delivery-unavailable");
+            }
+            let healthy = changes.as_ref().and_then(|c| c.revision()).is_some();
+            observers::gap(
+                "messages-watch",
+                if healthy {
+                    "observed"
+                } else {
+                    "watch-unavailable"
+                },
+            );
+            let fallback = !succeeded || !healthy;
+            let delay = if fallback {
+                Some(5)
+            } else {
+                next_at.map(|at| at.saturating_sub(chrono::Utc::now().timestamp()).max(1) as u64)
+            };
+            tokio::select! {
+                _=shutdown.changed()=>break,
+                _=async { match &wake { Some(wake) => wake.notified().await, None => std::future::pending().await } }=>reason = crate::runtime_metrics::cost::Reason::Dirty,
+                _=async { match delay { Some(seconds) => tokio::time::sleep(std::time::Duration::from_secs(seconds)).await, None => std::future::pending().await } }=>reason = crate::runtime_metrics::cost::Reason::Deadline,
+            }
         }
     });
 }
@@ -368,4 +418,53 @@ pub(super) fn recovery(blocker: &Value, recipient: &Value) -> Result<()> {
 fn refresh_recovery() -> Result<()> {
     let (events, _) = super::recovery::events()?;
     with_store(|s| s.refresh_recovery(&events))
+}
+
+#[cfg(test)]
+pub(crate) fn scale_seed(time: i64) -> Result<()> {
+    let path = root().join("coordination/messages/state.json");
+    let _ = Store::open(path.clone())?;
+    let mut data = crate::load(&path)?;
+    data["next"] = json!(2001);
+    data["messages"] = json!((0..2000).map(|n| json!({"envelope":{"messageId":format!("message-{n}"),"fromSourceId":"synthetic","toSourceId":"peer","createdAt":time,"expiresAt":time+86400,"deliveryState":"delivered","type":"notice","summary":"Synthetic retained message"},"sequence":n+1,"digest":format!("digest-{n}"),"route":null,"due":time+86400,"attempts":0})).collect::<Vec<_>>());
+    save(&path, &data)
+}
+#[cfg(test)]
+pub(crate) fn scale_poll(time: i64) -> Result<()> {
+    with_store(|s| {
+        let page = s.list(&json!({"limit":100}), "local-authority", "fixture", time)?;
+        assert_eq!(page["messages"].as_array().unwrap().len(), 100);
+        Ok(())
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn scale_history(time: i64) -> Result<()> {
+    let path = root().join("coordination/messages/state.json");
+    for rebuild in [false, true] {
+        if rebuild {
+            MESSAGES.lock().unwrap().remove(&path);
+        }
+        let mut cursor = Value::Null;
+        let mut ids = std::collections::BTreeSet::new();
+        loop {
+            let page = with_store(|s| {
+                s.list(
+                    &json!({"limit":100,"cursor":cursor}),
+                    "local-authority",
+                    "fixture",
+                    time,
+                )
+            })?;
+            for row in page["messages"].as_array().unwrap() {
+                ids.insert(string(row, "messageId").to_owned());
+            }
+            if page["hasMore"] != true {
+                break;
+            }
+            cursor = page["nextCursor"].clone();
+        }
+        assert_eq!(ids.len(), 2000);
+    }
+    Ok(())
 }
