@@ -156,14 +156,15 @@ impl Ipc {
             use std::os::unix::fs::{FileTypeExt, MetadataExt};
             let home = crate::accounts::codex::default_home()?;
             let socket = home.join("ipc/ipc.sock");
-            let stat = std::fs::symlink_metadata(&socket).map_err(|e| e.to_string())?;
+            let stat = std::fs::symlink_metadata(&socket)
+                .map_err(|e| endpoint_error(&socket.to_string_lossy(), &e))?;
             if !stat.file_type().is_socket() || stat.uid() != unsafe { libc::geteuid() } {
                 return Err("DESKTOP_SOCKET_OWNER_MISMATCH".into());
             }
-            let socket = tokio::time::timeout(Duration::from_secs(3), UnixStream::connect(socket))
+            let socket = tokio::time::timeout(Duration::from_secs(3), UnixStream::connect(&socket))
                 .await
                 .map_err(|_| "DESKTOP_CONNECT_TIMEOUT")?
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| endpoint_error(&socket.to_string_lossy(), &e))?;
             socket
         };
         #[cfg(windows)]
@@ -805,6 +806,23 @@ pub async fn reveal(ipc: &Ipc, thread: &str) -> Result<Value> {
             Err(e) => return Err(e),
         }
     }
+}
+
+pub(super) fn endpoint_error(endpoint: &str, error: &std::io::Error) -> String {
+    let code = if error.kind() == std::io::ErrorKind::NotFound {
+        "DESKTOP_IPC_ENDPOINT_MISSING"
+    } else {
+        "DESKTOP_IPC_CONNECT_FAILED"
+    };
+    json!({"code":code,"message":format!("Codex Desktop IPC endpoint {endpoint}: {error}"),
+        "endpoint":endpoint,"retryable":false,
+        "next":{"via":"query","op":"guide","args":{"op":"codex_send"},
+        "hint":"Read the current Desktop/App Server routing contract. Inspect the original receipt before retrying; ARC falls back only before submission when no Desktop owner is confirmed."}}).to_string()
+}
+
+pub(crate) fn endpoint_missing(error: &str) -> bool {
+    serde_json::from_str::<Value>(error)
+        .is_ok_and(|value| value["code"] == "DESKTOP_IPC_ENDPOINT_MISSING")
 }
 
 pub fn owner_discovery_pending(error: &str) -> bool {

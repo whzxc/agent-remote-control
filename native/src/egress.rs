@@ -171,6 +171,8 @@ pub fn failure(e: &str) -> Value {
                     | "RESUME_SOURCE_MISMATCH"
                     | "RESUME_BINDING_MISSING"
                     | "DESKTOP_HANDOFF_UNAVAILABLE"
+                    | "DESKTOP_IPC_ENDPOINT_MISSING"
+                    | "DESKTOP_IPC_CONNECT_FAILED"
                     | "STALE_INTERACTION"
                     | "ACCEPTANCE_FAULT_UNAVAILABLE"
                     | "ACCEPTANCE_SELF_TEST_REQUIRED"

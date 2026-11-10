@@ -1853,7 +1853,7 @@
     },
     {
       "name": "codex_create",
-      "description": "Create and execute a text task. Desktop executes by default. Agent Remote Control executes when auto-open is disabled. Returns task identifiers and a compact receipt. See guide for orchestration.",
+      "description": "Create and execute a text task. Desktop executes by default. Agent Remote Control executes when auto-open is disabled. Returns task identifiers and a compact receipt. See guide for orchestration. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2041,7 +2041,7 @@
     },
     {
       "name": "codex_send",
-      "description": "Send text to a task. Steers an active turn or starts a new turn otherwise. turn parameters pass through. Desktop first opens/resumes unloaded threads. Confirmed absence of an owner falls back to ARC App Server. See guide for orchestration. Receipt dispatchMode is steered/new-turn/queued. sendMode:queue returns queueId. Inspect with codex_queue. Cancel or resume with codex_queue_control. sendMode:steer never starts a new turn. Control-source messages represent user intent and route through a current Desktop writer without extra confirmation. THREAD_WRITER_BUSY is reserved for owners ARC cannot route to. A Desktop handoff retains sends/steer/queue/next, answers, approvals, interrupts and notification observation through follower/IPC. Omitted notify on a same-origin send continues its open thread binding; an explicit override starts a new scope. Omitted model and effort inherit the thread latest explicit settings independently; policy defaults apply only when that field has no thread setting. Explicit values override inheritance. Queued sends resolve omitted fields at dispatch time; replacement prompt continuations use the same rule.",
+      "description": "Send text to a task. Steers an active turn or starts a new turn otherwise. turn parameters pass through. Desktop first opens/resumes unloaded threads. Confirmed absence of an owner falls back to ARC App Server. See guide for orchestration. Receipt dispatchMode is steered/new-turn/queued. sendMode:queue returns queueId. Inspect with codex_queue. Cancel or resume with codex_queue_control. sendMode:steer never starts a new turn. Control-source messages represent user intent and route through a current Desktop writer without extra confirmation. THREAD_WRITER_BUSY is reserved for owners ARC cannot route to. A Desktop handoff retains sends/steer/queue/next, answers, approvals, interrupts and notification observation through follower/IPC. Omitted notify on a same-origin send continues its open thread binding; an explicit override starts a new scope. Omitted model and effort inherit the thread latest explicit settings independently; policy defaults apply only when that field has no thread setting. Explicit values override inheritance. Queued sends resolve omitted fields at dispatch time; replacement prompt continuations use the same rule. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2992,7 +2992,7 @@
     },
     {
       "name": "codex_query",
-      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification.",
+      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback.",
       "inputSchema": {
         "type": "object",
         "properties": {

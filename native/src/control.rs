@@ -537,8 +537,19 @@ impl Control {
         title: &str,
         mut receipt: Option<&mut Value>,
     ) -> Result<Value> {
+        #[cfg(feature = "test-fixture")]
+        let check_desktop = std::env::var_os("ARC_FIXTURE_DESKTOP").is_some();
         #[cfg(not(feature = "test-fixture"))]
-        self.ipc().await?;
+        let check_desktop = true;
+        if check_desktop {
+            match self.ipc().await {
+                Ok(_) => {}
+                Err(error) if desktop::endpoint_missing(&error) => {
+                    return self.create_background(args, title, receipt).await;
+                }
+                Err(error) => return Err(error),
+            }
+        }
         if args["ephemeral"] == true {
             return Err("DESKTOP_TASK_MUST_PERSIST".into());
         }
@@ -764,7 +775,19 @@ impl Control {
         if self.effective_background(thread).await? {
             return Ok(());
         }
-        let ipc = self.ipc().await?;
+        let ipc = match self.ipc().await {
+            Ok(ipc) => ipc,
+            Err(error)
+                if desktop::endpoint_missing(&error)
+                    && !self.handed_to_desktop(thread)
+                    && crate::writer::probe(thread)["state"] == "unheld" =>
+            {
+                return self
+                    .resume_background(thread, "desktop-endpoint-missing")
+                    .await;
+            }
+            Err(error) => return Err(error),
+        };
         let discovery_unanswered = match ipc.owner(thread).await {
             Ok(_) => return Ok(()),
             Err(e)
@@ -803,24 +826,29 @@ impl Control {
             {
                 // The bounded Desktop load still has no owner, and no turn has
                 // been submitted. Resume this same thread, never create another.
-                rpc.call(
-                    "thread/resume",
-                    json!({"threadId":thread,"excludeTurns":true}),
-                    60000,
-                )
-                .await
-                .map_err(|fallback| {
-                    format!("THREAD_LOAD_FAILED: desktop={e}; app-server={fallback}")
-                })?;
-                save(
-                    &root().join("execution").join(format!("{thread}.json")),
-                    &json!({"owner":"connector","reason":"desktop-load-no-owner"}),
-                )?;
-                crate::logs::record("WARN", &format!("Thread {thread} resumed in ARC app-server after Desktop load found no owner"), None);
-                Ok(())
+                self.resume_background(thread, "desktop-load-no-owner")
+                    .await
+                    .map_err(|fallback| {
+                        format!("THREAD_LOAD_FAILED: desktop={e}; app-server={fallback}")
+                    })
             }
             Err(e) => Err(e),
         }
+    }
+    async fn resume_background(&self, thread: &str, reason: &str) -> Result<()> {
+        self.utility()
+            .await?
+            .call(
+                "thread/resume",
+                json!({"threadId":thread,"excludeTurns":true}),
+                60000,
+            )
+            .await?;
+        save(
+            &root().join("execution").join(format!("{thread}.json")),
+            &json!({"owner":"connector","reason":reason}),
+        )?;
+        Ok(())
     }
     async fn archive_empty_creation(&self, thread: &str) -> Result<Value> {
         let rpc = self.thread_rpc(thread).await?;
@@ -1263,7 +1291,13 @@ impl Control {
                 return self.create_background(args, "", None).await;
             }
             let result = self.seed(args, "", None).await?;
-            desktop::reveal(self.ipc().await?.as_ref(), string(&result["thread"], "id")).await?;
+            if !self
+                .effective_background(string(&result["thread"], "id"))
+                .await?
+            {
+                desktop::reveal(self.ipc().await?.as_ref(), string(&result["thread"], "id"))
+                    .await?;
+            }
             return Ok(result);
         }
         if method == "thread/resume" {
@@ -1313,8 +1347,7 @@ impl Control {
                     if desktop::owner_missing(&e)
                         || (desktop::owner_discovery_pending(&e)
                             && crate::writer::probe(id)["state"] == "unheld")
-                        || e.contains("No such file")
-                        || e.contains("Connection refused") =>
+                        || desktop::endpoint_missing(&e) =>
                 {
                     if string(&args, "cursor").starts_with("desktop:") {
                         return Err("DESKTOP_CURSOR_STALE: Desktop history owner changed; omit cursor to restart pagination".into());

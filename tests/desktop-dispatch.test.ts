@@ -2,7 +2,7 @@ import test from 'node:test';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createServer, type Socket } from 'node:net';
-import { appendFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -288,4 +288,44 @@ test('Codex activity and timelines retain the active native turn', { skip: proce
     await new Promise<void>(resolve => server.close(() => resolve()));
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('Missing Desktop endpoint falls back before create and send submission', {skip:process.platform!=='darwin'}, async()=>{
+  // Regression: credentials-only Codex homes failed at thread-submitting with an unnamed ENOENT.
+  const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-missing-ipc-')));
+  const threadId=randomUUID(), turnId=randomUUID(), existing=randomUUID();
+  const fixture=await nativeControl(`
+    import {createInterface} from 'node:readline';
+    for await(const line of createInterface({input:process.stdin})) {
+      const {id,method,params}=JSON.parse(line);if(id===undefined)continue;
+      const turn={id:'${turnId}',status:'completed',items:[]};
+      const result=method==='thread/start'?{thread:{id:'${threadId}',cwd:process.env.CODEX_HOME}}:
+        method==='thread/read'?{thread:{id:params.threadId,cwd:process.env.CODEX_HOME,status:{type:'idle'}}}:
+        method==='thread/turns/list'?{data:[turn],nextCursor:null}:
+        method==='turn/start'?{turn}:{};
+      process.stdout.write(JSON.stringify({id,result})+'\\n');
+    }
+  `,{CODEX_HOME:directory,ARC_FIXTURE_DESKTOP:'1'});
+  try {
+    await fixture.api('task-settings',{autoOpenCodex:true},'PUT');
+    const missing=await fixture.completed('codex_interrupt',{threadId:existing,turnId});
+    assert.equal(missing.error.code,'DESKTOP_IPC_ENDPOINT_MISSING',JSON.stringify(missing));
+    assert.equal(missing.error.endpoint,path.join(directory,'ipc/ipc.sock'));
+    assert.equal(missing.next.op,'guide');
+    assert.deepEqual(missing.next.args,{op:'codex_send'});
+    const created=await fixture.completed('codex_create',{prompt:'Endpoint fallback fixture',thread:{cwd:directory}});
+    assert.equal(created.state,'completed',JSON.stringify(created));
+    assert.equal(created.executionOwner,'connector');
+    assert.equal(created.threadId,threadId);
+    const sent=await fixture.completed('codex_send',{threadId:existing,prompt:'Continue existing fixture'});
+    assert.equal(sent.state,'completed',JSON.stringify(sent));
+    assert.equal(sent.threadId,existing);
+    assert.equal(sent.executionOwner,'connector');
+    // An invalid endpoint leaves ownership uncertain and must stop before creation.
+    await mkdir(path.join(directory,'ipc'));
+    await writeFile(path.join(directory,'ipc/ipc.sock'),'not a socket');
+    const uncertain=await fixture.completed('codex_create',{prompt:'Uncertain endpoint fixture',thread:{cwd:directory}});
+    assert.equal(uncertain.state,'failed',JSON.stringify(uncertain));
+    assert.equal(uncertain.threadId,undefined);
+  } finally {await fixture.close();await rm(directory,{recursive:true,force:true});}
 });

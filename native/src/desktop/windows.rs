@@ -121,7 +121,7 @@ pub(super) async fn connect() -> Result<DesktopStream> {
             Err(e) if e.raw_os_error() == Some(231) && tokio::time::Instant::now() < deadline => {
                 tokio::time::sleep(Duration::from_millis(50)).await
             }
-            Err(e) => return Err(e.to_string()),
+            Err(e) => return Err(super::endpoint_error(r"\\.\pipe\codex-ipc", &e)),
         }
     };
     unsafe {
