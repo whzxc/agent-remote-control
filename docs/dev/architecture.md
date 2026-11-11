@@ -21,6 +21,58 @@ Updater scheduling starts after Core is attached. Desktop reads effective networ
 
 service::Service owns one Control, AgentHost and execution::Execution. Its ingress handles are derived dispatch projections. front_door::owner::Gateway owns the live ingress collection and configuration. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
 
+### Device identity and LAN peer listener
+
+The front door owns `device_link::Manager`, its LAN HTTPS listeners, DNS-SD
+advertisement, device identity, one-time pairing offers, local approval waits and
+pairing records. Core owns peer source authority and all business execution.
+The `device-link` preference is off by default. Enabling creates a single P-256
+key pair and self-signed certificate under `<state>/device-link/`. The directory
+is owner-only, and identity files use mode 0600 on Unix or the existing owner ACL
+on Windows. The device ID is SHA-256 of DER SubjectPublicKeyInfo. Names are labels.
+Re-enabling retains the key. A changed identity clears local pairings.
+
+The listener binds configured private, unique-local and link-local LAN addresses.
+It accepts only those peer address ranges, including IPv4-mapped private IPv6.
+TLS 1.3 completes before HTTP routing, requires a client certificate and proof of
+key possession, and pins approved public-key fingerprints. No CA is involved.
+TLS session resumption is disabled so every connection revalidates its pin.
+ALPN `arc-peer/1` exposes peer protocol version 1. Admission allows at most 32
+handshakes per minute across interfaces and eight simultaneous handshakes, each
+with a five-second deadline. HTTP headers, bodies and private IPC frames are
+bounded independently. A failed handshake closes without reading HTTP requests.
+
+During an unused ten-minute offer, unpaired self-signed clients may complete TLS
+to prove the offer secret. They cannot execute business calls. The first valid
+proof consumes the secret and waits for member-local approve or decline until
+the original expiry. Approval creates one source with `credential.type:peer` in
+`sources.rs`, stores the controller public key on the member, and returns the
+member public key, label and addresses for the controller's local record. A member
+has one controller. The listener rejects members attempting to control their
+controller. Local revocation deletes the local pin and cancels peer connections
+before waiting on Core; member revocation also revokes its peer source. Disabling
+closes listener tasks, active handshakes, requests and DNS-SD advertisement.
+
+Peer guide/query/act envelopes travel over the existing authenticated private IPC
+as `PeerControl` with a server-derived peer principal. Core rechecks the enabled
+preference, pairing record and active peer source at admission and delivery.
+Execution uses the same control profiles, task/resource boundaries and receipt
+owner as existing sources. The original request ID is preserved. A bounded
+controller origin reference is retained under `origin.peerOrigin`; it cannot
+replace member source identity. Both front-door routing and Core reject peer
+Device link operations, pairing, revocation and multihop forwarding. The peer
+transport has no local-management route.
+
+DNS-SD publishes `_arc-peer._tcp.local.` with only `id` and `version` TXT data.
+The front door refreshes interface bindings and advertisements every five seconds
+without changing pairings.
+The installer installs a Windows inbound TCP rule for the configured peer port
+(default 7143), limited to the Private profile. A port change requires refreshing
+that rule. The local CLI and management catalog own pairing and configuration;
+Desktop has no Device link controls. Controller liveness, discovery resolution,
+forwarding and task association are separate capabilities. Tunnel fallback is
+not implemented. The wire contract is in [CLI reference](../reference/cli.md#device-link).
+
 ### Front-door process and private Core protocol
 
 `arc front-door` owns the local HTTP endpoint, HTTPS listeners, TLS-facing routing,

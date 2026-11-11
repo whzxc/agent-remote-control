@@ -493,6 +493,15 @@ Section Install
     Call CreateOrUpdateDesktopShortcut
   ${EndIf}
 
+  ; Device link uses its own private-profile TCP port. Firewall changes require elevation.
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\arc-peer-firewall.ps1 "${ARC_PEER_FIREWALL_SCRIPT}"
+  ClearErrors
+  ExecShellWait "runas" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\arc-peer-firewall.ps1" -StateDirectory "$LOCALAPPDATA\agent-remote-control"' SW_HIDE
+  ${If} ${Errors}
+    DetailPrint "Device link firewall setup failed. Run the installer with firewall administration permission before enabling Device link."
+  ${EndIf}
+
   !ifmacrodef NSIS_HOOK_POSTINSTALL
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
@@ -642,6 +651,12 @@ Section Uninstall
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
     RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+  ${EndIf}
+
+  ${If} $UpdateMode <> 1
+    InitPluginsDir
+    File /oname=$PLUGINSDIR\arc-peer-firewall.ps1 "${ARC_PEER_FIREWALL_SCRIPT}"
+    ExecShellWait "runas" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\arc-peer-firewall.ps1" -StateDirectory "$LOCALAPPDATA\agent-remote-control" -Remove' SW_HIDE
   ${EndIf}
 
   !ifmacrodef NSIS_HOOK_POSTUNINSTALL

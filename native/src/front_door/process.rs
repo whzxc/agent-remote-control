@@ -319,6 +319,7 @@ fn request(
 ) -> Request {
     let envelope = match operation {
         Operation::Mcp => &body["params"]["arguments"],
+        Operation::PeerControl => &body["body"],
         _ => &body,
     };
     let receipt_mode = catalog()["ops"]
@@ -327,11 +328,9 @@ fn request(
         .iter()
         .find(|op| op["name"] == envelope["op"])
         .is_some_and(|op| crate::egress::retry_contract(op)["mode"] == "receipt");
-    let original = envelope["args"]["requestId"].as_str().or_else(|| {
-        body["params"]["arguments"]["requestId"]
-            .as_str()
-            .or_else(|| body["requestId"].as_str())
-    });
+    let original = envelope["args"]["requestId"]
+        .as_str()
+        .or_else(|| envelope["requestId"].as_str());
     let request_id = original.map(str::to_owned).unwrap_or_else(id);
     if receipt_mode
         && matches!(operation, Operation::Mcp)
@@ -348,6 +347,14 @@ fn request(
         && body.get("requestId").is_none()
     {
         body["requestId"] = json!(request_id);
+    }
+    if receipt_mode
+        && matches!(operation, Operation::PeerControl)
+        && body["tool"] == "act"
+        && body["body"].is_object()
+        && body["body"].get("requestId").is_none()
+    {
+        body["body"]["requestId"] = json!(request_id);
     }
     let deadline = if context.is_browser() && !matches!(operation, Operation::Snapshot { .. }) {
         Deadline::after(Duration::from_secs(30))
@@ -368,6 +375,7 @@ pub(super) fn is_write(request: &Request) -> bool {
     let envelope = match request.operation {
         Operation::Mcp => &request.body["params"]["arguments"],
         Operation::LocalControl => &request.body,
+        Operation::PeerControl => &request.body["body"],
         _ => &Value::Null,
     };
     if envelope["op"] == "receipt"
@@ -380,6 +388,7 @@ pub(super) fn is_write(request: &Request) -> bool {
         Operation::Mcp => {
             request.body["method"] == "tools/call" && request.body["params"]["name"] == "act"
         }
+        Operation::PeerControl => request.body["tool"] == "act",
         Operation::LocalControl => catalog()["ops"]
             .as_array()
             .unwrap()
@@ -1469,6 +1478,10 @@ pub async fn run() -> Result<()> {
     #[cfg(not(target_os = "macos"))]
     prune_images(&root().join("front-door-bin"), build)?;
     let gateway = owner::Gateway::new()?;
+    gateway
+        .peer
+        .reconcile(crate::device_link::enabled())
+        .await?;
     let stop = Arc::new(tokio::sync::Notify::new());
     let http = crate::transport::listen_gateway(gateway.clone()).await?;
     save(

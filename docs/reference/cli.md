@@ -46,7 +46,7 @@ These commands use authenticated local management only. They do not change the r
 | `cli source switch <sourceId> <ingressId>` | `POST source/{id}/switch` | `{"ingressId":"<target-id>"}`; expect the next authorization on that connection |
 | `cli source switch <sourceId> --cancel` | `DELETE source/{id}/switch` | Cancel the expectation and its bound request; keep the old connection |
 
-A source contains `id`, `ingressId`, `credential`, `product`, `platform`, `label`, `createdAt`, `connectedAt`, `lastSeenAt`, and `state`. Credentials have `type` `oauth-grant` (plus `grantId` and `clientId`), `ingress`, or `local`. State is `connected`, `disconnected`, or `revoked`. `createdAt` is RFC3339; connection and last-seen times are Unix seconds or null. Connected state means the connection is available or the source has made an authenticated request, not an independently verified client presence.
+A source contains `id`, `ingressId`, `credential`, `product`, `platform`, `label`, `createdAt`, `connectedAt`, `lastSeenAt`, and `state`. Credentials have `type` `oauth-grant` (plus `grantId` and `clientId`), `ingress`, `local`, or `peer` (plus `deviceId` and `publicKey`). State is `connected`, `disconnected`, or `revoked`. `createdAt` is RFC3339; connection and last-seen times are Unix seconds or null. Connected state means the connection is available or the source has made an authenticated request, not an independently verified client presence.
 
 `ingress oauth list <id>` identifies pending source reservations and reauthorization candidates. Ordinary claim targets must be on the same connection and have the same product. A switch request exposes `switchSourceId` and can only claim that source, with no New source option. The source anchor changes only after successful code exchange; rejecting or abandoning consent preserves the existing source. Refresh rotation preserves identity. Receipt and task origins expose `sourceId` and the current source label. Ingress IDs describe connection provenance and never determine source isolation.
 
@@ -55,6 +55,82 @@ A pending switch is exposed on the source as `pendingSwitch: {ingressId, expires
 After starting `cli source switch`, remove the old ARC connector in the client and add it again with the target address (or edit the URL if supported). A new DCR client ID is supported: the next authorization on the target connection binds to the pending switch and must claim its existing source. Approval and successful PKCE exchange complete the move; registration alone does not. See [Change connection](oauth.md#change-connection) for expiry and cancellation.
 
 Removing a connection preserves established sources as disconnected with `connectionRemoved:true` and `connectionName`, revokes their grants, and cancels related switches. Source IDs, labels, history, notification bindings, governance, and dispatch records stay. Existing revoked records are unchanged. Use source switch to reattach a disconnected source. No new migration runs. Non-OAuth targets already carrying any source are rejected. An empty non-OAuth target completes on an authenticated client request; listener readiness alone is insufficient. A former non-OAuth connection cannot create another identity from its retired credential; remove and recreate that connection before reusing it. Local connections are not switch targets.
+
+## Device link
+
+Device link is Experimental and off by default. Enable it through the existing
+local preference operation:
+
+```sh
+printf '%s' '{"body":{"values":{"device-link":"on"}}}' | arc cli call preferences.set --stdin
+```
+
+Disabling the preference closes the peer listeners and connections immediately.
+Disabled Device link operations are absent from the management catalog and return
+`OP_UNAVAILABLE`. All pairing and configuration commands require local management
+authority. They are unavailable to peer-origin guide/query/act requests.
+
+| Command | Management operation | Input / result |
+| --- | --- | --- |
+| `cli device configure --stdin` | `device.configure` | Optional `{"port":7143,"name":"Workstation"}`; returns device ID, name and port |
+| `cli device offer` | `device.offer` | Member-local offer; returns `pairingString`, `deviceId`, `protocolVersion`, `expiresInSeconds` |
+| `cli device pair <string>` | `device.pair` | Controller connects to the member and waits for member-local approval; returns `paired`, device ID, name, addresses and protocol version |
+| `cli device pending` | `device.pending` | Returns `pending:null` or the controller's device ID, name and public key |
+| `cli device approve` | `device.approve` | Approves the single pending controller locally; returns `approved`, device ID and name |
+| `cli device decline` | `device.decline` | Declines the pending request; returns `declined` and device ID |
+| `cli device revoke <deviceId>` | `device.revoke` | Removes the local pairing and immediately closes open local peer connections; returns `revoked` and device ID |
+
+Read the controller's name and fingerprint with `device pending` on the member
+before approving. Pairing grants full host authority. A member accepts one
+controller. Revoke that controller locally before creating another offer. A removed
+controller record prevents new member business requests.
+
+The pairing string is `arc-device:1:<base64url-json>` without Base64 padding.
+Its JSON fields are `version:1`, `deviceId` (lowercase SHA-256 of DER
+SubjectPublicKeyInfo), `addresses` (LAN IP:port strings), `tunnelUrl:null`, and a
+one-time `secret`. The secret expires ten minutes after the offer or at its first
+successful proof. Approval must finish within that original window. Treat the
+pairing string as a credential. Device names are labels. IPv6 link-local endpoints
+use the controller's local interface scope when connecting.
+
+LAN uses TLS 1.3 with self-signed device certificates, mutual key possession and
+public-key fingerprint pins. ALPN is `arc-peer/1`. POST `/arc-peer/1/hello` with
+`{"version":1}` returns the protocol version and device ID. Pairing uses POST
+`/arc-peer/1/pair` with `{"version":1,"secret":"...","name":"..."}`. Its response
+waits for local consent and returns the member's public key, name and addresses.
+An unpaired TLS client is admitted only while an unused offer is live; it has no
+business authority.
+
+Authenticated controllers send POST `/arc-peer/1/request` with
+`{version:1,tool:"guide"|"query"|"act",body:<original tool arguments>,origin:<source reference>}`.
+`body.requestId` is retained as the member receipt ID; an args-level request ID
+follows the existing tool contract. `origin` is bounded to 4096 encoded bytes and
+is stored as `origin.peerOrigin`; member authority always uses the member's peer
+source ID. Successful transport responses are `{ok:true,result:<member tool result>}`.
+Transport errors are `{ok:false,error:{code,message,next}}`. Member tool results
+retain their existing content and error envelope. Peer-origin Device link,
+local-management and multihop requests are rejected with `DEVICE_PEER_FORBIDDEN`.
+
+The listener binds private and link-local LAN addresses on TCP port 7143 by
+default. It rejects public peer addresses. DNS-SD advertises `_arc-peer._tcp` with
+only `id` and `version` TXT properties. The Windows installer adds an inbound
+TCP rule for the configured port under the Private profile and requests firewall
+administration permission. After changing the port on Windows, update that rule
+or rerun the installer.
+
+Errors include `DEVICE_PROTOCOL_MISMATCH`, `DEVICE_TLS_FAILED`,
+`DEVICE_LAN_UNAVAILABLE`, `DEVICE_LISTEN_FAILED`, `DEVICE_PAIRING_INVALID`,
+`DEVICE_OFFER_EXPIRED`, `DEVICE_PAIRING_SECRET`, `DEVICE_PAIRING_PENDING`,
+`DEVICE_PAIRING_MISSING`, `DEVICE_PAIRING_DECLINED`, `DEVICE_CONTROLLER_EXISTS`,
+`DEVICE_UNPAIRED`, and `DEVICE_PEER_FORBIDDEN`. Read `cli guide` for recovery and
+create a fresh member offer after expiry or decline.
+
+### Limits
+
+Controller liveness, discovery resolution, `devices`/`device` catalog operations,
+forwarding and task association are not available yet. Tunnel fallback is not
+available. Windows peer `screen` is unavailable. LAN interface listeners and
+advertisements refresh every five seconds without changing pairing identity.
 
 ## Local control and condition waits
 

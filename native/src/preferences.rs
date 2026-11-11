@@ -5,7 +5,7 @@ fn lock() -> &'static std::sync::Mutex<()> {
     &LOCK
 }
 pub fn defaults() -> Value {
-    json!({"maintainer-mode":"off","mcp-services":"off","theme":"system","theme-color":"arc","language":"auto","notifications":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","agents-max-visible":"4"})
+    json!({"maintainer-mode":"off","mcp-services":"off","device-link":"off","theme":"system","theme-color":"arc","language":"auto","notifications":"on","update-skipped-version":"","update-last-check":"0","quota-display":"remaining","quota-reset-display":"countdown","agents-max-visible":"4"})
 }
 fn stored() -> Value {
     let path = root().join("ui-preferences.json");
@@ -46,8 +46,12 @@ fn change(body: Value, importing: bool) -> Result<Value> {
         .as_object()
         .ok_or("values must be an object")?
     {
-        if key == "maintainer-mode" && !value.is_null() && value != "on" && value != "off" {
-            return Err("INVALID_ARGUMENT: maintainer-mode must be on or off".into());
+        if matches!(key.as_str(), "maintainer-mode" | "device-link")
+            && !value.is_null()
+            && value != "on"
+            && value != "off"
+        {
+            return Err("INVALID_ARGUMENT: Experimental preferences must be on or off".into());
         }
         if key.len() > 128 || !value.is_null() && !value.as_str().is_some_and(|s| s.len() <= 16384)
         {

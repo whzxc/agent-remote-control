@@ -37,6 +37,10 @@ pub fn catalog() -> Value {
         .as_array_mut()
         .unwrap()
         .extend(crate::mcp_hub::operations());
+    value["operations"]
+        .as_array_mut()
+        .unwrap()
+        .extend(crate::device_link::operations());
     value["ingressConfiguration"] = crate::ingress::config::descriptor().clone();
     value["preferenceDefaults"] = crate::preferences::defaults();
     let mut fields = serde_json::Map::new();
@@ -65,6 +69,9 @@ pub fn catalog() -> Value {
     value
 }
 pub fn resolve(name: &str, args: &Value) -> Result<(String, String, Value)> {
+    if name.starts_with("device.") && !crate::device_link::enabled() {
+        return Err(crate::device_link::unavailable());
+    }
     let catalog = catalog();
     let operation = catalog["operations"]
         .as_array()
@@ -268,6 +275,20 @@ pub fn error_code(message: &str) -> &str {
         return "APP_UNAVAILABLE";
     }
     for code in [
+        "OP_UNAVAILABLE",
+        "DEVICE_PROTOCOL_MISMATCH",
+        "DEVICE_PAIRING_INVALID",
+        "DEVICE_TLS_FAILED",
+        "DEVICE_LAN_UNAVAILABLE",
+        "DEVICE_LISTEN_FAILED",
+        "DEVICE_CONTROLLER_EXISTS",
+        "DEVICE_PAIRING_PENDING",
+        "DEVICE_PAIRING_MISSING",
+        "DEVICE_OFFER_EXPIRED",
+        "DEVICE_PAIRING_SECRET",
+        "DEVICE_PAIRING_DECLINED",
+        "DEVICE_PEER_FORBIDDEN",
+        "DEVICE_UNPAIRED",
         "SOURCE_REVOKED",
         "SOURCE_REMOVED",
         "LOCAL_SOURCE_PROTECTED",

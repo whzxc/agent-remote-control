@@ -195,6 +195,7 @@ pub(crate) struct Gateway {
     configuration: Mutex<()>,
     closing: std::sync::atomic::AtomicBool,
     pub(crate) relay: crate::relay::Manager,
+    pub(crate) peer: Arc<crate::device_link::Manager>,
 }
 impl Gateway {
     pub(crate) fn new() -> Result<Arc<Self>> {
@@ -229,6 +230,7 @@ impl Gateway {
             configuration: Default::default(),
             closing: std::sync::atomic::AtomicBool::new(false),
             relay: Default::default(),
+            peer: crate::device_link::Manager::new(root().join("device-link"))?,
         }))
     }
     pub async fn ingress(&self, id: &str) -> Result<Arc<Ingress>> {
@@ -438,6 +440,13 @@ impl Gateway {
             if route == "_autostart" {
                 self.autostart().await;
                 return Ok(json!({}));
+            }
+            if route == "_peer_reconcile" {
+                self.peer.reconcile(crate::device_link::enabled()).await?;
+                return Ok(json!({"ok":true}));
+            }
+            if let Some(action) = route.strip_prefix("device/") {
+                return self.peer.request(action, body).await;
             }
             if route.starts_with("relay/") {
                 return crate::relay::request(self, route, method, body).await;
@@ -951,6 +960,7 @@ impl Gateway {
     }
     pub(crate) async fn stop(&self) -> Result<()> {
         self.closing.store(true, Ordering::SeqCst);
+        self.peer.stop().await;
         self.relay.cancel().await;
         crate::cloudflare::stop_login().await;
         let _configuration = self.configuration.lock().await;

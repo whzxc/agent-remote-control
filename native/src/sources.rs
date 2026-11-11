@@ -836,6 +836,56 @@ pub async fn touch(source: &Value, auth: &str) -> Result<Value> {
     })
     .await
 }
+/// Member peer authority uses the existing source identity and resource boundaries.
+pub(crate) fn peer_authority(device: &str) -> Result<Value> {
+    if !crate::device_link::enabled() {
+        return Err(crate::device_link::unavailable());
+    }
+    let peers = crate::kernel::file_cache::load(&root().join("device-link/peers.json"))?;
+    if peers["controller"]["deviceId"] != device {
+        return Err(
+            "DEVICE_UNPAIRED: Approve a fresh member-local device offer; read cli guide.".into(),
+        );
+    }
+    let cache = cache()?.read().map_err(|e| e.to_string())?;
+    let source = cache.current["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| {
+            s["credential"]["type"] == "peer"
+                && s["credential"]["deviceId"] == device
+                && s["credential"]["publicKey"] == peers["controller"]["publicKey"]
+                && s["state"] != "revoked"
+        })
+        .cloned()
+        .ok_or("DEVICE_UNPAIRED: Approve a fresh member-local device offer; read cli guide.")?;
+    Ok(source)
+}
+pub(crate) async fn peer_connect(device: &str, public_key: &str, name: &str) -> Result<Value> {
+    let device = device.to_owned();
+    let public_key = public_key.to_owned();
+    let name = name.to_owned();
+    change(move |rows| {
+        for source in rows.iter_mut().filter(|s| s["credential"]["type"] == "peer") { source["state"] = json!("revoked"); }
+        let source = json!({"id":id(),"ingressId":format!("peer:{device}"),"credential":{"type":"peer","deviceId":device,"publicKey":public_key},"product":"custom","platform":"custom","label":name,"createdAt":now(),"connectedAt":chrono::Utc::now().timestamp(),"state":"connected"});
+        rows.push(source.clone());
+        Ok(source)
+    }).await
+}
+pub(crate) async fn peer_revoke(device: &str) -> Result<()> {
+    let device = device.to_owned();
+    change(move |rows| {
+        for source in rows
+            .iter_mut()
+            .filter(|s| s["credential"]["type"] == "peer" && s["credential"]["deviceId"] == device)
+        {
+            source["state"] = json!("revoked");
+        }
+        Ok(())
+    })
+    .await
+}
 pub async fn local_origin() -> Result<Value> {
     let s =
         ensure_ingress(&json!({"id":"local-cli","transport":"local","controlSource":"local-cli"}))

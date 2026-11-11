@@ -38,6 +38,7 @@ pub mod control_sources;
 pub mod coordination;
 mod core_requests;
 pub mod desktop;
+pub mod device_link;
 pub mod diagnostics;
 mod dispatch_caller;
 mod dispatch_policy;

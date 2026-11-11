@@ -341,6 +341,11 @@ impl Drop for Pending {
 fn deadline() -> Deadline {
     Deadline::after(Duration::from_secs(1830))
 }
+pub(crate) fn peer_context(device_id: String) -> AuthenticatedContext {
+    AuthenticatedContext {
+        authority: protocol::Authority::Peer { device_id },
+    }
+}
 pub(crate) fn management_context() -> AuthenticatedContext {
     AuthenticatedContext {
         authority: protocol::Authority::Management,

@@ -3,7 +3,7 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub(crate) const VERSION: u16 = 2;
+pub(crate) const VERSION: u16 = 3;
 pub(crate) const MAX_REQUEST_BYTES: usize = 36 * 1024 * 1024;
 pub(crate) const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
 pub(crate) const MAX_IN_FLIGHT: usize = 128;
@@ -58,6 +58,7 @@ pub(crate) struct RequestId(pub String);
 pub(crate) enum Operation {
     Mcp,
     LocalControl,
+    PeerControl,
     Management { route: String, method: String },
     Snapshot { kind: Snapshot },
     Health,
@@ -79,6 +80,9 @@ pub(crate) struct AuthenticatedContext {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) enum Authority {
     Management,
+    Peer {
+        device_id: String,
+    },
     Browser {
         ingress_id: String,
         key_digest: String,
@@ -121,6 +125,9 @@ impl AuthenticatedContext {
                 }
             }
             Authority::Ingress { .. } => return Err("FRONT_DOOR_CONTEXT_MISMATCH".into()),
+            Authority::Peer { device_id } => {
+                crate::sources::peer_authority(device_id)?;
+            }
             Authority::Management => {}
         }
         Ok(())
@@ -136,6 +143,12 @@ impl AuthenticatedContext {
             Authority::Mcp { ingress_id, .. }
             | Authority::Ingress { ingress_id, .. }
             | Authority::Browser { ingress_id, .. } => Some(ingress_id),
+            _ => None,
+        }
+    }
+    pub(crate) fn peer_id(&self) -> Option<&str> {
+        match &self.authority {
+            Authority::Peer { device_id } => Some(device_id),
             _ => None,
         }
     }

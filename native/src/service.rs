@@ -301,6 +301,7 @@ impl Service {
             || route.starts_with("ingress-drafts")
             || route.starts_with("source/")
             || route.starts_with("browser/access")
+            || route.starts_with("device/")
         {
             if let Some(policy) = body.get("toolPolicy").filter(|policy| **policy != "all") {
                 for name in policy["allowlist"]
@@ -557,8 +558,32 @@ impl Service {
                 )
             }
             ("GET", "preferences") => return Ok(crate::preferences::read()),
-            ("PUT", "preferences") => return crate::preferences::write(body),
-            ("POST", "preferences/import") => return crate::preferences::import(body),
+            ("PUT", "preferences") => {
+                let previous = crate::device_link::enabled();
+                let result = crate::preferences::write(body)?;
+                if previous != (result["device-link"] == "on") {
+                    crate::front_door::process::gateway_request(
+                        "_peer_reconcile",
+                        "POST",
+                        json!({"enabled":result["device-link"] == "on"}),
+                    )
+                    .await?;
+                }
+                return Ok(result);
+            }
+            ("POST", "preferences/import") => {
+                let previous = crate::device_link::enabled();
+                let result = crate::preferences::import(body)?;
+                if previous != (result["device-link"] == "on") {
+                    crate::front_door::process::gateway_request(
+                        "_peer_reconcile",
+                        "POST",
+                        json!({"enabled":result["device-link"] == "on"}),
+                    )
+                    .await?;
+                }
+                return Ok(result);
+            }
             ("GET", "network") => {
                 return Ok(load(&root().join("app/preferences.json"))
                     .unwrap_or(json!({"proxyMode":"system","proxyUrl":""})))

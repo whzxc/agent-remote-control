@@ -8,36 +8,42 @@ use crate::*;
 enum ControlSource<'a> {
     Ingress(&'a Arc<crate::ingress::Ingress>),
     Local(&'a Arc<crate::execution::Execution>),
+    Peer(&'a Arc<crate::execution::Execution>),
 }
 impl ControlSource<'_> {
     fn execution(&self) -> &Arc<crate::execution::Execution> {
         match self {
             Self::Ingress(s) => s.execution.as_ref().expect("Core ingress execution"),
-            Self::Local(s) => s,
+            Self::Local(s) | Self::Peer(s) => s,
         }
     }
     fn connected(&self) -> bool {
         match self {
             Self::Ingress(s) => s.connected.load(std::sync::atomic::Ordering::SeqCst),
-            Self::Local(_) => true,
+            Self::Local(_) | Self::Peer(_) => true,
         }
     }
     async fn origin(&self) -> Value {
         match self {
             Self::Ingress(s) => s.origin().await,
-            Self::Local(_) => crate::kernel::origin::current_origin(),
+            Self::Local(_) | Self::Peer(_) => crate::kernel::origin::current_origin(),
         }
     }
     async fn allows(&self, name: &str) -> bool {
         match self {
             Self::Ingress(s) => s.allows(name).await,
             Self::Local(s) => s.available(name).await,
+            Self::Peer(s) => {
+                !crate::device_link::transport::forbidden(name)
+                    && !(cfg!(windows) && name == "screen")
+                    && s.available(name).await
+            }
         }
     }
     async fn call(&self, name: &str, args: Value) -> Result<Value> {
         match self {
             Self::Ingress(s) => s.call(name, args).await,
-            Self::Local(s) => {
+            Self::Local(s) | Self::Peer(s) => {
                 if name == "connector_verify" {
                     let spec = catalog()["ops"]
                         .as_array()
@@ -96,6 +102,26 @@ pub(crate) async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value
             crate::dispatch_caller::CALLER.scope(
                 crate::dispatch_caller::validated(&body["caller"]),
                 call_tool(&source, tool, envelope, None),
+            ),
+        )
+        .await
+}
+async fn peer_control(service: &Arc<Service>, device: &str, body: Value) -> Result<Value> {
+    let request: crate::device_link::transport::PeerRequest = serde_json::from_value(body)
+        .map_err(|_| "INVALID_ARGUMENT: expected peer request envelope")?;
+    request.validate()?;
+    let source = crate::sources::peer_authority(device)?;
+    let mut origin = crate::sources::touch(&source, "peer").await?;
+    origin["controlTransport"] = json!("peer");
+    origin["peerOrigin"] = request.origin;
+    crate::kernel::origin::ORIGIN
+        .scope(
+            origin,
+            call_tool(
+                &ControlSource::Peer(&service.execution),
+                &request.tool,
+                request.body,
+                None,
             ),
         )
         .await
@@ -173,6 +199,9 @@ async fn call_tool_inner(
             crate::egress::validate_op(spec, &args)?;
         }
         let op_name = if name == "guide" { string(&args,"op") } else { name };
+        if crate::device_link::transport::forbidden(op_name) && !crate::device_link::enabled() {
+            return Err(crate::device_link::unavailable());
+        }
         if name != "guide" || args.get("op").is_some() {
             let op = catalog()["ops"].as_array().unwrap().iter().find(|op| op["name"] == op_name);
             let Some(op) = op else {
@@ -203,7 +232,7 @@ async fn call_tool_inner(
             wait_limit = crate::control_sources::limit_wait(&s.origin().await, &mut args);
         }
         if name == "command" && args["cmd"].is_string() && args.get("waitMs").is_none()
-            && matches!(s, ControlSource::Ingress(_))
+            && matches!(s, ControlSource::Ingress(_) | ControlSource::Peer(_))
         {
             args["waitMs"] = json!(args["timeoutMs"].as_u64().unwrap_or(60000).saturating_add(10000).min(45000));
         }
@@ -727,6 +756,13 @@ pub(crate) fn handle<'a>(
                 crate::kernel::origin::ORIGIN
                     .scope(origin.clone(), dispatch(ingress, request.body.clone()))
                     .await
+            }
+            (Target::Service(service, _), Operation::PeerControl) => {
+                let device = request
+                    .context
+                    .peer_id()
+                    .ok_or("FRONT_DOOR_CONTEXT_MISMATCH")?;
+                peer_control(service, device, request.body.clone()).await
             }
             (Target::Service(service, _), Operation::LocalControl)
                 if request.context.is_management() =>

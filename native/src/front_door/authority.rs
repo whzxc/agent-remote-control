@@ -179,6 +179,18 @@ pub(crate) fn validate_claim(pending: &Value, target: &str, grants: &[String]) -
 }
 pub(crate) async fn handle(op: &str, body: Value) -> Result<Value> {
     match op {
+        "peer_connect" => {
+            crate::sources::peer_connect(
+                string(&body, "deviceId"),
+                string(&body, "publicKey"),
+                string(&body, "name"),
+            )
+            .await
+        }
+        "peer_revoke" => {
+            crate::sources::peer_revoke(string(&body, "deviceId")).await?;
+            Ok(json!({"ok":true}))
+        }
         "active_grants" => {
             let ingress = string(&body, "ingress");
             let grants: Vec<String> =

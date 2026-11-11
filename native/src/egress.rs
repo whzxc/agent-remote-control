@@ -200,6 +200,10 @@ pub(crate) fn wire_bytes(result: &Value, rpc_id: Option<&Value>) -> usize {
 }
 
 pub fn failure(e: &str) -> Value {
+    let device_code = crate::management::error_code(e);
+    if device_code == "OP_UNAVAILABLE" || device_code.starts_with("DEVICE_") {
+        return json!({"code":device_code,"message":e,"next":{"via":"query","op":"guide","args":{}}});
+    }
     if let Some(message) = e.strip_prefix("CODEX_PROFILE_PARITY_FAILED: ") {
         return json!({"code":"CODEX_PROFILE_PARITY_FAILED","message":message,"retryable":false,"next":{"via":"query","op":"guide","args":{"op":"accounts"}}});
     }
@@ -324,6 +328,9 @@ pub fn receipt(value: Value) -> Value {
             if let Some(text) = value["origin"][key].as_str() {
                 origin[key] = json!(text);
             }
+        }
+        if let Some(peer_origin) = value["origin"].get("peerOrigin") {
+            origin["peerOrigin"] = peer_origin.clone();
         }
         out["origin"] = origin;
     }

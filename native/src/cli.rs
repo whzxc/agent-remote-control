@@ -3,6 +3,13 @@ use std::io::Read;
 
 const COMMANDS: &[&str] = &[
     "capabilities",
+    "device offer",
+    "device pair <string>",
+    "device pending",
+    "device approve",
+    "device decline",
+    "device revoke <deviceId>",
+    "device configure --stdin",
     "control <op> [--stdin]",
     "install-shim",
     "schema <operation>",
@@ -563,6 +570,10 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
         json!({"body":body})
     };
     match args.as_slice() {
+        ["device", action @ ("offer" | "pending" | "approve" | "decline")] => crate::management::call(&format!("device.{action}"), json!({})).await,
+        ["device", "pair", pairing] => crate::management::call("device.pair", json!({"body":{"pairingString":pairing}})).await,
+        ["device", "revoke", device] => crate::management::call("device.revoke", json!({"body":{"deviceId":device}})).await,
+        ["device", "configure", "--stdin"] => crate::management::call("device.configure", json!({"body":stdin_json()?})).await,
         ["stats", "control"] => crate::control_metrics::report("1d"),
         ["stats", "control", "--since", since] => crate::control_metrics::report(since),
         ["control", "guide", op] if *op != "--stdin" => crate::cli_acceptance::control("guide", json!({"op":op})).await,
