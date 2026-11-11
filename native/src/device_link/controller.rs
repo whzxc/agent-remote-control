@@ -413,10 +413,6 @@ impl Controller {
                 offline()
             });
         }
-        self.records
-            .lock()
-            .unwrap()
-            .authorize(&member.peer.device_id, op, &inner, &origin)?;
         let write = tool == "act"
             && !(op == "receipt" && inner["action"].as_str().unwrap_or("read") == "read");
         let request = (if op == "receipt" {
@@ -546,7 +542,9 @@ impl Controller {
                         },
                     );
                 }
-                if write || op == "receipt" {
+                if op == "receipt" {
+                    records.associate_receipt(&member.peer.device_id, &request, &value);
+                } else if write {
                     records.associate(&member.peer.device_id, &source, &value);
                 }
                 records.save(&self.directory).map_err(|error| {

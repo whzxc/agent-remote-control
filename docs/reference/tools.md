@@ -168,12 +168,16 @@ outcome. Reusing a retained sent write ID returns its receipt read action withou
 resending. Argument changes under the same ID return `REQUEST_ID_CONFLICT`.
 Receipt approval/rejection continues to address the original member receipt.
 
-The controller stores at most 4096 task/source associations. Follow-ups naming a
-thread/task and reads of forwarded receipts require the originating source;
-local host authority retains administrative access. Unknown or evicted task
-associations fail closed for external sources. A task created by a write whose
-response was lost is associated when its original receipt is read. Agent sessions
-and histories remain in the member's native stores.
+The controller stores at most 4096 task/source associations for event routing.
+These records do not authorize task or receipt access; unknown or evicted
+associations do not prevent forwarding. The member applies its existing
+non-local source rules, including to tasks created outside forwarding. Receipt
+reads have no additional originating-source restriction, matching local receipt
+reads. Write replay still checks request identity and arguments. A later receipt
+read associates a task with the original submitting source while its forward
+record is retained, regardless of who reads the receipt. An expired forward
+record does not attribute the task to the reader. Agent sessions and histories
+remain in the member's native stores.
 
 | Error | Action |
 | --- | --- |
@@ -181,7 +185,6 @@ and histories remain in the member's native stores.
 | `DEVICE_UNKNOWN` | Query `devices` with `all:true`; use an ID or a unique name. |
 | `DEVICE_PROTOCOL_MISMATCH` | Read the `device` guide and install matching peer protocol versions. ARC versions may differ when the peer protocol matches. |
 | `DEVICE_OUTCOME_UNCERTAIN` | Retain `error.requestId` and follow `next`, an `act device` member receipt read. Never resend the write. |
-| `DEVICE_TASK_SCOPE` | Use the originating source; read the `device` guide for association limits. |
 | `DEVICE_BUSY` | Keep existing requests/receipts and wait for an active member request to finish. |
 | `DEVICE_RESPONSE_LOST` | A read lost its response. Query `devices` before a new read. |
 

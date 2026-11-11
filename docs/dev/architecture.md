@@ -120,11 +120,14 @@ and controller Core disconnects carry the
 original request ID and an `act device` receipt read, matching the member receipt
 op's assigned tool. No write is resent while its forward record is retained.
 
-The controller retains at most 4096 task/source associations. Native thread/task
-IDs from a write result or its later receipt are associated with the original
-source. Task-scoped follow-ups and receipt reads enforce the source boundary.
-Local host authority retains its existing administrative access. Evicted or
-unknown associations fail closed for external sources. Member results pass through
+The controller retains at most 4096 task/source associations for event routing.
+Native thread/task IDs from a write result or its later receipt are associated
+with the original source. Receipt reads recover that source from the retained
+forward record; they never attribute a task to a different reader. The association
+store is not an access allowlist, and eviction never revokes access. Task
+references use the member's existing non-local source rules. Receipt reads have
+no additional source restriction, matching local receipt reads. Write replay
+retains its request identity and argument conflict checks. Member results pass through
 without controller output projection. `devices` and `dispatch_policy.devices`
 include only online members by default; `all:true` includes offline members.
 The default guide stays compact; Device link appears in the full index and per-op

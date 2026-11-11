@@ -281,7 +281,6 @@ pub fn error_code(message: &str) -> &str {
         "DEVICE_CONNECTION_REFUSED",
         "DEVICE_RESPONSE_LOST",
         "DEVICE_OUTCOME_UNCERTAIN",
-        "DEVICE_TASK_SCOPE",
         "DEVICE_BUSY",
         "OP_UNAVAILABLE",
         "DEVICE_PROTOCOL_MISMATCH",

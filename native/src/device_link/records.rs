@@ -55,46 +55,27 @@ impl Records {
             record.outcome = outcome.into();
         }
     }
-    pub fn authorize(&self, device: &str, op: &str, args: &Value, origin: &Value) -> Result<()> {
-        let source = string(origin, "sourceId");
-        if source.is_empty() {
-            return Err(scope_error());
+    /// Event-routing attribution only; absence never denies task or receipt access.
+    pub fn task_source(&self, device: &str, task: &str) -> Option<&str> {
+        self.tasks
+            .iter()
+            .find(|row| row.device_id == device && row.task_id == task)
+            .map(|row| row.source_id.as_str())
+    }
+    pub fn associate_receipt(&mut self, device: &str, request: &str, result: &Value) {
+        // A receipt reader is not necessarily the source that submitted the write.
+        if let Some(source) = self
+            .forwards
+            .iter()
+            .find(|row| row.device_id == device && row.request_id == request)
+            .map(|row| row.source_id.clone())
+        {
+            self.associate(device, &source, result);
         }
-        let local = origin["authType"] == "local";
-        if let Some(request) = args["requestId"].as_str().filter(|_| op == "receipt") {
-            if !local
-                && !self.forwards.iter().any(|r| {
-                    r.device_id == device && r.request_id == request && r.source_id == source
-                })
-            {
-                return Err(scope_error());
-            }
-        }
-        let mut tasks = task_arguments(args);
-        if op.starts_with("task_") {
-            if let Some(task) = args["id"].as_str() {
-                tasks.push(task.into());
-            }
-        }
-        for task in tasks {
-            if !local
-                && !self
-                    .tasks
-                    .iter()
-                    .any(|r| r.device_id == device && r.task_id == task && r.source_id == source)
-            {
-                return Err(scope_error());
-            }
-        }
-        Ok(())
     }
     pub fn associate(&mut self, device: &str, source: &str, result: &Value) {
         for task in result_tasks(result, 0) {
-            if self
-                .tasks
-                .iter()
-                .any(|r| r.device_id == device && r.task_id == task)
-            {
+            if self.task_source(device, &task).is_some() {
                 continue;
             }
             while self.tasks.len() >= TASK_CAP {
@@ -107,32 +88,6 @@ impl Records {
             });
         }
     }
-}
-fn scope_error() -> String {
-    json!({"code":"DEVICE_TASK_SCOPE","message":"This task or receipt is not associated with the calling source, or its bounded association has expired.","next":{"via":"query","op":"guide","args":{"op":"device"}}}).to_string()
-}
-/// Structured native task references, including low-level params; user content is opaque.
-pub fn task_arguments(args: &Value) -> Vec<String> {
-    let mut tasks = Vec::new();
-    for key in ["threadId", "taskId", "parentThreadId"] {
-        if let Some(task) = args[key].as_str() {
-            tasks.push(task.into());
-        }
-    }
-    for key in ["threadIds", "taskIds"] {
-        for task in args[key]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-        {
-            tasks.push(task.into());
-        }
-    }
-    if args["params"].is_object() {
-        tasks.extend(task_arguments(&args["params"]));
-    }
-    tasks
 }
 fn result_tasks(value: &Value, depth: usize) -> Vec<String> {
     if depth > 5 {

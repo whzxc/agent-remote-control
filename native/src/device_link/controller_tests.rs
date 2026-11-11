@@ -3,35 +3,18 @@ use super::records::{Forward, Records};
 use super::*;
 
 #[test]
-fn associations_fail_closed_across_sources_and_retention() {
-    // Contract: forwarded task and receipt access is bound to the originating source and bounded retention fails closed.
+fn associations_preserve_submission_source_for_event_routing() {
+    // Regression: a different receipt reader must not become the task's event destination after removing the extra source gate.
     let mut records = Records::default();
-    let owner = json!({"sourceId":"source-one"});
-    let other = json!({"sourceId":"source-two"});
     records.associate(
         "member",
         "source-one",
         &json!({"thread":{"id":"example-task"}}),
     );
-    assert!(records
-        .authorize(
-            "member",
-            "codex_read",
-            &json!({"threadId":"example-task"}),
-            &owner
-        )
-        .is_ok());
-    let error = records
-        .authorize(
-            "member",
-            "codex_send",
-            &json!({"threadId":"example-task"}),
-            &other,
-        )
-        .unwrap_err();
+    records.associate("member", "source-two", &json!({"threadId":"example-task"}));
     assert_eq!(
-        serde_json::from_str::<Value>(&error).unwrap()["code"],
-        "DEVICE_TASK_SCOPE"
+        records.task_source("member", "example-task"),
+        Some("source-one")
     );
     for index in 0..=super::records::TASK_CAP {
         records.associate(
@@ -40,14 +23,7 @@ fn associations_fail_closed_across_sources_and_retention() {
             &json!({"taskId":format!("other-{index}")}),
         );
     }
-    assert!(records
-        .authorize(
-            "member",
-            "codex_read",
-            &json!({"threadId":"example-task"}),
-            &owner
-        )
-        .is_err());
+    assert_eq!(records.task_source("member", "example-task"), None);
     for index in 0..=super::records::FORWARD_CAP {
         records.record(Forward {
             request_id: format!("request-{index}"),
@@ -59,22 +35,17 @@ fn associations_fail_closed_across_sources_and_retention() {
             digest: "example".into(),
         });
     }
-    assert!(records
-        .authorize(
-            "member",
-            "receipt",
-            &json!({"requestId":"request-0"}),
-            &owner
-        )
-        .is_err());
-    assert!(records
-        .authorize(
-            "member",
-            "receipt",
-            &json!({"requestId":format!("request-{}",super::records::FORWARD_CAP)}),
-            &owner
-        )
-        .is_ok());
+    records.associate_receipt("member", "request-0", &json!({"taskId":"expired"}));
+    assert_eq!(records.task_source("member", "expired"), None);
+    records.associate_receipt(
+        "member",
+        &format!("request-{}", super::records::FORWARD_CAP),
+        &json!({"result":{"threadId":"recovered"}}),
+    );
+    assert_eq!(
+        records.task_source("member", "recovered"),
+        Some("source-one")
+    );
 }
 #[test]
 fn forwarding_wait_bounds_follow_member_arguments() {
@@ -174,7 +145,7 @@ async fn state(controller: &Controller, online: bool) {
 }
 #[tokio::test]
 async fn controller_member_loopback() {
-    // Contract: two state directories in one process pair over native loopback TLS, become online, forward with the same receipt and reject offline writes before transmission.
+    // Contract: native peer forwarding preserves receipt identity and member task/receipt access independently of controller metadata, with online/offline admission.
     if isolate().await {
         return;
     }
@@ -233,10 +204,50 @@ async fn controller_member_loopback() {
         .await
         .unwrap();
     assert_eq!(configured["address"], address);
+    // Member-native task references and receipts have no controller routing metadata.
+    let member_task = id();
+    let native_request = id();
+    crate::kernel::receipts::ReceiptStore::new("")
+        .reserve(&json!({
+            "requestId":native_request,"operation":"notice_post","state":"completed",
+            "backendSession":service.control.session,"origin":{"sourceId":"member-desktop"},
+            "result":{"threadId":member_task},"createdAt":now()
+        }))
+        .unwrap();
     let controller = Controller::new(directory.join("device-link")).unwrap();
     controller.reconcile(true).await.unwrap();
     state(&controller, true).await;
-    let origin = json!({"sourceId":"example-controller-source"});
+    let origin = json!({"sourceId":"example-controller-source","authType":"oauth"});
+    for task in [member_task, id()] {
+        let read = controller
+            .forward(
+                "query",
+                json!({"device":device,"op":"codex_queue","args":{"threadId":task}}),
+                None,
+                origin.clone(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(read["isError"], false, "{read}");
+        assert_eq!(crate::egress::tool_value(&read).unwrap()["total"], 0);
+        let write = controller.forward("act", json!({"device":device,"op":"codex_queue_control","args":{"threadId":task,"action":"cancel"}}), None, origin.clone()).await.unwrap();
+        assert_eq!(write["isError"], false, "{write}");
+        assert_eq!(crate::egress::tool_value(&write).unwrap()["changed"], 0);
+    }
+    let native_receipt = controller
+        .forward(
+            "act",
+            json!({"device":device,"op":"receipt","args":{"requestId":native_request}}),
+            None,
+            origin.clone(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(native_receipt["isError"], false, "{native_receipt}");
+    assert_eq!(
+        crate::egress::tool_value(&native_receipt).unwrap()["state"],
+        "completed"
+    );
     let read = controller
         .forward(
             "query",
@@ -256,6 +267,20 @@ async fn controller_member_loopback() {
     assert_eq!(
         receipt["origin"]["peerOrigin"]["sourceId"],
         origin["sourceId"]
+    );
+    let other_receipt = controller
+        .forward(
+            "act",
+            json!({"device":device,"op":"receipt","args":{"requestId":request}}),
+            None,
+            json!({"sourceId":"another-controller-source","authType":"oauth"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(other_receipt["isError"], false, "{other_receipt}");
+    assert_eq!(
+        crate::egress::tool_value(&other_receipt).unwrap()["requestId"],
+        request
     );
     let duplicate=controller.forward("act",json!({"device":device,"op":"notice_post","args":{"intent":"Example native loopback","resources":["app:installed"],"expectedDurationSeconds":60}}),Some(&json!(request)),origin.clone()).await.unwrap_err();
     let duplicate = serde_json::from_str::<Value>(&duplicate).unwrap();
