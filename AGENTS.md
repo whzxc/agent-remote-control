@@ -25,6 +25,7 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - After direct Cargo builds or tests, run `npm run cache:prune` to check the compilation-cache budget.
 - Commit messages MUST use Conventional Commits with an English single-line subject: `type(scope): description`. Allowed types are feat, fix, docs, refactor, test, build, ci, chore, perf, and revert. Do not write a body or rewrite history. A required Git trailer may follow one blank line.
 - Keep personal paths, project names, accounts, secrets, Tunnel identities, quota details, and real task content out of the repository. Personal dispatch criteria belong in local state configuration.
+- Changes to what an `arch/` diagram shows MUST update the diagram before implementation. Behavior changes need user approval of the updated diagram first. See [Architecture assets](docs/dev/arch-assets.md).
 - Documentation describes current features, architecture, limits, and procedures. Do not store process records, acceptance results, decision logs, or personal environment details.
 
 ## Language and terminology

@@ -45,13 +45,13 @@ Inspector.
 
 ## Review
 
-A change that alters what an asset shows updates the asset in the same change.
+A change that alters what an asset shows updates the asset before implementation.
 Segment review checks whether a diff touching a sidecar's `owners` requires an asset
 update. `sdg check` validates classes, sidecars and owner paths. The control source
 reviews a proposed diagram against its base with SDG's review overlay (`--base=<rev>`),
-which marks added, changed and removed nodes and edges. Changes that only reflect
-implementation are reviewed by the control source. Changes that alter behavior go to
-the user before implementation.
+which marks added, changed and removed nodes and edges. Updates that only reflect
+implementation are approved by the control source. Behavior changes need user approval
+of the updated asset first.
 
 ## Limits
 
