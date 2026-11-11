@@ -14,13 +14,11 @@ export default () => locales.flatMap(locale => topologyOptions.map(option => {
   };
   const position = topologyPlacement[option];
   return <Frame name={`${option}-${locale}`} width={1280} height={800}
-    note={option === 'summary'
-      ? 'Open decision A (recommended): one summary chip opens Devices. Existing ARC mark, earcups and branches remain intact.'
-      : 'Open decision B: compact member roster opens device details. No member Agent branches or multihop links.'}>
+    note="Approved: one summary chip opens Devices. Existing ARC mark, earcups and branches remain intact.">
     <TopologyScreen width={1280} height={800} scene={scene}>
       <div data-free class="absolute inset-0">
         <div class="absolute flex justify-center w-[240px]" style={{ left: position.x, top: position.y }}>
-          <DeviceTopologyEntry locale={locale} option={option} />
+          <DeviceTopologyEntry locale={locale} />
         </div>
         <div class="absolute left-6 bottom-6"><DeviceNavigation locale={locale} /></div>
       </div>

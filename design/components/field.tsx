@@ -5,11 +5,13 @@ export function Input({
   value,
   placeholder,
   invalid = false,
+  truncate = false,
   class: extra = "",
 }: {
   value?: string;
   placeholder?: string;
   invalid?: boolean;
+  truncate?: boolean;
   class?: string;
 }) {
   const paint = invalid
@@ -21,7 +23,8 @@ export function Input({
       class={`flex items-center h-(--field-height) px-(--field-padding-inline)
         rounded-field text-body leading-5 text-text ${paint} ${extra}`}
     >
-      {value || <span class="text-text-tertiary">{placeholder}</span>}
+      {truncate ? <span class="min-w-0 truncate">{value || <span class="text-text-tertiary">{placeholder}</span>}</span>
+        : value || <span class="text-text-tertiary">{placeholder}</span>}
     </div>
   );
 }

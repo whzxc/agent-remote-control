@@ -126,5 +126,5 @@ export const errors = {
   declined: { code: 'DEVICE_PAIRING_DECLINED', title: 'declined', detail: 'declinedHint' },
   unreachable: { code: 'DEVICE_LAN_UNAVAILABLE', title: 'unreachable', detail: 'unreachableHint' },
 } as const;
-export const topologyOptions = ['summary', 'members'] as const;
-export const topologyPlacement = { summary: { x: 520, y: 540 }, members: { x: 520, y: 540 } };
+export const topologyOptions = ['summary'] as const;
+export const topologyPlacement = { summary: { x: 520, y: 540 } };

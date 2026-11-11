@@ -1,4 +1,4 @@
-import { Frame, Icon } from 'adg';
+import { Frame } from 'adg';
 import { Button } from '../components/button';
 import { Card } from '../components/card';
 import { CopyField } from '../components/copy-field';
@@ -131,7 +131,7 @@ export function DevicePairDialog({ locale, state }: Localized & { state: PairSta
       </Notice> : <>
         <Field label={c.pairing} error={state === 'invalid' ? c.invalidHint : undefined}>
           <Input value={state === 'input' ? undefined : state === 'invalid' ? invalidPairingString : pairingString}
-            placeholder={c.paste} invalid={!!error} class="font-mono text-small truncate" />
+            placeholder={c.paste} invalid={!!error} truncate class="font-mono text-small" />
         </Field>
         {waiting ? <div class="flex flex-col gap-4" role="status">
           <p class="text-small leading-5">{c.waitingHint}</p>
@@ -236,30 +236,19 @@ export function DevicesWorkspace({ locale, state }: Localized & { state: Workspa
         </div>}
   </PanelShell>;
 }
-export function DeviceTopologyEntry({ locale, option }: Localized & { option: 'summary' | 'members' }) {
-  const c = deviceCopy[locale];
-  if (option === 'summary') return <Button icon="monitor">{c.topologySummary}</Button>;
-  return <Card class="p-2! gap-1! shadow-md">
-    {members.map(m => <Button variant="ghost" class="h-auto! py-2 w-full justify-start!" icon={m.icon}>
-      <span class="flex flex-1 items-center justify-between gap-3">
-        <span>{m.name}</span><span class={m.state === 'online' ? 'text-success' : 'text-text-tertiary'}>
-          <Icon name={m.state === 'online' ? 'circle-check' : 'circle-dashed'} size={14} />
-          <span class="sr-only">{c[m.state]}</span>
-        </span>
-      </span>
-    </Button>)}
-  </Card>;
+export function DeviceTopologyEntry({ locale }: Localized) {
+  return <Button icon="monitor">{deviceCopy[locale].topologySummary}</Button>;
 }
 export default () => locales.flatMap(locale => [
   ...[false, true].map(enabled => <Frame name={`device-experiment-${enabled ? 'on' : 'off'}-${locale}`} width={672}
-    note="Proposed. Switch only; configuration is in Devices.">
+    note="Approved. Switch only; configuration is in Devices.">
     <DeviceExperiment locale={locale} enabled={enabled} />
   </Frame>),
   ...[false, true].map(enabled => <Frame name={`device-navigation-${enabled ? 'enabled' : 'disabled'}-${locale}`}>
     <DeviceNavigation locale={locale} enabled={enabled} />
   </Frame>),
   ...pairStates.map(state => <Frame name={`device-pair-${state}-${locale}`}
-    note="Proposed. Desktop fixture unavailable until workspace implementation. Closing dismisses this dialog only.">
+    note="Approved. Desktop fixture pending implementation. Closing dismisses this dialog only.">
     <DevicePairDialog locale={locale} state={state} />
   </Frame>),
   <Frame name={`device-address-${locale}`}><DeviceAddressDialog locale={locale} /></Frame>,
