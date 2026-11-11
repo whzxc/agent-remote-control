@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, appendFile, rename, rm } from 'node:fs/promises';
+import { mkdir, writeFile, appendFile, rename, rm, open, utimes, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 test('archived task filters are discoverable and listing never needs live enrichment by default', async () => {
@@ -82,6 +82,41 @@ test('activity discovery finds a new transcript root and follows append and remo
     await rm(transcript);
     await eventually(async () => !await active());
   } finally { await f.close(); }
+});
+
+test('activity rediscovers a resumed Codex session while its writer remains open', async () => {
+  // Regression: macOS defers append notifications for an open rollout that aged out of activity polling.
+  const f = await nativeControl('');
+  const id = randomUUID();
+  const event = (type: string, turn_id: string) => JSON.stringify({
+    type: 'event_msg', timestamp: new Date().toISOString(), payload: { type, turn_id },
+  }) + '\n';
+  let writer: FileHandle | undefined;
+  try {
+    await f.restart(async state => {
+      const today = new Date();
+      const day = path.join(String(today.getFullYear()), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0'));
+      const directory = path.join(path.dirname(state), 'codex', 'sessions', day);
+      await mkdir(directory, { recursive: true });
+      const rollout = path.join(directory, `rollout-${id}.jsonl`);
+      await writeFile(rollout, JSON.stringify({ type: 'session_meta', payload: { id } }) + '\n'
+        + event('task_started', 'first') + event('task_complete', 'first'));
+      const old = new Date(Date.now() - 360_000);
+      await utimes(rollout, old, old);
+      writer = await open(rollout, 'a');
+    });
+    const active = async () => (await f.api('agents/activity')).agents.codex?.sessions.find(row => row.id === id);
+    assert.equal(await active(), undefined);
+    // Let any queued creation events reach the watcher before appending the new turn.
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    assert.equal(await active(), undefined);
+    await writer!.appendFile(event('task_started', 'resumed'));
+    await writer!.sync();
+    await eventually(async () => (await active())?.turnId === 'resumed');
+  } finally {
+    await writer?.close();
+    await f.close();
+  }
 });
 
 test('memoized task projections retain fallback metadata and recover repaired receipts', async () => {

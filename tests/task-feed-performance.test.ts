@@ -63,7 +63,7 @@ test("task feed sends only changes and recovers when the client misses a revisio
 });
 
 test("a cold Codex timeline previews recent items and keeps the older history available", async () => {
-  // Regression: opening a long Codex task had to load and project the entire history before showing a reply.
+  // Regression: opening a long Codex task delayed the first reply, and desktop timeline query strings were read as part of its ID.
   const fixture = await nativeControl(fakeCodex);
   try {
     await fixture.api("task-settings", { autoOpenCodex: false }, "PUT");
@@ -80,11 +80,17 @@ test("a cold Codex timeline previews recent items and keeps the older history av
     const bubblePreview = await fixture.api(`agents/timeline/${id}?recent=1`);
     assert.equal(bubblePreview.preview, true);
     assert.ok(bubblePreview.entries.some(row => row.text === "2:80"));
+    const desktopPreview = await fixture.desktopGet(`agents/timeline/${id}?recent=1`);
+    assert.equal(desktopPreview.preview, true);
+    assert.ok(desktopPreview.entries.some(row => row.text === "2:80"));
     const full = await fixture.api("agents/conversations/timeline", args);
     assert.ok(full.entries.some(row => row.text === "1:1"));
     assert.ok(full.entries.some(row => row.text === "2:1"));
     assert.ok(full.entries.some(row => row.text === "2:80"));
     assert.equal(full.preview, undefined);
+    const update = await fixture.desktopGet(`agents/timeline/${id}?after=${full.cursor}`);
+    assert.equal(update.cursor, full.cursor);
+    assert.deepEqual(update.entries, []);
   } finally {
     await fixture.close();
   }

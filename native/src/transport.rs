@@ -217,6 +217,20 @@ fn local_reply(code: u16, value: Value) -> hyper::Response<LocalBody> {
         .body(http_body_util::Full::new(hyper::body::Bytes::from(value.to_string())).boxed())
         .unwrap()
 }
+pub(crate) fn parse_timeline_query(query: &str, body: &mut Value) -> Result<()> {
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        match key.as_ref() {
+            "after" => {
+                body["after"] = json!(value
+                    .parse::<u64>()
+                    .map_err(|_| "INVALID_TIMELINE_CURSOR")?);
+            }
+            "recent" if value == "1" => body["recent"] = json!(true),
+            _ => {}
+        }
+    }
+    Ok(())
+}
 async fn handle(stream: TcpStream, s: Arc<crate::front_door::owner::Gateway>) -> Result<()> {
     use hyper::{server::conn::http1, service::service_fn};
     let socket = stream.into_std().map_err(|e| e.to_string())?;
@@ -317,15 +331,8 @@ async fn local_request(
         Err(_) => return local_reply(408, json!({"error":"request timeout"})),
     };
     if let Some(query) = timeline_query {
-        for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
-            match key.as_ref() {
-                "after" => match value.parse::<u64>() {
-                    Ok(after) => body["after"] = json!(after),
-                    Err(_) => return local_reply(400, json!({"error":"INVALID_TIMELINE_CURSOR"})),
-                },
-                "recent" if value == "1" => body["recent"] = json!(true),
-                _ => {}
-            }
+        if let Err(error) = parse_timeline_query(&query, &mut body) {
+            return local_reply(400, json!({"error":error}));
         }
     }
     if method == "GET"

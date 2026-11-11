@@ -249,21 +249,11 @@ pub(crate) async fn handle(
                 403
             });
         }
-        if route.starts_with("agents/timeline/") {
-            for (key, value) in
-                url::form_urlencoded::parse(query.as_deref().unwrap_or("").as_bytes())
-            {
-                match key.as_ref() {
-                    "after" => {
-                        let Ok(after) = value.parse::<u64>() else {
-                            return empty(400);
-                        };
-                        body["after"] = json!(after);
-                    }
-                    "recent" if value == "1" => body["recent"] = json!(true),
-                    _ => {}
-                }
-            }
+        if route.starts_with("agents/timeline/")
+            && crate::transport::parse_timeline_query(query.as_deref().unwrap_or(""), &mut body)
+                .is_err()
+        {
+            return empty(400);
         }
         if matches!(
             route,

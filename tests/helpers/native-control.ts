@@ -52,10 +52,11 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   const fixture = path.join(directory, 'server.mjs');
   await writeFile(fixture, script);
   const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
+  const executable = path.join(target, 'debug', process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
   await prepareCoreBinary(target);
   const launch = async () => {
-    const processHandle = spawn(path.join(target, 'debug', `contract-fixture${process.platform === 'win32' ? '.exe' : ''}`), ['http'], {
+    const processHandle = spawn(executable, ['http'], {
       env: { ...process.env, ARC_STATE_DIR: path.join(directory, 'state'), CODEX_HOME:path.join(directory,'codex'), ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath, ...extraEnv }, stdio: ['pipe', 'pipe', 'inherit'],
     });
     const lines = createInterface({ input: processHandle.stdout });
@@ -108,11 +109,16 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
     return result;
   };
   const shell = async (command: string) => {
-    const binary=path.join(target,'debug',process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
-    const quoted="'"+binary.replaceAll("'","'\\''")+"'";
+    const quoted="'"+executable.replaceAll("'","'\\''")+"'";
     return promisify(execFile)('/bin/sh',['-c',command.replace('arc cli',`${quoted} cli`)],{env:{...process.env,ARC_STATE_DIR:path.join(directory,'state')}});
   };
-  return { api, call, sourceCall, sourceResponse, completed, shell, async restart(prepare?: (directory: string) => Promise<void>) {
+  const desktopGet = async (route: string) => {
+    const { stdout } = await promisify(execFile)(executable, ['desktop-get', route], {
+      env: { ...process.env, ARC_STATE_DIR: path.join(directory, 'state') },
+    });
+    return JSON.parse(stdout);
+  };
+  return { api, call, sourceCall, sourceResponse, completed, shell, desktopGet, async restart(prepare?: (directory: string) => Promise<void>) {
     await stop();
     if (prepare) await prepare(path.join(directory, 'state'));
     runtime = await launch();

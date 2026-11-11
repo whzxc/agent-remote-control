@@ -272,18 +272,16 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
     let revision = discovery.changes.as_ref().and_then(|c| c.revision());
     let discover = discovery.scanned.is_none()
         || discovery.revision != revision
-        || revision.is_none()
-            && discovery
-                .scanned
-                .is_some_and(|at| at.elapsed() >= Duration::from_secs(30));
-    // A healthy watcher keeps historical directory discovery out of unchanged passes.
-    // Selected recent/unfinished transcripts retain the ordinary two-second clock.
+        || discovery
+            .scanned
+            .is_some_and(|at| at.elapsed() >= Duration::from_secs(30));
+    let now = SystemTime::now();
     let paths = if discover {
         discovery.revision = revision;
         discovery.scanned = Some(Instant::now());
         discover_paths(&roots, cache)
     } else {
-        cache
+        let mut paths: Vec<_> = cache
             .tails
             .keys()
             .filter_map(|path| {
@@ -292,10 +290,26 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
                     .find(|(_, root)| path.starts_with(root))
                     .map(|(agent, _)| (agent.clone(), path.clone()))
             })
-            .collect()
+            .collect();
+        // macOS can defer append events while Codex keeps a rollout open.
+        // Recheck the two newest day directories even if the watcher is quiet.
+        if let Some((agent, root)) = roots.iter().find(|(agent, _)| agent == "codex") {
+            let today = chrono::DateTime::<chrono::Local>::from(now).date_naive();
+            let recent: Vec<_> = [Some(today), today.pred_opt()]
+                .into_iter()
+                .flatten()
+                .map(|day| (agent.clone(), root.join(day.format("%Y/%m/%d").to_string())))
+                .collect();
+            paths.extend(
+                discover_paths(&recent, cache)
+                    .into_iter()
+                    .filter(|(_, path)| !cache.tails.contains_key(path)),
+            );
+        }
+        paths
     };
     crate::runtime_metrics::cost::scan_set(paths.len());
-    let mut sessions = scan_paths(paths, &index, SystemTime::now(), cache);
+    let mut sessions = scan_paths(paths, &index, now, cache);
     for external in &mut sessions {
         if external.agent == "claude" {
             if let Some(account) = claude_roots

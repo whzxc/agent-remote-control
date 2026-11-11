@@ -86,6 +86,16 @@ async fn main() {
         arc_core::transport::stdio().await.unwrap();
         return;
     }
+    if std::env::args().nth(1).as_deref() == Some("desktop-get") {
+        let route = std::env::args()
+            .nth(2)
+            .expect("A desktop route is required");
+        let response = arc_core::transport::forward_request(&route, "GET", serde_json::json!({}))
+            .await
+            .unwrap();
+        println!("{response}");
+        return;
+    }
     std::env::set_var("ARC_FIXTURE_CONNECTED", "1");
     let service =
         arc_core::service::Service::fixture(std::env::var("ARC_FIXTURE_BINARY").unwrap().into())

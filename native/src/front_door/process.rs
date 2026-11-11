@@ -279,8 +279,22 @@ pub(crate) async fn gateway_request(route: &str, method: &str, body: Value) -> R
 
 /// Local callers use the existing authenticated private Core endpoint. Failure to
 /// attach may fall back to an older installed build; submitted writes never do.
-pub(crate) async fn local_request(route: &str, method: &str, body: Value) -> Option<Result<Value>> {
+pub(crate) async fn local_request(
+    route: &str,
+    method: &str,
+    mut body: Value,
+) -> Option<Result<Value>> {
     let (mut stream, hello) = connect("core").await.ok()?;
+    // The private transport receives the desktop route before HTTP URI parsing.
+    let route = match route.split_once('?') {
+        Some((path, query)) if method == "GET" && path.starts_with("agents/timeline/") => {
+            if let Err(error) = crate::transport::parse_timeline_query(query, &mut body) {
+                return Some(Err(error));
+            }
+            path
+        }
+        _ => route,
+    };
     let operation = match route {
         "healthz" => Operation::Health,
         "cli/control" => Operation::LocalControl,
