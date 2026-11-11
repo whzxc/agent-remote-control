@@ -49,6 +49,9 @@ export default {
       await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);
+      if (name === 'agent-panel-loading') {
+        await page.getByRole('dialog', { name: 'Codex' }).getByText('正在加载…', { exact: true }).waitFor();
+      }
       if (scenario.startsWith('codex-account-add-')) {
         await page.getByRole('button', { name: '添加账号', exact: true }).click();
         const dialog = page.getByRole('dialog', { name: '添加 Codex 账号', exact: true });

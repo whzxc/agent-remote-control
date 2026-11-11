@@ -3,7 +3,7 @@ import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { useReducedMotion } from "../state/appEnvironment";
 import { agentPanel, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { api } from "../api";
@@ -19,15 +19,15 @@ import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { errorLabels } from "../subscriptions/presentation";
 import { Button, Dialog, IconButton, Notice } from "./ui";
 import AgentPlatformView from "./AgentPlatformView";
-import AgentConversations from "./AgentConversations";
+import AgentConversations, { historyLoadingDelay, readConversationPage, type InitialAgentHistory } from "./AgentConversations";
 import ActivityTimeline from "./ActivityTimeline";
 import type { SurfaceRect } from "../motion/surface";
 import type { ProviderAccount } from "../types";
 import { accountOwns } from "../accountPresentation";
 
-function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, platformAvailable, resizable = true }: {
+function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWidth, active, platformAvailable, resizable = true, initial }: {
   agent: Agent; active: boolean; platformAvailable: boolean; resizable?: boolean; account?: ProviderAccount; accountId?: string;
-  onSettings: () => void; expanded: boolean; onToggleWidth: () => void;
+  onSettings: () => void; expanded: boolean; onToggleWidth: () => void; initial?: InitialAgentHistory;
 }) {
   const { snapshot } = subscriptions.use(), { status } = connector.use();
   const activity = agentActivity.use().snapshot;
@@ -75,7 +75,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
       {error && <p className="timeline-error" role="alert">{error}</p>}
       {providerError && <Notice>{providerError}</Notice>}
       {provider ? <AgentQuota provider={provider} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
-      <AgentConversations key={`${agent.agent}:${accountId ?? ""}`} agent={agent.agent} account={account} accountId={accountId} active={active} />
+      <AgentConversations key={`${agent.agent}:${accountId ?? ""}`} agent={agent.agent} account={account} accountId={accountId} active={active} initial={initial} />
     </div>
   </section>;
 }
@@ -109,7 +109,41 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     previous.current = selected;
   }, [selected]);
   const panelId = agentPanelId(selected);
-  return <Dialog contentFit={!selected.platform} className={selected.platform ? undefined : `agent-history-panel ${!session && !expanded && !dockRect ? "agent-history-fit" : ""}`} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  const opened = useRef(false);
+  const [history, setHistory] = useState<(InitialAgentHistory & { panelId: string })>();
+  const waitingForHistory = !opened.current && !selected.platform && !session;
+  const initial = history?.panelId === panelId ? history : undefined;
+  const ready = !waitingForHistory || !!(initial?.result || initial?.timedOut);
+  useLayoutEffect(() => { if (ready) opened.current = true; }, [ready]);
+  useEffect(() => {
+    if (!waitingForHistory) {
+      setHistory(previous => previous?.panelId === panelId ? previous : undefined);
+      return;
+    }
+    if (selected.closing) { if (!opened.current) selectAgentPanel({ type: "closed" }); return; }
+    let current = true;
+    const request = readConversationPage(agent.agent);
+    const update = (change: Partial<InitialAgentHistory>) => {
+      if (current) setHistory(old => old?.request === request ? { ...old, ...change } : old);
+    };
+    setHistory({ panelId, request });
+    const timer = setTimeout(() => update({ timedOut: true }), historyLoadingDelay);
+    void request.then(page => update({ result: { page } }), error => update({ result: { error: String(error) } }))
+      .finally(() => clearTimeout(timer));
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || opened.current) return;
+      event.preventDefault();
+      selectAgentPanel({ type: "closed" });
+    };
+    window.addEventListener("keydown", escape);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [agent.agent, panelId, selected.closing, waitingForHistory]);
+  if (!ready) return null;
+  return <Dialog contentFit={!selected.platform} fitDockHeight={!selected.platform && !session} className={selected.platform ? undefined : "agent-history-panel"} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}
@@ -119,7 +153,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
       <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
         initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
         {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
-          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={managesAgentAccounts(agent.agent) || linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} />}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={managesAgentAccounts(agent.agent) || linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} initial={initial} />}
       </motion.div>
       {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
         initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>

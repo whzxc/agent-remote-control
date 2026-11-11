@@ -790,11 +790,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-task-count[data-attention] { background: var(--warning); }
 
 .dialog.agent-history-panel { background: var(--surface-raised); }
-.dialog.agent-history-fit:has(.agent-conversations[data-empty]),
-.agent-history-fit:has(.agent-conversations[data-empty]) > .elastic-panel-content { height: auto; }
-.agent-history-fit:has(.agent-conversations[data-empty]) .agent-panel-view,
-.agent-history-fit:has(.agent-conversations[data-empty]) .agent-panel-layer { height: auto; flex: 0 1 auto; }
-.agent-history-fit:has(.agent-conversations[data-empty]) .agent-view-scroll { flex: 0 1 auto; }
 
 /* Mirrored control-source dock uses the same fixed shell and scroll boundaries. */
 .side-panel-layer { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
@@ -1038,6 +1033,13 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-wires[data-inactive="true"] .topology-path-hit { pointer-events: none; }
 .dialog.activity-panel[data-panel-geometry="portrait"] { height: var(--panel-layout-height); max-height: var(--panel-layout-height); }
 .activity-panel[data-panel-geometry="portrait"] > .elastic-panel-content { height: calc(var(--panel-layout-height) - 2px); max-height: calc(var(--panel-layout-height) - 2px); }
+.dialog.activity-panel[data-panel-fit] { height: var(--dock-fit-height, auto); }
+.activity-panel[data-panel-fit] > .elastic-panel-content { height: auto; }
+.activity-panel[data-panel-fit] .agent-panel-view,
+.activity-panel[data-panel-fit] .agent-panel-layer { height: auto; flex: 0 1 auto; }
+.activity-panel[data-panel-fit] .agent-view-scroll { flex: 0 1 auto; }
+.activity-panel[data-panel-fit] .agent-view-scroll:has(> .agent-conversations > .loading:only-child) { gap: 0; }
+.activity-panel[data-panel-fit] .agent-conversations > .loading { font-size: var(--text-lg); }
 
 /* ARC status arcs follow the mark. Their revealed buttons stay upright. */
 .hub-arc-orbit, .hub-arc, .hub-arc > svg { position: absolute; inset: 0; pointer-events: none; }

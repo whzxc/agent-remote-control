@@ -142,6 +142,8 @@ Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` fro
 
 `quota-ring-remaining` and `quota-ring-used` show Codex ahead of time, Cursor even with time, and OpenCode behind time in the two quota display modes.
 
+`agent-panel-short` and `agent-panel-loading` cover a content-sized overview in landscape and portrait. The slow fixture shows the history loading state and verifies that the top edge stays anchored when the first page arrives.
+
 `task-states` covers all six execution states in the Agent panel. `dispatch-states` covers turn-bound historical results and separate submission states. `task-review-unavailable` keeps a completed execution readable while optional review retrieval fails.
 
 `bubbles-origins` places direct and dispatched Codex tasks together, with running command/file phases and an unread completed task. Open any task to inspect the shared compact execution-spec pill and metadata chips.

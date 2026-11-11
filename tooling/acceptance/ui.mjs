@@ -57,7 +57,7 @@ try {
     if (setupOnly && !setup) continue;
     for (const { width, height } of fixture.viewports ?? report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;
-      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce', locale: 'en-US',
+      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: fixture.historyDelayMs ? 'no-preference' : 'reduce', locale: 'en-US',
         timezoneId: fixture.timezone ?? (name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined) });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -162,6 +162,28 @@ try {
           model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         }
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
+        if (name === 'agent-panel-short' || name === 'agent-panel-loading') {
+          const dialog = page.getByRole('dialog', { name: 'Codex', exact: true });
+          let loadingBox;
+          if (fixture.historyDelayMs) {
+            await dialog.getByText('正在加载…', { exact: true }).waitFor();
+            loadingBox = await dialog.boundingBox();
+            if (screenshots) await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
+          }
+          await dialog.getByRole('button', { name: /^Review project change 1/ }).waitFor();
+          if (loadingBox) {
+            await dialog.evaluate(async (element, initialHeight) => {
+              for (let frame = 0; frame < 40; frame++) {
+                await new Promise(requestAnimationFrame);
+                if (element.getBoundingClientRect().height > initialHeight + 1) return;
+              }
+              throw new Error('The Agent overview did not grow when history arrived.');
+            }, loadingBox.height);
+          }
+          const loadedBox = await dialog.boundingBox();
+          if (!loadedBox || loadedBox.height >= height * 0.75) throw new Error('The short Agent overview did not fit its content.');
+          if (loadingBox && Math.abs(loadingBox.y - loadedBox.y) > 1) throw new Error('The Agent overview moved its top edge when history arrived.');
+        }
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
         if (fixture.coordination) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));

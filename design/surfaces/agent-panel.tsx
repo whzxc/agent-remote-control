@@ -89,10 +89,10 @@ export default () => [
   >
     <AgentPanel history="empty" />
   </Frame>,
-  <Frame name="short" note="The current runtime fills the available height when history contains a conversation.">
+  <Frame name="short" fixture="agent-panel-short" capture={{ region: "Codex", viewport: "1280x800" }}>
     <AgentPanel history="short" />
   </Frame>,
-  <Frame name="loading" note="The current runtime does not fit the panel to available content while waiting for history.">
+  <Frame name="loading" fixture="agent-panel-loading" capture={{ region: "Codex", viewport: "1280x800" }}>
     <AgentPanel history="loading" />
   </Frame>,
 ];

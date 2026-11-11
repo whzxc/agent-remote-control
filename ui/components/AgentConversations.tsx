@@ -33,7 +33,17 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
   && (next.live ? previous.now === next.now : new Date(previous.now).getFullYear() === new Date(next.now).getFullYear())
   && JSON.stringify(previous.session) === JSON.stringify(next.session));
 
-export default function AgentConversations({ agent, account, accountId, active }: { agent: string; account?: ProviderAccount; accountId?: string; active: boolean }) {
+export const historyLoadingDelay = 200;
+export const readConversationPage = (agent: string, cursor?: string) => api<AgentConversationPage>("agents/conversations", "POST", { agent, limit: 20, ...(cursor ? { cursor } : {}) });
+export type InitialAgentHistory = {
+  request: Promise<AgentConversationPage>;
+  result?: { page: AgentConversationPage } | { error: string };
+  timedOut?: boolean;
+};
+
+export default function AgentConversations({ agent, account, accountId, active, initial }: {
+  agent: string; account?: ProviderAccount; accountId?: string; active: boolean; initial?: InitialAgentHistory;
+}) {
   const language = locale.use();
   taskExecutions.use();
   const submissions = activityApprovals.use();
@@ -41,10 +51,13 @@ export default function AgentConversations({ agent, account, accountId, active }
   const tracked = trackedActivity.use(), retained = tracked[agent] ?? [];
   const unread = new Set(retained.filter(session => session.endedAt !== undefined && session.readAt === undefined).map(session => session.id));
   const [observed, setObserved] = useState<Record<string, AgentActivitySession>>({});
-  const [rows, setRows] = useState<AgentConversation[]>([]), [next, setNext] = useState<string | null>(null);
+  const initialPage = initial?.result && "page" in initial.result ? initial.result.page : undefined;
+  const initialError = initial?.result && "error" in initial.result ? initial.result.error : "";
+  const [rows, setRows] = useState<AgentConversation[]>(initialPage?.data ?? []), [next, setNext] = useState<string | null>(initialPage?.nextCursor ?? null);
   const [cursor, setCursor] = useState<string>(), [retry, setRetry] = useState(0);
-  const [loading, setLoading] = useState(true), [error, setError] = useState("");
-  const loaded = useRef<string | undefined>(undefined), marker = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(!initial?.result), [error, setError] = useState(initialError);
+  const firstRead = useRef(initial);
+  const loaded = useRef<string | undefined>(initialPage ? "" : undefined), marker = useRef<HTMLDivElement>(null);
   const pending = useRef<{ key: string; request: Promise<AgentConversationPage> } | undefined>(undefined);
   const belongs = (session: Pick<TrackedActivity, "agentAccountId" | "dispatchSummary">) => !accountId || (account
     ? accountOwns(account, session.agentAccountId ?? session.dispatchSummary?.agentAccountId)
@@ -60,11 +73,11 @@ export default function AgentConversations({ agent, account, accountId, active }
   }, [agent, snapshot, tracked]);
   useEffect(() => {
     const key = cursor ?? "";
-    if (!active || loaded.current === key) return;
+    if (!active || loaded.current === key || (!key && !retry && initialError)) return;
     let stopped = false;
     setLoading(true); setError("");
     const request = pending.current?.key === key ? pending.current.request
-      : api<AgentConversationPage>("agents/conversations", "POST", { agent, limit: 20, ...(cursor ? { cursor } : {}) });
+      : (!key && !retry ? firstRead.current?.request : undefined) ?? readConversationPage(agent, cursor);
     pending.current = { key, request };
     void request
       .then(page => {
@@ -79,7 +92,7 @@ export default function AgentConversations({ agent, account, accountId, active }
         if (!stopped) setLoading(false);
       });
     return () => { stopped = true; };
-  }, [agent, active, cursor, retry]);
+  }, [agent, active, cursor, retry, initialError]);
   useEffect(() => {
     const node = marker.current;
     if (!active || !node || !next || loading || error) return;
@@ -115,11 +128,11 @@ export default function AgentConversations({ agent, account, accountId, active }
   const sections = activitySections(visibleSessions, now, session => session.orderAt,
     session => live.has(session.id) ? session.interaction ? 'attention' : 'running' : unread.has(session.id) ? 'unread' : undefined);
   const empty = !loading && !error && !visibleSessions.length && !next;
-  const initialLoading = active && !error && !visibleSessions.length && (loading || next !== null);
-  const [showLoading, setShowLoading] = useState(false);
+  const initialLoading = active && !error && ((!cursor && loading) || (!visibleSessions.length && (loading || next !== null)));
+  const [showLoading, setShowLoading] = useState(!!initial?.timedOut);
   useEffect(() => {
     if (!initialLoading) { setShowLoading(false); return; }
-    const timer = setTimeout(() => setShowLoading(true), 200);
+    const timer = setTimeout(() => setShowLoading(true), historyLoadingDelay);
     return () => clearTimeout(timer);
   }, [initialLoading]);
   return <div className="activity-task-list agent-conversations" data-empty={empty || undefined} aria-busy={active && loading}>

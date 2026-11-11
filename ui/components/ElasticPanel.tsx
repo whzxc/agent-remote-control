@@ -58,6 +58,7 @@ export default function ElasticPanel({
   dockRect,
   expanded = false,
   contentFit = false,
+  fitDockHeight = false,
   closeRequested = false,
   originKey,
   returnFocus,
@@ -93,6 +94,7 @@ export default function ElasticPanel({
   dockRect?: SurfaceRect;
   expanded?: boolean;
   contentFit?: boolean;
+  fitDockHeight?: boolean;
   closeRequested?: boolean;
   originKey?: string;
   returnFocus?: string;
@@ -110,6 +112,8 @@ export default function ElasticPanel({
   const positionRef = useRef(position);
   positionRef.current = dock ? dockPosition() : position;
   const dockRectRef = useRef(dockRect); dockRectRef.current = dockRect;
+  const fitDockHeightRef = useRef(fitDockHeight); fitDockHeightRef.current = fitDockHeight;
+  const fittedDockTransform = () => `translate(calc(-50% + ${positionRef.current.x}px), calc(${dockRectRef.current?.y ?? 16}px - 50dvh))`;
   const previousDockRect = useRef(dockRect);
   const visualOrigin = useRef<PanelOrigin | undefined>(undefined);
   const restoreOrigin = useRef<(() => void) | undefined>(undefined);
@@ -188,12 +192,14 @@ export default function ElasticPanel({
       setPosition({ x, y });
       rect = new DOMRect((innerWidth - rect.width) / 2 + x, (innerHeight - rect.height) / 2 + y, rect.width, rect.height);
     }
-    const surface = surfaceMotion(node, () => dockRectRef.current ? frameAt(dockRectRef.current, 1, "20px") : ({
+    const surface = surfaceMotion(node, () => fitDockHeightRef.current
+      ? { width: "", height: "", transform: fittedDockTransform() }
+      : dockRectRef.current ? frameAt(dockRectRef.current, 1, "20px") : ({
       // A shell first opened in portrait must release its explicit size when
       // returning to the landscape dock's CSS-owned viewport height.
       ...(dock ? { width: "", height: "" } : {}),
       transform: sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`,
-    }), frame => { dockFrame.current = frame; onMotion?.(); onPanelFrame?.(frame); }, !dock && !sheet);
+    }), frame => { dockFrame.current = frame; onMotion?.(); onPanelFrame?.(frame); }, !dock && !sheet, dock ? () => fitDockHeightRef.current : undefined);
     dockFrame.current = rect;
     onPanelFrame?.(rect);
     motion.current = surface;
@@ -262,13 +268,13 @@ export default function ElasticPanel({
       if (from && motion.current && !closing.current) {
         const panelWidth = Math.min(expanded ? innerWidth - 32 : width ?? 400, innerWidth - 32);
         const panelHeight = contentFit ? rect.height : innerHeight - 32;
-        const target = dockRect ?? { x: dock === "left" ? 16 : innerWidth - panelWidth - 16, y: (innerHeight - panelHeight) / 2, width: panelWidth, height: panelHeight };
+        const target = fitDockHeight ? rect : dockRect ?? { x: dock === "left" ? 16 : innerWidth - panelWidth - 16, y: (innerHeight - panelHeight) / 2, width: panelWidth, height: panelHeight };
         void motion.current.to(frameAt(target, 1, "20px"), { from: frameAt(from, 1, "20px"), duration: 0.18 });
         return;
       }
     }
     if (!motion.current?.running) { dockFrame.current = rect; onPanelFrame?.(rect); }
-  }, [node, position, dock, dockRect, expanded, width, contentFit, onPanelFrame]);
+  }, [node, position, dock, dockRect, expanded, width, contentFit, fitDockHeight, onPanelFrame]);
   async function close(replacement?: HTMLElement, dismiss = false) {
     if (latest.current.busy || closing.current || !node) return;
     if (latest.current.depthOffset > 0 && !dismiss) {
@@ -370,6 +376,7 @@ export default function ElasticPanel({
           className={`dialog elastic-panel ${className} ${wide ? "dialog-wide" : ""} ${unframed ? "unframed" : ""} ${headerless ? "headerless" : ""} ${dock ? "activity-panel" : ""} ${centered ? "setup-dialog" : ""}`}
           data-panel-dock={dock}
           data-panel-geometry={dockRect ? "portrait" : undefined}
+          data-panel-fit={fitDockHeight || undefined}
           data-sheet={sheet || undefined}
           data-recessed={recessed || undefined}
           inert={recessed || undefined}
@@ -381,7 +388,8 @@ export default function ElasticPanel({
               ...(sheet ? { top: "auto", left: sheetFrame.left, bottom: sheetFrame.bottom, width: sheetFrame.width, "--sheet-host-height": `${sheetFrame.height}px` } : {}),
               "--preferred-width": dock && expanded ? "calc(100vw - 32px)" : `${width ?? (wide ? 880 : 800)}px`,
               transform: sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`,
-              ...(dockRect ? { ...frameAt(dockRect, 1, '20px'), '--panel-layout-width': `${dockRect.width}px`, '--panel-layout-height': `${dockRect.height}px`, maxHeight: dockRect.height } : {}),
+              ...(dockRect ? { ...(!fitDockHeight ? frameAt(dockRect, 1, '20px') : {}), '--panel-layout-width': `${dockRect.width}px`, '--panel-layout-height': `${dockRect.height}px`, maxHeight: dockRect.height } : {}),
+              ...(fitDockHeight ? { transform: fittedDockTransform() } : {}),
               zIndex: (dock ? 102 : 101) + Math.max(0, layers.indexOf(node!)) * 2,
             } as CSSProperties
           }

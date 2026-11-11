@@ -227,7 +227,7 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 
 | Source | Declared frames | Implementation owner | Remaining gap / capture notes |
 | --- | --- | --- | --- |
-| `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading` | `ui/components/AgentPanel.tsx` | Proposed. Overview height follows content within the available viewport, with a fixed header and scrolling body at the cap. The short and loading forms await runtime adoption and fixture captures. |
+| `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Overview height follows content within the available viewport, with a fixed header and scrolling body at the cap. The short and loading forms have dedicated browser fixtures. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `loading`, `native` | `ui/components/AgentPlatformView.tsx` | Content-sized account overview and initial loading are proposed. The account list scrolls at the viewport cap. The native specimen remains unreachable through the current fixture route. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |

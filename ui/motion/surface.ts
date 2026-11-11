@@ -9,17 +9,23 @@ export const reducedMotion = () => environmentMedia("(prefers-reduced-motion: re
 
 // Morph the shell's real dimensions; its independently laid-out content is clipped,
 // never scaled. A shared monotonic curve keeps every edge between its endpoints.
-export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = () => ({}), onFrame?: (rect: SurfaceRect) => void, observeResize = true) {
+export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = () => ({}), onFrame?: (rect: SurfaceRect) => void, observeResize = true, fitDockHeight?: () => boolean) {
   const base: Record<string, string> = {};
   const content = node.firstElementChild as HTMLElement | null;
   const contentTranslate = content?.style.translate ?? "";
   let controls: AnimationPlaybackControlsWithThen | undefined;
   let startFrame: number | undefined;
+  let fitFrame = 0;
   let generation = 0;
   let goal: Surface = {};
   let rendered: Surface = {};
   let active = false;
   let retained = false;
+  const fit = () => fitDockHeight?.() === true;
+  const fitToContent = () => {
+    if (content) node.style.setProperty("--dock-fit-height", `${content.getBoundingClientRect().height}px`);
+  };
+  if (fit()) fitToContent();
   let settledSize = node.getBoundingClientRect();
   const reduced = environmentMedia("(prefers-reduced-motion: reduce)");
   const save = (surface: Surface) => {
@@ -43,18 +49,29 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
     Math.abs(a.width - b.width) > 0.5 || Math.abs(a.height - b.height) > 0.5;
   const resize = (from: DOMRect, to: DOMRect): AnimationPlaybackControlsWithThen => motion.to(
     { width: `${to.width}px`, height: `${to.height}px` },
-    { from: { width: `${from.width}px`, height: `${from.height}px` } },
+    { from: { width: `${from.width}px`, height: `${from.height}px` }, duration: fit() ? 0.18 : surfaceDuration },
   );
   // The content lays out independently of the animated shell. Observe it so
   // asynchronous data and view changes resize the shell before the next paint.
-  const observer = new ResizeObserver(() => {
-    if (active || retained || !node.isConnected) return;
+  const updateSize = () => {
     const next = node.getBoundingClientRect();
-    if (!reduced.matches && sizeChanged(settledSize, next)) {
+    if ((observeResize || fit()) && !reduced.matches && sizeChanged(settledSize, next)) {
       void resize(settledSize, next);
     } else settledSize = next;
+  };
+  const observer = new ResizeObserver(() => {
+    if (active || retained || !node.isConnected) return;
+    if (!fit()) { updateSize(); return; }
+    // Keep the painted dock at its current height until the next frame. Its
+    // independently sized body can change without jumping the outer shell.
+    if (!fitFrame) fitFrame = requestAnimationFrame(() => {
+      fitFrame = 0;
+      if (active || retained || !node.isConnected) return;
+      if (fit()) fitToContent();
+      updateSize();
+    });
   });
-  if (content && observeResize) observer.observe(content);
+  if (content && (observeResize || fitDockHeight)) observer.observe(content);
   const motion = {
     get running() { return active; },
     to(destination: Surface | (() => Surface), { from, retain = false, duration = surfaceDuration }: {
@@ -139,12 +156,13 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
         if (!retain) {
           const end = node.getBoundingClientRect();
           restore();
+          if (fit()) fitToContent();
           rendered = {};
           goal = {};
           const natural = node.getBoundingClientRect();
           // Content may have changed during opening. Continue from the visible
           // size instead of snapping when explicit dimensions are released.
-          if (observeResize && !reduced.matches && sizeChanged(end, natural)) {
+          if ((observeResize || fit()) && !reduced.matches && sizeChanged(end, natural)) {
             void resize(end, natural);
           } else { settledSize = natural; onFrame?.(natural); }
         }
@@ -154,10 +172,12 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
     dispose() {
       ++generation;
       observer.disconnect();
+      cancelAnimationFrame(fitFrame);
       active = false;
       cancelAnimationFrame(startFrame ?? 0);
       controls?.stop();
       restore();
+      if (fitDockHeight) node.style.removeProperty("--dock-fit-height");
       reduced.removeEventListener("change", settle);
     },
   };
