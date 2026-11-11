@@ -362,6 +362,7 @@ mod tests {
             tunnel: Default::default(),
             slots: Arc::new(tokio::sync::Semaphore::new(64)),
             task: Default::default(),
+            event_task: Default::default(),
         });
         controller
             .members
@@ -394,6 +395,63 @@ mod tests {
             )
             .await
             .is_ok());
+        // Exercise the same adapter and reconciliation owner through authenticated HTTPS.
+        let source = crate::sources::peer_authority(&identity.id).unwrap();
+        let baseline = controller
+            .event_request(
+                &member,
+                super::super::events::OP,
+                json!({"cursor":null}),
+                "",
+            )
+            .await
+            .unwrap();
+        let polling = controller.clone();
+        let polled = member.clone();
+        let pending = tokio::spawn(async move {
+            polling
+                .event_request(
+                    &polled,
+                    super::super::events::OP,
+                    json!({"epoch":baseline["epoch"],"cursor":baseline["cursor"],"waitMs":15000}),
+                    "",
+                )
+                .await
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        super::super::events::publish(
+            string(&source, "id"),
+            json!({"kind":"completed","threadId":"synthetic","turnId":"turn"}),
+        );
+        let batch = tokio::time::timeout(Duration::from_secs(3), pending)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(batch["events"][0]["event"]["kind"], "completed");
+        let task = id();
+        let result = json!({"taskId":task,"turnId":"turn"});
+        crate::claude_notify::device::bind_forward(
+            &member.peer.device_id,
+            "Example member",
+            "fixture-origin",
+            "agent_create",
+            &json!({"agent":"pi"}),
+            &result,
+        )
+        .await
+        .unwrap();
+        controller.records.lock().unwrap().associate(
+            &member.peer.device_id,
+            "fixture-origin",
+            &result,
+        );
+        controller.reconcile_events(&member).await.unwrap();
+        let status = crate::kernel::origin::ORIGIN.scope(json!({"sourceId":"fixture-origin"}),crate::claude_notify::notify_status(&json!({"threadId":crate::claude_notify::device::key(&member.peer.device_id,&task)}))).await.unwrap();
+        assert_eq!(
+            status["threads"][0]["diagnosis"]["observation"]["state"],
+            "unconfirmed"
+        );
         let forbidden = controller
             .send(
                 &member.peer.device_id,

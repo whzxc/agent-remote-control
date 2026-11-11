@@ -190,10 +190,10 @@ remain in the member's native stores.
 
 Each online member has one ordinary-request long poll, independent of task count.
 The private peer query `peer_task_events` takes
-`{epoch:string|null,cursor:uint|null,waitMs:0..25000}` and returns
+`{epoch:string|null,cursor:uint|null,waitMs:0..15000}` and returns
 `{epoch:string,cursor:uint,gap:boolean,events:[{cursor:uint,event:TaskEvent}]}`.
 A null cursor establishes the current head without replay. Each controller queue
-retains 256 events, each at most 64 KiB; responses contain at most 64 events.
+retains 256 events, each at most 64 KiB; responses contain at most 60 events.
 Overflow drops the oldest events. An oversized event advances the gap boundary
 and clears older queued events. A cursor behind that boundary or a changed member
 Core epoch reports `gap:true`, returns the current head and skips retained events.

@@ -162,13 +162,13 @@ The default guide stays compact; Device link appears in the full index and per-o
 schemas. Ingress policy allowlists continue to apply.
 
 `device_link::controller::events` owns one ordinary-request event long poll per
-online member, with a 25-second maximum member wait and a 30-second request bound.
-Its small send adapter uses the business request channel and is the integration
-point for the path-agnostic peer sender. Member Core observes peer-origin tasks
-through the existing notification observer. It queues events for the paired
+online member, with a 15-second maximum member wait and a 23-second request bound.
+Its small send adapter uses the path-agnostic `Controller::send` entry. Batches
+reserve response-envelope space below the 4 MiB HTTPS response cap. Member Core
+observes peer-origin tasks through the existing notification observer. It queues events for the paired
 controller source instead of routing them to member notification targets.
 A queue retains 256 events, bounded to 64 KiB each; each response carries at most
-64 events. Drop-oldest overflow and oversized events advance a gap boundary.
+60 events. Drop-oldest overflow and oversized events advance a gap boundary.
 The private `peer_task_events` query carries epoch, cursor and waitMs. A null
 cursor captures the head. A stale cursor or changed Core epoch returns a gap and
 the current head without replay.

@@ -1,10 +1,12 @@
 use super::*;
 #[test]
 fn queue_cursor_reports_overflow_and_resets_without_replay() {
-    // Contract: peer events are capped at 256, batches at 64; a stale cursor or epoch reports a gap and skips retained events.
+    // Contract: peer events are capped at 256, batches at 60; a stale cursor or epoch reports a gap and skips retained events.
     let mut queue = Queue::default();
     for n in 0..CAP + 10 {
-        queue.push(json!({"eventId":format!("event-{n}"),"kind":"completed"}));
+        let mut event = json!({"eventId":format!("event-{n}"),"kind":"completed","payload":""});
+        event["payload"] = json!("x".repeat(EVENT_BYTES - event.to_string().len()));
+        queue.push(event);
     }
     let gap = queue.read("epoch", &json!({"epoch":"epoch","cursor":0}));
     assert_eq!(gap["gap"], true);
@@ -13,6 +15,12 @@ fn queue_cursor_reports_overflow_and_resets_without_replay() {
     let fresh = queue.read("epoch", &json!({"epoch":"epoch","cursor":10}));
     assert_eq!(fresh["events"].as_array().unwrap().len(), BATCH);
     assert_eq!(fresh["cursor"], 10 + BATCH);
+    assert!(
+        serde_json::to_vec(&json!({"ok":true,"result":crate::egress::tool(fresh,false)}))
+            .unwrap()
+            .len()
+            < 4 * 1024 * 1024
+    );
     assert_eq!(
         queue.read("new", &json!({"epoch":"epoch","cursor":10}))["gap"],
         true
@@ -24,14 +32,14 @@ fn queue_cursor_reports_overflow_and_resets_without_replay() {
 }
 #[tokio::test]
 async fn event_long_poll_is_bounded_and_wakes_on_member_event() {
-    // Contract: the internal peer request long-polls by cursor, wakes on an event and rejects waits beyond 25 seconds.
+    // Contract: the internal peer request long-polls by cursor, wakes on an event and rejects waits beyond 15 seconds.
     let source = id();
     let baseline = read(&source, &json!({"cursor":null})).await.unwrap();
     let pending_source = source.clone();
     let pending = tokio::spawn(async move {
         read(
             &pending_source,
-            &json!({"epoch":baseline["epoch"],"cursor":baseline["cursor"],"waitMs":25000}),
+            &json!({"epoch":baseline["epoch"],"cursor":baseline["cursor"],"waitMs":15000}),
         )
         .await
         .unwrap()
@@ -46,7 +54,7 @@ async fn event_long_poll_is_bounded_and_wakes_on_member_event() {
         .unwrap()
         .unwrap();
     assert_eq!(events["events"][0]["event"]["kind"], "needs-input");
-    assert!(read(&source, &json!({"waitMs":25001}))
+    assert!(read(&source, &json!({"waitMs":15001}))
         .await
         .unwrap_err()
         .starts_with("INVALID_ARGUMENT:"));
@@ -175,9 +183,11 @@ async fn controller_member_notification_loopback() {
             address_override: None,
         },
         status: StdMutex::new(Status {
+            path: "lan".into(),
             online: true,
             ..Default::default()
         }),
+        tunnel: Default::default(),
         business: Session::default(),
         heartbeat: Session::default(),
         slots: Arc::new(tokio::sync::Semaphore::new(64)),

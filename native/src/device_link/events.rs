@@ -5,9 +5,9 @@ use std::sync::LazyLock;
 
 pub(crate) const OP: &str = "peer_task_events";
 pub(crate) const CAP: usize = 256;
-const BATCH: usize = 64;
+const BATCH: usize = 60;
 const EVENT_BYTES: usize = 64 * 1024;
-const WAIT_MS: u64 = 25_000;
+const WAIT_MS: u64 = 15_000;
 #[derive(Default)]
 struct Queue {
     cursor: u64,
@@ -78,7 +78,7 @@ pub(crate) async fn read(controller_source: &str, args: &Value) -> Result<Value>
         || (!args["epoch"].is_null() && !args["epoch"].is_string())
         || args.get("waitMs").is_some_and(|wait| !wait.is_u64())
     {
-        return Err("INVALID_ARGUMENT: peer_task_events expects cursor:uint|null, epoch:string and waitMs <= 25000".into());
+        return Err("INVALID_ARGUMENT: peer_task_events expects cursor:uint|null, epoch:string and waitMs <= 15000".into());
     }
     let deadline = tokio::time::Instant::now() + Duration::from_millis(wait);
     loop {
@@ -147,27 +147,21 @@ pub(super) fn binding_args(op: &str, args: &Value) -> Result<Value> {
 }
 
 impl Controller {
-    // Segment 2a retargets this single adapter to its path-agnostic send API.
-    async fn event_request(
+    pub(super) async fn event_request(
         &self,
         member: &Member,
         op: &str,
         args: Value,
-        source: &str,
+        _source: &str,
     ) -> Result<Value> {
-        let _slot = member
-            .slots
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|e| e.to_string())?;
-        let channel = self.channel(member, false).await?;
-        let bound = if op == OP {
-            Duration::from_secs(30)
-        } else {
-            Duration::from_secs(15)
-        };
-        let response = channel.request("/arc-peer/2/request", json!({"version":VERSION,"tool":"query","body":{"op":op,"args":args},"origin":{"sourceId":source}}), bound).await?;
+        let response = self
+            .send(
+                &member.peer.device_id,
+                "query",
+                json!({"op":op,"args":args}),
+                Duration::from_secs(23),
+            )
+            .await?;
         let value = crate::egress::tool_value(&response)?;
         if response["isError"] == true {
             return Err(value.to_string());
@@ -245,7 +239,7 @@ impl Controller {
         }
         Ok(())
     }
-    async fn reconcile_events(&self, member: &Member) -> Result<()> {
+    pub(super) async fn reconcile_events(&self, member: &Member) -> Result<()> {
         for binding in crate::claude_notify::device::open(&member.peer.device_id)? {
             if !member.status.lock().unwrap().online {
                 break;

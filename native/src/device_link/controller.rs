@@ -430,7 +430,9 @@ impl Controller {
             payload.remove("waitMs");
         }
         let digest = hash(json!([tool, op, payload]).to_string());
-        if events::dispatch(op) { inner.as_object_mut().map(|args|args.remove("notify")); }
+        if events::dispatch(op) {
+            inner.as_object_mut().map(|args| args.remove("notify"));
+        }
         let mut body = json!({"op":op,"args":inner});
         if write {
             body["requestId"] = json!(request);
