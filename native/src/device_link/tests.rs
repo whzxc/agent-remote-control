@@ -145,6 +145,9 @@ fn device_cli_errors_preserve_json_codes() {
         "DEVICE_TLS_FAILED",
         "DEVICE_PROTOCOL_MISMATCH",
         "DEVICE_LAN_UNAVAILABLE",
+        "DEVICE_TUNNEL_AUTH",
+        "DEVICE_TUNNEL_UNAVAILABLE",
+        "DEVICE_TUNNEL_LIMIT",
         "DEVICE_LISTEN_FAILED",
         "DEVICE_CONTROLLER_EXISTS",
         "DEVICE_PAIRING_PENDING",
@@ -236,7 +239,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
     let offer = fixture.offer();
     let (stream, server) = fixture.connect(&controller, &member.id).await.unwrap();
     assert_eq!(stream.get_ref().1.alpn_protocol(), Some(tls::ALPN));
-    let response = post(stream, "/arc-peer/2/hello", json!({"version":VERSION}))
+    let response = post(stream, "/arc-peer/3/hello", json!({"version":VERSION}))
         .await
         .unwrap();
     assert_eq!(response["deviceId"], offer.device_id);
@@ -269,7 +272,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
         .await;
     if let Ok(stream) = anonymous {
         assert!(
-            post(stream, "/arc-peer/2/hello", json!({"version":VERSION}))
+            post(stream, "/arc-peer/3/hello", json!({"version":VERSION}))
                 .await
                 .is_err()
         );
@@ -281,7 +284,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
     match fixture.connect(&controller, &member.id).await {
         Err(_) => {}
         Ok((mut stream, server)) => {
-            let _ = stream.write_all(b"POST /arc-peer/2/hello HTTP/1.1\r\nHost: arc-peer.local\r\nContent-Length: 2\r\n\r\n{}").await;
+            let _ = stream.write_all(b"POST /arc-peer/3/hello HTTP/1.1\r\nHost: arc-peer.local\r\nContent-Length: 2\r\n\r\n{}").await;
             let mut byte = [0];
             assert!(!matches!(stream.read(&mut byte).await,Ok(n) if n > 0));
             server.await.unwrap();
@@ -321,7 +324,7 @@ async fn pairing_secret_is_consumed_and_local_decline_is_required() {
     let (stream, server) = fixture.connect(&controller, &member.id).await.unwrap();
     let pair = tokio::spawn(post(
         stream,
-        "/arc-peer/2/pair",
+        "/arc-peer/3/pair",
         json!({"version":VERSION,"secret":offer.secret,"name":"Example controller"}),
     ));
     // Wait for the HTTP request to reach its explicit approval suspension point.
@@ -440,12 +443,12 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
     assert_eq!(source["credential"]["type"], "peer");
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
     let request = id();
-    let result = post(stream,"/arc-peer/2/request",json!({"version":VERSION,"tool":"act","body":{"op":"command","args":{"cmd":"echo ARC_PEER_FIXTURE","cwd":fixture.directory.join("missing"),"waitMs":1000},"requestId":request},"origin":{"sourceId":"example-origin"}})).await.unwrap();
+    let result = post(stream,"/arc-peer/3/request",json!({"version":VERSION,"tool":"act","body":{"op":"command","args":{"cmd":"echo ARC_PEER_FIXTURE","cwd":fixture.directory.join("missing"),"waitMs":1000},"requestId":request},"origin":{"sourceId":"example-origin"}})).await.unwrap();
     let result = crate::egress::tool_value(&result).unwrap();
     assert_eq!(result["requestId"], request, "{result}");
     server.await.unwrap();
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
-    let receipt = post(stream,"/arc-peer/2/request",json!({"version":VERSION,"tool":"act","body":{"op":"receipt","args":{"requestId":request,"includeOrigin":true}},"origin":{"sourceId":"example-origin"}})).await.unwrap();
+    let receipt = post(stream,"/arc-peer/3/request",json!({"version":VERSION,"tool":"act","body":{"op":"receipt","args":{"requestId":request,"includeOrigin":true}},"origin":{"sourceId":"example-origin"}})).await.unwrap();
     let receipt = crate::egress::tool_value(&receipt).unwrap();
     assert_eq!(receipt["requestId"], request, "{receipt}");
     assert_eq!(receipt["origin"]["sourceId"], source["id"], "{receipt}");
@@ -457,7 +460,7 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
     let denied = post(
         stream,
-        "/arc-peer/2/request",
+        "/arc-peer/3/request",
         json!({"version":VERSION,"tool":"act","body":{"op":"device","args":{}},"origin":{}}),
     )
     .await

@@ -11,7 +11,7 @@ One ARC instance, the controller, reaches other ARC instances, the members, so c
 Members are the user's own computers: macOS, Windows or headless Linux.
 The controller forwards catalog ops to a member and returns the member's own result.
 Each member keeps executing work with its own Agents, logins and native session stores.
-LAN is the primary path; a member's existing tunnel connection is the fallback path.
+LAN is the primary path; a member's existing public HTTPS ingress is the fallback path.
 
 ## Scope
 
@@ -19,7 +19,8 @@ Version 1 is one controller per member and one-way control.
 A member MUST NOT forward a peer-origin request to another device.
 A member MUST NOT control its controller.
 There is no member-to-member path, multihop routing, automatic re-routing or federation of coordination state.
-The relay Worker and relay membership are not used.
+Device link does not use relay membership, relay instance registries or relay control APIs.
+An existing relay link may carry peer requests purely as an HTTPS pipe.
 Windows `screen` remains unsupported; members report it as an absent capability.
 
 The feature is an Experimental switch named Device link.
@@ -51,14 +52,22 @@ Peer-origin requests MUST NOT reach Device link ops, pairing, revocation or othe
 ## Transport
 
 The member's front door owns a peer listener, as it owns other listeners.
-The listener binds the configured port on LAN interfaces and accepts only private, unique-local and link-local peer addresses.
+The listener binds the configured port on up, non-loopback, non-virtual LAN interfaces and accepts only private, unique-local and link-local peer addresses.
+Tunnel, point-to-point, AWDL, LLW and bridge interfaces are excluded.
+Offers, listener binding and DNS-SD use the same deduplicated address set, preferring IPv4 private and IPv6 ULA; link-local addresses use physical interface scopes.
 It speaks HTTPS with mutual TLS.
 Both certificates are self-signed by the device keys and pinned by fingerprint, so no certificate authority is involved.
 A handshake failure closes the connection before any request is read.
 
-The fallback path is the member's existing dedicated-tunnel connection on a reserved peer route.
+The fallback path is a reserved peer route on the member's existing public HTTPS ingress, whether it uses a dedicated tunnel, the member's own address or an existing relay link purely as an HTTPS pipe.
+OpenAI Secure Tunnel is MCP-only and cannot carry peer requests.
 Tunnel TLS terminates at the provider, so the peer route authenticates at the application layer.
 The controller signs a member-issued challenge with its device key and receives a short-lived session token bound to its device ID.
+Challenges expire after 30 seconds and are single-use; tokens expire after five minutes.
+Each member retains at most 32 challenges and 32 tokens, accepts only its paired controller key, and invalidates sessions immediately on revocation or disable.
+The member reports its current public peer URL in hello; every successful LAN hello persists it at the controller without re-pairing.
+Requests use the LAN peer envelope and member authority.
+Tunnel request bodies are limited to 1 MiB and responses to 4 MiB; each plain request/response has a 25-second deadline and waits use segments of at most 15 seconds.
 Tunnel providers can read peer payloads; end-to-end payload encryption is outside version 1.
 
 Discovery uses DNS-SD service `_arc-peer._tcp` on the LAN.
@@ -72,7 +81,10 @@ On Windows, installation adds an inbound firewall rule for the peer port limited
 The controller's Core owns one monitor per paired member.
 The monitor sends a heartbeat every 10 seconds on the preferred available path and probes LAN whenever the tunnel path is in use.
 LAN wins whenever its probe succeeds.
-Three consecutive missed heartbeats, or an immediate connection refusal on every path, mark the member offline.
+Three consecutive missed heartbeats mark the member offline.
+Refusal on every currently dialable LAN address marks it offline immediately when HTTPS also fails or is absent.
+Each LAN TCP dial has a 750 ms deadline; TLS handshakes have a 1250 ms deadline and HTTP/2 setup has a 500 ms deadline.
+The LAN probe is bounded to three seconds and HTTPS fallback to four seconds within each heartbeat.
 One successful heartbeat marks it online again with the path that succeeded.
 A request already sent on one path never moves to another path.
 

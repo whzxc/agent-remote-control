@@ -8,7 +8,7 @@ use rustls::{
     DigitallySignedStruct, SignatureScheme,
 };
 
-pub(super) const ALPN: &[u8] = b"arc-peer/2";
+pub(super) const ALPN: &[u8] = b"arc-peer/3";
 #[derive(Debug)]
 struct Pin {
     server: Option<String>,

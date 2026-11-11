@@ -1,5 +1,12 @@
 //! Device link identity and local pairing authority. The front door owns this state.
+mod addresses;
 mod client;
+mod tunnel;
+#[cfg(test)]
+mod tunnel_fixture;
+#[cfg(test)]
+mod tunnel_tests;
+use addresses::{lan_interfaces, lan_sockets};
 pub(crate) mod controller;
 #[cfg(test)]
 mod controller_tests;
@@ -20,7 +27,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const VERSION: u16 = 2;
+pub const VERSION: u16 = 3;
 pub const DEFAULT_PORT: u16 = 7143;
 const OFFER_TTL: Duration = Duration::from_secs(600);
 pub fn enabled() -> bool {
@@ -45,7 +52,7 @@ pub struct Offer {
 impl Offer {
     pub fn encode(&self) -> Result<String> {
         Ok(format!(
-            "arc-device:2:{}",
+            "arc-device:3:{}",
             URL_SAFE_NO_PAD.encode(serde_json::to_vec(self).map_err(|e| e.to_string())?)
         ))
     }
@@ -59,15 +66,28 @@ impl Offer {
         if text.len() > 16384 {
             return Err(invalid());
         }
-        let payload = text.strip_prefix("arc-device:2:").ok_or_else(invalid)?;
+        let (prefix, payload) = text.rsplit_once(':').ok_or_else(invalid)?;
+        if prefix != "arc-device:3" {
+            return Err(error(
+                "DEVICE_PROTOCOL_MISMATCH",
+                "Use peer protocol version 3 on both devices; read cli guide.",
+            ));
+        }
         let offer: Self =
             serde_json::from_slice(&URL_SAFE_NO_PAD.decode(payload).map_err(|_| invalid())?)
                 .map_err(|_| invalid())?;
         if offer.version != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 2 on both devices; read cli guide.",
+                "Use peer protocol version 3 on both devices; read cli guide.",
             ));
+        }
+        if offer
+            .tunnel_url
+            .as_deref()
+            .is_some_and(|url| tunnel::peer_url(url).is_none() || !url.ends_with("/arc-peer/3"))
+        {
+            return Err(invalid());
         }
         if offer.device_id.len() != 64
             || !offer.device_id.bytes().all(|b| b.is_ascii_hexdigit())
@@ -150,6 +170,8 @@ pub(super) struct ReplyGate {
 pub(crate) struct Manager {
     directory: PathBuf,
     state: StdMutex<State>,
+    tunnel: StdMutex<tunnel::Auth>,
+    ingresses: StdMutex<Vec<std::sync::Weak<crate::ingress::Ingress>>>,
     runtime: Mutex<Option<Runtime>>,
     configuration: Mutex<()>,
     closed: tokio::sync::watch::Sender<u64>,
@@ -176,6 +198,8 @@ impl Manager {
                 offer: None,
                 pending: None,
             }),
+            tunnel: Default::default(),
+            ingresses: Default::default(),
             runtime: Mutex::new(None),
             configuration: Mutex::new(()),
             closed,
@@ -243,7 +267,7 @@ impl Manager {
     }
     fn addresses(&self) -> Result<Vec<String>> {
         let port = self.state.lock().unwrap().stored.port;
-        Ok(lan_sockets(port)?
+        let mut addresses = lan_sockets(port)?
             .into_iter()
             .map(|mut a| {
                 if let SocketAddr::V6(ref mut v6) = a {
@@ -251,7 +275,9 @@ impl Manager {
                 }
                 a.to_string()
             })
-            .collect())
+            .collect::<Vec<_>>();
+        addresses.dedup();
+        Ok(addresses)
     }
     pub async fn reconcile(self: &Arc<Self>, enabled: bool) -> Result<()> {
         let _configuration = self.configuration.lock().await;
@@ -310,7 +336,7 @@ impl Manager {
     pub async fn request(self: &Arc<Self>, action: &str, body: Value) -> Result<Value> {
         self.identity()?;
         match action {
-            "offer" => self.offer(),
+            "offer" => self.offer().await,
             "pending" => {
                 let state = self.state.lock().unwrap();
                 Ok(
@@ -405,7 +431,7 @@ impl Manager {
             _ => Err("UNKNOWN_OPERATION: Read cli guide for Device link commands.".into()),
         }
     }
-    fn offer(&self) -> Result<Value> {
+    async fn offer(&self) -> Result<Value> {
         let identity = self.identity()?;
         let addresses = self.addresses()?;
         if addresses.is_empty() {
@@ -414,6 +440,7 @@ impl Manager {
                 "Connect a private LAN interface and retry device offer.",
             ));
         }
+        let tunnel_url = self.public_peer_url().await;
         let mut state = self.state.lock().unwrap();
         if state.stored.controller.is_some() {
             return Err(error(
@@ -440,7 +467,7 @@ impl Manager {
             version: VERSION,
             device_id: identity.id.clone(),
             addresses,
-            tunnel_url: None,
+            tunnel_url,
             secret: secret.clone(),
         };
         state.offer = Some((hash(&secret), Instant::now() + OFFER_TTL));
@@ -561,7 +588,7 @@ impl Manager {
             public_key: identity.public_key.clone(),
             name: self.name()?,
             addresses: self.addresses()?,
-            tunnel_url: None,
+            tunnel_url: self.public_peer_url().await,
             address_override: None,
         };
         let _ = pending
@@ -610,41 +637,6 @@ pub fn lan_address(ip: IpAddr) -> bool {
             }),
     }
 }
-fn lan_interfaces() -> Result<Vec<if_addrs::Interface>> {
-    let interfaces = if_addrs::get_if_addrs().map_err(|e| e.to_string())?;
-    let loopbacks = interfaces
-        .iter()
-        .filter(|interface| interface.is_loopback())
-        .map(|interface| interface.name.clone())
-        .collect::<std::collections::BTreeSet<_>>();
-    Ok(interfaces
-        .into_iter()
-        .filter(|interface| !loopbacks.contains(&interface.name) && lan_address(interface.ip()))
-        .collect())
-}
-fn lan_sockets(port: u16) -> Result<Vec<SocketAddr>> {
-    let mut sockets = Vec::new();
-    for interface in lan_interfaces()? {
-        let ip = interface.ip();
-        if !lan_address(ip) {
-            continue;
-        }
-        let socket = match ip {
-            IpAddr::V6(ip) => SocketAddr::V6(std::net::SocketAddrV6::new(
-                ip,
-                port,
-                0,
-                interface.index.unwrap_or(0),
-            )),
-            IpAddr::V4(ip) => SocketAddr::new(ip.into(), port),
-        };
-        if !sockets.contains(&socket) {
-            sockets.push(socket);
-        }
-    }
-    sockets.sort_by_key(|socket| socket.is_ipv6());
-    Ok(sockets)
-}
 
 pub fn operations() -> Vec<Value> {
     if !enabled() {
@@ -661,4 +653,8 @@ pub fn operations() -> Vec<Value> {
         json!({"name":format!("device.{action}"),"method":"POST","route":format!("device/{action}"),"localOnly":true,"description":format!("Device link local {action}. Read cli guide for pairing and transport contracts."),
             "inputSchema":{"type":"object","properties":{"body":{"type":"object","properties":properties,"required":required,"additionalProperties":false}},"required":if required.as_array().is_some_and(|r| !r.is_empty()) {json!(["body"])} else {json!([])},"additionalProperties":false}})
     }).collect()
+}
+
+pub(crate) fn tunnel_response_cap() -> usize {
+    tunnel::RESPONSE_CAP
 }

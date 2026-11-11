@@ -133,11 +133,13 @@ common guide remains compact. The three frozen MCP tool envelopes are unchanged.
 
 `device` accepts a device ID or a unique paired name. A member row contains `id`,
 `name`, `platform`, `arch`, `arcVersion`, `state`, `path`, `lastSeen`, `latency` in
-milliseconds, and `capabilities`. `path` is always `lan`. Windows and Linux report
+milliseconds, and `capabilities`. `path` is `lan` or `tunnel`. LAN is preferred; HTTPS succeeds as fallback, and
+every heartbeat probes LAN for automatic return. Windows and Linux report
 `screen:false` and omit `screen` from their enabled op index. Last-seen and the
 latest capability summary survive Core restart. A member starts offline until its
 first successful probe. Heartbeats run every ten seconds. Three misses, or
-connection refusal on every known address, mark it offline; one success restores
+connection refusal on every currently dialable LAN address when HTTPS also
+fails or is absent, mark it offline; one success restores
 online state. `dispatch_policy.devices` uses the same default online scope.
 
 ```json
@@ -155,8 +157,13 @@ The controller returns the member's complete tool result without adding its own
 projection or ARC version. Concurrent calls use HTTP/2 streams over a persistent
 business connection; heartbeat has a separate persistent connection. At most 64
 business requests run per member. Op wait/timeout arguments set request deadlines;
-a long member wait does not block another read or heartbeat. Phase 1 has no tunnel
-fallback, file transfer, forwarded event stream or notification delivery. Use
+a long member wait does not block another read or heartbeat. HTTPS fallback uses the member's existing public ingress, including a relay link
+used solely as an HTTPS pipe. OpenAI Secure Tunnel is excluded. HTTPS calls are
+plain request/response with 1 MiB request and 4 MiB response caps and a 25-second
+deadline. Long waits return in segments of at most 15 seconds; issue the next read
+segment as needed. A sent request keeps its selected path. LAN hello refreshes
+the saved public peer URL without re-pairing. File transfer, forwarded event
+streams and notification delivery are unavailable. Use
 `notify:null` for member task creation in this phase.
 
 The controller assigns a UUID before sending a write and honors an outer act
@@ -185,6 +192,9 @@ remain in the member's native stores.
 | `DEVICE_UNKNOWN` | Query `devices` with `all:true`; use an ID or a unique name. |
 | `DEVICE_PROTOCOL_MISMATCH` | Read the `device` guide and install matching peer protocol versions. ARC versions may differ when the peer protocol matches. |
 | `DEVICE_OUTCOME_UNCERTAIN` | Retain `error.requestId` and follow `next`, an `act device` member receipt read. Never resend the write. |
+| `DEVICE_TUNNEL_AUTH` | Authenticate with a fresh device-key challenge; check pairing if rejected. |
+| `DEVICE_TUNNEL_UNAVAILABLE` | Restore LAN or the member's existing public HTTPS ingress. |
+| `DEVICE_TUNNEL_LIMIT` | Use LAN, a smaller read or wait segments of at most 15000 ms. |
 | `DEVICE_BUSY` | Keep existing requests/receipts and wait for an active member request to finish. |
 | `DEVICE_RESPONSE_LOST` | A read lost its response. Query `devices` before a new read. |
 

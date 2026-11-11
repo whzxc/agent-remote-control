@@ -48,6 +48,16 @@ impl Identity {
         .map_err(|e| e.to_string())?;
         Ok(identity)
     }
+    pub fn sign(&self, message: &[u8]) -> Result<String> {
+        let rng = ring::rand::SystemRandom::new();
+        let key = ring::signature::EcdsaKeyPair::from_pkcs8(
+            &ring::signature::ECDSA_P256_SHA256_ASN1_SIGNING,
+            &self.key,
+            &rng,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(STANDARD.encode(key.sign(&rng, message).map_err(|e| e.to_string())?.as_ref()))
+    }
     pub fn private_key(&self) -> PrivateKeyDer<'static> {
         PrivatePkcs8KeyDer::from(self.key.clone()).into()
     }

@@ -22,7 +22,7 @@ impl PeerRequest {
         if self.version != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 2; read cli guide.",
+                "Use peer protocol version 3; read cli guide.",
             ));
         }
         if !matches!(self.tool.as_str(), "guide" | "query" | "act") {
@@ -275,12 +275,12 @@ impl Manager {
         if request.method() != hyper::Method::POST
             || !matches!(
                 path.as_str(),
-                "/arc-peer/2/pair" | "/arc-peer/2/request" | "/arc-peer/2/hello"
+                "/arc-peer/3/pair" | "/arc-peer/3/request" | "/arc-peer/3/hello"
             )
         {
             return Err(error(
                 "DEVICE_PEER_FORBIDDEN",
-                "Use peer protocol version 2 routes; read cli guide.",
+                "Use peer protocol version 3 routes; read cli guide.",
             ));
         }
         let limit = if path.ends_with("/request") {
@@ -301,17 +301,23 @@ impl Manager {
         if body["version"] != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 2; read cli guide.",
+                "Use peer protocol version 3; read cli guide.",
             ));
         }
         if path.ends_with("/hello") {
-            return Ok(
-                json!({"version":VERSION,"deviceId":self.identity()?.id,"name":self.name()?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"arcVersion":env!("ARC_BUILD_VERSION"),"capabilities":{"tools":["guide","query","act"],"screen":cfg!(target_os="macos"),"forwarding":false}}),
-            );
+            return self.hello().await;
         }
         if path.ends_with("/pair") {
             return self.prove(id, public_key, &body).await;
         }
+        self.business_request(id, body).await
+    }
+    pub(super) async fn hello(&self) -> Result<Value> {
+        Ok(
+            json!({"version":VERSION,"deviceId":self.identity()?.id,"name":self.name()?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"arcVersion":env!("ARC_BUILD_VERSION"),"tunnelUrl":self.public_peer_url().await,"addresses":self.addresses()?,"capabilities":{"tools":["guide","query","act"],"screen":cfg!(target_os="macos"),"forwarding":false}}),
+        )
+    }
+    pub(super) async fn business_request(&self, id: &str, body: Value) -> Result<Value> {
         self.controller(id)?;
         let request: PeerRequest = serde_json::from_value(body)
             .map_err(|_| "INVALID_ARGUMENT: expected {version,tool,body,origin}")?;
@@ -366,7 +372,7 @@ impl Manager {
             .await?;
         let result = tokio::select! {
             _=closed.changed()=>return Err(error("DEVICE_UNPAIRED","Local pairing was revoked or disabled; read cli guide.")),
-            result=channel.request("/arc-peer/2/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?}),OFFER_TTL)=>result,
+            result=channel.request("/arc-peer/3/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?}),OFFER_TTL)=>result,
         };
         session.close().await;
         let result = result?;
@@ -441,7 +447,16 @@ pub(super) fn connect_addresses(addresses: &[String]) -> Result<Vec<SocketAddr>>
         let address: SocketAddr = address
             .parse()
             .map_err(|_| "DEVICE_PAIRING_INVALID: Invalid LAN address; read cli guide.")?;
+        if !lan_address(address.ip()) || address.port() == 0 {
+            continue;
+        }
         if let SocketAddr::V6(v6) = address {
+            if v6.ip().is_unicast_link_local()
+                && v6.scope_id() != 0
+                && !interfaces.iter().any(|i| i.index == Some(v6.scope_id()))
+            {
+                continue;
+            }
             if v6.ip().is_unicast_link_local() && v6.scope_id() == 0 {
                 for interface in &interfaces {
                     if let Some(index) = interface.index {
@@ -458,8 +473,7 @@ pub(super) fn connect_addresses(addresses: &[String]) -> Result<Vec<SocketAddr>>
         }
         result.push(address);
     }
-    result.sort_by_key(|address| address.is_ipv6());
-    result.dedup();
+    addresses::sort(&mut result);
     Ok(result)
 }
 #[cfg(test)]

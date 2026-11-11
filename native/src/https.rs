@@ -128,6 +128,39 @@ async fn handle_inner(
     observation: &crate::ingress_observation::Request,
 ) -> std::result::Result<Response<crate::wait_transport::Body>, Infallible> {
     let error = |code, message| Ok(reply(code, Some(json!({"error":message}))));
+    if request.uri().path().starts_with("/arc-peer/") {
+        if !service.connected.load(std::sync::atomic::Ordering::SeqCst)
+            || !matches!(
+                service.meta.lock().await["transport"].as_str(),
+                Some("https" | "relay")
+            )
+        {
+            return Ok(reply(
+                503,
+                Some(
+                    json!({"ok":false,"error":{"code":"DEVICE_TUNNEL_UNAVAILABLE","message":"HTTPS ingress is stopped; query devices.","next":{"via":"query","op":"guide","args":{"op":"device"}}}}),
+                ),
+            ));
+        }
+        let peer = service.peer.lock().unwrap().upgrade();
+        let result = if let Some(peer) = peer {
+            peer.tunnel_http(request).await
+        } else {
+            Err(crate::device_link::unavailable())
+        };
+        let value = match result {
+            Ok(value) => json!({"ok":true,"result":value}),
+            Err(message) => {
+                json!({"ok":false,"error":{"code":crate::management::error_code(&message),"message":message,"next":{"via":"query","op":"guide","args":{"op":"device"}}}})
+            }
+        };
+        let value = if value.to_string().len() > crate::device_link::tunnel_response_cap() {
+            json!({"ok":false,"error":{"code":"DEVICE_TUNNEL_LIMIT","message":"Peer response exceeds 4 MiB; use LAN or a bounded read.","next":{"via":"query","op":"guide","args":{"op":"device"}}}})
+        } else {
+            value
+        };
+        return Ok(reply(200, Some(value)));
+    }
     let path = request.uri().path();
     if path != "/mcp" && !path.starts_with("/.well-known/") && !path.starts_with("/oauth/") {
         return Ok(crate::browser::handle(request, service, &local_host).await);

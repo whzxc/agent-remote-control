@@ -1,5 +1,6 @@
 //! Controller Core owns reachability, multiplexed links and bounded forwarding metadata.
 use super::client::{Channel, Session};
+mod path;
 use super::records::{Forward, Records};
 use super::*;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,6 +9,7 @@ use tokio::sync::Notify;
 #[derive(Clone, Default)]
 struct Status {
     online: bool,
+    path: String,
     last_seen: Option<String>,
     latency: Option<u64>,
     hello: Value,
@@ -18,16 +20,19 @@ struct Member {
     status: StdMutex<Status>,
     business: Session,
     heartbeat: Session,
+    tunnel: super::tunnel::Client,
     slots: Arc<tokio::sync::Semaphore>,
     task: StdMutex<Option<tokio::task::JoinHandle<()>>>,
 }
 impl Member {
     async fn stop(&self) {
+        self.status.lock().unwrap().online = false;
         if let Some(task) = self.task.lock().unwrap().take() {
             task.abort();
         }
         self.business.close().await;
         self.heartbeat.close().await;
+        self.tunnel.close().await;
     }
 }
 struct Resolution {
@@ -147,6 +152,7 @@ impl Controller {
                 }),
                 business: Session::default(),
                 heartbeat: Session::default(),
+                tunnel: Default::default(),
                 slots: Arc::new(tokio::sync::Semaphore::new(64)),
                 task: Default::default(),
             });
@@ -256,7 +262,20 @@ impl Controller {
                 );
             }
         }
-        super::transport::connect_addresses(&peer.addresses)
+        let saved = self
+            .records
+            .lock()
+            .unwrap()
+            .facts
+            .get(&peer.device_id)
+            .and_then(|hello| hello["addresses"].as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|a| a.as_str().map(str::to_owned))
+                    .collect::<Vec<_>>()
+            });
+        super::transport::connect_addresses(saved.as_deref().unwrap_or(&peer.addresses))
     }
     async fn channel(&self, member: &Member, heartbeat: bool) -> Result<Arc<Channel>> {
         let session = if heartbeat {
@@ -284,72 +303,7 @@ impl Controller {
         let mut misses = 0;
         loop {
             tick.tick().await;
-            let start = Instant::now();
-            let result = tokio::time::timeout(Duration::from_secs(5), async {
-                let channel = self.channel(&member, true).await?;
-                let hello = channel
-                    .request(
-                        "/arc-peer/2/hello",
-                        json!({"version":VERSION}),
-                        Duration::from_secs(5),
-                    )
-                    .await?;
-                if hello["version"] != VERSION {
-                    return Err(error(
-                        "DEVICE_PROTOCOL_MISMATCH",
-                        "Install matching peer protocol versions; query guide for device.",
-                    ));
-                }
-                if hello["deviceId"] != member.peer.device_id {
-                    return Err(error(
-                        "DEVICE_TLS_FAILED",
-                        "The pinned member identity does not match; query guide for device.",
-                    ));
-                }
-                // Establish the persistent business channel before advertising online readiness.
-                self.channel(&member, false).await?.ready().await?;
-                Ok::<Value, String>(hello)
-            })
-            .await
-            .unwrap_or_else(|_| {
-                Err("DEVICE_LAN_UNAVAILABLE: Heartbeat deadline expired; query devices.".into())
-            });
-            match result {
-                Ok(hello) => {
-                    misses = 0;
-                    let seen = now();
-                    *member.status.lock().unwrap() = Status {
-                        online: true,
-                        last_seen: Some(seen.clone()),
-                        latency: Some(start.elapsed().as_millis() as u64),
-                        hello,
-                        error: None,
-                    };
-                    let mut records = self.records.lock().unwrap();
-                    records.facts.insert(
-                        member.peer.device_id.clone(),
-                        member.status.lock().unwrap().hello.clone(),
-                    );
-                    records
-                        .last_seen
-                        .insert(member.peer.device_id.clone(), seen);
-                    if let Err(error) = records.save(&self.directory) {
-                        crate::logs::record("WARN", &error, None);
-                    }
-                }
-                Err(error) => {
-                    misses += 1;
-                    let mut status = member.status.lock().unwrap();
-                    if misses >= 3
-                        || error.starts_with("DEVICE_CONNECTION_REFUSED")
-                        || error.contains("DEVICE_PROTOCOL_MISMATCH")
-                    {
-                        status.online = false;
-                    }
-                    status.error = Some(error);
-                }
-            }
-            self.changed.notify_waiters();
+            self.heartbeat(&member, &mut misses).await;
         }
     }
     pub async fn list(&self, all: bool) -> Value {
@@ -357,7 +311,7 @@ impl Controller {
         let devices=members.values().filter_map(|member|{
             let status=member.status.lock().unwrap();
             if !all && !status.online{return None;}
-            Some(json!({"id":member.peer.device_id,"name":member.peer.name,"platform":status.hello["platform"],"arch":status.hello["arch"],"arcVersion":status.hello["arcVersion"],"state":if status.online{"online"}else{"offline"},"path":"lan","lastSeen":status.last_seen,"latency":status.latency,"capabilities":status.hello["capabilities"],"error":status.error}))
+            Some(json!({"id":member.peer.device_id,"name":member.peer.name,"platform":status.hello["platform"],"arch":status.hello["arch"],"arcVersion":status.hello["arcVersion"],"state":if status.online{"online"}else{"offline"},"path":if status.path.is_empty(){"lan"}else{&status.path},"lastSeen":status.last_seen,"latency":status.latency,"capabilities":status.hello["capabilities"],"error":status.error}))
         }).collect::<Vec<_>>();
         json!({"devices":devices})
     }
@@ -436,37 +390,22 @@ impl Controller {
                 .map_err(|_| "INVALID_ARGUMENT: requestId must be a UUID")?;
         }
         let _slot=member.slots.clone().try_acquire_owned().map_err(|_|error("DEVICE_BUSY","64 member requests are already active; read the original receipts or wait for a read to finish."))?;
-        let channel = tokio::time::timeout(Duration::from_secs(5), self.channel(&member, false))
+        let prepared = tokio::time::timeout(Duration::from_secs(5), self.prepare(&member))
             .await
             .map_err(|_| {
                 error(
-                    "DEVICE_LAN_UNAVAILABLE",
-                    "Preparing a member connection timed out; query devices.",
+                    "DEVICE_RESPONSE_LOST",
+                    "Preparing a member path timed out; query devices.",
                 )
             })?
-            .map_err(|error| {
-                if error.starts_with("DEVICE_CONNECTION_REFUSED") {
+            .map_err(|failure| {
+                if failure.starts_with("DEVICE_CONNECTION_REFUSED") {
                     member.status.lock().unwrap().online = false;
                     offline()
                 } else {
-                    error
+                    failure
                 }
             })?;
-        let sender =
-            tokio::time::timeout(super::client::request_bound(op, &inner), channel.ready())
-                .await
-                .map_err(|_| {
-                    error(
-                        "DEVICE_BUSY",
-                        "The peer did not admit a stream before the op deadline; query devices.",
-                    )
-                })?
-                .map_err(|_| {
-                    error(
-                        "DEVICE_LAN_UNAVAILABLE",
-                        "The peer connection closed before submission; query devices.",
-                    )
-                })?;
         let source = string(&origin, "sourceId").to_owned();
         let mut payload = inner.clone();
         if let Some(payload) = payload.as_object_mut() {
@@ -474,6 +413,12 @@ impl Controller {
             payload.remove("waitMs");
         }
         let digest = hash(json!([tool, op, payload]).to_string());
+        let mut body = json!({"op":op,"args":inner});
+        if write {
+            body["requestId"] = json!(request);
+        }
+        let wire = json!({"version":VERSION,"tool":tool,"body":body,"origin":{"sourceId":source}});
+        prepared.validate(&wire)?;
         if write && op != "receipt" {
             let mut records = self.records.lock().unwrap();
             if let Some(previous) = records.forwards.iter().find(|r| r.request_id == request) {
@@ -510,18 +455,9 @@ impl Controller {
             request: request.clone(),
             active: write,
         };
-        let mut body = json!({"op":op,"args":inner});
-        if write {
-            body["requestId"] = json!(request);
-        }
-        let wire = json!({"version":VERSION,"tool":tool,"body":body,"origin":{"sourceId":source}});
-        let result = Channel::send(
-            sender,
-            "/arc-peer/2/request",
-            wire,
-            super::client::request_bound(op, &args["args"]),
-        )
-        .await;
+        let result = prepared
+            .send(wire, super::client::request_bound(op, &inner))
+            .await;
         match result {
             Ok(response) => {
                 let value = crate::egress::tool_value(&response).map_err(|error| {

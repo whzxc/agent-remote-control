@@ -211,10 +211,12 @@ impl Gateway {
             );
         }
         let token = super::process::ensure_secret()?;
+        let peer = crate::device_link::Manager::new(root().join("device-link"))?;
         let mut ingresses = BTreeMap::new();
         for id in load(&index)?.as_array().ok_or("invalid ingress index")? {
             let entry = normalize(read_entry(id.as_str().ok_or("invalid ingress id")?)?)?;
             let ingress = Ingress::with_execution(entry, None, token.clone())?;
+            peer.attach_ingress(&ingress);
             #[cfg(feature = "test-fixture")]
             if std::env::var_os("ARC_FIXTURE_CONNECTED").is_some() {
                 ingress.connected.store(true, Ordering::SeqCst);
@@ -230,7 +232,7 @@ impl Gateway {
             configuration: Default::default(),
             closing: std::sync::atomic::AtomicBool::new(false),
             relay: Default::default(),
-            peer: crate::device_link::Manager::new(root().join("device-link"))?,
+            peer,
         }))
     }
     pub async fn ingress(&self, id: &str) -> Result<Arc<Ingress>> {
@@ -403,6 +405,7 @@ impl Gateway {
                 )?;
                 store_entry(&entry)?;
                 let ingress = Ingress::with_execution(entry, None, self.token.clone())?;
+                self.peer.attach_ingress(&ingress);
                 save(&root().join("ingresses/index.json"), &json!(["default"]))?;
                 self.ingresses
                     .lock()
@@ -668,6 +671,7 @@ impl Gateway {
                     ids.push(id.to_owned());
                     save(&root().join("ingresses/index.json"), &json!(ids))?;
                     draft.activate_draft(entry).await?;
+                    self.peer.attach_ingress(&draft);
                     entries.insert(id.to_owned(), draft.clone());
                     self.drafts.lock().await.remove(id);
                     drop(entries);
@@ -738,6 +742,7 @@ impl Gateway {
                 }
                 store_entry(&entry)?;
                 let i = Ingress::with_execution(entry, None, self.token.clone())?;
+                self.peer.attach_ingress(&i);
                 let mut entries = self.ingresses.lock().await;
                 let mut ids: Vec<_> = entries.keys().cloned().collect();
                 ids.push(i.id.clone());
@@ -908,6 +913,7 @@ impl Gateway {
                         remember_connection(id, false)?;
                     }
                     let next = Ingress::with_execution(entry.clone(), None, self.token.clone())?;
+                    self.peer.attach_ingress(&next);
                     let identity_changed = crate::ingress::config::binding(&previous["config"])
                         != crate::ingress::config::binding(&entry["config"])
                         || ["transport", "controlSource", "auth", "bearerToken"]

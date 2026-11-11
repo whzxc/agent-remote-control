@@ -21,7 +21,7 @@ Updater scheduling starts after Core is attached. Desktop reads effective networ
 
 service::Service owns one Control, AgentHost and execution::Execution. Its ingress handles are derived dispatch projections. front_door::owner::Gateway owns the live ingress collection and configuration. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
 
-### Device identity and LAN peer listener
+### Device identity and peer listeners
 
 The front door owns `device_link::Manager`, its LAN HTTPS listeners, DNS-SD
 advertisement, device identity, one-time pairing offers, local approval waits and
@@ -33,12 +33,17 @@ on Windows. The device ID is SHA-256 of DER SubjectPublicKeyInfo. Names are labe
 Re-enabling retains the key. A changed identity clears local pairings.
 
 The listener binds configured private, unique-local and link-local LAN addresses.
-Loopback interfaces are excluded, including their link-local aliases.
+Only up, non-loopback, non-virtual interfaces are used. Tunnel, point-to-point,
+AWDL, LLW and bridge interfaces are excluded, including their link-local aliases.
+Offers, listeners and DNS-SD use the same deduplicated set, ordered IPv4 private,
+IPv6 ULA, then physical-interface link-local. Linux additionally requires a
+physical device entry under sysfs. macOS uses physical `en` interfaces; Windows
+requires the native `HardwareInterface` flag and excludes filter interfaces.
 It accepts only those peer address ranges, including IPv4-mapped private IPv6.
 TLS 1.3 completes before HTTP routing, requires a client certificate and proof of
 key possession, and pins approved public-key fingerprints. No CA is involved.
 TLS session resumption is disabled so every connection revalidates its pin.
-ALPN `arc-peer/2` exposes peer protocol version 2 over HTTP/2. Admission allows
+ALPN `arc-peer/3` exposes peer protocol version 3 over HTTP/2. Admission allows
 32 handshakes per minute per source IP, with two simultaneous handshakes per IP
 and a five-second handshake deadline. The table holds at most 256 source
 addresses and evicts the least recently used inactive entry. IPv4-mapped IPv6
@@ -75,17 +80,19 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop has no Device link controls. Tunnel fallback, member event streams,
-notification forwarding and file transfer are not implemented. The wire contract
+Desktop has no Device link controls. Member event streams, notification forwarding
+and file transfer are not implemented. The wire contract
 is in [CLI reference](../reference/cli.md#device-link).
 
 ### Device link controller Core
 
 `Execution` owns one `device_link::controller::Controller`. It reads pairings from
 the front door's device state directory and owns one monitor per paired member.
-Each monitor sends a heartbeat every ten seconds, with a five-second probe bound.
-Three consecutive failures mark the member offline. Refusal on all known addresses
-marks it offline immediately. One success restores online state. A heartbeat
+Each monitor sends a heartbeat every ten seconds, with a three-second LAN probe
+and a four-second HTTPS fallback bound. TCP dials are bounded to 750 ms, TLS to
+1250 ms and HTTP/2 setup to 500 ms.
+Three consecutive failures mark the member offline. Refusal on every currently dialable LAN address
+marks it offline immediately when HTTPS also fails or is absent. One success restores online state. A heartbeat
 returns device ID, platform, architecture, ARC version and capabilities. Windows
 and Linux omit `screen` from enabled peer ops and report `screen:false` in the
 summary. Last-seen and the latest bounded capability summary survive Core restart.
@@ -108,6 +115,28 @@ include the forwarded op's requested wait or timeout plus transport overhead.
 Heartbeat does not enter the Core business queue. Revocation, disabling and Core
 shutdown close channels and stop monitors. A sent write is never retried on a new
 channel or address.
+
+The member's existing public HTTPS listener also owns the reserved `/arc-peer/3/`
+route. `Manager` attaches to HTTPS ingress owners and reports the current public
+peer URL in hello and new offers. Dedicated tunnels, own-address HTTPS and existing
+relay links are equivalent pipes; Device link does not consult relay membership,
+instance registries or control APIs. OpenAI Secure Tunnel remains MCP-only.
+LAN hello persists the URL and refreshed filtered addresses in each member's saved capability facts, upgrading
+existing pairings without consent or identity changes.
+
+The provider terminates TLS. Application authentication uses a paired device's
+P-256 signature over a member/controller/challenge transcript, a single-use
+30-second challenge and a five-minute device-bound bearer token. At most 32
+challenges and 32 tokens remain live in memory. Epoch fencing and pairing checks
+invalidate tokens and active requests on revocation or disable. The peer request
+uses the same envelope, private IPC principal and member authority as LAN.
+Requests are plain HTTP request/response, bounded to 1 MiB input, 4 MiB output and
+25 seconds; wait segments are at most 15 seconds. The auth body cap is 16 KiB and
+body-read deadlines are five seconds. The controller exposes
+`Controller::send(device, tool, body, deadline)` for path-independent bounded
+member calls. Forwarding captures a prepared path before recording transmission;
+it does not replay on a new channel or path. On tunnel, the monitor probes LAN
+every heartbeat and switches back whenever LAN succeeds.
 
 The controller stores the latest 1024 forward records with request ID, member ID,
 op, originating source ID, send time, outcome and argument digest. A record is

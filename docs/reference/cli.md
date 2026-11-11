@@ -87,24 +87,26 @@ before approving. Pairing grants full host authority. A member accepts one
 controller. Revoke that controller locally before creating another offer. A removed
 controller record prevents new member business requests.
 
-The pairing string is `arc-device:2:<base64url-json>` without Base64 padding.
-Its JSON fields are `version:2`, `deviceId` (lowercase SHA-256 of DER
-SubjectPublicKeyInfo), `addresses` (LAN IP:port strings), `tunnelUrl:null`, and a
-one-time `secret`. The secret expires ten minutes after the offer or at its first
+The pairing string is `arc-device:3:<base64url-json>` without Base64 padding.
+Its JSON fields are `version:3`, `deviceId` (lowercase SHA-256 of DER
+SubjectPublicKeyInfo), `addresses` (LAN IP:port strings), `tunnelUrl` (the public
+HTTPS peer URL or null), and a one-time `secret`. The secret expires ten minutes after the offer or at its first
 successful proof. Approval must finish within that original window. Treat the
 pairing string as a credential. Device names are labels. IPv6 link-local endpoints
 use the controller's local interface scope when connecting.
 
 LAN uses HTTP/2 over TLS 1.3 with self-signed device certificates, mutual key possession and
-public-key fingerprint pins. ALPN is `arc-peer/2`. POST `/arc-peer/2/hello` with
-`{"version":2}` returns protocol version, device ID, name, platform, architecture, ARC version and capability summary. Pairing uses POST
-`/arc-peer/2/pair` with `{"version":2,"secret":"...","name":"..."}`. Its response
+public-key fingerprint pins. ALPN is `arc-peer/3`. POST `/arc-peer/3/hello` with
+`{"version":3}` returns protocol version, device ID, name, platform, architecture,
+ARC version, capability summary, filtered `addresses`, and `tunnelUrl` (public peer
+URL or null). Pairing uses POST
+`/arc-peer/3/pair` with `{"version":3,"secret":"...","name":"..."}`. Its response
 waits for local consent and returns the member's public key, name and addresses.
 An unpaired TLS client is admitted only while an unused offer is live; it has no
 business authority.
 
-Authenticated controllers send POST `/arc-peer/2/request` with
-`{version:2,tool:"guide"|"query"|"act",body:<original tool arguments>,origin:<source reference>}`.
+Authenticated controllers send POST `/arc-peer/3/request` with
+`{version:3,tool:"guide"|"query"|"act",body:<original tool arguments>,origin:<source reference>}`.
 `body.requestId` is retained as the member receipt ID; an args-level request ID
 follows the existing tool contract. `origin` is bounded to 4096 encoded bytes and
 is stored as `origin.peerOrigin`; member authority always uses the member's peer
@@ -113,8 +115,11 @@ Transport errors are `{ok:false,error:{code,message,next}}`. Member tool results
 retain their existing content and error envelope. Peer-origin Device link,
 local-management and multihop requests are rejected with `DEVICE_PEER_FORBIDDEN`.
 
-The listener binds private and link-local LAN addresses on TCP port 7143 by
-default. It rejects public peer addresses. DNS-SD advertises `_arc-peer._tcp` with
+The listener binds up, non-loopback, non-virtual LAN interfaces on TCP port 7143 by
+default. Tunnel, point-to-point, AWDL, LLW and bridge interfaces are excluded.
+Offers, bindings and DNS-SD share deduplicated private/ULA/link-local addresses.
+IPv4 private addresses precede ULA and physical-interface link-local addresses.
+It rejects public peer addresses. DNS-SD advertises `_arc-peer._tcp` with
 only `id` and `version` TXT properties. The Windows installer adds an inbound
 TCP rule for the configured port under the Private profile and requests firewall
 administration permission. After changing the port on Windows, update that rule
@@ -128,7 +133,11 @@ Errors include `DEVICE_PROTOCOL_MISMATCH`, `DEVICE_TLS_FAILED`,
 create a fresh member offer after expiry or decline.
 
 Controller Core probes each member every ten seconds. Three misses, or refusal
-on every known address, mark it offline. One successful probe restores online
+on every currently dialable LAN address when HTTPS also fails or is absent, mark it offline.
+TCP dials have a 750 ms deadline, TLS 1250 ms and HTTP/2 setup 500 ms.
+Unroutable addresses and unavailable local scopes are outside the refusal count.
+The LAN heartbeat has a three-second bound; HTTPS fallback adds at most four
+seconds. One successful probe restores online
 state. `query devices` lists online members; `all:true` also lists offline members.
 `query device` forwards member reads, and `act device` forwards member writes.
 Read [Device link tools](tools.md#device-link) for forwarding and receipt contracts.
@@ -146,10 +155,51 @@ The Core retains the latest 1024 forward records and 4096 task/source associatio
 Connections use one persistent multiplexed business channel and one independent
 heartbeat channel per member, with at most 64 concurrent business requests.
 
+### Public HTTPS peer route
+
+The existing public HTTPS listener exposes `/arc-peer/3/{challenge,session,hello,request}`.
+It may be a dedicated tunnel, the member's own HTTPS address, or an existing relay
+link used purely as an HTTPS pipe. Device link uses no relay membership, instance
+registry or control APIs. OpenAI Secure Tunnel is MCP-only and excluded.
+New offers include `tunnelUrl`. Every successful LAN hello saves the current URL
+at the controller, including a null URL when the public ingress is unavailable.
+Existing pairings acquire it without pairing again.
+
+POST `challenge` with `{version:3,deviceId:<controller ID>}`. Only the paired
+controller is admitted. The response contains `version`, member `deviceId`, a
+random `challenge` and `expiresInSeconds:30`. Sign the UTF-8 bytes
+`arc-peer/3/session:<member ID>:<controller ID>:<challenge>` with the controller's
+P-256 device key using ECDSA/SHA-256 and ASN.1 DER signature encoding. POST
+`session` with `{version:3,deviceId,challenge,signature:<standard-base64>}`.
+Each challenge is consumed once. The response contains `version`, a random
+`token` and `expiresInSeconds:300`. The member holds at most 32 live challenges
+and 32 live tokens. Tokens bind the device ID; revocation, disable and identity
+changes invalidate them immediately. Subsequent hello/request calls carry
+`Authorization: Bearer <token>`. Pairing remains LAN-only.
+
+TLS terminates at the HTTPS provider, which can read payloads. HTTPS requests use
+the same `{version,tool,body,origin}` envelope and member peer authority as LAN.
+They use plain request/response, with no persistent response stream. Request
+bodies are at most 1 MiB and response envelopes at most 4 MiB. Auth bodies are at
+most 16 KiB and must arrive within five seconds; business bodies share that read
+deadline. A request finishes within 25 seconds. Wait arguments use segments of at
+most 15000 ms; a caller may submit the next read segment after the previous result.
+Each sent request stays on its chosen path. Long writes retain their original
+member receipt ID when the response deadline expires.
+
+LAN remains preferred. When LAN fails and HTTPS hello succeeds, `devices` reports
+`state:"online",path:"tunnel"`. Each heartbeat probes LAN and switches back on
+success. `DEVICE_TUNNEL_AUTH` requests fresh device-key authentication;
+`DEVICE_TUNNEL_UNAVAILABLE` requires checking the public HTTPS ingress;
+`DEVICE_TUNNEL_LIMIT` requires a bounded read/wait or the LAN path.
+`DEVICE_PROTOCOL_MISMATCH` requires peer protocol 3 on both devices, including
+ALPN and reserved route versions. Pairing identity and native Agent stores remain
+unchanged across this protocol upgrade.
+
 ### Limits
 
-Tunnel fallback, member event streams, forwarded notification delivery and file
-transfer are not available. Windows and Linux peer `screen` are unavailable. LAN interface listeners and
+Member event streams, forwarded notification delivery and file transfer are not
+available. Windows and Linux peer `screen` are unavailable. LAN interface listeners and
 advertisements refresh every five seconds without changing pairing identity.
 
 ## Local control and condition waits

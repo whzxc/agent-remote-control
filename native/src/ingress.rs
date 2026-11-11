@@ -20,6 +20,7 @@ pub(crate) struct TransportStatus {
 }
 
 pub struct Ingress {
+    pub(crate) peer: std::sync::Mutex<std::sync::Weak<crate::device_link::Manager>>,
     pub id: String,
     pub meta: Mutex<Value>,
     pub(crate) oauth: Mutex<crate::oauth::OAuth>,
@@ -86,6 +87,7 @@ impl Ingress {
             save(&dir.join("verification.json"), &verification)?;
         }
         Ok(Arc::new(Self {
+            peer: Default::default(),
             id: ingress_id,
             meta: Mutex::new(entry),
             oauth: Mutex::new(crate::oauth::OAuth::new(&dir)?),
