@@ -598,7 +598,7 @@ fn status_from(
                 .filter_map(|d| d.timing.finished_at.map(|ms| ms / 1000))
                 .max();
             let ownership = status_ownership(&b.thread_id).unwrap_or(Value::Null);
-            threads.push(json!({"threadId":b.thread_id,"title":latest.title,"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
+            threads.push(json!({"threadId":b.thread_id,"title":task_title(latest),"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
         }
     }
     let mut subscriptions = state

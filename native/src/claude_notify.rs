@@ -398,9 +398,7 @@ pub(crate) async fn bind(
         b.agent = args["agent"].as_str().unwrap_or("codex").into();
     }
     if created && b.title.is_empty() {
-        let mut prompt = args.clone();
-        prompt.as_object_mut().map(|args| args.remove("title"));
-        b.title = crate::control::dispatch_title(&prompt);
+        b.title = crate::control::dispatch_title(args);
     }
     if created {
         if cause.is_object() {
@@ -682,7 +680,7 @@ fn task_title(b: &Binding) -> &str {
         .unwrap_or("")
 }
 const RECEIPT_HEADER: &str = "⟢ ARC · automated, not from the user · guide topic:notify";
-// Pushed text carries no task data; receivers read details from the inbox.
+// Push text identifies tasks; complete results remain in structured events.
 // Attention-first order of the glyph vocabulary declared in the notify guide.
 const GLYPHS: [&str; 9] = [
     "? input",
@@ -729,9 +727,23 @@ fn doorbell<'a>(glyphs: impl IntoIterator<Item = &'a str>) -> String {
         .join(" · ");
     format!("{RECEIPT_HEADER}\n{line}")
 }
+fn task_doorbell(bindings: &[Binding]) -> String {
+    let mut text = doorbell(bindings.iter().flat_map(|b| b.deliveries.iter().map(glyph)));
+    let mut seen = std::collections::BTreeSet::new();
+    for binding in bindings {
+        if seen.insert(&binding.thread_id) {
+            let title = task_title(binding)
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            text.push_str(&format!("\n{title} · {}", binding.thread_id));
+        }
+    }
+    text
+}
 #[cfg(test)]
 fn message(b: &Binding) -> String {
-    doorbell(b.deliveries.iter().map(glyph))
+    task_doorbell(std::slice::from_ref(b))
 }
 fn arguments(session: &str, message: &str) -> Vec<String> {
     ["-p", message, "--cloud", session, "--output-format", "json"]
@@ -2171,7 +2183,6 @@ async fn flush(
             });
         }
         let mut reserved = Vec::<Binding>::new();
-        let mut glyphs = Vec::new();
         for (bi, di, digest) in &selected {
             let b = &mut all[*bi];
             let d = &mut b.deliveries[*di];
@@ -2191,7 +2202,6 @@ async fn flush(
             single.deliveries = vec![b.deliveries[*di].clone()];
             single.channel = channel;
             single.target = Some(target.clone());
-            glyphs.push(glyph(&b.deliveries[*di]));
             if let Some(r) = reserved
                 .iter_mut()
                 .find(|r| r.thread_id == b.thread_id && r.turn_id == b.turn_id)
@@ -2201,7 +2211,8 @@ async fn flush(
                 reserved.push(single);
             }
         }
-        batches.push((reserved, doorbell(glyphs)));
+        let body = task_doorbell(&reserved);
+        batches.push((reserved, body));
     }
     // Charge before reserving event records: a crash may lose one token, but
     // never duplicates an event or permits an uncharged burst after restart.
@@ -2302,7 +2313,7 @@ async fn flush(
                     state.save(dir)?;
                     continue;
                 }
-                body = doorbell(batch.iter().flat_map(|b| b.deliveries.iter().map(glyph)));
+                body = task_doorbell(&batch);
             }
             let breaker = state.targets.iter().any(|t| {
                 t.source_id == batch[0].source_id
@@ -5196,6 +5207,38 @@ pub(crate) mod tests {
             assert_eq!(
                 inbox["events"][0]["continuation"],
                 json!({"turnId":"resumed-turn","state":state})
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn titled_completion_push_identifies_each_task() {
+        // Regression: ax-7718b0e3 the push body discarded task identity before the session renderer received it.
+        let dir = Sandbox::new();
+        let mut first = fixture(&dir.0);
+        first.title = "Explicit task title".into();
+        first.thread_title = "Renamed task title".into();
+        persist(&dir.0, &first).unwrap();
+        let fake = Fake::success();
+        process(
+            &fake,
+            &dir.0,
+            &mut first,
+            &json!({"state":"completed","finalResponse":"result"}),
+        )
+        .await
+        .unwrap();
+        let mut second = first.clone();
+        second.thread_id = "second-thread".into();
+        second.title = "Second title".into();
+        second.thread_title.clear();
+        let body = task_doorbell(&[first.clone(), second.clone()]);
+        for binding in [&first, &second] {
+            assert!(body.contains(task_title(binding)));
+            assert!(body.contains(&binding.thread_id));
+            assert_eq!(
+                event(binding, &binding.deliveries[0])["title"],
+                task_title(binding)
             );
         }
     }
