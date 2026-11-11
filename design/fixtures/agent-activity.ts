@@ -23,6 +23,8 @@ export const agentHistory = [
   { heading: "今天 · 3", tasks: [1, 2, 3], date: "1月1日" },
   { heading: "昨天 · 1", tasks: [4], date: "2025年12月31日" },
 ];
+export const shortAgentHistory = [{ heading: "今天 · 1", tasks: [1], date: "1月1日" }];
+export const agentHistoryLoading = "正在加载…";
 
 export const agentRowExample = { titlePrefix: "Review project change", project: "acceptance" };
 

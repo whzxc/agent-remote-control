@@ -227,7 +227,7 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 
 | Source | Declared frames | Implementation owner | Remaining gap / capture notes |
 | --- | --- | --- | --- |
-| `surfaces/agent-panel.tsx` | `empty`, `overview` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Existing captures reach account history. |
+| `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading` | `ui/components/AgentPanel.tsx` | Proposed. Overview height follows content within the available viewport, with a fixed header and scrolling body at the cap. The short and loading forms await runtime adoption and fixture captures. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed and adopted. Runtime geometry follows topology. The native specimen remains unreachable through the current fixture route. |
 
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
@@ -392,7 +392,7 @@ Task selection follows [AgentConversations](../../ui/components/AgentConversatio
 
 The MCP hub uses the full workspace height ([UI conventions](ui.md#experimental-mcp-hub)); a taller viewport exposes its service list. Its current shell height follows the viewport, so the older content-fit sizes (662, 912 and 432px) are not current capture-size requirements. Agent platform and task-detail shells likewise follow [topology panel geometry](../../ui/topology/Topology.tsx); their width is not fixed to the frame's 480 or 640px. Compare these differences as layout findings rather than selecting another panel or resizing the DOM.
 
-Full-content frames in `agent-panel/overview`, `coordination/current`, `settings/about`, `settings/display` and `source-panel/history` can exceed the scroll viewport. The explicit heights provide room for their content; inspect remaining scroll content during browser acceptance. sdg waits for stable target text after clicks and reports `settled`; this does not guarantee that an asynchronous domain state has arrived. The `board-unavailable` preparation explicitly waits for its error before capture, following [coordination acceptance](../../tooling/acceptance/coordination.mjs).
+Full-content frames in `coordination/current`, `settings/about`, `settings/display` and `source-panel/history` can exceed the scroll viewport. The explicit heights provide room for their content; inspect remaining scroll content during browser acceptance. sdg waits for stable target text after clicks and reports `settled`; this does not guarantee that an asynchronous domain state has arrived. The `board-unavailable` preparation explicitly waits for its error before capture, following [coordination acceptance](../../tooling/acceptance/coordination.mjs).
 
 Pet preview atlas labels are decorative image content inside `aria-hidden` previews; review them as shapes in the overlay.
 
