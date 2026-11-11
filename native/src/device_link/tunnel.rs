@@ -153,7 +153,7 @@ impl Manager {
         Ok(device.clone())
     }
     pub(crate) async fn tunnel_http(&self, request: Request<Incoming>) -> Result<Value> {
-        let started = Instant::now();
+        let started = tokio::time::Instant::now();
         let mut closed = self.closed.subscribe();
         self.identity()?;
         let path = request.uri().path().to_owned();
@@ -186,14 +186,12 @@ impl Manager {
         // Relay uploads advance one 32 KiB chunk per credit round trip. Bound
         // inactivity, not total upload time, within the original request deadline.
         // Auth bodies fit one relay chunk and retain their five-second total cap.
-        let body_deadline = tokio::time::Instant::from_std(
-            started
-                + if device.is_some() {
-                    DEADLINE
-                } else {
-                    Duration::from_secs(5)
-                },
-        );
+        let body_deadline = started
+            + if device.is_some() {
+                DEADLINE
+            } else {
+                Duration::from_secs(5)
+            };
         let mut incoming = Limited::new(request.into_body(), limit);
         let mut bytes = Vec::new();
         loop {

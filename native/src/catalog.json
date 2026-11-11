@@ -9679,7 +9679,7 @@
     },
     {
       "name": "device_transfer",
-      "description": "Stream a file between this controller and one online member. Omit device on the controller endpoint. Requires device-link enabled. LAN binary HTTP/2 streams have no file size limit beyond free disk space. Tunnel uses verified 512 KiB ranges. The receiver verifies SHA-256 and publishes atomically. Existing destinations require overwrite:true. Returns one progress receipt with bytes, total, destination path and bytes/second rate. Repeating a requestId reads the receipt and never transmits again. Explicit action:resume continues from the receiver verified offset; action:cancel deletes the temporary file. Bytes never pass through a control source. Read the next receipt action while pending.",
+      "description": "Stream a file between this controller and one online member. Omit device on the controller endpoint. Requires device-link enabled. LAN binary HTTP/2 streams have no file size limit beyond free disk space. Tunnel uses sequential verified 64 KiB ranges in both directions within the 25-second request deadline. The receiver verifies SHA-256 and publishes atomically. Existing destinations require overwrite:true. Returns one progress receipt with bytes, total, destination path and bytes/second rate. Repeating a requestId reads the receipt and never transmits again. Explicit action:resume continues from the receiver verified offset; action:cancel deletes the temporary file. Bytes never pass through a control source. Read the next receipt action while pending.",
       "inputSchema": {
         "type": "object",
         "properties": {

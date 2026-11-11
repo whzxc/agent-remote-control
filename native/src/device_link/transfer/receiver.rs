@@ -5,7 +5,10 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 pub(super) const BLOCK: usize = 256 * 1024;
 pub(super) const LAN_RANGE: u64 = 16 * 1024 * 1024;
-pub(super) const TUNNEL_RANGE: u64 = 512 * 1024;
+// Small scheduled ranges bound both upload and download credit round trips.
+pub(super) const TUNNEL_RANGE: u64 = 64 * 1024;
+// Retain the peer wire limit for controllers running earlier versions.
+pub(super) const TUNNEL_CAP: u64 = 512 * 1024;
 
 pub(super) fn resolve(path: &str) -> Result<PathBuf> {
     let path = Path::new(path);

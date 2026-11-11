@@ -696,9 +696,10 @@ An unreachable remote receiver leaves cancellation pending in a failed receipt;
 repeat cancel after the member is reachable. `action:"read"` also reads the receipt.
 
 File bytes travel directly between hosts. LAN uses dedicated HTTP/2 binary routes,
-256 KiB stream blocks and verified ranges up to 16 MiB. Tunnel ranges contain at
-most 512 KiB decoded bytes, with a SHA-256 per range, within the 1 MiB request and
-4 MiB response caps and 25-second range deadline. Application and transport buffers
+256 KiB stream blocks and verified ranges up to 16 MiB. Tunnel transfers schedule
+sequential ranges of at most 64 KiB decoded bytes in both directions, with a
+SHA-256 per range, within the 1 MiB request and 4 MiB response caps and 25-second
+range deadline. Peer routes accept up to 512 KiB per range. Application and transport buffers
 are bounded to 16 MiB per transfer; neither path buffers the complete file.
 LAN has no ARC file-size cap beyond available disk space. The receiver preflights
 free space, streams SHA-256 to a sibling temporary file, verifies `expectedSha256`

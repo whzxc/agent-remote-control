@@ -1,3 +1,5 @@
+#[path = "relay_fixture.rs"]
+mod relay_fixture;
 use super::*;
 use receiver::*;
 struct Fixture {
@@ -720,5 +722,172 @@ async fn relay_multichunk_upload_does_not_expire_peer_body_deadline() {
     assert_eq!(std::fs::read(&destination).unwrap(), data);
     listener.abort();
     let _ = listener.await;
+    network.stop().await;
+}
+
+#[tokio::test]
+async fn relay_six_hundred_kb_survives_two_second_credit_rtt_in_both_directions() {
+    // Regression: 600 KB relay transfer fails at the 25 s deadline with approximately 2 s credit RTT.
+    if isolated("device_link::transfer::tests::relay_six_hundred_kb_survives_two_second_credit_rtt_in_both_directions").await { return; }
+    let network = Network::new().await;
+    let mut relay = relay_fixture::Relay::new(&network.member).await;
+    let session = super::super::tunnel::Client::default();
+    let (url, token) = session
+        .prepare(&network.identity, &network.device, &relay.url)
+        .await
+        .unwrap();
+    let link = wire::Link::Tunnel {
+        url,
+        token,
+        closed: session.subscribe(),
+    };
+    // Measure the real native TCP/WebSocket and ingress hops before adding delay.
+    let source = network.directory.join("relay-source");
+    let sha = synthetic(&source, 600_000);
+    let warm_size = 512 * 1024;
+    let warm = id();
+    let warm_path = network.directory.join("relay-warm");
+    link.control(
+        json!({"action":"begin","requestId":warm,"spec":{"path":warm_path,"total":warm_size}}),
+    )
+    .await
+    .unwrap();
+    link.upload(&warm, &source, 0, warm_size).await.unwrap();
+    link.control(json!({"action":"commit","requestId":warm}))
+        .await
+        .unwrap();
+    let stamp = link
+        .control(json!({"action":"stat","path":warm_path}))
+        .await
+        .unwrap();
+    let store = Store::default();
+    let received = id();
+    let directory = network.directory.join("relay-receivers");
+    let warm_download = network.directory.join("relay-warm-download");
+    store
+        .begin(
+            &directory,
+            &received,
+            json!({"path":warm_download,"total":warm_size}),
+        )
+        .await
+        .unwrap();
+    let entry = store.get(&directory, &received).await.unwrap();
+    link.download(
+        &received,
+        warm_path.to_str().unwrap(),
+        &stamp,
+        &mut *entry.lock().await,
+        warm_size,
+    )
+    .await
+    .unwrap();
+    entry.lock().await.commit().unwrap();
+    {
+        let metrics = relay.metrics.lock().unwrap();
+        for (direction, samples) in [
+            ("request", &metrics.upload),
+            ("response", &metrics.download),
+        ] {
+            let max = samples.iter().max().unwrap();
+            let mean = samples.iter().sum::<Duration>() / samples.len() as u32;
+            eprintln!("Native {direction} credit over loopback TCP: {} samples, mean {mean:?}, max {max:?}",samples.len());
+            assert!(
+                *max < Duration::from_millis(500),
+                "Native {direction} credit stalled: {max:?}"
+            );
+        }
+    }
+    // Keep the runtime runnable so only observed relay credits advance time.
+    tokio::time::pause();
+    let clock = tokio::spawn(async {
+        loop {
+            tokio::task::yield_now().await;
+        }
+    });
+    *relay.delay.lock().unwrap() = Duration::from_secs(2);
+    let request = id();
+    let destination = network.directory.join("relay-upload");
+    link.control(json!({"action":"begin","requestId":request,"spec":{"path":destination,"total":600_000,"expectedSha256":sha}})).await.unwrap();
+    let mut offset = 0;
+    let mut upload_time = Duration::ZERO;
+    let mut max_upload = Duration::ZERO;
+    while offset < 600_000 {
+        let length = link.range().min(600_000 - offset);
+        let started = tokio::time::Instant::now();
+        let meta = link
+            .upload(&request, &source, offset, length)
+            .await
+            .unwrap();
+        let elapsed = started.elapsed();
+        assert!(elapsed < Duration::from_secs(20));
+        upload_time += elapsed;
+        max_upload = max_upload.max(elapsed);
+        offset += length;
+        assert_eq!(meta["offset"], offset);
+        // Resume uses the acknowledged offset under the same request ID.
+        assert_eq!(
+            link.control(json!({"action":"status","requestId":request}))
+                .await
+                .unwrap()["offset"],
+            offset
+        );
+    }
+    assert_eq!(
+        link.control(json!({"action":"commit","requestId":request}))
+            .await
+            .unwrap()["sha256"],
+        sha
+    );
+    assert_eq!(
+        std::fs::read(&destination).unwrap(),
+        std::fs::read(&source).unwrap()
+    );
+    let downloaded = network.directory.join("relay-download");
+    let request = id();
+    store
+        .begin(
+            &directory,
+            &request,
+            json!({"path":downloaded,"total":600_000,"expectedSha256":sha}),
+        )
+        .await
+        .unwrap();
+    let stamp = link
+        .control(json!({"action":"stat","path":destination}))
+        .await
+        .unwrap();
+    let entry = store.get(&directory, &request).await.unwrap();
+    let mut receiver = entry.lock().await;
+    let mut download_time = Duration::ZERO;
+    let mut max_download = Duration::ZERO;
+    while receiver.offset() < 600_000 {
+        let length = link.range().min(600_000 - receiver.offset());
+        let started = tokio::time::Instant::now();
+        link.download(
+            &request,
+            destination.to_str().unwrap(),
+            &stamp,
+            &mut receiver,
+            length,
+        )
+        .await
+        .unwrap();
+        let elapsed = started.elapsed();
+        assert!(elapsed < Duration::from_secs(20));
+        download_time += elapsed;
+        max_download = max_download.max(elapsed);
+    }
+    assert_eq!(receiver.commit().unwrap()["sha256"], sha);
+    assert_eq!(
+        std::fs::read(&downloaded).unwrap(),
+        std::fs::read(&source).unwrap()
+    );
+    eprintln!("Injected 2 s credit RTT, 600000 bytes each direction: upload max range {max_upload:?}, {:.0} B/s; download max range {max_download:?}, {:.0} B/s",600_000.0/upload_time.as_secs_f64(),600_000.0/download_time.as_secs_f64());
+    *relay.delay.lock().unwrap() = Duration::ZERO;
+    clock.abort();
+    let _ = clock.await;
+    tokio::time::resume();
+    relay.stop().await;
     network.stop().await;
 }

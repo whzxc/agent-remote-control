@@ -148,7 +148,7 @@ pub(super) async fn control(
     }
     Ok(value)
 }
-async fn upgrade(
+pub(crate) async fn upgrade(
     client: &reqwest::Client,
     origin: &str,
     instance_id: &str,

@@ -5,7 +5,7 @@ use hyper::{
     body::{Bytes, Frame, Incoming},
     Request, Response,
 };
-use receiver::{BLOCK, LAN_RANGE, TUNNEL_RANGE};
+use receiver::{BLOCK, LAN_RANGE, TUNNEL_CAP, TUNNEL_RANGE};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek, SeekFrom};
 pub(crate) type Body = http_body_util::combinators::UnsyncBoxBody<Bytes, std::io::Error>;
@@ -133,7 +133,7 @@ impl Link {
                 .await
             }
             Self::Tunnel { .. } => {
-                let bytes = read_range(path, offset, length, TUNNEL_RANGE)?;
+                let bytes = read_range(path, offset, length, TUNNEL_CAP)?;
                 self.control(json!({"action":"put","requestId":request,"offset":offset,"sha256":receiver::digest(&bytes),"data":base64::engine::general_purpose::STANDARD.encode(&bytes)})).await
             }
         }
@@ -269,7 +269,7 @@ impl Manager {
                 &path,
                 body["offset"].as_u64().ok_or("INVALID_ARGUMENT")?,
                 body["length"].as_u64().ok_or("INVALID_ARGUMENT")?,
-                TUNNEL_RANGE,
+                TUNNEL_CAP,
             )?;
             return Ok(
                 json!({"data":base64::engine::general_purpose::STANDARD.encode(&bytes),"sha256":receiver::digest(&bytes)}),
@@ -300,7 +300,7 @@ impl Manager {
                 let data = base64::engine::general_purpose::STANDARD
                     .decode(string(&body, "data"))
                     .map_err(|e| e.to_string())?;
-                if data.len() > TUNNEL_RANGE as usize {
+                if data.len() > TUNNEL_CAP as usize {
                     return Err("DEVICE_TUNNEL_LIMIT: upload range exceeds 512 KiB".into());
                 }
                 let range = receiver::Range::new(&mut receiver);

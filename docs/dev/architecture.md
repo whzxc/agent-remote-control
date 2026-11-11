@@ -111,8 +111,12 @@ forwarding capability.
 
 Tunnel POST `/arc-peer/3/transfer/control` uses the existing challenge/session
 authentication and deadlines. It carries stat, begin, status, put, get, commit and
-cancel actions. Each put/get contains at most 512 KiB decoded bytes and a SHA-256;
-base64 and envelopes fit the existing 1 MiB request and 4 MiB response caps.
+cancel actions. The controller schedules sequential put/get ranges of at most
+64 KiB decoded bytes to bound stop-and-wait relay credit round trips within each
+25-second deadline. Receivers require the next verified offset and accumulate
+SHA-256 in order. Peer routes continue accepting up to 512 KiB per range.
+Each range includes a SHA-256; base64 and envelopes fit the existing 1 MiB request
+and 4 MiB response caps.
 The controller refreshes cached tunnel credentials before expiry between ranges.
 Each attempt holds one shared member business-request slot, keeps its admitted
 transport and never retries a failed write.

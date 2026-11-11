@@ -160,7 +160,8 @@ binary body with `x-arc-request`, `x-arc-offset` and `x-arc-length` headers.
 Both binary directions end with an `x-arc-sha256` trailer for the range. Ranges
 are at most 16 MiB and stream in 256 KiB blocks. Tunnel uses only `control`,
 adding put/get actions with base64 data and a range SHA-256; decoded ranges
-are at most 512 KiB within the existing caps and deadlines.
+are sequential and at most 64 KiB in both directions within the existing caps
+and 25-second request deadline. Peer routes accept up to 512 KiB per range.
 
 Read [Device link tools](tools.md#device-link) for forwarding and receipt contracts.
 
