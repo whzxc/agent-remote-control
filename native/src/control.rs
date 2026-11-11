@@ -1143,6 +1143,17 @@ impl Control {
             }
             return Ok(out);
         }
+        if method == "command/exec" {
+            let mut result = self
+                .request_inner(method, args.clone(), timeout, false)
+                .await?;
+            if cfg!(target_os = "macos") {
+                if let Some(hint) = crate::shell_command::local_network_hint(&result, &args) {
+                    result["networkHint"] = hint;
+                }
+            }
+            return Ok(result);
+        }
         self.request_inner(method, args, timeout, false).await
     }
     async fn request_inner(

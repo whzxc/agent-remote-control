@@ -490,6 +490,14 @@ Manage only the selected instance. An app restart/quit can stop the CLI's own ho
 
 For the bundled Desktop launch chain, grant Full Disk Access to ARC App: Core and its Codex app-server children inherit that responsible application. A standalone Core launched by a terminal can instead inherit that terminal's identity; its probe does not prove the App is ready.
 
+### macOS local network command limits
+
+`command` forwards execution to the Codex App Server, which starts the user's shell. ARC retains the native sandbox and permission defaults. The bundled launch chain normally attributes helper network operations to Agent Remote Control. Detached hosts and standalone launches can retain another responsible identity. macOS records Local Network access for that responsible code. An enabled ARC entry can coexist with a denied third-party child under the native execution policy.
+
+On macOS, a command result containing `EHOSTUNREACH` and a private or link-local address includes `networkHint` with code `MACOS_LOCAL_NETWORK_ACCESS`. It identifies Local Network privacy and the inherited native sandbox as likely causes and names the responsible application for the bundled launch chain.
+
+Compare the same target with `/usr/bin/curl`, inspect the responsible application's Local Network setting and native command permissions, and use Terminal for an authorized command when needed. ARC cannot grant Local Network permission or determine a child process's effective permission from a general-purpose API. Results without a literal private address cannot receive this targeted hint. Apple's technote describes responsible-code attribution and the Terminal/SSH exception. [Apple TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)
+
 ### Tunnel dependency and error diagnostics
 
 Before starting an OpenAI Tunnel ingress, ARC checks the selected Tunnel Client
