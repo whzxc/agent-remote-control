@@ -442,7 +442,12 @@ impl WaitSource for CodexSource {
             let history = crate::control::persisted_history(&value["thread"]);
             reconcile_interruption(&mut value, &turn, history.as_deref().ok());
         }
-        let events = self.events.lock().await;
+        let mut events = self.events.lock().await;
+        crate::codex_progress::observe_snapshot(
+            &mut events.codex_activity,
+            &value["thread"],
+            &now(),
+        );
         // App-server agent messages may omit status. Only an explicit completion
         // event for this exact turn/item/text can confirm such a message.
         for turn in value["thread"]["turns"]
@@ -473,6 +478,7 @@ impl WaitSource for CodexSource {
             .filter(|r| r["params"]["threadId"] == self.thread)
             .cloned()
             .collect::<Vec<_>>();
+        crate::codex_progress::attach(&mut value["thread"], &events, self.turn.as_deref());
         drop(events);
         let origin = crate::kernel::origin::current_origin();
         for request in &mut pending {

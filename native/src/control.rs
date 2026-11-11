@@ -1154,6 +1154,17 @@ impl Control {
             }
             return Ok(result);
         }
+        if method == "thread/turns/list" {
+            let result = self
+                .request_inner(method, args.clone(), timeout, false)
+                .await?;
+            crate::codex_progress::observe_snapshot(
+                &mut self.events.lock().await.codex_activity,
+                &json!({"id":args["threadId"],"turns":result["data"]}),
+                &now(),
+            );
+            return Ok(result);
+        }
         self.request_inner(method, args, timeout, false).await
     }
     async fn request_inner(
@@ -1448,17 +1459,27 @@ impl Control {
             .as_str()
             .or(receipt["result"]["turnId"].as_str());
         if let (Some(thread), Some(turn)) = (thread, turn) {
-            if let Ok(Ok(metadata)) = tokio::time::timeout(
+            if let Ok(Ok(mut metadata)) = tokio::time::timeout(
                 Duration::from_secs(2),
                 self.request(
                     "thread/read",
-                    json!({"threadId":thread,"includeTurns":false}),
+                    json!({"threadId":thread,"includeTurns":true}),
                     2000,
                 ),
             )
             .await
             {
                 if metadata["thread"]["status"]["type"] == "active" {
+                    crate::codex_progress::observe_snapshot(
+                        &mut self.events.lock().await.codex_activity,
+                        &metadata["thread"],
+                        &now(),
+                    );
+                    crate::codex_progress::attach(
+                        &mut metadata["thread"],
+                        &*self.events.lock().await,
+                        Some(turn),
+                    );
                     let mut status = json!({"state":"running","turnId":turn});
                     crate::codex_progress::apply(&mut status, &metadata["thread"]);
                     crate::codex_progress::project(&mut receipt, &status["progress"]);
@@ -2785,6 +2806,11 @@ impl Control {
                         .await?["thread"]
                         .clone();
                 }
+                crate::codex_progress::attach(
+                    &mut t,
+                    &*self.events.lock().await,
+                    args["turnId"].as_str(),
+                );
                 if args["view"] == "summary"
                     || (args["statusOnly"] == true && args["turnId"].is_string())
                 {
@@ -2793,6 +2819,11 @@ impl Control {
                     turns.reverse();
                     let mut native = t.clone();
                     native["turns"] = json!(turns);
+                    crate::codex_progress::attach(
+                        &mut native,
+                        &*self.events.lock().await,
+                        args["turnId"].as_str(),
+                    );
                     let pending = self
                         .events
                         .lock()
@@ -2887,6 +2918,11 @@ impl Control {
                     turns.reverse();
                     let mut native = t.clone();
                     native["turns"] = json!(turns);
+                    crate::codex_progress::attach(
+                        &mut native,
+                        &*self.events.lock().await,
+                        args["turnId"].as_str(),
+                    );
                     let pending = self
                         .events
                         .lock()
@@ -2900,7 +2936,15 @@ impl Control {
                         &mut None,
                     );
                     crate::claude_notify::record_conflict(&status, &lifecycle).await;
-                    for key in ["state", "reason", "turnId", "recordedStatus"] {
+                    for key in [
+                        "state",
+                        "reason",
+                        "turnId",
+                        "recordedStatus",
+                        "progressStalled",
+                        "progress",
+                        "next",
+                    ] {
                         result[key] = status[key].clone();
                     }
                     result["stateScope"] = json!("turn");

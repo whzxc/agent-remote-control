@@ -208,16 +208,12 @@ pub(crate) async fn progress(c: &control::Control, thread: &str, metadata: &Valu
                 .collect();
             let mut native = metadata.clone();
             native["turns"] = json!([turn]);
+            crate::codex_progress::attach(&mut native, &events, Some(string(turn, "id")));
             let snapshot =
                 crate::waiter::classify(&json!({"thread":native,"pending":pending}), &mut None);
-            let mut progress = progress_from_turn(
-                turn,
-                snapshot["progress"]["pendingInteractionCount"]
-                    .as_u64()
-                    .map(|n| n as usize),
-            );
+            let mut progress = snapshot["progress"].clone();
             progress["pendingInteractions"] = snapshot["progress"]["pendingInteractions"].clone();
-            progress["status"] = json!({"state":snapshot["state"],"reason":snapshot["reason"],"turnId":snapshot["turnId"],"recordedStatus":snapshot["recordedStatus"],"runtimeStatus":snapshot["runtimeStatus"]});
+            progress["status"] = json!({"state":snapshot["state"],"reason":snapshot["reason"],"turnId":snapshot["turnId"],"recordedStatus":snapshot["recordedStatus"],"runtimeStatus":snapshot["runtimeStatus"],"progressStalled":snapshot["progressStalled"],"next":snapshot["next"]});
             progress
         }
         _ => {

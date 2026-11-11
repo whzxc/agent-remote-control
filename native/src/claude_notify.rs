@@ -772,10 +772,12 @@ fn transitions(b: &mut Binding, observed: &Value, native_terminal: bool) -> Vec<
     }
     if turn == TurnState::Active {
         b.waiting.clear();
-        if observed["progressStalled"] == true
-            && !b.deliveries.iter().any(|d| d.key == "progress-stalled")
-        {
-            return vec![("progress-stalled".into(), "stalled".into())];
+        let stall_key = format!(
+            "progress-stalled:{}",
+            string(&observed["progress"]["evidence"], "lastActivityAt")
+        );
+        if observed["progressStalled"] == true && !b.deliveries.iter().any(|d| d.key == stall_key) {
+            return vec![(stall_key, "stalled".into())];
         }
     }
     if turn != TurnState::AwaitingInteraction {
@@ -1263,9 +1265,11 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         }
     }
     for delivery in &mut b.deliveries {
-        if delivery.key == "progress-stalled"
+        if delivery.key.starts_with("progress-stalled")
             && delivery.status == "pending"
-            && observation["progressStalled"] != true
+            && (observation["progressStalled"] != true
+                || delivery.progress["evidence"]["lastActivityAt"]
+                    != observation["progress"]["evidence"]["lastActivityAt"])
             && observation["state"] != "unconfirmed"
         {
             delivery.status = "resolved".into();

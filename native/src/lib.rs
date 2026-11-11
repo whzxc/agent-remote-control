@@ -292,6 +292,8 @@ fn decode_command_output(bytes: &[u8]) -> String {
 }
 #[derive(Default)]
 pub struct Events {
+    pub(crate) codex_activity:
+        std::collections::HashMap<(String, String), codex_progress::Activity>,
     pub(crate) timelines: std::collections::HashMap<String, task_tracking::Timeline>,
     pub wake: Arc<tokio::sync::Notify>,
     pub rows: Vec<Value>,
@@ -352,6 +354,7 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
     }
     let at = now();
     let durable = e.durable;
+    codex_progress::observe(&mut e.codex_activity, method, &params, &at);
     task_tracking::observe(&mut e.timelines, session, method, &params, &at, durable);
     if !durable {
         let pending: Vec<_> = e.pending.values().cloned().collect();

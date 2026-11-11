@@ -3,7 +3,7 @@
 flowchart TB
   bind["Binding<br/>thread · turn · target"] --> observe["Observer<br/>reads owner and rollout"]
   observe --> lifecycle["turn_lifecycle"]
-  observe --> progress["Native progress diagnostic<br/>6 min · unchanged counts spanning 5 min"]
+  observe --> progress["Native progress diagnostic<br/>3 min without native activity<br/>excludes in-progress tools"]
   progress -->|"stalled"| delivery
   lifecycle -->|"terminal or needs-input"| delivery["Delivery: pending"]
   lifecycle -.->|"always"| inbox["Ingress inbox<br/>arcInbox · inbox_wait"]
