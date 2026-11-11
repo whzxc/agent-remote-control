@@ -1,6 +1,6 @@
 import { Card } from "./card";
 import { SingleChoice } from "./single-choice";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Switch } from "./switch";
 import { example } from "../fixtures/settings-controls";
 export function Setting({

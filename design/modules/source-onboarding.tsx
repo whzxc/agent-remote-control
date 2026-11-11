@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
 import { SingleChoice } from "../components/single-choice";
 import { SetupChoice } from "../components/setup-choice";

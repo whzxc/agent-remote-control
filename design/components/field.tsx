@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { fieldForms } from "../fixtures/inputs";
 
 export function Input({

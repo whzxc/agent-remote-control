@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import ArcMarkArt from "../art/arc-mark.svg";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";

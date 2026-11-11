@@ -4,7 +4,7 @@
 
 TSX sources in `design/` define ARC's visual direction. React implementations follow approved sources. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-The [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md) govern asset placement, ownership, naming, fixture separation and lifecycle. The [toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global SDG CLI **>=0.5.0**, as required by `sdg.config.mjs`; ARC does not depend on the toolkit at runtime.
+The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) govern asset placement, ownership, naming, fixture separation and lifecycle. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global ADG CLI **>=0.5.0**, as required by `adg.config.mjs`; ARC does not depend on the toolkit at runtime.
 
 ## Presentation forms
 
@@ -24,12 +24,12 @@ Remote recovery retries the remote check or restarts only the affected remote co
 
 ## Ownership and project configuration
 
-SDG discovers `components`, `modules` and `surfaces` in that order. The [mapping](design-assets.md) owns per-part feature responsibility, implementation counterparts, review/adoption status and retained exceptions. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
+ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping](design-assets.md) owns per-part feature responsibility, implementation counterparts, review/adoption status and retained exceptions. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
 
 `modules/homepage-topology.tsx` owns TopologyScreen and Scene. Homepage node, mark, canvas, Board header and navigation parts live in their defining modules. `fixtures/topology.ts` owns scene records; `fixtures/topology-mobile.ts` owns the narrow layout. Type-only references point to the defining visual owner. All production compositions participate in default discovery.
 
 
-`design/tsconfig.json` resolves generated declarations in ignored `design/.sdg/`. `sdg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`.
+`design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`.
 
 ## Review and adoption
 
@@ -39,9 +39,9 @@ Codex proposes and implements each batch. The current control source reviews own
 
 For user-assigned autonomous governance, pixel-only crop differences with matching snapshots may remain Known gaps while work continues. Existing render changes and checks that cannot be fixed structurally remain stop conditions.
 
-Work on one cohesive family, feature module or composed surface at a time. The active scope and queued responsibilities are in the mapping. Before editing, render affected frames from the batch base commit in a disposable copy outside the checkout and report its path. After editing, run `sdg check`, render and inspect every affected frame in both themes, and compare each with its baseline. Token edits include all dependent frames. A structural comparison uses decoded pixel equality, including dimensions. Implementation comparison uses the fixture/capture adapter described in the mapping.
+Work on one cohesive family, feature module or composed surface at a time. The active scope and queued responsibilities are in the mapping. Before editing, render affected frames from the batch base commit in a disposable copy outside the checkout and report its path. After editing, run `adg check`, render and inspect every affected frame in both themes, and compare each with its baseline. Token edits include all dependent frames. A structural comparison uses decoded pixel equality, including dimensions. Implementation comparison uses the fixture/capture adapter described in the mapping.
 
-Commit the scoped changes with a single-line Conventional Commits subject and inspect `git show --stat HEAD` for unrelated files. For visual differences or open decisions, open `sdg open <lane>/design --port=<free-port>` and provide the gallery URL; do not use port 4310. Keep review evidence in ignored output or an external disposable directory. Update current mapping/status at each batch boundary. Implementation edits and runtime acceptance require their own assigned scope.
+Commit the scoped changes with a single-line Conventional Commits subject and inspect `git show --stat HEAD` for unrelated files. For visual differences or open decisions, open `adg open <lane>/design --port=<free-port>` and provide the gallery URL; do not use port 4310. Keep review evidence in ignored output or an external disposable directory. Update current mapping/status at each batch boundary. Implementation edits and runtime acceptance require their own assigned scope.
 
 ## Implementation checklist
 

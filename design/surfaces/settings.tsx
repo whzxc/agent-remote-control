@@ -7,7 +7,7 @@ import { Agents, AgentDetail } from "../modules/agent-settings";
 
 import { GeneralSettings } from "../modules/general-settings";
 
-import { Frame } from "sdg";
+import { Frame } from "adg";
 
 
 

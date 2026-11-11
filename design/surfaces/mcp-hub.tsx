@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { McpHub } from "../modules/mcp-service";
 export default () =>
   ["ready", "failed", "empty"].map((name) => (

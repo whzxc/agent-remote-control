@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { TopologyScene, type ScenePath } from "./topology-scene";
 import { TopologyNode } from "./topology-node";
 import { TopologyGroup } from "./topology-group";

@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { Button } from "../components/button";

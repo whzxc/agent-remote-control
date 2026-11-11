@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { OnboardingShell } from "../modules/onboarding";
 import { Welcome } from "../modules/welcome";
 import { SourceOnboarding } from "../modules/source-onboarding";

@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Button } from "../components/button";
 import { SingleChoice } from "../components/single-choice";
 import { CopyField } from "../components/copy-field";

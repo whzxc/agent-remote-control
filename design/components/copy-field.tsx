@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { IconButton } from "./icon-button";
 import { copyFieldExample } from "../fixtures/inputs";
 

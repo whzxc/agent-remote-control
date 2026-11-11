@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { IconButton } from "../components/icon-button";
 import { CopyField } from "../components/copy-field";
 import { Tile } from "../components/tile";

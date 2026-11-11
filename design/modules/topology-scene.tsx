@@ -1,5 +1,5 @@
 import { example } from "../fixtures/topology-scene";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { BoardHeader } from "./board-header";
 
 export type SceneItem = { x: number; y: number; anchor?: "right"; content: unknown };

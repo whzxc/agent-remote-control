@@ -11,7 +11,7 @@ The Agent platform and quota assets use synthetic data from `fixtures/agent-acco
 | `modules/agent-account-add.tsx` / `claude-add`, `reauth`, `reauth-waiting`, `reauth-expired` | `ui/components/AgentAccountAdd.tsx` | Shared login dialog with local Chrome profile selection on desktop. Claude accepts a manual authorization code when required. |
 | `modules/quota.tsx` / `quota-card-healthy`, `quota-card-warning`, `quota-card-exhausted` | `ui/components/ui/QuotaCard.tsx`, `ui/components/AgentQuota.tsx`, `ui/subscriptions/QuotaBubble.tsx` | Platform cards, account history and subscription surfaces share a window card. Reset and pace details and display preferences apply in each. |
 
-[Governance and direction](design.md) · [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md#adopting-an-existing-project)
+[Governance and direction](design.md) · [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md#adopting-an-existing-project)
 
 ## Status conventions and scope
 
@@ -25,7 +25,7 @@ Quota health uses `--success` for healthy readings, bars and rings, including ac
 
 ## Owners, parts and consumers
 
-Paths in the tables are relative to `design/`, unless prefixed with `ui/`. Implementation entries identify source counterparts; fidelity review is pending. Direct design users appear per part below. Transitive consumers follow those sources' imports into the surface table; homepage imports through `modules/homepage-topology` are included explicitly. Same-source composition and runtime usage are stated where no external design consumer exists. `GET /relationships` in the SDG viewer exposes the production graph. All production compositions participate in default discovery.
+Paths in the tables are relative to `design/`, unless prefixed with `ui/`. Implementation entries identify source counterparts; fidelity review is pending. Direct design users appear per part below. Transitive consumers follow those sources' imports into the surface table; homepage imports through `modules/homepage-topology` are included explicitly. Same-source composition and runtime usage are stated where no external design consumer exists. `GET /relationships` in the ADG viewer exposes the production graph. All production compositions participate in default discovery.
 
 Generic sources live in `components/`; feature sources live in `modules/`. The owner column assigns current responsibility. The Frames column lists current source frames, including combined frames that still need per-part coverage.
 
@@ -166,7 +166,7 @@ Generic sources live in `components/`; feature sources live in `modules/`. The o
 
 `fixtures/inputs.ts` owns the existing field values/errors, masked copy value, search placeholder and switch state examples. All five parts stay in their generic component sources and retain named exports and importer paths. `field.tsx` is multi-part: `field` and `field-error` own labeled compositions; `input` and `input-error` crop the same input content into independent part frames. Field and Input each own their default/error content under part-prefixed frame names. These component frames have no implementation captures; mapped surface frames declare the implementation fixture/capture targets.
 
-Input and CopyField share `--field-padding-inline`; CopyField and Switch share `--control-inset`; SearchInput reuses `--control-gap`. Field/SearchInput icon dimensions use `--field-icon-size`; their numeric SDG Icon size remains 14 to preserve the toolkit's absolute stroke normalization. Field owns `--field-error-gap`. Switch owns its width, height, thumb size and radius tokens, and keeps a circular thumb with `rounded-full`. These values retain current geometry. Runtime token adoption and the source differences listed per part belong to implementation scope.
+Input and CopyField share `--field-padding-inline`; CopyField and Switch share `--control-inset`; SearchInput reuses `--control-gap`. Field/SearchInput icon dimensions use `--field-icon-size`; their numeric ADG Icon size remains 14 to preserve the toolkit's absolute stroke normalization. Field owns `--field-error-gap`. Switch owns its width, height, thumb size and radius tokens, and keeps a circular thumb with `rounded-full`. These values retain current geometry. Runtime token adoption and the source differences listed per part belong to implementation scope.
 
 ### Panel/card family support
 
@@ -355,16 +355,16 @@ Each file inherits its display rule and per-file budget from its class above. In
 
 ## Capture adapter and implementation gaps
 
-Surface TSX owns each scenario and capture target. See the [Frame contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#frame) and [compare commands](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#compare). `sdg.config.mjs` supplies ARC's prepared fixtures below. Unreachable proposals omit the fixture and retain their concrete gap here.
+Surface TSX owns each scenario and capture target. See the [Frame contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md#frame) and [compare commands](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md#compare). `adg.config.mjs` supplies ARC's prepared fixtures below. Unreachable proposals omit the fixture and retain their concrete gap here.
 
 ```sh
-sdg compare --all
-sdg compare surfaces/task-detail --frame=needs-you
+adg compare --all
+adg compare surfaces/task-detail --frame=needs-you
 ```
 
 Command flags override a frame's capture.
 
-The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and uses the scenario's theme and language with clock `2026-01-01T00:00:00Z`. Portrait fixtures use `timezone: 'Asia/Shanghai'`, matching `accept:ui`. Compare and browser acceptance run in the main checkout. The viewer opens independently with `sdg open design --port=<free-port>`; reserve port 4310 for other work.
+The adapter starts Vite with `vite.config.ts` on port 5188, blocks `/api/`, and uses the scenario's theme and language with clock `2026-01-01T00:00:00Z`. Portrait fixtures use `timezone: 'Asia/Shanghai'`, matching `accept:ui`. Compare and browser acceptance run in the main checkout. The viewer opens independently with `adg open design --port=<free-port>`; reserve port 4310 for other work.
 
 [A] Prepared fixtures use existing scenario data and public UI controls:
 
@@ -383,7 +383,7 @@ Task selection follows [AgentConversations](../../ui/components/AgentConversatio
 
 [B] `agent-platform/native` has no reachable state in the current scenarios. `antigravity-platform` has zero linked accounts. [selectAgentPanel](../../ui/state/overviewPanels.ts) converts native-only platforms with at most one account into Agent history, and [AgentPanel](../../ui/components/AgentPanel.tsx) enforces the same rule. The native empty card in `AgentPlatformView` cannot be reached through that route. Do not substitute the Antigravity history panel.
 
-[C] `modules/model-configuration/model-effort` owns the `timeline-multi-turn` fixture and its unchanged dialog selector, viewport and preparation clicks. [TaskDispatchDialog](../../ui/components/AgentDispatchDefaults.tsx) owns the model dialog. [ModelEffortPicker](../../ui/components/ModelEffortPicker.tsx) portals its picker and nested modal menu, which makes the underlying dialog aria-hidden. sdg reads an explicitly selected target inside hidden ancestors, so keep the dialog selector. The portal menu lies outside the dialog capture and is reviewed on the overlay only; its text is outside the captured target.
+[C] `modules/model-configuration/model-effort` owns the `timeline-multi-turn` fixture and its unchanged dialog selector, viewport and preparation clicks. [TaskDispatchDialog](../../ui/components/AgentDispatchDefaults.tsx) owns the model dialog. [ModelEffortPicker](../../ui/components/ModelEffortPicker.tsx) portals its picker and nested modal menu, which makes the underlying dialog aria-hidden. adg reads an explicitly selected target inside hidden ancestors, so keep the dialog selector. The portal menu lies outside the dialog capture and is reviewed on the overlay only; its text is outside the captured target.
 
 [D] `updates/settings` captures [AppUpdate](../../ui/components/AppUpdate.tsx) as the embedded About section. The fixture runs in a browser, where the desktop-only Check for updates button is disabled.
 
@@ -393,7 +393,7 @@ Task selection follows [AgentConversations](../../ui/components/AgentConversatio
 
 The MCP hub uses the full workspace height ([UI conventions](ui.md#experimental-mcp-hub)); a taller viewport exposes its service list. Its current shell height follows the viewport, so the older content-fit sizes (662, 912 and 432px) are not current capture-size requirements. Agent platform and task-detail shells likewise follow [topology panel geometry](../../ui/topology/Topology.tsx); their width is not fixed to the frame's 480 or 640px. Compare these differences as layout findings rather than selecting another panel or resizing the DOM.
 
-Full-content frames in `coordination/current`, `settings/about` and `settings/display` can exceed the scroll viewport. The explicit heights provide room for their content; inspect remaining scroll content during browser acceptance. sdg waits for stable target text after clicks and reports `settled`; this does not guarantee that an asynchronous domain state has arrived. The `board-unavailable` preparation explicitly waits for its error before capture, following [coordination acceptance](../../tooling/acceptance/coordination.mjs).
+Full-content frames in `coordination/current`, `settings/about` and `settings/display` can exceed the scroll viewport. The explicit heights provide room for their content; inspect remaining scroll content during browser acceptance. adg waits for stable target text after clicks and reports `settled`; this does not guarantee that an asynchronous domain state has arrived. The `board-unavailable` preparation explicitly waits for its error before capture, following [coordination acceptance](../../tooling/acceptance/coordination.mjs).
 
 Pet preview atlas labels are decorative image content inside `aria-hidden` previews; review them as shapes in the overlay.
 

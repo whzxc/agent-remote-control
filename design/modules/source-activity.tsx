@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { Tile, type TileTone } from "../components/tile";
 import { TaskRow } from "./task-presentation";
 import { sourceDispatches, sourceHistory, attentionGroupTitles } from "../fixtures/source-activity";

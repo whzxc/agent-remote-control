@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { Button } from "../components/button";
 import { ConnectionList } from "../modules/connection-management";

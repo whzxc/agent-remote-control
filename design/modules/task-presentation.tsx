@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { Tile, type TileTone } from "../components/tile";
 import type { Brand } from "../components/agent-icon";
 import { Tag } from "../components/tag";

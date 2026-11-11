@@ -1,6 +1,6 @@
 import { ThemeSwatch } from "./display-settings";
 import { copy, samples } from '../fixtures/general-settings';
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Panel } from "../components/panel";
 
 import { SettingLine } from "../components/settings-row";

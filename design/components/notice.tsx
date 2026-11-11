@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Button } from "./button";
 import { noticeExample } from "../fixtures/feedback";
 

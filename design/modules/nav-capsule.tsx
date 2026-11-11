@@ -1,5 +1,5 @@
 import { items } from "../fixtures/nav-capsule";
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 
 export function NavCapsule({
   items: entries = items,

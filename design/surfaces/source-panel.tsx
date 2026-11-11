@@ -1,5 +1,5 @@
 import { SourceConnectorSummary } from "../modules/connectors";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";

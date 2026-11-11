@@ -1,5 +1,5 @@
 import { copy } from '../fixtures/pets';
-import { Frame } from "sdg";
+import { Frame } from "adg";
 
 import { Card } from "../components/card";
 

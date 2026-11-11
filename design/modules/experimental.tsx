@@ -3,7 +3,7 @@ import { copy } from '../fixtures/experimental';
 
 
 import { SettingsToggleRows as ToggleRows } from "../components/settings-row";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Panel } from "../components/panel";
 import { Card } from "../components/card";
 import { IconButton } from "../components/icon-button";

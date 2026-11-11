@@ -1,6 +1,6 @@
 import { mobileCopy, mobileCopySamples } from "../fixtures/topology-mobile";
 import { sourceNodes, agentNodes, tasks, dispatch, paths } from "../fixtures/topology-mobile";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { TopologyScene } from "../modules/topology-scene";
 import { TopologyNode } from "../modules/topology-node";
 import { TopologyMark } from "../modules/topology-mark";

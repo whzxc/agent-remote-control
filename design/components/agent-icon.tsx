@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import ClaudeCodeArt from "../art/claude-code.svg";
 import CodexArt from "../art/codex.svg";
 import OpenaiArt from "../art/openai.svg";

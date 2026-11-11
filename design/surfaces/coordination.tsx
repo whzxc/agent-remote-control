@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { CoordinationBoard } from "../modules/board";
 import { boardFrames, boardCopy } from "../fixtures/board";
 

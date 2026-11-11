@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { SearchInput } from "../components/search";

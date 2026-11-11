@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { TaskTimeline } from "../modules/timeline";
 import { timelineForms } from "../fixtures/timeline";
 

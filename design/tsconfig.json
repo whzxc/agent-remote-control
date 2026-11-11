@@ -4,13 +4,13 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "jsxImportSource": "sdg",
+    "jsxImportSource": "adg",
     "noEmit": true,
     "strict": true,
     "paths": {
-      "sdg": ["./.sdg/runtime.d.ts"],
-      "sdg/jsx-runtime": ["./.sdg/runtime.d.ts"]
+      "adg": ["./.adg/runtime.d.ts"],
+      "adg/jsx-runtime": ["./.adg/runtime.d.ts"]
     }
   },
-  "include": ["**/*.tsx", "**/*.ts", ".sdg/*.d.ts"]
+  "include": ["**/*.tsx", "**/*.ts", ".adg/*.d.ts"]
 }

@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { switchForms } from "../fixtures/inputs";
 
 export function Switch({

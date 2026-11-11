@@ -1,5 +1,5 @@
 import { copy } from "../fixtures/connectors";
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 
 import { Card } from "../components/card";
 import { Button } from "../components/button";

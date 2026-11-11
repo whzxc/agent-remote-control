@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { tooltipExample } from "../fixtures/feedback";
 
 export function Tooltip({

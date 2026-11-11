@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
 import { Field, Input } from "../components/field";

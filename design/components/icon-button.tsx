@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { iconButtonForms } from "../fixtures/buttons";
 
 export function IconButton({

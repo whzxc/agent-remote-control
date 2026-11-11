@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { TopologyScreen } from "../modules/homepage-topology";
 import { scenes } from "../fixtures/topology";
 

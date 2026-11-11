@@ -1,5 +1,5 @@
 import { copy } from '../fixtures/relay-hosting';
-import { Frame } from "sdg";
+import { Frame } from "adg";
 
 
 import { Button } from "../components/button";

@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { IconButton } from "./icon-button";
 import { panelExample } from "../fixtures/panels";
 

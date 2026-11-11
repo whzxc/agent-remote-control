@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { cardForms } from "../fixtures/panels";
 
 export type CardProps = {

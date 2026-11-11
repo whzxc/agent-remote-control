@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { BrandMark, type Brand } from "./agent-icon";
 import { SetupChoice } from "./setup-choice";
 import {

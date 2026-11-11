@@ -2,7 +2,7 @@ import { copy, samples } from '../fixtures/display-settings';
 
 
 import { SettingsChoices as Choices, SettingsGroup as Group } from "../components/settings-row";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Panel } from "../components/panel";
 
 import { SettingLine } from "../components/settings-row";

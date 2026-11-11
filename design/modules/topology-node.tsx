@@ -1,5 +1,5 @@
 import { example } from "../fixtures/topology-node";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { AgentIcon, type AgentIconReading, type Brand } from "../components/agent-icon";
 
 export type TopologyNodeProps = {

@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Card } from "../components/card";
 import { quotaSpecimens } from "../fixtures/quota";
 

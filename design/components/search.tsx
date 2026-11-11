@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { searchInputExample } from "../fixtures/inputs";
 
 export function SearchInput({

@@ -1,5 +1,5 @@
 import { forms, example } from "../fixtures/board-header";
-import { Frame } from "sdg";
+import { Frame } from "adg";
 
 export function BoardHeader({
   date,

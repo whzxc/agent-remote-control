@@ -1,4 +1,4 @@
-import { Frame, Icon } from "sdg";
+import { Frame, Icon } from "adg";
 import { forms } from "../fixtures/tags";
 
 export function Tag({

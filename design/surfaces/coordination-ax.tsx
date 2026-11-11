@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { AXBoard } from "../modules/ax";
 import { axForms, axClosedEntries, axCopy } from "../fixtures/ax";
 

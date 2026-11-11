@@ -55,15 +55,15 @@ The workspace shares root Cargo.lock and target. The compilation-cache budget is
 
 ## Design sources
 
-Use the globally installed `sdg` CLI, version 0.5.0 or later:
+Use the globally installed `adg` CLI, version 0.5.0 or later:
 
 ```sh
-sdg check
-sdg render
-sdg open design --port=4311
+adg check
+adg render
+adg open design --port=4311
 ```
 
-Choose an unused viewer port other than 4310. The viewer opens independently of desktop development. Visual changes start in `design/`. [Design sources](design.md) owns ARC's governance and visual direction; [Asset mapping and status](design-assets.md) owns implementation and fixture mappings. Follow the [SDG asset rules](https://github.com/whzxc/svg-design-gallery/blob/main/docs/asset-rules.md) and [toolkit contract](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md).
+Choose an unused viewer port other than 4310. The viewer opens independently of desktop development. Visual changes start in `design/`. [Design sources](design.md) owns ARC's governance and visual direction; [Asset mapping and status](design-assets.md) owns implementation and fixture mappings. Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) and [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md).
 
 ## Desktop artifacts
 

@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Panel, PanelHeader, PanelShell } from "../components/panel";
 import { copy, frames, releases } from "../fixtures/updates";
 import { UpdateAboutContent, UpdateContent, UpdateHistoryContent } from "../modules/updates";

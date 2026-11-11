@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { BrandMark, type Brand } from "../components/agent-icon";
 import { forms } from "../fixtures/topology-group";
 

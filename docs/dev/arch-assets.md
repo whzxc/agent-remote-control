@@ -19,15 +19,15 @@ before reading code. [Architecture](architecture.md) remains the precise contrac
 Each asset is one Mermaid source file (`.mmd`) holding one diagram. Two leading `%%`
 comments name the asset and point to this index. Labels use code names.
 
-Semantics use Mermaid `class` statements from the SDG vocabulary
-([architecture sources](https://github.com/whzxc/svg-design-gallery/blob/main/docs/design-toolkit.md#architecture-sources)).
+Semantics use Mermaid `class` statements from the ADG vocabulary
+([architecture sources](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md#architecture-sources)).
 A phase sets the fill: `progress`, `waiting`, `done`, `stopped` or `uncertain`. A mark
-sets the border: `experimental`, `temporary` or `gap`. Sources do not paint; SDG
+sets the border: `experimental`, `temporary` or `gap`. Sources do not paint; ADG
 supplies colors from `design/tokens.css` in both themes.
 
 Each asset has a sidecar beside it with the same name and `.md`. Its frontmatter lists
 the owning code paths as `owners` and the review `status`. Its body is a short English
-note that explains the phases and marks. SDG shows the note, owners and status in the
+note that explains the phases and marks. ADG shows the note, owners and status in the
 Inspector.
 
 ## Assets
@@ -47,8 +47,8 @@ Inspector.
 
 A change that alters what an asset shows updates the asset before implementation.
 Segment review checks whether a diff touching a sidecar's `owners` requires an asset
-update. `sdg check` validates classes, sidecars and owner paths. The control source
-reviews a proposed diagram against its base with SDG's review overlay (`--base=<rev>`),
+update. `adg check` validates classes, sidecars and owner paths. The control source
+reviews a proposed diagram against its base with ADG's review overlay (`--base=<rev>`),
 which marks added, changed and removed nodes and edges. Updates that only reflect
 implementation are approved by the control source. Behavior changes need user approval
 of the updated asset first.
@@ -56,5 +56,5 @@ of the updated asset first.
 ## Limits
 
 - Diagrams omit error paths, limits and timing details that [Architecture](architecture.md) documents.
-- `sdg check` confirms that owner paths exist. It does not link diagram elements to
+- `adg check` confirms that owner paths exist. It does not link diagram elements to
   code, so freshness depends on review.

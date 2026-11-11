@@ -1,6 +1,6 @@
 import { frames } from '../fixtures/connectors';
 import { ConnectorContent } from '../modules/connectors';
-import { Frame } from "sdg";
+import { Frame } from "adg";
 import { Panel } from "../components/panel";
 
 
