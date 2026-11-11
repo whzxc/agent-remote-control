@@ -79,7 +79,7 @@ impl Controller {
                 }
             }
             Err(error) => {
-                *misses += 1;
+                *misses = misses.saturating_add(1);
                 let mut status = member.status.lock().unwrap();
                 if *misses >= 3
                     || error.starts_with("DEVICE_CONNECTION_REFUSED")
