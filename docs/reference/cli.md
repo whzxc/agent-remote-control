@@ -140,6 +140,27 @@ The LAN heartbeat has a three-second bound; HTTPS fallback adds at most four
 seconds. One successful probe restores online
 state. `query devices` lists online members; `all:true` also lists offline members.
 `query device` forwards member reads, and `act device` forwards member writes.
+Transfer files with the normal control CLI. Omit `device` for the controller:
+
+```sh
+printf '%s' '{"from":{"path":"/workspace/input.bin"},"to":{"device":"<device-id>","path":"/workspace/output.bin"}}' | arc cli control device_transfer --stdin
+printf '%s' '{"action":"resume","requestId":"<uuid>"}' | arc cli control device_transfer --stdin
+printf '%s' '{"action":"cancel","requestId":"<uuid>"}' | arc cli control device_transfer --stdin
+```
+
+Keep the returned `requestId` and follow its receipt read action. Reissuing the same
+ID reads its receipt; only explicit resume continues from verified receiver bytes.
+See [File transfers](tools.md#file-transfers) for overwrite, hash and range rules.
+
+LAN transfer routes use POST under `/arc-peer/3/transfer/`. `control` takes
+versioned JSON for stat, begin, status, commit and cancel. `upload` streams a
+binary body with `x-arc-request`, `x-arc-offset` and `x-arc-length` headers.
+`download` takes `{version:3,path,offset,length,fingerprint}` and streams binary.
+Both binary directions end with an `x-arc-sha256` trailer for the range. Ranges
+are at most 16 MiB and stream in 256 KiB blocks. Tunnel uses only `control`,
+adding put/get actions with base64 data and a range SHA-256; decoded ranges
+are at most 512 KiB within the existing caps and deadlines.
+
 Read [Device link tools](tools.md#device-link) for forwarding and receipt contracts.
 
 A controller override takes precedence over DNS-SD and the saved offer addresses.
@@ -198,7 +219,7 @@ unchanged across this protocol upgrade.
 
 ### Limits
 
-Member event streams, forwarded notification delivery and file transfer are not
+Member event streams and forwarded notification delivery are not
 available. Windows and Linux peer `screen` are unavailable. LAN interface listeners and
 advertisements refresh every five seconds without changing pairing identity.
 

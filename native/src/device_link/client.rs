@@ -1,12 +1,12 @@
 //! Persistent multiplexed peer HTTP/2 channels. A sent request is never retried here.
 use super::*;
-use http_body_util::{BodyExt, Full, Limited};
-use hyper::{body::Bytes, Request};
+use http_body_util::{BodyExt, Limited};
+use hyper::Request;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::pki_types::ServerName;
 use tokio::net::TcpStream;
 
-type Sender = hyper::client::conn::http2::SendRequest<Full<Bytes>>;
+type Sender = hyper::client::conn::http2::SendRequest<super::transfer::wire::Body>;
 pub(super) struct Channel {
     sender: Sender,
     task: tokio::task::JoinHandle<()>,
@@ -21,10 +21,14 @@ impl Channel {
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
-        let (sender, connection) =
-            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(stream))
-                .await
-                .map_err(|e| e.to_string())?;
+        let (sender, connection) = hyper::client::conn::http2::Builder::new(TokioExecutor::new())
+            .initial_stream_window_size(2 * 1024 * 1024)
+            .initial_connection_window_size(4 * 1024 * 1024)
+            .max_send_buf_size(512 * 1024)
+            .max_frame_size(256 * 1024)
+            .handshake(TokioIo::new(stream))
+            .await
+            .map_err(|e| e.to_string())?;
         let task = tokio::spawn(async move {
             let _ = connection.await;
         });
@@ -51,7 +55,7 @@ impl Channel {
             .method("POST")
             .uri(format!("https://arc-peer.local{path}"))
             .header("content-type", "application/json")
-            .body(Full::new(Bytes::from(body.to_string())))
+            .body(super::transfer::wire::full(body.to_string()))
             .map_err(|e| e.to_string())?;
         tokio::time::timeout(bound, async {
             let response = sender

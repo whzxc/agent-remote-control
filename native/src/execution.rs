@@ -31,7 +31,7 @@ impl Execution {
         self.control.auto_open_codex()
     }
     pub async fn available(&self, name: &str) -> bool {
-        if matches!(name, "device" | "devices") {
+        if matches!(name, "device" | "devices" | "device_transfer") {
             return crate::device_link::enabled();
         }
         if name == "agent_archive" {
@@ -92,6 +92,16 @@ impl Execution {
         Ok(result)
     }
     pub(crate) async fn call_inner(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
+        if name == "device_transfer" {
+            let spec = crate::catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            return self.devices.transfer(args).await;
+        }
         if name == "devices" {
             return Ok(self.devices.list(args["all"] == true).await);
         }
@@ -319,6 +329,9 @@ impl Execution {
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
 
+            if let Some(receipt) = crate::device_link::transfer::execution::receipt(&args).await? {
+                return Ok(receipt);
+            }
             if let Some(receipt) = self.agents.receipt(args.clone()).await? {
                 return Ok(receipt);
             }

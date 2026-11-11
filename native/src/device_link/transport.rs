@@ -1,10 +1,7 @@
 //! LAN-only HTTPS transport. TLS completes before hyper can read any request.
 use super::*;
-use http_body_util::{BodyExt, Full, Limited};
-use hyper::{
-    body::{Bytes, Incoming},
-    Request, Response,
-};
+use http_body_util::{BodyExt, Limited};
+use hyper::{body::Incoming, Request, Response};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::net::TcpListener;
 
@@ -237,6 +234,11 @@ impl Manager {
             let id = id.clone();
             let key = public_key.clone();
             async move {
+                if request.uri().path().starts_with("/arc-peer/3/transfer/") {
+                    return Ok::<_, std::convert::Infallible>(
+                        manager.transfer_http(&id, request).await,
+                    );
+                }
                 let result = manager.handle_http(&id, &key, request).await;
                 let body = match result {
                     Ok(value) => json!({"ok":true,"result":value}),
@@ -247,12 +249,16 @@ impl Manager {
                 Ok::<_, std::convert::Infallible>(
                     Response::builder()
                         .header("content-type", "application/json")
-                        .body(Full::new(Bytes::from(body.to_string())))
+                        .body(super::transfer::wire::full(body.to_string()))
                         .unwrap(),
                 )
             }
         });
         hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+            .initial_stream_window_size(2 * 1024 * 1024)
+            .initial_connection_window_size(4 * 1024 * 1024)
+            .max_send_buf_size(512 * 1024)
+            .max_frame_size(256 * 1024)
             .max_concurrent_streams(128)
             .max_header_list_size(32768)
             .serve_connection(TokioIo::new(stream), service)

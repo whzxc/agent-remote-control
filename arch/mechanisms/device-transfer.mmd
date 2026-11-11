@@ -1,0 +1,28 @@
+%% Device transfer (layer 2): verified file bytes between the controller and one member.
+%% Index and code mapping: docs/dev/arch-assets.md
+sequenceDiagram
+  participant S as Control source
+  participant C as Controller Core
+  participant P as Member peer listener
+  participant R as Receiver temporary file
+  S->>C: act device_transfer {from, to, expectedSha256?, overwrite?}
+  C->>C: check online and reserve one receipt
+  C->>P: admit through normal peer host authority
+  C-->>S: pending receipt and read next action
+  loop bounded LAN stream or tunnel range
+    C->>P: upload or ranged download
+    P->>R: write bytes and stream SHA-256
+    R->>R: verify range, sync and checkpoint offset
+    C->>C: checkpoint bytes, total, path and rate
+  end
+  R->>R: verify complete SHA-256, fsync and atomic publish
+  C-->>S: completed receipt
+  opt interrupted
+    S->>C: same requestId reads receipt
+    S->>C: explicit action resume
+    C->>R: continue from verified receiver offset
+  end
+  opt cancel
+    S->>C: action cancel
+    C->>R: stop attempt and remove temporary file
+  end

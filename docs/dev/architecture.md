@@ -80,8 +80,51 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop has no Device link controls. File transfer is not implemented. The wire
-contract is in [CLI reference](../reference/cli.md#device-link).
+Desktop has no Device link controls. The wire contract is in
+[CLI reference](../reference/cli.md#device-link).
+
+### Device file transfer
+
+`device_link/transfer` owns a receipt-backed background transfer between the
+controller and exactly one member. The control source supplies host paths and
+reads progress; file bytes stay on the peer transport. The receiver owns the
+sibling temporary file, streaming SHA-256 and durable verified offset. It preflights
+free space and uses `RequestLocks` with resolved `file:` keys. Member receivers
+execute in the front door; controller receivers execute in Core.
+The receiver holds its destination lock until completion or cancellation. Each
+verified range is synced before its offset is checkpointed. Dropping a range
+future truncates its unverified suffix and restores its running digest. Restart
+re-hashes the verified prefix before admitting resume. Complete result verification
+and fsync precede atomic destination publication. Existing destinations require
+explicit overwrite. Source length and modification time must survive resume.
+
+LAN POST routes `/arc-peer/3/transfer/control`, `/transfer/upload` and
+`/transfer/download` use the pinned multiplexed HTTP/2 business channel. Uploads
+carry request ID, offset and length headers. Downloads carry a host path, source
+fingerprint, offset and length in bounded JSON. Binary bodies stream in 256 KiB
+blocks; a SHA-256 trailer verifies each range of at most 16 MiB. HTTP/2 receive
+windows are 2 MiB per stream and 4 MiB per connection; send buffers are 512 KiB.
+Maximum HTTP/2 frames are 256 KiB. The per-transfer buffer budget is 16 MiB,
+independent of file length. LAN has no ARC file-size cap. The member rechecks the live peer's normal fs authority through
+Core before serving any transfer route. These routes expose no management or
+forwarding capability.
+
+Tunnel POST `/arc-peer/3/transfer/control` uses the existing challenge/session
+authentication and deadlines. It carries stat, begin, status, put, get, commit and
+cancel actions. Each put/get contains at most 512 KiB decoded bytes and a SHA-256;
+base64 and envelopes fit the existing 1 MiB request and 4 MiB response caps.
+The controller refreshes cached tunnel credentials before expiry between ranges.
+Each attempt holds one shared member business-request slot, keeps its admitted
+transport and never retries a failed write.
+
+One existing operation receipt contains the immutable plan and source fingerprint,
+plus bytes, total, destination path and bytes/second rate. Progress checkpoints
+are coalesced to 250 ms during execution; the final update is immediate. Receiver
+verified offsets are checkpointed after every range. Repeated request IDs read
+without sending. Explicit resume reopens the original receiver and starts at its
+verified offset. Cancel stops the attempt and removes its temporary file; failed
+remote cleanup remains actionable for a later explicit cancel. Receipt reads use
+the existing `receipt` op, including while a transfer is executing.
 
 ### Device link controller Core
 

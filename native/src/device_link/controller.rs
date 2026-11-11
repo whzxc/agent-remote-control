@@ -1,6 +1,7 @@
 //! Controller Core owns reachability, multiplexed links and bounded forwarding metadata.
 #[path = "events.rs"]
 pub(crate) mod events;
+mod transfer;
 use super::client::{Channel, Session};
 mod path;
 use super::records::{Forward, Records};

@@ -200,6 +200,12 @@ pub(crate) fn wire_bytes(result: &Value, rpc_id: Option<&Value>) -> usize {
 }
 
 pub fn failure(e: &str) -> Value {
+    if let Some(code) = crate::device_link::transfer::error_code(e) {
+        if let Ok(value) = serde_json::from_str::<Value>(e) {
+            return value;
+        }
+        return json!({"code":code,"message":e,"next":{"via":"query","op":"guide","args":{}}});
+    }
     if let Ok(value) = serde_json::from_str::<Value>(e) {
         if value["code"]
             .as_str()
@@ -875,6 +881,9 @@ pub fn retry_contract(op: &Value) -> Value {
     let name = string(op, "name");
     if op["annotations"]["readOnlyHint"] == true {
         return json!({"mode":"read-only"});
+    }
+    if name == "device_transfer" {
+        return json!({"mode":"receipt","key":"requestId","instruction":"Reissuing the same requestId reads its receipt without writing. Use device_transfer action:resume with the original requestId to explicitly continue from the receiver verified offset; action:cancel removes its temporary file. Never automatically retry a failed write."});
     }
     if name == "device" {
         return json!({"mode":"receipt","key":"requestId","appliesTo":"act","query":{"mode":"read-only"},"instruction":"Use query for member reads. Retain an act requestId. After an uncertain outcome read the member receipt through act device; never resend a sent write."});

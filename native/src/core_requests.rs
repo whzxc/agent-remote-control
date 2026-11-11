@@ -308,6 +308,10 @@ async fn call_tool_inner(
         if name == "guide" {
             return Ok(crate::egress::guide(&s.origin().await, &args, &crate::i18n::locale(), &enabled_ops(s).await));
         }
+        if name == "device_transfer" && envelope.get("requestId").is_some()
+            && args.get("requestId").is_some() && envelope["requestId"] != args["requestId"] {
+            return Err("REQUEST_ID_CONFLICT: outer and transfer requestId must match".into());
+        }
         let accepts_request_id = name == "receipt" || catalog()["ops"].as_array().unwrap().iter()
             .find(|op| op["name"] == name)
             .is_some_and(|op| crate::egress::retry_contract(op)["mode"] == "receipt");

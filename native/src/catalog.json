@@ -9676,6 +9676,149 @@
         "op": "guide",
         "args": {}
       }
+    },
+    {
+      "name": "device_transfer",
+      "description": "Stream a file between this controller and one online member. Omit device on the controller endpoint. Requires device-link enabled. LAN binary HTTP/2 streams have no file size limit beyond free disk space. Tunnel uses verified 512 KiB ranges. The receiver verifies SHA-256 and publishes atomically. Existing destinations require overwrite:true. Returns one progress receipt with bytes, total, destination path and bytes/second rate. Repeating a requestId reads the receipt and never transmits again. Explicit action:resume continues from the receiver verified offset; action:cancel deletes the temporary file. Bytes never pass through a control source. Read the next receipt action while pending.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "start",
+              "read",
+              "resume",
+              "cancel"
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "device": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "to": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "device": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "expectedSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$"
+          },
+          "overwrite": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "action": {
+                "const": "start"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ]
+          },
+          {
+            "properties": {
+              "action": {
+                "enum": [
+                  "read",
+                  "resume",
+                  "cancel"
+                ]
+              }
+            },
+            "required": [
+              "action",
+              "requestId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "required": [
+                    "to"
+                  ]
+                },
+                {
+                  "required": [
+                    "expectedSha256"
+                  ]
+                },
+                {
+                  "required": [
+                    "overwrite"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "from": {
+          "path": "/workspace/input.bin"
+        },
+        "to": {
+          "device": "<device-id>",
+          "path": "/workspace/output.bin"
+        }
+      }
     }
   ],
   "domains": {
@@ -11370,6 +11513,9 @@
         "presets": []
       },
       "device": {
+        "presets": []
+      },
+      "device_transfer": {
         "presets": []
       }
     }

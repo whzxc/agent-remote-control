@@ -266,6 +266,9 @@ pub fn desktop_route(route: &str) -> bool {
 }
 
 pub fn error_code(message: &str) -> &str {
+    if let Some(code) = crate::device_link::transfer::error_code(message) {
+        return code;
+    }
     if let Some(code) = crate::src_conversations::error_code(message) {
         return code;
     }

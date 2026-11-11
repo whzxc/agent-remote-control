@@ -1,6 +1,7 @@
 //! Device link identity and local pairing authority. The front door owns this state.
 mod addresses;
 mod client;
+pub(crate) mod transfer;
 mod tunnel;
 #[cfg(test)]
 mod tunnel_fixture;
@@ -177,6 +178,7 @@ pub(crate) struct Manager {
     closed: tokio::sync::watch::Sender<u64>,
     #[cfg(test)]
     reply_gate: StdMutex<Option<Arc<ReplyGate>>>,
+    transfers: transfer::Store,
     paired_connections: Arc<tokio::sync::Semaphore>,
     unpaired_connections: Arc<tokio::sync::Semaphore>,
 }
@@ -205,6 +207,7 @@ impl Manager {
             closed,
             #[cfg(test)]
             reply_gate: Default::default(),
+            transfers: Default::default(),
             paired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
             unpaired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
         }))

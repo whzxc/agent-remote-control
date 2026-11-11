@@ -120,7 +120,7 @@ Upgrading from the former tool surface requires one client tool refresh and rene
 ## Device link
 
 Enable the local Experimental `device-link` preference and pair a member through
-[the CLI](cli.md#device-link). `devices` and `device` are absent from guide when
+[the CLI](cli.md#device-link). `devices`, `device` and `device_transfer` are absent from guide when
 disabled and return `OP_UNAVAILABLE`. Existing ingress allowlists still apply.
 Discover them through `query guide {view:"full"}` or a per-op guide; the default
 common guide remains compact. The three frozen MCP tool envelopes are unchanged.
@@ -130,6 +130,7 @@ common guide remains compact. The three frozen MCP tool envelopes are unchanged.
 | `query devices` | `{all?:boolean}` | Online paired members by default; `all:true` includes offline members |
 | `query device` | `{device,op,args}` | Member read result, including `op:"guide"` |
 | `act device` | `{device,op,args}` with optional outer `requestId` | Member write result |
+| `act device_transfer` | `{from:{device?,path},to:{device?,path},expectedSha256?,overwrite?}` with optional outer `requestId` | One file-transfer receipt |
 
 `device` accepts a device ID or a unique paired name. A member row contains `id`,
 `name`, `platform`, `arch`, `arcVersion`, `state`, `path`, `lastSeen`, `latency` in
@@ -162,8 +163,7 @@ used solely as an HTTPS pipe. OpenAI Secure Tunnel is excluded. HTTPS calls are
 plain request/response with 1 MiB request and 4 MiB response caps and a 25-second
 deadline. Long waits return in segments of at most 15 seconds; issue the next read
 segment as needed. A sent request keeps its selected path. LAN hello refreshes
-the saved public peer URL without re-pairing. File transfer is not
-implemented. Forwarded dispatches keep notification bindings on the controller, including inherited bindings under the originating source's
+the saved public peer URL without re-pairing. Forwarded dispatches keep notification bindings on the controller, including inherited bindings under the originating source's
 local rules. The controller strips `notify` before forwarding. Member task events
 never deliver to member notification targets. `notify_status` includes `device`
 and the native thread ID; its binding thread ID is qualified by device ID.
@@ -670,6 +670,44 @@ File counts use a persisted terminal Git snapshot, a valid recorded Git baseline
 Checks recognize common validation commands (package-manager test/check/lint/build scripts, Cargo test/check/clippy/fmt, Node tests, and common standalone test/type/lint runners). Heredoc bodies are excluded from command discovery. Each exit code belongs to the native command batch, not independently to every extracted subcommand. Summaries preserve bounded native test-result lines when present; otherwise they state the process result without claiming tests passed. Custom command names may require full records. Very large final responses retain normal control_output pagination rather than truncating the final text.
 
 ## File transfers
+
+Use `act device_transfer` for a file between the controller and one paired member.
+Omit `device` on exactly one endpoint to select the controller. Both paths are
+absolute on their respective hosts. The `device-link` preference must be on.
+Offline members return `DEVICE_OFFLINE` before any transmission.
+
+```json
+{"op":"device_transfer","requestId":"<uuid>","args":{"from":{"path":"/workspace/input.bin"},"to":{"device":"<device-id>","path":"/workspace/output.bin"},"expectedSha256":"<64 hexadecimal characters>"}}
+{"op":"receipt","args":{"action":"read","requestId":"<uuid>"}}
+{"op":"device_transfer","args":{"action":"resume","requestId":"<uuid>"}}
+{"op":"device_transfer","args":{"action":"cancel","requestId":"<uuid>"}}
+```
+
+The response is a single receipt, initially `executing`, with `progress` containing
+`bytes`, `total`, destination `path`, and `rate` in bytes/second. Follow `next` to
+read it during execution. Repeating the original request with the same request ID
+reads that receipt. Changed endpoints or options return `REQUEST_ID_CONFLICT`.
+A failed write never retries itself. Explicit `action:"resume"` uses the original
+plan and the receiver's durable verified offset, skipping every verified byte.
+An incomplete range is discarded. Resume requires the original source length and
+modification time; a changed source returns `SOURCE_CHANGED`. `action:"cancel"`
+stops the attempt and deletes its temporary file; completed files remain intact.
+An unreachable remote receiver leaves cancellation pending in a failed receipt;
+repeat cancel after the member is reachable. `action:"read"` also reads the receipt.
+
+File bytes travel directly between hosts. LAN uses dedicated HTTP/2 binary routes,
+256 KiB stream blocks and verified ranges up to 16 MiB. Tunnel ranges contain at
+most 512 KiB decoded bytes, with a SHA-256 per range, within the 1 MiB request and
+4 MiB response caps and 25-second range deadline. Application and transport buffers
+are bounded to 16 MiB per transfer; neither path buffers the complete file.
+LAN has no ARC file-size cap beyond available disk space. The receiver preflights
+free space, streams SHA-256 to a sibling temporary file, verifies `expectedSha256`
+against the complete result when supplied, fsyncs and publishes atomically.
+`DESTINATION_EXISTS` requires `overwrite:true`; `SHA256_MISMATCH` preserves the
+existing destination. ARC holds the shared destination lock until completion or cancellation.
+External writers require separate coordination. A member applies its ordinary
+peer-source host authority and cannot forward Device link or local management ops.
+
 
 Use `act({op:"write",args:{path:"/workspace/note.txt",content:"Hello\n"}})` for UTF-8 text. Its optional `expectedHash` checks the **existing** file before editing.
 

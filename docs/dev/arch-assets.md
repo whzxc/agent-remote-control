@@ -45,6 +45,8 @@ Inspector.
 | [mechanisms/device-link.mmd](../../arch/mechanisms/device-link.mmd) | Proposed pairing and reachability of one Device link member |
 | [mechanisms/device-forward.mmd](../../arch/mechanisms/device-forward.mmd) | Proposed forwarding of one control-source write to a member |
 
+| [mechanisms/device-transfer.mmd](../../arch/mechanisms/device-transfer.mmd) | Device file streaming, verified offsets, receipts and atomic publication |
+
 ## Review
 
 A change that alters what an asset shows updates the asset before implementation.

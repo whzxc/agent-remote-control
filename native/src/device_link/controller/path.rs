@@ -2,7 +2,7 @@
 use super::*;
 
 pub(super) enum Prepared {
-    Lan(hyper::client::conn::http2::SendRequest<http_body_util::Full<hyper::body::Bytes>>),
+    Lan(hyper::client::conn::http2::SendRequest<super::super::transfer::wire::Body>),
     Tunnel {
         url: String,
         token: String,
@@ -113,7 +113,7 @@ impl Controller {
             )
         })
     }
-    async fn tunnel_session(&self, member: &Member) -> Result<(String, String)> {
+    pub(super) async fn tunnel_session(&self, member: &Member) -> Result<(String, String)> {
         let url = self.tunnel_url(member).await?;
         member
             .tunnel

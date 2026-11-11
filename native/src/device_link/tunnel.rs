@@ -220,6 +220,7 @@ impl Manager {
         let operation = async {
             match path.as_str() {
                 "/arc-peer/3/hello" => self.hello().await,
+                "/arc-peer/3/transfer/control" => self.transfer_control(&device, body).await,
                 "/arc-peer/3/request" => {
                     validate_wait(&body)?;
                     let _slot = self
