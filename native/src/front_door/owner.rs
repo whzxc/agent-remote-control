@@ -444,6 +444,9 @@ impl Gateway {
                 self.autostart().await;
                 return Ok(json!({}));
             }
+            if route == "_peer_learn" {
+                return self.peer.request("learn", body).await;
+            }
             if route == "_peer_reconcile" {
                 self.peer.reconcile(crate::device_link::enabled()).await?;
                 return Ok(json!({"ok":true}));

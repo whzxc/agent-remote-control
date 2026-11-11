@@ -339,6 +339,31 @@ impl Manager {
     pub async fn request(self: &Arc<Self>, action: &str, body: Value) -> Result<Value> {
         self.identity()?;
         match action {
+            "learn" => {
+                let mut state = self.state.lock().unwrap();
+                let Some(peer) = state.stored.members.get_mut(string(&body, "deviceId")) else {
+                    return Err("DEVICE_UNKNOWN: member was removed".into());
+                };
+                if peer.public_key != string(&body, "publicKey") {
+                    return Err("DEVICE_UNPAIRED: member identity changed".into());
+                }
+                let mut next = peer.clone();
+                if let Some(addresses) = body["hello"]["addresses"].as_array() {
+                    next.addresses = addresses
+                        .iter()
+                        .filter_map(|v| v.as_str().map(str::to_owned))
+                        .collect();
+                }
+                if let Some(url) = body["hello"].get("tunnelUrl") {
+                    next.tunnel_url = url.as_str().and_then(tunnel::peer_url);
+                }
+                let changed = *peer != next;
+                if changed {
+                    *peer = next;
+                    self.persist(&state)?;
+                }
+                Ok(json!({"changed":changed}))
+            }
             "offer" => self.offer().await,
             "pending" => {
                 let state = self.state.lock().unwrap();

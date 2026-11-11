@@ -526,3 +526,37 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
         "OP_UNAVAILABLE"
     );
 }
+
+#[tokio::test]
+async fn hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unchanged() {
+    // Regression: successful hello left the stale 12-address list and null tunnel URL persisted across controller restart.
+    let fixture = Fixture::new();
+    let member = fixture.controller();
+    let stale = Peer {
+        device_id: member.id.clone(),
+        public_key: member.public_key.clone(),
+        name: "Example member".into(),
+        addresses: (1..=12).map(|i| format!("192.168.1.{i}:7143")).collect(),
+        tunnel_url: None,
+        address_override: None,
+    };
+    {
+        let mut state = fixture.member.state.lock().unwrap();
+        state.stored.members.insert(member.id.clone(), stale);
+        fixture.member.persist(&state).unwrap();
+    }
+    let body = json!({"deviceId":member.id,"publicKey":member.public_key,"hello":{"addresses":["192.168.1.20:7143"],"tunnelUrl":"https://example.com/arc-peer/3"}});
+    assert_eq!(
+        fixture.member.request("learn", body.clone()).await.unwrap()["changed"],
+        true
+    );
+    assert_eq!(
+        fixture.member.request("learn", body.clone()).await.unwrap()["changed"],
+        false
+    );
+    let reopened = Fixture::manager(fixture.member.directory.clone());
+    assert_eq!(
+        reopened.request("learn", body).await.unwrap()["changed"],
+        false
+    );
+}

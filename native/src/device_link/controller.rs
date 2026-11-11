@@ -130,7 +130,15 @@ impl Controller {
         let mut members = self.members.lock().await;
         let removed = members
             .iter()
-            .filter(|(id, member)| stored.members.get(*id) != Some(&member.peer))
+            .filter(|(id, member)| {
+                let Some(saved) = stored.members.get(*id) else {
+                    return true;
+                };
+                let mut current = member.peer.clone();
+                current.addresses = saved.addresses.clone();
+                current.tunnel_url = saved.tunnel_url.clone();
+                &current != saved
+            })
             .map(|(id, _)| id.clone())
             .collect::<Vec<_>>();
         for id in removed {

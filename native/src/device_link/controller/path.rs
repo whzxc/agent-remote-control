@@ -45,16 +45,9 @@ impl Controller {
         let start = Instant::now();
         let result = self.probe(member).await;
         match result {
-            Ok((mut hello, path)) => {
-                if path == "tunnel" {
-                    hello["tunnelUrl"] = member
-                        .status
-                        .lock()
-                        .unwrap()
-                        .hello
-                        .get("tunnelUrl")
-                        .cloned()
-                        .unwrap_or_else(|| json!(member.peer.tunnel_url));
+            Ok((hello, path)) => {
+                if let Err(error)=crate::front_door::process::gateway_request("_peer_learn","POST",json!({"deviceId":member.peer.device_id,"publicKey":member.peer.public_key,"hello":hello})).await {
+                    crate::logs::record("WARN",&error,None);
                 }
                 *misses = 0;
                 let seen = now();
