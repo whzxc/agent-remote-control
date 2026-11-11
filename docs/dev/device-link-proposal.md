@@ -1,6 +1,6 @@
 # Device link proposal
 
-Status: proposed; awaiting approval of the updated architecture assets.
+Status: accepted for phased implementation.
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
 [Architecture](architecture.md) · [Remote link](remote-link.md) · [Tool surface](tool-surface.md) · [Architecture assets](arch-assets.md)
