@@ -1,25 +1,25 @@
-import { frames } from "../fixtures/updates";
-import { UpdateContent, UpdateAboutContent } from "../modules/updates";
 import { Frame } from "sdg";
-import { Panel } from "../components/panel";
+import { Panel, PanelHeader, PanelShell } from "../components/panel";
+import { copy, frames, releases } from "../fixtures/updates";
+import { UpdateAboutContent, UpdateContent, UpdateHistoryContent } from "../modules/updates";
 
 export default () => [
-  ...frames.map(({ name, fixture }) => (
-    <Frame name={name} fixture={fixture} capture={{ region: "App updates", viewport: "1280x800" }}>
-      <Panel width={520} title="New version 1.2.3">
-        <UpdateContent name={name} />
-      </Panel>
+  ...frames.map(({ name, note }) => (
+    <Frame name={name} note={note}>
+      <PanelShell width={520} class="gap-2 p-6">
+        <PanelHeader title={copy.title} close={false} />
+        <UpdateContent state={name} />
+      </PanelShell>
     </Frame>
   )),
-  <Frame
-    name="settings"
-    note={
-      "Unavailable: no standalone About shell. updates-settings embeds AppUpdate in SettingsPage; " +
-      "neither .settings-about nor its .page-sheet ancestor matches this standalone 720×258 panel."
-    }
-  >
-    <Panel width={720} headerless>
-      <UpdateAboutContent />
+  <Frame name="history" note="Proposed history dialog. The current About section has no history entry.">
+    <Panel width={520} title={copy.history}>
+      <UpdateHistoryContent entries={releases} />
     </Panel>
+  </Frame>,
+  <Frame name="settings" note="Proposed About section inside Settings. Capture the embedded section after adoption.">
+    <div class="w-[720px] bg-surface-raised p-6">
+      <UpdateAboutContent />
+    </div>
   </Frame>,
 ];
