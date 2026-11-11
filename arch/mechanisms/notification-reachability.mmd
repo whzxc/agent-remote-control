@@ -9,3 +9,7 @@ stateDiagram-v2
   challenging --> failed: 5 minutes pass or the ping cannot be sent
   failed --> challenging: verify again
   verified --> unverified: route changed
+  class unverified uncertain
+  class challenging waiting
+  class verified done
+  class failed stopped

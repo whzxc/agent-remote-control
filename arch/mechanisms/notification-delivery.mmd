@@ -11,3 +11,8 @@ stateDiagram-v2
   pending --> inboxonly: no push path
   sending --> inboxonly: no push path
   pending --> failed: binding changed or subscription ended
+  class pending waiting
+  class sending progress
+  class delivered,inboxonly done
+  class resolved done,gap
+  class failed stopped

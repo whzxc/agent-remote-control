@@ -18,3 +18,8 @@ stateDiagram-v2
   unconfirmed --> completed: later evidence
   unconfirmed --> failed: later evidence
   unconfirmed --> rejected: later evidence
+  class reserved,executing progress
+  class awaiting waiting
+  class completed done
+  class failed,rejected,notexecuted stopped
+  class unconfirmed uncertain
