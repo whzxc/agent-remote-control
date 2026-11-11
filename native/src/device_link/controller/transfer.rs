@@ -96,6 +96,7 @@ mod tests {
             tunnel: Default::default(),
             slots: Arc::new(tokio::sync::Semaphore::new(64)),
             task: Default::default(),
+            event_task: Default::default(),
         });
         controller
             .members
