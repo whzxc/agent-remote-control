@@ -104,13 +104,17 @@ export default () => [
   <Frame name="centered-landscape" width={1280} height={800} fixture="agent-panel-short"
     capture={{ page: true, origin: "0 0", viewport: "1280x800" }}>
     <TopologyScreen width={1280} height={800} scene={centeredAgentPanelScenes.landscape}>
-      <div class="absolute inset-4 flex items-center justify-end"><AgentPanel history="short" /></div>
+      <div data-free class="absolute right-4 -translate-y-1/2" style={{ top: centeredAgentPanelScenes.landscape.dockCenter }}>
+        <AgentPanel history="short" />
+      </div>
     </TopologyScreen>
   </Frame>,
   <Frame name="centered-portrait" width={640} height={800} fixture="agent-panel-short"
     capture={{ page: true, origin: "0 0", viewport: "640x800" }}>
     <TopologyScreen width={640} height={800} scene={centeredAgentPanelScenes.portrait} hideNodeLabels>
-      <div class="absolute top-4 bottom-24 left-4 flex items-center"><AgentPanel history="short" width={515} portrait /></div>
+      <div data-free class="absolute left-4 -translate-y-1/2" style={{ top: centeredAgentPanelScenes.portrait.dockCenter }}>
+        <AgentPanel history="short" width={515} portrait />
+      </div>
     </TopologyScreen>
   </Frame>,
 ];

@@ -12,6 +12,7 @@ import { surfaceMotion, reducedMotion as reduced, type Surface, type SurfaceRect
 import { Dialog as D } from "radix-ui";
 import { X } from "lucide-react";
 import { t } from "../i18n";
+import { PANEL_MARGIN } from "../topology/solve";
 import { IconButton } from "./ui";
 import {
   panelLayers,
@@ -56,6 +57,7 @@ export default function ElasticPanel({
   initialFocus,
   dock,
   dockRect,
+  dockAnchorY,
   expanded = false,
   contentFit = false,
   fitDockHeight = false,
@@ -92,6 +94,7 @@ export default function ElasticPanel({
   initialFocus?: string;
   dock?: "left" | "right";
   dockRect?: SurfaceRect;
+  dockAnchorY?: number;
   expanded?: boolean;
   contentFit?: boolean;
   fitDockHeight?: boolean;
@@ -112,8 +115,20 @@ export default function ElasticPanel({
   const positionRef = useRef(position);
   positionRef.current = dock ? dockPosition() : position;
   const dockRectRef = useRef(dockRect); dockRectRef.current = dockRect;
+  const dockAnchorYRef = useRef(dockAnchorY); dockAnchorYRef.current = dockAnchorY;
   const fitDockHeightRef = useRef(fitDockHeight); fitDockHeightRef.current = fitDockHeight;
-  const panelTransform = () => sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`;
+  const panelTransform = () => {
+    if (sheet) return "translateX(-50%)";
+    const { x, y } = positionRef.current;
+    const anchor = dockAnchorYRef.current;
+    if (!fitDockHeightRef.current || anchor === undefined) return `translate(calc(-50% + ${x}px),calc(-50% + ${y}px))`;
+    const bounds = dockRectRef.current;
+    const top = bounds?.y ?? PANEL_MARGIN;
+    const bottom = bounds ? bounds.y + bounds.height : innerHeight - PANEL_MARGIN;
+    const midpoint = innerHeight / 2;
+    // Percentages use the shell's current height, including during animation.
+    return `translate(calc(-50% + ${x}px),clamp(${top - midpoint}px,calc(${anchor - midpoint}px - 50%),calc(${bottom - midpoint}px - 100%)))`;
+  };
   const previousDockRect = useRef(dockRect);
   const visualOrigin = useRef<PanelOrigin | undefined>(undefined);
   const restoreOrigin = useRef<(() => void) | undefined>(undefined);
@@ -271,7 +286,7 @@ export default function ElasticPanel({
       }
     }
     if (!motion.current?.running) { dockFrame.current = rect; onPanelFrame?.(rect); }
-  }, [node, position, dock, dockRect, expanded, width, contentFit, fitDockHeight, onPanelFrame]);
+  }, [node, position, dock, dockRect, dockAnchorY, expanded, width, contentFit, fitDockHeight, onPanelFrame]);
   async function close(replacement?: HTMLElement, dismiss = false) {
     if (latest.current.busy || closing.current || !node) return;
     if (latest.current.depthOffset > 0 && !dismiss) {

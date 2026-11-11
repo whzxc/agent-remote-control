@@ -2,7 +2,7 @@
   "theme": "light",
   "language": "zh-CN",
   "timezone": "Asia/Shanghai",
-  "agents": ["codex"],
+  "agents": ["codex", "cursor", "opencode"],
   "tasks": [],
   "quota": true,
   "panelHistory": true,

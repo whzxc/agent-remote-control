@@ -368,10 +368,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
-        {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect}
+        {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect} dockAnchorY={panelLayout.anchorY}
           width={envOverrides().taskPanelWidth ?? panelLayout.width} expanded={envOverrides().taskPanelWidth == null && panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)}
           onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
-        {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
+        {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} dockAnchorY={panelLayout.anchorY} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && coreState === "ready" && (

@@ -81,8 +81,8 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   </section>;
 }
 
-export default function AgentPanel({ agent, onSettings, onPanelFrame, width, expanded, onToggleWidth, dockRect }: {
-  agent: Agent; width?: number; dockRect?: SurfaceRect;
+export default function AgentPanel({ agent, onSettings, onPanelFrame, width, expanded, onToggleWidth, dockRect, dockAnchorY }: {
+  agent: Agent; width?: number; dockRect?: SurfaceRect; dockAnchorY?: number;
   onSettings: () => void; onPanelFrame: (rect: SurfaceRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
@@ -133,7 +133,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     return () => { current = false; };
   }, [agent.agent, panelId, shouldReadHistory]);
   if (!ready) return null;
-  return <Dialog contentFit fitDockHeight={!session} className={selected.platform ? undefined : "agent-history-panel"} width={width} dockRect={dockRect} dock="right" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <Dialog contentFit fitDockHeight={!session} className={selected.platform ? undefined : "agent-history-panel"} width={width} dockRect={dockRect} dockAnchorY={dockAnchorY} dock="right" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}

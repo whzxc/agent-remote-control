@@ -1,7 +1,7 @@
 {
   "theme": "light",
   "language": "zh-CN",
-  "agents": ["claude"],
+  "agents": ["codex", "cursor", "claude"],
   "tasks": [],
   "platformAgent": "claude",
   "slowDock": "accounts",

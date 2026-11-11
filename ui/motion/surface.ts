@@ -138,7 +138,7 @@ export function surfaceMotion(node: HTMLElement, naturalStyle: () => Surface = (
           rendered = { ...(follow ? mix(start, goal)(progress) : interpolate(progress)) };
           Object.assign(node.style, rendered);
           pinContent();
-          onFrame?.(follow ? node.getBoundingClientRect() : interpolateRect(progress));
+          onFrame?.(follow || (fit() && !goal.transform) ? node.getBoundingClientRect() : interpolateRect(progress));
         },
       });
       if (!reduced.matches) {

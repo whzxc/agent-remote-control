@@ -26,27 +26,34 @@ const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function overviewCenter(box, viewportHeight, portrait) {
-  if (!box) throw new Error('The overview has no visible bounds.');
-  const center = box.y + box.height / 2;
-  const offset = Math.abs(center - viewportHeight / 2);
-  if (offset > (portrait ? viewportHeight * 0.1 : 1)) throw new Error('The overview is not vertically centered.');
-  return center;
+function overviewDock(model, viewportHeight) {
+  const { nodes, origin, orientation } = model.topology;
+  const node = nodes.find(item => item.selected && item.position);
+  if (!node) throw new Error('The overview has no selected topology node.');
+  return { anchorY: node.position.y + origin.y, top: 16, bottom: viewportHeight - (orientation === 'portrait' ? 96 : 16) };
 }
-async function checkOverviewGrowth(dialog, initial, viewportHeight, portrait) {
-  const center = overviewCenter(initial, viewportHeight, portrait);
-  return dialog.evaluate(async (element, { center, initialHeight }) => {
+function checkOverviewAnchor(box, { anchorY, top, bottom }) {
+  if (!box) throw new Error('The overview has no visible bounds.');
+  const expected = Math.max(top, Math.min(anchorY - box.height / 2, bottom - box.height));
+  if (Math.abs(box.y - expected) > 1) throw new Error(`The overview is not anchored to its node at ${anchorY}: expected top ${expected}, got ${box.y}.`);
+}
+async function checkOverviewGrowth(dialog, initial, dock) {
+  checkOverviewAnchor(initial, dock);
+  const frames = await dialog.evaluate(async (element, initialHeight) => {
+    const bounds = [];
     let previousHeight = initialHeight, stableFrames = 0;
     for (let frame = 0; frame < 40; frame++) {
       await new Promise(requestAnimationFrame);
       const { y, height } = element.getBoundingClientRect();
-      if (Math.abs(y + height / 2 - center) > 1) throw new Error('The overview center shifted as its height changed.');
+      bounds.push({ y, height });
       stableFrames = height > initialHeight + 1 && Math.abs(height - previousHeight) < 0.5 ? stableFrames + 1 : 0;
-      if (stableFrames >= 3) return { y, height };
+      if (stableFrames >= 3) return bounds;
       previousHeight = height;
     }
     throw new Error('The overview did not grow when its data arrived.');
-  }, { center, initialHeight: initial.height });
+  }, initial.height);
+  for (const box of frames) checkOverviewAnchor(box, dock);
+  return frames.at(-1);
 }
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.
 async function chooseSpec(page, messages, model, effort) {
@@ -184,9 +191,9 @@ try {
           model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         }
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
-        const portraitDock = model.topology?.orientation === 'portrait';
         if (name === 'agent-panel-short' || name === 'agent-panel-loading') {
           const dialog = page.getByRole('dialog', { name: 'Codex', exact: true });
+          const dock = overviewDock(model, height);
           let loadingBox;
           if (fixture.historyDelayMs) {
             await dialog.getByText('正在加载…', { exact: true }).waitFor();
@@ -194,8 +201,8 @@ try {
             if (screenshots) await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
           }
           await dialog.getByRole('button', { name: /^Review project change 1/ }).waitFor();
-          const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, height, portraitDock) : await dialog.boundingBox();
-          overviewCenter(loadedBox, height, portraitDock);
+          const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, dock) : await dialog.boundingBox();
+          checkOverviewAnchor(loadedBox, dock);
           if (!loadedBox || loadedBox.height >= height * 0.75) throw new Error('The short Agent overview did not fit its content.');
         }
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
@@ -208,7 +215,7 @@ try {
           const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
             : dialog.getByRole('button', { name: /Review the example change/ });
           await content.waitFor();
-          await checkOverviewGrowth(dialog, initial, height, portraitDock);
+          await checkOverviewGrowth(dialog, initial, overviewDock(model, height));
           await loading.waitFor({ state: 'hidden' });
         }
         if (fixture.coordination) {
@@ -606,6 +613,15 @@ try {
               } else row.baseline = 'dimensions-changed';
             }
           }
+        }
+        if (name === 'agent-panel-short') {
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'hidden' });
+          await page.getByRole('button', { name: /^OpenCode:/i }).click();
+          const opened = page.getByRole('dialog', { name: 'OpenCode', exact: true });
+          await opened.getByRole('button', { name: /^Review project change 1/ }).waitFor();
+          checkOverviewAnchor(await opened.boundingBox(), overviewDock(await page.evaluate(() => window.__ARC_VIEW_MODEL__()), height));
+          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-clicked-node.png`) });
         }
         if (name.startsWith('agent-platform-') && width === 1280) {
           // Regression: account management disappeared with zero or one account and quota failure looked like expired authorization.

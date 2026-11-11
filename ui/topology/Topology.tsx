@@ -39,7 +39,7 @@ export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; 
 }
 type PositionedTask = TaskView & { parent: string; side: Side };
 export interface TopologyHandle { memberLayerPointer: (event: Event) => void; panelFrame: (rect: SurfaceRect | null) => void }
-export interface PanelLayout { key?: string; width: number; expanded: boolean; rect?: SurfaceRect }
+export interface PanelLayout { key?: string; width: number; expanded: boolean; rect?: SurfaceRect; anchorY?: number }
 
 export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onPanelLayout, onCollapseSide, onMarkRead, onReorderNodes, onReorderTasks, ref }: {
   left: NodeView[]; right: NodeView[]; accountsEnabled?: boolean; brand: ReactNode;
@@ -584,7 +584,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     const width = rect?.width ?? ((latest.current.panelKey?.startsWith("agent:") ? envOverrides().taskPanelWidth : undefined) ?? (selectedNode && radius !== undefined ? panelWidth(innerWidth, selectedNode.side, origin.current.x + selectedNode.x,
       radius + 2 * Math.max(0.8, layout.current.hub.Re / 130)) : PANEL_MIN_WIDTH));
     const { panelKey: key, panelExpanded: expanded } = latest.current;
-    const next: PanelLayout = { key, width, expanded: rect ? false : expanded, rect };
+    const anchorY = selectedNode ? selectedNode.y + origin.current.y : undefined;
+    const next: PanelLayout = { key, width, expanded: rect ? false : expanded, rect, anchorY };
     if (JSON.stringify(reportedPanel.current) !== JSON.stringify(next)) {
       reportedPanel.current = next;
       latest.current.onPanelLayout?.(next);
@@ -715,7 +716,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const dx = origin.current.x - rect.x, dy = origin.current.y - rect.y;
       origin.current = { x: rect.x, y: rect.y };
       if (drag.current?.active) { drag.current.x += dx; drag.current.y += dy; target(); }
-      else if (orientation.current === 'portrait' && latest.current.panelKey) target();
+      else if (latest.current.panelKey) target();
       else paint();
     };
     const observer = new ResizeObserver(measure); observer.observe(container);

@@ -15,8 +15,8 @@ import { controlSourcePlatform } from "../controlSources";
 import { Dialog, IconButton, Notice } from "./ui";
 import { useDockOpening } from "./useDockOpening";
 
-export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWidth, dockRect }: {
-  onPanelFrame: (rect: SurfaceRect | null) => void; width?: number; dockRect?: SurfaceRect; expanded: boolean; onToggleWidth: () => void;
+export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWidth, dockRect, dockAnchorY }: {
+  onPanelFrame: (rect: SurfaceRect | null) => void; width?: number; dockRect?: SurfaceRect; dockAnchorY?: number; expanded: boolean; onToggleWidth: () => void;
 }) {
   const selected = ingressPanel.use()!, { status, sources, sourcesLoaded, error: connectorError } = connector.use();
   const tasksLoading = useSyncExternalStore(tasks.subscribe, () => tasks.get().loading);
@@ -59,7 +59,7 @@ export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWi
   }, [panelId]);
   const ready = useDockOpening(panelId, pending, selected.closing, cancelOpening);
   if (!ready) return null;
-  return <Dialog width={width} dockRect={dockRect} dock="left" expanded={expanded} contentFit={fit} fitDockHeight={fit} headerless title={title} busy={busy}
+  return <Dialog width={width} dockRect={dockRect} dockAnchorY={dockAnchorY} dock="left" expanded={expanded} contentFit={fit} fitDockHeight={fit} headerless title={title} busy={busy}
     originKey={panelId} closeRequested={selected.closing}
     onCloseStart={() => ingressPanel.set(old => old && sourcePanelId(old) === panelId ? { ...old, closing: true } : old)}
     onClose={() => { const current = ingressPanel.get(); if (current && sourcePanelId(current) === panelId && current.closing) ingressPanel.set(undefined); }}
