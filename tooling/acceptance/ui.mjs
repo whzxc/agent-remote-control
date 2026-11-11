@@ -26,6 +26,28 @@ const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function overviewCenter(box, viewportHeight, portrait) {
+  if (!box) throw new Error('The overview has no visible bounds.');
+  const center = box.y + box.height / 2;
+  const offset = Math.abs(center - viewportHeight / 2);
+  if (offset > (portrait ? viewportHeight * 0.1 : 1)) throw new Error('The overview is not vertically centered.');
+  return center;
+}
+async function checkOverviewGrowth(dialog, initial, viewportHeight, portrait) {
+  const center = overviewCenter(initial, viewportHeight, portrait);
+  return dialog.evaluate(async (element, { center, initialHeight }) => {
+    let previousHeight = initialHeight, stableFrames = 0;
+    for (let frame = 0; frame < 40; frame++) {
+      await new Promise(requestAnimationFrame);
+      const { y, height } = element.getBoundingClientRect();
+      if (Math.abs(y + height / 2 - center) > 1) throw new Error('The overview center shifted as its height changed.');
+      stableFrames = height > initialHeight + 1 && Math.abs(height - previousHeight) < 0.5 ? stableFrames + 1 : 0;
+      if (stableFrames >= 3) return { y, height };
+      previousHeight = height;
+    }
+    throw new Error('The overview did not grow when its data arrived.');
+  }, { center, initialHeight: initial.height });
+}
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.
 async function chooseSpec(page, messages, model, effort) {
   await page.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['dispatchDefaults.model'])}: `) }).click();
@@ -162,6 +184,7 @@ try {
           model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         }
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
+        const portraitDock = model.topology?.orientation === 'portrait';
         if (name === 'agent-panel-short' || name === 'agent-panel-loading') {
           const dialog = page.getByRole('dialog', { name: 'Codex', exact: true });
           let loadingBox;
@@ -171,18 +194,9 @@ try {
             if (screenshots) await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
           }
           await dialog.getByRole('button', { name: /^Review project change 1/ }).waitFor();
-          if (loadingBox) {
-            await dialog.evaluate(async (element, initialHeight) => {
-              for (let frame = 0; frame < 40; frame++) {
-                await new Promise(requestAnimationFrame);
-                if (element.getBoundingClientRect().height > initialHeight + 1) return;
-              }
-              throw new Error('The Agent overview did not grow when history arrived.');
-            }, loadingBox.height);
-          }
-          const loadedBox = await dialog.boundingBox();
+          const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, height, portraitDock) : await dialog.boundingBox();
+          overviewCenter(loadedBox, height, portraitDock);
           if (!loadedBox || loadedBox.height >= height * 0.75) throw new Error('The short Agent overview did not fit its content.');
-          if (loadingBox && Math.abs(loadingBox.y - loadedBox.y) > 1) throw new Error('The Agent overview moved its top edge when history arrived.');
         }
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
         if (fixture.slowDock) {
@@ -194,14 +208,7 @@ try {
           const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
             : dialog.getByRole('button', { name: /Review the example change/ });
           await content.waitFor();
-          const settled = await dialog.evaluate(async (element, startHeight) => {
-            for (let frame = 0; frame < 40; frame++) {
-              await new Promise(requestAnimationFrame);
-              const { y, height } = element.getBoundingClientRect();
-              if (height > startHeight + 1) return { y, height };
-            }
-          }, initial?.height ?? 0);
-          if (!initial || !settled || Math.abs(settled.y - initial.y) > 1) throw new Error('The overview did not grow from its fixed top edge.');
+          await checkOverviewGrowth(dialog, initial, height, portraitDock);
           await loading.waitFor({ state: 'hidden' });
         }
         if (fixture.coordination) {

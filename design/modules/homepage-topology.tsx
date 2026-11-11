@@ -1,5 +1,5 @@
 import { Frame } from "sdg";
-import { TopologyScene } from "./topology-scene";
+import { TopologyScene, type ScenePath } from "./topology-scene";
 import { TopologyNode } from "./topology-node";
 import { TopologyGroup } from "./topology-group";
 import { TopologyMark } from "./topology-mark";
@@ -20,14 +20,14 @@ export type Scene = {
   nodes: readonly Placement[];
   groups?: readonly (readonly [x: number, y: number, group: number, anchor?: "right"])[];
   tasks: readonly Placement[];
-  links: readonly number[];
+  links: readonly (number | ScenePath)[];
   mark: Parameters<typeof TopologyMark>[0] & { x: number; y: number };
   chrome: readonly Chrome[];
 };
 
 export function TopologyScreen({
-  width, height, scene, hideNodeLabels = false,
-}: { width: number; height: number; scene: Scene; hideNodeLabels?: boolean }) {
+  width, height, scene, hideNodeLabels = false, children,
+}: { width: number; height: number; scene: Scene; hideNodeLabels?: boolean; children?: unknown }) {
   const items = [
     ...scene.nodes.map(([x, y, node]) => ({
       x, y, content: <TopologyNode {...nodes[node]} hideLabel={hideNodeLabels || nodes[node].hideLabel} />,
@@ -40,7 +40,7 @@ export function TopologyScreen({
   ];
   return (
     <div class="relative bg-canvas" style={{ width, height }}>
-      <TopologyScene width={width} height={height} items={items} paths={scene.links.map((id) => links[id])} />
+      <TopologyScene width={width} height={height} items={items} paths={scene.links.map((link) => typeof link === "number" ? links[link] : link)} />
       <div data-free class="absolute inset-0">
         {scene.chrome.map((chrome) => (
           <div class="absolute flex" style={{ left: chrome.x, top: chrome.y }}>
@@ -61,6 +61,7 @@ export function TopologyScreen({
           </div>
         ))}
       </div>
+      {children}
     </div>
   );
 }

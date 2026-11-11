@@ -113,7 +113,7 @@ export default function ElasticPanel({
   positionRef.current = dock ? dockPosition() : position;
   const dockRectRef = useRef(dockRect); dockRectRef.current = dockRect;
   const fitDockHeightRef = useRef(fitDockHeight); fitDockHeightRef.current = fitDockHeight;
-  const fittedDockTransform = () => `translate(calc(-50% + ${positionRef.current.x}px), calc(${dockRectRef.current?.y ?? 16}px - 50dvh))`;
+  const panelTransform = () => sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`;
   const previousDockRect = useRef(dockRect);
   const visualOrigin = useRef<PanelOrigin | undefined>(undefined);
   const restoreOrigin = useRef<(() => void) | undefined>(undefined);
@@ -192,13 +192,10 @@ export default function ElasticPanel({
       setPosition({ x, y });
       rect = new DOMRect((innerWidth - rect.width) / 2 + x, (innerHeight - rect.height) / 2 + y, rect.width, rect.height);
     }
-    const surface = surfaceMotion(node, () => fitDockHeightRef.current
-      ? { width: "", height: "", transform: fittedDockTransform() }
-      : dockRectRef.current ? frameAt(dockRectRef.current, 1, "20px") : ({
-      // A shell first opened in portrait must release its explicit size when
-      // returning to the landscape dock's CSS-owned viewport height.
+    const surface = surfaceMotion(node, () => dockRectRef.current && !fitDockHeightRef.current ? frameAt(dockRectRef.current, 1, "20px") : ({
+      // Fitted docks and landscape docks take their dimensions from CSS.
       ...(dock ? { width: "", height: "" } : {}),
-      transform: sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`,
+      transform: panelTransform(),
     }), frame => { dockFrame.current = frame; onMotion?.(); onPanelFrame?.(frame); }, !dock && !sheet, dock ? () => fitDockHeightRef.current : undefined);
     dockFrame.current = rect;
     onPanelFrame?.(rect);
@@ -387,9 +384,8 @@ export default function ElasticPanel({
             {
               ...(sheet ? { top: "auto", left: sheetFrame.left, bottom: sheetFrame.bottom, width: sheetFrame.width, "--sheet-host-height": `${sheetFrame.height}px` } : {}),
               "--preferred-width": dock && expanded ? "calc(100vw - 32px)" : `${width ?? (wide ? 880 : 800)}px`,
-              transform: sheet ? "translateX(-50%)" : `translate(calc(-50% + ${positionRef.current.x}px),calc(-50% + ${positionRef.current.y}px))`,
+              transform: panelTransform(),
               ...(dockRect ? { ...(!fitDockHeight ? frameAt(dockRect, 1, '20px') : {}), '--panel-layout-width': `${dockRect.width}px`, '--panel-layout-height': `${dockRect.height}px`, maxHeight: dockRect.height } : {}),
-              ...(fitDockHeight ? { transform: fittedDockTransform() } : {}),
               zIndex: (dock ? 102 : 101) + Math.max(0, layers.indexOf(node!)) * 2,
             } as CSSProperties
           }

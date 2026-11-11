@@ -24,9 +24,9 @@ Task branches form complete rounded routes from the node through the bus column.
 
 ## Panels
 
-Agent/account panels dock inside the right rail over the bubbles, from a 16px left margin to 40px before the selected node's stubs. The top panel margin anchors the overview, and the dock clearance caps its height. The overview fits its content and scrolls within that limit. Task details fill the available dock height. The hub position and topology scroll offset do not constrain the available height. A selected-node stub reaches the panel's right edge; bubbles and their stubs fade using existing panel state.
+Agent/account panels dock inside the right rail over the bubbles, from a 16px left margin to 40px before the selected node's stubs. The overview is vertically centered between the top panel margin and the bottom dock clearance. It fits its content and scrolls within that limit. Task details fill the available dock height. The hub position and topology scroll offset do not constrain the available height. A selected-node stub reaches the panel's right edge; bubbles and their stubs fade using existing panel state.
 
-Source panels open to the right of the visible source and account nodes, inside the viewport and above the dock. They overlay the scene without reserving a vertical gap or moving the hub and Agent section. Source dispatch and connector overviews fit their content within the available viewport. The top edge stays anchored, and the body scrolls at the viewport cap. The selected source connects directly from the icon's right edge to the panel's left edge. Opening the panel keeps the selected node visible.
+Source panels open to the right of the visible source and account nodes, inside the viewport and above the dock. They overlay the scene without reserving a vertical gap or moving the hub and Agent section. Source dispatch and connector overviews fit their content within the available viewport. The overview stays vertically centered in the available dock area, and the body scrolls at the viewport cap. The selected source connects directly from the icon's right edge to the panel's left edge. Opening the panel keeps the selected node visible.
 
 Portrait panels use the available rail area and omit the landscape width-expansion control. An explicit `app_env.taskPanelWidth` may narrow the Agent panel within that area.
 

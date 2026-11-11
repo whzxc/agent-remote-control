@@ -6,13 +6,19 @@ import { QuotaCards } from "../modules/quota";
 import { TaskBubble } from "../modules/task-presentation";
 import { Tile } from "../components/tile";
 import { AgentTaskHistory } from "../modules/agent-activity";
+import { TopologyScreen } from "../modules/homepage-topology";
 import { active, agentHistory, agentHistoryLoading, agentTaskMeta, shortAgentHistory } from "../fixtures/agent-activity";
+import { centeredAgentPanelScenes } from "../fixtures/agent-panel-topology";
 import { taskDispatch } from "../fixtures/task-presentation";
 import { agentQuotas as quotas } from "../fixtures/quota";
-function AgentPanel({ history = "long" }: { history?: "long" | "short" | "empty" | "loading" }) {
+function AgentPanel({ history = "long", width = 420, portrait = false }: {
+  history?: "long" | "short" | "empty" | "loading";
+  width?: number;
+  portrait?: boolean;
+}) {
   const tasks = history === "long" ? active : [];
   return (
-    <PanelShell width={420} class="max-h-[768px] overflow-hidden pt-4">
+    <PanelShell width={width} class="max-h-[768px] overflow-hidden pt-4">
       <header class="mx-5 flex shrink-0 items-center gap-3">
         <AgentIcon
           brand="codex"
@@ -35,7 +41,7 @@ function AgentPanel({ history = "long" }: { history?: "long" | "short" | "empty"
           </p>
         </div>
         <div class="flex items-center gap-1">
-          {["refresh-cw", "settings", "maximize-2"].map((icon) => (
+          {(portrait ? ["refresh-cw", "settings"] : ["refresh-cw", "settings", "maximize-2"]).map((icon) => (
             <IconButton icon={icon} label={icon} />
           ))}
         </div>
@@ -94,5 +100,17 @@ export default () => [
   </Frame>,
   <Frame name="loading" fixture="agent-panel-loading" capture={{ region: "Codex", viewport: "1280x800" }}>
     <AgentPanel history="loading" />
+  </Frame>,
+  <Frame name="centered-landscape" width={1280} height={800} fixture="agent-panel-short"
+    capture={{ page: true, origin: "0 0", viewport: "1280x800" }}>
+    <TopologyScreen width={1280} height={800} scene={centeredAgentPanelScenes.landscape}>
+      <div class="absolute inset-4 flex items-center justify-end"><AgentPanel history="short" /></div>
+    </TopologyScreen>
+  </Frame>,
+  <Frame name="centered-portrait" width={640} height={800} fixture="agent-panel-short"
+    capture={{ page: true, origin: "0 0", viewport: "640x800" }}>
+    <TopologyScreen width={640} height={800} scene={centeredAgentPanelScenes.portrait} hideNodeLabels>
+      <div class="absolute top-4 bottom-24 left-4 flex items-center"><AgentPanel history="short" width={515} portrait /></div>
+    </TopologyScreen>
   </Frame>,
 ];
