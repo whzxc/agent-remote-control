@@ -186,9 +186,34 @@ fn shared(name: &str) -> bool {
 // Check a flat manifest synchronously: watcher callbacks can lag a completed
 // write, including immediately before dispatch. Directory stamps discover added
 // and removed entries; link and ancestor stamps discover retargeted paths.
+#[derive(PartialEq, Eq)]
+struct AncestorStamp {
+    target: Option<PathBuf>,
+    created: Option<std::time::SystemTime>,
+    #[cfg(unix)]
+    identity: (u64, u64),
+}
+impl AncestorStamp {
+    fn read(path: &Path, metadata: &std::fs::Metadata) -> Result<Self> {
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt;
+        Ok(Self {
+            target: if metadata.is_symlink() {
+                Some(std::fs::read_link(path).map_err(|e| e.to_string())?)
+            } else {
+                None
+            },
+            created: metadata.created().ok(),
+            #[cfg(unix)]
+            identity: (metadata.dev(), metadata.ino()),
+        })
+    }
+}
+
 #[derive(Default)]
 struct Inputs {
     paths: BTreeMap<PathBuf, Option<Stamp>>,
+    ancestors: BTreeMap<PathBuf, Option<AncestorStamp>>,
     failed: bool,
 }
 impl Inputs {
@@ -200,7 +225,20 @@ impl Inputs {
         }
     }
     fn observe(&mut self, path: &Path) {
-        if self.observe_links(path, 0).is_err() {
+        let mut observe = || -> Result<()> {
+            if !self.paths.contains_key(path) {
+                self.paths.insert(path.to_path_buf(), Self::read(path)?);
+            }
+            self.observe_links(path, 0)?;
+            if let Ok(resolved) = path.canonicalize() {
+                if !self.paths.contains_key(&resolved) {
+                    self.paths.insert(resolved.clone(), Self::read(&resolved)?);
+                }
+                self.observe_links(&resolved, 0)?;
+            }
+            Ok(())
+        };
+        if observe().is_err() {
             self.failed = true;
         }
     }
@@ -209,21 +247,25 @@ impl Inputs {
             return Err("Cannot track shared configuration links".into());
         }
         for path in path.ancestors() {
-            if !self.paths.contains_key(path) {
-                let metadata = match std::fs::symlink_metadata(path) {
-                    Ok(metadata) => Some(metadata),
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-                    Err(error) => return Err(error.to_string()),
-                };
-                self.paths.insert(
-                    path.to_path_buf(),
-                    metadata.as_ref().map(Stamp::from_metadata),
-                );
-                if metadata.is_some_and(|metadata| metadata.is_symlink()) {
-                    let target = std::fs::read_link(path).map_err(|e| e.to_string())?;
-                    let target = path.parent().unwrap_or(Path::new("")).join(target);
-                    self.observe_links(&target, depth + 1)?;
-                }
+            if self.ancestors.contains_key(path) {
+                continue;
+            }
+            let metadata = match std::fs::symlink_metadata(path) {
+                Ok(metadata) => Some(metadata),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(error.to_string()),
+            };
+            let stamp = metadata
+                .as_ref()
+                .map(|metadata| AncestorStamp::read(path, metadata))
+                .transpose()?;
+            let target = stamp.as_ref().and_then(|stamp| stamp.target.clone());
+            self.ancestors.insert(path.to_path_buf(), stamp);
+            if let Some(target) = target {
+                self.observe_links(
+                    &path.parent().unwrap_or(Path::new("")).join(target),
+                    depth + 1,
+                )?;
             }
         }
         Ok(())
@@ -234,6 +276,20 @@ impl Inputs {
         }
         for (path, before) in &self.paths {
             if Self::read(path)? != *before {
+                return Ok(false);
+            }
+        }
+        for (path, before) in &self.ancestors {
+            let metadata = match std::fs::symlink_metadata(path) {
+                Ok(metadata) => Some(metadata),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(error.to_string()),
+            };
+            let current = metadata
+                .as_ref()
+                .map(|metadata| AncestorStamp::read(path, metadata))
+                .transpose()?;
+            if current != *before {
                 return Ok(false);
             }
         }
@@ -348,6 +404,9 @@ mod tests {
         assert_eq!(revision.read(&source).unwrap(), expected);
         let baseline = TREE_READS.get();
         for _ in 0..6 {
+            let sibling = Sandbox::new();
+            assert_eq!(revision.read(&source).unwrap(), expected);
+            drop(sibling);
             assert_eq!(revision.read(&source).unwrap(), expected);
         }
         assert_eq!(TREE_READS.get(), baseline);
