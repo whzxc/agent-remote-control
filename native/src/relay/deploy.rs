@@ -336,13 +336,7 @@ async fn wrangler(
     cmd.arg(script).args(args).current_dir(dir);
     run_command(cmd, status, args.first() == Some(&"login"), open_browser).await
 }
-async fn ensure_subdomain(
-    script: &Path,
-    dir: &Path,
-    account: &str,
-    relay_id: &str,
-    status: &Mutex<Value>,
-) -> Result<String> {
+async fn oauth_token(script: &Path, dir: &Path, status: &Mutex<Value>) -> Result<String> {
     // Wrangler owns login/refresh/storage. The access token is used only in memory here.
     let credentials: Value = serde_json::from_str(
         &wrangler(script, dir, &["auth", "token", "--json"], status, false).await?,
@@ -351,6 +345,17 @@ async fn ensure_subdomain(
     if credentials["type"] != "oauth" {
         return Err("Wrangler browser OAuth authorization is required".into());
     }
+    Ok(string(&credentials, "token").to_owned())
+}
+
+async fn ensure_subdomain(
+    script: &Path,
+    dir: &Path,
+    account: &str,
+    relay_id: &str,
+    status: &Mutex<Value>,
+) -> Result<String> {
+    let token = oauth_token(script, dir, status).await?;
     let client = proxy()
         .await?
         .client(reqwest::Client::builder())
@@ -361,7 +366,7 @@ async fn ensure_subdomain(
         format!("https://api.cloudflare.com/client/v4/accounts/{account}/workers/subdomain");
     let response: Value = client
         .get(&endpoint)
-        .bearer_auth(string(&credentials, "token"))
+        .bearer_auth(&token)
         .send()
         .await
         .map_err(|_| "Cannot read workers.dev registration; check proxy")?
@@ -386,7 +391,7 @@ async fn ensure_subdomain(
     let name = format!("arc-{}", relay_id.replace('-', ""));
     let response: Value = client
         .put(endpoint)
-        .bearer_auth(string(&credentials, "token"))
+        .bearer_auth(&token)
         .json(&json!({"subdomain":name}))
         .send()
         .await
@@ -511,21 +516,106 @@ fn deployed_url(output: &str, worker: &str) -> Result<String> {
         .map(str::to_owned).ok_or_else(|| "Deployment completed but no workers.dev address was returned; enable the account workers.dev subdomain and redeploy".into());
     result
 }
+pub(super) fn worker_missing_from_response(
+    status: reqwest::StatusCode,
+    response: &Value,
+) -> Result<bool> {
+    if status.is_success() && response["success"] == true {
+        return Ok(false);
+    }
+    if status == reqwest::StatusCode::NOT_FOUND
+        && response["success"] == false
+        && matches!(response["errors"].as_array().map(Vec::as_slice), Some([error]) if error["code"] == 10007)
+    {
+        return Ok(true);
+    }
+    Err(format!(
+        "Cloudflare Worker lookup failed (HTTP {status}); check Workers account permissions"
+    ))
+}
+
+async fn check_worker_missing(
+    script: &Path,
+    config: &Value,
+    status: &Mutex<Value>,
+) -> Result<bool> {
+    let account = string(config, "accountId");
+    let worker = string(config, "workerName");
+    if account.is_empty() || worker.is_empty() {
+        return Err("Cannot verify Worker removal without its Cloudflare account and name".into());
+    }
+    let token = oauth_token(script, &workspace(config)?, status).await?;
+    let client = proxy()
+        .await?
+        .client(reqwest::Client::builder())
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let endpoint = format!(
+        "https://api.cloudflare.com/client/v4/accounts/{account}/workers/scripts/{worker}/settings"
+    );
+    let response = client
+        .get(endpoint)
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|_| "Cannot verify Worker removal; check Cloudflare connectivity")?;
+    let status = response.status();
+    let body = response.json().await.map_err(|_| {
+        format!("Cannot verify Worker removal; invalid Cloudflare response (HTTP {status})")
+    })?;
+    worker_missing_from_response(status, &body)
+}
+
+pub(super) async fn worker_missing(config: &Value, status: &Mutex<Value>) -> Result<bool> {
+    let script = tool(config, status).await?;
+    check_worker_missing(&script, config, status).await
+}
+
 pub(super) async fn delete(config: &Value, status: &Mutex<Value>) -> Result<()> {
     let script = tool(config, status).await?;
-    wrangler(
-        &script,
-        &workspace(config)?,
-        &["delete", "--force"],
-        status,
-        false,
-    )
-    .await?;
+    let dir = workspace(config)?;
+    if let Err(error) = wrangler(&script, &dir, &["delete", "--force"], status, false).await {
+        // The previous attempt may have deleted the Worker before local cleanup finished.
+        if !matches!(
+            check_worker_missing(&script, config, status).await,
+            Ok(true)
+        ) {
+            return Err(error);
+        }
+    }
     Ok(())
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cloudflare_confirms_when_a_worker_was_already_removed() {
+        // Regression: a missing Cloudflare Worker left its ARC relay undeletable after HTTP 404.
+        assert_eq!(
+            worker_missing_from_response(
+                reqwest::StatusCode::NOT_FOUND,
+                &json!({"success":false,"errors":[{"code":10007}]}),
+            ),
+            Ok(true)
+        );
+        assert_eq!(
+            worker_missing_from_response(reqwest::StatusCode::OK, &json!({"success":true})),
+            Ok(false)
+        );
+    }
+
+    #[test]
+    fn unrelated_cloudflare_404_cannot_authorize_local_cleanup() {
+        // Regression: a generic HTTP 404 does not establish that the deployed Worker was removed.
+        assert!(worker_missing_from_response(
+            reqwest::StatusCode::NOT_FOUND,
+            &json!({"success":false,"errors":[{"code":7003}]}),
+        )
+        .is_err());
+    }
+
     #[cfg(unix)]
     fn script(source: &str) -> tokio::process::Command {
         let mut cmd = command("/bin/sh");

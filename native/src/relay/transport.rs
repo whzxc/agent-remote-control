@@ -85,25 +85,49 @@ pub(super) async fn client(proxy: &crate::proxy::NetworkProxy) -> Result<reqwest
         .build()
         .map_err(|e| e.to_string())
 }
-pub(super) async fn envelope(
+pub(super) struct ControlError {
+    pub status: Option<reqwest::StatusCode>,
+    message: String,
+}
+
+impl From<String> for ControlError {
+    fn from(message: String) -> Self {
+        Self {
+            status: None,
+            message,
+        }
+    }
+}
+
+impl From<ControlError> for String {
+    fn from(error: ControlError) -> Self {
+        error.message
+    }
+}
+
+async fn envelope(
     client: &reqwest::Client,
     origin: &str,
     identity: &Identity,
     payload: &Value,
-) -> Result<Value> {
+) -> std::result::Result<Value, ControlError> {
     let response = client
         .post(format!("{origin}/challenge"))
         .timeout(Duration::from_secs(20))
         .send()
         .await
         .map_err(|e| format!("Cannot reach relay challenge endpoint: {}", e.without_url()))?;
-    if !response.status().is_success() {
-        return Err(format!("Relay challenge HTTP {}", response.status()));
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ControlError {
+            status: Some(status),
+            message: format!("Relay challenge HTTP {status}"),
+        });
     }
     let challenge: Value = response
         .json()
         .await
-        .map_err(|_| "Invalid relay challenge")?;
+        .map_err(|_| "Invalid relay challenge".to_owned())?;
     Ok(identity.envelope(origin, string(&challenge, "challenge"), payload))
 }
 pub(super) async fn wait_deployed(client: &reqwest::Client, origin: &str) -> Result<()> {
@@ -129,7 +153,7 @@ pub(super) async fn control(
     origin: &str,
     identity: &Identity,
     payload: Value,
-) -> Result<Value> {
+) -> std::result::Result<Value, ControlError> {
     let auth = envelope(client, origin, identity, &payload).await?;
     let response = client
         .post(format!("{origin}/control"))
@@ -137,16 +161,18 @@ pub(super) async fn control(
         .timeout(Duration::from_secs(30))
         .send()
         .await
-        .map_err(|_| "Relay management request failed; read status before retrying")?;
+        .map_err(|_| "Relay management request failed; read status before retrying".to_owned())?;
     let status = response.status();
-    let value: Value = response
-        .json()
-        .await
-        .map_err(|_| "Invalid relay management response")?;
-    if !status.is_success() {
-        return Err(format!("Relay HTTP {status}: {}", string(&value, "error")));
+    match response.json::<Value>().await {
+        Ok(value) if status.is_success() => Ok(value),
+        result => Err(ControlError {
+            status: Some(status),
+            message: match result {
+                Ok(value) => format!("Relay HTTP {status}: {}", string(&value, "error")),
+                Err(_) => "Invalid relay management response".into(),
+            },
+        }),
     }
-    Ok(value)
 }
 pub(crate) async fn upgrade(
     client: &reqwest::Client,

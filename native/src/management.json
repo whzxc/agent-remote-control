@@ -2689,7 +2689,7 @@
           "body"
         ]
       },
-      "description": "Owner signature only: tombstone the relay, disconnect all instances, then delete the Worker with Wrangler. Returns a progress job. Failed physical deletion can be retried.",
+      "description": "Owner only: sign the relay tombstone, disconnect instances, and delete the Worker with Wrangler. If Cloudflare confirms the Worker is already gone, clear the local relay. Returns a progress job. Failed deletion can be retried.",
       "localOnly": true
     },
     {

@@ -185,14 +185,24 @@ async fn execute(
     }
     if action == "delete" {
         step(&status, "deploying").await;
+        let mut worker_missing = false;
         if config["deleted"] != true && !string(&config, "url").is_empty() {
-            transport::control(
+            if let Err(error) = transport::control(
                 &client().await?,
                 string(&config, "url"),
                 &owner,
                 json!({"op":"delete"}),
             )
-            .await?;
+            .await
+            {
+                if error.status != Some(reqwest::StatusCode::NOT_FOUND)
+                    || config["deploymentStarted"] != true
+                    || !deploy::worker_missing(&config, &status).await?
+                {
+                    return Err(error.into());
+                }
+                worker_missing = true;
+            }
         }
         config["deleted"] = json!(true);
         save(
@@ -200,7 +210,7 @@ async fn execute(
             &config,
         )?;
         remove_ingress(&service, &config).await?;
-        if config["deploymentStarted"] == true {
+        if config["deploymentStarted"] == true && !worker_missing {
             deploy::delete(&config, &status).await?;
         }
         std::fs::remove_dir_all(directory(string(&config, "id"))?).map_err(|e| e.to_string())?;
@@ -361,9 +371,9 @@ pub(crate) fn request<'a>(
         let url = string(&config, "url");
         let client = client().await?;
         match action {
-            "me" => {
-                transport::control(&client, url, &Identity::instance()?, json!({"op":"me"})).await
-            }
+            "me" => transport::control(&client, url, &Identity::instance()?, json!({"op":"me"}))
+                .await
+                .map_err(Into::into),
             "leave" => {
                 transport::control(&client, url, &Identity::instance()?, json!({"op":"leave"}))
                     .await?;
