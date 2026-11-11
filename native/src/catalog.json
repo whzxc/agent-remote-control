@@ -709,7 +709,7 @@
     },
     {
       "name": "git",
-      "description": "Read-only Git queries: status for current changes, log for commits, show for commit messages and files. diff defaults to unstaged changes. staged=true selects staged changes. revision compares the workspace. baseRevision+revision compares commits. Diffs over 12000 bytes return a truncated preview, file statistics, and output.outputId. Read complete JSON through control_output from offset:0, or narrow by path.",
+      "description": "Read-only Git queries: status for current changes, log for commits, show for commit messages and changed-path metadata. show rejects path; use diff with baseRevision:<commit>^, revision:<commit> and path for a file commit diff. diff defaults to unstaged changes. staged=true selects staged changes. revision compares the workspace. baseRevision+revision compares commits. Diffs over 12000 bytes return a truncated preview, file statistics, and output.outputId. Read complete JSON through control_output from offset:0, or narrow by path.",
       "inputSchema": {
         "type": "object",
         "properties": {

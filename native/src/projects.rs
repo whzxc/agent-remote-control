@@ -878,6 +878,9 @@ async fn revision(root: &str, rev: &str) -> Result<String> {
     .into())
 }
 pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
+    if action == "git" && args["operation"] == "show" && args.get("path").is_some() {
+        return Err(crate::egress::invalid_arguments("git", "path", "git show returns commit metadata and does not accept path. Use git operation:diff with baseRevision:<commit>^, revision:<commit> and path to read a file's commit diff."));
+    }
     let requested_path = string(args, "path").to_owned();
     let mut normalized = args.clone();
     if matches!(action, "read" | "tree" | "search")
@@ -1286,6 +1289,22 @@ pub(crate) fn metadata(path: &Path) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn git_show_rejects_path_with_a_file_diff_action() {
+        // Regression: ax-657a3da7 git show silently ignored path and returned the same whole-commit metadata.
+        let control = Control::new(PathBuf::new());
+        let error = query(
+            &control,
+            "git",
+            &json!({"operation":"show","revision":"HEAD","path":"file.txt"}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(crate::egress::failure(&error)["code"], "INVALID_ARGUMENTS");
+        assert!(error.contains("operation:diff"));
+        assert!(error.contains("baseRevision"));
+    }
 
     #[test]
     fn ax_contracts_project_lookup_returns_discovery_and_basename_hint() {
