@@ -27,7 +27,7 @@ export default {
     viewport: '1280x800',
     async start({ port, root }) {
       const { createServer } = await import('vite');
-      const server = await createServer({ configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true }, logLevel: 'error' });
+      const server = await createServer({ mode: 'fixtures', cacheDir: path.join(root, 'node_modules/.vite-adg'), configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true }, logLevel: 'error' });
       await server.listen();
       return () => server.close();
     },
@@ -46,6 +46,12 @@ export default {
     async ready(page, name) {
       const preparation = prepared[name];
       const scenario = preparation?.scenario ?? name;
+      if (name.startsWith('device-navigation-') || name.startsWith('device-summary-')) {
+        const fixture = JSON.parse(readFileSync(new URL(`./tooling/acceptance/scenarios/${scenario}.json`, import.meta.url), 'utf8'));
+        const messages = JSON.parse(readFileSync(new URL(`./ui/locales/${fixture.language}.json`, import.meta.url), 'utf8'));
+        const label = name.startsWith('device-navigation-disabled-') ? messages.permissionsTitle : messages['device.devices'];
+        await page.getByRole('button', { name: label, exact: true }).focus();
+      }
       await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);

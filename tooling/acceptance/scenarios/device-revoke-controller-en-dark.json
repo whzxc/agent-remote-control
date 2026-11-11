@@ -1,0 +1,19 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "revoke-controller",
+    "enabled": true
+  },
+  "page": "devices",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ]
+}

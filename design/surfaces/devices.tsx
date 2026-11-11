@@ -4,7 +4,7 @@ import { locales, workspaceStates } from '../fixtures/device-link';
 
 export default () => locales.flatMap(locale => workspaceStates.map(state =>
   <Frame name={`${state}-${locale}`} width={720}
-    note="Approved. Shared workspace width. Desktop browser fixture pending implementation; all data is synthetic.">
+    fixture={`device-${state}-${locale}-light`} capture={{ selector: ".devices-workspace", viewport: "1280x800" }}>
     <DevicesWorkspace locale={locale} state={state} />
   </Frame>,
 ));

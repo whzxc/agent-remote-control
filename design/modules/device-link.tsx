@@ -241,18 +241,22 @@ export function DeviceTopologyEntry({ locale }: Localized) {
 }
 export default () => locales.flatMap(locale => [
   ...[false, true].map(enabled => <Frame name={`device-experiment-${enabled ? 'on' : 'off'}-${locale}`} width={672}
-    note="Approved. Switch only; configuration is in Devices.">
+    fixture={`device-experiment-${enabled ? 'on' : 'off'}-${locale}-light`}
+    capture={{ selector: ".device-experiment", viewport: "1280x800" }}>
     <DeviceExperiment locale={locale} enabled={enabled} />
   </Frame>),
-  ...[false, true].map(enabled => <Frame name={`device-navigation-${enabled ? 'enabled' : 'disabled'}-${locale}`}>
+  ...[false, true].map(enabled => <Frame name={`device-navigation-${enabled ? 'enabled' : 'disabled'}-${locale}`}
+    fixture={`device-navigation-${enabled ? 'enabled' : 'disabled'}-${locale}-light`}
+    capture={{ selector: ".navigation-capsule", viewport: "1280x800" }}>
     <DeviceNavigation locale={locale} enabled={enabled} />
   </Frame>),
   ...pairStates.map(state => <Frame name={`device-pair-${state}-${locale}`}
-    note="Approved. Desktop fixture pending implementation. Closing dismisses this dialog only.">
+    fixture={`device-pair-${state}-${locale}-light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DevicePairDialog locale={locale} state={state} />
   </Frame>),
-  <Frame name={`device-address-${locale}`}><DeviceAddressDialog locale={locale} /></Frame>,
-  ...[false, true].map(memberSide => <Frame name={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}`}>
+  <Frame name={`device-address-${locale}`} fixture={`device-address-${locale}-light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}><DeviceAddressDialog locale={locale} /></Frame>,
+  ...[false, true].map(memberSide => <Frame name={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}`}
+    fixture={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}-light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DeviceRevokeDialog locale={locale} memberSide={memberSide} />
   </Frame>),
 ]);

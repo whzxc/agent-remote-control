@@ -224,7 +224,7 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 ### Device link phase 4
 
-**Approved. Implementation pending.** `modules/device-link.tsx` owns DeviceExperiment,
+**Approved. Adopted.** `modules/device-link.tsx` owns DeviceExperiment,
 DeviceNavigation, DeviceMemberRow, DeviceStatus, DeviceFingerprint, DeviceDetail, DevicePairDialog,
 DeviceAddressDialog, DeviceRevokeDialog, DeviceMemberView, DevicesWorkspace and DeviceTopologyEntry.
 `fixtures/device-link.ts` owns fictional names, fingerprints, LAN endpoints, pairing content,
@@ -233,26 +233,27 @@ countdowns, errors and English / Simplified Chinese copy. Each declared state ha
 
 | Parts / source | Declared forms | Consumer / intended runtime mapping | Status |
 | --- | --- | --- | --- |
-| DeviceExperiment | `device-experiment-{off,on}-{locale}` | Experimental settings row; intended `ui/components/ExperimentalSettings.tsx` | Approved. Reuses Card, SettingLine and Switch; no embedded actions. |
-| DeviceNavigation | `device-navigation-{disabled,enabled}-{locale}` | Homepage proposal; intended navigation in `ui/App.tsx` | Approved. Reuses NavCapsule; Devices appears only when enabled. |
-| DevicePairDialog | `device-pair-{input,waiting,success,invalid,expired,protocol,declined,unreachable}-{locale}` | Add device in DevicesWorkspace; no runtime workspace owner yet | Approved. Reuses Dialog, Field/Input, Notice and Button. Waiting retains the initiating action, controller fingerprint and original offer deadline. |
-| DeviceAddressDialog / DeviceRevokeDialog | `device-address-{locale}`, `device-revoke-{member,controller}-{locale}` | DeviceDetail / DeviceMemberView; no runtime owner yet | Approved. Override supports save and clear. Both revocation directions confirm immediate loss of access while preserving running work. |
-| DeviceMemberRow / DeviceStatus / DeviceFingerprint / DeviceDetail | In `surfaces/devices`: `controller`, `detail-mac`, `detail-windows`, `detail-linux` | DevicesWorkspace; no runtime owner yet | Approved. Online/offline, LAN/tunnel, latency, last seen, full fingerprint, platform/arch, ARC version, capabilities and addresses. Windows/Linux omit screen capability and show its absence. Offline path is explicitly historical; unavailable latency is omitted. |
-| DeviceMemberView / DevicesWorkspace | In `surfaces/devices`: all workspace forms below | No runtime workspace owner yet | Approved. Reuses 720px PanelShell, PanelHeader and SingleChoice. Members / This device selects the view without changing a device role. |
-| DeviceTopologyEntry | In `surfaces/device-link-topology`: `summary` | TopologyScreen summary composition | Approved. Summary chip opens Devices; existing topology frames are retained. |
+| DeviceExperiment | `device-experiment-{off,on}-{locale}` | Experimental settings row; `ui/components/ExperimentalSettings.tsx` | Approved. Reuses Card, SettingLine and Switch; no embedded actions. |
+| DeviceNavigation | `device-navigation-{disabled,enabled}-{locale}` | Navigation in `ui/App.tsx` | Approved. Reuses NavCapsule; Devices appears only when enabled. |
+| DevicePairDialog | `device-pair-{input,waiting,success,invalid,expired,protocol,declined,unreachable}-{locale}` | `ui/devices/DevicesWorkspace.tsx` | Approved. Reuses Dialog, Field/Input, Notice and Button. Waiting retains the initiating action, controller fingerprint and original offer deadline. |
+| DeviceAddressDialog / DeviceRevokeDialog | `device-address-{locale}`, `device-revoke-{member,controller}-{locale}` | `ui/devices/DevicesWorkspace.tsx` | Approved. Override supports save and clear. Both revocation directions confirm immediate loss of access while preserving running work. |
+| DeviceMemberRow / DeviceStatus / DeviceFingerprint / DeviceDetail | In `surfaces/devices`: `controller`, `detail-mac`, `detail-windows`, `detail-linux` | `ui/devices/DevicesWorkspace.tsx` | Approved. Online/offline, LAN/tunnel, latency, last seen, full fingerprint, platform/arch, ARC version, capabilities and addresses. Windows/Linux omit screen capability and show its absence. Offline path is explicitly historical; unavailable latency is omitted. |
+| DeviceMemberView / DevicesWorkspace | In `surfaces/devices`: all workspace forms below | `ui/devices/DevicesWorkspace.tsx` | Approved. Reuses 720px PanelShell, PanelHeader and SingleChoice. Members / This device selects the view without changing a device role. |
+| DeviceTopologyEntry | In `surfaces/device-link-topology`: `summary` | `ui/devices/DeviceSummary.tsx`, `ui/topology/Topology.tsx` | Approved. Summary chip adopted. Known gap: the full composition retains older surrounding Board copy and an add-connection text action, which differ from their current owning sources. |
 
 `surfaces/devices.tsx` declares `controller`, `empty`, `detail-mac`, `detail-windows`,
 `detail-linux`, `member-idle`, `member-offer`, `member-pending`, `member-controlled`,
 `member-expired` and `member-declined`, each in both locales at the existing 720px workspace width.
 Pairing and address dialogs use 560px; revocation uses 480px. Closing the waiting dialog hides it while pairing continues until approval or the original deadline; reopening Add device restores that pending request. Native form semantics, focus restoration,
-layered Escape and async state binding follow the shared runtime controls when implemented.
+layered Escape and async state binding use shared runtime controls.
 
 `surfaces/device-link-topology.tsx` declares `summary-{locale}` at 1280×800.
 The approved summary chip sits below the ARC mark and opens Devices.
 It retains the ARC mark, earcup connections and existing branches.
 Devices also remains available in the navigation capsule.
 
-The desktop workspace is not implemented. These proposals omit runtime fixture/capture metadata;
+`ui/devices/` owns the desktop workspace and its management projection. All frames declare browser
+fixtures and captures. Scenarios use `device-{state}-{en,zh-CN}-{light,dark}`.
 `design/fixtures/device-link.ts` provides design data only. Forwarded tasks and notifications retain
 the originating device name under the existing behavior contract; their existing surfaces are outside
 this proposal. File transfer remains an op without a new UI. Headless Linux is represented only as a
@@ -266,8 +267,8 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | --- | --- | --- | --- |
 | `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading`, `centered-landscape`, `centered-portrait` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Overview height follows content, with a fixed header and scrolling body at the cap. The centered frames show the dock aligned to its selected node in the full topology view. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `loading`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed and adopted. The account overview fits its content, and the account list scrolls at the viewport cap. The loading frame has a dedicated browser fixture. The native specimen remains unreachable through the current fixture route. |
-| `surfaces/devices.tsx` | See Device link phase 4; both locales | No runtime owner yet | Approved. Implementation pending. |
-| `surfaces/device-link-topology.tsx` | `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` (future) | Approved. Summary chip opens Devices. |
+| `surfaces/devices.tsx` | See Device link phase 4; both locales | `ui/devices/DevicesWorkspace.tsx` | Approved. Adopted. |
+| `surfaces/device-link-topology.tsx` | `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` | Approved. Summary chip opens Devices. |
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination.tsx` | `current`, `empty`, `gap`, `unavailable` | `ui/coordination/CoordinationCenter.tsx` | Reviewed. Composes modules/board. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |

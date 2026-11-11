@@ -560,3 +560,30 @@ async fn hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unch
         false
     );
 }
+
+#[tokio::test]
+async fn desktop_snapshot_reads_identity_pairings_and_pending_deadline() {
+    // Regression: Desktop had no management read for identity, paired controller, or address overrides.
+    let fixture = Fixture::new();
+    let identity = fixture.member.identity().unwrap();
+    let controller = fixture.controller();
+    let peer = Peer {
+        device_id: controller.id.clone(), public_key: controller.public_key.clone(),
+        name: "Example controller".into(), addresses: vec!["192.168.1.5:7143".into()],
+        tunnel_url: None, address_override: Some("example.local:7143".into()),
+    };
+    let (decision, _receiver) = tokio::sync::oneshot::channel();
+    {
+        let mut state = fixture.member.state.lock().unwrap();
+        state.stored.controller = Some(peer.clone());
+        state.stored.members.insert(peer.device_id.clone(), peer.clone());
+        state.pending = Some(Pending { peer, expires: Instant::now() + Duration::from_secs(120), decision });
+    }
+    let snapshot = fixture.member.request("snapshot", json!({})).await.unwrap();
+    assert_eq!(snapshot["deviceId"], identity.id);
+    assert_eq!(snapshot["controller"]["name"], "Example controller");
+    assert_eq!(snapshot["members"][0]["addressOverride"], "example.local:7143");
+    assert_eq!(snapshot["pending"]["deviceId"], controller.id);
+    assert!(snapshot["pending"]["expiresInSeconds"].as_u64().unwrap() > 0);
+    assert!(snapshot["controller"].get("publicKey").is_none());
+}

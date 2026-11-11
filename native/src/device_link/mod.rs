@@ -364,6 +364,19 @@ impl Manager {
                 }
                 Ok(json!({"changed":changed}))
             }
+            "snapshot" => {
+                let identity = self.identity()?;
+                let state = self.state.lock().unwrap();
+                let peer = |p: &Peer| json!({"deviceId":p.device_id,"name":p.name,"addresses":p.addresses,"tunnelUrl":p.tunnel_url,"addressOverride":p.address_override});
+                let remaining = |expires: Instant| expires.saturating_duration_since(Instant::now()).as_secs();
+                Ok(json!({
+                    "deviceId":identity.id,"name":state.stored.name.as_deref().unwrap_or("ARC device"),
+                    "controller":state.stored.controller.as_ref().map(peer),
+                    "members":state.stored.members.values().map(peer).collect::<Vec<_>>(),
+                    "offerExpiresInSeconds":state.offer.as_ref().map(|(_,expires)|remaining(*expires)),
+                    "pending":state.pending.as_ref().filter(|p|p.expires > Instant::now()).map(|p|json!({"deviceId":p.peer.device_id,"name":p.peer.name,"expiresInSeconds":remaining(p.expires)}))
+                }))
+            }
             "offer" => self.offer().await,
             "pending" => {
                 let state = self.state.lock().unwrap();
@@ -670,7 +683,7 @@ pub fn operations() -> Vec<Value> {
     if !enabled() {
         return vec![];
     }
-    ["offer","pending","approve","decline","pair","revoke","configure","address"].into_iter().map(|action| {
+    ["snapshot","offer","pending","approve","decline","pair","revoke","configure","address"].into_iter().map(|action| {
         let (properties, required) = match action {
             "pair" => (json!({"pairingString":{"type":"string","maxLength":16384}}),json!(["pairingString"])),
             "address" => (json!({"device":{"type":"string","minLength":1},"address":{"type":["string","null"]}}),json!(["device","address"])),

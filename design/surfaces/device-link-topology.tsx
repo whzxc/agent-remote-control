@@ -14,6 +14,7 @@ export default () => locales.flatMap(locale => topologyOptions.map(option => {
   };
   const position = topologyPlacement[option];
   return <Frame name={`${option}-${locale}`} width={1280} height={800}
+    fixture={`device-summary-${locale}-light`} capture={{ page: true, viewport: "1280x800" }}
     note="Approved: one summary chip opens Devices. Existing ARC mark, earcups and branches remain intact.">
     <TopologyScreen width={1280} height={800} scene={scene}>
       <div data-free class="absolute inset-0">

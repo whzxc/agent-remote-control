@@ -221,3 +221,5 @@ Run `npm run accept:updates` on an Apple Silicon Mac with the package-signing pr
 These fixtures are stateful and never contact downstream services.
 
 `tests/mcp-hub.test.ts` in `npm run test:extended` drives a synthetic stdio server through the hub ops: disabled exposure, add, paginated discovery, calls, `list_changed` refresh, error codes, Codex import, disable and removal.
+
+Browser-only fixtures may run in an explicitly assigned lane with `npm run accept:ui -- --lane-fixtures --no-screenshots --scenario='device-*'`. The scenario filter accepts a trailing `*` for a family. Manual fixture preview uses `npm run dev:ui -- --mode fixtures`; fixture mode omits the native management proxy. This path never launches native instances.

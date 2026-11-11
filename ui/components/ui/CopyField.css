@@ -2,3 +2,5 @@
 .copy-field { display:flex; align-items:center; gap:0; min-width:0; min-height:var(--field-height); padding:3px; border-radius:var(--radius-field); background:var(--surface-sunken); }
 .copy-value { flex:1; min-width:0; padding:0 11px; overflow:hidden; white-space:nowrap; font:400 var(--text-small)/20px var(--font-mono); }
 .copy-field .icon-button { --icon-button-size:34px; flex:none; }
+
+.copy-value .sensitive-value { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; }

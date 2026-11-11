@@ -72,6 +72,7 @@ authority. They are unavailable to peer-origin guide/query/act requests.
 
 | Command | Management operation | Input / result |
 | --- | --- | --- |
+| `cli call device.snapshot` | `device.snapshot` | Read local device ID/name, paired controller and members with addresses/overrides, remaining offer/pending deadline, and member liveness from Core |
 | `cli device configure --stdin` | `device.configure` | Optional `{"port":7143,"name":"Workstation"}`; returns device ID, name and port |
 | `cli device address <device> <host:port>` | `device.address` | Controller-side LAN address override; device ID or unique name |
 | `cli device address <device> --clear` | `device.address` | Clear the override and use DNS-SD and saved LAN addresses |

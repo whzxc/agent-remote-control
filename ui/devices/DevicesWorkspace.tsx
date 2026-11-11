@@ -1,0 +1,145 @@
+import { useEffect, useId, useRef, useState } from 'react';
+import { ArrowLeft, ChevronRight, Laptop, Maximize2, Minimize2, Monitor, Pencil, Plus, Server, Unlink, X } from 'lucide-react';
+import { api } from '../api';
+import { locale, t } from '../i18n';
+import { relativeTime } from '../lib/relativeTime';
+import { Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
+import { Card } from '../components/ui/card';
+import { SettingLine } from '../components/ui/Settings';
+import { connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
+import './devices.css';
+
+const c = (key: string, params?: Record<string, unknown>) => t(`device.${key}`, params);
+const iconFor = (device: Device) => device.platform === 'darwin' || device.platform === 'macos' ? Laptop : device.platform === 'linux' ? Server : Monitor;
+const countdown = (seconds: number) => `${String(Math.max(0, Math.floor(seconds / 60))).padStart(2, '0')}:${String(Math.max(0, seconds % 60)).padStart(2, '0')}`;
+function Fingerprint({ value, controller = false }: { value: string; controller?: boolean }) {
+  return <div className="device-fingerprint"><span>{c(controller ? 'controllerFingerprint' : 'fingerprint')}</span><code>{value.match(/.{1,16}/g)?.join(' ')}</code></div>;
+}
+function DeviceStatus({ device }: { device: Device }) {
+  return <span className="device-status" data-state={device.state}><span aria-hidden="true" />{c(device.state)}</span>;
+}
+function Path({ device }: { device: Device }) {
+  const elapsed = device.lastSeen ? Date.now() - Date.parse(device.lastSeen) : NaN;
+  const seen = elapsed >= 60000 && elapsed < 3600000 ? c('minutesAgo', { minutes: Math.round(elapsed / 60000) }) : relativeTime(device.lastSeen, Date.now(), locale.get(), c('now'));
+  const text = `${device.state === 'offline' ? `${c('lastPath')}: ` : ''}${c(device.path === 'lan' ? 'lan' : 'tunnelPath')}${device.latency !== null ? ` · ${device.latency} ms` : ''} · ${c('lastSeen')} ${seen || c('none')}`;
+  return <span className="device-meta">{text}</span>;
+}
+function DeviceIdentity({ device, row = false }: { device: Device; row?: boolean }) {
+  return <div className="device-identity"><Tile icon={iconFor(device)} className={row && device.state === 'offline' ? 'device-neutral' : 'device-command'} />
+    <div className="device-name"><div><strong>{device.name}</strong>{row && <DeviceStatus device={device} />}</div><Path device={device} /></div>
+    {!row && <DeviceStatus device={device} />}
+    {row && <IconButton icon={ChevronRight} label={`${c('open')}: ${device.name}`} onClick={() => deviceView.set({ side: 'controller', detail: device.id })} />}
+  </div>;
+}
+function Detail({ device }: { device: Device }) {
+  const capabilityLabels = device.capabilities ? ['tasks', 'command', 'files', device.capabilities.screen ? 'screen' : 'noScreen'] : [];
+  const platform = device.platform === 'darwin' || device.platform === 'macos' ? 'macOS' : device.platform === 'windows' ? 'Windows' : device.platform === 'linux' ? 'Linux' : device.platform;
+  return <div className="device-detail">
+    <DeviceIdentity device={device} />
+    {device.state === 'offline' && <Notice layout="inline" tone="warning">{c('offlineHint')}</Notice>}
+    <Card padded><Fingerprint value={device.id} /><dl className="device-facts">
+      <div><dt>{c('platform')}</dt><dd>{[platform, device.arch].filter(Boolean).join(' · ') || c('none')}</dd></div>
+      <div><dt>{c('version')}</dt><dd>{device.arcVersion || c('none')}</dd></div>
+    </dl><div className="device-fingerprint"><span>{c('capabilities')}</span><div className="device-tags">{capabilityLabels.length ? capabilityLabels.map(label => <Tag key={label} form="fact">{c(label)}</Tag>) : c('none')}</div></div></Card>
+    <Card padded><div className="device-fingerprint device-addresses"><span>{c('addresses')}</span>{device.addresses.length ? device.addresses.map(address => <code key={address}>{address}</code>) : c('none')}</div>
+      <div className="device-fingerprint"><span>{c('tunnel')}</span><code className="device-address-code">{device.tunnelUrl || c('none')}</code>{device.tunnelUrl && <p className="device-meta device-paragraph">{c('tunnelNotice')}</p>}</div>
+    </Card>
+    <Card className="device-setting"><SettingLine title={c('override')} description={device.addressOverride || c('automatic')}><Button onClick={() => deviceView.set(old => ({ ...old, dialog: 'address' }))}><Icon icon={Pencil} />{c('edit')}</Button></SettingLine></Card>
+    <div className="device-actions"><Button variant="danger" onClick={() => deviceView.set(old => ({ ...old, dialog: 'revoke', revoke: device }))}><Icon icon={Unlink} />{c('revoke')}</Button></div>
+  </div>;
+}
+function Member({ act, busy }: { act: (action: 'offer' | 'approve' | 'decline') => void; busy: boolean }) {
+  const snapshot = deviceSnapshot.use(), offer = deviceOffer.use(), outcome = memberOutcome.use();
+  const pending = snapshot?.pending, controller = snapshot?.controller;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  const seconds = offer ? Math.max(0, Math.ceil((offer.expiresAt - now) / 1000)) : 0;
+  if (controller) return <Card padded><div className="device-identity"><Tile icon={Laptop} className="device-command" /><div className="device-name"><span className="device-meta">{c('controlledBy')}</span><strong>{controller.name}</strong></div><Button variant="danger" onClick={() => deviceView.set(old => ({ ...old, dialog: 'revoke', revoke: controller }))}><Icon icon={Unlink} />{c('revoke')}</Button></div><Fingerprint value={controller.deviceId} controller /><p className="device-paragraph device-muted">{c('currentAuthority')}</p></Card>;
+  if (pending) return <Card padded><div className="device-identity"><Tile icon={Laptop} className="device-warning" /><div className="device-name"><strong className="device-heavy">{c('pending')}</strong><span>{pending.name}</span></div></div><Fingerprint value={pending.deviceId} controller /><p className="device-paragraph device-muted">{c('compare', { name: pending.name })}</p><Notice layout="inline" tone="warning">{c('fullAuthority')}</Notice><div className="device-split"><span className="device-meta">{c('offerDeadline', { time: countdown(pending.expiresInSeconds) })}</span><div className="device-actions"><Button disabled={busy} onClick={() => act('decline')}>{c('decline')}</Button><Button variant="primary" disabled={busy} onClick={() => act('approve')}>{c('approve')}</Button></div></div></Card>;
+  if (offer && seconds > 0) return <Card padded><Field label={c('pairing')} help={<span className="device-meta">{c('offerExpiry', { time: countdown(seconds) })}</span>}><CopyField value={offer.pairingString} label={c('copy')} /></Field><p className="device-paragraph device-muted">{c('offerHint')}</p><Fingerprint value={snapshot!.deviceId} /></Card>;
+  return <div className="device-member-state">{(outcome || offer && seconds === 0) && <Notice layout="inline" tone="warning">{c(outcome === 'declined' ? 'offerDeclined' : 'offerExpired')}</Notice>}<Card padded><div className="device-identity"><Tile icon={Monitor} className="device-neutral" /><div className="device-name"><strong className="device-heavy">{c('unpaired')}</strong><span className="device-meta">{c('oneController')}</span></div><Button data-device-offer variant="primary" busy={busy} onClick={() => act('offer')}><Icon icon={Plus} />{c('createOffer')}</Button></div></Card></div>;
+}
+function PairDialog({ close }: { close: () => void }) {
+  const pair = devicePair.use(), snapshot = deviceSnapshot.use(), inputId = useId(), input = useRef<HTMLInputElement>(null);
+  const waiting = pair.state === 'waiting', success = pair.state === 'success';
+  const dismiss = () => { if (devicePair.get().state === 'success') devicePair.set({ state: 'input', input: '' }); close(); };
+  const error = !['input', 'waiting', 'success'].includes(pair.state);
+  useEffect(() => { if (error) input.current?.focus(); }, [pair.state, error]);
+  const titles: Record<string, string> = { invalid: 'invalid', expired: 'expired', protocol: 'protocol', declined: 'declined', unreachable: 'unreachable' };
+  const member = pair.memberId && pairedDevices(snapshot).find(device => device.id === pair.memberId);
+  return <Dialog title={c('add')} width={560} className="device-dialog" onClose={dismiss} returnFocus="[data-device-add]">
+    <form className="device-form" onSubmit={event => { event.preventDefault(); if (!waiting && !success) void connectDevice(); }}>
+      {success ? <Notice layout="inline" tone="success" title={c('paired', { name: pair.name })}>{member ? <span className="device-success-status">{`${c(member.state)} · ${c(member.path === 'lan' ? 'lan' : 'tunnelPath')}${member.latency !== null ? ` · ${member.latency} ms` : ''}`}</span> : null}</Notice> : <>
+        <Field id={inputId} label={c('pairing')} error={pair.state === 'invalid' ? c('invalidHint') : undefined}>
+          <Input ref={input} id={inputId} value={pair.input} placeholder={c('paste')} readOnly={waiting} aria-invalid={error || undefined} aria-describedby={error ? `${inputId}-error` : undefined} className="device-pair-input" onChange={event => devicePair.set({ state: 'input', input: event.target.value })} />
+        </Field>
+        {waiting ? <div className="device-waiting" role="status"><p className="device-paragraph">{c('waitingHint', { member: pair.name || c('members'), controller: snapshot?.name || '' })}</p>{snapshot && <Fingerprint value={snapshot.deviceId} controller />}<p className="device-meta">{c('deadline')}</p></div>
+          : pair.state === 'invalid' ? <code className="device-error-code">DEVICE_PAIRING_INVALID</code>
+          : error ? <div id={`${inputId}-error`}><Notice layout="inline" title={titles[pair.state] ? c(titles[pair.state]) : undefined}><p>{titles[pair.state] ? c(`${titles[pair.state]}Hint`) : pair.error}</p>{titles[pair.state] && <code>{pair.error?.match(/DEVICE_[A-Z_]+/)?.[0]}</code>}</Notice></div>
+          : <p className="device-paragraph device-muted">{c('lanOnly')}</p>}
+      </>}
+      <div className="device-actions"><Button variant="primary" busy={waiting} type={success ? 'button' : 'submit'} onClick={success ? dismiss : undefined}>{success ? c('done') : waiting ? c('waiting') : c('pair')}</Button></div>
+    </form>
+  </Dialog>;
+}
+function AddressDialog({ device, close }: { device: Device; close: () => void }) {
+  const [value, setValue] = useState(device.addressOverride || ''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const id = useId(), input = useRef<HTMLInputElement>(null);
+  async function save(address: string | null) {
+    setBusy(true); setError('');
+    try { await api('device/address', 'POST', { device: device.id, address }); await refreshDevices(); close(); }
+    catch (error) { setError(String(error)); requestAnimationFrame(() => input.current?.focus()); }
+    finally { setBusy(false); }
+  }
+  return <Dialog title={c('override')} width={560} className="device-dialog" onClose={close} busy={busy}>
+    <form className="device-form" noValidate onSubmit={event => { event.preventDefault(); if (!value.trim()) { setError(c('overrideInvalid')); input.current?.focus(); return; } void save(value.trim()); }}>
+      <Field id={id} label={device.name} error={error}><Input ref={input} id={id} value={value} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} onChange={event => setValue(event.target.value)} /></Field>
+      <p className="device-paragraph device-muted">{c('overrideHint')}</p><div className="device-actions"><Button disabled={busy} onClick={() => void save(null)}>{c('clear')}</Button><Button variant="primary" type="submit" busy={busy}>{c('save')}</Button></div>
+    </form>
+  </Dialog>;
+}
+function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boolean; close: () => void }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  async function revoke() {
+    setBusy(true); setError('');
+    try { await api('device/revoke', 'POST', { deviceId: peer.deviceId }); await refreshDevices(); deviceView.set({ side: memberSide ? 'member' : 'controller' }); requestAnimationFrame(() => document.querySelector<HTMLElement>(memberSide ? '[data-device-offer]' : '[data-device-add]')?.focus()); }
+    catch (error) { setError(String(error)); } finally { setBusy(false); }
+  }
+  return <Dialog title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} width={480} className="device-dialog" onClose={close} busy={busy}>
+    <div className="device-revoke-copy"><p>{c(memberSide ? 'revokeMemberEffect' : 'revokeEffect', { name: peer.name })}</p><p className="device-muted">{c('localWork')}</p></div>
+    {error && <Notice layout="inline">{error}</Notice>}<div className="device-actions"><Button disabled={busy} onClick={close}>{c('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></div>
+  </Dialog>;
+}
+export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {
+  const snapshot = deviceSnapshot.use(), error = deviceError.use(), view = deviceView.use();
+  const devices = pairedDevices(snapshot), detail = devices.find(device => device.id === view.detail);
+  const [busy, setBusy] = useState(false), [actionError, setActionError] = useState('');
+  const close = () => deviceView.set(old => ({ ...old, dialog: undefined, revoke: undefined }));
+  const back = () => {
+    deviceView.set({ side: 'controller' });
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(`${c('open')}: ${detail?.name}`)}"]`)?.focus());
+  };
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented && !view.dialog && view.detail) { event.preventDefault(); event.stopImmediatePropagation(); deviceView.set({ side: 'controller' }); requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(`${c('open')}: ${detail?.name}`)}"]`)?.focus()); } };
+    document.addEventListener('keydown', escape, true); return () => document.removeEventListener('keydown', escape, true);
+  }, [view.dialog, view.detail, detail?.name]);
+  async function act(action: 'offer' | 'approve' | 'decline') {
+    setBusy(true); setActionError('');
+    try { const result = await api<{ pairingString?: string; expiresInSeconds: number }>(`device/${action}`, 'POST');
+      if (result.pairingString) deviceOffer.set({ pairingString: result.pairingString, expiresAt: Date.now() + result.expiresInSeconds * 1000 });
+      if (action !== 'offer') { deviceOffer.set(undefined); memberOutcome.set(action === 'decline' ? 'declined' : undefined); } else memberOutcome.set(undefined);
+      await refreshDevices();
+    } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
+  }
+  const add = <Button data-device-add variant="primary" onClick={() => deviceView.set(old => ({ ...old, dialog: 'pair' }))}><Icon icon={Plus} />{c('add')}</Button>;
+  return <div className="devices-workspace">
+    <header className="devices-header">{detail && <IconButton icon={ArrowLeft} label={c('back')} onClick={back} />}<h1 className="capsule-title" tabIndex={-1}>{c('devices')}</h1><div className="device-actions device-header-actions">{!detail && view.side === 'controller' && devices.length > 0 && add}<IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} onClick={onToggleWidth} /><IconButton icon={X} label={t('backToHome')} onClick={onClose} /></div></header>
+    <main className="devices-content">{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
+      {!snapshot ? !error && <Loading /> : detail ? <Detail device={detail} /> : <>
+        <SingleChoice form="equal-pills" label={c('view')} value={view.side} options={[{ value: 'controller', label: c('members') }, { value: 'member', label: c('thisDevice') }]} onChange={side => deviceView.set({ side: side as 'controller' | 'member' })} />
+        {view.side === 'member' ? <Member busy={busy} act={action => void act(action)} /> : devices.length ? <div className="device-list">{devices.map(device => <Card key={device.id} padded><DeviceIdentity device={device} row /></Card>)}</div> : <div className="device-empty"><Tile icon={Monitor} className="device-neutral" /><h3>{c('empty')}</h3><p className="device-paragraph device-muted">{c('emptyHint')}</p>{add}</div>}
+      </>}
+    </main>
+    {view.dialog === 'pair' && <PairDialog close={close} />}{view.dialog === 'address' && detail && <AddressDialog device={detail} close={close} />}{view.dialog === 'revoke' && view.revoke && <RevokeDialog peer={view.revoke} memberSide={view.side === 'member'} close={close} />}
+  </div>;
+}

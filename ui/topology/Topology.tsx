@@ -1,3 +1,4 @@
+import DeviceSummary from '../devices/DeviceSummary';
 import { participantPost, petSize, bubbleEnd, wanderPost, petPath, overlaps, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { arcActionRegion, hubMarkGeometry, hubControlGeometry } from "./geometry";
@@ -53,7 +54,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   boundary: RefObject<HTMLElement | null>; ref: Ref<TopologyHandle>;
 }) {
   const pets = useRef<PetLayerHandle>(null);
-  const graph = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null);
+  const graph = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null), deviceSummary = useRef<HTMLDivElement>(null);
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
   const arcControls = useRef(new Map<string, ArcActionsHandle>());
@@ -377,6 +378,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       const reach = portrait && portraitFrame ? portraitFrame.earOffset + portraitFrame.earHalf + 34 : h.Re + 34;
       actionRegions.current.set(`wing:${side}`, { x: side === -1 ? h.x - reach : h.x, y: h.y - h.Re - 12, width: reach, height: 2 * (h.Re + 12) });
     }
+    if (deviceSummary.current) deviceSummary.current.style.transform = `translate(${h.x - 120}px, ${h.y + hubControlGeometry(h.Re).size / 2 + 20}px)`;
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
       hub.current.querySelectorAll('[data-hub-arc="top"]').forEach(path => path.setAttribute('d', mark.top));
@@ -757,6 +759,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     <PetLayer ref={pets} geometry={petGeometry} />
     <svg ref={svg} className="topology-wires" aria-hidden="true" />
     <svg ref={portraitSvg} className="topology-wires portrait-wires" aria-hidden="true" />
+    <div ref={deviceSummary} className="topology-device-summary"><DeviceSummary /></div>
     <div ref={hub} className="topology-hub"
       onPointerMove={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onPointerLeave={() => setHubInteraction(undefined)}

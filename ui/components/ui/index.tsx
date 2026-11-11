@@ -209,9 +209,11 @@ export function Notice({
   tone = "danger",
   action,
   actionBelow = false,
+  layout,
 }: {
   children: ReactNode;
   title?: ReactNode;
+  layout?: "inline";
   tone?: "danger" | "warning" | "success";
   action?: ReactNode;
   actionBelow?: boolean;
@@ -220,7 +222,7 @@ export function Notice({
   const body = typeof children === "string" ? protect(children) : children;
   return (
     <div
-      className={`notice ${tone} ${actionBelow ? "notice-action-below" : ""}`}
+      className={`notice ${layout === "inline" ? "notice-inline" : ""} ${tone} ${actionBelow ? "notice-action-below" : ""}`}
       role={tone === "danger" ? "alert" : "status"}
     >
       {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
@@ -442,7 +444,7 @@ export function SingleChoice({
   navigation?: boolean;
   tabs?: boolean;
   tiles?: boolean;
-  form?: "setup-row" | "setup-product";
+  form?: "setup-row" | "setup-product" | "equal-pills";
   secondaryFrom?: number;
 }) {
   cards ||= form === "setup-row";
@@ -465,7 +467,7 @@ export function SingleChoice({
     if (container.current) observer.observe(container.current);
     if (measure.current) observer.observe(measure.current);
     return () => observer.disconnect();
-  }, [options, iconOnly, swatches, tabs]);
+  }, [options, iconOnly, swatches, tabs, form, value]);
   return (
     <div
       ref={container}
@@ -478,7 +480,7 @@ export function SingleChoice({
         <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""} ${swatches ? "choice-measure-swatches" : ""}`} aria-hidden="true">
           <div ref={measure}>
             {options.map((option) => (
-              <span key={option.value}>
+              <span key={option.value} data-selected={option.value === value || undefined}>
                 {!swatches && <>{option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}</>}
               </span>
             ))}

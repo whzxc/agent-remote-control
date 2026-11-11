@@ -1,0 +1,20 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "experiment-on",
+    "enabled": true
+  },
+  "page": "settings",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "settingsExperimental": true
+}

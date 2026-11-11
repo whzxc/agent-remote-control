@@ -1,3 +1,5 @@
+import DevicesWorkspace from './devices/DevicesWorkspace';
+import { deviceLinkEnabled, observeDevices } from './devices/state';
 import McpHub from './mcp/McpHub';
 import { mcpHubEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
@@ -26,6 +28,7 @@ import {
   PawPrint,
   Cloud,
   Plug,
+  Monitor,
 } from "lucide-react";
 import { animate } from "motion";
 import { reducedMotion } from "./motion/surface";
@@ -70,6 +73,8 @@ import { permissions, permissionsReady, refreshPermissions, startPermissions } f
 export default function App() {
   locale.use();
   const studio = studioEnabled.use();
+  const deviceLink = deviceLinkEnabled.use();
+  useEffect(observeDevices, []);
   const pets = showPets.use(), hosting = relayHostingEnabled.use(), mcp = mcpHubEnabled.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
@@ -97,7 +102,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : [])].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : []), ...(deviceLink ? ["devices"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const sheet = useRef<HTMLElement>(null),
@@ -111,11 +116,11 @@ export default function App() {
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
-    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-hub" && !mcp)) {
+    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-hub" && !mcp) || (page === "devices" && !deviceLink)) {
       setPage("overview");
       requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page="settings"]')?.focus({ preventScroll: true }));
     }
-  }, [pets, hosting, mcp, page]);
+  }, [pets, hosting, mcp, deviceLink, page]);
   useEffect(() => {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
@@ -248,6 +253,7 @@ export default function App() {
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
     ...(pets ? [{ id: "pets" as const, label: t("pets.title"), icon: PawPrint }] : []),
     ...(hosting ? [{ id: "relay-hosting" as const, label: t("hosting.feature"), icon: Cloud }] : []),
+    ...(deviceLink ? [{ id: "devices" as const, label: t("device.devices"), icon: Monitor }] : []),
     ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
@@ -323,7 +329,7 @@ export default function App() {
           aria-label={pages.find((item) => item.id === page)?.label}
         >
           <div className="page-sheet-content">
-            {page === "mcp-hub" ? <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : <>
+            {page === "devices" ? <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : page === "mcp-hub" ? <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : <>
             <header className="sheet-header">
               {page === "settings" && nav.settingsExperimental && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} />}
               <h1 className="capsule-title" tabIndex={-1}>

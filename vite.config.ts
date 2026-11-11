@@ -16,13 +16,14 @@ const devPort = developmentPort();
 const devOrigin = new URL(`http://127.0.0.1:${devPort}`).origin;
 const devHost = new URL(devOrigin).host;
 type Endpoint = { port: number; token: string };
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: './',
   root: fileURLToPath(new URL('./ui', import.meta.url)),
   define: { __CONNECTOR_VERSION__: JSON.stringify(packageVersion) },
   plugins: [react(), tailwindcss(), {
     name: 'connector-native-preview',
     configureServer(server) {
+      if (mode === "fixtures") return;
       requireMainCheckout();
       let checking: { owner: string; promise: Promise<Endpoint> } | undefined;
       function ownerIdentity() {
@@ -124,4 +125,4 @@ export default defineConfig({
     },
   },
   server: { host: '127.0.0.1', port: devPort, strictPort: true },
-});
+}));

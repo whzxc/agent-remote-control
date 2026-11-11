@@ -1,0 +1,23 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "navigation-disabled",
+    "enabled": false
+  },
+  "page": "overview",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "remoteLink": {
+    "empty": true
+  },
+  "timezone": "Asia/Shanghai"
+}

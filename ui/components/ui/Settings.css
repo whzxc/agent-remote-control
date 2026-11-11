@@ -22,3 +22,10 @@
 .setting-control > .select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 480px) { .setting { gap: 16px; } }
+
+.setting-line { display:flex; min-width:0; min-height:56px; align-items:center; justify-content:space-between; gap:16px; padding:11px 16px; }
+.setting-line[data-description] { padding-block:15px; }
+.setting-line-copy { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.setting-line-copy > label { font-size:var(--text-body); font-weight:500; line-height:16px; }
+.setting-line-copy > p { margin:0; font-size:var(--text-meta); line-height:18px; color:var(--text-secondary); }
+.setting-line > :last-child { flex-shrink:0; }

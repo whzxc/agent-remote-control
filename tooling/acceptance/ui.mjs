@@ -1,8 +1,9 @@
+import { verifyDevices } from './devices.mjs';
 import { verifyCoordination } from './coordination.mjs';
 import { verifyPortraitTopology } from './portrait-topology.mjs';
 import { representedTopologyRoots } from './topology.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
-requireMainCheckout();
+if (!process.argv.includes('--lane-fixtures')) requireMainCheckout();
 import { chromium, webkit } from 'playwright';
 import { createServer } from 'vite';
 import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
@@ -70,12 +71,12 @@ await mkdir(base, { recursive: true });
 const previous = (await readdir(base)).filter(n => n.endsWith(`-${engine}`)).sort().at(-1);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
 await mkdir(out);
-const scenarios = (await readdir(path.join(root, 'tooling/acceptance/scenarios'))).filter(f => f.endsWith('.json') && (!scenarioFilter || f === `${scenarioFilter}.json`)).sort();
+const scenarios = (await readdir(path.join(root, 'tooling/acceptance/scenarios'))).filter(f => f.endsWith('.json') && (!scenarioFilter || (scenarioFilter.endsWith('*') ? f.startsWith(scenarioFilter.slice(0, -1)) : f === `${scenarioFilter}.json`))).sort();
 if (!scenarios.length) throw new Error('No matching acceptance scenario');
 const report = { engine, screenshots, previous: screenshots ? previous ?? null : null, viewports: [{ width: 640, height: 800 }, { width: 1280, height: 800 }, { width: 1920, height: 1080 }], scenarios: [], failures: [] };
 // This server has no production owner dependency: fixture API calls are intercepted
 // in the dev-only module, and the browser rejects every real management request.
-const server = await createServer({ configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true } });
+const server = await createServer({ mode: 'fixtures', cacheDir: path.join(root, 'node_modules/.vite-acceptance'), configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true } });
 let browser;
 try {
   await server.listen();
@@ -147,6 +148,10 @@ try {
               ? [row.textContent.trim()] : [];
           }));
           if (issues.length) throw new Error(`Settings rows overlap or overflow: ${issues.join('; ')}`);
+        }
+        if (fixture.deviceLink) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await verifyDevices(page, fixture, messages);
         }
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
@@ -759,7 +764,7 @@ try {
           }
         }
       } catch (error) { errors.push(String(error)); if (screenshots) await page.screenshot({ path: path.join(out, `${key}-error.png`), animations: 'disabled' }).catch(() => {}); }
-      if (errors.length) report.failures.push(key);
+      if (errors.length) { report.failures.push(key); console.error(`${key}: ${errors.join("; ")}`); }
       report.scenarios.push(row);
       await page.close();
     }

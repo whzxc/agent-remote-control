@@ -1182,3 +1182,18 @@ textarea.input {
 .brand-mark { display: inline-grid; place-items: center; flex: none; }
 .brand-mark > span, .brand-mark svg { display: block; width: 100%; height: 100%; }
 .empty.empty-flush { padding: 0; gap: var(--empty-gap, 16px); }
+
+/* Equal-width pills match the shared design source while retaining fit measurement. */
+.choice[data-form="equal-pills"] .choice-measure > div,
+.choice[data-form="equal-pills"] .choice-pills { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; }
+.choice[data-form="equal-pills"] .choice-measure > div > span,
+.choice[data-form="equal-pills"] .choice-pills .choice-option { padding-inline:16px; }
+.choice[data-form="equal-pills"] .choice-measure > div > span { font-weight:400; }
+.choice[data-form="equal-pills"] .choice-measure > div > span[data-selected] { font-weight:650; }
+
+.field { grid-template-columns:minmax(0,1fr); }
+.notice.notice-inline { gap:12px; padding:16px 16px 13px; font-size:var(--text-meta); font-weight:400; line-height:16px; }
+.notice.notice-inline .notice-copy { display:flex; flex-direction:column; gap:4px; flex:1; }
+.notice.notice-inline .notice-copy > strong { font-size:var(--text-small); font-weight:bolder; line-height:16px; }
+.notice.notice-inline .notice-copy > p { margin:0; line-height:16px; }
+.notice.notice-inline .notice-copy > code { margin:0; color:inherit; font:400 var(--text-caption)/16px var(--font-mono); }

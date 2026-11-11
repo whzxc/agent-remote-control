@@ -1,0 +1,19 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "member-controlled",
+    "enabled": true
+  },
+  "page": "devices",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ]
+}
