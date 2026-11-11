@@ -1118,9 +1118,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn image_review_is_discoverable_in_common_and_review_guides() {
+        // Regression: ax-eb961217 common discovery hid image reads during render review.
+        let ops = catalog()["ops"].as_array().unwrap().clone();
+        for product in ["chatgpt", "custom"] {
+            let origin = json!({"product": product});
+            let common = crate::control_profiles::guide(&origin, &json!({}), &ops);
+            assert!(common["ops"].as_array().unwrap().iter().any(|op| op["op"] == "read"));
+            let review = crate::control_profiles::guide(&origin, &json!({"topic":"review"}), &ops);
+            assert!(review["ops"].as_array().unwrap().iter().any(|op| op["op"] == "read"));
+            assert!(string(&review, "content").contains("maxEdge"));
+        }
+    }
+
+    #[test]
     // Regression: ax-806f786e default discovery omitted argument signatures.
     fn ax_guide_common_signatures() {
-        const DEFAULT_GUIDE_MCP_BUDGET: usize = 11_100;
+        const DEFAULT_GUIDE_MCP_BUDGET: usize = 12_000;
         let ops = catalog()["ops"].as_array().unwrap().clone();
         for source in ["claude", "chatgpt", "other"] {
             let result = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
