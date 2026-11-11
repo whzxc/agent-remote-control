@@ -208,19 +208,26 @@ pub fn private_dir(path: &Path) -> Result<()> {
 pub fn save(path: &Path, value: &Value) -> Result<()> {
     save_bytes(path, &serde_json::to_vec(value).map_err(|e| e.to_string())?)
 }
+pub(crate) fn file_error(stage: &str, path: &Path, error: impl std::fmt::Display) -> String {
+    format!(
+        "File operation failed at {stage} for {}: {error}",
+        path.display()
+    )
+}
 pub fn save_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("invalid path")?;
     let before = kernel::file_cache::Stamp::read(parent).ok().flatten();
-    private_dir(parent)?;
+    private_dir(parent).map_err(|e| file_error("prepare-directory", parent, e))?;
     let temp = path.with_extension(format!("{}.tmp", id()));
-    std::fs::write(&temp, bytes).map_err(|e| e.to_string())?;
+    std::fs::write(&temp, bytes).map_err(|e| file_error("write-temporary", &temp, e))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&temp, std::fs::Permissions::from_mode(0o600))
             .map_err(|e| e.to_string())?;
     }
-    std::fs::rename(&temp, path).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp, path)
+        .map_err(|e| file_error("replace", path, format!("from {}: {e}", temp.display())))?;
     kernel::file_cache::changed(path, before);
     runtime_metrics::cost::changed(1);
     Ok(())

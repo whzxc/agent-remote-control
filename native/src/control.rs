@@ -1666,7 +1666,12 @@ impl Control {
                     receipt["result"] = json!({"error":error});
                 }
             }
-            let result = c.checkpoint(&mut receipt).map(|_| receipt);
+            let result = match c.checkpoint(&mut receipt) {
+                Ok(()) => Ok(receipt),
+                Err(error) => {
+                    Err(crate::egress::receipt_persistence_failure(&receipt, &error).to_string())
+                }
+            };
             let _ = tx.send(result);
             c.jobs.lock().await.remove(&key);
         }));

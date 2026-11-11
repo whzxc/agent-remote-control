@@ -161,12 +161,16 @@ impl ReceiptStore {
                 use std::os::unix::fs::OpenOptionsExt;
                 options.mode(0o600);
             }
-            let mut file = options
-                .open(&path)
-                .map_err(|e| format!("RECEIPT_RESERVATION_FAILED:{e}"))?;
+            let mut file = options.open(&path).map_err(|e| {
+                format!(
+                    "RECEIPT_RESERVATION_FAILED: {}",
+                    file_error("reserve-receipt", &path, e)
+                )
+            })?;
             file.write_all(receipt.to_string().as_bytes())
-                .map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
+                .map_err(|e| file_error("write-reservation", &path, e))?;
+            file.sync_all()
+                .map_err(|e| file_error("sync-reservation", &path, e))?;
             super::file_cache::changed(&path, before);
             crate::coordination::observers::watch_receipt(&path);
             Ok(((), Some(projection::summary(receipt.clone())?)))
