@@ -1,0 +1,9 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "agents": ["codex", "cursor", "opencode"],
+  "quota": "single-ring-pace",
+  "quotaDisplay": "used",
+  "tasks": [],
+  "viewports": [{ "width": 1280, "height": 800 }]
+}

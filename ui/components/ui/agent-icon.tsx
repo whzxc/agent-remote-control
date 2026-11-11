@@ -14,13 +14,17 @@ const arcs = {
   3: [[8, 112], [128, 232], [248, 352]],
 } as const;
 
-function arcPath(start: number, end: number) {
-  if (end - start === 360) return "M24 3 A21 21 0 0 1 24 45 A21 21 0 0 1 24 3 Z";
+function arcPath(start: number, end: number, radius = 21) {
   const point = (degrees: number) => {
     const radians = degrees * Math.PI / 180;
-    return `${24 + 21 * Math.sin(radians)} ${24 - 21 * Math.cos(radians)}`;
+    return `${24 + radius * Math.sin(radians)} ${24 - radius * Math.cos(radians)}`;
   };
-  return `M${point(start)} A21 21 0 0 ${end > start ? 1 : 0} ${point(end)}`;
+  const sweep = end > start ? 1 : 0;
+  const span = Math.abs(end - start);
+  const command = `A${radius} ${radius} 0`;
+  return span === 360
+    ? `M${point(start)} ${command} 0 ${sweep} ${point(start + (end - start) / 2)} ${command} 0 ${sweep} ${point(start)} Z`
+    : `M${point(start)} ${command} ${span > 180 ? 1 : 0} ${sweep} ${point(end)}`;
 }
 
 export function AgentIcon({ markup, readings = [], used = false }: {
@@ -38,13 +42,19 @@ export function AgentIcon({ markup, readings = [], used = false }: {
         const { id, value, color, elapsed } = readings[index];
         const track = arcPath(start, end);
         const fill = count === 2 && !used ? arcPath(end, start) : track;
-        const angle = start + (end - start) * (elapsed ?? 0);
+        const time = elapsed !== undefined && count === 1 && !used ? 1 - elapsed : elapsed ?? 0;
+        const tick = start + (end - start) * time;
+        const quotaEnd = start + (end - start) * value / 100;
+        const pace = (used ? value : 100 - value) / 100 - (elapsed ?? 0);
+        const showPace = count === 1 && elapsed !== undefined && Math.abs(pace) > Number.EPSILON;
         return <g key={id}>
           <path className="quota-track" d={track} />
           {value > 0 && <path d={fill} pathLength={100} stroke={color}
             strokeDasharray={value < 100 ? `${value} 100` : undefined} />}
+          {showPace && <path d={arcPath(Math.min(tick, quotaEnd), Math.max(tick, quotaEnd), 17)}
+            stroke={pace > 0 ? "var(--danger)" : "var(--success)"} strokeWidth={1.5} strokeDasharray="2 2.4" />}
           <path className="quota-time-tick" data-unknown={elapsed === undefined || undefined}
-            d="M24 1V5" transform={`rotate(${angle} 24 24)`} />
+            d={showPace ? "M24 1V7" : "M24 1V5"} transform={`rotate(${tick} 24 24)`} />
         </g>;
       })}
     </svg>}
