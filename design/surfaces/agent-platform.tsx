@@ -1,5 +1,5 @@
 import { Frame } from "sdg";
-import { PanelShell } from "../components/panel";
+import { PanelLoading, PanelShell } from "../components/panel";
 import { BrandMark } from "../components/agent-icon";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
@@ -7,13 +7,13 @@ import { NativeAgentInfo } from "../modules/agent-settings";
 import { AccountCard } from "../modules/agent-account";
 import { platformAccounts, platformAccountCopy as copy } from "../fixtures/agent-accounts";
 
-function Platform({ agent, empty = false }: {
+function Platform({ agent, state = "ready" }: {
   agent: typeof platformAccounts.claude | typeof platformAccounts.codex;
-  empty?: boolean;
+  state?: "ready" | "empty" | "loading";
 }) {
   return (
-    <PanelShell width={480} class="gap-5 p-5">
-      <header class="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <PanelShell width={480} class="max-h-[768px] gap-5 overflow-hidden pt-5">
+      <header class="mx-5 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
         <BrandMark brand={agent.brand} size={36} />
         <h2 class="flex-1 text-title font-[650]">{agent.name}</h2>
         <div class="ml-auto flex items-center gap-1">
@@ -22,13 +22,15 @@ function Platform({ agent, empty = false }: {
           <IconButton icon="x" label={copy.close} />
         </div>
       </header>
-      {empty ? (
-        <p class="py-8 text-center text-small text-text-secondary">{copy.empty}</p>
-      ) : (
-        <div class="flex flex-col gap-3">
-          {agent.accounts.map(account => <AccountCard account={account} />)}
-        </div>
-      )}
+      <div class="min-h-0 overflow-y-auto px-5 pb-5">
+        {state === "loading" ? <PanelLoading label={copy.loading} /> : state === "empty" ? (
+          <p class="py-8 text-center text-small text-text-secondary">{copy.empty}</p>
+        ) : (
+          <div class="flex flex-col gap-3">
+            {agent.accounts.map(account => <AccountCard account={account} />)}
+          </div>
+        )}
+      </div>
     </PanelShell>
   );
 }
@@ -60,7 +62,10 @@ export default () => [
   </Frame>,
   <Frame name="empty" fixture="agent-platform-empty"
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
-    <Platform agent={platformAccounts.claude} empty />
+    <Platform agent={platformAccounts.claude} state="empty" />
+  </Frame>,
+  <Frame name="loading" note="The platform does not show a loading message during its initial account read.">
+    <Platform agent={platformAccounts.claude} state="loading" />
   </Frame>,
   <Frame name="native" note="Unavailable: zero-account native platforms currently open Agent history.">
     <NativePlatform />

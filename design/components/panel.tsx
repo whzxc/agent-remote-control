@@ -1,4 +1,4 @@
-import { Frame } from "sdg";
+import { Frame, Icon } from "sdg";
 import { IconButton } from "./icon-button";
 import { panelExample } from "../fixtures/panels";
 
@@ -94,6 +94,15 @@ export function PanelHeader({
         {close && <IconButton icon="x" label="Close" />}
       </div>
     </header>
+  );
+}
+
+export function PanelLoading({ label }: { label: string }) {
+  return (
+    <div class="flex items-center justify-center gap-2 p-6 text-text-secondary" role="status">
+      <Icon name="loader-circle" size={16} />
+      {label}
+    </div>
   );
 }
 

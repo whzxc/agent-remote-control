@@ -73,3 +73,4 @@ export const sourceHistory = [
 ];
 
 export const attentionGroupTitles = [sourceDispatches[0].title, sourceHistory[0].title];
+export const sourcePanelCopy = { loading: "正在加载…" };

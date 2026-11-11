@@ -1,5 +1,5 @@
 import { Frame, Icon } from "sdg";
-import { PanelShell } from "../components/panel";
+import { PanelLoading, PanelShell } from "../components/panel";
 import { AgentIcon } from "../components/agent-icon";
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from "../modules/quota";
@@ -48,10 +48,7 @@ function AgentPanel({ history = "long" }: { history?: "long" | "short" | "empty"
             <p class="text-small leading-4">暂无未归档对话。</p>
           </div>
         ) : history === "loading" ? (
-          <div class="flex items-center justify-center gap-2 p-6 text-text-secondary" role="status">
-            <Icon name="loader-circle" size={16} />
-            {agentHistoryLoading}
-          </div>
+          <PanelLoading label={agentHistoryLoading} />
         ) : (
           <div class="mt-6 flex flex-col gap-7">
             {tasks.map(({ heading, ...task }) => (
