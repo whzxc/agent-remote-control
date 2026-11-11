@@ -78,14 +78,17 @@ export function BrandMark({
     </span>
   );
 }
-function arcPath(start: number, end: number) {
+function arcPath(start: number, end: number, radius = 21) {
   const point = (angle: number) => {
     const r = (angle * Math.PI) / 180;
-    return `${24 + 21 * Math.sin(r)} ${24 - 21 * Math.cos(r)}`;
+    return `${24 + radius * Math.sin(r)} ${24 - radius * Math.cos(r)}`;
   };
-  return end - start === 360
-    ? "M24 3 A21 21 0 0 1 24 45 A21 21 0 0 1 24 3 Z"
-    : `M${point(start)} A21 21 0 0 ${end > start ? 1 : 0} ${point(end)}`;
+  const sweep = end > start ? 1 : 0;
+  const span = Math.abs(end - start);
+  const command = `A${radius} ${radius} 0`;
+  return span === 360
+    ? `M${point(start)} ${command} 0 ${sweep} ${point(start + (end - start) / 2)} ${command} 0 ${sweep} ${point(start)} Z`
+    : `M${point(start)} ${command} ${span > 180 ? 1 : 0} ${sweep} ${point(end)}`;
 }
 export function AgentIcon({
   brand,
@@ -118,8 +121,14 @@ export function AgentIcon({
           stroke-linecap="round"
         >
           {ranges.map(([start, end], i) => {
-            const reading = readings[i];
+            const { value, color, elapsed } = readings[i];
             const track = arcPath(start, end);
+            const single = readings.length === 1;
+            const time = elapsed !== undefined && single && !used ? 1 - elapsed : elapsed ?? 0;
+            const tick = start + (end - start) * time;
+            const quotaEnd = start + (end - start) * value / 100;
+            const pace = (used ? value : 100 - value) / 100 - (elapsed ?? 0);
+            const showPace = single && elapsed !== undefined && Math.abs(pace) > Number.EPSILON;
             return (
               <g>
                 <path d={track} stroke="var(--border-strong)" />
@@ -128,12 +137,20 @@ export function AgentIcon({
                     readings.length === 2 && !used ? arcPath(end, start) : track
                   }
                   pathLength="100"
-                  stroke={reading.color}
-                  stroke-dasharray={`${reading.value} 100`}
+                  stroke={color}
+                  stroke-dasharray={`${value} 100`}
                 />
+                {showPace && (
+                  <path
+                    d={arcPath(Math.min(tick, quotaEnd), Math.max(tick, quotaEnd), 17)}
+                    stroke={pace > 0 ? "var(--danger)" : "var(--success)"}
+                    stroke-width="1.5"
+                    stroke-dasharray="2 2.4"
+                  />
+                )}
                 <path
-                  d="M24 1V5"
-                  transform={`rotate(${start + (end - start) * (reading.elapsed ?? 0)} 24 24)`}
+                  d={showPace ? "M24 1V7" : "M24 1V5"}
+                  transform={`rotate(${tick} 24 24)`}
                   stroke="var(--text-secondary)"
                   stroke-width="1.5"
                 />
@@ -155,9 +172,9 @@ export default () => [
   <Frame name="brand-mark">
     <BrandMark brand={iconExampleBrand} size={38} />
   </Frame>,
-  ...agentIconForms.map(({ name, readings }) => (
+  ...agentIconForms.map(({ name, readings, used }) => (
     <Frame name={`agent-icon-${name}`}>
-      <AgentIcon brand={iconExampleBrand} readings={readings} />
+      <AgentIcon brand={iconExampleBrand} readings={readings} used={used} />
     </Frame>
   )),
 ];
