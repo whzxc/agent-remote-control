@@ -1,5 +1,17 @@
 //! Pure MCP output projection. Storage and execution live outside this module.
 use crate::*;
+/// Preserve the observed outcome when its durable checkpoint could not be confirmed.
+pub fn receipt_persistence_failure(observed: &Value, error: &str) -> Value {
+    let receipt = receipt(observed.clone());
+    json!({
+        "code":"SUBMISSION_UNCONFIRMED",
+        "message":format!("Operation returned, but receipt persistence failed: {error}. The attached receipt is the observed outcome, not a confirmed durable checkpoint. Do not repeat the operation."),
+        "requestId":receipt["requestId"],
+        "stage":"receipt-checkpoint",
+        "receipt":receipt,
+        "next":{"via":"act","op":"receipt","args":{"action":"read","requestId":receipt["requestId"]},"hint":"Reconcile the original receipt and observed outcome without resubmitting."}
+    })
+}
 fn interrupted_turn(value: &Value) -> bool {
     value["state"] == "cancelled"
         && value["stateScope"] != "operation"
@@ -200,6 +212,7 @@ pub fn failure(e: &str) -> Value {
             value["code"].as_str(),
             Some(
                 "PERMISSION_REQUIRED"
+                    | "SUBMISSION_UNCONFIRMED"
                     | "PROJECT_NOT_FOUND"
                     | "PROJECT_AMBIGUOUS"
                     | "INVALID_ARGUMENTS"
@@ -1116,6 +1129,27 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkpoint_failure_preserves_observed_outcome_and_recovery() {
+        // Regression: a receipt save error replaced the command result with bare os error 5.
+        for result in [
+            json!({"exitCode":0,"stdout":"probe"}),
+            json!({"error":{"code":"CONTROL_ERROR","message":"execution failed"}}),
+        ] {
+            let receipt = json!({"requestId":"00000000-0000-4000-8000-000000000001","state":"completed","result":result,"arguments":{"cmd":"private input"}});
+            let error = failure(
+                &receipt_persistence_failure(&receipt, "sync-owner: os error 5").to_string(),
+            );
+            assert_eq!(error["code"], "SUBMISSION_UNCONFIRMED");
+            assert_eq!(error["receipt"]["result"], receipt["result"]);
+            assert_eq!(error["receipt"]["state"], receipt["state"]);
+            assert!(error["receipt"].get("arguments").is_none());
+            assert_eq!(error["requestId"], receipt["requestId"]);
+            assert_eq!(error["next"]["args"]["requestId"], receipt["requestId"]);
+            assert_eq!(error["next"]["op"], "receipt");
+        }
+    }
 
     #[test]
     // Regression: ax-806f786e default discovery omitted argument signatures.

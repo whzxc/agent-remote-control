@@ -47,12 +47,14 @@ fn sync_dir(path: &Path) -> Result<()> {
     #[cfg(unix)]
     std::fs::File::open(path)
         .and_then(|f| f.sync_all())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| file_error("sync-directory", path, e))?;
+    #[cfg(not(unix))]
+    let _ = path;
     Ok(())
 }
 fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("INVALID_INDEX_PATH")?;
-    private_dir(parent)?;
+    private_dir(parent).map_err(|e| file_error("prepare-index-directory", parent, e))?;
     let temp = path.with_extension("tmp");
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
@@ -61,18 +63,27 @@ fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let mut file = options.open(&temp).map_err(|e| e.to_string())?;
+    let mut file = options
+        .open(&temp)
+        .map_err(|e| file_error("open-index-temporary", &temp, e))?;
     file.write_all(bytes)
-        .and_then(|_| file.sync_all())
-        .map_err(|e| e.to_string())?;
-    std::fs::rename(&temp, path).map_err(|e| e.to_string())?;
+        .map_err(|e| file_error("write-index-temporary", &temp, e))?;
+    file.sync_all()
+        .map_err(|e| file_error("sync-index-temporary", &temp, e))?;
+    std::fs::rename(&temp, path).map_err(|e| {
+        file_error(
+            "replace-index",
+            path,
+            format!("from {}: {e}", temp.display()),
+        )
+    })?;
     sync_dir(parent)
 }
 fn write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     atomic(path, &serde_json::to_vec(value).map_err(|e| e.to_string())?)
 }
 fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let bytes = std::fs::read(path).map_err(|e| file_error("read-index", path, e))?;
     cost::bytes_read(bytes.len());
     cost::bytes_parsed(bytes.len());
     serde_json::from_slice(&bytes).map_err(|e| e.to_string())
@@ -179,9 +190,16 @@ pub(crate) fn change<T>(
     }
     let (result, row) = work()?;
     if path.exists() {
-        std::fs::File::open(path)
-            .and_then(|f| f.sync_all())
-            .map_err(|e| e.to_string())?;
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        // Windows FlushFileBuffers requires write access, regardless of the ACL.
+        #[cfg(windows)]
+        options.write(true);
+        let file = options
+            .open(path)
+            .map_err(|e| file_error("open-owner-for-sync", path, e))?;
+        file.sync_all()
+            .map_err(|e| file_error("sync-owner", path, e))?;
     }
     sync_dir(path.parent().unwrap())?;
     if !migrating {
