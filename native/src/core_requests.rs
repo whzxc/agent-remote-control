@@ -359,7 +359,11 @@ async fn call_tool_inner(
     let inbox = if value["view"] == "digest"
         || summary
         || (name == "dispatch_policy" && args["view"] != "full")
-        || (name == "guide" && value["profile"]["name"] == "local-code")
+        || (name == "guide"
+            && (value["profile"]["name"] == "local-code"
+                || (args.get("op").is_none()
+                    && args["view"] != "full"
+                    && args["topic"].as_str().unwrap_or("loop") == "loop")))
         || name == "inbox_wait"
     {
         Value::Null

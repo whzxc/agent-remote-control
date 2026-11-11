@@ -827,24 +827,12 @@ pub(crate) fn unknown_op(name: &str, ops: &[Value]) -> String {
 }
 
 pub(crate) fn guide(origin: &Value, args: &Value, locale: &str, ops: &[Value]) -> Value {
-    let mut result = guide_content(origin, args, locale, ops);
+    finish_guide(origin, args, guide_content(origin, args, locale, ops))
+}
+fn finish_guide(origin: &Value, args: &Value, mut result: Value) -> Value {
     result["cliPath"] = json!(crate::cli_shim::executable().ok());
     if origin["controlTransport"] == "cli" {
         result["sourceId"] = origin["sourceId"].clone();
-    }
-    if result["profile"]["name"] == "local-code"
-        && args["view"] != "full"
-        && !args["op"].is_string()
-        && args["topic"].as_str().unwrap_or("loop") == "loop"
-    {
-        while result.to_string().chars().count() + 112 > 2500 {
-            if result["ops"]
-                .as_array_mut()
-                .is_none_or(|ops| ops.pop().is_none())
-            {
-                break;
-            }
-        }
     }
     let digest = hash(result.to_string());
     if args["knownGuideHash"] == digest {
@@ -1158,28 +1146,67 @@ mod tests {
     }
 
     #[test]
-    // Regression: ax-806f786e default discovery omitted argument signatures.
+    // Contract: the default guide MCP response fits its byte budget for every discovery profile and progressively discloses operation signatures.
     fn ax_guide_common_signatures() {
-        const DEFAULT_GUIDE_MCP_BUDGET: usize = 12_000;
+        const DEFAULT_GUIDE_MCP_BUDGET: usize = 4_000;
         let ops = catalog()["ops"].as_array().unwrap().clone();
-        for source in ["claude", "chatgpt", "other"] {
-            let result = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
-            let bytes = wire_bytes(&tool(result.clone(), false), Some(&json!(1)));
-            println!(
-                "{source} default guide MCP response: {bytes} / {DEFAULT_GUIDE_MCP_BUDGET} bytes"
-            );
+        let mut results = Vec::new();
+        for name in ["local-code", "remote-push", "remote-polling"] {
+            let local = name == "local-code";
+            let origin = json!({"sourceId":"00000000-0000-4000-8000-000000000001", "controlTransport":if local {"cli"} else {"mcp"},"controlSource":"chatgpt"});
+            let ops = ops
+                .iter()
+                .map(|op| source_spec(op, &origin))
+                .collect::<Vec<_>>();
+            for (maintainer, context, hub) in [
+                (false, false, false),
+                (false, false, true),
+                (false, true, false),
+                (false, true, true),
+                (true, false, false),
+                (true, false, true),
+                (true, true, false),
+                (true, true, true),
+            ] {
+                let profile = json!({"name":name,"transport":if local {"cli"} else {"mcp"},"hostAccess":if local {"host"} else {"unknown"},
+                    "waitMode":if local {"background-cli"} else if name == "remote-push" {"push"} else {"poll"},"provenance":"source-override"});
+                let result = finish_guide(
+                    &origin,
+                    &json!({}),
+                    crate::control_profiles::render(
+                        &origin,
+                        &json!({}),
+                        &ops,
+                        profile,
+                        crate::control_profiles::GuideFeatures {
+                            maintainer,
+                            context,
+                            hub,
+                        },
+                    ),
+                );
+                let bytes = wire_bytes(&tool(result.clone(), false), Some(&json!(1)));
+                println!("{name} maintainer={maintainer} context={context} hub={hub} default guide MCP response: {bytes} / {DEFAULT_GUIDE_MCP_BUDGET} bytes");
+                results.push((result, bytes));
+            }
+        }
+        for (result, bytes) in results {
             assert!(bytes <= DEFAULT_GUIDE_MCP_BUDGET);
             let entries = result["ops"].as_array().unwrap();
-            assert!(!entries.is_empty());
+            assert_eq!(entries.len(), 13);
+            let full = guide(&json!({}), &json!({"view":"full"}), "en", &ops);
+            for entry in full["ops"].as_array().unwrap() {
+                assert!(entry["signature"].as_str().is_some_and(
+                    |signature| signature.starts_with(&format!("{}(", string(entry, "op")))
+                ));
+            }
             for entry in entries {
-                let per_op = guide(
-                    &json!({"controlSource":source}),
-                    &json!({"op":entry["op"]}),
-                    "en",
-                    &ops,
-                );
-                assert!(entry["signature"].as_str().is_some_and(|s| !s.is_empty()));
-                assert_eq!(entry["signature"], per_op["signature"]);
+                let per_op = guide(&json!({}), &json!({"op":entry["op"]}), "en", &ops);
+                assert!(entry.get("signature").is_none());
+                assert!(per_op["signature"].as_str().is_some_and(
+                    |signature| signature.starts_with(&format!("{}(", string(entry, "op")))
+                ));
+                assert!(matches!(string(entry, "via"), "query" | "act"));
             }
         }
     }
@@ -1335,11 +1362,16 @@ mod tests {
     }
 
     #[test]
-    // Regression: ax-ce733eee the common guide hid coordination_session and message_route from Claude sources.
-    fn common_guide_exposes_one_call_coordination_registration_and_route_repair() {
+    // Contract: coordination registration and route repair are progressively disclosed through the coordination guide.
+    fn coordination_topic_exposes_one_call_registration_and_route_repair() {
         let ops = catalog()["ops"].as_array().unwrap().clone();
         for source in ["claude", "chatgpt", "other"] {
-            let response = guide(&json!({"controlSource":source}), &json!({}), "en", &ops);
+            let response = guide(
+                &json!({"controlSource":source}),
+                &json!({"topic":"coordination"}),
+                "en",
+                &ops,
+            );
             for name in ["coordination_session", "message_route"] {
                 assert!(response["ops"]
                     .as_array()
@@ -1377,23 +1409,28 @@ mod tests {
     }
 
     #[test]
-    fn self_test_archival_remains_optional_in_default_and_full_guides() {
-        // Regression: 52f6618; the default guide must not require self-test archival to complete acceptance.
+    fn self_test_archival_remains_optional_in_operation_and_full_guides() {
+        // Regression: 52f6618; the archival operation guide and full workflow keep self-test cleanup optional.
         let optional = regex::Regex::new(r"(?i)archiv[^.\n]*optional").unwrap();
         for source in ["claude", "chatgpt", "other"] {
-            for view in ["default", "full"] {
+            for view in ["op", "full"] {
                 let response = guide(
                     &json!({"controlSource":source}),
                     &if view == "full" {
                         json!({"view":"full"})
                     } else {
-                        json!({})
+                        json!({"op":"codex_archive"})
                     },
                     "en",
                     &[],
                 );
                 assert!(
-                    optional.is_match(string(&response, "content")),
+                    optional.is_match(
+                        response["content"]
+                            .as_str()
+                            .or(response["description"].as_str())
+                            .unwrap_or("")
+                    ),
                     "{source}/{view}"
                 );
             }

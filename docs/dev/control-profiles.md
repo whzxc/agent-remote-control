@@ -58,42 +58,14 @@ Per-op schema reads, full discovery, and execution MUST use the existing effecti
 An omitted initial-guide op remains callable when its policy permits it.
 Users requiring execution restrictions MUST use the existing op allowlist.
 This preserves recoverable discovery at the cost of not automatically minimizing execution capabilities.
-`toolExposure.tools[op].presets` owns profile and topic membership.
+`toolExposure.tools[op].presets` owns topic membership. `control_profiles` owns the fixed default core index.
 Existing groups, default/advanced tiers, conditional availability, required ops, and dependency normalization remain authoritative.
 Selecting a profile MUST NOT rewrite saved allowlists or expand dependencies.
 The existing common/readOnly/all/custom policy meanings remain unchanged.
 Mixed operations MUST retain their existing `act` classification.
 SRC entries have explicit advanced exposure metadata without being added to existing policy presets.
 
-`1` means an initial-guide candidate within the character budget.
-`D` means on-demand discovery.
-`C` means disclosure through the relevant topic or explicit op request.
-Every cell is intersected with policy and runtime availability.
-
-| Current operations | Local Code | Remote push | Remote polling |
-| --- | --- | --- | --- |
-| `guide`, `dispatch_policy`, `codex_create`, `codex_wait`, `codex_read`, `codex_review`, `receipt` | 1 | 1 | 1 |
-| `connector_verify` | D | C | C |
-| `agents`, `agent_create`, `agent_wait`, `agent_read`, `agent_review` | 1 | 1 | 1 |
-| `codex_send`, `codex_resume`, `codex_interrupt`, `codex_pending`, `codex_respond`, `codex_interactions` | D | D | D |
-| `agent_send`, `agent_archive`, `agent_interrupt`, `agent_pending`, `agent_respond`, `agent_capabilities`, `agent_tasks`, `agent_context`, `agent_events` | D | D | D |
-| `codex_tasks`, `codex_items`, `codex_changes`, `codex_queue`, `codex_queue_control`, `codex_owner`, `codex_release`, `codex_archive` | D | D | D |
-| `projects`, `command` | D | 1 | 1 |
-| `overview`, `tree`, `search`, `read`, `git`, `edit` | D | D | D |
-| `write` | D | 1 | 1 |
-| `git_write`, `process`, `file_search` | D | D | D |
-| `fs` | D | 1 | 1 |
-| `mcp`, `codex_thread`, `codex_account`, `codex_capabilities`, `codex_schema`, `codex_query`, `codex_call`, `codex_events` | D | D | D |
-| `control_output`, `events`, `logs`, `screen` | D | D | D |
-| `notify_control`, `notify_status`, `notification_ack`, `inbox_wait`, `request_route` | D | C | D |
-| `whoami`, `accounts` | D | D | D |
-| `account_update`, `account_merge`, `account_add`, `account_login`, `account_reauth`, `account_remove`, `account_browsers`, `account_notify` | D | D | D |
-| `context_resolve`, `context_search`, `context_read`, `context_check`, `context_amend` | C | C | C |
-| `board`, `coordination_session`, `notice_post`, `messages`, `message_send`, `message_route` | C | 1 | 1 |
-| `notice_update`, `notice_close`, `blocker_open`, `blocker_clear` | C | C | C |
-| `task_timeline`, `task_reviews`, `task_review_undo`, `task_bubble`, `task_mark_read`, `task_panel`, `task_panel_control`, `task_open`, `task_resource` | D | D | D |
-| `src_conversations`, `src_chrome_profiles`, `src_conversation_open`, `src_login_import`, `src_conversation_bind`, `src_login_clear` | C | C | C |
-| `ax_issue_draft`, `ax_report`, `ax_list`, `ax_candidate`, `ax_triage` | C | C | C |
+The default index contains `guide`, `projects`, `command`, `read`, `write`, `codex_create`, `codex_send`, `codex_read`, `codex_wait`, `codex_review`, `dispatch_policy`, `receipt`, and `board`. Entries contain the operation name and `via`. Policy and runtime availability filter this list. Topic and full views disclose other operations with signatures and retry contracts.
 
 
 Chat profiles lead with `command` for host shell, Git, and edits.
@@ -108,23 +80,12 @@ Controllers SHOULD retain `criteriaHash` on the first session read and pass `kno
 
 ## Guide layers
 
-Layer 1 is `guide()` or `query({op:"guide",args:{}})`.
-Local Code targets at most 2,500 Unicode characters in the complete serialized result.
-The budget includes profile metadata, operation index, CLI path, source ID, guide hash, and catalog version.
-Optional index entries are removed when necessary to preserve the workflow within that budget.
-Local Code guide responses do not attach inbox reminders.
-Layer 2 is `guide({op})` or `query({op:"guide",args:{op}})` with a complete schema and retry contract.
-Layer 3 is `query({op:"guide",args:{view:"full"}})` with every enabled available op.
-The frozen `guide` tool MUST NOT gain a profile or view parameter.
-The query guide op additionally supports `coordination`, `src`, and `context` topics.
-Notification prose appears automatically only for Remote push.
-Remote loop guides carry one coordination sentence that points to the coordination topic.
-Configured context-provider and MCP-hub lines append to every loop guide.
-Remote loop guides append the normal-mode AX reporting line; Local Code omits it to protect its budget.
-Coordination, SRC, and context workflow details appear only on an explicit related topic request.
-Maintainer guidance retains the existing Maintainer-mode gate.
-Loop guides include proactive AX reporting, candidate review and triage rules when Maintainer mode is enabled, including the Local Code profile.
-Full views retain unrelated op discoverability without expanding unrelated workflow prose.
+Layer 1 is `guide()` or `query({op:"guide",args:{}})`. Its complete serialized MCP response MUST stay within 4,000 bytes for every profile, including framing, JSON escaping, metadata, CLI path, hashes and enabled-feature pointers. The Contract test `egress::tests::ax_guide_common_signatures` checks all three profiles across every combination of maintainer mode, context provider and MCP hub. Default guides contain shared orientation rules, core op names and `via`, topic descriptions, and one-line profile or feature pointers.
+
+New guidance MUST go to a topic or operation guide. Maintainers MUST preserve the default byte budget when changing guide content. Default guides omit inbox attachments. Layer 2 is `guide({op})` or `query({op:"guide",args:{op}})` with the complete operation signature, schema and retry contract. Layer 3 is `query({op:"guide",args:{view:"full"}})` with every enabled operation and its full signature.
+
+The frozen `guide` tool retains its original parameters. Query guide additionally supports the `coordination`, `src` and `context` topics. Profile-specific waiting and dispatch details remain in the full workflow. `topic:notify` owns front-door replacement, queue limits, subscriptions and snapshot streams. `topic:context` owns configured knowledge-provider guidance. `guide({op:"mcp_tools"})` and `mcp_call` own MCP hub discovery and calling. `ax_list` owns the maintainer AX workflow, and `ax_issue_draft` owns normal-mode feedback. Archive operation guides own optional cleanup. List guides and `control_output` own digest and coverage semantics.
+
 `guideHash` covers the final projection rather than just catalog text.
 An effective profile change invalidates cached guide content.
 `knownGuideHash` retains its unchanged-response contract.

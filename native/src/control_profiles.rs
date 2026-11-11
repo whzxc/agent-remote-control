@@ -63,12 +63,37 @@ pub(crate) fn effective(origin: &Value) -> Value {
         "provenance":if explicit{"source-override"}else{"derived"}})
 }
 
+pub(crate) struct GuideFeatures {
+    pub maintainer: bool,
+    pub context: bool,
+    pub hub: bool,
+}
+
 pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
-    let profile = effective(origin);
+    render(
+        origin,
+        args,
+        ops,
+        effective(origin),
+        GuideFeatures {
+            maintainer: crate::preferences::maintainer_mode(),
+            context: crate::context_provider::configured(),
+            hub: crate::mcp_hub::enabled(),
+        },
+    )
+}
+
+pub(crate) fn render(
+    origin: &Value,
+    args: &Value,
+    ops: &[Value],
+    profile: Value,
+    features: GuideFeatures,
+) -> Value {
     let name = string(&profile, "name");
     let topic = args["topic"].as_str().unwrap_or("loop");
     let full = args["view"] == "full";
-    let maintainer = crate::preferences::maintainer_mode();
+    let maintainer = features.maintainer;
     let catalog = catalog();
     let guides = &catalog["guides"]["en"];
     let key = match topic {
@@ -81,40 +106,32 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
         "approvals" => "profile-approvals",
         _ => name,
     };
-    let compact_key = format!("{key}-compact");
-    let content_key = if topic == "loop" && !full && guides[&compact_key].is_string() {
-        compact_key.as_str()
+    let content_key = if topic == "loop" && !full {
+        "orientation"
     } else {
         key
     };
     let mut content = format!("MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n{}", guides[content_key].as_str().unwrap_or(""));
     if topic == "loop" {
-        if name == "remote-push" {
-            content.push_str(
-                guides[if full {
-                    "profile-notify"
-                } else {
-                    "profile-notify-compact"
-                }]
-                .as_str()
-                .unwrap_or(""),
-            );
+        if !full {
+            content.push_str(guides[format!("{name}-pointer")].as_str().unwrap_or(""));
+        } else if name == "remote-push" {
+            content.push_str(guides["profile-notify"].as_str().unwrap_or(""));
         }
-        if crate::context_provider::configured() {
-            content.push_str(guides["contextProvider"].as_str().unwrap_or(""));
+        if features.context {
+            content.push_str("Context provider configured. Read topic:context.\n");
         }
-        if crate::mcp_hub::enabled() {
-            content.push_str(guides["mcpHub"].as_str().unwrap_or(""));
+        if features.hub {
+            content.push_str("MCP hub enabled. Read guide({op:\"mcp_tools\"}).\n");
         }
-        // Local Code keeps its character budget; users there report through the CLI.
-        if maintainer || name != "local-code" {
-            content.push('\n');
-            content.push_str(
-                guides[if maintainer { "axMaintainer" } else { "axUser" }]
-                    .as_str()
-                    .unwrap_or(""),
-            );
-        }
+        content.push_str(if maintainer {
+            "Maintainer AX workflow is in guide({op:\"ax_list\"}).\n"
+        } else {
+            "AX feedback is in guide({op:\"ax_issue_draft\"}).\n"
+        });
+    }
+    if topic == "context" && features.context {
+        content.push_str(guides["contextProvider"].as_str().unwrap_or(""));
     }
     let preset = if topic == "loop" {
         name.to_owned()
@@ -128,8 +145,23 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
             if full {
                 return true;
             }
-            if topic == "loop" && maintainer && op_name.starts_with("ax_") {
-                return true;
+            if topic == "loop" {
+                return matches!(
+                    op_name,
+                    "guide"
+                        | "projects"
+                        | "command"
+                        | "read"
+                        | "write"
+                        | "codex_create"
+                        | "codex_send"
+                        | "codex_read"
+                        | "codex_wait"
+                        | "codex_review"
+                        | "dispatch_policy"
+                        | "receipt"
+                        | "board"
+                );
             }
             catalog["toolExposure"]["tools"][op_name]["presets"]
                 .as_array()
@@ -137,8 +169,8 @@ pub(crate) fn guide(origin: &Value, args: &Value, ops: &[Value]) -> Value {
         })
         .map(|op| {
             let mut entry = json!({"op":op["name"],"via":crate::egress::via(op)});
-            entry["signature"] = json!(crate::egress::signature(op));
             if topic != "loop" || full {
+                entry["signature"] = json!(crate::egress::signature(op));
                 entry["retry"] = json!({"mode":crate::egress::retry_contract(op)["mode"]});
             }
             entry

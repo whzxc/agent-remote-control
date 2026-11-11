@@ -1848,8 +1848,15 @@ test('frozen guide tool redirects query-only topics to query guide', async () =>
 
 test('guide progressively discloses every enabled op and caches projected content', async () => {
   // Contract: query guide caches the source-specific view without changing frozen tools.
-  const readGuide = async (args: Record<string, unknown>) => toolResult((await client.callTool({name:'query',arguments:{op:'guide',args}}))) as any;
+  const readGuide = async (args: Record<string, unknown>) => {
+    const response = await client.callTool({name:'query',arguments:{op:'guide',args}});
+    if (args.op === undefined && args.view !== 'full' && (args.topic ?? 'loop') === 'loop') {
+      assert.ok(Buffer.byteLength(JSON.stringify({jsonrpc:'2.0',id:1,result:response})) <= 4000);
+    }
+    return toolResult(response) as any;
+  };
   const compact = (await call('guide')).result;
+  assert.equal(compact.arcInbox,undefined);
   const full = await readGuide({view:'full'});
   assert.ok(compact.ops.length < full.ops.length);
   assert.deepEqual(full.ops.map((row:any)=>row.op), operations.map(row=>row.name));
@@ -1878,9 +1885,9 @@ test('guide progressively discloses every enabled op and caches projected conten
     await management(`source/${localId}`,'PUT',{capabilityProfile:{hostAccess:'host',waitMode:'background-cli'}});
     const code=local();
     assert.equal(code.profile.name,'local-code');assert.equal(code.profile.transport,'cli');
-    const characters=[...JSON.stringify(code)].length;
-    console.log('LOCAL_CODE_LAYER1_CHARACTERS '+characters);assert.ok(characters<=2500);
-    assert.ok(!code.ops.some((row:any)=>['command','notify_control','coordination_session','src_conversations'].includes(row.op)));
+    assert.ok(Buffer.byteLength(JSON.stringify(code))<=4000);
+    assert.ok(code.ops.some((row:any)=>row.op==='command'));
+    assert.ok(!code.ops.some((row:any)=>['notify_control','coordination_session','src_conversations'].includes(row.op)));
     assert.equal(code.arcInbox,undefined);
     assert.equal(local({knownGuideHash:code.guideHash}).unchanged,true);
     assert.deepEqual(local({view:'full'}).ops.map((row:any)=>row.op),full.ops.map((row:any)=>row.op));
@@ -1892,7 +1899,7 @@ test('guide progressively discloses every enabled op and caches projected conten
     assert.equal((await readGuide({knownGuideHash:compact.guideHash})).unchanged,undefined);
     assert.equal((await call('codex_capabilities')).response.isError,false);
     await management(`source/${remote.id}`,'PUT',{capabilityProfile:{hostAccess:'none',waitMode:'push'}});
-    assert.ok((await readGuide({})).ops.some((row:any)=>row.op==='notify_control'));
+    assert.ok((await readGuide({topic:'notify'})).ops.some((row:any)=>row.op==='notify_control'));
     await assert.rejects(management(`source/${remote.id}`,'PUT',{capabilityProfile:{hostAccess:'host',waitMode:'background-cli'}}),/capabilityProfile/);
     assert.equal((await readGuide({})).profile.name,'remote-push');
     await management(`source/${remote.id}`,'PUT',{capabilityProfile:null,product:remote.product});
@@ -1927,9 +1934,9 @@ test('Local Code exposes proactive AX reporting within the guide budget', async 
     cli(['config', 'set', '--stdin'], { maintainerMode: true });
     const on = guide();
     assert.equal(on.profile.name, 'local-code');
-    assert.ok([...JSON.stringify(on)].length <= 2500);
-    assert.match(on.content, /\bax_report\b/);
+    assert.ok(Buffer.byteLength(JSON.stringify(on)) <= 4000);
     assert.match(on.content, /\bax_list\b/);
+    assert.match(cli(['control', 'guide', 'ax_list']).description, /\bax_report\b/);
     const report = cli(['control', 'ax_report', '--stdin'], { symptom: 'Synthetic local friction', expected: 'Actionable local workflow', severity: 'workaround' });
     assert.ok(report.entry.id);
     cli(['config', 'set', '--stdin'], { maintainerMode: false });
@@ -2452,7 +2459,7 @@ test('AX3 release hands off an idle connector thread without closing another own
 
 test('AX3 cloud binding is discoverable before dispatch and repairs an unbound task', async () => {
   // Regression: cloud controls had no bound target or verification attempts and had to resubmit work to bind.
-  const guide=await call('guide',{});
+  const guide=await call('guide',{topic:'notify'});
   assert.ok(guide.result.ops.some((o:any)=>o.op==='notify_control'));
   const target='session_010000000000000000000008';
   const bound=await call('notify_control',{action:'bind',target,verify:false});
@@ -2574,9 +2581,9 @@ test('AX foreground command receipts expose execution and process spawn supports
 });
 
 
-test('common guide discovers shared coordination in normal mode',async()=>{
-  // Contract: the default normal-mode guide retains board, notices and messages through the frozen query/act envelopes.
-  const guide=(await call('guide')).result;
+test('coordination guide discovers shared coordination in normal mode',async()=>{
+  // Contract: shared coordination is disclosed through its topic using the frozen query/act envelopes.
+  const guide=toolResult(await client.callTool({name:'query',arguments:{op:'guide',args:{topic:'coordination'}}}));
   for(const [op,via] of [['board','query'],['notice_post','act'],['coordination_session','act'],['message_route','act'],['messages','query'],['message_send','act']]) {
     assert.equal(guide.ops.find((entry:any)=>entry.op===op)?.via,via,op);
   }
@@ -2623,8 +2630,8 @@ test('logs accepts relative durations through the public schema',async()=>{
   assert.notEqual(result.response.isError,true,JSON.stringify(result.result));
 });
 
-test('Maintainer mode defaults off, persists and switches guide content and common index live', async () => {
-  // Contract: config CLI and local preferences share a persistent mode that changes guide hash/content/index without restarting.
+test('Maintainer mode defaults off, persists and switches progressive guide content live', async () => {
+  // Contract: config CLI and local preferences share a persistent mode that changes guide hash and progressive content without restarting.
   const config = (args: string[], input?: unknown) => JSON.parse(execFileSync(fixtureCommand, ['cli', 'config', ...args], {
     env: fixtureEnv, encoding: 'utf8', ...(input === undefined ? {} : {input: JSON.stringify(input)}),
   })).result;
@@ -2632,7 +2639,7 @@ test('Maintainer mode defaults off, persists and switches guide content and comm
   const off = (await call('guide')).result;
   assert.equal(off.maintainerMode, false);
   assert.ok(off.ops.every((op: any) => !op.op.startsWith('ax_')));
-  assert.match(off.content, /https:\/\/github.com\/whzxc\/agent-remote-control\/issues/);
+  assert.match((await call('guide',{op:'ax_issue_draft'})).result.description, /https:\/\/github.com\/whzxc\/agent-remote-control\/issues/);
   assert.match(off.content, /ax_issue_draft/);
   assert.doesNotMatch(off.content, /ax_report|ax_list|before release/);
   const before = await management('preferences');
@@ -2642,9 +2649,11 @@ test('Maintainer mode defaults off, persists and switches guide content and comm
     const on = (await call('guide')).result;
     assert.equal(on.maintainerMode, true);
     assert.notEqual(on.guideHash, off.guideHash);
-    assert.match(on.content, /ax_report/);
     assert.match(on.content, /ax_list/);
-    for (const op of ['ax_report','ax_list','ax_candidate','ax_triage']) assert.ok(on.ops.some((entry:any) => entry.op === op));
+    assert.match((await call('guide',{op:'ax_list'})).result.description, /ax_report/);
+    assert.ok(on.ops.every((entry:any) => !entry.op.startsWith('ax_')));
+    const full = (await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}}));
+    for (const op of ['ax_report','ax_list','ax_candidate','ax_triage']) assert.ok(toolResult(full).ops.some((entry:any) => entry.op === op));
     const cached = await client.callTool({name:'query', arguments:{op:'guide',args:{knownGuideHash:off.guideHash}}});
     assert.equal(toolResult(cached).unchanged, undefined);
     assert.equal(config(['get']).maintainerMode, true);
