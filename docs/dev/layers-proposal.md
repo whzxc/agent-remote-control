@@ -1,6 +1,6 @@
 # Layer placement and sizing proposal
 
-Status: proposed
+Status: approved
 
 MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.
 
@@ -118,11 +118,17 @@ Related defects:
 
 ## Dismissal, focus and feedback
 
-- Escape MUST close only the topmost layer.
-- Pointer input outside a transient layer or a panel MUST close it.
-- Pointer input outside a dialog MUST NOT close it.
+- Pointer input outside a panel, dialog or transient layer MUST produce a visible response.
+- Escape MUST act only on the topmost layer and MUST follow the same rules as outside pointer input.
+- Outside input MUST close a layer that holds no edited input and no running work.
+- Outside input on a layer with edited input MUST show a discard confirmation instead of closing.
+- Outside input on a layer with running work MUST show that work's state instead of closing.
+- When running work can be cancelled, that state MUST offer to stop the work and close.
+- When running work cannot be cancelled, that state MUST say that the layer closes after the work finishes.
+- Confirmations and running-work states MUST appear inside the layer, replacing its footer actions, without opening another layer.
+- The confirmation MUST focus the action that keeps the layer open.
+- Close and Cancel controls are explicit and MUST close without a confirmation.
 - Dismissal MUST NOT activate the element under the pointer.
-- A busy layer MUST ignore dismissal.
 - Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
 - Field errors MUST stay with their fields.
 - The result of an action MUST appear inside the layer that started it.
@@ -159,4 +165,5 @@ ARC pilots behavior governance before it moves into ADG.
 - `adg check` SHOULD reject width, duration and easing literals on layer shells once the tokens exist.
 - Panel and dialog frames SHOULD declare `kind` and `size`, and `adg check` SHOULD verify the rendered width against the size class.
 - Compare SHOULD record the bounding box of each open `dialog` role in a fixture and check it against `layerFrame` for that viewport.
+- Fixtures SHOULD check that outside pointer input on each open layer either closes it or shows its confirmation or running-work state.
 - Flow storyboards that chain frames through transitions remain a later step.
