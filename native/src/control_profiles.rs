@@ -168,7 +168,7 @@ pub(crate) fn render(
                 .is_some_and(|p| p.iter().any(|p| p == &preset))
         })
         .map(|op| {
-            let mut entry = json!({"op":op["name"],"via":crate::egress::via(op)});
+            let mut entry = json!({"op":op["name"],"via":op.get("tools").cloned().unwrap_or_else(||json!(crate::egress::via(op)))});
             if topic != "loop" || full {
                 entry["signature"] = json!(crate::egress::signature(op));
                 entry["retry"] = json!({"mode":crate::egress::retry_contract(op)["mode"]});

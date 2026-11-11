@@ -1,6 +1,7 @@
 //! Application composition: tool routing over shared execution owners.
 use crate::{agents::AgentHost, control::Control, *};
 pub struct Execution {
+    pub(crate) devices: Arc<crate::device_link::controller::Controller>,
     pub(crate) front_door: Arc<crate::front_door::InProcess>,
     pub(crate) control: Arc<Control>,
     agents: Arc<AgentHost>,
@@ -13,14 +14,15 @@ impl Execution {
         agents: Arc<AgentHost>,
         subscriptions: Arc<crate::subscriptions::SubscriptionService>,
         accounts: Arc<crate::accounts::Manager>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
+    ) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self {
+            devices: crate::device_link::controller::Controller::new(root().join("device-link"))?,
             front_door: Arc::new(crate::front_door::InProcess::new()),
             control,
             agents,
             subscriptions,
             accounts,
-        })
+        }))
     }
     pub fn approval_mode(&self) -> Result<bool> {
         self.control.approval_mode()
@@ -29,6 +31,9 @@ impl Execution {
         self.control.auto_open_codex()
     }
     pub async fn available(&self, name: &str) -> bool {
+        if matches!(name, "device" | "devices") {
+            return crate::device_link::enabled();
+        }
         if name == "agent_archive" {
             return true; // Local cleanup does not require an enabled or installed Agent.
         }
@@ -87,6 +92,9 @@ impl Execution {
         Ok(result)
     }
     pub(crate) async fn call_inner(&self, name: &str, args: Value, policy: Value) -> Result<Value> {
+        if name == "devices" {
+            return Ok(self.devices.list(args["all"] == true).await);
+        }
         if crate::mcp_hub::OPS.contains(&name) {
             let mut args = args;
             // The frozen act envelope's request ID is ARC metadata, not a hub argument.
@@ -205,13 +213,17 @@ impl Execution {
                 .find(|t| t["name"] == name)
                 .unwrap();
             crate::egress::validate_op(spec, &args)?;
-            return crate::dispatch_policy::query(
+            let mut result = crate::dispatch_policy::query(
                 &self.control,
                 &self.agents,
                 &self.subscriptions,
                 &args,
             )
-            .await;
+            .await?;
+            if crate::device_link::enabled() {
+                result["devices"] = self.devices.list(args["all"] == true).await["devices"].clone();
+            }
+            return Ok(result);
         }
         if matches!(
             name,

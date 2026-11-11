@@ -3,7 +3,7 @@ use rustls::pki_types::ServerName;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 use transport::{post, PeerRequest};
 
-struct Fixture {
+pub(super) struct Fixture {
     directory: PathBuf,
     member: Arc<Manager>,
 }
@@ -13,7 +13,7 @@ impl Fixture {
         let member = Self::manager(directory.join("member"));
         Self { directory, member }
     }
-    fn manager(directory: PathBuf) -> Arc<Manager> {
+    pub(super) fn manager(directory: PathBuf) -> Arc<Manager> {
         let member = Manager::new(directory.clone()).unwrap();
         let identity = Arc::new(Identity::load_or_create(&directory).unwrap());
         {
@@ -203,14 +203,29 @@ fn peer_envelope_preserves_receipt_and_blocks_management() {
 }
 #[test]
 fn handshake_budget_is_bounded_and_recovers() {
-    // Property: each peer listener budget admits at most 32 handshakes per minute.
+    // Regression: one global 32/min handshake bucket let a LAN host starve every paired controller.
     let mut budget = transport::HandshakeBudget::new();
     let start = Instant::now();
+    let first = "192.168.1.10".parse().unwrap();
+    let controller = "192.168.1.11".parse().unwrap();
     for _ in 0..32 {
-        assert!(budget.admit(start));
+        assert!(budget.admit(first, start).is_some());
     }
-    assert!(!budget.admit(start));
-    assert!(budget.admit(start + Duration::from_secs(60)));
+    assert!(budget.admit(first, start).is_none());
+    assert!(budget.admit(controller, start).is_some());
+    assert!(budget
+        .admit(first, start + Duration::from_secs(60))
+        .is_some());
+    for address in 0..512 {
+        let ip = IpAddr::V4(std::net::Ipv4Addr::new(
+            10,
+            0,
+            (address / 256) as u8,
+            (address % 256) as u8,
+        ));
+        assert!(budget.admit(ip, start).is_some());
+    }
+    assert!(budget.admit(controller, start).is_some());
 }
 #[tokio::test]
 async fn tls_requires_pins_client_keys_and_an_offer() {
@@ -221,12 +236,23 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
     let offer = fixture.offer();
     let (stream, server) = fixture.connect(&controller, &member.id).await.unwrap();
     assert_eq!(stream.get_ref().1.alpn_protocol(), Some(tls::ALPN));
-    let response = post(stream, "/arc-peer/1/hello", json!({"version":VERSION}))
+    let response = post(stream, "/arc-peer/2/hello", json!({"version":VERSION}))
         .await
         .unwrap();
     assert_eq!(response["deviceId"], offer.device_id);
     server.await.unwrap();
     assert!(fixture.connect(&controller, &"0".repeat(64)).await.is_err());
+    let connector = tls::client(&controller, member.id.clone()).unwrap();
+    let mut config = connector.config().as_ref().clone();
+    config.alpn_protocols = vec![b"arc-peer/unsupported".to_vec()];
+    let (stream, server) = fixture.incoming().await.unwrap();
+    let mismatch = tokio_rustls::TlsConnector::from(Arc::new(config))
+        .connect(ServerName::try_from("arc-peer.local").unwrap(), stream)
+        .await
+        .unwrap_err();
+    assert!(tls::protocol_mismatch(&mismatch));
+    server.await.unwrap();
+
     let (stream, server) = fixture.incoming().await.unwrap();
     let mut roots = rustls::RootCertStore::empty();
     roots.add(member.certificate.clone()).unwrap();
@@ -243,7 +269,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
         .await;
     if let Ok(stream) = anonymous {
         assert!(
-            post(stream, "/arc-peer/1/hello", json!({"version":VERSION}))
+            post(stream, "/arc-peer/2/hello", json!({"version":VERSION}))
                 .await
                 .is_err()
         );
@@ -255,7 +281,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
     match fixture.connect(&controller, &member.id).await {
         Err(_) => {}
         Ok((mut stream, server)) => {
-            let _ = stream.write_all(b"POST /arc-peer/1/hello HTTP/1.1\r\nHost: arc-peer.local\r\nContent-Length: 2\r\n\r\n{}").await;
+            let _ = stream.write_all(b"POST /arc-peer/2/hello HTTP/1.1\r\nHost: arc-peer.local\r\nContent-Length: 2\r\n\r\n{}").await;
             let mut byte = [0];
             assert!(!matches!(stream.read(&mut byte).await,Ok(n) if n > 0));
             server.await.unwrap();
@@ -268,6 +294,7 @@ async fn tls_requires_pins_client_keys_and_an_offer() {
         name: "Example member".into(),
         addresses: vec![],
         tunnel_url: None,
+        address_override: None,
     };
     reciprocal.state.lock().unwrap().stored.controller = Some(member_peer);
     let mut reverse_offer = fixture.offer();
@@ -294,7 +321,7 @@ async fn pairing_secret_is_consumed_and_local_decline_is_required() {
     let (stream, server) = fixture.connect(&controller, &member.id).await.unwrap();
     let pair = tokio::spawn(post(
         stream,
-        "/arc-peer/1/pair",
+        "/arc-peer/2/pair",
         json!({"version":VERSION,"secret":offer.secret,"name":"Example controller"}),
     ));
     // Wait for the HTTP request to reach its explicit approval suspension point.
@@ -413,12 +440,12 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
     assert_eq!(source["credential"]["type"], "peer");
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
     let request = id();
-    let result = post(stream,"/arc-peer/1/request",json!({"version":VERSION,"tool":"act","body":{"op":"command","args":{"cmd":"echo ARC_PEER_FIXTURE","cwd":fixture.directory.join("missing"),"waitMs":1000},"requestId":request},"origin":{"sourceId":"example-origin"}})).await.unwrap();
+    let result = post(stream,"/arc-peer/2/request",json!({"version":VERSION,"tool":"act","body":{"op":"command","args":{"cmd":"echo ARC_PEER_FIXTURE","cwd":fixture.directory.join("missing"),"waitMs":1000},"requestId":request},"origin":{"sourceId":"example-origin"}})).await.unwrap();
     let result = crate::egress::tool_value(&result).unwrap();
     assert_eq!(result["requestId"], request, "{result}");
     server.await.unwrap();
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
-    let receipt = post(stream,"/arc-peer/1/request",json!({"version":VERSION,"tool":"act","body":{"op":"receipt","args":{"requestId":request,"includeOrigin":true}},"origin":{"sourceId":"example-origin"}})).await.unwrap();
+    let receipt = post(stream,"/arc-peer/2/request",json!({"version":VERSION,"tool":"act","body":{"op":"receipt","args":{"requestId":request,"includeOrigin":true}},"origin":{"sourceId":"example-origin"}})).await.unwrap();
     let receipt = crate::egress::tool_value(&receipt).unwrap();
     assert_eq!(receipt["requestId"], request, "{receipt}");
     assert_eq!(receipt["origin"]["sourceId"], source["id"], "{receipt}");
@@ -430,7 +457,7 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
     let (stream, server) = fixture.connect(&controller, &first_id).await.unwrap();
     let denied = post(
         stream,
-        "/arc-peer/1/request",
+        "/arc-peer/2/request",
         json!({"version":VERSION,"tool":"act","body":{"op":"device","args":{}},"origin":{}}),
     )
     .await

@@ -4,6 +4,8 @@ use std::io::Read;
 const COMMANDS: &[&str] = &[
     "capabilities",
     "device offer",
+    "device address <device> <host:port>",
+    "device address <device> --clear",
     "device pair <string>",
     "device pending",
     "device approve",
@@ -573,6 +575,8 @@ async fn execute(args: &[String]) -> crate::Result<Value> {
         ["device", action @ ("offer" | "pending" | "approve" | "decline")] => crate::management::call(&format!("device.{action}"), json!({})).await,
         ["device", "pair", pairing] => crate::management::call("device.pair", json!({"body":{"pairingString":pairing}})).await,
         ["device", "revoke", device] => crate::management::call("device.revoke", json!({"body":{"deviceId":device}})).await,
+        ["device","address",device,"--clear"] => crate::management::call("device.address",json!({"body":{"device":device,"address":null}})).await,
+        ["device","address",device,address] => crate::management::call("device.address",json!({"body":{"device":device,"address":address}})).await,
         ["device", "configure", "--stdin"] => crate::management::call("device.configure", json!({"body":stdin_json()?})).await,
         ["stats", "control"] => crate::control_metrics::report("1d"),
         ["stats", "control", "--since", since] => crate::control_metrics::report(since),

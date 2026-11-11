@@ -33,14 +33,20 @@ on Windows. The device ID is SHA-256 of DER SubjectPublicKeyInfo. Names are labe
 Re-enabling retains the key. A changed identity clears local pairings.
 
 The listener binds configured private, unique-local and link-local LAN addresses.
+Loopback interfaces are excluded, including their link-local aliases.
 It accepts only those peer address ranges, including IPv4-mapped private IPv6.
 TLS 1.3 completes before HTTP routing, requires a client certificate and proof of
 key possession, and pins approved public-key fingerprints. No CA is involved.
 TLS session resumption is disabled so every connection revalidates its pin.
-ALPN `arc-peer/1` exposes peer protocol version 1. Admission allows at most 32
-handshakes per minute across interfaces and eight simultaneous handshakes, each
-with a five-second deadline. HTTP headers, bodies and private IPC frames are
-bounded independently. A failed handshake closes without reading HTTP requests.
+ALPN `arc-peer/2` exposes peer protocol version 2 over HTTP/2. Admission allows
+32 handshakes per minute per source IP, with two simultaneous handshakes per IP
+and a five-second handshake deadline. The table holds at most 256 source
+addresses and evicts the least recently used inactive entry. IPv4-mapped IPv6
+addresses share the IPv4 entry. After TLS authenticates the public key, paired
+and unpaired connections use separate eight-slot limits. Unpaired connections
+expire after ten minutes. Existing paired channels do not consume handshake
+budget. HTTP/2 streams, bodies and private IPC frames are bounded independently.
+A failed handshake closes without reading HTTP requests.
 
 During an unused ten-minute offer, unpaired self-signed clients may complete TLS
 to prove the offer secret. They cannot execute business calls. The first valid
@@ -69,9 +75,60 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop has no Device link controls. Controller liveness, discovery resolution,
-forwarding and task association are separate capabilities. Tunnel fallback is
-not implemented. The wire contract is in [CLI reference](../reference/cli.md#device-link).
+Desktop has no Device link controls. Tunnel fallback, member event streams,
+notification forwarding and file transfer are not implemented. The wire contract
+is in [CLI reference](../reference/cli.md#device-link).
+
+### Device link controller Core
+
+`Execution` owns one `device_link::controller::Controller`. It reads pairings from
+the front door's device state directory and owns one monitor per paired member.
+Each monitor sends a heartbeat every ten seconds, with a five-second probe bound.
+Three consecutive failures mark the member offline. Refusal on all known addresses
+marks it offline immediately. One success restores online state. A heartbeat
+returns device ID, platform, architecture, ARC version and capabilities. Windows
+and Linux omit `screen` from enabled peer ops and report `screen:false` in the
+summary. Last-seen and the latest bounded capability summary survive Core restart.
+
+Core resolves `_arc-peer._tcp` by the full device ID TXT value, then pins the TLS
+public key. A controller-local `device.address` host:port override takes priority;
+otherwise resolved addresses precede the saved pairing addresses. Only private,
+unique-local and link-local destinations are used. Interface scopes for IPv6
+link-local addresses are selected on the controller. A live channel is reused
+without waiting on discovery or a new handshake. At most 64 pre-submission dials
+race to find a reachable pinned endpoint; only the winning channel sends the request.
+DNS-SD IPv6 interface scopes are retained.
+
+Each member has one persistent HTTP/2 business channel and one independent
+heartbeat channel. Cloned stream senders multiplex up to 64 business calls without
+holding a connection mutex during the request. The member accepts at most 128
+streams per channel. Admission fails with `DEVICE_BUSY` at the controller's
+business cap; calls do not wait behind an unrelated long wait. Request deadlines
+include the forwarded op's requested wait or timeout plus transport overhead.
+Heartbeat does not enter the Core business queue. Revocation, disabling and Core
+shutdown close channels and stop monitors. A sent write is never retried on a new
+channel or address.
+
+The controller stores the latest 1024 forward records with request ID, member ID,
+op, originating source ID, send time, outcome and argument digest. A record is
+persisted before sending. Completed, failed and uncertain outcomes update that
+record. Cancellation after send retains an uncertain outcome. The member receives
+the same request ID and stores the originating source under `origin.peerOrigin`.
+Peer writes whose local op uses readback reuse the existing canonical member
+receipt store; successful tool results remain unchanged. Lost member responses
+and controller Core disconnects carry the
+original request ID and an `act device` receipt read, matching the member receipt
+op's assigned tool. No write is resent while its forward record is retained.
+
+The controller retains at most 4096 task/source associations. Native thread/task
+IDs from a write result or its later receipt are associated with the original
+source. Task-scoped follow-ups and receipt reads enforce the source boundary.
+Local host authority retains its existing administrative access. Evicted or
+unknown associations fail closed for external sources. Member results pass through
+without controller output projection. `devices` and `dispatch_policy.devices`
+include only online members by default; `all:true` includes offline members.
+The default guide stays compact; Device link appears in the full index and per-op
+schemas. Ingress policy allowlists continue to apply.
 
 ### Front-door process and private Core protocol
 

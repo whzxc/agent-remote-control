@@ -73,6 +73,8 @@ authority. They are unavailable to peer-origin guide/query/act requests.
 | Command | Management operation | Input / result |
 | --- | --- | --- |
 | `cli device configure --stdin` | `device.configure` | Optional `{"port":7143,"name":"Workstation"}`; returns device ID, name and port |
+| `cli device address <device> <host:port>` | `device.address` | Controller-side LAN address override; device ID or unique name |
+| `cli device address <device> --clear` | `device.address` | Clear the override and use DNS-SD and saved LAN addresses |
 | `cli device offer` | `device.offer` | Member-local offer; returns `pairingString`, `deviceId`, `protocolVersion`, `expiresInSeconds` |
 | `cli device pair <string>` | `device.pair` | Controller connects to the member and waits for member-local approval; returns `paired`, device ID, name, addresses and protocol version |
 | `cli device pending` | `device.pending` | Returns `pending:null` or the controller's device ID, name and public key |
@@ -85,24 +87,24 @@ before approving. Pairing grants full host authority. A member accepts one
 controller. Revoke that controller locally before creating another offer. A removed
 controller record prevents new member business requests.
 
-The pairing string is `arc-device:1:<base64url-json>` without Base64 padding.
-Its JSON fields are `version:1`, `deviceId` (lowercase SHA-256 of DER
+The pairing string is `arc-device:2:<base64url-json>` without Base64 padding.
+Its JSON fields are `version:2`, `deviceId` (lowercase SHA-256 of DER
 SubjectPublicKeyInfo), `addresses` (LAN IP:port strings), `tunnelUrl:null`, and a
 one-time `secret`. The secret expires ten minutes after the offer or at its first
 successful proof. Approval must finish within that original window. Treat the
 pairing string as a credential. Device names are labels. IPv6 link-local endpoints
 use the controller's local interface scope when connecting.
 
-LAN uses TLS 1.3 with self-signed device certificates, mutual key possession and
-public-key fingerprint pins. ALPN is `arc-peer/1`. POST `/arc-peer/1/hello` with
-`{"version":1}` returns the protocol version and device ID. Pairing uses POST
-`/arc-peer/1/pair` with `{"version":1,"secret":"...","name":"..."}`. Its response
+LAN uses HTTP/2 over TLS 1.3 with self-signed device certificates, mutual key possession and
+public-key fingerprint pins. ALPN is `arc-peer/2`. POST `/arc-peer/2/hello` with
+`{"version":2}` returns protocol version, device ID, name, platform, architecture, ARC version and capability summary. Pairing uses POST
+`/arc-peer/2/pair` with `{"version":2,"secret":"...","name":"..."}`. Its response
 waits for local consent and returns the member's public key, name and addresses.
 An unpaired TLS client is admitted only while an unused offer is live; it has no
 business authority.
 
-Authenticated controllers send POST `/arc-peer/1/request` with
-`{version:1,tool:"guide"|"query"|"act",body:<original tool arguments>,origin:<source reference>}`.
+Authenticated controllers send POST `/arc-peer/2/request` with
+`{version:2,tool:"guide"|"query"|"act",body:<original tool arguments>,origin:<source reference>}`.
 `body.requestId` is retained as the member receipt ID; an args-level request ID
 follows the existing tool contract. `origin` is bounded to 4096 encoded bytes and
 is stored as `origin.peerOrigin`; member authority always uses the member's peer
@@ -125,11 +127,29 @@ Errors include `DEVICE_PROTOCOL_MISMATCH`, `DEVICE_TLS_FAILED`,
 `DEVICE_UNPAIRED`, and `DEVICE_PEER_FORBIDDEN`. Read `cli guide` for recovery and
 create a fresh member offer after expiry or decline.
 
+Controller Core probes each member every ten seconds. Three misses, or refusal
+on every known address, mark it offline. One successful probe restores online
+state. `query devices` lists online members; `all:true` also lists offline members.
+`query device` forwards member reads, and `act device` forwards member writes.
+Read [Device link tools](tools.md#device-link) for forwarding and receipt contracts.
+
+A controller override takes precedence over DNS-SD and the saved offer addresses.
+Hostnames must resolve to private, unique-local or link-local addresses. Clear an
+override after moving a member to another network. Example:
+
+```sh
+arc cli device address '<device-id>' 'workstation.local:7143'
+arc cli device address '<device-id>' --clear
+```
+
+The Core retains the latest 1024 forward records and 4096 task/source associations.
+Connections use one persistent multiplexed business channel and one independent
+heartbeat channel per member, with at most 64 concurrent business requests.
+
 ### Limits
 
-Controller liveness, discovery resolution, `devices`/`device` catalog operations,
-forwarding and task association are not available yet. Tunnel fallback is not
-available. Windows peer `screen` is unavailable. LAN interface listeners and
+Tunnel fallback, member event streams, forwarded notification delivery and file
+transfer are not available. Windows and Linux peer `screen` are unavailable. LAN interface listeners and
 advertisements refresh every five seconds without changing pairing identity.
 
 ## Local control and condition waits

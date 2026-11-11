@@ -41,7 +41,7 @@ futures-util = { version = ">=0.3, <1", features = ["sink"] }
 notify = "8.2.1"
 tokio-tungstenite = { version = ">=0.28, <1", default-features = false, features = ["handshake"] }
 
-hyper = { version = "1", features = ["server", "client", "http1"] }
+hyper = { version = "1", features = ["server", "client", "http1", "http2"] }
 hyper-util = { version = ">=0.1, <1", features = ["tokio"] }
 http-body-util = ">=0.1, <1"
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }

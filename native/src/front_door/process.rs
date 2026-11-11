@@ -378,6 +378,25 @@ pub(super) fn is_write(request: &Request) -> bool {
         Operation::PeerControl => &request.body["body"],
         _ => &Value::Null,
     };
+    if envelope["op"] == "device" {
+        let op = string(&envelope["args"], "op");
+        if op == "receipt"
+            && envelope["args"]["args"]["action"]
+                .as_str()
+                .unwrap_or("read")
+                == "read"
+        {
+            return false;
+        }
+        if matches!(request.operation, Operation::LocalControl) {
+            return catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|spec| spec["name"] == op)
+                .is_some_and(|spec| crate::egress::via(spec) == "act");
+        }
+    }
     if envelope["op"] == "receipt"
         && envelope["args"]["action"].as_str().unwrap_or("read") == "read"
     {
@@ -410,7 +429,32 @@ pub(super) fn is_write(request: &Request) -> bool {
         ),
     }
 }
+pub(crate) fn forwarded_receipt(request: &Request) -> Option<Value> {
+    if !is_write(request) {
+        return None;
+    }
+    let envelope = match request.operation {
+        Operation::Mcp => &request.body["params"]["arguments"],
+        Operation::LocalControl => &request.body,
+        _ => return None,
+    };
+    if envelope["op"] != "device" {
+        return None;
+    }
+    let args = &envelope["args"];
+    let receipt = if args["op"] == "receipt" {
+        args["args"]["requestId"].as_str().unwrap_or(&request.id.0)
+    } else {
+        &request.id.0
+    };
+    Some(
+        json!({"via":"act","op":"device","args":{"device":args["device"],"op":"receipt","args":{"requestId":receipt,"action":"read"}}}),
+    )
+}
 fn lost(request: &Request, reason: &str) -> String {
+    if let Some(next) = forwarded_receipt(request) {
+        return json!({"code":-32603,"message":"Controller Core disconnected after a member write; outcome is uncertain. Do not resend the write.","data":{"state":"unconfirmed","requestId":next["args"]["args"]["requestId"],"reason":reason,"next":next}}).to_string();
+    }
     if is_write(request) {
         json!({"code":-32603,"message":"Core disconnected after write submission; outcome is uncertain. Do not repeat the write.","data":{"state":"unconfirmed","requestId":request.id.0,"reason":reason,"next":{"via":"act","op":"receipt","args":{"action":"read","requestId":request.id.0}}}}).to_string()
     } else {
@@ -977,6 +1021,11 @@ pub(crate) async fn attach_core(
     }
     service.execution.front_door.bind(&service);
     service.subscriptions.start();
+    service
+        .execution
+        .devices
+        .reconcile(crate::device_link::enabled())
+        .await?;
     let listener = listen("core", Owner::Core(service.clone(), desktop)).await?;
     #[cfg(test)]
     let (info, listener) = {

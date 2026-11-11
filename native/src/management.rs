@@ -274,7 +274,15 @@ pub fn error_code(message: &str) -> &str {
     {
         return "APP_UNAVAILABLE";
     }
+    let parsed = serde_json::from_str::<Value>(message).ok();
     for code in [
+        "DEVICE_OFFLINE",
+        "DEVICE_UNKNOWN",
+        "DEVICE_CONNECTION_REFUSED",
+        "DEVICE_RESPONSE_LOST",
+        "DEVICE_OUTCOME_UNCERTAIN",
+        "DEVICE_TASK_SCOPE",
+        "DEVICE_BUSY",
         "OP_UNAVAILABLE",
         "DEVICE_PROTOCOL_MISMATCH",
         "DEVICE_PAIRING_INVALID",
@@ -301,7 +309,7 @@ pub fn error_code(message: &str) -> &str {
         "NOT_SUPPORTED",
         "SHIM_EXISTS",
     ] {
-        if message.starts_with(code) {
+        if message.starts_with(code) || parsed.as_ref().is_some_and(|value| value["code"] == code) {
             return code;
         }
     }

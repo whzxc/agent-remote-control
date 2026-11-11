@@ -200,6 +200,14 @@ pub(crate) fn wire_bytes(result: &Value, rpc_id: Option<&Value>) -> usize {
 }
 
 pub fn failure(e: &str) -> Value {
+    if let Ok(value) = serde_json::from_str::<Value>(e) {
+        if value["code"]
+            .as_str()
+            .is_some_and(|code| code.starts_with("DEVICE_") || code == "REQUEST_ID_CONFLICT")
+        {
+            return value;
+        }
+    }
     let device_code = crate::management::error_code(e);
     if device_code == "OP_UNAVAILABLE" || device_code.starts_with("DEVICE_") {
         return json!({"code":device_code,"message":e,"next":{"via":"query","op":"guide","args":{}}});
@@ -564,7 +572,7 @@ fn protocol_hash(catalog: &Value) -> String {
         .into_iter()
         .flatten()
         .map(|op| {
-            json!({"op":op["name"],"via":via(op),"description":op["description"],
+            json!({"op":op["name"],"via":op.get("tools").cloned().unwrap_or_else(||json!(via(op))),"description":op["description"],
             "inputSchema":op["inputSchema"],"signature":signature(op),"example":example(op)})
         })
         .collect();
@@ -586,7 +594,7 @@ pub(crate) fn via(spec: &Value) -> &'static str {
 }
 
 pub(crate) fn example(spec: &Value) -> Value {
-    json!({"tool":via(spec),"arguments":{"op":spec["name"],"args":spec["example"]}})
+    json!({"tool":if spec["name"]=="device"{"query"}else{via(spec)},"arguments":{"op":spec["name"],"args":spec["example"]}})
 }
 
 pub(crate) fn invalid_arguments(op: &str, field: &str, message: &str) -> String {
@@ -868,12 +876,16 @@ pub fn retry_contract(op: &Value) -> Value {
     if op["annotations"]["readOnlyHint"] == true {
         return json!({"mode":"read-only"});
     }
+    if name == "device" {
+        return json!({"mode":"receipt","key":"requestId","appliesTo":"act","query":{"mode":"read-only"},"instruction":"Use query for member reads. Retain an act requestId. After an uncertain outcome read the member receipt through act device; never resend a sent write."});
+    }
     if name == "receipt" {
         return json!({"mode":"original-receipt","key":"requestId","instruction":"Read the original requestId. Do not replay approval or rejection blindly."});
     }
     if matches!(
         name,
-        "codex_create"
+        "device"
+            | "codex_create"
             | "codex_send"
             | "codex_resume"
             | "codex_archive"
@@ -928,7 +940,7 @@ fn guide_content(origin: &Value, args: &Value, _locale: &str, ops: &[Value]) -> 
             .unwrap();
         let spec = source_spec(spec, origin);
         let spec = &spec;
-        return json!({"op":name,"via":via(spec),"description":spec["description"],"inputSchema":spec["inputSchema"],"signature":signature(spec),"example":example(spec),"retry":retry_contract(spec)});
+        return json!({"op":name,"via":spec.get("tools").cloned().unwrap_or_else(||json!(via(spec))),"description":spec["description"],"inputSchema":spec["inputSchema"],"signature":signature(spec),"example":example(spec),"retry":retry_contract(spec)});
     }
     crate::control_profiles::guide(origin, args, &ops)
 }

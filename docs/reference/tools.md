@@ -98,7 +98,7 @@ Every guide response includes `guideHash`. Reuse it with `query({"op":"guide","a
 
 Guide signatures and per-op schemas advertise only canonical parameter names: `operation` for Git and `lineCount` for reads. Legacy aliases remain accepted by execution, with no deprecation response. Conflicting canonical and legacy values still fail validation.
 
-The embedded [catalog](../../native/src/catalog.json) defines the fixed tools and current op registry. Names of the former tools remain op names, without tool aliases. The table below lists each op’s assigned entrypoint; mixed read/write ops such as receipt, screen, mcp, and codex_thread always use act, even for a read action. Assignment follows readOnlyHint, with connector_verify marked as a write because it saves verification state.
+The embedded [catalog](../../native/src/catalog.json) defines the fixed tools and current op registry. Names of the former tools remain op names, without tool aliases. The table below lists each op’s assigned entrypoint; mixed read/write ops such as receipt, screen, mcp, and codex_thread always use act, even for a read action. Assignment follows readOnlyHint, with connector_verify marked as a write because it saves verification state. Device link `device` supports both query and act; its per-op `via` lists both tools.
 
 | Group | Ops via query | Ops via act |
 | --- | --- | --- |
@@ -116,6 +116,78 @@ Every tool result carries `arcVersion`, a short SHA-256 of the guide text, publi
 INVALID_ARGUMENTS gives a field path, a short reason, a nearby supported parameter name when available, and a query guide call for the current schema. Error responses put error first in the text result, omit the full schema and inbox events, and do not consume unread inbox events. UNKNOWN_OP supplies up to three closest enabled op names and points to guide. WRONG_TOOL supplies the assigned entrypoint. These are MCP tool errors (`isError=true`) with arcVersion, so a client can correct the call once without refreshing its cached tools.
 
 Upgrading from the former tool surface requires one client tool refresh and renewed authorization. Later capabilities change through ops and guide.
+
+## Device link
+
+Enable the local Experimental `device-link` preference and pair a member through
+[the CLI](cli.md#device-link). `devices` and `device` are absent from guide when
+disabled and return `OP_UNAVAILABLE`. Existing ingress allowlists still apply.
+Discover them through `query guide {view:"full"}` or a per-op guide; the default
+common guide remains compact. The three frozen MCP tool envelopes are unchanged.
+
+| Tool / op | Args | Result |
+| --- | --- | --- |
+| `query devices` | `{all?:boolean}` | Online paired members by default; `all:true` includes offline members |
+| `query device` | `{device,op,args}` | Member read result, including `op:"guide"` |
+| `act device` | `{device,op,args}` with optional outer `requestId` | Member write result |
+
+`device` accepts a device ID or a unique paired name. A member row contains `id`,
+`name`, `platform`, `arch`, `arcVersion`, `state`, `path`, `lastSeen`, `latency` in
+milliseconds, and `capabilities`. `path` is always `lan`. Windows and Linux report
+`screen:false` and omit `screen` from their enabled op index. Last-seen and the
+latest capability summary survive Core restart. A member starts offline until its
+first successful probe. Heartbeats run every ten seconds. Three misses, or
+connection refusal on every known address, mark it offline; one success restores
+online state. `dispatch_policy.devices` uses the same default online scope.
+
+```json
+{"op":"devices","args":{}}
+{"op":"device","args":{"device":"<device-id>","op":"guide","args":{"view":"full"}}}
+```
+
+Use the inner op's assigned tool. `receipt` uses `act`, including a receipt read:
+
+```json
+{"op":"device","args":{"device":"<device-id>","op":"receipt","args":{"requestId":"<original-uuid>","action":"read"}}}
+```
+
+The controller returns the member's complete tool result without adding its own
+projection or ARC version. Concurrent calls use HTTP/2 streams over a persistent
+business connection; heartbeat has a separate persistent connection. At most 64
+business requests run per member. Op wait/timeout arguments set request deadlines;
+a long member wait does not block another read or heartbeat. Phase 1 has no tunnel
+fallback, file transfer, forwarded event stream or notification delivery. Use
+`notify:null` for member task creation in this phase.
+
+The controller assigns a UUID before sending a write and honors an outer act
+`requestId`. An inner receipt-enabled op's `requestId`, when present, must match.
+The member uses that ID in its existing receipt store and records the originating
+controller source ID under `origin.peerOrigin.sourceId`. The latest 1024 forward
+records retain request ID, device ID, op, originating source ID, send time and
+outcome. Reusing a retained sent write ID returns its receipt read action without
+resending. Argument changes under the same ID return `REQUEST_ID_CONFLICT`.
+Receipt approval/rejection continues to address the original member receipt.
+
+The controller stores at most 4096 task/source associations. Follow-ups naming a
+thread/task and reads of forwarded receipts require the originating source;
+local host authority retains administrative access. Unknown or evicted task
+associations fail closed for external sources. A task created by a write whose
+response was lost is associated when its original receipt is read. Agent sessions
+and histories remain in the member's native stores.
+
+| Error | Action |
+| --- | --- |
+| `DEVICE_OFFLINE` | Request was not transmitted. Query `devices` and wait for the member to return. |
+| `DEVICE_UNKNOWN` | Query `devices` with `all:true`; use an ID or a unique name. |
+| `DEVICE_PROTOCOL_MISMATCH` | Read the `device` guide and install matching peer protocol versions. ARC versions may differ when the peer protocol matches. |
+| `DEVICE_OUTCOME_UNCERTAIN` | Retain `error.requestId` and follow `next`, an `act device` member receipt read. Never resend the write. |
+| `DEVICE_TASK_SCOPE` | Use the originating source; read the `device` guide for association limits. |
+| `DEVICE_BUSY` | Keep existing requests/receipts and wait for an active member request to finish. |
+| `DEVICE_RESPONSE_LOST` | A read lost its response. Query `devices` before a new read. |
+
+Offline members are outside dispatch scope. Existing work on an unreachable member
+continues under that member's ownership; the controller does not infer completion,
+cancel work or move a submitted request to another path.
 
 ## Context provider
 

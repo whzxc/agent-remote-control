@@ -8,7 +8,7 @@ use rustls::{
     DigitallySignedStruct, SignatureScheme,
 };
 
-pub(super) const ALPN: &[u8] = b"arc-peer/1";
+pub(super) const ALPN: &[u8] = b"arc-peer/2";
 #[derive(Debug)]
 struct Pin {
     server: Option<String>,
@@ -174,4 +174,16 @@ pub(super) fn client(identity: &Identity, pin: String) -> Result<tokio_rustls::T
     config.alpn_protocols = vec![ALPN.to_vec()];
     config.resumption = rustls::client::Resumption::disabled();
     Ok(tokio_rustls::TlsConnector::from(Arc::new(config)))
+}
+
+pub(super) fn protocol_mismatch(error: &std::io::Error) -> bool {
+    matches!(
+        error
+            .get_ref()
+            .and_then(|error| error.downcast_ref::<rustls::Error>()),
+        Some(
+            rustls::Error::NoApplicationProtocol
+                | rustls::Error::AlertReceived(rustls::AlertDescription::NoApplicationProtocol)
+        )
+    )
 }

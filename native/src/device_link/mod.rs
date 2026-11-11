@@ -1,5 +1,10 @@
 //! Device link identity and local pairing authority. The front door owns this state.
+mod client;
+pub(crate) mod controller;
+#[cfg(test)]
+mod controller_tests;
 mod identity;
+mod records;
 #[cfg(test)]
 mod tests;
 mod tls;
@@ -15,7 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const VERSION: u16 = 1;
+pub const VERSION: u16 = 2;
 pub const DEFAULT_PORT: u16 = 7143;
 const OFFER_TTL: Duration = Duration::from_secs(600);
 pub fn enabled() -> bool {
@@ -40,7 +45,7 @@ pub struct Offer {
 impl Offer {
     pub fn encode(&self) -> Result<String> {
         Ok(format!(
-            "arc-device:1:{}",
+            "arc-device:2:{}",
             URL_SAFE_NO_PAD.encode(serde_json::to_vec(self).map_err(|e| e.to_string())?)
         ))
     }
@@ -54,14 +59,14 @@ impl Offer {
         if text.len() > 16384 {
             return Err(invalid());
         }
-        let payload = text.strip_prefix("arc-device:1:").ok_or_else(invalid)?;
+        let payload = text.strip_prefix("arc-device:2:").ok_or_else(invalid)?;
         let offer: Self =
             serde_json::from_slice(&URL_SAFE_NO_PAD.decode(payload).map_err(|_| invalid())?)
                 .map_err(|_| invalid())?;
         if offer.version != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 1 on both devices; read cli guide.",
+                "Use peer protocol version 2 on both devices; read cli guide.",
             ));
         }
         if offer.device_id.len() != 64
@@ -81,14 +86,16 @@ impl Offer {
         Ok(offer)
     }
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Peer {
+pub(super) struct Peer {
     device_id: String,
     public_key: String,
     name: String,
     addresses: Vec<String>,
     tunnel_url: Option<String>,
+    #[serde(default)]
+    address_override: Option<String>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -134,12 +141,22 @@ impl Drop for Runtime {
         let _ = self.advertisement.shutdown();
     }
 }
+#[cfg(test)]
+pub(super) struct ReplyGate {
+    request_id: String,
+    ready: tokio::sync::Notify,
+    release: tokio::sync::Notify,
+}
 pub(crate) struct Manager {
     directory: PathBuf,
     state: StdMutex<State>,
     runtime: Mutex<Option<Runtime>>,
     configuration: Mutex<()>,
     closed: tokio::sync::watch::Sender<u64>,
+    #[cfg(test)]
+    reply_gate: StdMutex<Option<Arc<ReplyGate>>>,
+    paired_connections: Arc<tokio::sync::Semaphore>,
+    unpaired_connections: Arc<tokio::sync::Semaphore>,
 }
 impl Manager {
     pub fn new(directory: PathBuf) -> Result<Arc<Self>> {
@@ -162,6 +179,10 @@ impl Manager {
             runtime: Mutex::new(None),
             configuration: Mutex::new(()),
             closed,
+            #[cfg(test)]
+            reply_gate: Default::default(),
+            paired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
+            unpaired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
         }))
     }
     fn persist(&self, state: &State) -> Result<()> {
@@ -301,6 +322,48 @@ impl Manager {
                 self.pair(Offer::decode(string(&body, "pairingString"))?)
                     .await
             }
+            "address" => {
+                let mut state = self.state.lock().unwrap();
+                let selector = string(&body, "device");
+                let ids = state
+                    .stored
+                    .members
+                    .iter()
+                    .filter(|(id, peer)| *id == selector || peer.name == selector)
+                    .map(|(id, _)| id.clone())
+                    .collect::<Vec<_>>();
+                if ids.len() != 1 {
+                    return Err(error("DEVICE_UNKNOWN","Use a device ID or unique paired member name; query devices with all:true."));
+                }
+                let address = if body["address"].is_null() {
+                    None
+                } else {
+                    let address = string(&body, "address");
+                    let parsed = url::Url::parse(&format!("https://{address}"))
+                        .map_err(|_| "INVALID_ARGUMENT: address must be host:port")?;
+                    if parsed.host_str().is_none()
+                        || !address.rsplit_once(':').is_some_and(|(_, port)| {
+                            port.parse::<u16>().is_ok_and(|port| port != 0)
+                        })
+                        || parsed.path() != "/"
+                        || !parsed.username().is_empty()
+                        || parsed.password().is_some()
+                        || parsed.query().is_some()
+                        || parsed.fragment().is_some()
+                    {
+                        return Err("INVALID_ARGUMENT: address must be host:port".into());
+                    }
+                    Some(address.to_owned())
+                };
+                state
+                    .stored
+                    .members
+                    .get_mut(&ids[0])
+                    .unwrap()
+                    .address_override = address.clone();
+                self.persist(&state)?;
+                Ok(json!({"deviceId":ids[0],"address":address}))
+            }
             "revoke" => self.revoke(string(&body, "deviceId")).await,
             "configure" => {
                 let port = body
@@ -436,6 +499,7 @@ impl Manager {
                     name: name.into(),
                     addresses: vec![],
                     tunnel_url: None,
+                    address_override: None,
                 },
                 expires,
                 decision: tx,
@@ -498,6 +562,7 @@ impl Manager {
             name: self.name()?,
             addresses: self.addresses()?,
             tunnel_url: None,
+            address_override: None,
         };
         let _ = pending
             .decision
@@ -545,9 +610,21 @@ pub fn lan_address(ip: IpAddr) -> bool {
             }),
     }
 }
+fn lan_interfaces() -> Result<Vec<if_addrs::Interface>> {
+    let interfaces = if_addrs::get_if_addrs().map_err(|e| e.to_string())?;
+    let loopbacks = interfaces
+        .iter()
+        .filter(|interface| interface.is_loopback())
+        .map(|interface| interface.name.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    Ok(interfaces
+        .into_iter()
+        .filter(|interface| !loopbacks.contains(&interface.name) && lan_address(interface.ip()))
+        .collect())
+}
 fn lan_sockets(port: u16) -> Result<Vec<SocketAddr>> {
     let mut sockets = Vec::new();
-    for interface in if_addrs::get_if_addrs().map_err(|e| e.to_string())? {
+    for interface in lan_interfaces()? {
         let ip = interface.ip();
         if !lan_address(ip) {
             continue;
@@ -565,6 +642,7 @@ fn lan_sockets(port: u16) -> Result<Vec<SocketAddr>> {
             sockets.push(socket);
         }
     }
+    sockets.sort_by_key(|socket| socket.is_ipv6());
     Ok(sockets)
 }
 
@@ -572,9 +650,10 @@ pub fn operations() -> Vec<Value> {
     if !enabled() {
         return vec![];
     }
-    ["offer","pending","approve","decline","pair","revoke","configure"].into_iter().map(|action| {
+    ["offer","pending","approve","decline","pair","revoke","configure","address"].into_iter().map(|action| {
         let (properties, required) = match action {
             "pair" => (json!({"pairingString":{"type":"string","maxLength":16384}}),json!(["pairingString"])),
+            "address" => (json!({"device":{"type":"string","minLength":1},"address":{"type":["string","null"]}}),json!(["device","address"])),
             "revoke" => (json!({"deviceId":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),json!(["deviceId"])),
             "configure" => (json!({"port":{"type":"integer","minimum":1,"maximum":65535},"name":{"type":"string","minLength":1,"maxLength":120}}),json!([])),
             _ => (json!({}),json!([])),

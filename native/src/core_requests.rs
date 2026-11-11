@@ -35,7 +35,7 @@ impl ControlSource<'_> {
             Self::Local(s) => s.available(name).await,
             Self::Peer(s) => {
                 !crate::device_link::transport::forbidden(name)
-                    && !(cfg!(windows) && name == "screen")
+                    && !(cfg!(not(target_os = "macos")) && name == "screen")
                     && s.available(name).await
             }
         }
@@ -64,7 +64,16 @@ impl ControlSource<'_> {
 pub(crate) async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value> {
     let source = ControlSource::Local(&s.execution);
     let name = string(&body, "op");
-    let tool = if name == "guide" {
+    let tool = if name == "device" {
+        let inner = string(&body["args"], "op");
+        catalog()["ops"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|op| op["name"] == inner)
+            .map(crate::egress::via)
+            .unwrap_or("query")
+    } else if name == "guide" {
         "query"
     } else {
         catalog()["ops"]
@@ -76,6 +85,12 @@ pub(crate) async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value
             .unwrap_or("query")
     };
     let mut args = body.get("args").cloned().unwrap_or(json!({}));
+    let device_request = if name == "device" {
+        args.as_object_mut()
+            .and_then(|args| args.remove("requestId"))
+    } else {
+        None
+    };
     let mut origin = crate::sources::local_origin().await?;
     origin["controlTransport"] = json!("cli");
     if matches!(
@@ -91,8 +106,10 @@ pub(crate) async fn local_control(s: &Arc<Service>, body: Value) -> Result<Value
         args
     } else {
         let mut envelope = json!({"op":name,"args":args});
-        if let Some(request) = body.get("requestId") {
-            envelope["requestId"] = request.clone();
+        if tool == "act" {
+            if let Some(request) = body.get("requestId").or(device_request.as_ref()) {
+                envelope["requestId"] = request.clone();
+            }
         }
         envelope
     };
@@ -114,18 +131,39 @@ async fn peer_control(service: &Arc<Service>, device: &str, body: Value) -> Resu
     let mut origin = crate::sources::touch(&source, "peer").await?;
     origin["controlTransport"] = json!("peer");
     origin["peerOrigin"] = request.origin;
-    crate::kernel::origin::ORIGIN
-        .scope(
-            origin,
-            call_tool(
-                &ControlSource::Peer(&service.execution),
-                &request.tool,
-                request.body,
-                None,
-            ),
-        )
-        .await
+    crate::kernel::origin::ORIGIN.scope(origin, async {
+        let source=ControlSource::Peer(&service.execution);
+        let op=string(&request.body,"op");
+        let spec=catalog()["ops"].as_array().unwrap().iter().find(|spec|spec["name"]==op);
+        let generic=request.tool=="act" && op!="receipt" && spec.is_some_and(|spec|spec["annotations"]["readOnlyHint"]!=true && crate::egress::retry_contract(spec)["mode"]!="receipt");
+        if !generic {return call_tool(&source,&request.tool,request.body,None).await;}
+        // Reuse the canonical member receipt owner for writes whose local API uses readback.
+        static RECEIPTS:crate::kernel::receipts::ReceiptStore=crate::kernel::receipts::ReceiptStore::new("");
+        let receipt_id=request.body["requestId"].as_str().map(str::to_owned).unwrap_or_else(id);
+        let locks=crate::kernel::receipts::RequestLocks;
+        let _lock=locks.lock(&receipt_id).await;
+        let digest=hash(request.body.to_string());
+        if let Some(receipt)=RECEIPTS.replay(&receipt_id,&digest,&service.control.session)? {
+            return Ok(receipt.get("peerResponse").cloned().unwrap_or_else(||crate::egress::tool(crate::egress::receipt(receipt),false)));
+        }
+        let mut receipt=json!({"requestId":receipt_id,"digest":digest,"operation":op,"origin":crate::kernel::origin::current_origin(),"backendSession":service.control.session,"state":"reserved","createdAt":now()});
+        RECEIPTS.reserve(&receipt)?;
+        let _owner=RECEIPTS.begin(&mut receipt)?;
+        let result=call_tool(&source,&request.tool,request.body,None).await;
+        match result {
+            Ok(response)=>{
+                let value=crate::egress::tool_value(&response)?;
+                receipt["result"]=value;
+                receipt["peerResponse"]=response.clone();
+                crate::kernel::receipts::progress::apply(&mut receipt,if response["isError"]==true {crate::kernel::receipts::progress::Event::Fail(crate::kernel::receipts::progress::Failure::Failed)}else{crate::kernel::receipts::progress::Event::Complete});
+                RECEIPTS.checkpoint(&mut receipt)?;
+                Ok(response)
+            }
+            Err(error)=>{receipt["error"]=crate::egress::failure(&error);crate::kernel::receipts::progress::apply(&mut receipt,crate::kernel::receipts::progress::Event::Fail(crate::kernel::receipts::progress::Failure::Failed));RECEIPTS.checkpoint(&mut receipt)?;Err(error)}
+        }
+    }).await
 }
+
 async fn enabled_ops(s: &ControlSource<'_>) -> Vec<Value> {
     let mut ops = Vec::new();
     for op in catalog()["ops"].as_array().unwrap() {
@@ -142,9 +180,10 @@ async fn call_tool(
     envelope: Value,
     rpc_id: Option<&Value>,
 ) -> Result<Value> {
+    let forwarded = envelope["op"] == "device";
     let metric = crate::control_metrics::Call::new(&s.origin().await, tool, &envelope);
     let mut response = call_tool_inner(s, tool, envelope, rpc_id).await;
-    if rpc_id.is_some() {
+    if rpc_id.is_some() && !forwarded {
         if let Ok(result) = &mut response {
             result["resultType"] = json!("complete");
         }
@@ -169,6 +208,45 @@ async fn call_tool_inner(
     } else {
         envelope["args"].clone()
     };
+    if name == "device" {
+        let forward = async {
+            if !s.connected() || !s.allows("device").await {
+                return Err(crate::device_link::unavailable());
+            }
+            let schema = catalog()["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|spec| spec["name"] == tool)
+                .ok_or("UNKNOWN_TOOL")?;
+            crate::validator("tool", tool, &schema["inputSchema"])?
+                .validate(&envelope)
+                .map_err(|e| crate::egress::validation_error("", &schema["inputSchema"], &e))?;
+            let spec = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == "device")
+                .unwrap();
+            crate::egress::validate_op(spec, &args)?;
+            if !matches!(tool, "query" | "act") {
+                return Err(
+                    "WRONG_TOOL: Use query device for reads or act device for writes.".into(),
+                );
+            }
+            s.execution()
+                .devices
+                .forward(tool, args, envelope.get("requestId"), s.origin().await)
+                .await
+        }
+        .await;
+        return Ok(match forward {
+            Ok(value) => value,
+            Err(error) => {
+                crate::egress::tool(json!({"error":crate::egress::failure(&error)}), true)
+            }
+        });
+    }
     let summary = crate::task_summary::requested(name, &args);
     let mut wait_limit = None;
     let mut digest_continuation = false;

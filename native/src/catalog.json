@@ -9587,6 +9587,95 @@
         "from",
         "names"
       ]
+    },
+    {
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "name": "devices",
+      "description": "List online paired Device link members. Use all:true to include offline members with last-seen, LAN path, latency and capability summary. Experimental; enable device-link locally.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "example": {}
+    },
+    {
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "name": "device",
+      "description": "Forward a member read through query device or a member write through act device using {device,op,args}. Select a device ID or unique name from devices. Member results are returned unchanged. Use op:guide to discover member contracts. Honor the inner op tool, including act for receipt reads. A sent write is never resent. On uncertain outcome retain requestId and use the forwarded receipt read in next.",
+      "tools": [
+        "query",
+        "act"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "device",
+          "op",
+          "args"
+        ],
+        "properties": {
+          "device": {
+            "type": "string",
+            "minLength": 1
+          },
+          "op": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "example": {
+        "device": "<device-id>",
+        "op": "guide",
+        "args": {}
+      }
     }
   ],
   "domains": {
@@ -11276,6 +11365,12 @@
         ],
         "tier": "default",
         "conditional": false
+      },
+      "devices": {
+        "presets": []
+      },
+      "device": {
+        "presets": []
       }
     }
   },

@@ -53,7 +53,7 @@ impl Service {
             agents.clone(),
             subscriptions.clone(),
             accounts.clone(),
-        );
+        )?;
         let token = crate::front_door::process::ensure_secret()?;
         Ok(Arc::new(Self {
             runtime: crate::runtime::State::with_launches(control.launches.clone()),
@@ -88,7 +88,7 @@ impl Service {
             service_mut.agents.clone(),
             service_mut.subscriptions.clone(),
             service_mut.accounts.clone(),
-        );
+        )?;
         for ingress in service_mut.ingresses.get_mut().values_mut() {
             let i = Arc::get_mut(ingress).unwrap();
             i.execution = Some(service_mut.execution.clone());
@@ -284,6 +284,7 @@ impl Service {
     }
     pub async fn stop(&self) -> Result<()> {
         self.begin_shutdown();
+        self.execution.devices.stop().await?;
         self.accounts.stop(&self.control).await;
         self.subscriptions.stop().await;
         self.agents.close().await;
@@ -318,7 +319,14 @@ impl Service {
                     }
                 }
             }
-            return crate::front_door::process::gateway_request(route, method, body).await;
+            let result = crate::front_door::process::gateway_request(route, method, body).await?;
+            if route.starts_with("device/") {
+                self.execution
+                    .devices
+                    .reconcile(crate::device_link::enabled())
+                    .await?;
+            }
+            return Ok(result);
         }
         if route == "tasks/snapshot" && method == "POST" {
             crate::management::resolve("tasks.snapshot", &json!({"body":body}))?;
@@ -569,6 +577,10 @@ impl Service {
                     )
                     .await?;
                 }
+                self.execution
+                    .devices
+                    .reconcile(crate::device_link::enabled())
+                    .await?;
                 return Ok(result);
             }
             ("POST", "preferences/import") => {
@@ -582,6 +594,10 @@ impl Service {
                     )
                     .await?;
                 }
+                self.execution
+                    .devices
+                    .reconcile(crate::device_link::enabled())
+                    .await?;
                 return Ok(result);
             }
             ("GET", "network") => {

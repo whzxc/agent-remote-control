@@ -5,9 +5,8 @@ use hyper::{
     body::{Bytes, Incoming},
     Request, Response,
 };
-use hyper_util::rt::{TokioIo, TokioTimer};
-use rustls::pki_types::ServerName;
-use tokio::net::{TcpListener, TcpStream};
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use tokio::net::TcpListener;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -23,7 +22,7 @@ impl PeerRequest {
         if self.version != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 1; read cli guide.",
+                "Use peer protocol version 2; read cli guide.",
             ));
         }
         if !matches!(self.tool.as_str(), "guide" | "query" | "act") {
@@ -57,26 +56,64 @@ pub(crate) fn forbidden(op: &str) -> bool {
 }
 
 pub(super) struct HandshakeBudget {
+    addresses: BTreeMap<IpAddr, AddressBudget>,
+}
+struct AddressBudget {
     since: Instant,
+    used: Instant,
     remaining: u8,
+    slots: Arc<tokio::sync::Semaphore>,
 }
 impl HandshakeBudget {
     pub(super) fn new() -> Self {
         Self {
-            since: Instant::now(),
-            remaining: 32,
+            addresses: BTreeMap::new(),
         }
     }
-    pub(super) fn admit(&mut self, now: Instant) -> bool {
-        if now.duration_since(self.since) >= Duration::from_secs(60) {
-            self.since = now;
-            self.remaining = 32;
+    pub(super) fn admit(
+        &mut self,
+        address: IpAddr,
+        now: Instant,
+    ) -> Option<tokio::sync::OwnedSemaphorePermit> {
+        let address = match address {
+            IpAddr::V6(ip) => ip
+                .to_ipv4_mapped()
+                .map(IpAddr::V4)
+                .unwrap_or(IpAddr::V6(ip)),
+            other => other,
+        };
+        if !self.addresses.contains_key(&address) {
+            if self.addresses.len() >= 256 {
+                let oldest = self
+                    .addresses
+                    .iter()
+                    .filter(|(_, entry)| entry.slots.available_permits() == 2)
+                    .min_by_key(|(_, entry)| entry.used)
+                    .map(|(key, _)| *key)?;
+                self.addresses.remove(&oldest);
+            }
+            self.addresses.insert(
+                address,
+                AddressBudget {
+                    since: now,
+                    used: now,
+                    remaining: 32,
+                    slots: Arc::new(tokio::sync::Semaphore::new(2)),
+                },
+            );
         }
-        if self.remaining == 0 {
-            return false;
+        let entry = self.addresses.get_mut(&address).unwrap();
+        entry.used = now;
+        if now.duration_since(entry.since) >= Duration::from_secs(60) {
+            entry.since = now;
+            entry.remaining = 32;
         }
-        self.remaining -= 1;
-        true
+        if entry.remaining == 0 {
+            return None;
+        }
+        let permit = entry.slots.clone().try_acquire_owned().ok()?;
+        entry.remaining -= 1;
+        Some(permit)
     }
 }
 impl Manager {
@@ -101,7 +138,6 @@ impl Manager {
             advertisement,
         };
         advertise(&runtime.advertisement, &identity.id, port, &sockets)?;
-        let slots = Arc::new(tokio::sync::Semaphore::new(8));
         let budget = Arc::new(StdMutex::new(HandshakeBudget::new()));
         let manager = self.clone();
         let advertisement = runtime.advertisement.clone();
@@ -111,7 +147,7 @@ impl Manager {
             let mut interfaces = BTreeMap::new();
             for listener in listeners {
                 let address = listener.local_addr().unwrap();
-                let handle = tasks.spawn(manager.clone().listen_interface(listener,acceptor.clone(),slots.clone(),budget.clone()));
+                let handle = tasks.spawn(manager.clone().listen_interface(listener,acceptor.clone(),budget.clone()));
                 interfaces.insert(address,handle);
             }
             let mut advertised = interfaces.keys().copied().collect::<Vec<_>>();
@@ -128,7 +164,7 @@ impl Manager {
                             if interfaces.contains_key(&address) { continue; }
                             match TcpListener::bind(address).await {
                                 Ok(listener) => {
-                                    let handle = tasks.spawn(manager.clone().listen_interface(listener,acceptor.clone(),slots.clone(),budget.clone()));
+                                    let handle = tasks.spawn(manager.clone().listen_interface(listener,acceptor.clone(),budget.clone()));
                                     interfaces.insert(address,handle);
                                 }
                                 Err(error) => crate::logs::record("WARN", &format!("Device link cannot bind {address}: {error}"),None),
@@ -152,7 +188,6 @@ impl Manager {
         self: Arc<Self>,
         listener: TcpListener,
         acceptor: tokio_rustls::TlsAcceptor,
-        slots: Arc<tokio::sync::Semaphore>,
         budget: Arc<StdMutex<HandshakeBudget>>,
     ) {
         let mut connections = tokio::task::JoinSet::new();
@@ -161,8 +196,7 @@ impl Manager {
                 accepted = listener.accept() => {
                     let Ok((stream,address)) = accepted else { break; };
                     if !lan_address(address.ip()) { continue; }
-                    let Ok(permit) = slots.clone().try_acquire_owned() else { continue; };
-                    if !budget.lock().unwrap().admit(Instant::now()) { continue; }
+                    let Some(permit) = budget.lock().unwrap().admit(address.ip(),Instant::now()) else { continue; };
                     connections.spawn(self.clone().accept_connection(stream, acceptor.clone(), permit));
                 }
                 Some(_) = connections.join_next(), if !connections.is_empty() => {},
@@ -186,7 +220,11 @@ impl Manager {
                 if tls.get_ref().1.alpn_protocol() != Some(tls::ALPN) { return; }
                 let Some(cert) = tls.get_ref().1.peer_certificates().and_then(|c|c.first()) else { return; };
                 let Ok((id,key)) = identity::certificate_identity(cert) else { return; };
-                let _ = self.serve(tls,id,key).await;
+                let paired=self.controller(&id).is_ok();
+                let slots=if paired {&self.paired_connections}else{&self.unpaired_connections};
+                let Ok(_connection)=slots.clone().try_acquire_owned() else{return;};
+                if paired {let _=self.serve(tls,id,key).await;}
+                else {let _=tokio::time::timeout(OFFER_TTL,self.serve(tls,id,key)).await;}
             } => {},
         }
     }
@@ -214,10 +252,9 @@ impl Manager {
                 )
             }
         });
-        hyper::server::conn::http1::Builder::new()
-            .timer(TokioTimer::new())
-            .header_read_timeout(Duration::from_secs(5))
-            .max_buf_size(32768)
+        hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+            .max_concurrent_streams(128)
+            .max_header_list_size(32768)
             .serve_connection(TokioIo::new(stream), service)
             .await
             .map_err(|e| e.to_string())
@@ -238,12 +275,12 @@ impl Manager {
         if request.method() != hyper::Method::POST
             || !matches!(
                 path.as_str(),
-                "/arc-peer/1/pair" | "/arc-peer/1/request" | "/arc-peer/1/hello"
+                "/arc-peer/2/pair" | "/arc-peer/2/request" | "/arc-peer/2/hello"
             )
         {
             return Err(error(
                 "DEVICE_PEER_FORBIDDEN",
-                "Use peer protocol version 1 routes; read cli guide.",
+                "Use peer protocol version 2 routes; read cli guide.",
             ));
         }
         let limit = if path.ends_with("/request") {
@@ -264,11 +301,13 @@ impl Manager {
         if body["version"] != VERSION {
             return Err(error(
                 "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 1; read cli guide.",
+                "Use peer protocol version 2; read cli guide.",
             ));
         }
         if path.ends_with("/hello") {
-            return Ok(json!({"version":VERSION,"deviceId":self.identity()?.id}));
+            return Ok(
+                json!({"version":VERSION,"deviceId":self.identity()?.id,"name":self.name()?,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"arcVersion":env!("ARC_BUILD_VERSION"),"capabilities":{"tools":["guide","query","act"],"screen":cfg!(target_os="macos"),"forwarding":false}}),
+            );
         }
         if path.ends_with("/pair") {
             return self.prove(id, public_key, &body).await;
@@ -277,12 +316,24 @@ impl Manager {
         let request: PeerRequest = serde_json::from_value(body)
             .map_err(|_| "INVALID_ARGUMENT: expected {version,tool,body,origin}")?;
         request.validate()?;
-        crate::front_door::process::call(
+        #[cfg(test)]
+        let request_id = request.body["requestId"].as_str().map(str::to_owned);
+        let result = crate::front_door::process::call(
             crate::front_door::peer_context(id.into()),
             crate::front_door::Operation::PeerControl,
             serde_json::to_value(request).map_err(|e| e.to_string())?,
         )
-        .await
+        .await?;
+        #[cfg(test)]
+        let gate = self.reply_gate.lock().unwrap().clone();
+        #[cfg(test)]
+        if let Some(gate) = gate {
+            if request_id.as_deref() == Some(gate.request_id.as_str()) {
+                gate.ready.notify_one();
+                gate.release.notified().await;
+            }
+        }
+        Ok(result)
     }
     pub(super) async fn pair(self: &Arc<Self>, offer: Offer) -> Result<Value> {
         let identity = self.identity()?;
@@ -306,61 +357,19 @@ impl Manager {
                 "A member cannot pair its controller as a member. Read cli guide.",
             ));
         }
-        let connector = tls::client(&identity, offer.device_id.clone())?;
         let mut closed = self.closed.subscribe();
         let epoch = *closed.borrow();
-        // Only connection failures advance to the next address. A submitted pair request is never replayed.
-        let stream = {
-            let mut connected = None;
-            for address in connect_addresses(&offer.addresses)? {
-                match tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(address))
-                    .await
-                {
-                    Ok(Ok(stream)) => {
-                        connected = Some(stream);
-                        break;
-                    }
-                    _ => continue,
-                }
-            }
-            connected.ok_or_else(|| {
-                error(
-                    "DEVICE_LAN_UNAVAILABLE",
-                    "No offered LAN address accepts connections; create a fresh offer.",
-                )
-            })?
-        };
-        let tls = tokio::time::timeout(
-            Duration::from_secs(5),
-            connector.connect(ServerName::try_from("arc-peer.local").unwrap(), stream),
-        )
-        .await
-        .map_err(|_| {
-            error(
-                "DEVICE_TLS_FAILED",
-                "Peer handshake timed out; read cli guide.",
-            )
-        })?
-        .map_err(|e| {
-            error(
-                if e.to_string().contains("application protocol") {
-                    "DEVICE_PROTOCOL_MISMATCH"
-                } else {
-                    "DEVICE_TLS_FAILED"
-                },
-                &format!("Peer handshake failed: {e}. Read cli guide."),
-            )
-        })?;
-        if tls.get_ref().1.alpn_protocol() != Some(tls::ALPN) {
-            return Err(error(
-                "DEVICE_PROTOCOL_MISMATCH",
-                "Use peer protocol version 1; read cli guide.",
-            ));
-        }
+        let session = super::client::Session::default();
+        let addresses = connect_addresses(&offer.addresses)?;
+        let channel = session
+            .connect(&identity, &offer.device_id, &addresses)
+            .await?;
         let result = tokio::select! {
-            _ = closed.changed() => return Err(error("DEVICE_UNPAIRED", "Local pairing was revoked or disabled; read cli guide.")),
-            result = post(tls,"/arc-peer/1/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?})) => result?,
+            _=closed.changed()=>return Err(error("DEVICE_UNPAIRED","Local pairing was revoked or disabled; read cli guide.")),
+            result=channel.request("/arc-peer/2/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?}),OFFER_TTL)=>result,
         };
+        session.close().await;
+        let result = result?;
         let member: Peer = serde_json::from_value(result["member"].clone()).map_err(|_| {
             error(
                 "DEVICE_PAIRING_INVALID",
@@ -409,7 +418,8 @@ fn advertise(
             .unregister(&format!("{}._arc-peer._tcp.local.", &id[..32]))
             .map_err(|e| e.to_string())?;
     } else {
-        let properties = [("id", id), ("version", "1")];
+        let version = VERSION.to_string();
+        let properties = [("id", id), ("version", version.as_str())];
         let ips = sockets.iter().map(|a| a.ip()).collect::<Vec<_>>();
         let info = mdns_sd::ServiceInfo::new(
             "_arc-peer._tcp.local.",
@@ -424,15 +434,15 @@ fn advertise(
     }
     Ok(())
 }
-fn connect_addresses(addresses: &[String]) -> Result<Vec<SocketAddr>> {
-    let interfaces = if_addrs::get_if_addrs().map_err(|e| e.to_string())?;
+pub(super) fn connect_addresses(addresses: &[String]) -> Result<Vec<SocketAddr>> {
+    let interfaces = lan_interfaces()?;
     let mut result = Vec::new();
     for address in addresses {
         let address: SocketAddr = address
             .parse()
             .map_err(|_| "DEVICE_PAIRING_INVALID: Invalid LAN address; read cli guide.")?;
         if let SocketAddr::V6(v6) = address {
-            if v6.ip().is_unicast_link_local() {
+            if v6.ip().is_unicast_link_local() && v6.scope_id() == 0 {
                 for interface in &interfaces {
                     if let Some(index) = interface.index {
                         let mut scoped = v6;
@@ -448,57 +458,17 @@ fn connect_addresses(addresses: &[String]) -> Result<Vec<SocketAddr>> {
         }
         result.push(address);
     }
+    result.sort_by_key(|address| address.is_ipv6());
+    result.dedup();
     Ok(result)
 }
+#[cfg(test)]
 pub(super) async fn post<S>(stream: S, path: &str, body: Value) -> Result<Value>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
-    let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(stream))
-        .await
-        .map_err(|e| e.to_string())?;
-    let connection = tokio::spawn(async move {
-        let _ = connection.await;
-    });
-    struct Abort(tokio::task::JoinHandle<()>);
-    impl Drop for Abort {
-        fn drop(&mut self) {
-            self.0.abort();
-        }
-    }
-    let _connection = Abort(connection);
-    let response = tokio::time::timeout(OFFER_TTL, async {
-        let request = Request::builder()
-            .method("POST")
-            .uri(path)
-            .header("host", "arc-peer.local")
-            .header("content-type", "application/json")
-            .body(Full::new(Bytes::from(body.to_string())))
-            .map_err(|e| e.to_string())?;
-        let response = sender
-            .send_request(request)
-            .await
-            .map_err(|e| e.to_string())?;
-        let bytes = Limited::new(response.into_body(), crate::front_door::MAX_FRAME_BYTES)
-            .collect()
-            .await
-            .map_err(|e| e.to_string())?
-            .to_bytes();
-        serde_json::from_slice::<Value>(&bytes).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|_| {
-        error(
-            "DEVICE_OFFER_EXPIRED",
-            "Member approval timed out; create a new offer.",
-        )
-    })??;
-    if response["ok"] != true {
-        return Err(format!(
-            "{}: {}",
-            string(&response["error"], "code"),
-            string(&response["error"], "message")
-        ));
-    }
-    Ok(response["result"].clone())
+    let channel = super::client::Channel::new(stream).await?;
+    let response = channel.request(path, body, OFFER_TTL).await;
+    channel.close();
+    response
 }
