@@ -129,9 +129,10 @@ export function DialogDismissalFooter({ state }: { state: "discard" | "cancellab
           <Button variant="primary" class="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keep}</Button>
         </div>
       )}
-      {state === "cancellable" && (
-        <div class="flex justify-end">
-          <Button variant="danger">{dismissalCopy.stop}</Button>
+      {state !== "discard" && (
+        <div class="flex flex-wrap justify-end gap-3">
+          {state === "cancellable" && <Button variant="danger">{dismissalCopy.stop}</Button>}
+          <Button variant="primary" class="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keepOpen}</Button>
         </div>
       )}
     </footer>

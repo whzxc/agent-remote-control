@@ -4,27 +4,34 @@ import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { AgentIcon } from "../components/agent-icon";
 import { TopologyScreen } from "../modules/homepage-topology";
-import { UpdateAboutContent } from "../modules/updates";
+import { RelayHostingContent } from "../modules/relay-hosting";
+import { GeneralSettingsContent } from "../modules/general-settings";
+import { TopologyNode } from "../modules/topology-node";
 import { QuotaCards } from "../modules/quota";
 import { AgentTaskHistory } from "../modules/agent-activity";
 import { shortAgentHistory } from "../fixtures/agent-activity";
 import { agentQuotas } from "../fixtures/quota";
-import { aboutLabels, layerCopy, workspaceScenes, fixedAgentScene } from "../fixtures/layers";
+import { layerCopy, workspaceScenes, fixedAgentScene, selectedAgentNode } from "../fixtures/layers";
 
-function Workspace() {
+function Workspace({ settings = false }: { settings?: boolean }) {
   return (
-    <Panel size="l" title={layerCopy.settings} actions={<IconButton icon="maximize-2" label={layerCopy.expand} />}>
-      <UpdateAboutContent labels={aboutLabels} checkDisabled />
+    <Panel size="l" title={settings ? layerCopy.settings : layerCopy.relay}
+      actions={<IconButton icon="maximize-2" label={layerCopy.expand} />}>
+      {settings ? <GeneralSettingsContent /> : <RelayHostingContent />}
     </Panel>
   );
 }
-function WorkspaceScene({ portrait = false, dialog = false }: { portrait?: boolean; dialog?: boolean }) {
+function WorkspaceScene({ portrait = false, dialog = false, settings = false }: {
+  portrait?: boolean;
+  dialog?: boolean;
+  settings?: boolean;
+}) {
   return (
     <TopologyScreen width={portrait ? 640 : 1280} height={800}
       scene={workspaceScenes[portrait ? "portrait" : "landscape"]} hideNodeLabels={portrait}>
       <div class="absolute inset-0 flex items-start justify-center px-(--layer-side-margin)
         pt-(--layer-top) pb-(--layer-side-margin)">
-        <Workspace />
+        <Workspace settings={settings} />
       </div>
       {dialog && (
         <div class="absolute inset-0 flex items-start justify-center bg-layer-scrim px-(--layer-side-margin)
@@ -45,6 +52,9 @@ function WorkspaceScene({ portrait = false, dialog = false }: { portrait?: boole
 function NodeScene() {
   return (
     <TopologyScreen width={1280} height={800} scene={fixedAgentScene}>
+      <div data-free class="absolute" style={{ left: selectedAgentNode.x, top: selectedAgentNode.y }}>
+        <TopologyNode {...selectedAgentNode} hideLabel />
+      </div>
       <div class="absolute inset-0 flex items-start justify-end px-(--layer-side-margin)
         pt-(--layer-top) pb-(--layer-side-margin)">
         <Panel size="m" title={
@@ -63,12 +73,16 @@ function NodeScene() {
 
 export default () => [
   <Frame name="workspace-fit" width={1280} height={800}
-    note="Proposed desktop center slot: 48px top, L width, content-fit Settings About view. Browser top line is 20px.">
+    note="Proposed desktop center slot: 48px top, L width, content-fit Relay hosting empty state. Browser top line is 20px.">
     <WorkspaceScene />
+  </Frame>,
+  <Frame name="workspace-cap" width={1280} height={800}
+    note="Full Settings content reaches the height cap at y=784. The header stays fixed while the body scrolls.">
+    <WorkspaceScene settings />
   </Frame>,
   <Frame name="workspace-dialog" width={1280} height={800}
     note="Proposed dialog slot: 12vh = 96px top, S width. Parent stays at its original bounds beneath the scrim.">
-    <WorkspaceScene dialog />
+    <WorkspaceScene settings dialog />
   </Frame>,
   <Frame name="node-panel" width={1280} height={800}
     note="Proposed right slot: 48px top, 16px side, M width. Source-side panels mirror this slot at the left margin.">

@@ -85,6 +85,7 @@
 }
 
 :root[data-theme="dark"] {
+  --layer-scrim: rgb(0 0 0 / 60%);
   --canvas: #171412;
   --surface: #221e1b;
   --surface-raised: #2a2522;
