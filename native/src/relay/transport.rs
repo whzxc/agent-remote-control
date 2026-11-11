@@ -191,7 +191,10 @@ async fn upgrade(
     let ws = WebSocketStream::from_raw_socket(socket, Role::Client, Some(config)).await;
     Ok(ws)
 }
-async fn send_frame(ws: &mut WebSocketStream<reqwest::Upgraded>, frame: String) -> Result<()> {
+async fn send_frame<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+    ws: &mut WebSocketStream<S>,
+    frame: String,
+) -> Result<()> {
     tokio::time::timeout(
         Duration::from_secs(15),
         ws.send(Message::Text(frame.into())),
@@ -237,6 +240,12 @@ async fn connect(
     }
     ingress.connected.store(true, Ordering::SeqCst);
     status.send_replace(json!({"state":"ready","error":"","workerVersion":ready["version"]}));
+    run(ws, local).await
+}
+pub(crate) async fn run<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+    mut ws: WebSocketStream<S>,
+    local: &str,
+) -> Result<()> {
     let local_client = reqwest::Client::builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())

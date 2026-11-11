@@ -202,8 +202,9 @@ TLS terminates at the HTTPS provider, which can read payloads. HTTPS requests us
 the same `{version,tool,body,origin}` envelope and member peer authority as LAN.
 They use plain request/response, with no persistent response stream. Request
 bodies are at most 1 MiB and response envelopes at most 4 MiB. Auth bodies are at
-most 16 KiB and must arrive within five seconds; business bodies share that read
-deadline. A request finishes within 25 seconds. Wait arguments use segments of at
+most 16 KiB and must arrive within five seconds. Business body reads allow at
+most five seconds without progress. A request, including its upload, finishes
+within 25 seconds. Wait arguments use segments of at
 most 15000 ms; a caller may submit the next read segment after the previous result.
 Each sent request stays on its chosen path. Long writes retain their original
 member receipt ID when the response deadline expires.

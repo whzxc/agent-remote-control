@@ -174,7 +174,9 @@ invalidate tokens and active requests on revocation or disable. The peer request
 uses the same envelope, private IPC principal and member authority as LAN.
 Requests are plain HTTP request/response, bounded to 1 MiB input, 4 MiB output and
 25 seconds; wait segments are at most 15 seconds. The auth body cap is 16 KiB and
-body-read deadlines are five seconds. The controller exposes
+auth bodies have a five-second total read deadline. Business bodies have a
+five-second idle read timeout within the original 25-second request deadline.
+Relay uploads use one 32 KiB chunk per credit round trip. The controller exposes
 `Controller::send(device, tool, body, deadline)` for path-independent bounded
 member calls. Forwarding captures a prepared path before recording transmission;
 it does not replay on a new channel or path. On tunnel, the monitor probes LAN

@@ -612,3 +612,113 @@ async fn interrupted_owner_resumes_only_verified_bytes() {
     assert!(!shared.exists());
     network.stop().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn relay_multichunk_upload_does_not_expire_peer_body_deadline() {
+    // Regression: device_transfer via relay fails at 0 bytes with DEVICE_TUNNEL_LIMIT: Peer body deadline expired for a 64 KiB file.
+    use base64::engine::general_purpose::STANDARD;
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::{
+        tungstenite::{protocol::Role, Message},
+        WebSocketStream,
+    };
+    if isolated(
+        "device_link::transfer::tests::relay_multichunk_upload_does_not_expire_peer_body_deadline",
+    )
+    .await
+    {
+        return;
+    }
+    let network = Network::new().await;
+    let member = &network.member;
+    let ingress = crate::ingress::Ingress::with_execution(json!({"id":"relay-fixture","name":"Example relay","controlSource":"custom","transport":"relay","auth":"none","enabled":true,"config":crate::ingress::config::defaults()}), None, "fixture".into()).unwrap();
+    ingress
+        .connected
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    member.attach_ingress(&ingress);
+    let (listener, local) =
+        crate::https::listen(ingress.clone(), &json!({"httpsProvider":"fixture"}))
+            .await
+            .unwrap();
+    let local = format!("http://{local}");
+    let session = super::super::tunnel::Client::default();
+    let (_, token) = session
+        .prepare(
+            &network.identity,
+            &member.identity().unwrap().id,
+            &format!("{local}/arc-peer/3"),
+        )
+        .await
+        .unwrap();
+    let (native, worker) = tokio::io::duplex(256 * 1024);
+    let native = WebSocketStream::from_raw_socket(native, Role::Client, None).await;
+    let mut worker = WebSocketStream::from_raw_socket(worker, Role::Server, None).await;
+    let url = format!("{local}/arc-peer/3");
+    let relay = tokio::spawn(async move { crate::relay::transport::run(native, &local).await });
+    let data = vec![42; 64 * 1024];
+    let request = id();
+    let destination = network.directory.join("relay-upload");
+    let sha = digest(&data);
+
+    super::super::tunnel::post(&url, "transfer/control", Some(&token), json!({"version":VERSION,"action":"begin","requestId":request,"spec":{"path":destination,"total":data.len(),"expectedSha256":sha}}), Duration::from_secs(25)).await.unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(12), async {
+        // The deployed 0.9.42 Worker retains Content-Length and waits for one
+        // request-credit after each 32 KiB request-chunk, including the last.
+        let bytes = serde_json::to_vec(&json!({"version":VERSION,"action":"put","requestId":request,"offset":0,"sha256":sha,"data":STANDARD.encode(&data)})).unwrap();
+        let chunks: Vec<_> = bytes.chunks(32768).collect();
+        assert!(chunks.len() >= 3);
+        let send_frame = |frame: Value| Message::Text(frame.to_string().into());
+        worker.send(send_frame(json!({"type":"request","id":"upload","method":"POST","path":"/arc-peer/3/transfer/control","headers":[["content-length",bytes.len().to_string()],["content-type","application/json"],["authorization",format!("Bearer {token}")]]}))).await.unwrap();
+        let mut response = Vec::new();
+        let mut uploaded = 0;
+        worker.send(send_frame(json!({"type":"request-chunk","id":"upload","data":STANDARD.encode(chunks[uploaded])}))).await.unwrap();
+        uploaded += 1;
+        loop {
+            let message = worker.next().await.unwrap().unwrap();
+            let text = message.to_text().unwrap();
+            if text == "ping" { worker.send(Message::Text("pong".into())).await.unwrap(); continue; }
+            let frame: Value = serde_json::from_str(text).unwrap();
+            match string(&frame,"type") {
+                "request-credit" => {
+                    if uploaded < chunks.len() {
+                        tokio::time::sleep(Duration::from_millis(2600)).await;
+                        worker.send(send_frame(json!({"type":"request-chunk","id":"upload","data":STANDARD.encode(chunks[uploaded])}))).await.unwrap();
+                        uploaded += 1;
+                    } else {
+                        worker.send(send_frame(json!({"type":"request-end","id":"upload"}))).await.unwrap();
+                    }
+                }
+                "response" => {
+                    assert_eq!(frame["status"],200);
+                    worker.send(send_frame(json!({"type":"response-credit","id":"upload"}))).await.unwrap();
+                }
+                "response-chunk" => {
+                    response.extend(STANDARD.decode(string(&frame,"data")).unwrap());
+                    worker.send(send_frame(json!({"type":"response-credit","id":"upload"}))).await.unwrap();
+                }
+                "response-end" => break,
+                _ => panic!("Unexpected relay frame: {frame}"),
+            }
+        }
+        let response: Value = serde_json::from_slice(&response).unwrap();
+        assert_eq!(response["ok"],true,"{response}; sent {uploaded} chunks");
+        assert_eq!(response["result"]["offset"],data.len());
+    }).await;
+    relay.abort();
+    let _ = relay.await;
+    result.unwrap();
+    let committed = super::super::tunnel::post(
+        &url,
+        "transfer/control",
+        Some(&token),
+        json!({"version":VERSION,"action":"commit","requestId":request}),
+        Duration::from_secs(25),
+    )
+    .await;
+    // Commit before stopping the ingress.
+    assert_eq!(committed.unwrap()["sha256"], sha);
+    assert_eq!(std::fs::read(&destination).unwrap(), data);
+    listener.abort();
+    let _ = listener.await;
+    network.stop().await;
+}

@@ -183,24 +183,45 @@ impl Manager {
             Some(self.token_device(&token)?)
         };
         let limit = if device.is_some() { REQUEST_CAP } else { 16384 };
-        let bytes = tokio::time::timeout(
-            Duration::from_secs(5),
-            Limited::new(request.into_body(), limit).collect(),
-        )
-        .await
-        .map_err(|_| {
-            error(
-                "DEVICE_TUNNEL_LIMIT",
-                "Peer body deadline expired; query guide for device.",
-            )
-        })?
-        .map_err(|_| {
-            error(
-                "DEVICE_TUNNEL_LIMIT",
-                "Peer body exceeds its byte cap; use LAN.",
-            )
-        })?
-        .to_bytes();
+        // Relay uploads advance one 32 KiB chunk per credit round trip. Bound
+        // inactivity, not total upload time, within the original request deadline.
+        // Auth bodies fit one relay chunk and retain their five-second total cap.
+        let body_deadline = tokio::time::Instant::from_std(
+            started
+                + if device.is_some() {
+                    DEADLINE
+                } else {
+                    Duration::from_secs(5)
+                },
+        );
+        let mut incoming = Limited::new(request.into_body(), limit);
+        let mut bytes = Vec::new();
+        loop {
+            let next = tokio::select! {
+                biased;
+                _ = closed.changed() => return Err(error("DEVICE_UNPAIRED", "Peer was revoked or disabled; query guide for device.")),
+                next = tokio::time::timeout_at(
+                    body_deadline.min(tokio::time::Instant::now() + Duration::from_secs(5)),
+                    incoming.frame(),
+                ) => next,
+            };
+            let frame = next.map_err(|_| {
+                error(
+                    "DEVICE_TUNNEL_LIMIT",
+                    "Peer body deadline expired; query guide for device.",
+                )
+            })?;
+            let Some(frame) = frame else { break };
+            let frame = frame.map_err(|_| {
+                error(
+                    "DEVICE_TUNNEL_LIMIT",
+                    "Peer body exceeds its byte cap; use LAN.",
+                )
+            })?;
+            if let Ok(data) = frame.into_data() {
+                bytes.extend_from_slice(&data);
+            }
+        }
         let body: Value = serde_json::from_slice(&bytes)
             .map_err(|_| "INVALID_ARGUMENT: peer body must be JSON")?;
         if body["version"] != VERSION {
