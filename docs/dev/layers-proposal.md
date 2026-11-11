@@ -125,6 +125,7 @@ Related defects:
 - Outside input on a layer with running work MUST show that work's state instead of closing.
 - When running work can be cancelled, that state MUST offer to stop the work and close.
 - When running work cannot be cancelled, that state MUST say that the layer closes after the work finishes.
+- Running-work states MUST offer to keep the layer open, and a layer whose close was requested MUST close when its work finishes unless the user chose to keep it open.
 - Confirmations and running-work states MUST appear inside the layer, replacing its footer actions, without opening another layer.
 - The confirmation MUST focus the action that keeps the layer open.
 - Close and Cancel controls are explicit and MUST close without a confirmation.
