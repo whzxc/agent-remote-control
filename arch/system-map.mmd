@@ -16,6 +16,10 @@ flowchart TB
     taskhost["task-host<br/>Claude Code · Cursor · Pi · dsh"]
   end
   native[("Native session stores<br/>CODEX_HOME · Claude projects")]
+  subgraph MEMBERS["Member devices · Device link"]
+    member["ARC member<br/>peer listener · Core · peer source"]
+    mnative[("Member native session stores")]
+  end
   src -->|"MCP guide / query / act"| net
   net -->|"HTTPS"| fd
   local -->|"local HTTP"| fd
@@ -30,4 +34,8 @@ flowchart TB
   taskhost --> native
   core -.->|"observes turns"| native
   core -.->|"push: L1 claude CLI · L2 webhook"| src
+  core -->|"peer link: LAN mutual TLS · tunnel fallback"| member
+  member -.->|"task events"| core
+  member --> mnative
   class hub experimental
+  class member experimental

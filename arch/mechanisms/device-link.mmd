@@ -1,0 +1,32 @@
+%% Device link (layer 2): pairing and reachability of one member as seen by its controller.
+%% Index and code mapping: docs/dev/arch-assets.md
+stateDiagram-v2
+  direction LR
+  state "offered" as offered
+  state "awaiting approval" as pending
+  state "online · LAN" as lan
+  state "online · tunnel" as tunnel
+  state "offline" as offline
+  state "expired" as expired
+  state "revoked" as revoked
+  [*] --> offered: member creates a pairing offer
+  offered --> pending: controller proves the one-time secret
+  offered --> expired: 10 minutes pass or the secret is used
+  pending --> lan: member approves locally
+  pending --> expired: member declines
+  lan --> tunnel: LAN misses and the tunnel heartbeat succeeds
+  tunnel --> lan: LAN probe succeeds
+  lan --> offline: 3 missed heartbeats on every path
+  tunnel --> offline: 3 missed heartbeats on every path
+  offline --> lan: LAN heartbeat succeeds
+  offline --> tunnel: tunnel heartbeat succeeds
+  lan --> revoked: either side revokes
+  tunnel --> revoked: either side revokes
+  offline --> revoked: either side revokes
+  class offered waiting
+  class pending waiting
+  class lan done
+  class tunnel done
+  class offline stopped
+  class expired stopped
+  class revoked stopped

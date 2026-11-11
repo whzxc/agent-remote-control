@@ -34,7 +34,7 @@ Inspector.
 
 | Asset | Shows |
 | --- | --- |
-| [system-map.mmd](../../arch/system-map.mmd) | Control sources, connections, front door, Core, state directory, MCP hub, Codex Desktop, ARC App Server, task-host and native session stores |
+| [system-map.mmd](../../arch/system-map.mmd) | Control sources, connections, front door, Core, state directory, MCP hub, Codex Desktop, ARC App Server, task-host, native session stores and proposed Device link members |
 | [components/core.mmd](../../arch/components/core.mmd) | Core request path, business owners, background work, kernel records and turn classification |
 | [mechanisms/main-loop.mmd](../../arch/mechanisms/main-loop.mmd) | One Codex dispatch from `codex_create` through observation, push, `codex_read` and `codex_review` |
 | [mechanisms/receipts.mmd](../../arch/mechanisms/receipts.mmd) | Receipt states and transitions |
@@ -42,6 +42,8 @@ Inspector.
 | [mechanisms/notification-flow.mmd](../../arch/mechanisms/notification-flow.mmd) | Binding, observation, delivery gates, L1/L2 sends and the ingress inbox |
 | [mechanisms/notification-delivery.mmd](../../arch/mechanisms/notification-delivery.mmd) | Status of one delivery record |
 | [mechanisms/notification-reachability.mmd](../../arch/mechanisms/notification-reachability.mmd) | Handshake state of one notification target |
+| [mechanisms/device-link.mmd](../../arch/mechanisms/device-link.mmd) | Proposed pairing and reachability of one Device link member |
+| [mechanisms/device-forward.mmd](../../arch/mechanisms/device-forward.mmd) | Proposed forwarding of one control-source write to a member |
 
 ## Review
 
