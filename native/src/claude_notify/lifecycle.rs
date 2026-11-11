@@ -122,6 +122,7 @@ pub(super) fn admits(state: &TurnState, d: &Delivery) -> bool {
                 && adapters::WaitState::from_wire(&d.task_state) == Some(adapters::wait(state).0)
         }
         TurnState::AwaitingInteraction => d.task_state == "interaction-required",
+        TurnState::Active => d.state == "stalled",
         _ => false,
     }
 }

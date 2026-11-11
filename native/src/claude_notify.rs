@@ -3,6 +3,7 @@ use crate::kernel::file_cache::{self, load};
 use crate::*;
 pub(crate) mod continuation;
 pub(crate) mod coordination_delivery;
+pub(crate) mod device;
 mod diagnostics;
 mod lifecycle;
 use crate::turn_lifecycle::{adapters as turn_adapter, TurnState};
@@ -135,6 +136,10 @@ impl Delivery {
 #[serde(rename_all = "camelCase")]
 struct Binding {
     thread_id: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    device: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    peer_controller: Option<String>,
     turn_id: String,
     target: Option<String>,
     #[serde(default)]
@@ -251,6 +256,8 @@ fn bind_in(dir: &Path, session: Option<&str>, thread: &str, turn: &str, cwd: &st
     }
     let mut b = previous.unwrap_or_else(|| Binding {
         thread_id: thread.into(),
+        device: Value::Null,
+        peer_controller: None,
         turn_id: turn.into(),
         target: None,
         channel: Channel::ClaudeSession,
@@ -338,7 +345,11 @@ pub(crate) async fn bind(
     let dir = directory();
     let created = binding(&dir, thread, turn)?.is_none();
     let origin = crate::kernel::origin::current_origin();
-    let continued = if created && args.get("notify").is_none() && cause["op"] == "codex_send" {
+    let continued = if created
+        && args.get("notify").is_none()
+        && (cause["op"] == "codex_send"
+            || cause["op"] == "agent_send" && args["_device"].is_object())
+    {
         index::thread(&dir, thread)?
             .into_iter()
             .filter(|b| {
@@ -396,6 +407,13 @@ pub(crate) async fn bind(
     if b.source_id.is_empty() {
         b.source_id = string(&crate::kernel::origin::current_origin(), "sourceId").into();
     }
+    if origin["controlTransport"] == "peer" {
+        b.peer_controller = Some(string(&origin, "sourceId").into());
+        b.target = None;
+    }
+    if let Some(device) = args.get("_device") {
+        b.device = device.clone();
+    }
     if b.agent.is_empty() {
         b.agent = args["agent"].as_str().unwrap_or("codex").into();
     }
@@ -407,6 +425,9 @@ pub(crate) async fn bind(
             b.caused_by = cause;
         }
         b.retry = json!({"model":args["_retryModel"],"turn":args["_retryTurn"],"attempts":args["_retryAttempt"].as_u64().unwrap_or(0),"origin":crate::kernel::origin::current_origin()});
+    }
+    if b.peer_controller.is_some() {
+        return persist(&dir, &b);
     }
     let mut state = State::load(&dir)?;
     if let Some(rule) = state.rule(&b) {
@@ -664,6 +685,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
     let mut event = json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"progress":d.progress,"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}});
+    device::project(b, &mut event);
     crate::egress::strip_notification_internal(&mut event);
     event
 }
@@ -745,7 +767,16 @@ fn task_doorbell(bindings: &[Binding]) -> String {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" ");
-            text.push_str(&format!("\n{title} · {}", binding.thread_id));
+            let prefix = binding.device["name"]
+                .as_str()
+                .map(|name| format!("{name} · "))
+                .unwrap_or_default();
+            text.push_str(&format!(
+                "\n{prefix}{title} · {}",
+                binding.device["taskId"]
+                    .as_str()
+                    .unwrap_or(&binding.thread_id)
+            ));
         }
     }
     text
@@ -1415,6 +1446,18 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             status: if handoff { "inbox-only" } else { "pending" }.into(),
         });
     }
+    if let Some(controller) = &b.peer_controller {
+        for d in &mut b.deliveries[first..] {
+            d.status = "inbox-only".into();
+        }
+        persist(dir, b)?;
+        for d in &b.deliveries[first..] {
+            let mut item = event(b, d);
+            item["state"] = json!(d.state);
+            crate::device_link::controller::events::publish(controller, item);
+        }
+        return Ok(());
+    }
     routing::refresh(dir, b)?;
     // Append first: a crash between writes is reconciled by deterministic event IDs.
     for d in &b.deliveries[first..] {
@@ -1563,7 +1606,7 @@ fn inbox_select(
         let bound = bindings.iter().find(|b| {
             b.source_id == source_id
                 && b.turn_id == string(row, "turnId")
-                && (row["threadId"] == b.thread_id || row["taskId"] == b.thread_id)
+                && device::event_thread(row) == b.thread_id
         });
         if let Some(b) = bound {
             if matches!(b.turn_state(), TurnState::Conflict(_))
@@ -1588,9 +1631,9 @@ fn inbox_select(
             row["channel"] = json!(b.channel);
         }
         if row["read"] != true
-            && reads.iter().any(|(task, turn)| {
-                (row["threadId"] == *task || row["taskId"] == *task) && row["turnId"] == *turn
-            })
+            && reads
+                .iter()
+                .any(|(task, turn)| device::event_thread(row) == *task && row["turnId"] == *turn)
         {
             row["read"] = json!(true);
             row["readAt"] = json!(now);
@@ -1930,7 +1973,17 @@ async fn flush(
     let mut all: Vec<_> = original
         .iter()
         .inspect(|_| crate::runtime_metrics::cost::rows(1))
-        .map(|binding| (**binding).clone())
+        .map(|binding| {
+            let mut b = (**binding).clone();
+            if b.peer_controller.is_some() {
+                for d in &mut b.deliveries {
+                    if matches!(d.status.as_str(), "pending" | "sending") {
+                        d.status = "inbox-only".into();
+                    }
+                }
+            }
+            b
+        })
         .collect();
     subscriptions::sync(&mut state, &all);
     state
@@ -2923,6 +2976,11 @@ pub(crate) fn start(service: &Arc<crate::service::Service>) {
                         if remove_expired(&directory(), &b, chrono::Utc::now().timestamp(), superseded)? {
                             terminal_watches.remove(&path);
                             pass.sample.lock().unwrap().retired_bindings += 1;
+                            continue;
+                        }
+                        if !b.device.is_null() {
+                            if recovering { recover(&directory(), &mut b)?; }
+                            index::finish(&directory(), &b.thread_id, &b.turn_id, None)?;
                             continue;
                         }
                         if recovering {

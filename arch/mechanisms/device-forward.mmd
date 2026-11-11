@@ -20,5 +20,11 @@ sequenceDiagram
     C->>C: record member task with originating source
     C-->>S: member result, or uncertain with receipt read
   end
-  R-->>C: task event on the peer event stream
+  C->>M: ordinary peer request: events cursor, wait up to 25 s
+  M->>R: authenticated peer event read
+  R-->>C: bounded task event batch or overflow gap
+  opt reconnect or overflow gap
+    C->>R: status reads for open bindings only
+    R-->>C: observed state, offline remains unconfirmed
+  end
   C-->>S: delivery through the existing notification owner

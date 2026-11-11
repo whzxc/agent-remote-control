@@ -223,7 +223,9 @@ pub(crate) fn list() -> Value {
 pub(crate) fn payload(op: &str, event: &Value) -> Value {
     let agent = event["agent"] != "codex";
     let pending = event["kind"] == "needs-input";
-    let query = if event["kind"] == "recovered" {
+    let query = if event["device"].is_object() {
+        json!({"op":"device","args":event["next"]["args"]})
+    } else if event["kind"] == "recovered" {
         json!({"op":"notify_status","args":{"target":event["target"]}})
     } else if agent {
         json!({"op":if pending {"agent_pending"} else {"agent_read"},"args":{"agent":event["agent"],"taskId":event["taskId"]}})

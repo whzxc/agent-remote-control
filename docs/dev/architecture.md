@@ -80,9 +80,8 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop has no Device link controls. Member event streams, notification forwarding
-and file transfer are not implemented. The wire contract
-is in [CLI reference](../reference/cli.md#device-link).
+Desktop has no Device link controls. File transfer is not implemented. The wire
+contract is in [CLI reference](../reference/cli.md#device-link).
 
 ### Device link controller Core
 
@@ -161,6 +160,32 @@ without controller output projection. `devices` and `dispatch_policy.devices`
 include only online members by default; `all:true` includes offline members.
 The default guide stays compact; Device link appears in the full index and per-op
 schemas. Ingress policy allowlists continue to apply.
+
+`device_link::controller::events` owns one ordinary-request event long poll per
+online member, with a 25-second maximum member wait and a 30-second request bound.
+Its small send adapter uses the business request channel and is the integration
+point for the path-agnostic peer sender. Member Core observes peer-origin tasks
+through the existing notification observer. It queues events for the paired
+controller source instead of routing them to member notification targets.
+A queue retains 256 events, bounded to 64 KiB each; each response carries at most
+64 events. Drop-oldest overflow and oversized events advance a gap boundary.
+The private `peer_task_events` query carries epoch, cursor and waitMs. A null
+cursor captures the head. A stale cursor or changed Core epoch returns a gap and
+the current head without replay.
+
+Forward records retain the minimal normalized binding inputs so an event that
+beats a dispatch response, an uncertain response, or a later receipt read can
+establish the binding for the original source. `claude_notify::device` qualifies
+binding keys by device ID and retains native IDs as device metadata. The existing
+binding index maintains open bindings per device. Events hydrate only their
+associated binding; unchanged bindings are not rewritten. Remote bindings do not
+enter the native local observer or native file watches. Delivery continues through
+the existing source subscriptions, governance, scheduler, batch windows and inbox.
+Push text names the member and native task. Public follow-up actions use `query
+device`. `notify_status` exposes the device alongside the qualified binding key.
+Reconnect and queue gaps reconcile only indexed open bindings with forwarded
+status-only reads. Unreachable members leave open bindings unconfirmed; only
+observed native terminal evidence can queue a terminal delivery.
 
 ### Front-door process and private Core protocol
 

@@ -2,6 +2,10 @@
 %% Index and code mapping: docs/dev/arch-assets.md
 flowchart TB
   bind["Binding<br/>thread · turn · target"] --> observe["Observer<br/>reads owner and rollout"]
+  member["Member observer<br/>peer-origin events only"] --> queue["Per-controller bounded queue<br/>cursor · overflow gap"]
+  queue --> poll["Controller long-poll<br/>ordinary peer request · at most 25 s"]
+  poll --> association["Device/task association<br/>originating source · namespaced binding"]
+  association --> lifecycle
   observe --> lifecycle["turn_lifecycle"]
   observe --> progress["Native progress diagnostic<br/>3 min without native activity<br/>excludes in-progress tools"]
   progress -->|"stalled"| delivery

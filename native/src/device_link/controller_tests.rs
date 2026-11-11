@@ -33,6 +33,7 @@ fn associations_preserve_submission_source_for_event_routing() {
             sent_at: now(),
             outcome: "completed".into(),
             digest: "example".into(),
+            notification: Value::Null,
         });
     }
     records.associate_receipt("member", "request-0", &json!({"taskId":"expired"}));

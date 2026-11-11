@@ -13,6 +13,8 @@ pub(super) struct Forward {
     pub sent_at: String,
     pub outcome: String,
     pub digest: String,
+    #[serde(default)]
+    pub notification: Value,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +28,8 @@ struct Association {
 pub(super) struct Records {
     pub forwards: VecDeque<Forward>,
     tasks: VecDeque<Association>,
+    #[serde(skip)]
+    task_index: std::collections::HashMap<(String, String), String>,
     pub last_seen: BTreeMap<String, String>,
     pub facts: BTreeMap<String, Value>,
 }
@@ -33,7 +37,19 @@ impl Records {
     pub fn open(directory: &Path) -> Result<Self> {
         let path = directory.join("controller.json");
         if path.exists() {
-            serde_json::from_value(load(&path)?).map_err(|e| e.to_string())
+            let mut records: Self =
+                serde_json::from_value(load(&path)?).map_err(|e| e.to_string())?;
+            records.task_index = records
+                .tasks
+                .iter()
+                .map(|row| {
+                    (
+                        (row.device_id.clone(), row.task_id.clone()),
+                        row.source_id.clone(),
+                    )
+                })
+                .collect();
+            Ok(records)
         } else {
             Ok(Self::default())
         }
@@ -57,12 +73,11 @@ impl Records {
     }
     /// Event-routing attribution only; absence never denies task or receipt access.
     pub fn task_source(&self, device: &str, task: &str) -> Option<&str> {
-        self.tasks
-            .iter()
-            .find(|row| row.device_id == device && row.task_id == task)
-            .map(|row| row.source_id.as_str())
+        self.task_index
+            .get(&(device.into(), task.into()))
+            .map(String::as_str)
     }
-    pub fn associate_receipt(&mut self, device: &str, request: &str, result: &Value) {
+    pub fn associate_receipt(&mut self, device: &str, request: &str, result: &Value) -> bool {
         // A receipt reader is not necessarily the source that submitted the write.
         if let Some(source) = self
             .forwards
@@ -70,23 +85,32 @@ impl Records {
             .find(|row| row.device_id == device && row.request_id == request)
             .map(|row| row.source_id.clone())
         {
-            self.associate(device, &source, result);
+            self.associate(device, &source, result)
+        } else {
+            false
         }
     }
-    pub fn associate(&mut self, device: &str, source: &str, result: &Value) {
+    pub fn associate(&mut self, device: &str, source: &str, result: &Value) -> bool {
+        let mut changed = false;
         for task in result_tasks(result, 0) {
             if self.task_source(device, &task).is_some() {
                 continue;
             }
             while self.tasks.len() >= TASK_CAP {
-                self.tasks.pop_front();
+                if let Some(old) = self.tasks.pop_front() {
+                    self.task_index.remove(&(old.device_id, old.task_id));
+                }
             }
+            changed = true;
+            self.task_index
+                .insert((device.into(), task.clone()), source.into());
             self.tasks.push_back(Association {
                 device_id: device.into(),
                 task_id: task,
                 source_id: source.into(),
             });
         }
+        changed
     }
 }
 fn result_tasks(value: &Value, depth: usize) -> Vec<String> {

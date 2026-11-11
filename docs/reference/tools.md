@@ -162,9 +162,11 @@ used solely as an HTTPS pipe. OpenAI Secure Tunnel is excluded. HTTPS calls are
 plain request/response with 1 MiB request and 4 MiB response caps and a 25-second
 deadline. Long waits return in segments of at most 15 seconds; issue the next read
 segment as needed. A sent request keeps its selected path. LAN hello refreshes
-the saved public peer URL without re-pairing. File transfer, forwarded event
-streams and notification delivery are unavailable. Use
-`notify:null` for member task creation in this phase.
+the saved public peer URL without re-pairing. File transfer is not
+implemented. Forwarded dispatches keep notification bindings on the controller, including inherited bindings under the originating source's
+local rules. The controller strips `notify` before forwarding. Member task events
+never deliver to member notification targets. `notify_status` includes `device`
+and the native thread ID; its binding thread ID is qualified by device ID.
 
 The controller assigns a UUID before sending a write and honors an outer act
 `requestId`. An inner receipt-enabled op's `requestId`, when present, must match.
@@ -185,6 +187,31 @@ read associates a task with the original submitting source while its forward
 record is retained, regardless of who reads the receipt. An expired forward
 record does not attribute the task to the reader. Agent sessions and histories
 remain in the member's native stores.
+
+Each online member has one ordinary-request long poll, independent of task count.
+The private peer query `peer_task_events` takes
+`{epoch:string|null,cursor:uint|null,waitMs:0..25000}` and returns
+`{epoch:string,cursor:uint,gap:boolean,events:[{cursor:uint,event:TaskEvent}]}`.
+A null cursor establishes the current head without replay. Each controller queue
+retains 256 events, each at most 64 KiB; responses contain at most 64 events.
+Overflow drops the oldest events. An oversized event advances the gap boundary
+and clears older queued events. A cursor behind that boundary or a changed member
+Core epoch reports `gap:true`, returns the current head and skips retained events.
+The event kinds are `completed`, `failed`, `interrupted`, `stalled`, `needs-input`,
+`handoff` and `recovered`. Each task event keeps the native task/turn IDs,
+Agent, title, cause and structured event fields; `state` retains the observer's
+attention state, including input versus approval. This private op is not a
+control-source catalog op.
+
+On reconnect or a gap, the controller reads only tasks with open notification
+bindings through member `codex_read {statusOnly:true}` or
+`agent_read {view:"summary"}`. Connected members have no per-task polling. Offline bindings remain
+unconfirmed and produce no inferred terminal notification. Native terminal
+observations enter the existing notification scheduler, governance, batch windows,
+L1/L2 transport and inbox. Task pushes prefix the device name and include the
+current title and native thread ID. Structured events carry device metadata and a
+`query device` next action. Handoff and recovery keep their existing inbox-only
+semantics.
 
 | Error | Action |
 | --- | --- |
@@ -416,7 +443,7 @@ Control sources select a Claude profile per source and cloud-session target with
 
 Each target has persisted `reachability: "verified" | "unverified" | "failed"` and a short `reason`, exposed in `notify_status` and bound dispatch receipts. New targets are unverified. Known delivery failures and unconfirmed handshake expiry mark failed; ordinary successful sends never mark verified. A subscription being active, a full bucket, or callback acceptance does not prove that the controller received a message.
 
-Task notifications are automated doorbells, not user messages. Claude text starts with the fixed `⟢ ARC` automation marker with a pointer to `guide({topic:"notify"})`, and glyph counts such as `✓ done ×2 · ? input`. The glyphs are `? input`, `⚑ approve`, `✗ failed`, `■ halted`, `↪ moved`, `✓ done`, `↔ handoff`, `↻ revived` and `! stalled`. A batch sends one doorbell. MCP and inbox event `summary` is the event's single glyph. Task doorbells append one line per task with its current title and thread ID. Structured summaries retain the glyph only. Complete output, errors, questions and dispatch data are read from the event. Read unread events with `inbox_wait({target,timeoutMs:0})`; each event carries title, threadId or taskId, final response, interaction and `next`. Event IDs remain in structured fields for deduplication and notification_ack; reading the corresponding turn also acknowledges its events. The reachability check pushes `◎ ping · <code>`; acknowledge it with `notification_ack({target,code})`. Coordination pushes use a `✉ mail` glyph line; read `messages`.
+Task notifications are automated doorbells, not user messages. Claude text starts with the fixed `⟢ ARC` automation marker with a pointer to `guide({topic:"notify"})`, and glyph counts such as `✓ done ×2 · ? input`. The glyphs are `? input`, `⚑ approve`, `✗ failed`, `■ halted`, `↪ moved`, `✓ done`, `↔ handoff`, `↻ revived` and `! stalled`. A batch sends one doorbell. MCP and inbox event `summary` is the event's single glyph. Task doorbells append one line per task with its current title and thread ID. Forwarded tasks prefix the member device name; read them through the event's `query device` action. Structured summaries retain the glyph only. Complete output, errors, questions and dispatch data are read from the event. Read unread events with `inbox_wait({target,timeoutMs:0})`; each event carries title, threadId or taskId, final response, interaction and `next`. Event IDs remain in structured fields for deduplication and notification_ack; reading the corresponding turn also acknowledges its events. The reachability check pushes `◎ ping · <code>`; acknowledge it with `notification_ack({target,code})`. Coordination pushes use a `✉ mail` glyph line; read `messages`.
 
 Claude cloud sessions MUST read `CLAUDE_CODE_REMOTE_SDK_URL` in their workspace; its `/sessions/cse_<id>` suffix identifies their own target as `session_<id>` (replace `cse_` with `session_`). They SHOULD bind that target with `notify_control` before or at dispatch rather than defaulting to timed revisits.
 

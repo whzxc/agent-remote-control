@@ -1,4 +1,6 @@
 //! Controller Core owns reachability, multiplexed links and bounded forwarding metadata.
+#[path = "events.rs"]
+pub(crate) mod events;
 use super::client::{Channel, Session};
 mod path;
 use super::records::{Forward, Records};
@@ -23,11 +25,15 @@ struct Member {
     tunnel: super::tunnel::Client,
     slots: Arc<tokio::sync::Semaphore>,
     task: StdMutex<Option<tokio::task::JoinHandle<()>>>,
+    event_task: StdMutex<Option<tokio::task::JoinHandle<()>>>,
 }
 impl Member {
     async fn stop(&self) {
         self.status.lock().unwrap().online = false;
         if let Some(task) = self.task.lock().unwrap().take() {
+            task.abort();
+        }
+        if let Some(task) = self.event_task.lock().unwrap().take() {
             task.abort();
         }
         self.business.close().await;
@@ -155,8 +161,14 @@ impl Controller {
                 tunnel: Default::default(),
                 slots: Arc::new(tokio::sync::Semaphore::new(64)),
                 task: Default::default(),
+                event_task: Default::default(),
             });
             members.insert(id, member.clone());
+            let events = self.clone();
+            let polled = member.clone();
+            *member.event_task.lock().unwrap() = Some(tokio::spawn(async move {
+                events.poll_events(polled).await;
+            }));
             let controller = self.clone();
             let monitor = member.clone();
             *member.task.lock().unwrap() = Some(tokio::spawn(async move {
@@ -345,8 +357,13 @@ impl Controller {
         }
         let member = self.member(string(&args, "device")).await?;
         let op = string(&args, "op");
-        let inner = args["args"].clone();
-        if super::transport::forbidden(op) {
+        let mut inner = args["args"].clone();
+        let notification = if tool == "act" {
+            events::binding_args(op, &inner)?
+        } else {
+            Value::Null
+        };
+        if super::transport::forbidden(op) || op == events::OP {
             return Err(error("DEVICE_PEER_FORBIDDEN","A forwarded request cannot reach Device link or local management; query guide for device."));
         }
         if !member.status.lock().unwrap().online {
@@ -413,6 +430,7 @@ impl Controller {
             payload.remove("waitMs");
         }
         let digest = hash(json!([tool, op, payload]).to_string());
+        if events::dispatch(op) { inner.as_object_mut().map(|args|args.remove("notify")); }
         let mut body = json!({"op":op,"args":inner});
         if write {
             body["requestId"] = json!(request);
@@ -447,6 +465,7 @@ impl Controller {
                 sent_at: now(),
                 outcome: "sent".into(),
                 digest,
+                notification,
             });
             records.save(&self.directory)?;
         }
@@ -467,29 +486,50 @@ impl Controller {
                         error
                     }
                 })?;
-                let mut records = self.records.lock().unwrap();
-                if write {
-                    records.outcome(
-                        &request,
-                        if response["isError"] == true {
-                            "failed"
-                        } else {
-                            "completed"
-                        },
-                    );
-                }
-                if op == "receipt" {
-                    records.associate_receipt(&member.peer.device_id, &request, &value);
-                } else if write {
-                    records.associate(&member.peer.device_id, &source, &value);
-                }
-                records.save(&self.directory).map_err(|error| {
+                {
+                    let mut records = self.records.lock().unwrap();
                     if write {
-                        uncertain(&request, &member.peer.device_id, &error)
-                    } else {
-                        error
+                        records.outcome(
+                            &request,
+                            if response["isError"] == true {
+                                "failed"
+                            } else {
+                                "completed"
+                            },
+                        );
                     }
-                })?;
+                    if op == "receipt" {
+                        records.associate_receipt(&member.peer.device_id, &request, &value);
+                    } else if write {
+                        records.associate(&member.peer.device_id, &source, &value);
+                    }
+                    records.save(&self.directory).map_err(|error| {
+                        if write {
+                            uncertain(&request, &member.peer.device_id, &error)
+                        } else {
+                            error
+                        }
+                    })?;
+                }
+                if response["isError"] != true {
+                    self.bind_result(&member, &request, &value)
+                        .await
+                        .map_err(|e| {
+                            if write {
+                                uncertain(&request, &member.peer.device_id, &e)
+                            } else {
+                                e
+                            }
+                        })?;
+                    crate::claude_notify::device::acknowledge_read(
+                        &member.peer.device_id,
+                        &source,
+                        op,
+                        &args["args"],
+                        &value,
+                    )
+                    .await?;
+                }
                 Ok(response)
             }
             Err(error) => {

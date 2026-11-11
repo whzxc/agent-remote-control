@@ -44,6 +44,7 @@ struct Index {
     scopes: HashMap<Scope, BTreeSet<(i64, Key)>>,
     threads: HashMap<String, HashSet<Key>>,
     interested: HashMap<String, HashSet<Key>>,
+    devices: HashMap<String, HashSet<Key>>,
     observing: HashSet<Key>,
     reconciliation: HashSet<Key>,
     dormant: HashSet<Key>,
@@ -162,7 +163,16 @@ impl Index {
         };
         let b = &row.binding;
         let closed = b.terminal() && (b.scope_end.is_some() || b.continuation_bound);
-        let dormant = b.source_id.is_empty() || closed || observer::reusable(b);
+        let remote = b.device["id"].as_str();
+        if let Some(device) = remote {
+            let open = self.devices.entry(device.into()).or_default();
+            if !b.terminal() && b.scope_end.is_none() && !b.continuation_bound {
+                open.insert(key.into());
+            } else {
+                open.remove(key);
+            }
+        }
+        let dormant = remote.is_some() || b.source_id.is_empty() || closed || observer::reusable(b);
         for set in [
             &mut self.observing,
             &mut self.reconciliation,
@@ -218,8 +228,9 @@ impl Index {
                     .saturating_add(1),
             ),
         );
-        let watchable =
-            !closed && (!b.terminal() || self.latest(b).is_some_and(|(_, latest)| latest == key));
+        let watchable = remote.is_none()
+            && !closed
+            && (!b.terminal() || self.latest(b).is_some_and(|(_, latest)| latest == key));
         let interested = self.interested.entry(b.thread_id.clone()).or_default();
         if watchable {
             interested.insert(key.into());
@@ -416,6 +427,11 @@ impl Index {
         self.exhausted.remove(key);
         if let Some(row) = self.rows.remove(key) {
             let b = row.binding;
+            if let Some(device) = b.device["id"].as_str() {
+                if let Some(keys) = self.devices.get_mut(device) {
+                    keys.remove(key);
+                }
+            }
             if self.resumable.get(&scope(&b)).is_some_and(|old| old == key) {
                 self.resumable.remove(&scope(&b));
             }
@@ -1020,5 +1036,19 @@ pub(super) fn partitions(dir: &Path) -> Result<Value> {
         Ok(
             json!({"observing":keys(&i.observing),"reconciliation":keys(&i.reconciliation),"dormant":keys(&i.dormant),"pending":keys(&i.pending),"recovery":keys(&i.recovery),"exhausted":keys(&i.exhausted),"dirty":keys(&i.dirty),"deliveryDirty":keys(&i.delivery_dirty),"observation":deadlines(&i.observation),"delivery":deadlines(&i.delivery),"retention":deadlines(&i.retention),"resumable":resumable,"scopes":i.scopes.len(),"rows":i.rows.len()}),
         )
+    })
+}
+
+/// Hydrate only open device bindings, independently of retained local history.
+pub(super) fn device_open(dir: &Path, device: &str) -> Result<Vec<Value>> {
+    with(dir, |index| {
+        index
+            .devices
+            .get(device)
+            .into_iter()
+            .flatten()
+            .filter(|key| index.rows.contains_key(*key))
+            .map(|key| hydrate(key).map(|b| super::device::read_request(&b)))
+            .collect()
     })
 }

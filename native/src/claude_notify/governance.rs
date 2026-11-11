@@ -598,7 +598,7 @@ fn status_from(
                 .filter_map(|d| d.timing.finished_at.map(|ms| ms / 1000))
                 .max();
             let ownership = status_ownership(&b.thread_id).unwrap_or(Value::Null);
-            threads.push(json!({"threadId":b.thread_id,"title":task_title(latest),"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
+            threads.push(json!({"threadId":b.thread_id,"device":b.device,"nativeThreadId":b.device["taskId"],"title":task_title(latest),"ownership":ownership,"diagnosis":diagnostics::turn(latest),"channel":latest.channel,"target":latest.target,"mode":rule.map(|r|r.mode(now)).unwrap_or("normal"),"until":rule.and_then(|r|r.until),"lastDeliveredAt":rule.and_then(|r|r.last_delivered_at).into_iter().chain(historical).max(),"lastAckAt":rule.and_then(|r|r.last_ack_at),"turns":bs.iter().filter(|b| !compact || b.turn_id == latest.turn_id).map(|b|json!({"turnId":b.turn_id,"channel":b.channel,"target":b.target,"causedBy":b.caused_by,"diagnosis":diagnostics::turn(b)})).collect::<Vec<_>>()}));
         }
     }
     let mut subscriptions = state
@@ -654,7 +654,7 @@ fn status_from(
         .flat_map(|b| b.deliveries.iter().filter(in_scope))
         .filter(|d| d.task_state == "recovered")
         .count();
-    let deliveries=bindings.iter().flat_map(|b|b.deliveries.iter().filter(in_scope).filter(|d| !compact || (d.task_state!="recovered" && (pending(d) || (recent(d,now) && latest[&b.thread_id.as_str()].turn_id==b.turn_id)))).map(|d|json!({"subscriptionId":d.subscription,"channel":d.channel,"target":d.target,"op":"task_status","eventId":d.event_id,"kind":event(b,d)["kind"],"threadId":event(b,d)["threadId"],"taskId":event(b,d)["taskId"],"turnId":b.turn_id,"state":d.status,"attempts":d.failures+u32::from(matches!(d.status.as_str(),"sending"|"delivered"|"digested"|"callback-accepted")),"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing}))).collect::<Vec<_>>();
+    let deliveries=bindings.iter().flat_map(|b|b.deliveries.iter().filter(in_scope).filter(|d| !compact || (d.task_state!="recovered" && (pending(d) || (recent(d,now) && latest[&b.thread_id.as_str()].turn_id==b.turn_id)))).map(|d|json!({"subscriptionId":d.subscription,"channel":d.channel,"target":d.target,"op":"task_status","eventId":d.event_id,"kind":event(b,d)["kind"],"device":b.device,"threadId":event(b,d)["threadId"],"taskId":event(b,d)["taskId"],"turnId":b.turn_id,"state":d.status,"attempts":d.failures+u32::from(matches!(d.status.as_str(),"sending"|"delivered"|"digested"|"callback-accepted")),"nextAttemptAt":d.next_attempt_at,"error":d.error,"timing":d.timing}))).collect::<Vec<_>>();
     let total_targets = targets.len();
     let total_threads = threads.len();
     for target in &mut targets {

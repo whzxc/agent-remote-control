@@ -128,6 +128,18 @@ async fn peer_control(service: &Arc<Service>, device: &str, body: Value) -> Resu
         .map_err(|_| "INVALID_ARGUMENT: expected peer request envelope")?;
     request.validate()?;
     let source = crate::sources::peer_authority(device)?;
+    if request.body["op"] == crate::device_link::controller::events::OP {
+        if request.tool != "query" {
+            return Err("INVALID_ARGUMENT: peer_task_events is a peer query".into());
+        }
+        let value = crate::device_link::controller::events::read(
+            string(&source, "id"),
+            &request.body["args"],
+        )
+        .await?;
+        crate::sources::peer_authority(device)?;
+        return Ok(crate::egress::tool(value, false));
+    }
     let mut origin = crate::sources::touch(&source, "peer").await?;
     origin["controlTransport"] = json!("peer");
     origin["peerOrigin"] = request.origin;

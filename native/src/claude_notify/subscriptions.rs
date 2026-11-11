@@ -33,7 +33,8 @@ pub(super) struct Subscription {
 impl Subscription {
     pub fn matches(&self, b: &Binding) -> bool {
         let agent = !b.agent.is_empty() && b.agent != "codex";
-        !self.source_id.is_empty()
+        b.peer_controller.is_none()
+            && !self.source_id.is_empty()
             && self.source_id == b.source_id
             && self.op == "task_status"
             && self.turn.as_ref().is_none_or(|t| *t == b.turn_id)
@@ -99,7 +100,7 @@ pub(super) fn sync(state: &mut State, bindings: &[Binding]) {
         .collect();
     let bindings: Vec<_> = bindings
         .iter()
-        .filter(|b| !b.source_id.is_empty() && b.target.is_some())
+        .filter(|b| b.peer_controller.is_none() && !b.source_id.is_empty() && b.target.is_some())
         .map(|b| (claude_id(b), b))
         .collect();
     let ids: std::collections::HashSet<_> = bindings.iter().map(|(id, _)| id.as_str()).collect();

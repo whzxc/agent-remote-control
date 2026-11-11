@@ -56,7 +56,10 @@ pub(super) fn turn(b: &Binding) -> Value {
             reasons.push(reason);
         }
     }
-    let next = if matches!(b.turn_state(), TurnState::Conflict(_)) {
+    let next = if !b.device.is_null() {
+        let request = super::device::read_request(b);
+        json!({"via":"query","op":"device","args":{"device":b.device["id"],"op":request["op"],"args":request["args"]}})
+    } else if matches!(b.turn_state(), TurnState::Conflict(_)) {
         let (op, args) = if b.key().agent == "codex" {
             (
                 "codex_read",
