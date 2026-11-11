@@ -96,22 +96,27 @@ export function UpdateHistoryContent({ entries }: { entries: readonly Release[] 
   );
 }
 
-export function UpdateAboutContent() {
+type AboutLabels = Pick<typeof copy, "about" | "appVersion" | "check" | "history" | "repository" | "experimental">;
+
+export function UpdateAboutContent({ labels = copy, checkDisabled = false }: {
+  labels?: AboutLabels;
+  checkDisabled?: boolean;
+}) {
   return (
     <div class="flex flex-col gap-3">
-      <SettingsGroup title={copy.about}>
-        <SettingLine title={copy.appVersion}>
-          <Button>{copy.check}</Button>
+      <SettingsGroup title={labels.about}>
+        <SettingLine title={labels.appVersion}>
+          <Button disabled={checkDisabled} class={checkDisabled ? "opacity-45" : ""}>{labels.check}</Button>
         </SettingLine>
-        <SettingLine title={copy.history} class="border-t border-border">
-          <IconButton icon="chevron-right" label={copy.history} />
+        <SettingLine title={labels.history} class="border-t border-border">
+          <IconButton icon="chevron-right" label={labels.history} />
         </SettingLine>
       </SettingsGroup>
-      <nav class="flex flex-wrap items-center gap-2 px-4" aria-label={copy.about}>
-        <span class="text-meta text-text-secondary">{copy.repository}</span>
+      <nav class="flex flex-wrap items-center gap-2 px-4" aria-label={labels.about}>
+        <span class="text-meta text-text-secondary">{labels.repository}</span>
         <Button variant="ghost">GitHub<Icon name="external-link" size={14} /></Button>
         <div class="ml-auto">
-          <Button variant="ghost">{copy.experimental}<Icon name="chevron-right" size={14} /></Button>
+          <Button variant="ghost">{labels.experimental}<Icon name="chevron-right" size={14} /></Button>
         </div>
       </nav>
     </div>

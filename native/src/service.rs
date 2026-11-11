@@ -524,6 +524,32 @@ impl Service {
                 return crate::browser::access(self.entries().await, true).await
             }
             ("GET", "runtime/metrics") => return Ok(self.control.runtime_metrics().await),
+            ("GET", "updates/history") => {
+                let releases: Vec<Value> = self
+                    .network_proxy()
+                    .await?
+                    .client(reqwest::Client::builder())
+                    .user_agent("agent-remote-control")
+                    .timeout(std::time::Duration::from_secs(10))
+                    .build()
+                    .map_err(|error| error.to_string())?
+                    .get("https://api.github.com/repos/whzxc/agent-remote-control/releases?per_page=50")
+                    .send()
+                    .await
+                    .and_then(reqwest::Response::error_for_status)
+                    .map_err(|error| error.to_string())?
+                    .json()
+                    .await
+                    .map_err(|error| error.to_string())?;
+                return Ok(json!(releases
+                    .iter()
+                    .filter(|release| release["draft"] == false && release["prerelease"] == false)
+                    .filter_map(|release| {
+                        let version = string(release, "tag_name").strip_prefix('v')?;
+                        Some(json!({"version":version,"notes":string(release,"body")}))
+                    })
+                    .collect::<Vec<_>>()));
+            }
             ("GET", "capabilities") => return Ok(crate::management::catalog()),
             ("GET", "health") => {
                 return Ok(

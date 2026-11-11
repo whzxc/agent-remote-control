@@ -296,7 +296,7 @@ export default function SettingsPage() {
       </Group>
       <AppUpdate>
         <Button id="settings-experimental-entry" variant="ghost"
-          onClick={() => navigation.set(old => ({ ...old, settingsExperimental: true }))}>{t("topology.experimental")}<Icon icon={ChevronRight} /></Button>
+          onClick={() => navigation.set(old => ({ ...old, settingsExperimental: true }))}>{t("topology.experimental")}<Icon icon={ChevronRight} size={14} /></Button>
       </AppUpdate>
     </div>
   );

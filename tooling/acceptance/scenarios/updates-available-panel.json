@@ -1,6 +1,6 @@
 {
   "theme": "light",
-  "language": "en",
+  "language": "zh-CN",
   "agents": [
     "codex"
   ],
@@ -10,8 +10,10 @@
   },
   "update": {
     "phase": "idle",
-    "version": "1.2.3",
-    "notes": "Improve connection stability.\nFix task history loading.",
+    "version": "0.9.50",
+    "currentVersion": "0.9.48",
+    "notes": "## Fixes\n\n- Corrected the position of overview panels.",
+    "notesZh": "## 修复\n\n- 修复概览面板的位置偏移。",
     "ready": true
   }
 }

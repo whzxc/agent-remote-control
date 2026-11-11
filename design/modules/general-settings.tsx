@@ -1,6 +1,6 @@
 import { ThemeSwatch } from "./display-settings";
 import { copy, samples } from '../fixtures/general-settings';
-import { Frame, Icon } from "sdg";
+import { Frame } from "sdg";
 import { Panel } from "../components/panel";
 
 import { SettingLine } from "../components/settings-row";
@@ -8,7 +8,7 @@ import { SingleChoice } from "../components/single-choice";
 import { Switch } from "../components/switch";
 import { Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
-import { Button } from "../components/button";
+import { UpdateAboutContent } from "./updates";
 
 
 import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";
@@ -98,25 +98,14 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
             />
           </SettingLine>
         </Group>
-        <div class="flex flex-col gap-[17px]">
-          <Group title={copy.text33}>
-            <SettingLine
-              title={copy.text34}
-              class="py-[15px]!"
-            >
-              <Button disabled class="opacity-45">{copy.text35}</Button>
-            </SettingLine>
-          </Group>
-          <div class="flex items-center gap-3 px-4">
-            <span class="text-meta text-text-secondary">{copy.text36}</span>
-            <Button variant="ghost">{copy.text37}<Icon name="external-link" />
-            </Button>
-            <div class="ml-auto">
-              <Button variant="ghost">{copy.text38}<Icon name="chevron-right" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <UpdateAboutContent checkDisabled labels={{
+          about: copy.text33,
+          appVersion: copy.text34,
+          check: copy.text35,
+          repository: copy.text36,
+          experimental: copy.text38,
+          history: copy.updateHistory,
+        }} />
       </div>); }
 export default () => <Frame name="general-settings-content" width={672}>
   <div class="w-full bg-surface-raised"><GeneralSettingsContent /></div>

@@ -1,0 +1,22 @@
+[
+  {
+    "section": "improvements",
+    "en": "Review changes across versions before restarting to update, or revisit them in Settings → About → Update history.",
+    "zh-CN": "重启更新前可查看跨版本改动，也可以在「设置 → 关于 → 更新记录」中回看。"
+  },
+  {
+    "section": "improvements",
+    "en": "Update notes now follow your app language and appear as headings and lists.",
+    "zh-CN": "更新公告按界面语言显示，并用标题和列表呈现。"
+  },
+  {
+    "section": "fixes",
+    "en": "Overview panels stay anchored to the selected node.",
+    "zh-CN": "概览面板会跟随选中的节点。"
+  },
+  {
+    "section": "fixes",
+    "en": "Retired MCP Events announcements no longer repeat in new releases.",
+    "zh-CN": "新版本的公告不再重复显示旧的 MCP Events 升级提示。"
+  }
+]

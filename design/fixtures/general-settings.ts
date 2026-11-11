@@ -51,11 +51,11 @@ export const copy = {
   "text29": "Proxy",
   "text31": "Proxy",
   "text33": "About",
-  "text34": "Agent Remote Control vfixture",
+  "text34": "ARC fixture",
   "text35": "Check for updates",
   "text36": "whzxc/agent-remote-control",
-  "text37": "GitHub ",
-  "text38": "Experimental "
+  "text38": "Experimental",
+  "updateHistory": "Update history"
 };
 export const samples = {
   "sample11": [

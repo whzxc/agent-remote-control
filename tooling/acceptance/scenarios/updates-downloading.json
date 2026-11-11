@@ -10,10 +10,12 @@
   },
   "update": {
     "phase": "downloading",
-    "downloaded": 12582912,
-    "total": 26214400,
-    "version": "1.2.3",
-    "notes": "- Improve connection recovery\n- Fix update coordination",
+    "version": "0.9.50",
+    "currentVersion": "0.9.48",
+    "notes": "## Fixes\n\n- Corrected the position of overview panels.",
+    "notesZh": "## 修复\n\n- 修复概览面板的位置偏移。",
+    "downloaded": 19188941,
+    "total": 33135002,
     "ready": false
   }
 }

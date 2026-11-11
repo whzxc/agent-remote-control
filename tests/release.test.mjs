@@ -9,6 +9,17 @@ import { workerReady, canStopWorker, validateWindowsReceipt } from '../tooling/w
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
 import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release.mjs';
+import { renderReleaseNotes } from '../tooling/release-notes.mjs';
+
+test('release notes generate both languages from the same version entries', () => {
+  // Regression: updater notes exposed commit subjects and repeated an obsolete migration notice.
+  const fix = { section: 'fixes', en: 'Restore the task bubble.', 'zh-CN': '恢复任务气泡。' };
+  const improvement = { section: 'improvements', en: 'Show update history.', 'zh-CN': '显示更新记录。' };
+  const notes = renderReleaseNotes([fix, improvement]);
+  assert.equal(notes.en, '## Improvements\n\n- Show update history.\n\n## Fixes\n\n- Restore the task bubble.');
+  assert.deepEqual(notes.zh.match(/^- .*$/gm), [`- ${improvement['zh-CN']}`, `- ${fix['zh-CN']}`]);
+  assert.equal(notes.body, `${notes.en}\n\n<!-- lang:zh-CN -->\n\n${notes.zh}\n`);
+});
 
 test('ordinary releases select desktops and Linux requires an explicit selection', () => {
   // Regression: ordinary releases selected Linux and blocked on local Lima and Rosetta prerequisites.

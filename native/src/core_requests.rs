@@ -676,6 +676,7 @@ pub(crate) fn browser_allowed(route: &str, method: &str) -> bool {
                     | "agents/activity/events"
                     | "relay/list"
                     | "relay/progress"
+                    | "updates/history"
             ) || route
                 .strip_prefix("accounts/")
                 .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())

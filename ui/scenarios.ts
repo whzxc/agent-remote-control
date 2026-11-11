@@ -11,6 +11,7 @@ import { setPrivacy } from './state/privacy';
 import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, checkUpdate, type UpdateView } from './state/updates';
+import releaseHistory from '../tooling/acceptance/fixtures/release-history.json';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { onboarding, connectionSetup, type SourceSetup, type ConnectionSetup } from './state/onboarding';
 import { navigation, type Page } from './state/navigation';
@@ -69,6 +70,7 @@ export function scenarioResponse(path: string, method: string, body?: unknown): 
   }
 }
 function respondToScenario(path: string, method: string, body?: unknown): unknown {
+  if (path === 'updates/history' && method === 'GET') return structuredClone(responses[path] ?? releaseHistory);
   const mcpResult = mcpResponse(path, method, body);
   if (mcpResult !== undefined) return mcpResult;
   const coordinationResult = coordinationResponse(path, method, body);
@@ -443,8 +445,12 @@ export async function installScenario(name: string) {
     if (fixture.page) navigation.set({ page: fixture.page, settingsExperimental: fixture.settingsExperimental, connectionsOpen: fixture.connectionsOpen, remoteConnectionId: fixture.remoteConnectionId, remoteSourceId: fixture.remoteSourceId });
     if (fixture.update) {
       const update = fixture.update;
+      if (name === 'updates-history') responses['updates/history'] = releaseHistory.slice(0, 2);
       mockIPC(command => {
-        if (command === 'check_update') return update.version ? { rid: 1, currentVersion: '0.0.0', version: update.version, body: update.notes, rawJson: {} } : null;
+        if (command === 'check_update') return update.version ? {
+          rid: 1, currentVersion: update.currentVersion ?? '0.0.0',
+          version: update.version, body: update.notes, rawJson: { notes_zh_cn: update.notesZh },
+        } : null;
         if (command === 'plugin:updater|download') return 2;
       });
       if (update.version) await checkUpdate();

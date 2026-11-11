@@ -21,10 +21,10 @@ export const releases = [
 ] as const;
 
 export const frames = [
-  { name: "available", note: "Proposed ready state. The current fixture uses plain-text release notes." },
-  { name: "downloading", note: "Proposed progress layout. A matching browser fixture follows adoption." },
-  { name: "download-failed", note: "Proposed retry layout. A matching browser fixture follows adoption." },
-  { name: "installing", note: "Proposed pending state. The current fixture uses the existing update panel." },
+  { name: "available", fixture: "updates-available-panel" },
+  { name: "downloading", fixture: "updates-downloading" },
+  { name: "download-failed", fixture: "updates-download-failed" },
+  { name: "installing", fixture: "updates-installing" },
 ] as const;
 
 export const download = { percent: 58, amount: "18.3 / 31.6 MB" };
@@ -34,7 +34,7 @@ export const copy = {
   fromVersion: `当前版本 ${installedVersion}`,
   ready: "已下载",
   downloading: "正在下载",
-  downloadFailed: "下载连接已中断。",
+  downloadFailed: "下载更新失败。",
   restartEffect: "重启期间，ARC 连接会短暂断开。",
   later: "稍后",
   restart: "重启并更新",

@@ -49,6 +49,10 @@ The daily suite runs fresh on every release before platform compilation, so a te
 
 ## Commands and publication boundaries
 
+Prepare `release-notes/<version>.json` at the source commit. Each entry has a `section` (`features`, `improvements`, `fixes` or `actions`), an `en` sentence and its `zh-CN` counterpart. Describe what users can do or what changed for them. Include a migration or required action in the release that introduces it. Use an empty list for a maintenance release with no user-facing changes.
+
+Preflight validates the notes for the selected version before compilation. Finalization generates the bilingual GitHub release body and the English `notes` and Chinese `notes_zh_cn` fields in `latest.json`. The release body separates its languages with `<!-- lang:zh-CN -->`. These files share the version's normal publication and readback checks. Resume reuses the finalized artifacts.
+
 ```sh
 npm run release
 npm run release -- --version X.Y.Z
@@ -61,7 +65,7 @@ npm run release -- --resume release-artifacts/vX.Y.Z-<suffix>
 
 Use a clean main checkout that is not behind its remote. Preflight validates source, signing, branch, and publication permissions and selects a version newer than public releases. ARC_BUILD_VERSION injects it into frontend, Core, Desktop, and installers; source placeholders remain 0.0.0. No version-only commit is created.
 
-The coordinator freezes the same full SHA for each selected platform. Windows readiness starts at the beginning of preflight and overlaps tests and local builds. Selected macOS, Windows, and Linux Actions builds run concurrently. Source changes during the run fail closed. A unique release-artifacts/v<version>-<suffix> directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes main/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back public latest.json. A rehearsal never enters these mutation stages.
+The coordinator freezes the same full SHA for each selected platform. Windows readiness starts after preflight validates the release notes and overlaps tests and local builds. Selected macOS, Windows, and Linux Actions builds run concurrently. Source changes during the run fail closed. A unique release-artifacts/v<version>-<suffix> directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes main/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back public latest.json. A rehearsal never enters these mutation stages.
 
 Windows connection/SCNet checkout declarations come from the installed @whzxc/work profile located through enjoy runtime; fleet connections remain in the Enjoy profile. Before acquisition, check SCNet source locks and require both mutually exclusive workers to be stopped and unowned. Preserve and report an occupied or already-running worker. Use enjoy infra execute with proxmox.worker.start/inspect/stop, target k12, a unique owner, and --fresh. Poll until both ssh_reachable and ready are true before Windows SSH. Check guest SCNet locks and build processes again before building. Shutdown requires this run's initial stopped state and retained ownership, including ambiguous start responses.
 
@@ -94,7 +98,7 @@ stage/finalize verify existing staged inputs and create metadata. Download URLs,
 
 ## Identity migration
 
-The first release from a legacy identity to ARC checks the prior public tag's state-directory definitions and adds one-time manual migration commands to release notes. Later ARC-to-ARC releases omit them. Product and installer do not migrate identities automatically or add compatibility aliases.
+The release that introduced the ARC identity contains the one-time manual migration commands. Product and installer do not migrate identities automatically or add compatibility aliases.
 
 Instructions require disabling old login startup and quitting the App before moving production, development, preview, and XDG state. Maintainers also move updater keys. Install the new App afterward. Never overwrite existing destination directories. Windows users move corresponding LOCALAPPDATA directories, remove old login entries, and enable new ones. macOS users reauthorize Screen Recording, Accessibility, Full Disk Access, and login items as prompted.
 
@@ -105,5 +109,3 @@ Prefer archives for old macOS App backups to avoid discoverable duplicate .app i
 ## Readback
 
 Verify tag/source SHA, workflows, public assets, checksums, updater signatures, latest.json, and embedded versions. Within authorization, verify installed startup, connections, real client tools, and tasks. Source builds, public artifacts, and installed apps are separate evidence layers. State untested layers explicitly. Keep personal paths, accounts, secrets, Tunnel identities, real tasks, and acceptance records outside the repository.
-
-The first migration to guide/query/act requires a one-time client refresh and reauthorization notice. Later capability changes use ops and guide.

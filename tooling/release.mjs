@@ -9,6 +9,7 @@ import { buildWindows, buildMac, runCommand, prepareWindowsWorker } from './wind
 import { buildLinux, preflightLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
+import { readReleaseNotes } from './release-notes.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
 import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
@@ -85,31 +86,6 @@ function compare(a, b) {
   for (let i=0;i<3;i++) if(x[i]!==y[i]) return x[i]>y[i]?1:-1;
   return 0;
 }
-function previousPublished() {
-  return publishedTags(repo).map(stableVersion).filter(value => compare(value, version) < 0).sort(compare).at(-1);
-}
-function changesSince(previous) {
-  const range=previous ? `refs/tags/v${previous}..HEAD` : 'HEAD';
-  if(previous) {
-    git('rev-parse','--verify',`refs/tags/v${previous}`);
-    git('merge-base','--is-ancestor',`refs/tags/v${previous}`,'HEAD');
-  }
-  const messages=git('log','--no-merges','--format=%s',range);
-  if(!messages) throw new Error('No changes since the published release');
-  return messages.split('\n').map(subject=>`- ${subject}`).join('\n');
-}
-async function notes() {
-  const previous = previousPublished();
-  let changes = changesSince(previous);
-  const previousCatalog = previous && JSON.parse(git('show', `refs/tags/v${previous}:native/src/catalog.json`));
-  if (previousCatalog && !previousCatalog.tools.some(tool => tool.name === 'query')) {
-    changes += '\n\n## MCP tool refresh / 工具刷新\n\nThis release consolidates MCP tools into guide / query / act. Refresh tools once and reauthorize ARC in your client. These three tool names and parameter structures are now frozen; future capabilities are disclosed through ops and guide.\n\n本版把 MCP 工具收敛为 guide / query / act。请在控制端刷新一次工具并重新授权 ARC。之后三个工具的名称和参数结构不再变化，能力更新通过 op 与 guide 披露。';
-  }
-  // Include the manual identity change only when upgrading from an old release.
-  if (!previous || !git('show', `refs/tags/v${previous}:native/src/lib.rs`).includes('chatgpt-local-connector')) return changes;
-  const migration = 'for base in "$HOME/.local/state" "${XDG_STATE_HOME:-$HOME/.local/state}" "${XDG_CONFIG_HOME:-$HOME/.config}"; do for suffix in "" -dev -preview; do old="$base/chatgpt-local-connector$suffix"; new="$base/agent-remote-control$suffix"; if [ -d "$old" ] && [ ! -e "$new" ]; then mv "$old" "$new" || exit; fi; done; done';
-  return `${changes}\n\n## Upgrading from CLC\n\nDisable the old login item and quit ARC before installing/opening this update. On macOS/Linux, move existing state once (existing destinations are left untouched):\n\n\`\`\`sh\n${migration}\n\`\`\`\n\nOn Windows, move %LOCALAPPDATA%/chatgpt-local-connector to %LOCALAPPDATA%/agent-remote-control (and the -dev/-preview variants) before opening the new app. Re-enable login items and grant macOS permissions to the new app identity. Maintainers: move ~/.tauri/local-connector.key to ~/.tauri/agent-remote-control.key. No automatic migration is performed.\n`;
-}
 if (mode === 'release') {
   const options = {};
   const flags = new Set();
@@ -172,10 +148,6 @@ if (mode === 'release') {
       sourceSha = git('rev-parse', 'HEAD');
       if (git('status', '--porcelain')) throw new Error('Release builds require a clean committed source');
       if (!resume && linux) await preflightLinux(sourceSha);
-      if (!resume && windows) {
-        workerPreparation = prepareWindowsWorker({ timer });
-        workerPreparation.catch(() => {});
-      }
       if (!dryRun) {
         if (git('branch', '--show-current') !== 'main') throw new Error('Run release from main');
         if (git('status', '--porcelain')) throw new Error('Commit or set aside existing changes before release');
@@ -190,12 +162,22 @@ if (mode === 'release') {
           const latest = publishedTags(repo).map(stableVersion).sort(compare).at(-1);
           version = requested ?? (latest ? [...parts(latest).slice(0, 2), parts(latest)[2] + 1n].join('.') : '0.1.0');
           if (latest && compare(version, latest) <= 0) throw new Error('Version is already published or older than the latest release; use a new version');
+          if (latest) {
+            const previous = `refs/tags/v${latest}`;
+            git('merge-base', '--is-ancestor', previous, sourceSha);
+            if (!git('log', '-1', '--no-merges', '--format=%H', `${previous}..${sourceSha}`)) throw new Error('No changes since the published release');
+          }
           const existing = releaseByTag(repo, `v${version}`);
           if (existing && !existing.draft) throw new Error('Public versions cannot be overwritten');
         }
         assertSource();
       } else version = requested ?? version;
       parts(version);
+      if (!resume) await readReleaseNotes(version);
+      if (!resume && windows) {
+        workerPreparation = prepareWindowsWorker({ timer });
+        workerPreparation.catch(() => {});
+      }
       env.ARC_BUILD_VERSION = version;
       process.env.ARC_BUILD_VERSION = version;
       base = `https://github.com/${repo}/releases/download/v${version}`;
@@ -358,7 +340,8 @@ if (mode === 'release') {
   const fragments = entries.filter(name => ['darwin-aarch64.json', 'windows-x86_64.json'].includes(name));
   const linux = entries.filter(name => name === `agent-remote-control-v${version}-linux-x86_64.tar.gz` || name === `agent-remote-control-v${version}-linux-aarch64.tar.gz`);
   if (!fragments.length && !linux.length) throw new Error('No platform artifacts');
-  const manifest = { version, notes: await notes(), pub_date: new Date().toISOString(), platforms: {} };
+  const notes = await readReleaseNotes(version);
+  const manifest = { version, notes: notes.en, notes_zh_cn: notes.zh, pub_date: new Date().toISOString(), platforms: {} };
   for (const name of fragments) {
     const fragment = await json(path.join(dir, name));
     if (fragment.version !== version) throw new Error('Mixed release versions');
@@ -367,7 +350,7 @@ if (mode === 'release') {
   await validateManifest(manifest, dir);
   const payloads = [...new Set(Object.values(manifest.platforms).map(value => path.join(dir, value.url.slice(base.length + 1))))];
   if (payloads.length) verifySignatures(payloads);
-  await writeFile(path.join(dir, 'release-notes.md'), manifest.notes + '\n');
+  await writeFile(path.join(dir, 'release-notes.md'), notes.body);
   if (manifest.platforms['darwin-aarch64']) await cask(dir);
   await writeJson(path.join(dir, 'latest.json'), manifest);
   const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md', 'install-agent-remote-control.sh'].includes(path.basename(f)));
