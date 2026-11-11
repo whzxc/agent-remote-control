@@ -1118,15 +1118,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn codex_dispatch_signatures_expose_account_and_service_tier() {
+        // Regression: ax-9b7062e2 compact signatures omitted accepted account and serviceTier arguments.
+        for name in ["codex_create", "codex_send"] {
+            let op = catalog()["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|op| op["name"] == name)
+                .unwrap()
+                .clone();
+            let compact = signature(&op);
+            assert!(compact.contains("account?"));
+            assert!(compact.contains("serviceTier?"));
+        }
+    }
+
+    #[test]
     fn image_review_is_discoverable_in_common_and_review_guides() {
         // Regression: ax-eb961217 common discovery hid image reads during render review.
         let ops = catalog()["ops"].as_array().unwrap().clone();
         for product in ["chatgpt", "custom"] {
             let origin = json!({"product": product});
             let common = crate::control_profiles::guide(&origin, &json!({}), &ops);
-            assert!(common["ops"].as_array().unwrap().iter().any(|op| op["op"] == "read"));
+            assert!(common["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|op| op["op"] == "read"));
             let review = crate::control_profiles::guide(&origin, &json!({"topic":"review"}), &ops);
-            assert!(review["ops"].as_array().unwrap().iter().any(|op| op["op"] == "read"));
+            assert!(review["ops"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|op| op["op"] == "read"));
             assert!(string(&review, "content").contains("maxEdge"));
         }
     }

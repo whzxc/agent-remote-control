@@ -2099,6 +2099,8 @@
         "notify",
         "model",
         "effort",
+        "serviceTier",
+        "account",
         "reason",
         "pack"
       ]
@@ -2288,6 +2290,8 @@
         "sendMode",
         "model",
         "effort",
+        "serviceTier",
+        "account",
         "reason",
         "pack"
       ]

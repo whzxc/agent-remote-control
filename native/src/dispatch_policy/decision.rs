@@ -307,12 +307,43 @@ fn accounts(row: &Value) -> Value {
         .collect::<Vec<_>>())
 }
 
+// Only explicit field/value statements are machine-readable. Other prose stays with the controller.
+fn tier_mismatches(global: &str, policy: &Value) -> Vec<Value> {
+    let pattern =
+        regex::Regex::new(r#"(?i)\bserviceTier[`\"']*\s*(?:[:=]\s*)?[`\"']*(default|priority)\b"#)
+            .unwrap();
+    let mut mismatches = vec![];
+    for (scope, text) in [("global", global), ("codex", string(policy, "criteria"))] {
+        let tiers = pattern
+            .captures_iter(text)
+            .map(|c| c[1].to_lowercase())
+            .collect::<std::collections::BTreeSet<_>>();
+        if tiers.len() != 1 {
+            continue;
+        }
+        let tier = tiers.first().unwrap();
+        for (model, configured) in policy["serviceTiers"].as_object().into_iter().flatten() {
+            if configured.as_str().is_some_and(|value| value != tier) {
+                mismatches.push(json!({"code":"CRITERIA_SERVICE_TIER_MISMATCH", "criteriaScope":scope,
+                    "criteriaServiceTier":tier,"model":model,"overrideServiceTier":configured,
+                    "nextAction":"Pass serviceTier explicitly to codex_create/codex_send to follow the criteria. Reconcile the criteria and per-model override before relying on omitted defaults."}));
+            }
+        }
+    }
+    mismatches
+}
+
 pub(super) fn present(mut facts: Value, args: &Value) -> Value {
     let pack_agents = facts
         .as_object_mut()
         .and_then(|f| f.remove("packAgents"))
         .unwrap_or(Value::Null);
     let global = string(&facts, "criteria").to_owned();
+    for row in facts["agents"].as_array_mut().into_iter().flatten() {
+        if row["agent"] == "codex" {
+            row["policyMismatches"] = json!(tier_mismatches(&global, &row["policy"]));
+        }
+    }
     criteria(&mut facts, &global, "global", args);
     if args["view"] == "full" {
         for row in facts["agents"].as_array_mut().into_iter().flatten() {
@@ -354,7 +385,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
             others.push(format!("{agent}: {state}"));
             continue;
         }
-        let mut out = json!({"agent":agent,"accounts":accounts(row),"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
+        let mut out = json!({"agent":agent,"policyMismatches":row["policyMismatches"],"accounts":accounts(row),"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
         if available["discoveryError"].is_string() {
             out["error"] = available["discoveryError"].clone();
         }
@@ -483,6 +514,25 @@ fn configured(policy: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn criteria_tier_conflicts_survive_full_compact_and_cached_reads() {
+        // Regression: ax-9b7062e2 prose required default while the per-model override silently selected priority.
+        let facts = json!({"agents":[{"agent":"codex","policy":{"criteria":"Pass `serviceTier` `default` on every create and send.","serviceTiers":{"model-a":"priority","model-b":"default"}}}]});
+        for args in [
+            json!({}),
+            json!({"view":"full"}),
+            json!({"knownCriteriaHash":hash("Pass `serviceTier` `default` on every create and send.")}),
+        ] {
+            let result = present(facts.clone(), &args);
+            let conflicts = result["agents"][0]["policyMismatches"].as_array().unwrap();
+            assert_eq!(conflicts.len(), 1);
+            assert_eq!(conflicts[0]["model"], "model-a");
+            assert_eq!(conflicts[0]["criteriaServiceTier"], "default");
+            assert_eq!(conflicts[0]["overrideServiceTier"], "priority");
+            assert_eq!(conflicts[0]["code"], "CRITERIA_SERVICE_TIER_MISMATCH");
+        }
+    }
 
     #[test]
     fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
