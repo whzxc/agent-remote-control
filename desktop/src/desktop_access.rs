@@ -50,6 +50,8 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
             }
             ("POST", "app/quit" | "app/restart") => {
                 let restart = route == "app/restart";
+                #[cfg(target_os = "macos")]
+                let relaunch = restart.then(arc_core::runtime::app_relaunch).transpose()?;
                 let service = app
                     .state::<std::sync::Arc<arc_core::runtime::Client>>()
                     .inner()
@@ -59,10 +61,36 @@ pub async fn request(app: &tauri::AppHandle, operation: DesktopRequest) -> Resul
                     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                     // Drain while the event loop can still serve in-flight desktop
                     // requests. Waiting for them from RunEvent::Exit can deadlock.
-                    service.close().await;
                     app.state::<crate::updates::State>()
                         .closing
                         .store(true, std::sync::atomic::Ordering::SeqCst);
+                    #[cfg(target_os = "macos")]
+                    if let Some(mut relaunch) = relaunch {
+                        // A surviving Core can retain the replaced Desktop's privacy
+                        // attribution. Stop it before the LaunchServices handoff.
+                        let result = match service.shutdown().await {
+                            Ok(()) => relaunch
+                                .spawn()
+                                .map(|mut child| {
+                                    std::thread::spawn(move || {
+                                        let _ = child.wait();
+                                    });
+                                })
+                                .map_err(|e| format!("APP_RESTART_FAILED: {e}")),
+                            Err(error) => Err(error),
+                        };
+                        if let Err(error) = result {
+                            arc_core::logs::record("ERROR", &format!("App restart: {error}"), None);
+                            app.state::<crate::updates::State>()
+                                .closing
+                                .store(false, std::sync::atomic::Ordering::SeqCst);
+                            service.resume().await;
+                            return;
+                        }
+                        app.exit(0);
+                        return;
+                    }
+                    service.close().await;
                     if restart {
                         app.request_restart();
                     } else {

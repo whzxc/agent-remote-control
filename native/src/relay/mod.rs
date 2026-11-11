@@ -375,8 +375,16 @@ pub(crate) fn request<'a>(
                 .await
                 .map_err(Into::into),
             "leave" => {
-                transport::control(&client, url, &Identity::instance()?, json!({"op":"leave"}))
-                    .await?;
+                if let Err(error) =
+                    transport::control(&client, url, &Identity::instance()?, json!({"op":"leave"}))
+                        .await
+                {
+                    if error.status != Some(reqwest::StatusCode::NOT_FOUND)
+                        || !transport::worker_missing(&client, url).await?
+                    {
+                        return Err(error.into());
+                    }
+                }
                 remove_ingress(service, &config).await?;
                 if config["owner"] == true {
                     let mut config = config.clone();
@@ -440,6 +448,132 @@ pub(crate) fn request<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Each relay fixture gets a private state directory in a separate test process.
+    fn isolated_leave_case() -> Option<std::process::ExitStatus> {
+        if std::env::var_os("ARC_RELAY_LEAVE_FIXTURE").is_some() {
+            return None;
+        }
+        let directory = std::env::temp_dir().join(format!("arc-relay-leave-{}", id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let result = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "relay::tests::member_leaves_a_deleted_worker_and_removes_its_ingress",
+                "--nocapture",
+            ])
+            .env("ARC_STATE_DIR", &directory)
+            .env("ARC_RELAY_LEAVE_FIXTURE", "1")
+            .status()
+            .unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
+        Some(result)
+    }
+
+    async fn member_leave_fixture(
+        url: &str,
+    ) -> (Arc<crate::front_door::owner::Gateway>, String, String) {
+        crate::sources::initialize().unwrap();
+        let service = crate::front_door::owner::Gateway::new().unwrap();
+        let relay_id = id();
+        let ingress_id = id();
+        service
+            .request(
+                "ingress",
+                "POST",
+                json!({
+                    "id":ingress_id,"name":"Relay fixture","controlSource":"shared-relay",
+                    "transport":"relay","auth":"oauth","enabled":false,
+                    "config":{"relayUrl":"https://relay.example","relayInstanceId":"a".repeat(64)}
+                }),
+            )
+            .await
+            .unwrap();
+        save(
+            &directory(&relay_id).unwrap().join("config.json"),
+            &json!({
+                "id":relay_id,"url":url,"owner":false,"ingressId":ingress_id
+            }),
+        )
+        .unwrap();
+        (service, relay_id, ingress_id)
+    }
+
+    #[tokio::test]
+    async fn member_leaves_a_deleted_worker_and_removes_its_ingress() {
+        // Regression: 95b563ad left member records and ingress behind when the deleted Worker's challenge returned 404.
+        if let Some(status) = isolated_leave_case() {
+            assert!(status.success());
+            return;
+        }
+        crate::init_crypto();
+        use std::sync::atomic::{AtomicU16, Ordering};
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let codes = Arc::new((AtomicU16::new(200), AtomicU16::new(404)));
+        let response_codes = codes.clone();
+        let server = tokio::spawn(async move {
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut stream = tokio::io::BufReader::new(stream);
+                let mut request = String::new();
+                stream.read_line(&mut request).await.unwrap();
+                let status = if request.starts_with("GET / ") {
+                    response_codes.0.load(Ordering::SeqCst)
+                } else {
+                    response_codes.1.load(Ordering::SeqCst)
+                };
+                loop {
+                    let mut line = String::new();
+                    if stream.read_line(&mut line).await.unwrap() == 0 || line == "\r\n" {
+                        break;
+                    }
+                }
+                let response = format!(
+                    "HTTP/1.1 {status} Fixture\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                stream
+                    .get_mut()
+                    .write_all(response.as_bytes())
+                    .await
+                    .unwrap();
+            }
+        });
+        let (service, relay_id, ingress_id) = member_leave_fixture(&url).await;
+        let args = json!({"id":relay_id});
+        // One missing route cannot authorize local cleanup of a reachable Worker.
+        assert!(request(&service, "relay/leave", "POST", args.clone())
+            .await
+            .is_err());
+        assert!(service.ingress(&ingress_id).await.is_ok());
+        codes.0.store(404, Ordering::SeqCst);
+        codes.1.store(403, Ordering::SeqCst);
+        assert!(request(&service, "relay/leave", "POST", args.clone())
+            .await
+            .is_err());
+        assert!(request(&service, "relay/list", "GET", json!({}))
+            .await
+            .unwrap()["relays"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|relay| relay["id"] == relay_id));
+        codes.1.store(404, Ordering::SeqCst);
+        let result = request(&service, "relay/leave", "POST", args)
+            .await
+            .unwrap();
+        assert_eq!(result["left"], true);
+        assert!(service.ingress(&ingress_id).await.is_err());
+        assert!(request(&service, "relay/list", "GET", json!({}))
+            .await
+            .unwrap()["relays"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        server.abort();
+        let _ = server.await;
+    }
     #[test]
     fn cancelled_creation_reuses_only_an_undeployed_draft() {
         // Regression: 42f9056; cancelled creation reuses only an undeployed draft.

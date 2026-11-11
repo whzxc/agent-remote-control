@@ -323,6 +323,13 @@ Core loss leaves front-door sockets and providers alive, but business requests w
 within their admission deadlines until an explicit Desktop or headless Core start.
 There is no independent macOS Core restart owner.
 
+Explicit macOS `app.restart` drains and stops Core, then exits Desktop. A detached
+handoff waits for the old Desktop to exit and uses `/usr/bin/open -a` on the same
+bundle, preserving arguments. LaunchServices starts the replacement Desktop;
+its heartbeat starts a fresh Core. Core retains the app's privacy attribution
+rather than disclaiming responsibility through private spawn attributes.
+Ordinary Desktop quit retains the lease-based Core shutdown policy.
+
 macOS uninstall stops Core, acquires replacement exclusion, stops the front door,
 reclaims any indexed provider children and removes the front-door image directory,
 metadata, private IPC directory and child index. Detached executor cleanup follows

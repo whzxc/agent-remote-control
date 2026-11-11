@@ -483,6 +483,22 @@ fn device_cli_errors_preserve_json_codes() {
         assert_eq!(result["next"]["op"], "guide");
     }
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn host_unreachable_dial_retains_os_evidence_and_app_recovery() {
+    // Regression: macOS LAN privacy denial surfaced only os error 65 with no quit-and-reopen recovery.
+    let os_error = std::io::Error::from_raw_os_error(libc::EHOSTUNREACH);
+    let message = client::lan_connect_error(&os_error);
+    let diagnostic =
+        client::lan_dial_error(&[("192.168.1.6:7143".parse().unwrap(), None, message)]);
+    assert!(diagnostic.starts_with("DEVICE_LAN_UNAVAILABLE:"));
+    assert!(diagnostic.contains(&os_error.to_string()));
+    assert!(diagnostic.contains("arc cli app quit"));
+    assert!(diagnostic.contains("open -a"));
+    let refused = std::io::Error::from_raw_os_error(libc::ECONNREFUSED);
+    assert_eq!(client::lan_connect_error(&refused), refused.to_string());
+}
 #[test]
 fn peer_envelope_preserves_receipt_and_blocks_management() {
     // Contract: peer envelopes preserve receipt IDs and reject local management and multihop operations.

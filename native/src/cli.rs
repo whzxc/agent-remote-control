@@ -485,6 +485,21 @@ pub fn error_response(message: &str, usage: &str, args: &[&str]) -> Value {
             json!(args.get(1))
         );
     }
+    let argument_error = command_usage(args).is_err()
+        || matches!(code, "INVALID_ARGUMENT" | "UNKNOWN_OPERATION")
+        || [
+            "Invalid stdin JSON",
+            "Standard input must be",
+            "Input exceeds",
+            "Unknown fields:",
+            "A patch cannot contain id",
+            "Command arguments do not match",
+        ]
+        .iter()
+        .any(|prefix| message.starts_with(prefix));
+    if !argument_error {
+        return json!({"schemaVersion":1,"ok":false,"error":{"code":code,"message":message},"next":{"via":"query","op":"guide","args":{},"hint":"Inspect the reported runtime failure, then retry the operation."}});
+    }
     let separator = if message.ends_with('.') { " " } else { ". " };
     message.push_str(&format!("{separator}Correct usage: {usage}"));
     let mut error = json!({"code":code,"message":message,"usage":usage});
@@ -963,6 +978,25 @@ pub async fn run(args: Vec<String>) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_failures_do_not_prescribe_argument_corrections() {
+        // Regression: relay.leave challenge HTTP 404 appended usage to a valid cli call invocation.
+        let args = ["call", "relay.leave", "--stdin"];
+        let usage = command_usage(&args).unwrap();
+        let message = "Relay challenge HTTP 404 Not Found";
+        let failure = error_response(message, &usage, &args);
+        assert_eq!(failure["ok"], false);
+        assert_eq!(failure["error"]["code"], "COMMAND_FAILED");
+        assert_eq!(failure["error"]["message"], message);
+        assert!(failure["error"]["usage"].is_null());
+        let invalid = error_response(
+            "INVALID_ARGUMENT: read schema for relay.leave",
+            &usage,
+            &args,
+        );
+        assert_eq!(invalid["error"]["usage"], usage);
+    }
 
     #[test]
     fn revoked_source_error_preserves_authorization_recovery() {

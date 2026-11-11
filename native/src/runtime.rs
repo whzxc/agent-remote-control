@@ -9,6 +9,49 @@ use std::{
 use tokio::sync::{Notify, RwLock, RwLockReadGuard};
 
 const LEASE_TTL: Duration = Duration::from_secs(10);
+
+/// Prepare a LaunchServices handoff without starting another Desktop yet.
+#[cfg(target_os = "macos")]
+pub fn app_relaunch() -> Result<std::process::Command> {
+    use std::os::unix::process::CommandExt;
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    let bundle = executable
+        .parent()
+        .filter(|path| path.ends_with("Contents/MacOS"))
+        .and_then(|path| path.parent())
+        .and_then(|path| path.parent())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "app"))
+        .ok_or("APP_RESTART_UNAVAILABLE: Restart requires an application bundle. Quit and start the development entry point again.")?;
+    let mut command = std::process::Command::new("/bin/sh");
+    command
+        .args(["-c", include_str!("relaunch-macos.sh"), "arc-app-relaunch"])
+        .arg(std::process::id().to_string())
+        .args(["/usr/bin/open", "-a"])
+        .arg(bundle)
+        .arg("--args")
+        .args(std::env::args_os().skip(1))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(root().join("core.log"))
+                .map_err(|e| e.to_string())?,
+        );
+    // Session isolation is separate from macOS responsibility. LaunchServices
+    // establishes the new app identity; its fresh Core inherits that identity.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                Err(std::io::Error::last_os_error())
+            } else {
+                Ok(())
+            }
+        });
+    }
+    Ok(command)
+}
 struct Lease {
     pid: u32,
     kind: String,

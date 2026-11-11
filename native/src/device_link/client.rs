@@ -136,7 +136,7 @@ impl Session {
                                 | ErrorKind::NotFound => None,
                                 _ => Some(false),
                             };
-                            return Err((refused, error.to_string()));
+                            return Err((refused, lan_connect_error(&error)));
                         }
                         Err(_) => return Err((Some(false), "TCP connect deadline expired".into())),
                     };
@@ -179,6 +179,14 @@ impl Session {
         }
         Err(lan_dial_error(&failures))
     }
+}
+/// Keep the OS evidence and add recovery only for macOS host-unreachable dials.
+pub fn lan_connect_error(error: &std::io::Error) -> String {
+    let message = error.to_string();
+    if cfg!(target_os = "macos") && error.raw_os_error() == Some(libc::EHOSTUNREACH) {
+        return format!("{message}; macOS Local Network permission may be blocking ARC. Check System Settings > Privacy & Security > Local Network, then run `arc cli app quit` and reopen Agent Remote Control with `open -a \"Agent Remote Control\"`");
+    }
+    message
 }
 /// Select diagnostic evidence independently of the order in which dials finish.
 pub fn lan_dial_error(failures: &[(SocketAddr, Option<bool>, String)]) -> String {

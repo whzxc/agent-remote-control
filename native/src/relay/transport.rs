@@ -174,6 +174,26 @@ pub(super) async fn control(
         }),
     }
 }
+
+/// Members have no Cloudflare credentials. A missing root and challenge together
+/// distinguish a removed Worker from one missing management route.
+pub(super) async fn worker_missing(client: &reqwest::Client, origin: &str) -> Result<bool> {
+    for (method, path) in [
+        (reqwest::Method::GET, "/"),
+        (reqwest::Method::POST, "/challenge"),
+    ] {
+        let response = client
+            .request(method, format!("{origin}{path}"))
+            .timeout(Duration::from_secs(20))
+            .send()
+            .await
+            .map_err(|e| format!("Cannot confirm missing relay Worker: {}", e.without_url()))?;
+        if response.status() != reqwest::StatusCode::NOT_FOUND {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
 pub(crate) async fn upgrade(
     client: &reqwest::Client,
     origin: &str,
