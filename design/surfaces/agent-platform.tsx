@@ -64,7 +64,8 @@ export default () => [
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} state="empty" />
   </Frame>,
-  <Frame name="loading" note="The platform does not show a loading message during its initial account read.">
+  <Frame name="loading" fixture="agent-platform-loading"
+    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} state="loading" />
   </Frame>,
   <Frame name="native" note="Unavailable: zero-account native platforms currently open Agent history.">

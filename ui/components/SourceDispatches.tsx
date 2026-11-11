@@ -7,7 +7,7 @@ import { useAppNow } from "../state/appEnvironment";
 import { useEffect, useRef, useState } from "react";
 import { MessagesSquare } from "lucide-react";
 import { locale, t } from "../i18n";
-import { tasks } from "../state/tasks";
+import { refreshTasks, tasks } from "../state/tasks";
 import { trackedActivity } from "../state/activityBubbles";
 import { activitySections } from "../state/activitySections";
 import { agentActivity } from "../state/activity";
@@ -15,13 +15,13 @@ import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, dispatchTaskId } from "../state/sourceDispatch";
 import { PhaseTile } from "./activity";
-import { Empty, Notice } from "./ui";
+import { Button, Empty, Loading, Notice } from "./ui";
 import { TaskRow } from "./ui/TaskRow";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const now = useAppNow(60_000), language = locale.use();
   const tracked = trackedActivity.use();
-  const { records, error } = tasks.use(), { snapshot } = agentActivity.use();
+  const { records, error, loading } = tasks.use(), { snapshot } = agentActivity.use();
   taskExecutions.use();
   const submissions = activityApprovals.use();
   const [visible, setVisible] = useState(8);
@@ -65,9 +65,10 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
     void read(); const timer = setInterval(() => void read(), 10000);
     return () => { stopped = true; clearInterval(timer); };
   }, [identityKey]);
-  const empty = !rows.length && !error;
-  return <div className={empty ? 'activity-task-list agent-conversations' : 'source-dispatch-list'} data-empty={empty || undefined}>
-    {error && <Notice>{error}</Notice>}
+  const empty = !rows.length && !error && !loading;
+  return <div className={empty ? 'activity-task-list agent-conversations' : 'source-dispatch-list'} data-empty={empty || undefined} aria-busy={loading}>
+    {error && <Notice action={<Button onClick={() => void refreshTasks()}>{t('retry')}</Button>}>{error}</Notice>}
+    {loading && !rows.length && <Loading />}
     {sections.map(({ id: groupId, date, entries }) => {
       const shown = entries.filter(record => visibleIds.has(record.requestId));
       if (!shown.length) return null;

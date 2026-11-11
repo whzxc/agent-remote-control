@@ -3,18 +3,21 @@ import PetPicker from '../pets/PetPicker';
 import { Plus } from 'lucide-react';
 import { t } from '../i18n';
 import { controlSourcePlatform, controlSources, sourcePlatforms } from '../controlSources';
-import { connector } from '../state/connector';
+import { connector, refreshConnector } from '../state/connector';
 import { navigation } from '../state/navigation';
 import { openOnboarding } from '../state/onboarding';
 import { isLocalSource, isPendingSource } from '../sourcePresentation';
-import { Button, Empty, Icon, Menu, Notice, SingleChoice } from './ui';
+import { Button, Empty, Icon, Loading, Menu, Notice, SingleChoice } from './ui';
 import ConnectorCard from './objects/ConnectorCard';
 import SourceIcon from './SourceIcon';
 
 export function PlatformConnectors({ platform }: { platform: string }) {
   const { sources, status, sourcesLoaded, error } = connector.use();
   const entries = sources.filter(source => !isLocalSource(source) && source.state !== 'revoked' && !isPendingSource(source, status?.ingresses ?? []) && controlSourcePlatform(source.product).id === platform);
-  return <div className="platform-connectors">{error && <Notice>{error}</Notice>}{!sourcesLoaded ? <p role="status">{t('loading')}</p> : entries.length ? entries.map(source => <ConnectorCard key={source.id} source={source} />) : <Empty>{t('platforms.empty')}</Empty>}</div>;
+  return <div className="platform-connectors" aria-busy={!sourcesLoaded && !error}>
+    {error && <Notice action={<Button onClick={() => void refreshConnector().catch(() => {})}>{t('retry')}</Button>}>{error}</Notice>}
+    {entries.length ? entries.map(source => <ConnectorCard key={source.id} source={source} />) : !error && (sourcesLoaded ? <Empty>{t('platforms.empty')}</Empty> : <Loading />)}
+  </div>;
 }
 export default function PlatformsPage() {
   const nav = navigation.use();

@@ -63,7 +63,7 @@ export function refreshTasks() {
       revision = data.revision;
       const current = tasks.get();
       if (!data.records || data.records === current.records) {
-        if (current.error) tasks.set({ ...current, error: "" });
+        if (current.loading || current.error) tasks.set({ ...current, loading: false, error: "" });
         return;
       }
       let records = data.records;

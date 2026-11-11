@@ -19,7 +19,7 @@ import { connector } from './state/connector';
 import { agents, type Agent } from './state/agents';
 import type { CatalogModel } from './state/dispatchCatalog';
 import { acceptActivity, resetActivityCore } from './state/activity';
-import { tasks } from './state/tasks';
+import { refreshTasks, tasks } from './state/tasks';
 import { permissions } from './state/permissions';
 import { subscriptions } from './state/subscriptions';
 import { acceptPreferences } from './state/store';
@@ -37,7 +37,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -57,7 +57,12 @@ function readTimeline(timeline: AgentTimeline, recent: boolean) {
   });
 }
 export function scenarioResponse(path: string, method: string, body?: unknown): unknown {
-  try { return respondToScenario(path, method, body); }
+  try {
+    const result = respondToScenario(path, method, body);
+    const slow = responses.slowDock;
+    return (slow === 'accounts' && path === 'accounts' || slow === 'dispatches' && path === 'tasks') && method === 'GET'
+      ? new Promise(resolve => setTimeout(() => resolve(result), 1500)) : result;
+  }
   catch (error) {
     if (/SCENARIO_(ROUTE|ACTION|TIMELINE)_UNAVAILABLE/.test(String(error))) missingScenarioRoute(path, method);
     throw error;
@@ -382,6 +387,7 @@ export async function installScenario(name: string) {
   }])) };
   responses = { dispatchModels: fixture.dispatchModels, reviewUnavailable: fixture.reviewUnavailable, ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
   responses.historyDelayMs = fixture.historyDelayMs;
+  responses.slowDock = fixture.slowDock;
   responses.timelineRecent = name === 'timeline-recent';
   if (fixture.pets) {
     responses.pets = installPetFixture(!!fixture.mascots);
@@ -407,7 +413,7 @@ export async function installScenario(name: string) {
   acceptActivity(activity);
   acceptActivity(initialActivity);
   for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
-  tasks.set({ records, loading: false, error: '' });
+  tasks.set({ records: fixture.slowDock === 'dispatches' ? [] : records, loading: fixture.slowDock === 'dispatches', error: '' });
   permissions.set({ data: permissionData, loading: false, error: '' });
   subscriptions.set({ snapshot: subscriptionData, error: '' });
   return async () => {
@@ -424,6 +430,7 @@ export async function installScenario(name: string) {
       for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
     }
     openSnapshotPanel(fixture.panel);
+    if (fixture.slowDock === 'dispatches') void refreshTasks();
     if (fixture.platformAgent) selectAgentPanel({ type: 'platform', agent: fixture.platformAgent });
     if (fixture.detailTask !== undefined) {
       await settledViewModel();

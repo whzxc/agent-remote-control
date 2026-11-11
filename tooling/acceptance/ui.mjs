@@ -57,7 +57,7 @@ try {
     if (setupOnly && !setup) continue;
     for (const { width, height } of fixture.viewports ?? report.viewports) {
       const name = file.slice(0, -5), key = `${name}-${width}x${height}`;
-      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: fixture.historyDelayMs ? 'no-preference' : 'reduce', locale: 'en-US',
+      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: fixture.historyDelayMs || fixture.slowDock ? 'no-preference' : 'reduce', locale: 'en-US',
         timezoneId: fixture.timezone ?? (name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined) });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -185,6 +185,25 @@ try {
           if (loadingBox && Math.abs(loadingBox.y - loadedBox.y) > 1) throw new Error('The Agent overview moved its top edge when history arrived.');
         }
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
+        if (fixture.slowDock) {
+          const dialog = page.getByRole('dialog');
+          const loading = dialog.getByRole('status').filter({ hasText: '正在加载…' });
+          await loading.waitFor();
+          const initial = await dialog.boundingBox();
+          if (screenshots) await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
+          const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
+            : dialog.getByRole('button', { name: /Review the example change/ });
+          await content.waitFor();
+          const settled = await dialog.evaluate(async (element, startHeight) => {
+            for (let frame = 0; frame < 40; frame++) {
+              await new Promise(requestAnimationFrame);
+              const { y, height } = element.getBoundingClientRect();
+              if (height > startHeight + 1) return { y, height };
+            }
+          }, initial?.height ?? 0);
+          if (!initial || !settled || Math.abs(settled.y - initial.y) > 1) throw new Error('The overview did not grow from its fixed top edge.');
+          await loading.waitFor({ state: 'hidden' });
+        }
         if (fixture.coordination) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           row.coordination = await verifyCoordination(page, fixture, messages, out, key, screenshots);
@@ -315,11 +334,18 @@ try {
             }
           }
           if (name === 'dispatch-states') {
-            await page.getByRole('button', { name: /Earlier completed dispatch/ }).getByText(messages['detail.state.done'], { exact: true }).waitFor();
+            const source = page.getByRole('dialog', { name: 'Claude', exact: true });
+            const heading = source.getByRole('banner').getByRole('heading', { name: 'Claude', exact: true });
+            const earlier = source.getByRole('button', { name: /Earlier completed dispatch/ });
+            await earlier.getByText(messages['detail.state.done'], { exact: true }).waitFor();
             await page.getByRole('button', { name: /Current running dispatch/ }).getByText(messages['detail.state.running'], { exact: true }).waitFor();
             await page.getByRole('button', { name: /Submission awaiting-approval/ }).getByText(messages['sourcePanel.awaitingApproval'], { exact: true }).waitFor();
             await page.getByRole('button', { name: /Submission reserved/ }).getByText(messages['sourcePanel.submitting'], { exact: true }).waitFor();
-            await page.getByRole('button', { name: /Earlier completed dispatch/ }).click();
+            const top = await heading.boundingBox();
+            await earlier.scrollIntoViewIfNeeded();
+            const after = await heading.boundingBox();
+            if (!top || !after || Math.abs(top.y - after.y) > 1) throw new Error('The source header moved while scrolling dispatch history.');
+            await earlier.click();
             await page.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
             await page.getByText(messages['detail.selectedTurn'].replace('{count}', '1'), { exact: true }).waitFor();
           }

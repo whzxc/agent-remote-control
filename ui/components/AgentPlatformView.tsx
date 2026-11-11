@@ -3,7 +3,7 @@ import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { Plus, RefreshCw, Settings, X } from 'lucide-react';
 import { t } from '../i18n';
-import { useAccounts } from '../state/accounts';
+import { refreshAccounts, useAccounts } from '../state/accounts';
 import { name, refreshAgents, type Agent } from '../state/agents';
 import { managesAgentAccounts, selectAgentPanel } from '../state/overviewPanels';
 import { topologyAccountOrder } from '../topology/accountState';
@@ -11,7 +11,7 @@ import { orderedSubset } from '../topology/order';
 import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
 import { AgentAccountCard } from './AccountCards';
 import AgentAccountAdd from './AgentAccountAdd';
-import { Button, DialogClose, Icon, IconButton, Notice } from './ui';
+import { Button, DialogClose, Icon, IconButton, Loading, Notice } from './ui';
 import { Card } from './ui/card';
 import type { ProviderAccount } from '../types';
 import { readOnlyBrowser } from '../browserMode';
@@ -37,8 +37,9 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
         <DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose>
       </div>
     </header>
-    <div className="agent-view-scroll">
-      {state.error && <Notice>{state.error}</Notice>}
+    <div className="agent-view-scroll" aria-busy={state.loading}>
+      {state.error && <Notice action={<Button onClick={() => void refreshAccounts()}>{t('retry')}</Button>}>{state.error}</Notice>}
+      {state.loading && !accounts.length && <Loading />}
       {accounts.map(account => <AgentAccountCard key={account.id} account={account}
         profile={account.agentProfiles.find(profile => profile.agent === agent.agent)!}
         onReauth={canLogin ? () => setLogin({ account }) : undefined}

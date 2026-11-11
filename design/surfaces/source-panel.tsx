@@ -66,7 +66,7 @@ export default () => [
   >
     <SourcePanel form="platform" />
   </Frame>,
-  <Frame name="loading" note="The current dispatch panel does not distinguish an initial read from an empty result.">
+  <Frame name="loading" fixture="source-panel-loading" capture={{ region: "Claude", viewport: "1280x800" }}>
     <SourcePanel form="loading" />
   </Frame>,
 ];

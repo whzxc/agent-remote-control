@@ -1036,10 +1036,12 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .dialog.activity-panel[data-panel-fit] { height: var(--dock-fit-height, auto); }
 .activity-panel[data-panel-fit] > .elastic-panel-content { height: auto; }
 .activity-panel[data-panel-fit] .agent-panel-view,
-.activity-panel[data-panel-fit] .agent-panel-layer { height: auto; flex: 0 1 auto; }
-.activity-panel[data-panel-fit] .agent-view-scroll { flex: 0 1 auto; }
+.activity-panel[data-panel-fit] .agent-panel-layer,
+.activity-panel[data-panel-fit] .side-panel-layer { height: auto; flex: 0 1 auto; }
+.activity-panel[data-panel-fit] .agent-view-scroll,
+.activity-panel[data-panel-fit] .side-panel-scroll { flex: 0 1 auto; }
 .activity-panel[data-panel-fit] .agent-view-scroll:has(> .agent-conversations > .loading:only-child) { gap: 0; }
-.activity-panel[data-panel-fit] .agent-conversations > .loading { font-size: var(--text-lg); }
+.activity-panel[data-panel-fit] :is(.agent-conversations, .agent-platform-view .agent-view-scroll, .source-dispatch-list, .platform-connectors) > .loading { font-size: var(--text-lg); }
 
 /* ARC status arcs follow the mark. Their revealed buttons stay upright. */
 .hub-arc-orbit, .hub-arc, .hub-arc > svg { position: absolute; inset: 0; pointer-events: none; }
@@ -1077,6 +1079,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 /* Approved source, platform and account surfaces. */
 .dialog.elastic-panel:has(.source-account-header, .agent-platform-view) { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); box-shadow: var(--shadow-lg); }
 .elastic-panel .source-account-header, .elastic-panel .agent-platform-view > .agent-panel-header { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 21px 24px 29px; }
+.activity-panel[data-panel-fit] .side-panel-layer:has(.source-dispatch-list > .loading:only-child) > .source-account-header { padding-bottom: 0; }
 .elastic-panel .source-account-header h2, .elastic-panel .agent-platform-view .agent-panel-heading h2 { font-size: var(--text-title); line-height: 24px; font-weight: 650; }
 .source-account-brand .source-icon, .source-account-brand .source-icon > span, .source-account-brand .source-icon svg { width: 32px; height: 32px; }
 .elastic-panel .source-account-header .actions, .elastic-panel .agent-platform-view .agent-panel-header .actions { gap: 6px; margin: 0; }

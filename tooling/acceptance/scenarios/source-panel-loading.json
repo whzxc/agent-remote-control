@@ -1,0 +1,12 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": ["codex"],
+  "tasks": [
+    { "agent": "codex", "phase": "thinking", "title": "Review the example change", "headline": "Waiting for a decision", "approval": true },
+    { "agent": "codex", "phase": "thinking", "title": "Update example documentation", "headline": "Editing the guide" }
+  ],
+  "panel": { "kind": "source", "id": "fixture-source" },
+  "slowDock": "dispatches",
+  "viewports": [{ "width": 1280, "height": 800 }, { "width": 640, "height": 800 }]
+}

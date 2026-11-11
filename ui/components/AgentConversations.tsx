@@ -16,6 +16,7 @@ import { activitySections } from "../state/activitySections";
 import { taskState } from "../state/taskProjection";
 import { ActivityBubbleContent } from "./ActivityBubbles";
 import { Button, Empty, Loading, Notice } from "./ui";
+import { dockLoadingDelay } from "./useDockOpening";
 
 const ConversationRow = memo(function ConversationRow({ agent, session, live, now, index }: {
   agent: string; session: TrackedActivity; live: boolean; now: number; index: number;
@@ -33,7 +34,6 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
   && (next.live ? previous.now === next.now : new Date(previous.now).getFullYear() === new Date(next.now).getFullYear())
   && JSON.stringify(previous.session) === JSON.stringify(next.session));
 
-export const historyLoadingDelay = 200;
 export const readConversationPage = (agent: string, cursor?: string) => api<AgentConversationPage>("agents/conversations", "POST", { agent, limit: 20, ...(cursor ? { cursor } : {}) });
 export type InitialAgentHistory = {
   request: Promise<AgentConversationPage>;
@@ -132,7 +132,7 @@ export default function AgentConversations({ agent, account, accountId, active, 
   const [showLoading, setShowLoading] = useState(!!initial?.timedOut);
   useEffect(() => {
     if (!initialLoading) { setShowLoading(false); return; }
-    const timer = setTimeout(() => setShowLoading(true), historyLoadingDelay);
+    const timer = setTimeout(() => setShowLoading(true), dockLoadingDelay);
     return () => clearTimeout(timer);
   }, [initialLoading]);
   return <div className="activity-task-list agent-conversations" data-empty={empty || undefined} aria-busy={active && loading}>
