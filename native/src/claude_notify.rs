@@ -113,6 +113,8 @@ struct Delivery {
     continuation: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     recovery: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    progress: Value,
     #[serde(default)]
     timing: DeliveryTiming,
     #[serde(default)]
@@ -629,6 +631,9 @@ pub(crate) fn retry_status(thread: &str, turn: &str) -> Result<Value> {
     )
 }
 fn event_kind(d: &Delivery) -> &'static str {
+    if d.state == "stalled" {
+        return "stalled";
+    }
     match d.task_state.as_str() {
         "handoff" => "handoff",
         "recovered" => "recovered",
@@ -643,6 +648,8 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     let agent = !b.agent.is_empty() && b.agent != "codex";
     let next = if kind == "recovered" {
         json!({"via":"query","op":"notify_status","args":{"target":d.target},"hint":"Inspect affected bindings and reconnect the control-source client if needed."})
+    } else if kind == "stalled" {
+        d.progress["next"].clone()
     } else if kind == "handoff" {
         json!({"via":"query","op":"codex_owner","args":{"threadId":b.thread_id},"hint":"Inspect the current writer and observed handoff history before continuing."})
     } else if kind == "needs-input" {
@@ -656,7 +663,7 @@ fn event(b: &Binding, d: &Delivery) -> Value {
     } else {
         json!({"hint":"Read the result and review its changes.","via":"query","op":"codex_read","args":{"threadId":b.thread_id}})
     };
-    let mut event = json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}});
+    let mut event = json!({"eventId":d.event_id,"kind":kind,"project":b.project,"threadId":if agent {Value::Null}else{json!(b.thread_id)},"taskId":if agent {json!(b.thread_id)}else{Value::Null},"agent":if agent {json!(b.agent)}else{json!("codex")},"turnId":b.turn_id,"title":task_title(b),"channel":d.channel,"target":if d.target.is_empty(){Value::Null}else{json!(d.target)},"causedBy":b.caused_by,"summary":glyph(d),"progress":d.progress,"interaction":d.interaction,"questionSummary":crate::egress::interaction_preview(&d.interaction),"routing":d.interaction["routing"],"dispatches":d.dispatches,"externalUserInputs":d.external_user_inputs,"finalResponse":d.final_response,"error":if kind=="handoff" {Value::Null}else{d.task_error.clone()},"reconciliation":d.reconciliation,"continuation":d.continuation,"recovery":d.recovery,"ownership":if kind=="handoff" {d.task_error.clone()}else{Value::Null},"next":if d.interaction["next"].is_object() {d.interaction["next"].clone()} else {next}});
     crate::egress::strip_notification_internal(&mut event);
     event
 }
@@ -682,7 +689,7 @@ fn task_title(b: &Binding) -> &str {
 const RECEIPT_HEADER: &str = "⟢ ARC · automated, not from the user · guide topic:notify";
 // Push text identifies tasks; complete results remain in structured events.
 // Attention-first order of the glyph vocabulary declared in the notify guide.
-const GLYPHS: [&str; 9] = [
+const GLYPHS: [&str; 10] = [
     "? input",
     "⚑ approve",
     "✗ failed",
@@ -692,11 +699,13 @@ const GLYPHS: [&str; 9] = [
     "↔ handoff",
     "↻ revived",
     MAIL,
+    "! stalled",
 ];
 const MAIL: &str = "✉ mail";
 
 fn glyph(d: &Delivery) -> &'static str {
     match event_kind(d) {
+        "stalled" => GLYPHS[9],
         "recovered" => GLYPHS[7],
         "handoff" => GLYPHS[6],
         "completed" => GLYPHS[5],
@@ -763,6 +772,11 @@ fn transitions(b: &mut Binding, observed: &Value, native_terminal: bool) -> Vec<
     }
     if turn == TurnState::Active {
         b.waiting.clear();
+        if observed["progressStalled"] == true
+            && !b.deliveries.iter().any(|d| d.key == "progress-stalled")
+        {
+            return vec![("progress-stalled".into(), "stalled".into())];
+        }
     }
     if turn != TurnState::AwaitingInteraction {
         return vec![];
@@ -1141,6 +1155,12 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         }
     }
     let observation = &projected;
+    let progress = if observation["progressStalled"] == true {
+        let observed = &observation["progress"];
+        json!({"progressStalled":true,"reason":observed["reason"],"evidence":observed["evidence"],"next":observed["next"]})
+    } else {
+        Value::Null
+    };
     let reconciliation = if (b.observation["reconciliation"] == "pending-after-restart"
         || observer::exhausted(b))
         && b.terminal()
@@ -1162,7 +1182,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
         let mut diagnostic = json!({"state":observation["state"],"reason":observation["reason"],
             "runtimeSource":observation["runtimeSource"],"runtimeStatus":observation["runtimeStatus"],
             "recordedStatus":observation["recordedStatus"],"conflict":observation["conflict"],"observedAt":if observation["state"]=="unconfirmed" {b.observation["observedAt"].clone()}else{observation["observedAt"].clone()},
-            "reconciliation":if observation["state"]=="unconfirmed" {"pending-after-restart"}else{"reconciled"}});
+            "progressStalled":observation["progressStalled"],"progress":progress,"reconciliation":if observation["state"]=="unconfirmed" {"pending-after-restart"}else{"reconciled"}});
         if observation["state"] == "unconfirmed" {
             let failed = observer::unavailable(b, string(observation, "reason"));
             for key in ["reconciliation", "reconciliationAttempts", "lastError"] {
@@ -1240,6 +1260,16 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
                 }
                 resolved = true;
             }
+        }
+    }
+    for delivery in &mut b.deliveries {
+        if delivery.key == "progress-stalled"
+            && delivery.status == "pending"
+            && observation["progressStalled"] != true
+            && observation["state"] != "unconfirmed"
+        {
+            delivery.status = "resolved".into();
+            resolved = true;
         }
     }
     if native_terminal {
@@ -1349,6 +1379,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
             reconciliation: reconciliation.clone(),
             continuation: continuation.clone(),
             recovery: Value::Null,
+            progress: progress.clone(),
             task_error: if handoff {
                 observation["handoffs"]
                     .as_array()
@@ -1859,8 +1890,9 @@ pub(crate) fn settings() -> Result<Value> {
 }
 
 fn wakes(d: &Delivery) -> bool {
-    turn_adapter::WaitState::from_wire(&d.task_state)
-        .is_some_and(turn_adapter::WaitState::keeps_response)
+    d.state == "stalled"
+        || turn_adapter::WaitState::from_wire(&d.task_state)
+            .is_some_and(turn_adapter::WaitState::keeps_response)
 }
 
 fn queued(d: &mut Delivery, reason: &str) {
@@ -5212,6 +5244,30 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
+    async fn stalled_turn_push_retains_evidence_once_and_resolves_on_progress() {
+        // Regression: ax-c8588c1e an empty native turn never produced an actionable stall push.
+        let dir = Sandbox::new();
+        let mut b = fixture(&dir.0);
+        let fake = Fake::success();
+        let diagnostic = json!({"progressStalled":true,"reason":"native-progress-stalled","evidence":{"lastItemAt":null,"unchangedTokenCounts":2},
+            "next":{"via":"act","op":"codex_interrupt","args":{"threadId":b.thread_id,"turnId":b.turn_id}}});
+        let stalled = json!({"state":"running","progressStalled":true,"progress":diagnostic});
+        for _ in 0..2 {
+            process(&fake, &dir.0, &mut b, &stalled).await.unwrap();
+        }
+        assert_eq!(b.deliveries.len(), 1);
+        let event = event(&b, &b.deliveries[0]);
+        assert_eq!(event["kind"], "stalled");
+        assert_eq!(event["progress"], diagnostic);
+        assert_eq!(event["next"]["op"], "codex_interrupt");
+        assert!(wakes(&b.deliveries[0]));
+        process(&fake, &dir.0, &mut b, &json!({"state":"running"}))
+            .await
+            .unwrap();
+        assert_eq!(b.deliveries[0].status, "resolved");
+    }
+
+    #[tokio::test]
     async fn titled_completion_push_identifies_each_task() {
         // Regression: ax-7718b0e3 the push body discarded task identity before the session renderer received it.
         let dir = Sandbox::new();
@@ -5583,6 +5639,7 @@ pub(crate) mod tests {
             reconciliation: Value::Null,
             continuation: Value::Null,
             recovery: Value::Null,
+            progress: Value::Null,
         });
         persist(&dir.0, &b).unwrap();
         let mut b = binding(&dir.0, "thread-1", "turn-1").unwrap().unwrap();

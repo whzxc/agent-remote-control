@@ -277,6 +277,7 @@ pub fn receipt(value: Value) -> Value {
         "executionState",
         "phaseAgeMs",
         "progressStalled",
+        "progress",
         "operation",
         "threadId",
         "turnId",

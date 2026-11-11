@@ -211,9 +211,9 @@ async fn authorized(s: &crate::ingress::Ingress, principal: &str) -> bool {
     }
 }
 pub(crate) fn list() -> Value {
-    json!({"events":[{"name":NAME,"description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status wakes only for completed, failed, interrupted, or needs-input tasks from this source. Lifecycle and handoff records remain inbox-only. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
+    json!({"events":[{"name":NAME,"description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status wakes only for completed, failed, interrupted, stalled, or needs-input tasks from this source. Lifecycle and handoff records remain inbox-only. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
         "inputSchema":subscriptions::guide()["inputSchema"],
-        "payloadSchema":{"type":"object","properties":{"op":{"type":"string"},"kind":{"type":"string"},"summary":{"type":"string"},"threadId":{"type":["string","null"]},"taskId":{"type":["string","null"]},"turnId":{"type":"string"},"agent":{"type":"string"},"project":{"type":"string"},"title":{"type":"string"},"query":{"type":"object"},
+        "payloadSchema":{"type":"object","properties":{"op":{"type":"string"},"kind":{"type":"string"},"summary":{"type":"string"},"threadId":{"type":["string","null"]},"taskId":{"type":["string","null"]},"turnId":{"type":"string"},"agent":{"type":"string"},"project":{"type":"string"},"title":{"type":"string"},"query":{"type":"object"},"progress":{"type":["object","null"]},
         "recovery":{"type":["object","null"],"properties":{"recoveredAt":{"type":"string","format":"date-time"},"affectedTasks":{"type":"integer","minimum":0}},"required":["recoveredAt","affectedTasks"],"additionalProperties":false},
         "continuation":{"type":["object","null"],"properties":{"turnId":{"type":"string"},"state":{"type":"string","enum":["running","completed","failed","interrupted","needs-input","unknown"]}},"required":["turnId","state"],"additionalProperties":false},
         "reconciliation":{"type":["object","null"],"properties":{"endedAt":{"type":["string","null"],"format":"date-time"},"durationMs":{"type":["integer","null"],"minimum":0},"timeBasis":{"type":"string","enum":["native-terminal","last-observed-activity","unknown","observed-terminal"]}},"required":["endedAt","durationMs","timeBasis"],"additionalProperties":false},
@@ -244,6 +244,7 @@ pub(crate) fn payload(op: &str, event: &Value) -> Value {
         "reconciliation",
         "continuation",
         "recovery",
+        "progress",
     ] {
         data[key] = event[key].clone();
     }

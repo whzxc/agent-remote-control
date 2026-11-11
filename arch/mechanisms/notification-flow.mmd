@@ -3,6 +3,8 @@
 flowchart TB
   bind["Binding<br/>thread · turn · target"] --> observe["Observer<br/>reads owner and rollout"]
   observe --> lifecycle["turn_lifecycle"]
+  observe --> progress["Native progress diagnostic<br/>6 min · unchanged counts spanning 5 min"]
+  progress -->|"stalled"| delivery
   lifecycle -->|"terminal or needs-input"| delivery["Delivery: pending"]
   lifecycle -.->|"always"| inbox["Ingress inbox<br/>arcInbox · inbox_wait"]
   delivery --> gates{"Gates"}
@@ -10,3 +12,4 @@ flowchart TB
   send --> cli["L1 · claude CLI<br/>Claude cloud session"]
   send --> webhook["L2 · MCP Events webhook<br/>ChatGPT Work"]
   class observe gap
+  class progress uncertain

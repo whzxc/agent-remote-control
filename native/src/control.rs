@@ -1423,7 +1423,38 @@ impl Control {
                 json!({"requestId":request,"state":"not-found","executionState":"no-reservation"}),
             );
         }
-        RECEIPTS.read(request, &self.session)
+        let mut receipt = RECEIPTS.read(request, &self.session)?;
+        if !matches!(string(&receipt, "operation"), "create" | "send")
+            || progress::age_ms(&receipt, chrono::Utc::now().timestamp_millis()).unwrap_or(0)
+                < crate::codex_progress::THRESHOLD_MS as u64
+        {
+            return Ok(receipt);
+        }
+        let thread = receipt["threadId"]
+            .as_str()
+            .or(receipt["result"]["threadId"].as_str());
+        let turn = receipt["turnId"]
+            .as_str()
+            .or(receipt["result"]["turnId"].as_str());
+        if let (Some(thread), Some(turn)) = (thread, turn) {
+            if let Ok(Ok(metadata)) = tokio::time::timeout(
+                Duration::from_secs(2),
+                self.request(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    2000,
+                ),
+            )
+            .await
+            {
+                if metadata["thread"]["status"]["type"] == "active" {
+                    let mut status = json!({"state":"running","turnId":turn});
+                    crate::codex_progress::apply(&mut status, &metadata["thread"]);
+                    crate::codex_progress::project(&mut receipt, &status["progress"]);
+                }
+            }
+        }
+        Ok(receipt)
     }
 
     pub async fn mutate(self: &Arc<Self>, operation: &str, mut args: Value) -> Result<Value> {
@@ -2713,7 +2744,8 @@ impl Control {
                 let id = string(&args, "threadId");
                 let external = crate::writer::probe(id)["state"] == "held"
                     && self.writer_ownership(id).await["owner"] == "external";
-                let project_read = |mut value: Value| {
+                let project_read = |mut value: Value, thread: &Value| {
+                    crate::codex_progress::apply(&mut value, thread);
                     if external {
                         value["readObservation"] = json!({"source":"native-app-server",
                             "degraded":true,"staleness":"unknown","reason":"external-writer-held",
@@ -2774,7 +2806,7 @@ impl Control {
                             })
                             .unwrap_or(Value::Null);
                     }
-                    return Ok(project_read(status));
+                    return Ok(project_read(status, &t));
                 }
                 if args["statusOnly"] == true {
                     let mut progress = crate::review::progress(self, id, &t).await;
@@ -2796,7 +2828,7 @@ impl Control {
                     status["stateScope"] = json!("turn");
                     status["observedAt"] = json!(now());
                     status["progress"] = progress;
-                    return Ok(project_read(status));
+                    return Ok(project_read(status, &t));
                 }
                 if args["view"] == "review" {
                     let page = crate::review::turn_page(self, &args).await?;
@@ -2812,6 +2844,7 @@ impl Control {
                     }
                     return Ok(project_read(
                         json!({"threadId":id,"turns":turns,"nextCursor":page["nextCursor"]}),
+                        &t,
                     ));
                 }
                 let full = args["view"] == "full";
@@ -2942,7 +2975,7 @@ impl Control {
                         }
                     }
                 }
-                Ok(project_read(result))
+                Ok(project_read(result, &t))
             }
             "codex_items" => {
                 let full = args["view"] == "full";

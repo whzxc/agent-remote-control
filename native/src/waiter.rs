@@ -314,13 +314,12 @@ pub(crate) fn classify_with_lifecycle(
         .take(5)
         .map(|r| r["questionSummary"].clone())
         .collect::<Vec<_>>());
-    (
-        json!({"state":state.as_wire(),"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
+    let mut result = json!({"state":state.as_wire(),"reason":reason,"title":t["name"],"threadId":t["id"],"turnId":selected,"recordedStatus":turn["status"],"runtimeStatus":runtime,
         "runtimeSource":t["runtimeSource"],"archived":crate::control::summary(t)["archived"],"externalUserInputs":observation["externalUserInputs"].as_array().into_iter().flatten().filter(|r| r["turnId"].as_str()==selected.as_deref() || (r["answeredTurnId"].is_string() && r["answeredTurnId"].as_str()==selected.as_deref())).collect::<Vec<_>>(),"finalResponse":assistant,"error":turn["error"],"interaction":interactions,
         "activeFlags":flags,"interactionAction":if blocked && interactions.is_empty(){Some("Inspect Codex Desktop for the pending interaction; this owner exposes no callback ID to Agent Remote Control")}else if !interactions.is_empty(){Some("Use codex_respond with id=responseId and backendSession; do not resend the task")}else{None},
-        "progress":progress,"observedAt":now()}),
-        lifecycle,
-    )
+        "progress":progress,"observedAt":now()});
+    crate::codex_progress::apply(&mut result, t);
+    (result, lifecycle)
 }
 
 enum CodexOwner {

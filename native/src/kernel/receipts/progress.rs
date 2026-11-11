@@ -203,7 +203,10 @@ pub fn project(mut receipt: Value, owner_live: bool, time_ms: i64) -> Value {
     receipt["state"] = json!(phase.state());
     receipt["submissionState"] = json!(phase.submission_wire());
     receipt["executionState"] = json!(phase.execution_wire());
-    receipt["progressStalled"] = json!(phase.stalled(age_ms(&receipt, time_ms).unwrap_or(0)));
+    receipt["progressStalled"] = json!(
+        phase.stalled(age_ms(&receipt, time_ms).unwrap_or(0))
+            || receipt["progress"]["progressStalled"] == true
+    );
     if let Some(age) = age_ms(&receipt, time_ms) {
         receipt["phaseAgeMs"] = json!(age);
     }

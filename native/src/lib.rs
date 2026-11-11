@@ -27,6 +27,7 @@ use tokio::sync::Mutex;
 pub mod agents;
 pub mod cli;
 pub mod codex_host;
+mod codex_progress;
 pub mod context;
 pub mod context_provider;
 pub mod control;
