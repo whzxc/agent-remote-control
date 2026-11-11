@@ -84,7 +84,7 @@ LAN wins whenever its probe succeeds.
 Three consecutive missed heartbeats mark the member offline.
 Refusal on every currently dialable LAN address marks it offline immediately when HTTPS also fails or is absent.
 Each LAN TCP dial has a 750 ms deadline; TLS handshakes have a 1250 ms deadline and HTTP/2 setup has a 500 ms deadline.
-The LAN probe is bounded to three seconds and HTTPS fallback to four seconds within each heartbeat.
+The LAN probe is bounded to three seconds within a ten-second overall heartbeat budget. Tunnel hello and authentication requests each have a four-second deadline. While on tunnel, both probes run concurrently and LAN success restores LAN immediately.
 One successful heartbeat marks it online again with the path that succeeded.
 A request already sent on one path never moves to another path.
 

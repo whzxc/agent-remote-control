@@ -24,6 +24,7 @@ pub(super) struct Provider {
     pub _ingress: Arc<crate::ingress::Ingress>,
     pub lose_response: Arc<AtomicBool>,
     pub gate: Arc<(AtomicBool, tokio::sync::Notify, tokio::sync::Notify)>,
+    pub hello_delay: Arc<StdMutex<Duration>>,
     tasks: Vec<tokio::task::JoinHandle<()>>,
 }
 impl Provider {
@@ -46,6 +47,8 @@ impl Provider {
             tokio::sync::Notify::new(),
         ));
         let gate_task = gate.clone();
+        let hello_delay = Arc::new(StdMutex::new(Duration::ZERO));
+        let delay = hello_delay.clone();
         let lose = lose_response.clone();
         let task = tokio::spawn(async move {
             let mut connections = tokio::task::JoinSet::new();
@@ -55,10 +58,12 @@ impl Provider {
                         let Ok((stream,_))=accepted else {break;};
                         let lose=lose.clone();
                         let gate=gate_task.clone();
+                        let delay=delay.clone();
                         connections.spawn(async move {
                             let service=hyper::service::service_fn(move |request:hyper::Request<hyper::body::Incoming>| {
                                 let lose=lose.clone();
                                 let gate=gate.clone();
+                                let delay=delay.clone();
                                 async move {
                                     let path=request.uri().path().to_owned();
                                     let auth=request.headers().get("authorization").cloned();
@@ -66,6 +71,10 @@ impl Provider {
                                     let mut upstream=reqwest::Client::new().post(format!("http://{local}{path}")).body(bytes);
                                     if let Some(auth)=auth {upstream=upstream.header("authorization",auth);}
                                     let response=upstream.send().await.unwrap().bytes().await.unwrap();
+                                    if path.ends_with("/hello") {
+                                        let delay = *delay.lock().unwrap();
+                                        tokio::time::sleep(delay).await;
+                                    }
                                     if path.ends_with("/request") && gate.0.load(Ordering::SeqCst) { gate.1.notify_one();gate.2.notified().await; }
                                     let response=if lose.load(Ordering::SeqCst)&&path.ends_with("/request") {Bytes::from_static(b"lost provider response")} else {response};
                                     Ok::<_,std::convert::Infallible>(Response::new(Full::new(response)))
@@ -83,6 +92,7 @@ impl Provider {
             _ingress: ingress,
             lose_response,
             gate,
+            hello_delay,
             tasks: vec![listener, task],
         }
     }

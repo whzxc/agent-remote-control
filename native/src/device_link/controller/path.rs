@@ -192,8 +192,8 @@ impl Controller {
         self.channel(member, false).await?.ready().await?;
         Ok(hello)
     }
-    pub(super) async fn probe(&self, member: &Member) -> Result<(Value, &'static str)> {
-        let lan = tokio::time::timeout(Duration::from_secs(3), async {
+    async fn lan_probe(&self, member: &Member) -> Result<Value> {
+        tokio::time::timeout(Duration::from_secs(3), async {
             let cached = member.heartbeat.cached().await.is_some();
             let result = self.lan_hello(member).await;
             if cached
@@ -215,51 +215,77 @@ impl Controller {
                 "DEVICE_LAN_UNAVAILABLE",
                 "LAN heartbeat deadline expired; query devices.",
             ))
+        })
+    }
+    async fn tunnel_probe(&self, member: &Member) -> Result<Value> {
+        let (url, token) = self.tunnel_session(member).await?;
+        let hello = super::super::tunnel::post(
+            &url,
+            "hello",
+            Some(&token),
+            json!({"version":VERSION}),
+            Duration::from_secs(4),
+        )
+        .await?;
+        self.validate_hello(member, &hello)?;
+        Ok(hello)
+    }
+    pub(super) async fn probe(&self, member: &Member) -> Result<(Value, &'static str)> {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let on_tunnel = member.status.lock().unwrap().path == "tunnel";
+        // Poll both paths while on tunnel. LAN success returns immediately, even
+        // when a relay hello is slow. A completed tunnel result still waits for LAN.
+        let (lan, tunnel) = if on_tunnel {
+            let lan = self.lan_probe(member);
+            let tunnel = tokio::time::timeout_at(deadline, self.tunnel_probe(member));
+            tokio::pin!(lan, tunnel);
+            tokio::select! {
+                biased;
+                result = &mut lan => {
+                    if let Ok(hello) = result { return Ok((hello, "lan")); }
+                    (result, Some(tunnel.await))
+                },
+                result = &mut tunnel => (lan.await, Some(result)),
+            }
+        } else {
+            (self.lan_probe(member).await, None)
+        };
+        let lan_error = match lan {
+            Ok(hello) => return Ok((hello, "lan")),
+            Err(error) => error,
+        };
+        member.heartbeat.close().await;
+        if member.slots.available_permits() == 64 {
+            member.business.close().await;
+        }
+        if self.tunnel_url(member).await.is_err() {
+            return Err(lan_error);
+        }
+        let tunnel = match tunnel {
+            Some(result) => result,
+            None => tokio::time::timeout_at(deadline, self.tunnel_probe(member)).await,
+        }
+        .unwrap_or_else(|_| {
+            Err(error(
+                "DEVICE_TUNNEL_UNAVAILABLE",
+                "Tunnel heartbeat deadline expired; query devices.",
+            ))
         });
-        match lan {
-            Ok(hello) => Ok((hello, "lan")),
-            Err(lan_error) => {
-                member.heartbeat.close().await;
-                if member.slots.available_permits() == 64 {
-                    member.business.close().await;
+        match tunnel {
+            Ok(hello) => Ok((hello, "tunnel")),
+            Err(tunnel_error) => {
+                // A slow relay can consume the probe budget after authentication
+                // succeeds. Retain that session so the next heartbeat can use it.
+                if tunnel_error.contains("DEVICE_TUNNEL_AUTH") {
+                    member.tunnel.clear().await;
                 }
-                if self.tunnel_url(member).await.is_err() {
-                    return Err(lan_error);
-                }
-                let tunnel = tokio::time::timeout(Duration::from_secs(4), async {
-                    let (url, token) = self.tunnel_session(member).await?;
-                    let hello = super::super::tunnel::post(
-                        &url,
-                        "hello",
-                        Some(&token),
-                        json!({"version":VERSION}),
-                        Duration::from_secs(2),
-                    )
-                    .await?;
-                    self.validate_hello(member, &hello)?;
-                    Ok::<_, String>(hello)
-                })
-                .await
-                .unwrap_or_else(|_| {
+                if lan_error.starts_with("DEVICE_CONNECTION_REFUSED") {
+                    Err(format!("{lan_error}; {tunnel_error}"))
+                } else {
                     Err(error(
                         "DEVICE_TUNNEL_UNAVAILABLE",
-                        "Tunnel heartbeat deadline expired; query devices.",
+                        &format!("{lan_error}; {tunnel_error}"),
                     ))
-                });
-                match tunnel {
-                    Ok(hello) => Ok((hello, "tunnel")),
-                    Err(tunnel_error) => {
-                        member.tunnel.clear().await;
-                        // LAN refusal is immediate offline only after HTTPS also fails.
-                        if lan_error.starts_with("DEVICE_CONNECTION_REFUSED") {
-                            Err(format!("{lan_error}; {tunnel_error}"))
-                        } else {
-                            Err(error(
-                                "DEVICE_TUNNEL_UNAVAILABLE",
-                                &format!("{lan_error}; {tunnel_error}"),
-                            ))
-                        }
-                    }
                 }
             }
         }
@@ -293,10 +319,10 @@ mod tests {
         (address, task)
     }
     #[tokio::test]
-    async fn lan_tunnel_lan_through_http_provider() {
-        // Contract: a paired member learns its HTTPS URL on LAN, switches paths on heartbeat, keeps submitted calls on their path, and returns to LAN.
+    async fn relay_latency_does_not_flap_offline_or_delay_lan_recovery() {
+        // Regression: relay hellos taking 1.8–3.4 seconds missed the two-second deadline and flapped healthy members offline.
         if crate::device_link::tunnel_fixture::isolate(
-            "device_link::controller::path::tests::lan_tunnel_lan_through_http_provider",
+            "device_link::controller::path::tests::relay_latency_does_not_flap_offline_or_delay_lan_recovery",
         )
         .await
         {
@@ -347,7 +373,7 @@ mod tests {
                 name: "Example member".into(),
                 addresses: vec![address.to_string()],
                 tunnel_url: None,
-                address_override: None,
+                address_override: Some(address.to_string()),
             },
             status: Default::default(),
             business: Session::default(),
@@ -377,8 +403,13 @@ mod tests {
             .is_ok());
         lan.abort();
         let _ = lan.await;
+        *provider.hello_delay.lock().unwrap() = Duration::from_millis(2500);
         controller.heartbeat(&member, &mut misses).await;
         assert_eq!(controller.list(false).await["devices"][0]["path"], "tunnel");
+        for _ in 0..3 {
+            controller.heartbeat(&member, &mut misses).await;
+            assert_eq!(controller.list(false).await["devices"][0]["path"], "tunnel");
+        }
         assert!(controller
             .send(
                 &member.peer.device_id,
@@ -469,7 +500,12 @@ mod tests {
             .await
             .unwrap();
         let (_, lan) = lan_listener(manager.clone(), address).await;
-        controller.heartbeat(&member, &mut misses).await;
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            controller.heartbeat(&member, &mut misses),
+        )
+        .await
+        .expect("LAN recovery waited for the slow relay hello");
         assert_eq!(controller.list(false).await["devices"][0]["path"], "lan");
         provider.gate.2.notify_one();
         assert!(sent.await.unwrap().is_err());

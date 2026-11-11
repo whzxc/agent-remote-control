@@ -319,7 +319,8 @@ impl Service {
                     }
                 }
             }
-            let mut result = crate::front_door::process::gateway_request(route, method, body).await?;
+            let mut result =
+                crate::front_door::process::gateway_request(route, method, body).await?;
             if route == "device/snapshot" {
                 result["devices"] = self.execution.devices.list(true).await["devices"].clone();
             } else if route.starts_with("device/") {

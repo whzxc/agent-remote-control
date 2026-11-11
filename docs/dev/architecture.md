@@ -48,9 +48,18 @@ ALPN `arc-peer/3` exposes peer protocol version 3 over HTTP/2. Admission allows
 and a five-second handshake deadline. The table holds at most 256 source
 addresses and evicts the least recently used inactive entry. IPv4-mapped IPv6
 addresses share the IPv4 entry. After TLS authenticates the public key, paired
-and unpaired connections use separate eight-slot limits. Unpaired connections
-expire after ten minutes. Existing paired channels do not consume handshake
-budget. HTTP/2 streams, bodies and private IPC frames are bounded independently.
+and unpaired connections use separate eight-slot limits. Paired LAN admission
+replaces the same controller's oldest idle connection when all eight slots are
+occupied. In-flight requests and streamed responses remain active until completion
+or cancellation. If all slots are active, new connections wait for keepalive cleanup
+or request completion before a later dial can succeed. HTTP/2 sends keepalive PINGs
+after ten seconds without received traffic and closes after five seconds without
+an acknowledgement, releasing a vanished controller's slot within fifteen seconds.
+Accepted TCP sockets also enable keepalive after ten idle seconds, with five-second
+intervals and three probes. Unpaired connections expire after ten minutes.
+Tunnel business requests have a separate eight-request concurrency limit.
+Existing paired channels do not consume handshake budget. HTTP/2 streams, bodies
+and private IPC frames are bounded independently.
 A failed handshake closes without reading HTTP requests.
 
 During an unused ten-minute offer, unpaired self-signed clients may complete TLS
@@ -134,9 +143,16 @@ the existing `receipt` op, including while a transfer is executing.
 
 `Execution` owns one `device_link::controller::Controller`. It reads pairings from
 the front door's device state directory and owns one monitor per paired member.
-Each monitor sends a heartbeat every ten seconds, with a three-second LAN probe
-and a four-second HTTPS fallback bound. TCP dials are bounded to 750 ms, TLS to
-1250 ms and HTTP/2 setup to 500 ms.
+Each monitor sends a heartbeat every ten seconds. Each probe has a ten-second
+overall budget and a three-second LAN bound. Tunnel hello, challenge and session
+requests each have a four-second deadline within the remaining overall budget.
+While on tunnel, the LAN and tunnel probes run concurrently. LAN success returns
+immediately and restores the preferred LAN path. Successfully authenticated tunnel
+sessions survive transient heartbeat timeouts and refresh on authentication errors.
+TCP dials are bounded to 750 ms, TLS to 1250 ms and HTTP/2 setup to 500 ms.
+LAN dial failures select protocol, TLS/HTTP/2 and refusal evidence before generic
+errors and timeouts, then prefer private IPv4 and unique-local IPv6 addresses over
+link-local attempts. Completion order never determines the diagnostic.
 Three consecutive failures mark the member offline. Refusal on every currently dialable LAN address
 marks it offline immediately when HTTPS also fails or is absent. One success restores online state. A heartbeat
 returns device ID, platform, architecture, ARC version and capabilities. Windows

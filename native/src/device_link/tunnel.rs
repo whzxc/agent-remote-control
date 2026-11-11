@@ -243,7 +243,7 @@ impl Manager {
                 "/arc-peer/3/request" => {
                     validate_wait(&body)?;
                     let _slot = self
-                        .paired_connections
+                        .tunnel_requests
                         .clone()
                         .try_acquire_owned()
                         .map_err(|_| {
@@ -340,7 +340,7 @@ impl Client {
             "challenge",
             None,
             json!({"version":VERSION,"deviceId":identity.id}),
-            Duration::from_secs(3),
+            Duration::from_secs(4),
         )
         .await?;
         if challenge["version"] != VERSION || challenge["deviceId"] != member {
@@ -354,7 +354,7 @@ impl Client {
             return Err(auth_error());
         }
         let signature = identity.sign(transcript(member, &identity.id, nonce).as_bytes())?;
-        let response=post(url,"session",None,json!({"version":VERSION,"deviceId":identity.id,"challenge":nonce,"signature":signature}),Duration::from_secs(3)).await?;
+        let response=post(url,"session",None,json!({"version":VERSION,"deviceId":identity.id,"challenge":nonce,"signature":signature}),Duration::from_secs(4)).await?;
         let token = string(&response, "token").to_owned();
         if response["version"] != VERSION || token.len() != 64 {
             return Err(auth_error());

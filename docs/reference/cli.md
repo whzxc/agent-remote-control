@@ -137,9 +137,13 @@ Controller Core probes each member every ten seconds. Three misses, or refusal
 on every currently dialable LAN address when HTTPS also fails or is absent, mark it offline.
 TCP dials have a 750 ms deadline, TLS 1250 ms and HTTP/2 setup 500 ms.
 Unroutable addresses and unavailable local scopes are outside the refusal count.
-The LAN heartbeat has a three-second bound; HTTPS fallback adds at most four
-seconds. One successful probe restores online
-state. `query devices` lists online members; `all:true` also lists offline members.
+The LAN heartbeat has a three-second bound within a ten-second overall probe
+budget. Tunnel hello and authentication requests each have a four-second deadline.
+While on tunnel, both paths are probed concurrently and LAN success restores LAN
+immediately. LAN diagnostics preserve the most informative failure, preferring
+protocol, handshake and refusal errors over timeouts, with private IPv4 preferred
+among equally informative attempts. One successful probe restores online state.
+`query devices` lists online members; `all:true` also lists offline members.
 `query device` forwards member reads, and `act device` forwards member writes.
 Transfer files with the normal control CLI. Omit `device` for the controller:
 

@@ -2,7 +2,7 @@
 use super::*;
 use http_body_util::{BodyExt, Limited};
 use hyper::{body::Incoming, Request, Response};
-use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use tokio::net::TcpListener;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -193,6 +193,10 @@ impl Manager {
                 accepted = listener.accept() => {
                     let Ok((stream,address)) = accepted else { break; };
                     if !lan_address(address.ip()) { continue; }
+                    if let Err(error) = tcp_keepalive(&stream) {
+                        crate::logs::record("WARN", &format!("Peer TCP keepalive: {error}"), None);
+                        continue;
+                    }
                     let Some(permit) = budget.lock().unwrap().admit(address.ip(),Instant::now()) else { continue; };
                     connections.spawn(self.clone().accept_connection(stream, acceptor.clone(), permit));
                 }
@@ -218,43 +222,80 @@ impl Manager {
                 let Some(cert) = tls.get_ref().1.peer_certificates().and_then(|c|c.first()) else { return; };
                 let Ok((id,key)) = identity::certificate_identity(cert) else { return; };
                 let paired=self.controller(&id).is_ok();
-                let slots=if paired {&self.paired_connections}else{&self.unpaired_connections};
-                let Ok(_connection)=slots.clone().try_acquire_owned() else{return;};
-                if paired {let _=self.serve(tls,id,key).await;}
-                else {let _=tokio::time::timeout(OFFER_TTL,self.serve(tls,id,key)).await;}
+                if paired {
+                    let Some((connection, cancelled)) = connections::Connections::admit(&self.lan_connections, &id) else {return;};
+                    let _registration = connections::Registration(connection.clone());
+                    tokio::select! {
+                        biased;
+                        _ = cancelled => {},
+                        _ = self.serve(tls,id,key,Some(connection)) => {},
+                    }
+                } else {
+                    let Ok(_connection)=self.unpaired_connections.clone().try_acquire_owned() else{return;};
+                    let _=tokio::time::timeout(OFFER_TTL,self.serve(tls,id,key,None)).await;
+                }
             } => {},
         }
     }
-    async fn serve<S>(self: Arc<Self>, stream: S, id: String, public_key: String) -> Result<()>
+    async fn serve<S>(
+        self: Arc<Self>,
+        stream: S,
+        id: String,
+        public_key: String,
+        connection: Option<Arc<connections::Connection>>,
+    ) -> Result<()>
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
     {
+        let keepalive = (Duration::from_secs(10), Duration::from_secs(5));
+        #[cfg(test)]
+        let keepalive = self.keepalive.lock().unwrap().unwrap_or(keepalive);
         let service = hyper::service::service_fn(move |request| {
             let manager = self.clone();
             let id = id.clone();
             let key = public_key.clone();
+            let activity = connection
+                .as_ref()
+                .map(|connection| connection.request())
+                .transpose();
             async move {
-                if request.uri().path().starts_with("/arc-peer/3/transfer/") {
-                    return Ok::<_, std::convert::Infallible>(
-                        manager.transfer_http(&id, request).await,
-                    );
-                }
-                let result = manager.handle_http(&id, &key, request).await;
-                let body = match result {
-                    Ok(value) => json!({"ok":true,"result":value}),
-                    Err(message) => {
-                        json!({"ok":false,"error":{"code":crate::management::error_code(&message),"message":message,"next":{"via":"query","op":"guide","args":{}}}})
+                let activity = match activity {
+                    Ok(activity) => activity,
+                    Err(error) => {
+                        return Ok::<_, std::convert::Infallible>(super::transfer::wire::reply(
+                            Err(error),
+                        ))
                     }
                 };
-                Ok::<_, std::convert::Infallible>(
+                let response = if request.uri().path().starts_with("/arc-peer/3/transfer/") {
+                    manager.transfer_http(&id, request).await
+                } else {
+                    let result = manager.handle_http(&id, &key, request).await;
+                    let body = match result {
+                        Ok(value) => json!({"ok":true,"result":value}),
+                        Err(message) => {
+                            json!({"ok":false,"error":{"code":crate::management::error_code(&message),"message":message,"next":{"via":"query","op":"guide","args":{}}}})
+                        }
+                    };
                     Response::builder()
                         .header("content-type", "application/json")
                         .body(super::transfer::wire::full(body.to_string()))
-                        .unwrap(),
-                )
+                        .unwrap()
+                };
+                // Retain activity through streamed response completion and cancellation.
+                Ok(response.map(|body| {
+                    body.map_frame(move |frame| {
+                        let _ = &activity;
+                        frame
+                    })
+                    .boxed_unsync()
+                }))
             }
         });
         hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+            .timer(TokioTimer::new())
+            .keep_alive_interval(keepalive.0)
+            .keep_alive_timeout(keepalive.1)
             .initial_stream_window_size(2 * 1024 * 1024)
             .initial_connection_window_size(4 * 1024 * 1024)
             .max_send_buf_size(512 * 1024)
@@ -418,6 +459,14 @@ impl Manager {
             json!({"paired":true,"deviceId":member.device_id,"name":member.name,"addresses":member.addresses,"protocolVersion":VERSION}),
         )
     }
+}
+pub(super) fn tcp_keepalive(stream: &tokio::net::TcpStream) -> std::io::Result<()> {
+    socket2::SockRef::from(stream).set_tcp_keepalive(
+        &socket2::TcpKeepalive::new()
+            .with_time(Duration::from_secs(10))
+            .with_interval(Duration::from_secs(5))
+            .with_retries(3),
+    )
 }
 fn advertise(
     daemon: &mdns_sd::ServiceDaemon,

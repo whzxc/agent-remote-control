@@ -1,6 +1,7 @@
 //! Device link identity and local pairing authority. The front door owns this state.
 mod addresses;
 mod client;
+mod connections;
 pub(crate) mod transfer;
 mod tunnel;
 #[cfg(test)]
@@ -179,8 +180,11 @@ pub(crate) struct Manager {
     #[cfg(test)]
     reply_gate: StdMutex<Option<Arc<ReplyGate>>>,
     transfers: transfer::Store,
-    paired_connections: Arc<tokio::sync::Semaphore>,
+    lan_connections: Arc<StdMutex<connections::Connections>>,
+    tunnel_requests: Arc<tokio::sync::Semaphore>,
     unpaired_connections: Arc<tokio::sync::Semaphore>,
+    #[cfg(test)]
+    keepalive: StdMutex<Option<(Duration, Duration)>>,
 }
 impl Manager {
     pub fn new(directory: PathBuf) -> Result<Arc<Self>> {
@@ -208,8 +212,11 @@ impl Manager {
             #[cfg(test)]
             reply_gate: Default::default(),
             transfers: Default::default(),
-            paired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
+            lan_connections: Default::default(),
+            tunnel_requests: Arc::new(tokio::sync::Semaphore::new(8)),
             unpaired_connections: Arc::new(tokio::sync::Semaphore::new(8)),
+            #[cfg(test)]
+            keepalive: Default::default(),
         }))
     }
     fn persist(&self, state: &State) -> Result<()> {
@@ -368,7 +375,8 @@ impl Manager {
                 let identity = self.identity()?;
                 let state = self.state.lock().unwrap();
                 let peer = |p: &Peer| json!({"deviceId":p.device_id,"name":p.name,"addresses":p.addresses,"tunnelUrl":p.tunnel_url,"addressOverride":p.address_override});
-                let remaining = |expires: Instant| expires.saturating_duration_since(Instant::now()).as_secs();
+                let remaining =
+                    |expires: Instant| expires.saturating_duration_since(Instant::now()).as_secs();
                 Ok(json!({
                     "deviceId":identity.id,"name":state.stored.name.as_deref().unwrap_or("ARC device"),
                     "controller":state.stored.controller.as_ref().map(peer),

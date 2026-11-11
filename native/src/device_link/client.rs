@@ -120,69 +120,107 @@ impl Session {
         for address in addresses.iter().take(64).copied() {
             let connector = connector.clone();
             attempts.push(async move {
-                tokio::time::sleep(Duration::from_millis(u64::from(addresses::rank(&address)) * 50)).await;
-                let stream=match tokio::time::timeout(Duration::from_millis(750),TcpStream::connect(address)).await {
-                    Ok(Ok(stream))=>stream,
-                    Ok(Err(error))=> {
-                        use std::io::ErrorKind;
-                        let refused=match error.kind() {
-                            ErrorKind::ConnectionRefused=>Some(true),
-                            ErrorKind::NetworkUnreachable|ErrorKind::HostUnreachable|ErrorKind::AddrNotAvailable|ErrorKind::InvalidInput|ErrorKind::NotFound=>None,
-                            _=>Some(false),
-                        };
-                        return Err((refused,format!("{address}: {error}")));
-                    },
-                    Err(_)=>return Err((Some(false),"TCP connect deadline expired".into())),
-                };
-                let stream=match tokio::time::timeout(Duration::from_millis(1250),connector.connect(ServerName::try_from("arc-peer.local").unwrap(),stream)).await {
-                    Ok(Ok(stream))=>stream,
-                    Ok(Err(error))=>return Err((Some(false),super::error(if tls::protocol_mismatch(&error){"DEVICE_PROTOCOL_MISMATCH"}else{"DEVICE_TLS_FAILED"},&format!("{error}; query guide for device.")))),
-                    Err(_)=>return Err((Some(false),"DEVICE_TLS_FAILED: Peer handshake deadline expired; query guide for device.".into())),
-                };
-                if stream.get_ref().1.alpn_protocol()!=Some(tls::ALPN){return Err((Some(false),"DEVICE_PROTOCOL_MISMATCH: Use matching peer protocol versions; query guide for device.".into()));}
-                let channel=tokio::time::timeout(Duration::from_millis(500),Channel::new(stream)).await.map_err(|_|(Some(false),"Peer HTTP/2 handshake deadline expired".into()))?.map_err(|error|(Some(false),error))?;
-                Ok::<_,(Option<bool>,String)>(channel)
+                let result = async {
+                    let delay = Duration::from_millis(u64::from(addresses::rank(&address)) * 50);
+                    tokio::time::sleep(delay).await;
+                    let stream = match tokio::time::timeout(
+                        Duration::from_millis(750), TcpStream::connect(address),
+                    ).await {
+                        Ok(Ok(stream)) => stream,
+                        Ok(Err(error)) => {
+                            use std::io::ErrorKind;
+                            let refused = match error.kind() {
+                                ErrorKind::ConnectionRefused => Some(true),
+                                ErrorKind::NetworkUnreachable | ErrorKind::HostUnreachable
+                                | ErrorKind::AddrNotAvailable | ErrorKind::InvalidInput
+                                | ErrorKind::NotFound => None,
+                                _ => Some(false),
+                            };
+                            return Err((refused, error.to_string()));
+                        }
+                        Err(_) => return Err((Some(false), "TCP connect deadline expired".into())),
+                    };
+                    let stream = match tokio::time::timeout(
+                        Duration::from_millis(1250),
+                        connector.connect(ServerName::try_from("arc-peer.local").unwrap(), stream),
+                    ).await {
+                        Ok(Ok(stream)) => stream,
+                        Ok(Err(error)) => {
+                            let code = if tls::protocol_mismatch(&error) {
+                                "DEVICE_PROTOCOL_MISMATCH"
+                            } else {
+                                "DEVICE_TLS_FAILED"
+                            };
+                            return Err((Some(false), super::error(code, &format!("{error}; query guide for device."))));
+                        }
+                        Err(_) => return Err((Some(false), "DEVICE_TLS_FAILED: Peer handshake deadline expired; query guide for device.".into())),
+                    };
+                    if stream.get_ref().1.alpn_protocol() != Some(tls::ALPN) {
+                        return Err((Some(false), "DEVICE_PROTOCOL_MISMATCH: Use matching peer protocol versions; query guide for device.".into()));
+                    }
+                    let channel = tokio::time::timeout(Duration::from_millis(500), Channel::new(stream))
+                        .await
+                        .map_err(|_| (Some(false), "Peer HTTP/2 handshake deadline expired".into()))?
+                        .map_err(|error| (Some(false), error))?;
+                    Ok::<_, (Option<bool>, String)>(channel)
+                }.await;
+                result.map_err(|(refused, message)| (address, refused, message))
             });
         }
-        let mut last = error(
-            "DEVICE_LAN_UNAVAILABLE",
-            "No known private LAN address is reachable; query devices.",
-        );
-        let mut mismatch = None;
-        let mut refused = true;
-        let mut dialable = false;
+        let mut failures = Vec::new();
         while let Some(attempt) = attempts.next().await {
             match attempt {
                 Ok(channel) => {
                     *cached = Some(channel.clone());
                     return Ok(channel);
                 }
-                Err((connection_refused, error)) => {
-                    if error.contains("DEVICE_PROTOCOL_MISMATCH") {
-                        mismatch = Some(error.clone());
-                    }
-                    if let Some(connection_refused) = connection_refused {
-                        dialable = true;
-                        refused &= connection_refused;
-                    }
-                    last = error;
-                }
+                Err(failure) => failures.push(failure),
             }
         }
-        if let Some(mismatch) = mismatch {
-            return Err(mismatch);
-        }
-        if dialable && refused {
-            Err("DEVICE_CONNECTION_REFUSED: Every currently dialable LAN address refused the connection; query devices.".into())
-        } else {
-            Err(if last.starts_with("DEVICE_") {
-                last
-            } else {
-                error("DEVICE_LAN_UNAVAILABLE", &format!("{last}; query devices."))
-            })
-        }
+        Err(lan_dial_error(&failures))
     }
 }
+/// Select diagnostic evidence independently of the order in which dials finish.
+pub fn lan_dial_error(failures: &[(SocketAddr, Option<bool>, String)]) -> String {
+    let Some((address, _, message)) = failures.iter().max_by_key(|(address, refused, message)| {
+        let severity = if message.contains("DEVICE_PROTOCOL_MISMATCH") {
+            4
+        } else if message.contains("DEVICE_TLS_FAILED") || message.contains("HTTP/2") {
+            3
+        } else if *refused == Some(true) {
+            2
+        } else if message.contains("deadline expired") {
+            0
+        } else {
+            1
+        };
+        (
+            severity,
+            std::cmp::Reverse(addresses::rank(address)),
+            std::cmp::Reverse(*address),
+        )
+    }) else {
+        return error(
+            "DEVICE_LAN_UNAVAILABLE",
+            "No known private LAN address is reachable; query devices.",
+        );
+    };
+    if message.starts_with("DEVICE_") {
+        return format!("{message} (LAN address {address})");
+    }
+    let mut dialable = failures
+        .iter()
+        .filter_map(|(_, refused, _)| *refused)
+        .peekable();
+    if dialable.peek().is_some() && dialable.all(|refused| refused) {
+        return error("DEVICE_CONNECTION_REFUSED", &format!("Every currently dialable LAN address refused the connection; {address}: {message}; query devices."));
+    }
+    error(
+        "DEVICE_LAN_UNAVAILABLE",
+        &format!("{address}: {message}; query devices."),
+    )
+}
+
 /// The member's own maximum wait wins; only transport overhead is added.
 pub fn request_bound(op: &str, args: &Value) -> Duration {
     let milliseconds = if op.ends_with("_wait") || op == "inbox_wait" {

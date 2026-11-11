@@ -93,6 +93,320 @@ impl Drop for Fixture {
     }
 }
 
+/// Leave the transport open while preventing the vanished peer from answering PING.
+struct StalledPeer<S> {
+    stream: S,
+    stalled: Arc<std::sync::atomic::AtomicBool>,
+}
+impl<S: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for StalledPeer<S> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        if self.stalled.load(std::sync::atomic::Ordering::SeqCst) {
+            return std::task::Poll::Pending;
+        }
+        std::pin::Pin::new(&mut self.stream).poll_read(cx, buf)
+    }
+}
+impl<S: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for StalledPeer<S> {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        if self.stalled.load(std::sync::atomic::Ordering::SeqCst) {
+            return std::task::Poll::Pending;
+        }
+        std::pin::Pin::new(&mut self.stream).poll_write(cx, buf)
+    }
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.stream).poll_flush(cx)
+    }
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+}
+
+async fn unfinished_hello(
+    channel: &super::client::Channel,
+) -> (
+    tokio::sync::oneshot::Sender<String>,
+    tokio::task::JoinHandle<
+        std::result::Result<hyper::Response<hyper::body::Incoming>, hyper::Error>,
+    >,
+) {
+    let (body_tx, body_rx) = tokio::sync::oneshot::channel::<String>();
+    let body = http_body_util::StreamBody::new(futures_util::stream::once(async move {
+        let bytes = body_rx.await.map_err(std::io::Error::other)?;
+        Ok::<_, std::io::Error>(hyper::body::Frame::data(hyper::body::Bytes::from(bytes)))
+    }));
+    let mut sender = channel.ready().await.unwrap();
+    let request = hyper::Request::builder()
+        .method("POST")
+        .uri("https://arc-peer.local/arc-peer/3/hello")
+        .body(http_body_util::BodyExt::boxed_unsync(body))
+        .unwrap();
+    (
+        body_tx,
+        tokio::spawn(async move { sender.send_request(request).await }),
+    )
+}
+
+#[tokio::test]
+async fn leaked_controller_connections_are_reaped_within_keepalive_bound() {
+    // Regression: eight half-open controller connections retained every paired LAN slot for hours.
+    let fixture = Fixture::new();
+    let identity = fixture.controller();
+    super::tunnel_tests::paired(&fixture.member, &identity);
+    *fixture.member.keepalive.lock().unwrap() =
+        Some((Duration::from_millis(50), Duration::from_millis(50)));
+    let member = fixture.member.identity().unwrap();
+    let mut channels = Vec::new();
+    let mut servers = Vec::new();
+    let mut stalled = Vec::new();
+    for _ in 0..8 {
+        let (stream, server) = fixture.connect(&identity, &member.id).await.unwrap();
+        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let channel = super::client::Channel::new(StalledPeer {
+            stream,
+            stalled: flag.clone(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            channel
+                .request(
+                    "/arc-peer/3/hello",
+                    json!({"version":VERSION}),
+                    Duration::from_secs(1)
+                )
+                .await
+                .unwrap()["deviceId"],
+            member.id
+        );
+        channels.push(channel);
+        servers.push(server);
+        stalled.push(flag);
+    }
+    let mut pending = Vec::new();
+    for channel in &channels {
+        pending.push(unfinished_hello(channel).await);
+    }
+    tokio::time::sleep(Duration::from_millis(25)).await;
+    for flag in stalled {
+        flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    tokio::time::timeout(Duration::from_millis(300), async {
+        for server in servers {
+            server.await.unwrap();
+        }
+    })
+    .await
+    .expect("half-open connections exceeded the short keepalive bound");
+    let (stream, server) = fixture.connect(&identity, &member.id).await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            post(stream, "/arc-peer/3/hello", json!({"version":VERSION}))
+        )
+        .await
+        .expect("a new LAN hello was blocked after keepalive cleanup")
+        .unwrap()["deviceId"],
+        member.id
+    );
+    tokio::time::timeout(Duration::from_secs(1), server)
+        .await
+        .unwrap()
+        .unwrap();
+    for channel in channels {
+        channel.close();
+    }
+    for (body, request) in pending {
+        drop(body);
+        request.abort();
+        let _ = request.await;
+    }
+}
+
+#[tokio::test]
+async fn leaked_controller_connections_do_not_block_new_lan_connection() {
+    // Regression: a reconnecting paired controller was silently dropped after eight idle LAN connections filled admission.
+    let fixture = Fixture::new();
+    let identity = fixture.controller();
+    super::tunnel_tests::paired(&fixture.member, &identity);
+    let member = fixture.member.identity().unwrap();
+    let mut channels = Vec::new();
+    let mut servers = Vec::new();
+    for _ in 0..8 {
+        let (stream, server) = fixture.connect(&identity, &member.id).await.unwrap();
+        let channel = super::client::Channel::new(stream).await.unwrap();
+        channel
+            .request(
+                "/arc-peer/3/hello",
+                json!({"version":VERSION}),
+                Duration::from_secs(1),
+            )
+            .await
+            .unwrap();
+        channels.push(channel);
+        servers.push(server);
+    }
+    // Keep the oldest connection active with an unfinished request body. It must
+    // survive admission while the next oldest idle connection is replaced.
+    let (body_tx, pending) = unfinished_hello(&channels[0]).await;
+    tokio::time::sleep(Duration::from_millis(25)).await;
+    let (stream, server) = fixture.connect(&identity, &member.id).await.unwrap();
+    assert_eq!(
+        post(stream, "/arc-peer/3/hello", json!({"version":VERSION}))
+            .await
+            .unwrap()["deviceId"],
+        member.id
+    );
+    server.await.unwrap();
+    let oldest_idle = servers.remove(1);
+    tokio::time::timeout(Duration::from_secs(1), oldest_idle)
+        .await
+        .unwrap()
+        .unwrap();
+    body_tx
+        .send(json!({"version":VERSION}).to_string())
+        .unwrap();
+    let response = pending.await.unwrap().unwrap();
+    let bytes = http_body_util::BodyExt::collect(response.into_body())
+        .await
+        .unwrap()
+        .to_bytes();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&bytes).unwrap()["result"]["deviceId"],
+        member.id
+    );
+    for channel in channels {
+        channel.close();
+    }
+    for server in servers {
+        server.await.unwrap();
+    }
+}
+
+#[test]
+fn link_local_timeout_does_not_mask_ipv4_error() {
+    // Regression: the last IPv6 link-local timeout hid the IPv4 TLS failure in controller LAN diagnostics.
+    let ipv4 = "192.168.2.2:7143".parse().unwrap();
+    let link_local = "[fe80::2%1]:7143".parse().unwrap();
+    let tls = "DEVICE_TLS_FAILED: Peer handshake failed".to_owned();
+    let timeout = "TCP connect deadline expired".to_owned();
+    let mut failures = vec![
+        (ipv4, Some(false), tls.clone()),
+        (link_local, Some(false), timeout.clone()),
+    ];
+    for _ in 0..2 {
+        let selected = super::client::lan_dial_error(&failures);
+        assert_eq!(
+            crate::management::error_code(&selected),
+            "DEVICE_TLS_FAILED"
+        );
+        assert!(selected.contains(&ipv4.to_string()));
+        failures.reverse();
+    }
+    failures = vec![
+        (ipv4, Some(true), "Connection refused".into()),
+        (link_local, Some(false), timeout.clone()),
+    ];
+    assert!(super::client::lan_dial_error(&failures).contains("Connection refused"));
+    failures = vec![
+        (ipv4, Some(false), timeout.clone()),
+        (link_local, Some(false), timeout),
+    ];
+    let selected = super::client::lan_dial_error(&failures);
+    assert_eq!(
+        crate::management::error_code(&selected),
+        "DEVICE_LAN_UNAVAILABLE"
+    );
+    assert!(selected.contains(&ipv4.to_string()));
+}
+
+#[tokio::test]
+async fn leaked_lan_connections_do_not_starve_tunnel_requests() {
+    // Regression: eight retained LAN connections made every authenticated tunnel request return DEVICE_BUSY.
+    if super::tunnel_fixture::isolate(
+        "device_link::tests::leaked_lan_connections_do_not_starve_tunnel_requests",
+    )
+    .await
+    {
+        return;
+    }
+    crate::sources::initialize().unwrap();
+    crate::preferences::write(json!({"values":{"device-link":"on"}})).unwrap();
+    let service = crate::service::Service::new().unwrap();
+    let core = crate::transport::listen(service.clone(), None)
+        .await
+        .unwrap();
+    let fixture = Fixture {
+        directory: crate::root().join("fixture"),
+        member: Fixture::manager(crate::root().join("device-link")),
+    };
+    let identity = fixture.controller();
+    super::tunnel_tests::paired(&fixture.member, &identity);
+    {
+        let state = fixture.member.state.lock().unwrap();
+        fixture.member.persist(&state).unwrap();
+    }
+    crate::sources::peer_connect(&identity.id, &identity.public_key, "Example controller")
+        .await
+        .unwrap();
+    let member = fixture.member.identity().unwrap();
+    let mut provider = super::tunnel_fixture::Provider::new(&fixture.member).await;
+    let mut channels = Vec::new();
+    let mut servers = Vec::new();
+    for _ in 0..8 {
+        let (stream, server) = fixture.connect(&identity, &member.id).await.unwrap();
+        let channel = super::client::Channel::new(stream).await.unwrap();
+        channel
+            .request(
+                "/arc-peer/3/hello",
+                json!({"version":VERSION}),
+                Duration::from_secs(1),
+            )
+            .await
+            .unwrap();
+        channels.push(channel);
+        servers.push(server);
+    }
+    let session = super::tunnel::Client::default();
+    let (url, token) = session
+        .prepare(&identity, &member.id, &provider.url)
+        .await
+        .unwrap();
+    let result = super::tunnel::post(
+        &url,
+        "request",
+        Some(&token),
+        json!({"version":VERSION,"tool":"query","body":{"op":"guide","args":{}},"origin":{}}),
+        Duration::from_secs(2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result["isError"], false);
+    for channel in channels {
+        channel.close();
+    }
+    for server in servers {
+        server.await.unwrap();
+    }
+    provider.stop().await;
+    core.abort();
+    let _ = core.await;
+    service.stop().await.unwrap();
+}
+
 #[test]
 fn pairing_string_roundtrip_and_version() {
     // Contract: peer pairing strings preserve identity, LAN endpoints, version and one-time secret.
@@ -568,21 +882,34 @@ async fn desktop_snapshot_reads_identity_pairings_and_pending_deadline() {
     let identity = fixture.member.identity().unwrap();
     let controller = fixture.controller();
     let peer = Peer {
-        device_id: controller.id.clone(), public_key: controller.public_key.clone(),
-        name: "Example controller".into(), addresses: vec!["192.168.1.5:7143".into()],
-        tunnel_url: None, address_override: Some("example.local:7143".into()),
+        device_id: controller.id.clone(),
+        public_key: controller.public_key.clone(),
+        name: "Example controller".into(),
+        addresses: vec!["192.168.1.5:7143".into()],
+        tunnel_url: None,
+        address_override: Some("example.local:7143".into()),
     };
     let (decision, _receiver) = tokio::sync::oneshot::channel();
     {
         let mut state = fixture.member.state.lock().unwrap();
         state.stored.controller = Some(peer.clone());
-        state.stored.members.insert(peer.device_id.clone(), peer.clone());
-        state.pending = Some(Pending { peer, expires: Instant::now() + Duration::from_secs(120), decision });
+        state
+            .stored
+            .members
+            .insert(peer.device_id.clone(), peer.clone());
+        state.pending = Some(Pending {
+            peer,
+            expires: Instant::now() + Duration::from_secs(120),
+            decision,
+        });
     }
     let snapshot = fixture.member.request("snapshot", json!({})).await.unwrap();
     assert_eq!(snapshot["deviceId"], identity.id);
     assert_eq!(snapshot["controller"]["name"], "Example controller");
-    assert_eq!(snapshot["members"][0]["addressOverride"], "example.local:7143");
+    assert_eq!(
+        snapshot["members"][0]["addressOverride"],
+        "example.local:7143"
+    );
     assert_eq!(snapshot["pending"]["deviceId"], controller.id);
     assert!(snapshot["pending"]["expiresInSeconds"].as_u64().unwrap() > 0);
     assert!(snapshot["controller"].get("publicKey").is_none());
