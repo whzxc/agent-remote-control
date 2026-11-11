@@ -37,6 +37,22 @@
   --switch-thumb-size: 20px;
   --radius-switch: 13px;
 
+  --layer-s: 400px;
+  --layer-m: 560px;
+  --layer-l: 720px;
+  --layer-xl: 960px;
+  --layer-scrim: rgb(0 0 0 / 24%);
+  --layer-side-margin: 16px;
+  --layer-top-desktop: 48px;
+  --layer-top-browser: 20px;
+  --layer-top: var(--layer-top-desktop);
+  --layer-dialog-top: max(var(--layer-top), 12vh);
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+  --motion-panel: 180ms;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
   --canvas: #f3eee7;
   --surface: #fffdfa;
   --surface-raised: #fffdfa;
