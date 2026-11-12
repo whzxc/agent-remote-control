@@ -146,7 +146,7 @@ async fn state(controller: &Controller, online: bool) {
 }
 #[tokio::test]
 async fn controller_member_loopback() {
-    // Contract: native peer forwarding preserves receipt identity and member task/receipt access independently of controller metadata, with online/offline admission.
+    // Contract: native peer forwarding preserves receipt identity and online/offline admission while exposing only tasks dispatched by this controller, excluding member-local and other-controller tasks.
     if isolate().await {
         return;
     }
@@ -205,21 +205,46 @@ async fn controller_member_loopback() {
         .await
         .unwrap();
     assert_eq!(configured["address"], address);
-    // Member-native task references and receipts have no controller routing metadata.
-    let member_task = id();
-    let native_request = id();
-    crate::kernel::receipts::ReceiptStore::new("")
-        .reserve(&json!({
-            "requestId":native_request,"operation":"notice_post","state":"completed",
-            "backendSession":service.control.session,"origin":{"sourceId":"member-desktop"},
-            "result":{"threadId":member_task},"createdAt":now()
-        }))
-        .unwrap();
+    let controller_source =
+        crate::sources::peer_authority(&controller_manager.identity().unwrap().id).unwrap();
+    let tasks = [
+        (
+            id(),
+            id(),
+            crate::sources::origin(&controller_source, "peer"),
+            true,
+        ),
+        (
+            id(),
+            id(),
+            json!({"sourceId":"member-desktop","authType":"local"}),
+            false,
+        ),
+        (
+            id(),
+            id(),
+            json!({"sourceId":"other-controller-source","authType":"peer","deviceId":hash("Example other controller")}),
+            false,
+        ),
+    ];
+    for (task, request, task_origin, _) in &tasks {
+        let receipt = json!({
+            "requestId":request,"operation":"create","state":"completed",
+            "backendSession":service.control.session,"origin":task_origin,
+            "threadId":task,"turnId":id(),"dispatchMode":"new-turn",
+            "task":{"title":"Example task","dispatch":{"submittedAt":now()}},
+            "result":{"threadId":task},"createdAt":now()
+        });
+        crate::kernel::receipts::ReceiptStore::new("")
+            .reserve(&receipt)
+            .unwrap();
+        crate::dispatch_policy::record(&receipt).unwrap();
+    }
     let controller = Controller::new(directory.join("device-link")).unwrap();
     controller.reconcile(true).await.unwrap();
     state(&controller, true).await;
     let origin = json!({"sourceId":"example-controller-source","authType":"oauth"});
-    for task in [member_task, id()] {
+    for (task, request, _, visible) in &tasks {
         let read = controller
             .forward(
                 "query",
@@ -229,26 +254,32 @@ async fn controller_member_loopback() {
             )
             .await
             .unwrap();
-        assert_eq!(read["isError"], false, "{read}");
-        assert_eq!(crate::egress::tool_value(&read).unwrap()["total"], 0);
-        let write = controller.forward("act", json!({"device":device,"op":"codex_queue_control","args":{"threadId":task,"action":"cancel"}}), None, origin.clone()).await.unwrap();
-        assert_eq!(write["isError"], false, "{write}");
-        assert_eq!(crate::egress::tool_value(&write).unwrap()["changed"], 0);
+        assert_eq!(read["isError"], !visible, "{read}");
+        let task_read = crate::egress::tool_value(&read).unwrap();
+        if *visible {
+            assert_eq!(task_read["total"], 0);
+        } else {
+            assert_eq!(task_read["error"]["code"], "DEVICE_TASK_NOT_VISIBLE");
+        }
+        let receipt = controller
+            .forward(
+                "act",
+                json!({"device":device,"op":"receipt","args":{"requestId":request}}),
+                None,
+                origin.clone(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(receipt["isError"], !visible, "{receipt}");
+        let receipt = crate::egress::tool_value(&receipt).unwrap();
+        if *visible {
+            assert_eq!(receipt["requestId"], *request);
+            assert_eq!(receipt["threadId"], *task);
+            assert_eq!(receipt["state"], "completed");
+        } else {
+            assert_eq!(receipt["error"]["code"], "DEVICE_TASK_NOT_VISIBLE");
+        }
     }
-    let native_receipt = controller
-        .forward(
-            "act",
-            json!({"device":device,"op":"receipt","args":{"requestId":native_request}}),
-            None,
-            origin.clone(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(native_receipt["isError"], false, "{native_receipt}");
-    assert_eq!(
-        crate::egress::tool_value(&native_receipt).unwrap()["state"],
-        "completed"
-    );
     let read = controller
         .forward(
             "query",
