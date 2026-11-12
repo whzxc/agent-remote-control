@@ -5,16 +5,17 @@ import { createServer } from 'vite';
 import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 
-async function harness() {
+async function harness(readOnly = false) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response('{}');
   const window = new Window({ url: 'http://localhost' });
+  if (readOnly) window.document.documentElement.setAttribute('data-arc-browser', '');
   const frames = new Map<number, FrameRequestCallback>();
   let sequence = 0, time = 0;
   const media = { matches: false, addEventListener() {}, removeEventListener() {} };
   window.matchMedia = () => media as unknown as MediaQueryList;
   class Observer { observe() {} unobserve() {} disconnect() {} }
-  Object.assign(globalThis, { window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,
+  Object.assign(globalThis, { window, document: window.document, location: window.location, history: window.history, HTMLElement: window.HTMLElement, Element: window.Element,
     HTMLInputElement: window.HTMLInputElement, HTMLFormElement: window.HTMLFormElement, HTMLSelectElement: window.HTMLSelectElement,
     Node: window.Node, NodeFilter: window.NodeFilter, NodeList: window.NodeList, HTMLCollection: window.HTMLCollection, SVGElement: window.SVGElement, DocumentFragment: window.DocumentFragment,
     MutationObserver: window.MutationObserver, CustomEvent: window.CustomEvent, Event: window.Event,
@@ -484,5 +485,27 @@ test('connector activity does not combine other instances of the same account', 
     await act(() => root.render(h(UiProvider, null, h(SourceDispatches, { sourceId: 'bot-source' }))));
     assert.ok(page.getByRole('button', { name: /History bot-source/ }));
     assert.equal(page.queryByRole('button', { name: /History replacement-source/ }), null);
+  } finally { await fixture.close(); }
+});
+
+test('read-only Agent roots without provider accounts still expose their native task history', async () => {
+  // Regression: browser-readonly opened a native-account placeholder with no route to its running tasks.
+  const fixture = await harness(true);
+  try {
+    const { server, root } = fixture;
+    const { default: AgentPanel } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
+    const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
+    const { selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/agents/conversations')
+      ? { data: [{ id: 'native-history', title: 'Verify remote status', source: 'native', createdAt: new Date().toISOString() }], nextCursor: null }
+      : String(input).endsWith('/accounts') ? { accounts: [], login: null } : {}));
+    await act(async () => {
+      accounts.set({ items: [], login: null, loading: false, error: '' });
+      selectAgentPanel({ type: 'platform', agent: 'codex' });
+      root.render(h(UiProvider, null, h(AgentPanel, { agent: { agent: 'codex', installed: true, enabled: true }, expanded: false, onSettings() {}, onPanelFrame() {}, onToggleWidth() {} })));
+    });
+    assert.ok(within(within(document.body).getByRole('dialog')).getByRole('button', { name: `Verify remote status · ${t('timeline.open')}`, exact: true }));
   } finally { await fixture.close(); }
 });
