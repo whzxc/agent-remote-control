@@ -1,11 +1,10 @@
-import Dialog from "./ElasticPanel";
+import { layerTrigger } from "../state/layers";
+import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
-import { useReducedMotion } from "../state/appEnvironment";
 import { agentPanel, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
@@ -23,7 +22,7 @@ import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations, { readConversationPage, type InitialAgentHistory } from "./AgentConversations";
 import { useDockOpening } from "./useDockOpening";
 import ActivityTimeline from "./ActivityTimeline";
-import type { SurfaceRect } from "../motion/surface";
+import type { LayerRect } from "./ui/layerFrame";
 import type { ProviderAccount } from "../types";
 import { accountOwns } from "../accountPresentation";
 
@@ -51,8 +50,9 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
     finally { setRefreshing(false); }
   }
   const quotaBusy = refreshing || !!provider?.refreshing;
+  usePanelState({ busy: quotaBusy });
   return <section className="agent-panel-layer agent-overview-layer">
-    <header className="dialog-header agent-panel-header">
+    <PanelHeader active={active}><header className="dialog-header agent-panel-header">
       {platformAvailable ? <Button variant="link" disabled={quotaBusy} aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} provider={provider} /></Button>
         : <AgentQuotaIcon agent={agent.agent} provider={provider} />}
       <div className="agent-panel-heading">
@@ -72,7 +72,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
         {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")}
           aria-pressed={expanded} onClick={onToggleWidth} />}
       </div>
-    </header>
+    </header></PanelHeader>
     <div className="agent-view-scroll">
       {error && <p className="timeline-error" role="alert">{error}</p>}
       {providerError && <Notice>{providerError}</Notice>}
@@ -82,11 +82,11 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   </section>;
 }
 
-export default function AgentPanel({ agent, onSettings, onPanelFrame, width, expanded, onToggleWidth, dockRect, dockAnchorY }: {
-  agent: Agent; width?: number; dockRect?: SurfaceRect; dockAnchorY?: number;
-  onSettings: () => void; onPanelFrame: (rect: SurfaceRect | null) => void;
+export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, onToggleWidth }: {
+  agent: Agent; onSettings: () => void; onPanelFrame: (rect: LayerRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
+  const entryTrigger = useRef(layerTrigger());
   const selected = agentPanel.use()!, { error } = agentActivity.use();
   const accountState = useAccounts();
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
@@ -96,7 +96,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
   useLayoutEffect(() => {
     if ((!managesAgentAccounts(agent.agent) || readOnlyBrowser && linkedAccounts.length === 0) && selected.platform && !selected.closing && !accountState.loading && linkedAccounts.length <= 1) selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: linkedAccounts[0]?.id });
   }, [selected.platform, selected.closing, accountState.loading, linkedAccounts.length, linkedAccounts[0]?.id, agent.agent]);
-  const reduced = useReducedMotion(), previous = useRef(selected), content = useRef<HTMLDivElement>(null);
+  const previous = useRef(selected), content = useRef<HTMLDivElement>(null);
   const session = selected.session, taskTitleId = useId();
   const returning = !selected.platform && previous.current.agent === selected.agent && previous.current.accountId === selected.accountId && !!previous.current.session && !session;
   useLayoutEffect(() => {
@@ -134,22 +134,19 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, width, exp
     return () => { current = false; };
   }, [agent.agent, panelId, shouldReadHistory]);
   if (!ready) return null;
-  return <Dialog contentFit fitDockHeight={!session} className={selected.platform ? undefined : "agent-history-panel"} width={width} dockRect={dockRect} dockAnchorY={dockAnchorY} dock="right" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
-    originKey={panelId} closeRequested={selected.closing}
-    onCloseStart={() => agentPanel.set(old => old && agentPanelId(old) === panelId ? { ...old, closing: true } : old)}
-    onClose={() => { const current = agentPanel.get(); if (current && agentPanelId(current) === panelId && current.closing) selectAgentPanel({ type: "closed" }); }}
+  return <Panel entryTrigger={entryTrigger.current} size="m" side="right" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+    viewKey={`${panelId}:${session?.id ?? "overview"}`}
+    onClose={() => agentPanel.set(undefined)}
     returnFocus={selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
     {error && <span className="sr-only" role="status">{t("activity.disconnected")}</span>}
     <div ref={content} className="agent-panel-view">
-      <motion.div className="agent-panel-view" key={panelId} style={{ display: session ? "none" : "flex" }}
-        initial={{ opacity: reduced ? 1 : 0, x: 0 }} animate={{ opacity: session ? 0 : 1, x: reduced || !session ? 0 : -12 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-        {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} widthControl={!dockRect && <IconButton icon={expanded ? Minimize2 : Maximize2}
-          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={managesAgentAccounts(agent.agent) && (!readOnlyBrowser || linkedAccounts.length > 0) || linkedAccounts.length > 1} resizable={!dockRect} agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} initial={initial && { ...initial, timedOut: !initial.result }} />}
-      </motion.div>
-      {session && <motion.div className="agent-panel-view" key={`${agent.agent}:${session.id}`}
-        initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}>
-        <ActivityTimeline resizable={!dockRect} titleId={taskTitleId} agent={agent.agent} session={session} expanded={expanded} onToggleWidth={onToggleWidth} onBack={() => selectAgentPanel({ type: "back" })} />
-      </motion.div>}
+      <div className="agent-panel-view dialog-swap" key={panelId} hidden={!!session}>
+        {selected.platform ? <AgentPlatformView agent={agent} onSettings={onSettings} widthControl={<IconButton icon={expanded ? Minimize2 : Maximize2}
+          label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={managesAgentAccounts(agent.agent) && (!readOnlyBrowser || linkedAccounts.length > 0) || linkedAccounts.length > 1} resizable agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} initial={initial && { ...initial, timedOut: !initial.result }} />}
+      </div>
+      {session && <div className="agent-panel-view dialog-swap" key={`${agent.agent}:${session.id}`}>
+        <ActivityTimeline resizable titleId={taskTitleId} agent={agent.agent} session={session} expanded={expanded} onToggleWidth={onToggleWidth} onBack={() => selectAgentPanel({ type: "back" })} />
+      </div>}
     </div>
-  </Dialog>;
+  </Panel>;
 }

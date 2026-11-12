@@ -1,3 +1,4 @@
+import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useState, useRef, useEffect, type ReactNode, type ComponentProps } from "react";
@@ -444,7 +445,8 @@ export default function IngressDialog({
   );
 }
 
-function IngressEditLayer({ title, children, footer, onClose, initialFocus, busy, leading, actions }: ComponentProps<typeof Dialog>) {
+function IngressEditLayer({ title, children, footer, onClose, initialFocus, busy, dirty, leading, actions }: ComponentProps<typeof Dialog>) {
+  usePanelState({ dirty, busy });
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -454,9 +456,9 @@ function IngressEditLayer({ title, children, footer, onClose, initialFocus, busy
     return () => cancelAnimationFrame(frame);
   }, [initialFocus]);
   return <section className="ingress-edit-layer side-panel-layer" ref={root}>
-    <header className="dialog-header" data-leading={leading === null ? "false" : "true"}>{leading === undefined ? <IconButton icon={ChevronLeft} label={t("back")} disabled={busy} onClick={onClose} /> : leading}
-      <h2 className="activity-panel-title" tabIndex={-1}>{title}</h2>{actions && <div className="actions">{actions}</div>}</header>
-    <div className="side-panel-scroll">{children}</div><footer className="dialog-footer">{footer}</footer>
+    <PanelHeader><header className="dialog-header" data-leading={leading === null ? "false" : "true"}>{leading === undefined ? <IconButton icon={ChevronLeft} label={t("back")} disabled={busy} onClick={onClose} /> : leading}
+      <h2 className="activity-panel-title" tabIndex={-1}>{title}</h2>{actions && <div className="actions">{actions}</div>}</header></PanelHeader>
+    <div className="side-panel-scroll">{children}</div><PanelFooter>{footer}</PanelFooter>
   </section>;
 }
 

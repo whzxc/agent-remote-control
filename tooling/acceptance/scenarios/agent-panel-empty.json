@@ -1,8 +1,14 @@
 {
   "theme": "light",
   "language": "zh-CN",
-  "agents": ["codex"],
+  "agents": [
+    "codex"
+  ],
   "tasks": [],
   "quota": true,
-  "panel": { "kind": "agent", "id": "codex" }
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "timezone": "Asia/Shanghai"
 }

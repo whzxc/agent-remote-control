@@ -4,10 +4,14 @@ import { Tag } from "../components/tag";
 import { TaskRow } from "./task-presentation";
 import { agentHistory, agentRowExample } from "../fixtures/agent-activity";
 
+export function AgentSectionHeading({ label, attention = false }: { label: string; attention?: boolean }) {
+  return <h3 class={`text-meta leading-4 font-semibold ${attention ? "text-warning" : "text-text-secondary"}`}>{label}</h3>;
+}
+
 export function AgentTaskHistory({ groups }: { groups: typeof agentHistory }) {
   return groups.map((group) => (
     <section class="flex flex-col gap-2">
-      <h3 class="text-meta leading-4 font-semibold text-text-secondary">{group.heading}</h3>
+      <AgentSectionHeading label={group.heading} />
       {group.tasks.map((n) => (
         <TaskRow
           title={`${agentRowExample.titlePrefix} ${n}`}

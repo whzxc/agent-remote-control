@@ -1,3 +1,4 @@
+import { usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import RequestRouting from "./RequestRouting";
 import { useRequestRouting } from "../state/requestRouting";
@@ -46,6 +47,8 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   useEffect(() => { if (identity && (!narrow || sheetOpen)) focus.current?.focus({ preventScroll: true }); }, [identity, narrow, sheetOpen]);
   useEffect(() => { if (!count && !keepAfterWork || !narrow) setSheetOpen(false); }, [count, narrow, keepAfterWork]);
   const interaction = pending?.interaction;
+  usePanelState({ dirty: Object.values(drafts[identity ?? ""] ?? {}).some(values => values.some(value => value.length > 0)),
+    busy: !!identity && submissions[identity]?.status === "submitting" || routing.busy });
   const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />;
   const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive") : undefined;
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>

@@ -2,7 +2,7 @@ import { taskFamilyWires } from "./taskFamilies";
 import type { Point, Side } from './solve';
 import { TopologyAnimator, nodeKey, taskKey } from './animate';
 import type { PaintNode, PaintTask } from './render';
-import type { SurfaceRect } from '../motion/surface';
+import type { LayerRect as SurfaceRect } from '../components/ui/layerFrame';
 import { portraitSourcePanelRoute } from './portrait';
 import type { TopologyGroupPlan } from './compact';
 

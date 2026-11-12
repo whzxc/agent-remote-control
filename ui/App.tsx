@@ -103,7 +103,7 @@ export default function App() {
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = layerStore.use();
   const modalOpen = layers.some(layer => layer.kind === 'dialog');
-  const workspace = layers.find(layer => layer.kind === 'panel' && !layer.node?.dataset.panelDock);
+  const workspace = layers.find(layer => layer.kind === 'panel' && layer.node?.dataset.layerSide === 'center');
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {

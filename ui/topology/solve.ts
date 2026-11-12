@@ -45,7 +45,7 @@ export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default
 export type Side = -1 | 1;
 export interface Task { id: string; width: number; height: number; parentTaskId?: string }
 export interface Entity { id: string; tasks: readonly Task[]; children?: readonly Entity[]; collapsed?: boolean }
-export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; narrow?: boolean; overlay?: boolean } }
+export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; overlay?: boolean } }
 export interface Drag extends Point { kind: "node" | "task"; side: Side; id: string }
 export interface Point { x: number; y: number }
 export interface NodeGeometry extends Point {
@@ -66,14 +66,7 @@ export function hubDots(interaction: Scene["hubInteraction"]) {
   return { dotSource: interaction === 'source' ? 1.25 : interaction ? 1.1 : 1,
     dotAgent: interaction === 'agent' ? 1.25 : interaction ? 1.1 : 1 };
 }
-export const PANEL_MIN_WIDTH = 400, PANEL_MARGIN = 16, PANEL_ARC_GAP = 40;
-
-// The selected node's animated outer arc defines the dock's inner edge.
-export function panelWidth(vw: number, side: Side, x: number, radius: number) {
-  const remaining = side === 1 ? vw - x - radius - PANEL_ARC_GAP - PANEL_MARGIN
-    : x - radius - PANEL_ARC_GAP - PANEL_MARGIN;
-  return Math.min(Math.max(0, vw - 2 * PANEL_MARGIN), Math.max(PANEL_MIN_WIDTH, remaining));
-}
+export const PANEL_ARC_GAP = 40;
 
 // Distribute port angles: follow each target's direction, keep a minimum
 // separation in order, and fit the run inside ±max. Returns degrees.
@@ -257,16 +250,6 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   const minX = leftEdge + e.eL.full, maxX = rightEdge - e.eR.full;
   if (minX <= maxX) hx = Math.max(minX, Math.min(maxX, hx));
   else hx = reservePanel && sc.panel?.side === 1 ? maxX : minX; // A dock prioritizes its selected node; the far wing may clip.
-  if (reservePanel && sc.panel?.narrow) {
-    const side = sc.panel.side;
-    const wing = panelWing(solveWing(side === 1 ? sc.right : sc.left, side, at(0), Re, p, side === 1 ? optR : optL, null));
-    const selected = wing.nodes.find(n => n.id === sc.panel!.selected);
-    if (selected) {
-      const radius = selected.arc?.R ?? selected.size * selected.scale / 2 + p.arcGap;
-      const stroke = 2 * Math.max(0.8, Re / 130);
-      hx = sc.panel.edge - side * (radius + stroke + PANEL_ARC_GAP) - selected.x;
-    }
-  }
   const hub = { x: hx, y: sceneH / 2, Re, ...hubDots(sc.hubInteraction) };
   const L = panelWing(solveWing(sc.left, -1, hub, Re, p, optL, dragOf(-1)));
   const R = panelWing(solveWing(sc.right, 1, hub, Re, p, optR, dragOf(1)));

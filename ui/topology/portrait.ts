@@ -113,15 +113,3 @@ export function portraitSourcePanelRoute(node: Pick<NodeGeometry, 'x' | 'y' | 's
   const end = { x: panel.x, y: Math.max(panel.y + 27, Math.min(panel.y + panel.height - 27, node.y)) };
   return [start, { x: panel.x - 12, y: node.y }, { x: panel.x - 12, y: end.y }, end];
 }
-// Coordinates are scene-local. The host converts them into viewport coordinates;
-// vertical scrolling never feeds a panel's animated dimensions back into solve.
-export function portraitPanelRect(layout: Layout, selected: NodeGeometry): PortraitPanelRect {
-  if (selected.side === -1) {
-    const sources = layout.wings[0].nodes.filter(node => node.opacity > 0);
-    const edge = Math.max(...sources.map(node => node.x + node.size * node.scale / 2));
-    const x = Math.min(layout.vw - 17, edge + 24);
-    return { x, y: 16, width: Math.max(1, layout.vw - 16 - x), height: Math.max(1, layout.vh - 112) };
-  }
-  const right = selected.x - selected.size * selected.scale / 2 - 40;
-  return { x: 16, y: 16, width: Math.max(1, right - 16), height: Math.max(1, layout.vh - 112) };
-}

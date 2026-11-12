@@ -133,7 +133,7 @@ Related defects:
 - The confirmation MUST focus the action that keeps the layer open.
 - Close and Cancel controls MUST close clean or dirty layers directly.
 - Close and Cancel controls on a layer with running work MUST show the same running-work state as outside input, focus Keep open, offer Stop and close when cancellable, and close when the work finishes unless Keep open withdraws the close request.
-- The navigation capsule MUST act as the workspace switcher: another entry replaces a clean workspace, edited or running work shows its dismissal footer, and the active entry toggles it closed.
+- The navigation capsule and topology nodes MUST act as panel switchers: another entry replaces a clean panel, edited or running work shows its dismissal footer, and the active entry toggles it closed.
 - Dismissal MUST NOT activate the element under the pointer.
 - Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
 - Field errors MUST stay with their fields.

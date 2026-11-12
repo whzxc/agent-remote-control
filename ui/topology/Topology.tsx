@@ -1,3 +1,4 @@
+import { readLayerTokens } from "../components/ui/layerTokens";
 import DeviceSummary from '../devices/DeviceSummary';
 import { participantPost, petSize, bubbleEnd, wanderPost, petPath, overlaps, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
@@ -7,7 +8,7 @@ import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
 import { topologyLayout } from "../subscriptions/displayPreferences";
 import { resolveOrientation, type Orientation } from "./orientation";
-import { solvePortrait, portraitPanelRect } from "./portrait";
+import { solvePortrait } from "./portrait";
 import { PortraitPainter } from "./portraitRender";
 import { compactRoots, compactLayout, compactTree, topologyGroups, topologyPinned, retainOpenGroup, type TopologyGroupPlan, type CompactPlan } from './compact';
 import { t } from '../i18n';
@@ -22,12 +23,12 @@ import { highlightedPaths, type PathTask } from './accounts';
 import { observeTopology } from "../acceptance";
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject, type PointerEvent, type MouseEvent } from "react";
 import { useMedia } from "../state/hooks";
-import { NODE_R, PANEL_MIN_WIDTH, PANEL_MARGIN, panelWidth, type Side, type Scene, type Drag, type Layout, type Task } from "./solve";
+import { NODE_R, type Side, type Scene, type Drag, type Layout, type Task } from "./solve";
 import { TopologyAnimator, nodeKey, taskKey } from "./animate";
 import { TopologyPainter, type PaintNode, type PaintTask } from "./render";
 import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
-import type { SurfaceRect } from "../motion/surface";
+import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
 export interface TaskView extends Task, Pick<PathTask, 'members' | 'agentAccountId' | 'origin'>, Omit<PaintTask, "parent" | "side"> { content: ReactNode; reorderable?: boolean; taskId?: string; petTaskIds?: string[]; threadId?: string; count?: number; pending?: boolean; activityQueue?: string; activityAt?: number }
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; tasks: TaskView[]; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
@@ -40,13 +41,11 @@ export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; 
 }
 type PositionedTask = TaskView & { parent: string; side: Side };
 export interface TopologyHandle { memberLayerPointer: (event: Event) => void; panelFrame: (rect: SurfaceRect | null) => void }
-export interface PanelLayout { key?: string; width: number; expanded: boolean; rect?: SurfaceRect; anchorY?: number }
 
-export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onPanelLayout, onCollapseSide, onMarkRead, onReorderNodes, onReorderTasks, ref }: {
+export default function Topology({ left: inputLeft, right: inputRight, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onCollapseSide, onMarkRead, onReorderNodes, onReorderTasks, ref }: {
   left: NodeView[]; right: NodeView[]; accountsEnabled?: boolean; brand: ReactNode;
   panelExpanded?: boolean;
   panelKey?: string;
-  onPanelLayout?: (layout: PanelLayout) => void;
   onCollapseSide?: (side: Side) => void;
   onMarkRead?: (targets: readonly ActivityReadTarget[]) => void;
   onReorderNodes: (side: Side, ids: string[]) => void;
@@ -63,10 +62,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const pointerActionOwner = useRef<string | null>(null);
   const animator = useRef(new TopologyAnimator()), painter = useRef<TopologyPainter | null>(null);
   const frame = useRef(0), lastTime = useRef(0), panel = useRef<SurfaceRect | null>(null);
-  const retarget = useRef(() => {}), placeAfterMorph = useRef(false);
+  const retarget = useRef(() => {});
   const orientationSource = useRef<"auto" | "manual">("auto");
-  const placedPanel = useRef<string | undefined>(undefined);
-  const reportedPanel = useRef<PanelLayout>(undefined);
   const origin = useRef({ x: 0, y: 0 }), size = useRef<{ vw: number; vh: number } | null>(null);
   const drag = useRef<(Drag & { pointer: number; startClientX: number; startClientY: number; grabX: number; grabY: number; parent?: string;
     order: string[]; initialOrder: string[]; active: boolean; control: boolean; target: HTMLElement; slot: HTMLElement; key: string }) | null>(null);
@@ -212,8 +209,8 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   // Retain departing HTML until its primitive has collapsed into the port.
   const [retained, setRetained] = useState<PositionedTask[]>([]);
   const allTasks = [...new Map([...retained, ...tasks].map(t => [taskKey(t.side, t.id), t])).values()];
-  const latest = useRef({ nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
-  latest.current = { nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, onPanelLayout, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
+  const latest = useRef({ nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, reduced, params, guides, slow, onReorderNodes, onReorderTasks });
+  latest.current = { nodes, fullNodes, allNodes, tasks, allTasks, left, right, groups, compacted, expandedGroups, lit, hover, focus, revealed, hubInteraction, panelKey, panelExpanded, reduced, params, guides, slow, onReorderNodes, onReorderTasks };
   useEffect(() => {
     if (!openedGroup) return;
     // Decide after React capture and SVG target handlers have classified the
@@ -471,10 +468,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     if (moving) frame.current = requestAnimationFrame(tick);
     else {
       lastTime.current = 0;
-      if (placeAfterMorph.current) {
-        placeAfterMorph.current = false; placedPanel.current = undefined;
-        retarget.current();
-      }
       setRetainedNodes(old => {
         const remaining = old.filter(n => animator.current.live.has(nodeKey(n.side, n.id)));
         return remaining.length === old.length ? old : remaining;
@@ -489,12 +482,12 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
   const scene = useCallback((): Scene => {
     const sc: Scene = { ...size.current!, left: latest.current.left, right: latest.current.right, hubInteraction: latest.current.hubInteraction }, d = drag.current;
     const selected = latest.current.nodes.find(n => n.selected);
-    // Reserve only the minimum; following the measured panel would feed its
-    // growing width back into the node layout and move the arc again.
-    const reservedWidth = Math.min(PANEL_MIN_WIDTH, innerWidth - 2 * PANEL_MARGIN);
+    // The fixed slot contributes one available horizontal boundary to the existing solver.
+    const { sizes, margin } = readLayerTokens();
+    const reservedWidth = Math.min(sizes.m, innerWidth - 2 * margin);
     if (selected) sc.panel = { side: selected.side, selected: selected.id,
-      edge: selected.side === 1 ? innerWidth - reservedWidth - PANEL_MARGIN - origin.current.x : PANEL_MARGIN + reservedWidth - origin.current.x,
-      narrow: innerWidth < 760, overlay: latest.current.panelExpanded };
+      edge: selected.side === 1 ? innerWidth - reservedWidth - margin - origin.current.x : margin + reservedWidth - origin.current.x,
+      overlay: latest.current.panelExpanded || innerWidth < 760 || innerHeight > innerWidth };
     if (!d?.active) return sc;
     const wing = d.side === -1 ? "left" : "right";
     if (d.kind === "node") {
@@ -560,38 +553,6 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     }
     animator.current.params = latest.current.params;
     layout.current = solveScene(d?.active ? d : null);
-    // Publish the settled destination once per layout change, never a spring's
-    // in-flight position. The dock can then open at its final content width.
-    const selected = latest.current.nodes.find(n => n.selected);
-    const selectedNode = selected && layout.current.wings.find(w => w.side === selected.side)?.nodes.find(n => n.id === selected.id);
-    const radius = selectedNode && (selectedNode.arc?.R ?? selectedNode.size * selectedNode.scale / 2 + latest.current.params.arcGap);
-    let rect: SurfaceRect | undefined;
-    if (layout.current.portrait && selectedNode && !latest.current.panelExpanded) {
-      const container = boundary.current;
-      const viewportTop = origin.current.y + (container?.scrollTop ?? 0);
-      if (container && placedPanel.current !== latest.current.panelKey) {
-        const local = portraitPanelRect(layout.current, selectedNode);
-        // Keep the selected node visible while the panel overlays its inward side.
-        const neededBottom = Math.max(local.y + Math.min(320, layout.current.vh * 0.5), selectedNode.y + 44);
-        const desired = Math.max(0, Math.min(layout.current.sceneH - layout.current.vh, Math.max(container.scrollTop, neededBottom + 96 - layout.current.vh)));
-        container.scrollTop = desired;
-        const actual = graph.current!.getBoundingClientRect();
-        origin.current = { x: actual.x, y: actual.y };
-      }
-      placedPanel.current = latest.current.panelKey;
-      const local = portraitPanelRect(layout.current, selectedNode);
-      if (selectedNode.side === 1 && envOverrides().taskPanelWidth != null) local.width = Math.min(local.width, envOverrides().taskPanelWidth!);
-      rect = { ...local, x: local.x + origin.current.x, y: local.y + viewportTop };
-    } else placedPanel.current = undefined;
-    const width = rect?.width ?? ((latest.current.panelKey?.startsWith("agent:") ? envOverrides().taskPanelWidth : undefined) ?? (selectedNode && radius !== undefined ? panelWidth(innerWidth, selectedNode.side, origin.current.x + selectedNode.x,
-      radius + 2 * Math.max(0.8, layout.current.hub.Re / 130)) : PANEL_MIN_WIDTH));
-    const { panelKey: key, panelExpanded: expanded } = latest.current;
-    const anchorY = selectedNode ? selectedNode.y + origin.current.y : undefined;
-    const next: PanelLayout = { key, width, expanded: rect ? false : expanded, rect, anchorY };
-    if (JSON.stringify(reportedPanel.current) !== JSON.stringify(next)) {
-      reportedPanel.current = next;
-      latest.current.onPanelLayout?.(next);
-    }
     const membership = new Map(latest.current.allNodes.filter(n => n.groupMember).map(n => [nodeKey(n.side, n.id), nodeKey(n.side, n.groupMember!)]));
     animator.current.setTargets(layout.current, d?.active ? d : null, membership);
     animator.current.appearance(latest.current.nodes, latest.current.tasks);
@@ -605,10 +566,9 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
     orientationTimer.current = null;
     if (drag.current) return;
     const env = envOverrides();
-    const previous = orientation.current;
     orientation.current = resolveOrientation(orientation.current, topologyLayout.get(), env.windowWidth ?? innerWidth, env.windowHeight ?? innerHeight);
     orientationSource.current = topologyLayout.get() === 'auto' ? 'auto' : 'manual';
-    if (previous !== orientation.current) { placedPanel.current = undefined; placeAfterMorph.current = !!latest.current.panelKey; }
+    
     orientationPending.current = false;
     setViewport(old => old.orientation === orientation.current ? old : { ...old, orientation: orientation.current });
     target();

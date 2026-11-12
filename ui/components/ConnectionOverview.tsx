@@ -6,7 +6,7 @@ import { taskExecution, taskExecutions } from "../state/taskExecution";
 import { pendingSessions } from "../state/taskInteractions";
 import { activityApprovals } from "../state/activity";
 import { useAppNow } from "../state/appEnvironment";
-import { appEnvironment, envOverrides } from "../state/appEnvironment";
+import { appEnvironment } from "../state/appEnvironment";
 import { controlSource, controlSourcePlatform } from '../controlSources';
 import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
@@ -46,9 +46,8 @@ import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";
 import GraphNode from "./GraphNode";
 import { ActivityBubble } from "./ActivityBubbles";
-import Topology, { type TopologyHandle, type NodeView, type PanelLayout } from "../topology/Topology";
-import { PANEL_MIN_WIDTH } from "../topology/solve";
-import type { SurfaceRect } from "../motion/surface";
+import Topology, { type TopologyHandle, type NodeView } from "../topology/Topology";
+import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 import type { WireState } from "../topology/render";
 import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
@@ -83,14 +82,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
     : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
   appEnvironment.use();
-  const [panelLayout, setPanelLayout] = useState<PanelLayout>({ width: PANEL_MIN_WIDTH, expanded: false });
-  const updatePanelLayout = useCallback((next: PanelLayout) => {
-    // Release scene space immediately, retaining the shell's last geometry
-    // until its dismissal animation completes.
-    setPanelLayout(old => next.key === undefined ? old.key === undefined ? old : { ...old, key: undefined }
-      : JSON.stringify(old) === JSON.stringify(next) ? old : next);
-  }, []);
-  const panelReady = panelLayout.key === panelKey;
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
   const { status, hubHealth, error } = connector.use();
   const inventory = agentStore.use();
@@ -231,10 +222,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       unread: Object.entries(tracked).flatMap(([agent, sessions]) => sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined
         && (session.origin?.sourceId ? session.origin.sourceId === source.id : accounts.some(account => account.sources.includes(source.id) && accountOwns(account, session.origin?.accountId))))
         .map(session => ({ agent, id: session.id }))),
-      content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} newlyAdded={source.id === newSourceId && !flow}
+      content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} hideLabel={selected} panelExpanded={selected} caption={<span className="graph-node-name">{nodeLabel}</span>} newlyAdded={source.id === newSourceId && !flow}
         onMove={readOnlyBrowser || panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
-        <SourceIcon platform={platform.id} panelVisual /><span className="graph-node-name">{nodeLabel}</span>
+        <SourceIcon platform={platform.id} panelVisual />
       </GraphNode>,
     }];
   });
@@ -274,10 +265,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) })),
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
-        highlighted={selected} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
+        highlighted={selected} hideLabel={selected} panelExpanded={selected} caption={<span className="graph-node-name">{name(agent)}</span>} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
         {icon}
         {selection && !selected && sessions.some(s => s.endedAt === undefined) && <span className="agent-task-count" data-attention={sessions.some(s => !!s.interaction) || undefined}>{sessions.filter(s => s.endedAt === undefined).length}</span>}
-        <span className="graph-node-name">{name(agent)}</span>
         {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}
       </GraphNode>,
       tasks: [
@@ -348,7 +338,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       if (!event.currentTarget.contains(event.target as Node)) topology.current?.memberLayerPointer(event.nativeEvent);
     }}>
       <section ref={core} inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
-        <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={selection && envOverrides().taskPanelWidth != null ? false : panelExpanded} onPanelLayout={updatePanelLayout}
+        <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={panelExpanded}
           onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
           onMarkRead={markActivitiesRead}
           onReorderNodes={reorderNodes}
@@ -365,10 +355,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
-        {selectedAgent && visible && (panelReady || selection?.closing || panelLayout.key?.startsWith("agent:")) && <AgentPanel agent={selectedAgent} dockRect={panelLayout.rect} dockAnchorY={panelLayout.anchorY}
-          width={envOverrides().taskPanelWidth ?? panelLayout.width} expanded={envOverrides().taskPanelWidth == null && panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)}
+        {selectedAgent && visible && <AgentPanel key={selection && agentPanelId(selection)} agent={selectedAgent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
           onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
-        {sourceSelection && visible && (panelReady || sourceSelection.closing || panelLayout.key?.startsWith("source:")) && <IngressPanel dockRect={panelLayout.rect} dockAnchorY={panelLayout.anchorY} width={panelLayout.width} expanded={panelLayout.expanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
+        {sourceSelection && visible && <IngressPanel key={sourcePanelId(sourceSelection)} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
         <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && coreState === "ready" && (

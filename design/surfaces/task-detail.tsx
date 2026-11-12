@@ -12,8 +12,7 @@ export default () =>
         viewport: "1280x1100",
       }}
       note={
-        "The implementation shell follows topology panel geometry; its width is not fixed to the " +
-        "drawing's 640px. failed-turn uses task preparation in the adapter."
+        "The task uses the fixed M right slot with a scrolling body at the viewport cap. failed-turn uses task preparation in the adapter."
       }
     >
       <TaskTimeline form={name} />

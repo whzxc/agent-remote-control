@@ -164,7 +164,7 @@ Commit the scoped changes with a single-line Conventional Commits subject and in
 ## Implementation checklist
 
 - Size shared controls through their size variables, such as `--icon-button-size`. A width or height override leaves the control's minimum size in place and distorts its shape.
-- Make each surface rule win over generic panel rules, such as `.elastic-panel .dialog-header h2`. A text width difference in `compare` usually means a font rule lost.
+- Make each surface rule win over generic panel rules, such as `.node-panel .layer-custom-header h2`. A text width difference in `compare` usually means a font rule lost.
 - Remove redundant base definitions from `ui/tokens.css` when `design/tokens.css` owns the same token. Keep the scoped `data-surface="mcp"` overrides that map semantic tokens to host colors.
 - Avoid `font-variant-numeric` and `letter-spacing` values that the source does not use, because they change text widths.
 - Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.

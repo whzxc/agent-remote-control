@@ -140,7 +140,7 @@ export default function AgentConversations({ agent, account, accountId, active, 
       const label = date === undefined ? t(`agentPanel.${id}`) : new Date(date).toLocaleDateString(language, { month: 'short', day: 'numeric', weekday: 'short' });
       return entries.length > 0 && <section className="agent-task-section" key={id} aria-label={label}>
         <h3 className="agent-task-section-heading" data-attention={id === "attention" || undefined}>
-          {label}{" · "}{entries.length}
+          {`${label} · ${entries.length}`}
         </h3>
         <div className="agent-task-section-rows">{entries.map((session, index) => <ConversationRow key={session.id} agent={agent}
           session={session} live={live.has(session.id)} now={now} index={index} />)}</div>

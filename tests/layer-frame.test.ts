@@ -83,3 +83,19 @@ test('center workspaces share the top line and expand only through the explicit 
     if (expanded) assert.equal(frame.width, viewport.width - tokens.margin * 2);
   }
 });
+
+test('node slots use a fixed M width on mirrored edges and collapse independently of the node', () => {
+  // Property: Node panels use mirrored viewport edges at M width and their collapsed slot never depends on node coordinates.
+  for (const viewport of viewports) for (const side of ['left', 'right'] as const) {
+    const baseline = layerFrame('panel', 'm', side, viewport, tokens, 200);
+    const collapsed = viewport.width < 760 || viewport.height > viewport.width;
+    assert.equal(baseline.width, collapsed ? viewport.width - 2 * tokens.margin : tokens.sizes.m);
+    assert.equal(side === 'left' ? baseline.x : viewport.width - baseline.x - baseline.width, tokens.margin);
+    for (const y of [0, viewport.height / 2, viewport.height]) {
+      const { entry, ...frame } = layerFrame('panel', 'm', side, viewport, tokens, 200, { x: 120, y, width: 48, height: 48 });
+      const { entry: _, ...expected } = baseline;
+      assert.deepEqual(frame, expected);
+      assert.ok(Math.abs(Math.hypot(entry.x, entry.y) - 8) < 1e-10);
+    }
+  }
+});

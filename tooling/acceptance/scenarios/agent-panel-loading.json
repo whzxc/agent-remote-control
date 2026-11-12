@@ -2,12 +2,28 @@
   "theme": "dark",
   "language": "zh-CN",
   "timezone": "Asia/Shanghai",
-  "agents": ["codex", "cursor", "opencode"],
+  "agents": [
+    "codex",
+    "cursor",
+    "opencode"
+  ],
   "tasks": [],
   "quota": true,
   "panelHistory": true,
   "historyRows": 1,
   "historyDelayMs": 1200,
-  "panel": { "kind": "agent", "id": "codex" },
-  "viewports": [{ "width": 1280, "height": 800 }, { "width": 640, "height": 800 }]
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "width": 640,
+      "height": 800
+    }
+  ]
 }

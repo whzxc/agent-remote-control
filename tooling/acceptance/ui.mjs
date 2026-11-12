@@ -28,33 +28,29 @@ const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function overviewDock(model, viewportHeight) {
-  const { nodes, origin, orientation } = model.topology;
-  const node = nodes.find(item => item.selected && item.position);
-  if (!node) throw new Error('The overview has no selected topology node.');
-  return { anchorY: node.position.y + origin.y, top: 16, bottom: viewportHeight - (orientation === 'portrait' ? 96 : 16) };
+function checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side = "right") {
+  if (!box) throw new Error('The node panel has no visible bounds.');
+  const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
+  const x = side === "left" ? 16 : viewportWidth - width - 16;
+  if (Math.abs(box.x - x) > 1 || Math.abs(box.y - top) > 1 || Math.abs(box.width - width) > 1
+    || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the M ${side} slot: ${JSON.stringify(box)}`);
 }
-function checkOverviewAnchor(box, { anchorY, top, bottom }) {
-  if (!box) throw new Error('The overview has no visible bounds.');
-  const expected = Math.max(top, Math.min(anchorY - box.height / 2, bottom - box.height));
-  if (Math.abs(box.y - expected) > 1) throw new Error(`The overview is not anchored to its node at ${anchorY}: expected top ${expected}, got ${box.y}.`);
-}
-async function checkOverviewGrowth(dialog, initial, dock) {
-  checkOverviewAnchor(initial, dock);
+async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top, side = "right") {
+  checkNodePanelBounds(initial, viewportWidth, viewportHeight, top, side);
   const frames = await dialog.evaluate(async (element, initialHeight) => {
     const bounds = [];
     let previousHeight = initialHeight, stableFrames = 0;
     for (let frame = 0; frame < 40; frame++) {
       await new Promise(requestAnimationFrame);
-      const { y, height } = element.getBoundingClientRect();
-      bounds.push({ y, height });
+      const { x, y, width, height } = element.getBoundingClientRect();
+      bounds.push({ x, y, width, height });
       stableFrames = height > initialHeight + 1 && Math.abs(height - previousHeight) < 0.5 ? stableFrames + 1 : 0;
       if (stableFrames >= 3) return bounds;
       previousHeight = height;
     }
     throw new Error('The overview did not grow when its data arrived.');
   }, initial.height);
-  for (const box of frames) checkOverviewAnchor(box, dock);
+  for (const box of frames) { checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
   return frames.at(-1);
 }
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.
@@ -234,7 +230,7 @@ try {
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (name === 'agent-panel-short' || name === 'agent-panel-loading') {
           const dialog = page.getByRole('dialog', { name: 'Codex', exact: true });
-          const dock = overviewDock(model, height);
+          const top = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
           let loadingBox;
           if (fixture.historyDelayMs) {
             await dialog.getByText('正在加载…', { exact: true }).waitFor();
@@ -242,8 +238,8 @@ try {
             if (screenshots) await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
           }
           await dialog.getByRole('button', { name: /^Review project change 1/ }).waitFor();
-          const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, dock) : await dialog.boundingBox();
-          checkOverviewAnchor(loadedBox, dock);
+          const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, width, height, top) : await dialog.boundingBox();
+          checkNodePanelBounds(loadedBox, width, height, top);
           if (!loadedBox || loadedBox.height >= height * 0.75) throw new Error('The short Agent overview did not fit its content.');
         }
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
@@ -256,7 +252,7 @@ try {
           const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
             : dialog.getByRole('button', { name: /Review the example change/ });
           await content.waitFor();
-          await checkOverviewGrowth(dialog, initial, overviewDock(model, height));
+          await checkOverviewGrowth(dialog, initial, width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20), fixture.slowDock === 'dispatches' ? 'left' : 'right');
           await loading.waitFor({ state: 'hidden' });
         }
         if (fixture.coordination) {
@@ -719,7 +715,7 @@ try {
           await page.getByRole('button', { name: /^OpenCode:/i }).click();
           const opened = page.getByRole('dialog', { name: 'OpenCode', exact: true });
           await opened.getByRole('button', { name: /^Review project change 1/ }).waitFor();
-          checkOverviewAnchor(await opened.boundingBox(), overviewDock(await page.evaluate(() => window.__ARC_VIEW_MODEL__()), height));
+          checkNodePanelBounds(await opened.boundingBox(), width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20));
           if (screenshots) await page.screenshot({ path: path.join(out, `${key}-clicked-node.png`) });
         }
         if (name.startsWith('agent-platform-') && width === 1280) {

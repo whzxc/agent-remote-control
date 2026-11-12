@@ -7,9 +7,3 @@
 .spec-picker-effort > strong { display: flex; align-items: center; gap: 5px; font-size: var(--text-small); line-height: 16px; font-weight: 600; }
 .task-dispatch-fields { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .task-dispatch-fields > span { font-size: var(--text-small); font-weight: 600; }
-.dialog.elastic-panel:has(.task-dispatch-fields) .dialog-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px; padding: 16px 24px 0; }
-.dialog.elastic-panel:has(.task-dispatch-fields) .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.dialog.elastic-panel:has(.task-dispatch-fields) .dialog-description { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: var(--text-small); line-height: 20px; }
-.dialog.elastic-panel:has(.task-dispatch-fields) .dialog-body { padding: 20px 24px 24px; }
-
-.dialog.elastic-panel:has(.task-dispatch-fields) { --panel-border: 0px; background: var(--surface-raised); border: 0; border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); }

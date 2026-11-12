@@ -6,7 +6,7 @@ import { createServer } from "vite";
 import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
-test("Agent panel keeps a nonmodal shell across task/back/peer navigation and restores focus on Escape", { timeout: 10000 }, async () => {
+test("Agent panel keeps a nonmodal shell across task/back navigation and replaces peers and restores focus on Escape", { timeout: 10000 }, async () => {
   // Regression: task/back navigation must not remount the nonmodal shell or lose return focus.
   const beforeFetch = globalThis.fetch;
   const window = new Window({ url: "http://localhost" });
@@ -54,7 +54,7 @@ test("Agent panel keeps a nonmodal shell across task/back/peer navigation and re
       const view = agentPanel.use();
       const layers = layerStore.use();
       return h("div", { onClickCapture: (event: { target: EventTarget }) => captureLayerTrigger(event.target) },
-        h("main", { inert: layers.some((layer: { node: HTMLElement }) => !layer.node.dataset.panelDock) },
+        h("main", { inert: layers.some((layer: { node: HTMLElement }) => layer.kind === "dialog") },
           ...["claude", "codex"].map(agent => h("div", { key: agent, "data-agent-node": agent },
             h("button", { className: "graph-node", "data-panel-anchor": true, onClick: () => selectAgentPanel({ type: "toggle", agent }) }, agent)))),
         view && h(AgentPanel, { agent: { agent: view.agent }, state: "connected", expanded: false, onToggleWidth() {},
@@ -82,7 +82,7 @@ test("Agent panel keeps a nonmodal shell across task/back/peer navigation and re
     assert.equal(agentPanel.get().session, undefined);
     assert.ok(page.getByRole("button", { name: /External example/ }).matches(":focus"));
     await click(codex);
-    assertNodeIdentity(page.queryByRole("dialog"), shell, "peer switch never remounts the shell");
+    assert.equal(page.getAllByRole("dialog").length, 1);
     assert.equal(agentPanel.get().agent, "codex");
     await act(() => document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     await flush();
@@ -227,7 +227,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const first = () => page.getByRole("button", { name: "Source one", exact: true });
     const second = () => page.getByRole("button", { name: "Source two", exact: true });
     await click(first());
-    const shell = page.getByRole("dialog");
+    let shell = page.getByRole("dialog");
     assert.equal(shell.getAttribute("aria-modal"), null);
     assert.equal(page.queryByRole("switch"), null);
     const { controlSource } = await server.ssrLoadModule("/ui/controlSources.ts");
@@ -236,7 +236,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
     assert.ok(within(page.getByRole("dialog")).getByRole("region", { name: "Source two" }));
     assert.equal(page.queryByRole("switch"), null);
     await click(first());
-    assertNodeIdentity(page.getByRole("dialog"), shell);
+    shell = page.getByRole("dialog", { name: "Source one", exact: true });
     await act(() => navigation.set({ ingressEdit: { id: "one" } })); await flush();
     assertNodeIdentity(page.getByRole("dialog"), shell);
     await click(button(t("back")));
@@ -249,7 +249,8 @@ test("control source dock preserves editing, field navigation and cross-side dis
     await act(() => navigation.set({ ingressEdit: { id: "one" } })); await flush();
     await click(button(t("cancel")));
     await click(second());
-    assertNodeIdentity(page.getByRole("dialog"), shell);
+    assert.ok(page.getByRole("dialog", { name: "Source two", exact: true }));
+    assert.equal(page.getAllByRole("dialog").length, 1);
     assert.equal(ingressPanel.get().ingress.id, "two");
     await escape(); assert.equal(ingressPanel.get(), undefined);
     assert.ok(second().matches(":focus"));

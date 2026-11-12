@@ -14,24 +14,24 @@ function SourcePanel({
 }) {
   const platform = form === "platform";
   return (
-    <PanelShell width={480} class="max-h-[768px] overflow-hidden pt-5">
-      <header class="mx-5 flex h-9 shrink-0 items-center gap-4">
+    <PanelShell size="m" viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+      <header class="flex h-9 shrink-0 items-center gap-4">
         <BrandMark brand="anthropic" size={36} />
         <h2 class="flex-1 text-title font-[650]">
-          {platform ? "Anthropic" : "Claude"}
+          {platform || form === "loading" ? "Anthropic" : "Claude"}
         </h2>
         <div class="flex gap-[6px]">
           <IconButton icon="maximize-2" label="Expand" />
           <IconButton icon="x" label="Close" />
         </div>
       </header>
-      <div class="min-h-0 overflow-y-auto px-5 pb-5">
+      <div class="min-h-0 overflow-y-auto">
         {platform ? (
-          <SourceConnectorSummary />
+          <SourceConnectorSummary class="" />
         ) : form === "loading" ? (
           <PanelLoading label={sourcePanelCopy.loading} />
         ) : (
-          <div class="mt-7">
+          <div>
             <SourceTaskGroups history={form === "history"} />
           </div>
         )}
@@ -66,7 +66,7 @@ export default () => [
   >
     <SourcePanel form="platform" />
   </Frame>,
-  <Frame name="loading" fixture="source-panel-loading" capture={{ region: "Claude", viewport: "1280x800" }}>
+  <Frame name="loading" fixture="source-panel-loading" capture={{ selector: ".layer-panel", viewport: "1280x800" }}>
     <SourcePanel form="loading" />
   </Frame>,
 ];

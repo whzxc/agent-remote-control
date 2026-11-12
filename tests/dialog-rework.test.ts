@@ -266,3 +266,45 @@ test('deferred close focus restoration preserves the next action trigger', async
     } finally { globalThis.requestAnimationFrame = originalFrame; globalThis.cancelAnimationFrame = originalCancel; }
   });
 });
+
+test('node switchers replace clean panels, protect edits and toggle their own panel closed', async () => {
+  // Regression: graph-node outside-click exceptions bypassed dirty dismissal and node selection could leave two panels open.
+  await withDialog(async ({ server, root, settle, focused }) => {
+    const { default: Panel, usePanelState } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { default: GraphNode } = await server.ssrLoadModule('/ui/components/GraphNode.tsx');
+    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
+    const { Input, Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    function Draft() {
+      const [value, setValue] = useState(''); usePanelState({ dirty: !!value });
+      return h(Input, { 'aria-label': 'Node draft', value, onChange: (event: Event) => setValue((event.target as HTMLInputElement).value) });
+    }
+    function Owner() {
+      const [selected, setSelected] = useState<string | undefined>('Workspace');
+      return h('main', null, ...['Source', 'Agent'].map(id => h(GraphNode, { key: id, label: id, state: 'normal',
+        hideLabel: selected === id, panelExpanded: selected === id, caption: `${id} caption`,
+        onOpen: () => { const next = selected === id ? undefined : id; layers.switchPanel(() => setSelected(next)); },
+      }, id === 'Source' ? 'S' : 'A')), selected && h(Panel, { key: selected, size: selected === 'Workspace' ? 'l' : 'm',
+        side: selected === 'Source' ? 'left' : selected === 'Agent' ? 'right' : 'center', title: `${selected} editor`, onClose: () => setSelected(undefined),
+      }, h(Draft), h(Button, { onClick: () => setSelected(undefined) }, 'Finish')));
+    }
+    const page = within(document.body);
+    await act(async () => root.render(h(Owner))); await settle();
+    const open = async (name: string) => { await act(async () => fireEvent.click(page.getByRole('button', { name, exact: true }))); await settle(); };
+    await open('Source');
+    assert.equal(page.queryByRole('dialog', { name: 'Workspace editor' }), null);
+    assert.ok(page.getByRole('dialog', { name: 'Source editor' }));
+    assert.ok(page.getByRole('button', { name: 'Source', exact: true, expanded: true }));
+    await act(async () => fireEvent.change(page.getByRole('textbox', { name: 'Node draft' }), { target: { value: 'Unsaved node input' } }));
+    await open('Agent');
+    assertNodeIdentity(focused(), page.getByRole('button', { name: t('layers.keepEditing') }));
+    await open(t('layers.keepEditing'));
+    assert.equal((page.getByRole('textbox', { name: 'Node draft' }) as HTMLInputElement).value, 'Unsaved node input');
+    await open('Agent'); await open(t('layers.discardAction'));
+    assert.ok(page.getByRole('dialog', { name: 'Agent editor' }));
+    assert.equal(page.queryByRole('dialog', { name: 'Source editor' }), null);
+    await open('Agent');
+    assert.equal(page.queryByRole('dialog'), null);
+    assert.ok(page.getByRole('button', { name: 'Agent', exact: true, expanded: false }));
+  });
+});

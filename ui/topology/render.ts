@@ -2,7 +2,7 @@ import { taskFamilyWires } from "./taskFamilies";
 import { deg, type Side, type Layout, type Point } from "./solve";
 import { arcPath, grownWire, tentacle, finitePoints } from "./geometry";
 import { TopologyAnimator, nodeKey, taskKey } from "./animate";
-import type { SurfaceRect } from "../motion/surface";
+import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
 export type WireState = "normal" | "connecting" | "error" | "inactive";
 export type TaskState = import("../state/taskProjection").TaskState | "summary";

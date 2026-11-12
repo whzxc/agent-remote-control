@@ -18,13 +18,13 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
     for (const view of views) { const id = view.platform ?? view.id; groups.set(id, [...groups.get(id) ?? [], view]); }
     return [...groups].flatMap<NodeView>(([platform, members]) => {
       const first = members[0], label = first.platformLabel ?? platform;
-      const children = members.map(view => ({ ...view, account: true, content: <GraphNode label={view.label ?? view.id} state={view.state} highlighted={view.selected} onOpen={() => actions.open(-1, platform, view.id)}>{view.icon}<span className="graph-node-name">{view.label}</span></GraphNode> }));
+      const children = members.map(view => ({ ...view, account: true, content: <GraphNode label={view.label ?? view.id} state={view.state} highlighted={view.selected} hideLabel={view.selected} panelExpanded={view.selected} caption={<span className="graph-node-name">{view.label}</span>} onOpen={() => actions.open(-1, platform, view.id)}>{view.icon}</GraphNode> }));
       if (mode === 'flat') return children;
       const selected = actions.selectedPlatform === platform;
       const state = (['normal', 'connecting', 'error', 'inactive'] as const).find(state => members.some(view => view.state === state)) ?? first.state;
       const icon = <SourceIcon platform={platform} panelVisual />;
       return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), unread: members.flatMap(view => view.unread ?? []), children,
-        content: <GraphNode label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>{icon}<span className="graph-node-name">{label}</span></GraphNode> }];
+        content: <GraphNode caption={<span className="graph-node-name">{label}</span>} hideLabel={selected} panelExpanded={selected} label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>{icon}</GraphNode> }];
     });
   }
   if (!accounts.length) return views;
@@ -52,18 +52,18 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
         attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
         tasks: accountTasks,
         unread: members.flatMap(view => view.unread ?? []).filter(task => task.agentAccountId === account.id),
-        content: <GraphNode label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
-          {icon}<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>
+        content: <GraphNode caption={<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>
             {suffix ? <><span>{mode === 'flat' ? `${label} · ${account.alias}` : account.alias}</span><span> · {suffix}</span></> : nodeLabel}
-          </span>
+          </span>} hideLabel={selected} panelExpanded={selected} label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
+          {icon}
         </GraphNode>,
       } satisfies NodeView;
     });
     const selected = members.some(v => v.selected) && !children.some(v => v.selected);
     const root: NodeView = { ...first, id: platform, label, icon: platformIcon, selected,
       tasks: tasks.filter(t => !linked.some(a => a.id === t.agentAccountId)),
-      content: <GraphNode label={label} state={first.state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>
-        {platformIcon}<span className="graph-node-name">{label}</span>
+      content: <GraphNode caption={<span className="graph-node-name">{label}</span>} hideLabel={selected} panelExpanded={selected} label={label} state={first.state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>
+        {platformIcon}
       </GraphNode>,
     };
     return mode === 'tree' ? [{ ...root, children }] : [...children, ...(root.tasks.length ? [{ ...root, selected: false }] : [])];

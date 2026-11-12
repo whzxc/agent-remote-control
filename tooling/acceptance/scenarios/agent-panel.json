@@ -26,5 +26,6 @@
       "headline": "npm run check",
       "elapsedSeconds": 1314
     }
-  ]
+  ],
+  "timezone": "Asia/Shanghai"
 }

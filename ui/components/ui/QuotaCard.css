@@ -1,6 +1,4 @@
 .quota-provider { display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--text); }
-.settings-dialog.elastic-panel:has(.usage-overview .quota-provider) .dialog-header { min-height: 47px; padding-bottom: 0; }
-.settings-dialog.elastic-panel:has(.usage-overview .quota-provider) .dialog-body { padding-top: 24px; }
 .quota-provider > header { display: flex; align-items: center; gap: 10px; min-height: 24px; line-height: 24px; font-size: var(--text-body); }
 .quota-provider .provider-logo { flex: none; width: 24px; height: 24px; }
 .quota-provider .provider-logo svg { width: 100%; height: 100%; }

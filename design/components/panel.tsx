@@ -83,20 +83,24 @@ export function Dialog(props: Parameters<typeof Panel>[0]) {
 export function PanelShell({
   width,
   size,
+  viewportHeight,
+  viewportWidth = 1280,
   height,
   children,
   class: extra = "",
 }: {
   width?: number;
   size?: LayerSize;
+  viewportHeight?: number;
+  viewportWidth?: number;
   height?: number;
   children?: unknown;
   class?: string;
 }) {
   return (
     <section
-      style={{ width: size ? layerWidths[size] : width, height }}
-      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${extra}`}
+      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : size ? layerWidths[size] : width, height, "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
+      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-top-browser)_-_var(--layer-side-margin))]!" : ""} ${extra}`}
     >
       {children}
     </section>
@@ -127,7 +131,7 @@ export function PanelHeader({
 
 export function PanelLoading({ label }: { label: string }) {
   return (
-    <div class="flex items-center justify-center gap-2 p-6 text-text-secondary" role="status">
+    <div class="flex items-center justify-center gap-2 p-6 text-body text-text-secondary" role="status">
       <Icon name="loader-circle" size={16} />
       {label}
     </div>

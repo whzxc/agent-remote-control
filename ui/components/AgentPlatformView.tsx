@@ -1,3 +1,4 @@
+import { PanelHeader } from "./ui/Panel";
 import { useCallback, useState, type ReactNode } from 'react';
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
@@ -27,7 +28,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const canLogin = kind && agent.installed && !readOnlyBrowser;
   const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
   return <section className="agent-panel-layer agent-platform-view">
-    <header className="dialog-header agent-panel-header">
+    <PanelHeader><header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
       <div className="actions">
@@ -36,7 +37,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
         {widthControl}
         <DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose>
       </div>
-    </header>
+    </header></PanelHeader>
     <div className="agent-view-scroll" aria-busy={state.loading}>
       {state.error && <Notice action={<Button onClick={() => void refreshAccounts()}>{t('retry')}</Button>}>{state.error}</Notice>}
       {state.loading && !accounts.length && <Loading />}

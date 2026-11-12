@@ -33,6 +33,7 @@ export type TaskBubbleProps = {
   headlineMono?: boolean;
   truncateHeadline?: boolean;
   activityGap?: number;
+  fill?: boolean;
   phaseColumn?: "latin" | "cjk";
   neutralPhase?: boolean;
 };
@@ -54,6 +55,7 @@ export function TaskBubble({
   headlineMono = false,
   truncateHeadline = true,
   activityGap = 6,
+  fill = false,
   phaseColumn,
   neutralPhase = false,
 }: TaskBubbleProps) {
@@ -82,7 +84,7 @@ export function TaskBubble({
   return (
     <div
       style={width ? { width } : undefined}
-      class={`flex items-start rounded-card ${spacing} ${padding} ${background} ${paint[tone]}`}
+      class={`flex items-start rounded-card ${fill ? "w-full!" : ""} ${spacing} ${padding} ${background} ${paint[tone]}`}
     >
       <Tile icon={icon} form="phase" tone={tone} source={source} sourceBrand={sourceBrand} />
       <div class="flex min-w-0 flex-1 flex-col">

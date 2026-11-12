@@ -32,13 +32,13 @@ export const copy = {
 
 export const sourceFacts = [
   [
-    { label: "产品", value: "Ranoat" },
-    { label: "连接", value: "Ranoat" },
-    { label: "添加时间", value: "nrresnor nrrnrrnr" },
+    { label: "产品", value: "Claude" },
+    { label: "连接", value: "Claude" },
+    { label: "添加时间", value: "2025/12/31 16:00:00" },
   ],
   [
-    { label: "授权时间", value: "htaathro ooshsoor" },
-    { label: "最近活动", value: "htaathro ooshsoor" },
+    { label: "授权时间", value: "1969/12/31 16:00:01" },
+    { label: "最近活动", value: "1969/12/31 16:00:01" },
   ],
 ];
 

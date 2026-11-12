@@ -8,18 +8,18 @@ import { SingleChoice } from "../components/single-choice";
 import { BrandMark, type Brand } from "../components/agent-icon";
 import { platformChoices as platforms } from "../fixtures/choices";
 import { details, frames } from "../fixtures/connectors";
-export function ConnectorCard() {
+export function ConnectorCard({ brand = "openai", title = copy.text1, state = copy.text2, facts = details }: { brand?: Brand; title?: string; state?: string; facts?: string[][][] } = {}) {
   return (
     <Card padded class="gap-3!">
       <div class="flex items-center gap-3">
-        <BrandMark brand="openai" size={28} />
-        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2"><strong class="text-body leading-5 font-[650]">{copy.text1}</strong><span class="text-meta leading-4 text-success">{copy.text2.split(" ").map((word, index) => <>{index > 0 && " "}<span>{word}</span></>)}</span></div>
+        <BrandMark brand={brand} size={28} />
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2"><strong class="text-body leading-5 font-[650]">{title}</strong><span class="text-meta leading-4 text-success">{state.split(" ").map((word, index) => <>{index > 0 && " "}<span>{word}</span></>)}</span></div>
         <div class="ml-auto flex gap-1">
           <IconButton compact icon="pencil" label={copy.text3} />
           <IconButton compact icon="trash-2" label={copy.text4} />
         </div>
       </div>
-      <div class="flex flex-col gap-5">{details.map((row) => (
+      <div class="flex flex-col gap-5">{facts.map((row) => (
         <div class="flex flex-wrap items-baseline gap-x-[10px] gap-y-2 text-meta leading-4">
           {row.map(([label, value], i) => (
             <span class="inline-flex min-w-0 max-w-full items-baseline gap-[6px]">
@@ -69,35 +69,10 @@ export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) 
 
 import { sourceConnectorCopy } from "../fixtures/connectors";
 
-import SourceArt from "../art/source.svg";
 import { sourceFacts } from "../fixtures/connectors";
 export function SourceConnectorSummary({ class: extra = "mt-7" }: { class?: string }) {
-  return (
-    <article class={`flex flex-col gap-3 rounded-card bg-surface-subtle p-4 ${extra}`}>
-      <header class="flex items-center gap-4">
-        <SourceArt data-brand width={24} height={24} class="text-role-source" />
-        <strong class="text-body leading-5 font-[650]">{sourceConnectorCopy.text1}</strong>
-        <span class="-ml-2 text-meta text-success">{sourceConnectorCopy.text2}</span>
-        <span class="ml-auto flex gap-3">
-          <IconButton compact icon="pencil" label={sourceConnectorCopy.text3} />
-          <IconButton compact icon="trash-2" label={sourceConnectorCopy.text4} />
-        </span>
-      </header>
-      {sourceFacts.map((row) => (
-        <div class="flex items-center gap-2 text-meta leading-4 text-text-secondary">
-          {row.map((fact, i) => (
-            <>
-              <span>
-                {i > 0 ? "· " : ""}
-                {fact.label}
-              </span>
-              <span class="blur-[3px]">{fact.value}</span>
-            </>
-          ))}
-        </div>
-      ))}
-    </article>
-  );
+  return <div class={extra}><ConnectorCard brand="anthropic" title={sourceConnectorCopy.text1} state={sourceConnectorCopy.text2}
+    facts={sourceFacts.map(row => row.map(fact => [fact.label, fact.value]))} /></div>;
 }
 
 export default () => [

@@ -1,3 +1,4 @@
+import { layers } from "./layers";
 import { onboarding, connectionSetup } from "./onboarding";
 import { createStore } from "./store";
 import { accounts } from "./accounts";
@@ -27,23 +28,24 @@ export function selectAgentPanel(action: AgentPanelAction) {
   }
   connectionSetup.set(undefined);
   onboarding.set(undefined);
-  if (["agent", "toggle", "task", "platform"].includes(action.type)) ingressPanel.set(undefined);
-  agentPanel.set(old => agentPanelSelection(old, action));
+  const next = agentPanelSelection(agentPanel.get(), action);
+  if (action.type === "toggle" || action.type === "platform" && action.toggle) layers.switchPanel(() => agentPanel.set(next?.closing ? undefined : next));
+  else agentPanel.set(next);
 }
 export function selectIngressPanel(ingress: Ingress, options: { client?: IngressConnectionSelection["client"]; editing?: boolean; field?: string; autoConnect?: boolean; toggle?: boolean } = {}) {
   connectionSetup.set(undefined);
   onboarding.set(undefined);
-  agentPanel.set(undefined);
-  ingressPanel.set(old => {
-    const current = old && 'ingress' in old ? old : undefined;
-    return options.toggle && current?.ingress.id === ingress.id && current.client?.id === options.client?.id
-      ? { ...current, closing: true }
+  const old = ingressPanel.get();
+  const current = old && 'ingress' in old ? old : undefined;
+  const next = options.toggle && current?.ingress.id === ingress.id && current.client?.id === options.client?.id
+      ? undefined
       : { ingress, client: options.client ?? (current?.ingress.id === ingress.id ? current.client : undefined), editing: options.editing, field: options.field, autoConnect: options.autoConnect };
-  });
+  if (options.toggle) layers.switchPanel(() => ingressPanel.set(next)); else ingressPanel.set(next);
 }
 export function selectSourcePlatform(platform: string, toggle = false) {
   connectionSetup.set(undefined);
   onboarding.set(undefined);
-  agentPanel.set(undefined);
-  ingressPanel.set(old => toggle && old && 'platform' in old && old.platform === platform ? { ...old, closing: true } : { platform });
+  const old = ingressPanel.get();
+  const next = toggle && old && 'platform' in old && old.platform === platform ? undefined : { platform };
+  if (toggle) layers.switchPanel(() => ingressPanel.set(next)); else ingressPanel.set(next);
 }

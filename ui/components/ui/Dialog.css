@@ -46,3 +46,28 @@
 :root[data-reduced-motion="true"] .dialog-swap { transition: none; }
 
 .layer-panel > .dialog-footer > .panel-footer-content { width: 100%; }
+
+.layer-custom-header { flex: none; min-width: 0; }
+.layer-custom-header[hidden] { display: none; }
+.node-panel .layer-custom-header > .dialog-header { display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; }
+.node-panel .layer-custom-header h2 { margin: 0; min-width: 0; font: 650 var(--text-title)/24px var(--font-ui); }
+.node-panel .layer-custom-header .actions { display: flex; flex: none; gap: var(--control-gap); margin: 0; }
+.node-panel .layer-custom-header .icon-button { --icon-button-size: var(--control-height); }
+.node-panel .layer-custom-header .agent-panel-header { align-items: center; }
+.node-panel:has(.agent-platform-view) .agent-quota-icon { --agent-quota-size: 36px; --agent-icon-art-size: calc(48px * 32 / 38); margin: 0; }
+.node-panel .source-account-brand .source-icon { display: flex; }
+.node-panel > .dialog-body > .dialog-swap { min-height: 0; }
+.node-panel:has(.task-detail-layer) > .dialog-body { display: flex; overflow: hidden; }
+.node-panel:has(.task-detail-layer) > .dialog-body > .dialog-swap, .node-panel:has(.task-detail-layer) .agent-panel-view { display: flex; flex: 1 1 auto; min-height: 0; }
+.node-panel:has(.task-detail-layer) .agent-panel-view[hidden] { display: none; }
+.node-panel .task-detail-layer { flex: 1 1 auto; min-height: 0; }
+.node-panel > .dialog-footer:has(.task-detail-footer) { flex: 0 1 auto; max-height: 60%; min-height: 0; overflow: hidden; }
+.node-panel .panel-footer-content:has(.task-detail-footer) { display: flex; min-height: 0; }
+.node-panel .task-detail-footer { width: 100%; padding: 0; border: 0; background: none; }
+.node-panel .task-detail-header.dialog-header { flex-direction: column; align-items: stretch; gap: 0; }
+
+.node-panel .agent-panel-title-row { height: 24px; gap: 8px; }
+.node-panel .agent-panel-title-row > .icon-button { --icon-button-size: 24px; }
+.node-panel .agent-panel-heading { gap: 4px; }
+.node-panel[data-layer-side="left"] .layer-custom-header > .dialog-header { gap: 16px; }
+.node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }

@@ -27,7 +27,7 @@ export const platformAccountCopy = {
   add: "添加账号",
   close: "关闭",
   expand: "展开",
-  empty: "暂无账号",
+  empty: "暂无账户。",
   loading: "正在加载…",
   signedOut: "未登录",
   quotaUnavailable: "额度暂不可用",

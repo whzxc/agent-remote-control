@@ -74,7 +74,7 @@ export function createLayerStore() {
       const handle = (event: PointerEvent) => {
         const layer = top(), target = event.target;
         if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
-        if (contains(id, target) || layer.kind === 'panel' && target.closest('[data-workspace-switcher]')) return;
+        if (contains(id, target) || layer.kind === 'panel' && target.closest('[data-workspace-switcher], [data-layer-switcher]')) return;
         consumeOutsidePointer(event);
         dismiss(id);
       };

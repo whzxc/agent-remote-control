@@ -12,11 +12,6 @@
 .setting-control { flex: 0 1 auto; max-width: 60%; min-width: 0; }
 .setting-toggle .setting-control { flex-shrink: 0; }
 .settings-section-card > .notice { margin-block: 16px; }
-.dialog.elastic-panel.settings-dialog { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); }
-.settings-dialog.elastic-panel .dialog-header { min-height: 60px; padding: 13px 24px; }
-.settings-dialog.elastic-panel .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.settings-dialog.elastic-panel .dialog-body { padding: 20px 24px 24px; }
-.settings-dialog.elastic-panel.headerless .dialog-body { padding-top: 18px; }
 .settings-dialog-close { position: absolute; top: 13px; right: 24px; }
 .setting-control > .select-trigger { width: 100%; }
 .setting-control > .select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

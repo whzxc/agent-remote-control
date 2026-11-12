@@ -24,13 +24,11 @@ Task branches form complete rounded routes from the node through the bus column.
 
 ## Panels
 
-Agent/account panels dock inside the right rail over the bubbles, from a 16px left margin to 40px before the selected node's stubs. The overview aligns its vertical center to the selected node within the top panel margin and bottom dock clearance. It fits its content and scrolls within that limit. Task details fill the available dock height. The hub position and topology scroll offset do not constrain the available height. A selected-node stub reaches the panel's right edge; bubbles and their stubs fade using existing panel state.
+All node panels use the shared Panel's collapsed slot below 760px or in portrait: viewport width minus two 16px margins, starting at the browser's 20px or desktop's 48px top line. This slot replaces the inward rail dock and node-following vertical center. Height fits content, retains its largest value while open and is capped at the bottom margin. Headers and footers stay fixed while the body scrolls; task detail follows the same rule.
 
-Source panels open to the right of the visible source and account nodes, inside the viewport and above the dock. They overlay the scene without reserving a vertical gap or moving the hub and Agent section. Source dispatch and connector overviews fit their content within the available viewport. The overview aligns its vertical center to the selected node and shifts inward at the dock bounds. The body scrolls at the viewport cap. The selected source connects directly from the icon's right edge to the panel's left edge. Opening the panel keeps the selected node visible.
+Collapsed panels overlay the scene. Opening a panel does not scroll the topology to place its node, reserve a vertical gap or change the hub position. Existing source and Agent connectors use the fixed panel frame. The selected node hides its visible label and keeps its accessible name. Explicit width controls remain available; an already collapsed panel spans the available width.
 
-Portrait panels use the available rail area and omit the landscape width-expansion control. An explicit `app_env.taskPanelWidth` may narrow the Agent panel within that area.
-
-Both modes reuse the existing nonmodal shell, open/close timing, outside-click, Escape and focus restoration. Header controls and the bottom-left dock retain their positions.
+Both orientations use the layer store's panel replacement, node toggling, dirty/busy footer, topmost Escape and focus restoration. Entry fades and moves toward the slot by 8px with the panel motion tokens; reduced motion removes movement. The bottom-left capsule remains the workspace switcher.
 
 ## Height-aware sibling groups
 

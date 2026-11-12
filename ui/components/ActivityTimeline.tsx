@@ -1,3 +1,4 @@
+import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { useAppNow } from "../state/appEnvironment";
 import { pendingSessions } from "../state/taskInteractions";
@@ -274,8 +275,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   // Preserve native conversation identity without borrowing another turn's configuration.
   const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
+  usePanelState({ busy: continuing });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
-    <header className="dialog-header task-detail-header">
+    <PanelHeader><header className="dialog-header task-detail-header">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
@@ -309,7 +311,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           <span style={value === undefined ? undefined : { width: `${value}%` }} />
         </div>;
       })}</div>}
-    </header>
+    </header></PanelHeader>
     <div className="task-timeline" aria-busy={loading}>
       <div className="timeline-scroll" ref={viewport} tabIndex={0} aria-label={t("timeline.title")}
         onWheel={event => {
@@ -371,6 +373,6 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       </div>
       {!atLatest && <IconButton className="timeline-latest" variant="secondary" icon={ArrowDown} size={20} label={t("timeline.latest")} onClick={latest} />}
     </div>
-    {hasPending && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={sourceLabel} narrow={narrow} />}
+    {hasPending && <PanelFooter><TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={sourceLabel} narrow={narrow} /></PanelFooter>}
   </section>;
 }

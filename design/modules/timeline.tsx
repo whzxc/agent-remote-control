@@ -187,14 +187,13 @@ export function TaskTimeline({ form }: { form: string }) {
   const failed = form === "failed-turn",
     waiting = form === "needs-you";
   return (
-    <PanelShell width={640} class="p-5 pt-[14px]">
+    <PanelShell size="m" viewportHeight={1100} class="overflow-hidden p-6 pt-[13px]">
       <header class="flex h-[34px] items-center gap-2">
         <Icon name="arrow-left" size={16} />
-        <span class="w-0" />
-        <span class="flex-1 text-small font-semibold">{timelineCopy.agent}</span>
+        <span class="flex flex-1 items-center gap-1 text-meta font-semibold">{timelineCopy.agent.split(" · ").map((part, index) => <span>{index ? `· ${part}` : part}</span>)}</span>
         <IconButton icon="maximize-2" label="Expand" />
       </header>
-      <h2 class="mt-[10px] text-title leading-6 font-[650]">
+      <h2 class="mt-[10px] truncate text-title leading-6 font-[650]">
         {failed ? timelineCopy.failedTitle : task.title}
       </h2>
       <div class="mt-[14px] flex items-center gap-2">

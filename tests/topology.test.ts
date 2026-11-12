@@ -288,16 +288,16 @@ test("Agent dock reserves its width and label clearance without reordering or mo
     assert.deepEqual(solve(scene), base, "closing restores the original geometry");
   }
 });
-test("narrow docks retain arc clearance at minimum width and mirror the left dock", () => {
-  // Property: narrow docks retain arc clearance at minimum width and mirror the left dock.
+test("collapsed panel slots leave topology positions independent of their covering edge", () => {
+  // Property: A collapsed panel overlays the topology without moving nodes or the hub toward its trigger.
   for (const vw of [360, 600, 759]) for (const side of [-1, 1] as const) {
-    const edge = side === 1 ? vw - Math.min(400, vw - 32) - 16 : Math.min(400, vw - 32) + 16;
+    const scene = { ...fixtures.bilateral, vw }, base = solve(scene);
     const selected = side === 1 ? "agent0" : "source0";
-    const layout = solve({ ...fixtures.bilateral, vw, panel: { side, selected, edge, narrow: true } });
-    const node = layout.wings.find(w => w.side === side)!.nodes.find(n => n.id === selected)!;
-    const radius = node.arc?.R ?? node.size * node.scale / 2 + DEFAULTS.arcGap;
-    assert.ok(side === 1 ? node.x + radius <= edge - PANEL_ARC_GAP : node.x - radius >= edge + PANEL_ARC_GAP);
-    assert.ok(Number.isFinite(layout.hub.x));
+    for (const edge of [16, vw - 16]) {
+      const layout = solve({ ...scene, panel: { side, selected, edge, overlay: true } });
+      assert.deepEqual(layout.hub, base.hub);
+      assert.deepEqual(layout.wings.map(w => w.nodes.map(n => [n.id, n.x, n.y])), base.wings.map(w => w.nodes.map(n => [n.id, n.x, n.y])));
+    }
   }
 });
 

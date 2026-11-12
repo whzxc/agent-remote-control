@@ -14,7 +14,7 @@ export function SourceTaskGroups({ history = false }: { history?: boolean }) {
         const headingPaint = attentionGroupTitles.includes(group.title) ? "text-warning" : "text-text-secondary";
         return (
           <section class="flex flex-col gap-2">
-            <h3 class={`flex gap-[10px] text-meta leading-4 font-semibold ${headingPaint}`}>
+            <h3 class={`flex gap-[6px] text-meta leading-4 font-semibold ${headingPaint}`}>
               {group.title}<span class="text-text-tertiary">{group.rows.length}</span>
             </h3>
             {group.rows.map(([title, meta, tone, icon]) => (
@@ -28,7 +28,7 @@ export function SourceTaskGroups({ history = false }: { history?: boolean }) {
               >
                 <div class="flex flex-1 flex-col gap-[3px]">
                   <strong class="text-small leading-4 font-[650]">{title}</strong>
-                  <span class={`text-meta leading-4 font-medium ${metaPaint[tone as keyof typeof metaPaint]}`}>{meta}</span>
+                  <span class={`flex gap-1 text-meta leading-4 font-medium ${metaPaint[tone as keyof typeof metaPaint]}`}>{meta.split(" · ").map((part, index) => <>{index > 0 && <span>·</span>}<span>{part}</span></>)}</span>
                 </div>
               </TaskRow>
             ))}

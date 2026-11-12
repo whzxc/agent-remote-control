@@ -59,7 +59,7 @@ function Highlight({ root, activeKey, tracking }: {
       if (!target || !target.getClientRects().length) { hide(); return; }
       const box = target.getBoundingClientRect(), parent = scope.getBoundingClientRect();
       if (!box.width || !box.height || !parent.width || !parent.height) { hide(); return; }
-      // Undo ancestor scaling; the local layer follows elastic panels naturally.
+      // Undo ancestor scaling; the local layer follows ancestor transforms naturally.
       const sx = parent.width / scope.offsetWidth, sy = parent.height / scope.offsetHeight;
       const corner = getComputedStyle(target).borderTopLeftRadius;
       const r = corner.endsWith("%") ? parseFloat(corner) * Math.min(box.width / sx, box.height / sy) / 100 : parseFloat(corner);

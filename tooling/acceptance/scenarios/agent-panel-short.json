@@ -8,5 +8,6 @@
   "panelHistory": true,
   "historyRows": 1,
   "panel": { "kind": "agent", "id": "codex" },
-  "viewports": [{ "width": 1280, "height": 800 }, { "width": 640, "height": 800 }]
+  "viewports": [{ "width": 1280, "height": 800 }, { "width": 640, "height": 800 }],
+  "timezone": "Asia/Shanghai"
 }

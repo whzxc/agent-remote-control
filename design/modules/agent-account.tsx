@@ -21,7 +21,7 @@ export function AccountCard({ account }: { account: AgentAccount }) {
       <div class="flex items-center gap-2">
         <div class="flex min-w-0 flex-1 flex-col">
           <div class="flex items-center gap-2">
-            <h3 class="min-w-0"><Button variant="link" class="max-w-full">
+            <h3 class="flex min-w-0"><Button variant="link" class="max-w-full">
               <span class="truncate">{account.alias}</span>
             </Button></h3>
             {account.default && <Tag form="meta">{copy.default}</Tag>}
