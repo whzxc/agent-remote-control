@@ -22,6 +22,20 @@ The upper arc reports unhealthy when any ARC-owned listener or transport expecte
 
 Remote recovery retries the remote check or restarts only the affected remote connection. Remote access depends on Core, so when Core is unavailable an expected remote connection also shows unhealthy. Its recovery panel directs the user to Core recovery. Core stop and recovery use a local Desktop action independent of Core request routing. An explicit stop is a host-level intent honored by all automatic start paths. The lower arc shows unavailable and offers Start Core. When a new Core passes its health check, it restores the last explicit ARC-managed remote connection intent. Each recovery keeps its fault treatment until the relevant check passes.
 
+### Proposed device level
+
+`surfaces/device-link-topology.tsx` composes the proposed paired-device level using
+`modules/device-topology.tsx`. Landscape frames cover LAN, Tunnel, offline, merged
+single-Agent collapse/expansion, the device panel and the member controller source
+with optional upstream sources off/on. Portrait 640×800 and mobile 390×844 fold remote
+accounts/profiles with TopologyGroup and retain accessible node names without visible
+labels. Device nodes retain the existing 48px graphic size. The ARC mark, earcups,
+local tier-1 Agents and shared navigation capsule remain part of the homepage.
+
+These frames are Proposed. Existing approved summary and workspace sources remain
+retained until topology implementation replaces their consumers. See the mapping for
+retirement scope and Known gaps.
+
 ## Ownership and project configuration
 
 ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping](design-assets.md) owns per-part feature responsibility, implementation counterparts, review/adoption status and retained exceptions. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.

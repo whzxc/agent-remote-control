@@ -42,8 +42,8 @@ Inspector.
 | [mechanisms/notification-flow.mmd](../../arch/mechanisms/notification-flow.mmd) | Binding, observation, delivery gates, L1/L2 sends and the ingress inbox |
 | [mechanisms/notification-delivery.mmd](../../arch/mechanisms/notification-delivery.mmd) | Status of one delivery record |
 | [mechanisms/notification-reachability.mmd](../../arch/mechanisms/notification-reachability.mmd) | Handshake state of one notification target |
-| [mechanisms/device-link.mmd](../../arch/mechanisms/device-link.mmd) | Proposed pairing and reachability of one Device link member |
-| [mechanisms/device-forward.mmd](../../arch/mechanisms/device-forward.mmd) | Proposed forwarding of one control-source write to a member |
+| [mechanisms/device-link.mmd](../../arch/mechanisms/device-link.mmd) | Proposed cycle-safe pairing, reachability and one-hop nested homepage device tiers |
+| [mechanisms/device-forward.mmd](../../arch/mechanisms/device-forward.mmd) | Proposed (device, agent) dispatch, frozen MCP structures and controller task visibility |
 
 | [mechanisms/device-transfer.mmd](../../arch/mechanisms/device-transfer.mmd) | Device file streaming, verified offsets, receipts and atomic publication |
 

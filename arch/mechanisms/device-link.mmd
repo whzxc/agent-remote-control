@@ -1,32 +1,51 @@
-%% Device link (layer 2): pairing and reachability of one member as seen by its controller.
+%% Device link (layer 2): pairing guard and one-hop homepage projections.
 %% Index and code mapping: docs/dev/arch-assets.md
-stateDiagram-v2
-  direction LR
-  state "offered" as offered
-  state "awaiting approval" as pending
-  state "online · LAN" as lan
-  state "online · tunnel" as tunnel
-  state "offline" as offline
-  state "expired" as expired
-  state "revoked" as revoked
-  [*] --> offered: member creates a pairing offer
-  offered --> pending: controller proves the one-time secret
-  offered --> expired: 10 minutes pass or the secret is used
-  pending --> lan: member approves locally
-  pending --> expired: member declines
-  lan --> tunnel: LAN misses and the tunnel heartbeat succeeds
-  tunnel --> lan: LAN probe succeeds
-  lan --> offline: 3 missed heartbeats on every path
-  tunnel --> offline: 3 missed heartbeats on every path
-  offline --> lan: LAN heartbeat succeeds
-  offline --> tunnel: tunnel heartbeat succeeds
-  lan --> revoked: either side revokes
-  tunnel --> revoked: either side revokes
-  offline --> revoked: either side revokes
-  class offered waiting
-  class pending waiting
-  class lan done
-  class tunnel done
-  class offline stopped
-  class expired stopped
-  class revoked stopped
+flowchart TB
+  offer["offered<br/>one-time secret · 10 minute deadline"]
+  guard{"Pairing would create a cycle?<br/>self, ancestor or descendant/controller loop"}
+  reject["Reject pairing<br/>graph stays acyclic"]
+  pending["awaiting local approval"]
+  expired["expired or declined"]
+  lan["online · LAN preferred"]
+  tunnel["online · Tunnel fallback"]
+  offline["offline<br/>3 missed heartbeats on every path"]
+  revoked["revoked by either side"]
+  offer -->|"controller proves secret"| guard
+  guard -->|"yes"| reject
+  guard -->|"no"| pending
+  offer -->|"deadline"| expired
+  pending -->|"deadline or decline"| expired
+  pending -->|"member approves"| lan
+  lan -->|"LAN misses; Tunnel heartbeat succeeds"| tunnel
+  tunnel -->|"LAN probe succeeds"| lan
+  lan --> offline
+  tunnel --> offline
+  offline -->|"LAN heartbeat"| lan
+  offline -->|"Tunnel heartbeat"| tunnel
+  lan --> revoked
+  tunnel --> revoked
+  offline --> revoked
+  subgraph VIEW["Homepage · existing left/right dimensions"]
+    right["Controller RIGHT wing<br/>tier 1: local Agent OR paired member device"]
+    agent["Remote tier 2: available Agents<br/>single Agent: merge device + Agent into tier 1"]
+    account["Account / profile tier<br/>fold under pressure with TopologyGroup"]
+    task["Task bubbles<br/>only tasks this controller dispatched to this member"]
+    left["Member LEFT wing<br/>tier 1: controller device<br/>dispatch attribution stays here"]
+    upstream["Optional tier 2: controller upstream sources<br/>show upstream control sources = off by default"]
+    management["Device node expands into panel<br/>pairing · address / override · path / latency<br/>last seen / error · unpair · transfer"]
+    add["Existing right-wing add endpoint<br/>Add Agent / Add device"]
+    right --> agent --> account --> task
+    left -.->|"switch on"| upstream
+    right --- management
+    left --- management
+    add --> right
+  end
+  lan -.-> VIEW
+  tunnel -.-> VIEW
+  offline -.->|"fade entire device branch"| right
+  nesting["A member may control further members<br/>each homepage renders one device hop<br/>protocol forwarding = false<br/>no descendant expansion or transitive dispatch"]
+  right -.-> nesting
+  class offer,pending waiting
+  class lan,tunnel done
+  class offline,expired,revoked,reject stopped
+  class right,agent,account,task,left,upstream,management,add,nesting experimental

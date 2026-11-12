@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { TopologyScene, type ScenePath } from "./topology-scene";
+import { TopologyScene, type ScenePath, type SceneItem } from "./topology-scene";
 import { TopologyNode } from "./topology-node";
 import { TopologyGroup } from "./topology-group";
 import { TopologyMark } from "./topology-mark";
@@ -18,6 +18,7 @@ type Chrome =
   | { kind: "icon"; x: number; y: number; icon: string };
 export type Scene = {
   nodes: readonly Placement[];
+  items?: readonly SceneItem[];
   groups?: readonly (readonly [x: number, y: number, group: number, anchor?: "right"])[];
   tasks: readonly Placement[];
   links: readonly (number | ScenePath)[];
@@ -29,6 +30,7 @@ export function TopologyScreen({
   width, height, scene, hideNodeLabels = false, children,
 }: { width: number; height: number; scene: Scene; hideNodeLabels?: boolean; children?: unknown }) {
   const items = [
+    ...(scene.items ?? []),
     ...scene.nodes.map(([x, y, node]) => ({
       x, y, content: <TopologyNode {...nodes[node]} hideLabel={hideNodeLabels || nodes[node].hideLabel} />,
     })),

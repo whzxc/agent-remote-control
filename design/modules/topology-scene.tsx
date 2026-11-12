@@ -24,6 +24,7 @@ export function TopologyScene({
   links = [],
   paths = [],
   children,
+  transparent = false,
 }: {
   width: number;
   height: number;
@@ -31,9 +32,10 @@ export function TopologyScene({
   links?: readonly SceneLink[];
   paths?: readonly ScenePath[];
   children?: unknown;
+  transparent?: boolean;
 }) {
   return (
-    <div data-free class="relative bg-canvas" style={{ width, height }}>
+    <div data-free class={transparent ? "relative" : "relative bg-canvas"} style={{ width, height }}>
       {paths.length > 0 && (
         <svg class="absolute inset-0" width={width} height={height} fill="none">
           {paths.map((path) => (

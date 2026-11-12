@@ -10,6 +10,7 @@ export type TopologyNodeProps = {
   width?: number;
   layout?: "vertical" | "source" | "agent";
   hideLabel?: boolean;
+  graphic?: unknown;
 };
 export function TopologyNode({
   label,
@@ -19,9 +20,10 @@ export function TopologyNode({
   width = 110,
   layout = "vertical",
   hideLabel = false,
+  graphic: customGraphic,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
-  const graphic = (
+  const graphic = customGraphic ?? (
     <span class={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
       {horizontal && (
         <span
