@@ -130,7 +130,8 @@ Related defects:
 - Running-work states MUST offer to keep the layer open, and a layer whose close was requested MUST close when its work finishes unless the user chose to keep it open.
 - Confirmations and running-work states MUST appear inside the layer, replacing its footer actions, without opening another layer.
 - The confirmation MUST focus the action that keeps the layer open.
-- Close and Cancel controls are explicit and MUST close without a confirmation.
+- Close and Cancel controls MUST close clean or dirty layers directly.
+- Close and Cancel controls on a layer with running work MUST show the same running-work state as outside input, focus Keep open, offer Stop and close when cancellable, and close when the work finishes unless Keep open withdraws the close request.
 - Dismissal MUST NOT activate the element under the pointer.
 - Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
 - Field errors MUST stay with their fields.
