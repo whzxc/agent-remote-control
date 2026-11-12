@@ -17,9 +17,12 @@ export function Panel({
   footer,
   leading,
   headerDetail,
+  headerNavigation,
   description,
   width = 560,
   size,
+  slot,
+  retainedHeight,
   headerless = false,
   roomyHeader = false,
 }: {
@@ -29,16 +32,20 @@ export function Panel({
   footer?: unknown;
   leading?: unknown;
   headerDetail?: unknown;
+  headerNavigation?: unknown;
   description?: unknown;
   width?: number;
   size?: LayerSize;
+  slot?: "center";
+  retainedHeight?: number;
   headerless?: boolean;
   roomyHeader?: boolean;
 }) {
   return (
     <section
-      style={{ width: size ? layerWidths[size] : width }}
-      class={`flex flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
+      style={{ width: size ? layerWidths[size] : width, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px" }}
+      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
+        ${slot ? "mx-auto mt-(--layer-top) max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!" : ""}
         ${size ? "max-w-full max-h-full [&>header]:shrink-0" : ""}
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
@@ -46,7 +53,8 @@ export function Panel({
         <header class="flex h-(--control-height) items-center justify-between gap-4">
           {leading}
           <h2 class="text-title leading-6 font-[650]">{title}</h2>
-          <div class="flex items-center gap-(--control-gap)">
+          {headerNavigation}
+          <div class="ml-auto flex items-center gap-(--control-gap)">
             {actions}
             <IconButton icon="x" label="Close" />
           </div>
@@ -56,7 +64,7 @@ export function Panel({
       {description && (
         <div class="text-small text-text-secondary">{description}</div>
       )}
-      {size ? <div class="min-h-0 overflow-y-auto">{children}</div> : children}
+      {size ? <div class="min-h-0 flex-1 overflow-y-auto">{children}</div> : children}
       {size && footer ? <div class="shrink-0">{footer}</div> : footer}
     </section>
   );
@@ -79,7 +87,7 @@ export function PanelShell({
   return (
     <section
       style={{ width, height }}
-      class={`flex flex-col rounded-panel bg-surface-raised text-text shadow-lg ${extra}`}
+      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${extra}`}
     >
       {children}
     </section>

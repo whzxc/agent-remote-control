@@ -1,6 +1,6 @@
 import { copy } from '../fixtures/mcp-service';
 import { Frame, Icon } from "adg";
-import { PanelShell, PanelHeader } from "../components/panel";
+import { Panel } from "../components/panel";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { SearchInput } from "../components/search";
@@ -98,12 +98,11 @@ export function McpService({
     </article>
   );
 }
-export function McpHub({ form }: { form: string }) {
+export function McpHub({ form, workspace = false }: { form: string; workspace?: boolean }) {
   const empty = form === "empty",
     failed = form === "failed";
   return (
-    <PanelShell width={960} class="p-6">
-      <PanelHeader
+    <Panel size="xl" slot={workspace ? "center" : undefined}
         title={copy.text3}
         actions={
           empty ? (
@@ -116,8 +115,7 @@ export function McpHub({ form }: { form: string }) {
             </>
           )
         }
-      >
-        {!empty && (
+        headerNavigation={!empty && (
           <span class="ml-[22px] text-meta text-text-secondary">
             {failed ? (
               <>{copy.text8}<span class="text-danger">{copy.text9}</span>{" "}{copy.text10}</>
@@ -125,8 +123,8 @@ export function McpHub({ form }: { form: string }) {
               "3 个服务 · 2 个可用 · 5 个工具"
             )}
           </span>
-        )}
-      </PanelHeader>
+        )}>
+      <div class="flex flex-col gap-6">
       {empty ? (
         <div class="flex flex-col items-center pt-10">
           <Tile icon="plug" tone="neutral" />
@@ -144,10 +142,10 @@ export function McpHub({ form }: { form: string }) {
         </div>
       ) : (
         <>
-          <div class="mt-6">
+          <div>
             <SearchInput placeholder={copy.text15} />
           </div>
-          <div class="mt-6 flex flex-col gap-4">
+          <div class="flex flex-col gap-4">
             {(failed
               ? [
                   services.docs,
@@ -166,7 +164,8 @@ export function McpHub({ form }: { form: string }) {
           </div>
         </>
       )}
-    </PanelShell>
+      </div>
+    </Panel>
   );
 }
 

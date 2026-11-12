@@ -21,13 +21,13 @@ export function ConnectorCard() {
         </div>
       </div>
       {details.map((row) => (
-        <div class="flex items-center gap-[10px] text-meta leading-4">
+        <div class="flex flex-wrap items-center gap-[10px] text-meta leading-4">
           {row.map(([label, value], i) => (
-            <>
+            <span class="inline-flex items-center gap-[10px]">
+              {i > 0 && <span class="text-text-tertiary">{copy.text5}</span>}
               <span class="text-text-secondary">{label}</span>
               <span class="blur-[2px] opacity-50">{value}</span>
-              {i < row.length - 1 && <span class="text-text-tertiary">{copy.text5}</span>}
-            </>
+            </span>
           ))}
         </div>
       ))}
@@ -37,7 +37,7 @@ export function ConnectorCard() {
 
 export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) {
   return (
-    <div class="grid grid-cols-[216px_1fr] gap-6 min-h-[652px]">
+    <div class="grid grid-cols-[216px_minmax(0,1fr)] gap-6">
       <div class="self-start">
         <SingleChoice
           value={frame.platform}
@@ -51,8 +51,8 @@ export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) 
           }))}
         />
       </div>
-      <div class="flex flex-col gap-[22px]">
-        <header class="flex items-center justify-between">
+      <div class="flex min-w-0 flex-col gap-[22px]">
+        <header class="flex flex-wrap items-center justify-between gap-3">
           <h3 class="text-title leading-6 font-[650]">{frame.title}</h3>
           <Button variant="primary" icon="plus">
             {copy.text7}
@@ -61,7 +61,7 @@ export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) 
         {frame.name === "connected" ? (
           <ConnectorCard />
         ) : (
-          <div class="flex h-[580px] items-center justify-center text-small text-text-secondary">{copy.text8}</div>
+          <div class="flex flex-1 items-center justify-center text-small text-text-secondary">{copy.text8}</div>
         )}
       </div>
     </div>

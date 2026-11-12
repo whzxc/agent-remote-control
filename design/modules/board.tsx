@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { PanelShell, PanelHeader } from "../components/panel";
+import { Panel } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
@@ -63,19 +63,18 @@ export function BoardFilters({ activity = false }: { activity?: boolean }) {
   );
 }
 
-export function CoordinationBoard({ form, height }: { form: BoardForm; height: number }) {
+export function CoordinationBoard({ form }: { form: BoardForm }) {
   const gap = form === "gap", unavailable = form === "unavailable";
   const shown = unavailable
     ? boardGroups.slice(0, 2).map((g, i) => ({ ...g, rows: g.rows.slice(0, i === 0 ? 2 : 1) }))
     : boardGroups;
   return (
-    <PanelShell width={820} height={height} class="px-6 pt-[21px] pb-6">
-      <PanelHeader title={boardCopy.title} actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}>
-        <div class="ml-2">
-          <SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />
-        </div>
-      </PanelHeader>
-      <div class="mt-[29px]"><BoardFilters activity={gap} /></div>
+    <Panel size="xl" slot="center" title={boardCopy.title}
+      actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}
+      headerNavigation={<SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />}
+      footer={(form === "current" || form === "empty") && <p class="text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>}>
+      <div class="flex flex-col gap-5">
+      <div><BoardFilters activity={gap} /></div>
       {(gap || unavailable) && <div class="mt-5"><BoardFeedback gap={gap} /></div>}
       {form === "empty" ? (
         <div class="flex flex-1 flex-col items-center justify-center gap-4 pt-4 text-small text-text-tertiary">
@@ -89,10 +88,8 @@ export function CoordinationBoard({ form, height }: { form: BoardForm; height: n
           </div>
         )
       )}
-      {(form === "current" || form === "empty") && (
-        <p class="mt-auto pt-6 text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>
-      )}
-    </PanelShell>
+      </div>
+    </Panel>
   );
 }
 

@@ -13,7 +13,7 @@ import { IconButton } from "../components/icon-button";
 export default () =>
   frames.map((frame) => (
     <Frame
-      name={frame.name}
+      name={frame.name} width={1280} height={800}
       fixture="accounts"
       capture={{
         region: "Platforms",
@@ -22,9 +22,8 @@ export default () =>
       }}
     >
       <Panel
-        width={960}
-        roomyHeader
-        title="Platforms"
+        size="l" slot="center"
+          title="Platforms"
         actions={<IconButton icon="maximize-2" label="Expand" />}
       >
         <ConnectorContent frame={frame} />

@@ -60,10 +60,10 @@ export function AgentDetail() {
     </Panel>
   );
 }
-export function Agents() {
+export function Agents({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel
-      width={720}
+      size="l" slot={workspace ? "center" : undefined}
       title={copy.text12}
       actions={<IconButton icon="refresh-cw" label={copy.text13} />}
     >

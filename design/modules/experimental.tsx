@@ -18,10 +18,10 @@ export function ExperimentalContent() {
       </div>);
 }
 
-export function Experimental() {
+export function Experimental({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel
-      width={720}
+      size="l" slot={workspace ? "center" : undefined}
       title={
         <div class="flex items-center gap-[6px]">
           <IconButton icon="arrow-left" label={copy.text1} />{copy.text2}</div>

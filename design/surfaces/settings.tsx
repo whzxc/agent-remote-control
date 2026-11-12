@@ -30,7 +30,7 @@ const frames = [
   {
     name: "about",
     fixture: "settings-about-light",
-    capture: { region: "Settings", viewport: "1280x1600" },
+    capture: { region: "Settings", viewport: "1280x800" },
     note: "Full-content drawing can exceed the scroll viewport; inspect remaining scroll content during browser acceptance.",
     view: GeneralSettings,
   },
@@ -73,8 +73,9 @@ const frames = [
   },
 ];
 export default () =>
-  frames.map(({ view: View, ...frame }) => (
-    <Frame {...frame}>
-      <View />
-    </Frame>
-  ));
+  frames.map(({ view: View, ...frame }) => {
+    const workspace = ["about", "agents", "experimental"].includes(frame.name);
+    return <Frame {...frame} {...(workspace ? { width: 1280, height: 800 } : {})}>
+      <View {...(workspace ? { workspace: true } : {})} />
+    </Frame>;
+  });

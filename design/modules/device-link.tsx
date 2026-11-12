@@ -5,7 +5,7 @@ import { CopyField } from '../components/copy-field';
 import { Field, Input } from '../components/field';
 import { IconButton } from '../components/icon-button';
 import { Notice } from '../components/notice';
-import { Dialog, PanelHeader, PanelShell } from '../components/panel';
+import { Dialog, Panel } from '../components/panel';
 import { SettingLine } from '../components/settings-row';
 import { SingleChoice } from '../components/single-choice';
 import { Switch } from '../components/switch';
@@ -208,15 +208,14 @@ export function DeviceMemberView({ locale, state }: Localized & { state: Workspa
     </Card>
   </div>;
 }
-export function DevicesWorkspace({ locale, state }: Localized & { state: WorkspaceState }) {
+export function DevicesWorkspace({ locale, state, workspace = false }: Localized & { state: WorkspaceState; workspace?: boolean }) {
   const c = deviceCopy[locale], memberSide = state.startsWith('member-'), detail = state.startsWith('detail-');
   const member = members[state === 'detail-windows' ? 1 : state === 'detail-linux' ? 2 : 0];
-  return <PanelShell width={720} class="p-6 gap-6">
-    <PanelHeader title={detail ? <span class="flex items-center gap-2"><IconButton icon="arrow-left" label={c.back} />
-      {c.devices}</span> : c.devices} actions={<>
-        {!memberSide && !detail && state !== 'empty' && <Button variant="primary" icon="plus">{c.add}</Button>}
-        <IconButton icon="maximize-2" label={c.expand} />
-      </>} />
+  return <Panel size="l" slot={workspace ? "center" : undefined}
+    title={c.devices} leading={detail ? <IconButton icon="arrow-left" label={c.back} /> : undefined}
+    actions={<>{!memberSide && !detail && state !== 'empty' && <Button variant="primary" icon="plus">{c.add}</Button>}
+      <IconButton icon="maximize-2" label={c.expand} /></>}>
+    <div class="flex flex-col gap-6">
     {!detail && <div class="flex items-center justify-between">
       <SingleChoice label={c.view} value={memberSide ? 'member' : 'controller'} options={[
         { value: 'controller', label: c.members }, { value: 'member', label: c.thisDevice },
@@ -231,7 +230,8 @@ export function DevicesWorkspace({ locale, state }: Localized & { state: Workspa
         </div> : <div class="flex flex-col gap-3">
           {members.map(m => <DeviceMemberRow locale={locale} member={m} />)}
         </div>}
-  </PanelShell>;
+    </div>
+  </Panel>;
 }
 export function DeviceTopologyEntry({ locale }: Localized) {
   return <Button icon="monitor">{deviceCopy[locale].topologySummary}</Button>;

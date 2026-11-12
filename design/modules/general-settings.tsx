@@ -13,10 +13,10 @@ import { UpdateAboutContent } from "./updates";
 
 import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";
 import { behavior, palettes } from "../fixtures/general-settings";
-export function GeneralSettings() {
+export function GeneralSettings({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel
-      width={720}
+      size="l" slot={workspace ? "center" : undefined}
       title={copy.text1}
       actions={<IconButton icon="maximize-2" label={copy.text2} />}
     >

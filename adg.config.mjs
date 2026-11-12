@@ -3,6 +3,8 @@ import path from 'node:path';
 
 // Compare preparations use the same fixture data and public controls as accept:ui.
 const prepared = {
+  'board-ax-closed': { scenario: 'coordination-ax-light', axClosed: true },
+  'board-ax-detail': { scenario: 'coordination-ax-light', axClosed: true },
   'approval-permission': { scenario: 'approval', task: '阅读项目说明 · 打开执行时间线' },
   'approval-question': { scenario: 'task-states', task: 'Waiting for input · 打开执行时间线' },
   'task-detail-failed': { scenario: 'task-states', task: 'Failed task · 打开执行时间线' },
@@ -72,6 +74,18 @@ export default {
         await page.locator('.task-detail-layer').waitFor();
         await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().taskDetail?.timeline, undefined, { timeout: 5000 });
         if (name.startsWith('approval-')) await page.locator('.request-entry').getByRole('button', { name: '打开', exact: true }).waitFor();
+      }
+      if (preparation?.axClosed) {
+        const messages = JSON.parse(readFileSync(new URL('./ui/locales/zh-CN.json', import.meta.url), 'utf8'));
+        await page.getByRole('button', { name: messages['center.open'], exact: true }).click();
+        await page.getByRole('radio', { name: 'AX', exact: true }).click();
+        // AX counts load asynchronously; SingleChoice may expose pills or a dropdown.
+        await page.getByText(messages['center.ax.open'].replace('{count}', '5'), { exact: true }).filter({ visible: true }).first().waitFor();
+        await page.evaluate(() => document.fonts.ready);
+        const dropdown = page.getByRole('combobox', { name: messages['center.ax.filter'], exact: true });
+        if (await dropdown.count()) await dropdown.click();
+        const closed = messages['center.ax.closed'].replace('{count}', '12');
+        await page.getByRole('radio', { name: closed, exact: true }).or(page.getByRole('option', { name: closed, exact: true })).click();
       }
       const accountAction = preparation?.accountAction;
       if (accountAction === 'edit' || accountAction === 'remove') {

@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { PanelShell, PanelHeader } from "../components/panel";
+import { Panel } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { SearchInput } from "../components/search";
 import { IconButton } from "../components/icon-button";
@@ -97,24 +97,23 @@ export function AXEntryDetail() {
 
 export function AXBoard({ form }: { form: AXForm }) {
   const closed = form === "closed";
-  return <PanelShell width={820} height={form === "detail" ? undefined : 680} class="px-6 pt-[21px] pb-6">
-    <PanelHeader title={axCopy.region} actions={<IconButton icon="refresh-cw" label={axCopy.refresh} />}>
-      <div class="ml-2"><SingleChoice value="ax" options={axTabs} label={axCopy.region} tabs /></div>
-    </PanelHeader>
-    {form === "detail" ? <div class="mt-6"><AXEntryDetail /></div> : <>
-      <div class="mt-[29px] flex items-center justify-between gap-6">
+  return <Panel size="xl" slot="center" retainedHeight={closed ? 602 : undefined} title={axCopy.region}
+    headerNavigation={<SingleChoice value="ax" options={axTabs} label={axCopy.region} tabs />}
+    actions={<IconButton icon="refresh-cw" label={axCopy.refresh} />}
+    footer={form !== "detail" && <div class="flex w-full items-center justify-between">
+      <span class="text-meta leading-4 text-text-tertiary">{closed ? axCopy.shown : axCopy.updated}</span>
+      {closed && <Button variant="ghost" icon="chevron-down">{axCopy.more}</Button>}
+    </div>}>
+    {form === "detail" ? <div><AXEntryDetail /></div> : <>
+      <div class="flex items-center justify-between gap-6">
         <SingleChoice value={closed ? "closed" : "open"} options={axFilters} label={axCopy.status} class="auto-cols-auto!" />
         <div class="w-[240px]"><SearchInput placeholder={axCopy.search} /></div>
       </div>
       <div class="mt-6 flex flex-col gap-2">
         {(closed ? axClosedEntries : axOpenEntries).map(entry => <AXEntryRow entry={entry} />)}
       </div>
-      <div class="mt-auto flex items-center justify-between pt-6">
-        <span class="text-meta leading-4 text-text-tertiary">{closed ? axCopy.shown : axCopy.updated}</span>
-        {closed && <Button variant="ghost" icon="chevron-down">{axCopy.more}</Button>}
-      </div>
     </>}
-  </PanelShell>;
+  </Panel>;
 }
 
 export default () => [
