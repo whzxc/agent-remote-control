@@ -1,6 +1,7 @@
+import Panel from "../components/ui/Panel";
 import { useDialogCompletion } from "../components/ui/Dialog";
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash, Maximize2, Minimize2, X } from 'lucide-react';
+import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { copyText } from '../platform';
@@ -120,23 +121,17 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
   }
   const summary = snapshot && hubSummary(snapshot.servers);
   const visible = snapshot?.servers.filter(server => matchServer(server, query).server) ?? [];
-  return <div className="mcp-page">
-    <header className="sheet-header mcp-header">
-      <h1 className="capsule-title" tabIndex={-1}>{t('mcp.title')}</h1>
-      {summary && summary.total > 0 && <p className="mcp-stats">
-        {t('mcp.serverCount', { count: summary.total })}{' · '}{t('mcp.availableCount', { count: summary.available })}
-        {summary.failed > 0 && <>{' · '}<span className="mcp-failed-count">{t('mcp.failedCount', { count: summary.failed })}</span></>}
-        {' · '}{t('mcp.toolTotal', { count: summary.tools })}
-      </p>}
-      <div className="mcp-header-actions">
-        {!!snapshot?.servers.length && <>
-          <Button variant="primary" disabled={reading || !!busy} onClick={() => setAdding(true)}><Icon icon={Plus} />{t('mcp.add')}</Button>
-          <IconButton icon={RotateCw} label={t('refresh')} busy={reading && !busy} disabled={!!busy} onClick={() => void refresh()} />
-        </>}
-        <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />
-        <IconButton icon={X} label={t('backToHome')} onClick={onClose} />
-      </div>
-    </header>
+  return <Panel role="region" size="xl" className="mcp-page" title={t('mcp.title')} busy={reading || !!busy}
+    expanded={expanded} onToggleWidth={onToggleWidth} onClose={onClose} returnFocus='[data-page="mcp-hub"]'
+    headerNavigation={summary && summary.total > 0 && <p className="mcp-stats">
+      {t('mcp.serverCount', { count: summary.total })}{' · '}{t('mcp.availableCount', { count: summary.available })}
+      {summary.failed > 0 && <>{' · '}<span className="mcp-failed-count">{t('mcp.failedCount', { count: summary.failed })}</span></>}
+      {' · '}{t('mcp.toolTotal', { count: summary.tools })}
+    </p>}
+    actions={!!snapshot?.servers.length && <>
+      <Button variant="primary" disabled={reading || !!busy} onClick={() => setAdding(true)}><Icon icon={Plus} />{t('mcp.add')}</Button>
+      <IconButton icon={RotateCw} label={t('refresh')} busy={reading && !busy} disabled={!!busy} onClick={() => void refresh()} />
+    </>}>
     <main className="mcp-content" aria-busy={reading || !!busy}>
       {error && <Notice action={!snapshot && <Button busy={reading} onClick={() => void refresh()}>{t('retry')}</Button>}>{error}</Notice>}
       {!snapshot ? !error && <Loading /> : snapshot.servers.length ? <>
@@ -164,5 +159,5 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
     </>}>
       <p>{t('mcp.removeEffect', { name: removing.name })}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
-  </div>;
+  </Panel>;
 }

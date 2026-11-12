@@ -1,11 +1,5 @@
-.dialog.elastic-panel:has(.coordination-center) { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); box-shadow: var(--shadow-lg); height: min(680px, calc(100dvh - 40px)); }
-.elastic-panel-content:has(.coordination-center) { height: 100%; }
-.elastic-panel .dialog-body:has(.coordination-center) { display: flex; flex: 1; min-height: 0; overflow: hidden; padding: 0 24px 24px; }
 .coordination-center { display: flex; flex-direction: column; gap: 20px; min-width: 0; width: 100%; min-height: 0; container-type: inline-size; }
 
-.elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header { justify-content: flex-start; gap: 24px; padding: 21px 24px 29px; }
-.elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header > h2 { flex: none; margin: 0; font-size: var(--text-title); font-weight: 650; }
-.elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header > .actions { margin-left: auto; gap: 6px; }
 .center-navigation { flex: 1; min-width: 0; }
 .center-filters { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .center-filters > * { min-width: 0; max-width: 100%; }
@@ -120,7 +114,3 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
   .center-resource > .choice { flex: 1; }
 }
 :root[data-reduced-motion="true"] .center-technical > summary > .icon { transition: none; }
-@media (max-width: 600px) {
-  .elastic-panel:has(.coordination-center) > .elastic-panel-content > .dialog-header { gap: 8px; padding-inline: 16px; }
-  .elastic-panel .dialog-body:has(.coordination-center) { padding: 0 16px 12px; }
-}

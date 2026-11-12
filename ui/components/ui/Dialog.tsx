@@ -7,7 +7,7 @@ import { t } from '../../i18n';
 import { useReducedMotion } from '../../state/appEnvironment';
 import { consumeOutsidePointer, layers, layerTrigger } from '../../state/layers';
 import { notify } from '../../state/connector';
-import { layerFrame, type LayerSize, type LayerTokens } from './layerFrame';
+import { layerFrame, type LayerSize, type LayerTokens, type LayerKind } from './layerFrame';
 import { LayerOwnerContext } from './TransientLayer';
 import { Button, IconButton } from './index';
 import './Dialog.css';
@@ -26,6 +26,15 @@ export function DialogClose(props: ComponentProps<typeof D.Close>) {
     if (context?.busy) { event.preventDefault(); event.stopPropagation(); context.close(); }
     else props.onClickCapture?.(event);
   }} />;
+}
+
+type PanelState = { dirty?: boolean; busy?: boolean; onCancel?: DialogProps['onCancel'] };
+const PanelStateContext = createContext<((id: string, state?: PanelState) => void) | null>(null);
+/** Register draft and work state with the owning workspace shell. */
+export function usePanelState({ dirty = false, busy = false, onCancel }: PanelState) {
+  const update = useContext(PanelStateContext), id = useId();
+  useLayoutEffect(() => { update?.(id, { dirty, busy, onCancel }); }, [update, id, dirty, busy, onCancel]);
+  useLayoutEffect(() => () => update?.(id), [update, id]);
 }
 
 type View = { title: string; back: () => void; trigger: HTMLElement | null };
@@ -113,8 +122,8 @@ function readTokens(): LayerTokens {
     margin: value('--layer-side-margin', fallback.margin), desktopTop: value('--layer-top-desktop', fallback.desktopTop), browserTop: value('--layer-top-browser', fallback.browserTop) };
 }
 
-export default function Dialog({ layerId, size, open = true, onClose, dirty, busy, onCancel, title, description, children,
-  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps) {
+export function LayerShell({ kind, role = 'dialog', closeLabel, expanded = false, viewKey, headerNavigation, onEscapeKeyDown, layerId, size, open = true, onClose, dirty, busy, onCancel, title, description, children,
+  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { kind: LayerKind; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
   const generatedId = useId(), id = layerId ?? generatedId, snapshot = layers.use(), reduced = useReducedMotion();
   const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
   const [actionCount, setActionCount] = useState(0);
@@ -136,22 +145,36 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
   const focusSource = useRef<HTMLElement | null>(null);
   const safeAction = useRef<HTMLButtonElement>(null);
   const self = snapshot.find(layer => layer.id === id);
-  const allowed = !open || layers.canOpen('dialog', id);
+  const allowed = !open || layers.canOpen(kind, id);
   const dialogs = snapshot.filter(layer => layer.kind === 'dialog');
   const parent = dialogs[dialogs.findIndex(layer => layer.id === id) - 1];
   const portalReady = !!self && (!parent || parent.ready);
   const recessed = !!self && snapshot.at(-1)?.id !== id;
   const depth = Math.max(0, snapshot.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id));
   const stack = layers.stack(id);
+  const [panelStates, setPanelStates] = useState<Record<string, PanelState>>({});
+  const updatePanelState = useCallback((key: string, state?: PanelState) => setPanelStates(previous => {
+    if (!state?.dirty && !state?.busy) {
+      if (!previous[key]) return previous;
+      const next = { ...previous }; delete next[key]; return next;
+    }
+    if (previous[key]?.dirty === state.dirty && previous[key]?.busy === state.busy && previous[key]?.onCancel === state.onCancel) return previous;
+    return { ...previous, [key]: state };
+  }), []);
+  const contributions = Object.values(panelStates), running = contributions.filter(state => state.busy);
+  dirty ||= contributions.some(state => state.dirty); busy ||= !!running.length;
+  onCancel ??= running.length === 1 ? running[0].onCancel : undefined;
+  const retainedHeight = useRef(0), previousView = useRef(viewKey), resetHeight = useRef(false);
+  if (previousView.current !== viewKey) { retainedHeight.current = 0; previousView.current = viewKey; resetHeight.current = true; }
   const latest = useRef({ onClose, dirty, busy, onCancel });
   latest.current = { onClose, dirty, busy, onCancel };
   useLayoutEffect(() => {
     if (!open || !allowed) return;
     source.current = layerTrigger();
     focusSource.current = source.current?.element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    layers.open({ id, kind: 'dialog', node: null, trigger: focusSource.current, returnFocus, ...latest.current });
+    layers.open({ id, kind, node: null, trigger: focusSource.current, returnFocus, ...latest.current });
     return () => layers.remove(id);
-  }, [open, allowed, id, returnFocus]);
+  }, [open, allowed, id, returnFocus, kind]);
   // Parent Radix effects finish before a child portal mounts, so hideOthers cannot hide the child.
   useEffect(() => {
     if (!node) return;
@@ -161,36 +184,46 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
   useLayoutEffect(() => {
     if (!node) return;
     const measure = () => {
-      setFrame(layerFrame('dialog', size, 'center', { width: innerWidth, height: innerHeight, desktop: isDesktop },
-        readTokens(), node.scrollHeight, source.current?.rect));
+      if (resetHeight.current) { node.style.minHeight = "0px"; resetHeight.current = false; }
+      const next = layerFrame(kind, size, 'center', { width: innerWidth, height: innerHeight, desktop: isDesktop },
+        readTokens(), node.scrollHeight, source.current?.rect, expanded);
+      if (kind === 'panel') {
+        retainedHeight.current = Math.max(retainedHeight.current, next.height);
+        next.height = Math.min(retainedHeight.current, next.maxHeight);
+      }
+      setFrame(previous => previous && JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
     };
     measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
+  }, [node, id, size, initialFocus, kind, expanded, viewKey]);
+  useLayoutEffect(() => {
+    if (!node) return;
     const focusFrame = requestAnimationFrame(() => {
       if (layers.top()?.id !== id) return;
       (initialFocus ? node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node : node).focus({ preventScroll: true });
     });
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    window.addEventListener('resize', measure);
-    return () => { cancelAnimationFrame(focusFrame); observer.disconnect(); window.removeEventListener('resize', measure); };
-  }, [node, id, size, initialFocus]);
+    return () => cancelAnimationFrame(focusFrame);
+  }, [node, id, initialFocus]);
   useLayoutEffect(() => { layers.update(id, { dirty, busy, onClose, onCancel }); }, [id, dirty, busy, onClose, onCancel]);
   useLayoutEffect(() => { if (self?.dismissal !== 'none') safeAction.current?.focus({ preventScroll: true }); }, [self]);
   const status = self?.dismissal ?? 'none';
   const close = () => { void layers.close(id); };
-  return <D.Root open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
+  return <D.Root modal={kind === 'dialog'} open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
     <LayerOwnerContext.Provider value={id}>
     <D.Portal>
-      <D.Overlay className="layer-scrim" style={{ zIndex: stack.scrim }} onPointerDown={event => {
+      {kind === 'dialog' && <D.Overlay className="layer-scrim" style={{ zIndex: stack.scrim }} onPointerDown={event => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
         consumeOutsidePointer(event.nativeEvent);
         layers.dismiss(id);
-      }} />
-      <D.Content ref={setNode} className={`dialog layer-dialog ${headerless ? 'headerless' : ''} ${className}`}
-        data-panel-depth={depth + 1} inert={recessed || undefined}
+      }} />}
+      <D.Content role={role} ref={setNode} className={`dialog ${kind === 'panel' ? 'layer-panel' : 'layer-dialog'} ${headerless ? 'headerless' : ''} ${className}`}
+        data-layer-kind={kind} data-panel-depth={depth + 1} inert={recessed || undefined}
         aria-describedby={description ? `${id}-description` : undefined}
-        style={{ left: frame?.x, top: frame?.y, width: frame?.width ?? `var(--layer-${size})`, height: view ? viewHeight.current : undefined, maxHeight: frame?.maxHeight,
-          visibility: frame ? undefined : 'hidden', zIndex: stack.dialog,
+        style={{ left: frame?.x, top: frame?.y, width: frame?.width ?? `var(--layer-${size})`, height: view ? viewHeight.current : undefined, maxHeight: frame?.maxHeight, minHeight: kind === 'panel' ? frame?.height : undefined,
+          visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
           '--layer-entry-x': `${-(frame?.entry.x ?? 0)}px`, '--layer-entry-y': `${-(frame?.entry.y ?? -6)}px`,
           animation: reduced ? 'none' : undefined } as CSSProperties}
         onOpenAutoFocus={event => {
@@ -200,22 +233,23 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
           (target ?? host)?.focus({ preventScroll: true });
         }}
         onCloseAutoFocus={event => { event.preventDefault(); layers.restoreFocus({ trigger: focusSource.current, returnFocus }); }}
-        onEscapeKeyDown={event => { event.preventDefault(); if (view && status === 'none') back(); else layers.dismiss(id); }}
+        onEscapeKeyDown={event => { if (layers.top()?.id !== id) return; if (status === 'none') onEscapeKeyDown?.(event); if (event.defaultPrevented) return; event.preventDefault(); if (view && status === 'none') back(); else layers.dismiss(id); }}
         onPointerDownOutside={event => {
           event.preventDefault();
           if (event.detail.originalEvent.button !== 0 || event.detail.originalEvent.defaultPrevented
-            || layers.contains(id, event.detail.originalEvent.target)) return;
+            || layers.contains(id, event.detail.originalEvent.target)
+            || kind === 'panel' && event.detail.originalEvent.target instanceof Element && event.detail.originalEvent.target.closest('[data-workspace-switcher]')) return;
           consumeOutsidePointer(event.detail.originalEvent);
           layers.dismiss(id);
         }}
         onInteractOutside={event => event.preventDefault()}>
         {headerless ? <D.Title className="sr-only">{title}</D.Title> : <header className="dialog-header">
-          {view ? <IconButton icon={ChevronLeft} label={t('back')} onClick={back} /> : leading}<D.Title>{view ? <><span className="dialog-breadcrumb">{title}</span><span aria-hidden="true"> / </span>{view.title}</> : title}</D.Title><div className="actions">{actions}<IconButton icon={X} label={t('close')} onClick={close} /></div>
+          {view ? <IconButton icon={ChevronLeft} label={t('back')} onClick={back} /> : leading}<D.Title className={kind === 'panel' ? 'panel-title' : undefined}>{view ? <><span className="dialog-breadcrumb">{title}</span><span aria-hidden="true"> / </span>{view.title}</> : title}</D.Title>{headerNavigation}<div className="actions">{actions}<IconButton icon={X} label={closeLabel ?? t('close')} onClick={close} /></div>
         </header>}
         {!view && headerDetail}
         {description && <D.Description asChild><div className="dialog-description" id={`${id}-description`}>{description}</div></D.Description>}
         {!view && stepBar}
-        <CloseContext.Provider value={{ id, busy, close }}>
+        <PanelStateContext.Provider value={updatePanelState}><CloseContext.Provider value={{ id, busy, close }}>
         <ViewContext.Provider value={viewContext}>
         <ActionsContext.Provider value={actionsContext}>
           <div className="dialog-body dialog-view-stack" inert={status !== 'none' || undefined}>
@@ -226,7 +260,7 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
         <footer ref={setFooterTarget} className="dialog-footer" hidden={!!view || status !== 'none' || !footer && !actionCount}>{footer}</footer>
         <footer ref={setViewFooter} className="dialog-footer" hidden={!view || status !== 'none'} />
         </ViewContext.Provider>
-        </CloseContext.Provider>
+        </CloseContext.Provider></PanelStateContext.Provider>
         {status !== 'none' &&
           <footer className="dialog-footer layer-dismissal" role="status">
             <p>{t(status === 'discard' ? 'layers.discard' : 'layers.runningClose')}</p>
@@ -241,3 +275,5 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
     </LayerOwnerContext.Provider>
   </D.Root>;
 }
+
+export default function Dialog(props: DialogProps) { return <LayerShell {...props} kind="dialog" />; }

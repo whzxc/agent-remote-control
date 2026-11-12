@@ -31,11 +31,15 @@ export function createLayerStore() {
       || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
+  let pendingSwitch: { id: string; open: () => void } | undefined;
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
     closing.add(id);
-    try { await (complete ?? layer.onClose)(); }
+    try {
+      await (complete ?? layer.onClose)();
+      if (pendingSwitch?.id === id) { const next = pendingSwitch.open; pendingSwitch = undefined; next(); }
+    }
     finally { closing.delete(id); }
   };
   const setDismissal = (id: string, dismissal: Dismissal) => {
@@ -64,13 +68,13 @@ export function createLayerStore() {
     stack(id?: string) {
       const depth = current.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id);
       const scrim = 201 + Math.max(0, depth) * 10;
-      return { scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
+      return { panel: 101, switcher: 110, scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
     },
     observeOutsidePointer(id: string) {
       const handle = (event: PointerEvent) => {
         const layer = top(), target = event.target;
         if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
-        if (contains(id, target)) return;
+        if (contains(id, target) || layer.kind === 'panel' && target.closest('[data-workspace-switcher]')) return;
         consumeOutsidePointer(event);
         dismiss(id);
       };
@@ -85,10 +89,23 @@ export function createLayerStore() {
     },
     use: () => useSyncExternalStore(subscribe, get, get),
     canOpen,
+    switchPanel(open: () => void) {
+      if (top()?.kind === 'dialog') return;
+      const panel = current.find(layer => layer.kind === 'panel');
+      if (!panel) { open(); return; }
+      pendingSwitch = { id: panel.id, open };
+      if (panel.busy || panel.dirty) dismiss(panel.id);
+      else void close(panel.id);
+    },
     open(layer: LayerInput) {
       if (current.some(item => item.id === layer.id)) return;
       if (!canOpen(layer.kind, layer.id)) return;
-      publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
+      if (layer.kind === 'panel') {
+        const previous = current.filter(item => item.kind === 'panel');
+        pendingSwitch = undefined;
+        publish([{ ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }, ...current.filter(item => item.kind !== 'panel')]);
+        previous.forEach(item => { void item.onClose(); });
+      } else publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
     },
     ready(id: string, node: HTMLElement) {
       const layer = current.find(item => item.id === id);
@@ -108,6 +125,7 @@ export function createLayerStore() {
     },
     keepOpen(id: string) {
       if (top()?.id !== id) return;
+      if (pendingSwitch?.id === id) pendingSwitch = undefined;
       publish(current.map(layer => layer.id === id ? { ...layer, dismissal: 'none', keepAfterWork: layer.dismissal === 'running' } : layer));
     },
     async stopAndClose(id: string) {

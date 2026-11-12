@@ -1,3 +1,5 @@
+import { useSubmittedDirty } from "../ui/useSubmittedDirty";
+import { usePanelState } from "../ui/Panel";
 import { useDialogCompletion } from "../ui/Dialog";
 import { readOnlyBrowser } from "../../browserMode";
 import PetPicker from '../../pets/PetPicker';
@@ -22,6 +24,8 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
   const [removing, setRemoving] = useState(false);
   const [editing, setEditing] = useState(false), [label, setLabel] = useState(source.label);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const draft = useSubmittedDirty(label, label !== source.label);
+  usePanelState({ dirty: editing && draft.dirty, busy });
   const labelId = useId(), nameInput = useRef<HTMLInputElement>(null), editTrigger = useRef<HTMLButtonElement>(null);
   function finishEditing() {
     setEditing(false); setError('');
@@ -31,7 +35,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
     if (busy) return;
     if (!label.trim()) { setError(t('fieldRequired')); nameInput.current?.focus(); return; }
     if (label.trim() === source.label) { finishEditing(); return; }
-    setBusy(true); setError('');
+    draft.submit(); setBusy(true); setError('');
     try { await api(`source/${source.id}`, 'PUT', { label: label.trim() }); await refreshConnector(); finishEditing(); }
     catch (e) { setError(String(e)); nameInput.current?.focus(); }
     finally { setBusy(false); }
@@ -61,9 +65,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
   const facts = identity.length <= 1 ? [[...identity, ...connection], activity] : [identity, connection, activity];
   return <Card asChild className="gap-3"><section className="connector-card" aria-label={source.label}>
     <CardHeader><div className="connector-card-heading"><SourceIcon platform={source.product} />
-      {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }} onKeyDown={event => {
-        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) finishEditing(); }
-      }}>
+      {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }}>
         <div className="flex items-center gap-2"><Input ref={nameInput} id={labelId} aria-label={t('platforms.name')} aria-invalid={!!error} aria-describedby={error ? `${labelId}-error` : undefined} autoFocus required value={label} maxLength={120} readOnly={busy} onChange={event => setLabel(event.target.value)} />
           <IconButton icon={Check} label={t('save')} type="submit" busy={busy} />
           <IconButton icon={X} label={t('cancel')} disabled={busy} onClick={finishEditing} />

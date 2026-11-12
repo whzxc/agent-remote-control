@@ -19,8 +19,6 @@ import {
 import {
   Settings,
   X,
-  Maximize2,
-  Minimize2,
   ShieldAlert,
   ShieldCheck,
   RefreshCw,
@@ -30,8 +28,6 @@ import {
   Plug,
   Monitor,
 } from "lucide-react";
-import { animate } from "motion";
-import { reducedMotion } from "./motion/surface";
 import { t, locale } from "./i18n";
 import { copyText, isDesktop } from "./platform";
 import { connector, notify, startConnector } from "./state/connector";
@@ -58,8 +54,9 @@ import Onboarding from "./components/Onboarding";
 import AddConnection from "./components/AddConnection";
 import { usePrivacy } from "./state/privacy";
 import { UpdateDock } from "./components/AppUpdate";
-import { Button, Icon, IconButton, Notice, HoverScope } from "./components/ui";
+import { Button, Icon, IconButton, Notice, HoverScope, Panel } from "./components/ui";
 import { api } from "./api";
+import { LayerOwnerContext } from "./components/ui/TransientLayer";
 import PermissionsPage from "./components/PermissionsPage";
 import PetsPage from "./pets/PetsPage";
 import { showPets } from "./pets/state";
@@ -102,14 +99,11 @@ export default function App() {
     return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : []), ...(deviceLink ? ["devices"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
-  const sheet = useRef<HTMLElement>(null),
-    lastPage = useRef<Page>(page === "overview" ? "accounts" : page),
-    sheetClosing = useRef(false),
-    backdropDown = useRef(false);
   const flow = onboarding.use(), newConnection = connectionSetup.use();
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = layerStore.use();
-  const modalOpen = layers.some(layer => !layer.node?.dataset.panelDock);
+  const modalOpen = layers.some(layer => layer.kind === 'dialog');
+  const workspace = layers.find(layer => layer.kind === 'panel' && !layer.node?.dataset.panelDock);
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
@@ -127,31 +121,6 @@ export default function App() {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
-  useLayoutEffect(() => {
-    if (page === "overview" || !sheet.current) return;
-    const animation = reducedMotion() ? undefined : animate(sheet.current,
-      { opacity: [0, 1], transform: ["translateY(6px)", "translateY(0)"] }, { duration: 0.16 });
-    document.querySelector<HTMLElement>(".capsule-title")?.focus({ preventScroll: true });
-    return () => animation?.stop();
-  }, [page]);
-
-  async function closeSheet() {
-    const node = sheet.current;
-    if (!node || sheetClosing.current) return;
-    sheetClosing.current = true;
-    if (!reducedMotion())
-      await animate(node, { opacity: 0, transform: "translateY(6px)" }, { duration: 0.14 });
-    sheetClosing.current = false;
-    setPage("overview");
-    requestAnimationFrame(() => {
-      const target =
-        document.querySelector<HTMLElement>(
-          `[data-page="${lastPage.current}"]`,
-        ) ?? document.querySelector<HTMLElement>('[data-page="settings"]');
-      target?.focus({ preventScroll: true });
-    });
-  }
-
   useEffect(() => {
     if (!nav.page) return;
     navigate(nav.page);
@@ -161,7 +130,6 @@ export default function App() {
   function navigate(next: Page) {
     if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-hub" && !mcpHubEnabled.get())) return;
     if (next !== "overview") {
-      lastPage.current = next;
       setSheetWide(false);
     }
     setPage(next);
@@ -253,136 +221,52 @@ export default function App() {
   ];
   return (
     <div role="region" aria-label="ARC homepage"
-      className={`app-scene ${sheetWide ? "sheet-wide" : ""} ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
+      className={`app-scene ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
       data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => captureLayerTrigger(e.target)}
-      onKeyDown={(e) => {
-        if (
-          e.key === "Escape" &&
-          !e.defaultPrevented &&
-          page !== "overview" &&
-          !layers.length
-        ) {
-          e.preventDefault();
-          if (page === "settings" && nav.settingsExperimental) {
-            navigation.set(old => ({ ...old, settingsExperimental: undefined }));
-          } else void closeSheet();
-        }
-        if (e.key === "Tab" && page !== "overview" && !layers.length) {
-          const nodes = Array.from(
-            document.querySelectorAll<HTMLElement>(
-              '.page-sheet button:not(:disabled),.page-sheet input:not(:disabled),.page-sheet [tabindex="0"],.navigation-capsule .capsule-close',
-            ),
-          ).filter((n) => n.getClientRects().length && !n.closest("[inert]"));
-          const index = nodes.indexOf(document.activeElement as HTMLElement);
-          if (
-            (e.shiftKey && index <= 0) ||
-            (!e.shiftKey && index === nodes.length - 1)
-          ) {
-            e.preventDefault();
-            (e.shiftKey ? nodes.at(-1) : nodes[0])?.focus();
-          }
-        }
-      }}
+
     >
-      <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen} />
+      <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen && !workspace} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}
       <main
         className="home-workspace"
-        inert={page !== "overview" || modalOpen}
+        inert={page !== "overview" || modalOpen || !!workspace}
       >
         <ConnectionOverview visible={page === "overview"} />
       </main>
-      {page !== "overview" && (
-        <div
-          className="sheet-backdrop"
-          onPointerDown={(e) =>
-            (backdropDown.current =
-              e.button === 0 && e.target === e.currentTarget)
-          }
-          onPointerCancel={() => (backdropDown.current = false)}
-          onClick={(e) => {
-            if (
-              backdropDown.current &&
-              e.target === e.currentTarget &&
-              !layers.length
-            )
-              void closeSheet();
-            backdropDown.current = false;
-          }}
-        />
-      )}
-      {page !== "overview" && (
-        <section
-          ref={sheet}
-          className="page-sheet"
-          data-panel-depth="1"
-          data-recessed={modalOpen || undefined}
-          inert={modalOpen}
-          aria-label={pages.find((item) => item.id === page)?.label}
-        >
-          <div className="page-sheet-content">
-            {page === "devices" ? <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : page === "mcp-hub" ? <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => void closeSheet()} /> : <>
-            <header className="sheet-header">
-              {page === "settings" && nav.settingsExperimental && <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} />}
-              <h1 className="capsule-title" tabIndex={-1}>
-                {pages.find((item) => item.id === page)?.label}
-                {page === "settings" && nav.settingsExperimental && <><span className="settings-breadcrumb-divider" aria-hidden="true"> / </span><span>{t("topology.experimental")}</span></>}
-
-              </h1>
-              {page === "permissions" && <IconButton
-                icon={RefreshCw}
-                label={t("permissionsRefresh")}
-                busy={permissionState.loading}
-                onClick={() => void refreshPermissions().catch(error => notify(String(error), true))}
-              />}
-              <IconButton
-                className="panel-width-toggle"
-                icon={sheetWide ? Minimize2 : Maximize2}
-                label={t(sheetWide ? "restorePanelWidth" : "expandPanelWidth")}
-                aria-pressed={sheetWide}
-                onClick={() => setSheetWide(!sheetWide)}
-              />
-              <IconButton
-                className="capsule-close"
-                icon={X}
-                label={t("backToHome")}
-                onClick={() => void closeSheet()}
-              />
-            </header>
-            <main
-              className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}
-            >
-              {page === "permissions" ? (
-                <PermissionsPage />
-              ) : page === "accounts" ? (
-                <PlatformsPage />
-              ) : page === "pets" ? (
-                <PetsPage />
-              ) : page === "relay-hosting" ? (
-                <RelayHosting />
-              ) : (
-                <SettingsPage />
-              )}
-            </main>
-            </>}
+      {page !== "overview" && (page === "devices" ?
+        <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "mcp-hub" ?
+        <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
+        <Panel key={page} role="region" size="l" title={<>{pages.find(item => item.id === page)?.label}
+          {page === "settings" && nav.settingsExperimental && <><span aria-hidden="true"> / </span>{t("topology.experimental")}</>}</>}
+          expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)}
+          onClose={() => setPage("overview")} returnFocus={`[data-page="${page}"]`}
+          viewKey={page === "settings" && nav.settingsExperimental ? "experimental" : page}
+          leading={page === "settings" && nav.settingsExperimental ? <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} /> : undefined}
+          onEscapeKeyDown={event => { if (page === "settings" && nav.settingsExperimental) { event.preventDefault(); navigation.set(old => ({ ...old, settingsExperimental: undefined })); } }}
+          actions={page === "permissions" ? <IconButton icon={RefreshCw} label={t("permissionsRefresh")} busy={permissionState.loading}
+            onClick={() => void refreshPermissions().catch(error => notify(String(error), true))} /> : undefined}>
+          <div className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}>
+            {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage /> : page === "pets" ? <PetsPage />
+              : page === "relay-hosting" ? <RelayHosting /> : <SettingsPage />}
           </div>
-        </section>
+        </Panel>
       )}
+      <LayerOwnerContext.Provider value={workspace?.id}>
       <nav
-        className={`navigation-capsule ${page !== "overview" ? "expanded" : ""}`}
-        inert={welcome || page !== "overview" || modalOpen}
-        aria-hidden={welcome || page !== "overview"}
+        className="navigation-capsule"
+        data-workspace-switcher
+        style={{ zIndex: layerStore.stack().switcher }}
+        inert={welcome || modalOpen}
+        aria-hidden={welcome || undefined}
         hidden={welcome}
         aria-label={t("mainNavigation")}
       >
         <HoverScope
-          activeKey={page !== "overview" || modalOpen ? "" : undefined}
+          activeKey={modalOpen ? "" : page === "overview" ? undefined : page}
           className="capsule-icons"
-          inert={page !== "overview"}
-          aria-hidden={page !== "overview"}
         >
           {pages.map((item) => (
             <button
@@ -391,17 +275,19 @@ export default function App() {
               data-page={item.id}
               data-hover-target={item.id}
               aria-label={item.label}
-              onClick={() => navigate(item.id)}
+              aria-pressed={page === item.id}
+              onClick={() => layerStore.switchPanel(() => navigate(page === item.id ? "overview" : item.id))}
             >
               <Icon icon={item.icon} size={20} />
 
             </button>
           ))}
-          <TuningControls available={page === "overview" && !welcome && !modalOpen} />
-          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
+          <TuningControls available={page === "overview" && !welcome && !modalOpen && !workspace} />
+          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen && !workspace} />
           <UpdateDock />
         </HoverScope>
       </nav>
+      </LayerOwnerContext.Provider>
       {feedback.text && (
         <div className="app-feedback">
           <Notice

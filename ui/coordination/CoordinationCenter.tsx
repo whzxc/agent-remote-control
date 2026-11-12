@@ -1,4 +1,4 @@
-import WorkspacePanel from "../components/WorkspacePanel";
+import Panel from "../components/ui/Panel";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Braces, ChevronDown, ChevronRight, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
 import { api } from '../api';
@@ -253,7 +253,7 @@ export default function CoordinationCenter() {
     : page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></footer>;
   const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
   const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
-  return <WorkspacePanel initialFocus={initialFocus} title={t('center.title')} width={820}
+  return <Panel initialFocus={initialFocus} title={t('center.title')} size="xl" viewKey={view.view} busy={busy} footer={view.view === "ax" ? undefined : footer}
     headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as typeof view.view })} options={['current','activity','ax'].map(value => ({ value, label: value === 'ax' ? 'AX' : t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
     actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
       if (view.view === 'ax') { await refreshAX(); return; }
@@ -293,7 +293,6 @@ export default function CoordinationCenter() {
         {showHistory && history?.nextCursor && <div className="center-more"><Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readHistory(history.nextCursor!))}>{t('center.more')}</Button></div>}
       </>}
     </div></div>
-    {footer}
     </>}
-  </div></WorkspacePanel>;
+  </div></Panel>;
 }

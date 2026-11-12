@@ -1,5 +1,5 @@
 import { useDialogCompletion } from "./ui/Dialog";
-import WorkspacePanel from "./WorkspacePanel";
+import Panel from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { Fragment, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -17,12 +17,12 @@ import { RelaySettings } from "./RelaySettings";
 import { DialogClose, Button, CopyField, Dialog, Icon, IconButton, Notice, Status, Tile } from "./ui";
 import { Card, CardContent, CardHeader } from "./ui/card";
 
-export function ConnectionsDialog() {
-  return <WorkspacePanel title={t("connections.title")} width={680}
+export function ConnectionsPanel() {
+  return <Panel title={t("connections.title")} size="l"
     actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup()}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
     returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
     <ConnectionsContent />
-  </WorkspacePanel>;
+  </Panel>;
 }
 
 export default function ConnectionsContent() {

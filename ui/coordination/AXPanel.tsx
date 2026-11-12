@@ -1,3 +1,4 @@
+import { PanelFooter } from "../components/ui/Panel";
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleDot, Copy, GitCommitHorizontal, Inbox, Lightbulb, ListChecks, Minus, ReceiptText, MessageSquare, FileText, X } from 'lucide-react';
 import { Button, Icon, IconButton, LoadingIndicator, Notice, SearchInput, SingleChoice } from '../components/ui';
@@ -137,8 +138,8 @@ export default function AXPanel() {
         })}
         {!rows.length && data.observedAt && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyBoard')}</p></div>}
       </div>
-      {data.observedAt && <footer className="ax-footer"><span>{limit < rows.length ? t('center.ax.showing', { count: Math.min(limit, rows.length), total: rows.length }) : t('center.ax.updatedAt', { time: new Date(data.observedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</span>
-        {limit < rows.length && <Button variant="ghost" onClick={() => setLimit(old => old + 50)}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</footer>}
+      {data.observedAt && <PanelFooter className="ax-footer"><span>{limit < rows.length ? t('center.ax.showing', { count: Math.min(limit, rows.length), total: rows.length }) : t('center.ax.updatedAt', { time: new Date(data.observedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</span>
+        {limit < rows.length && <Button variant="ghost" onClick={() => setLimit(old => old + 50)}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</PanelFooter>}
     </>}
   </div>;
 }

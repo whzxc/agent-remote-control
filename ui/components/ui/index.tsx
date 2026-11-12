@@ -786,3 +786,5 @@ export function CopyField({
 import "./TaskControls.css";
 import "./SetupChoice.css";
 import "./CopyField.css";
+
+export { default as Panel } from "./Panel";

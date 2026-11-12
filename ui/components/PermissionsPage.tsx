@@ -1,3 +1,4 @@
+import { usePanelState } from "./ui/Panel";
 import { useEffect, useState } from "react";
 import { Accessibility, Bell, Check, Circle, HardDrive, LogIn, Monitor, Terminal, type LucideIcon } from "lucide-react";
 import { api } from "../api";
@@ -17,6 +18,7 @@ export default function PermissionsPage() {
   const { data, loading } = permissions.use();
   const [acting, setActing] = useState(false);
   const busy = loading || acting;
+  usePanelState({ busy });
   const { status } = connector.use();
   const currentLocale = locale.use();
   useEffect(() => {

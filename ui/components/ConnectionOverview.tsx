@@ -57,7 +57,7 @@ import AgentDisplaySettings from "./AgentDisplaySettings";
 import { Button, Notice } from "./ui";
 import AgentPanel from "./AgentPanel";
 import ChangeConnection from "./ChangeConnection";
-import { ConnectionsDialog } from "./ConnectionsContent";
+import { ConnectionsPanel } from "./ConnectionsContent";
 import Hub from "../topology/Hub";
 import HubRecovery, { controlHubCore } from "./HubRecovery";
 function wireState(state: string): WireState {
@@ -126,9 +126,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const { snapshot } = subscriptions.use();
   const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState<string | false>(false);
   const sources = status?.ingresses ?? [];
-  useEffect(() => {
-    if (nav.connectionsOpen) { agentPanel.set(undefined); ingressPanel.set(undefined); }
-  }, [nav.connectionsOpen]);
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
   const agents = visibleAgents(orderedAgents(), max, selection?.agent);
   const coreState = hubHealth?.core ?? "ready";
@@ -389,7 +386,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         )}
       </section>
       {recovery && visible && <HubRecovery key={recovery} side={recovery} onClose={() => setRecovery(undefined)} openCore={() => setRecovery("core")} />}
-      {nav.connectionsOpen && visible && !flow && !switching && <ConnectionsDialog />}
+      {nav.connectionsOpen && visible && !flow && !switching && <ConnectionsPanel />}
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
       {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}

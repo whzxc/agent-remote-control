@@ -143,6 +143,64 @@ test('choosing a modal SingleChoice option applies it outside dialogs and retain
   });
 });
 
+
+test('workspaces replace on open and capsule switching preserves dirty drafts until discard', async () => {
+  // Regression: independent workspace stores could retain an older panel, and capsule input bypassed dirty dismissal.
+  await withDialog(async ({ server, root, settle, focused }) => {
+    const { default: Panel, usePanelState } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
+    const { Input, Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    function Editor() {
+      const [draft, setDraft] = useState(''), [busy, setBusy] = useState(false);
+      usePanelState({ dirty: !!draft, busy });
+      return h('section', null,
+        h(Input, { 'aria-label': 'Workspace draft', value: draft, onChange: (event: Event) => setDraft((event.target as HTMLInputElement).value) }),
+        h(Button, { onClick: () => setBusy(value => !value) }, busy ? 'Finish work' : 'Start work'));
+    }
+    function CleanContributor() { usePanelState({}); return h('p', null, 'No pending edits'); }
+    function Owner() {
+      const [clean, setClean] = useState(false);
+      const [workspace, setWorkspace] = useState<string | undefined>('Settings'), [board, setBoard] = useState(false);
+      return h('main', null,
+        h('nav', { 'data-workspace-switcher': true }, ...['Settings', 'Relay'].map(title => h(Button, {
+          key: title, onClick: () => layers.switchPanel(() => setWorkspace(workspace === title ? undefined : title)),
+        }, `Open ${title}`)), h(Button, { onClick: () => setBoard(true) }, 'Open Board')),
+        workspace && h(Panel, { key: workspace, size: 'l', title: workspace, onClose: () => setWorkspace(undefined) }, h(Editor), h(Button, { onClick: () => setClean(true) }, 'Load another connector'), clean && h(CleanContributor)),
+        board && h(Panel, { size: 'xl', title: 'Board', onClose: () => setBoard(false) }, 'Board contents'));
+    }
+    const page = within(document.body);
+    await act(async () => root.render(h(Owner))); await settle();
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Board' }))); await settle();
+    assert.equal(page.queryByRole('dialog', { name: 'Settings' }), null);
+    assert.ok(page.getByRole('dialog', { name: 'Board' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();
+    assert.equal(page.queryByRole('dialog', { name: 'Board' }), null);
+    const draft = page.getByRole('textbox', { name: 'Workspace draft' });
+    await act(async () => fireEvent.change(draft, { target: { value: 'Retained draft' } }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Load another connector' })));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Relay' }))); await settle();
+    const keep = page.getByRole('button', { name: t('layers.keepEditing') });
+    assertNodeIdentity(focused(), keep);
+    assert.equal(page.queryByRole('dialog', { name: 'Relay' }), null);
+    await act(async () => fireEvent.click(keep));
+    assert.equal((page.getByRole('textbox', { name: 'Workspace draft' }) as HTMLInputElement).value, 'Retained draft');
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Relay' })));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: t('layers.discardAction') }))); await settle();
+    assert.ok(page.getByRole('dialog', { name: 'Relay' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Start work' })));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();
+    assertNodeIdentity(focused(), page.getByRole('button', { name: t('layers.keepOpen') }));
+    assert.equal(page.queryByRole('dialog', { name: 'Settings' }), null);
+    await act(async () => fireEvent.click(page.getByRole('button', { name: t('layers.keepOpen') })));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Finish work' })));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();
+    assert.ok(page.getByRole('dialog', { name: 'Settings' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();
+    assert.equal(page.queryByRole('dialog', { name: 'Settings' }), null);
+  });
+});
+
 test('a finished submitted attempt is clean until the user edits the value again', async () => {
   // Regression: device pairing errors left the submitted code dirty and Escape could no longer close the finished attempt.
   await withDialog(async ({ server, root, settle }) => {

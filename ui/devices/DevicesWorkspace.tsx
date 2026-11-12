@@ -1,7 +1,8 @@
 import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
+import Panel from "../components/ui/Panel";
 import { DialogActions, useDialogCompletion } from "../components/ui/Dialog";
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Laptop, Maximize2, Minimize2, Monitor, Pencil, Plus, Server, Unlink, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Laptop, Monitor, Pencil, Plus, Server, Unlink } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { relativeTime } from '../lib/relativeTime';
@@ -124,10 +125,6 @@ export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: {
     deviceView.set({ side: 'controller' });
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(`${c('open')}: ${detail?.name}`)}"]`)?.focus());
   };
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented && !view.dialog && view.detail) { event.preventDefault(); event.stopImmediatePropagation(); deviceView.set({ side: 'controller' }); requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(`${c('open')}: ${detail?.name}`)}"]`)?.focus()); } };
-    document.addEventListener('keydown', escape, true); return () => document.removeEventListener('keydown', escape, true);
-  }, [view.dialog, view.detail, detail?.name]);
   async function act(action: 'offer' | 'approve' | 'decline') {
     setBusy(true); setActionError('');
     try { const result = await api<{ pairingString?: string; expiresInSeconds: number }>(`device/${action}`, 'POST');
@@ -137,8 +134,9 @@ export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: {
     } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
   }
   const add = <Button data-device-add variant="primary" onClick={() => deviceView.set(old => ({ ...old, dialog: 'pair' }))}><Icon icon={Plus} />{c('add')}</Button>;
-  return <div className="devices-workspace">
-    <header className="devices-header">{detail && <IconButton icon={ArrowLeft} label={c('back')} onClick={back} />}<h1 className="capsule-title" tabIndex={-1}>{c('devices')}</h1><div className="device-actions device-header-actions">{!detail && view.side === 'controller' && devices.length > 0 && add}<IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} onClick={onToggleWidth} /><IconButton icon={X} label={t('backToHome')} onClick={onClose} /></div></header>
+  return <Panel role="region" size="l" className="devices-workspace" title={c('devices')} busy={busy} expanded={expanded} onToggleWidth={onToggleWidth} onClose={onClose}
+    returnFocus='[data-page="devices"]' onEscapeKeyDown={event => { if (!view.dialog && detail) { event.preventDefault(); back(); } }} leading={detail && <IconButton icon={ArrowLeft} label={c('back')} onClick={back} />}
+    actions={!detail && view.side === 'controller' && devices.length > 0 ? add : undefined}>
     <main className="devices-content">{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
       {!snapshot ? !error && <Loading /> : detail ? <Detail device={detail} /> : <>
         <SingleChoice form="equal-pills" label={c('view')} value={view.side} options={[{ value: 'controller', label: c('members') }, { value: 'member', label: c('thisDevice') }]} onChange={side => deviceView.set({ side: side as 'controller' | 'member' })} />
@@ -146,5 +144,5 @@ export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: {
       </>}
     </main>
     {view.dialog === 'pair' && <PairDialog close={close} />}{view.dialog === 'address' && detail && <AddressDialog device={detail} close={close} />}{view.dialog === 'revoke' && view.revoke && <RevokeDialog peer={view.revoke} memberSide={view.side === 'member'} close={close} />}
-  </div>;
+  </Panel>;
 }

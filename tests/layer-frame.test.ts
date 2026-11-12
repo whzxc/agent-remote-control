@@ -71,3 +71,15 @@ test('portrait and narrow viewports collapse all slots to the available width', 
     }
   }
 });
+
+
+test('center workspaces share the top line and expand only through the explicit width toggle', () => {
+  // Property: Center panels are horizontally centered at the top line and expanded panels fill only the available width.
+  for (const viewport of viewports) for (const size of sizes) for (const expanded of [false, true]) {
+    const frame = layerFrame('panel', size, 'center', viewport, tokens, 100, undefined, expanded);
+    assert.equal(frame.x + frame.width / 2, viewport.width / 2);
+    assert.equal(frame.y, viewport.desktop ? tokens.desktopTop : tokens.browserTop);
+    assert.ok(frame.width <= viewport.width - tokens.margin * 2);
+    if (expanded) assert.equal(frame.width, viewport.width - tokens.margin * 2);
+  }
+});

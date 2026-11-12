@@ -1,3 +1,4 @@
+import { verifyWorkspace } from './workspaces.mjs';
 import { verifyDevices } from './devices.mjs';
 import { verifyCoordination } from './coordination.mjs';
 import { verifyPortraitTopology } from './portrait-topology.mjs';
@@ -148,6 +149,10 @@ try {
               ? [row.textContent.trim()] : [];
           }));
           if (issues.length) throw new Error(`Settings rows overlap or overflow: ${issues.join('; ')}`);
+        }
+        if (fixture.page || fixture.connectionsOpen || fixture.coordination) {
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await verifyWorkspace(page, fixture, messages, width, height);
         }
         if (fixture.deviceLink) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -656,6 +661,12 @@ try {
           await card.getByRole('button', { name: messages['platforms.rename'].replace('{name}', source.label), exact: true }).click();
           const renamed = `${source.label} fixture`;
           await card.getByRole('textbox', { name: messages['platforms.name'], exact: true }).fill(renamed);
+          await page.getByRole('button', { name: messages.settings, exact: true }).click();
+          const keepEditing = platforms.getByRole('button', { name: messages['layers.keepEditing'], exact: true });
+          await keepEditing.waitFor();
+          if (!await keepEditing.evaluate(element => element === document.activeElement)) throw new Error('Dirty workspace switching must focus Keep editing.');
+          await keepEditing.click();
+          if (await card.getByRole('textbox', { name: messages['platforms.name'], exact: true }).inputValue() !== renamed) throw new Error('Workspace switching discarded the connector draft.');
           await card.getByRole('button', { name: messages.save, exact: true }).click();
           await platforms.getByRole('region', { name: renamed, exact: true }).getByRole('heading', { name: renamed, exact: true }).waitFor({ state: 'visible' });
           await platforms.getByRole('button', { name: messages.addControlSource, exact: true }).click();

@@ -1,3 +1,5 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
+import { usePanelState } from "./ui/Panel";
 import { navigation } from "../state/navigation";
 import { usePrivacy, setPrivacy } from "../state/privacy";
 import { notificationsPreference } from "../state/store";
@@ -21,8 +23,8 @@ export default function SettingsPage() {
   const previousSettings = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     if (settingsExperimental) {
-      document.querySelector<HTMLElement>(".capsule-title")?.focus({ preventScroll: true });
-      document.querySelector(".workspace")?.scrollTo({ top: 0 });
+      document.querySelector<HTMLElement>(".panel-title")?.focus({ preventScroll: true });
+      document.querySelector(".layer-panel > .dialog-body")?.scrollTo({ top: 0 });
     } else if (previousSettings.current) {
       document.getElementById(previousSettings.current)?.focus();
     }
@@ -42,6 +44,11 @@ export default function SettingsPage() {
     }),
     [appearanceReady, setAppearanceReady] = useState(false),
     [service, setService] = useState<Service>();
+  const [delayDraft, setDelayDraft] = useState<string>();
+  const savedDelay = String(status?.requestRoutingDelaySeconds ?? 15);
+  const proxyDraft = useSubmittedDirty({ mode: proxyMode, url: proxyMode === "custom" ? proxyUrl : "" },
+    proxyMode !== (status?.config.proxyMode || "system") || proxyMode === "custom" && proxyUrl !== (status?.config.proxyUrl || ""));
+  usePanelState({ busy: !!busy, dirty: proxyDraft.dirty || delayDraft !== undefined && delayDraft !== savedDelay });
   const notifications = notificationsPreference.use(), topology = topologyMode.use(), privateMode = usePrivacy();
   const mac = isDesktop && navigator.platform.toLowerCase().includes("mac");
   useEffect(() => {
@@ -74,6 +81,7 @@ export default function SettingsPage() {
         return;
       }
     }
+    proxyDraft.submit({ mode, url: mode === "custom" ? proxyUrl : "" });
     await run("network", async () => {
       await api("network", "PUT", {
         proxyMode: mode,
@@ -108,11 +116,11 @@ export default function SettingsPage() {
     <div className="settings-page settings-stack">
       <Group title={t("behavior")}>
         <Row title={t("routing.delaySetting")} width={104}>
-          <Input key={status?.requestRoutingDelaySeconds ?? 15} type="number" min={0} max={300} step={1} aria-label={t("routing.delaySetting")} defaultValue={status?.requestRoutingDelaySeconds ?? 15} disabled={!!busy || !status}
+          <Input  type="number" min={0} max={300} step={1} aria-label={t("routing.delaySetting")} value={delayDraft ?? savedDelay} onChange={event => setDelayDraft(event.target.value)} disabled={!!busy || !status}
             onBlur={event => {
               const seconds = event.currentTarget.valueAsNumber;
-              if (event.currentTarget.validity.valid && Number.isInteger(seconds) && seconds !== status?.requestRoutingDelaySeconds) void saveTask({ requestRoutingDelaySeconds: seconds });
-              else event.currentTarget.value = String(status?.requestRoutingDelaySeconds ?? 15);
+              if (event.currentTarget.validity.valid && Number.isInteger(seconds) && seconds !== status?.requestRoutingDelaySeconds) void saveTask({ requestRoutingDelaySeconds: seconds }).finally(() => setDelayDraft(undefined));
+              else setDelayDraft(undefined);
             }} />
         </Row>
         <Row title={t("controlSourceNotifications")} description={t("controlSourceNotificationsDescription")} toggle>

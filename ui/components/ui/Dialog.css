@@ -1,5 +1,5 @@
 .layer-scrim { position: fixed; inset: 0; background: var(--layer-scrim); }
-.dialog.layer-dialog {
+.dialog:is(.layer-dialog, .layer-panel) {
   position: fixed; margin: 0; display: flex; flex-direction: column; gap: 25px;
   min-width: 0; max-width: calc(100vw - 2 * var(--layer-side-margin));
   padding: 13px 24px 24px; border: 0; border-radius: var(--radius-panel);
@@ -7,29 +7,36 @@
   transform: none; overflow: hidden; outline: none;
   animation: layer-dialog-enter var(--motion-base) var(--ease-enter) both;
 }
-.layer-dialog > .dialog-header {
+:is(.layer-dialog, .layer-panel) > .dialog-header {
   display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px;
   min-height: var(--control-height); padding: 0; border: 0; background: none; cursor: default; touch-action: auto;
 }
-.layer-dialog > .dialog-header h2 { margin: 0; font: 650 var(--text-title)/24px var(--font-ui); }
-.layer-dialog > .dialog-header .actions { margin: 0; gap: var(--control-gap); }
-.layer-dialog > .dialog-header .icon-button { --icon-button-size: var(--control-height); }
-.layer-dialog > .dialog-body { flex: 0 1 auto; min-height: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
-.layer-dialog > .dialog-footer { display: flex; flex: none; justify-content: flex-end; gap: 12px; padding: 0; border: 0; background: none; }
-.layer-dialog > .layer-dismissal { flex-direction: column; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
+:is(.layer-dialog, .layer-panel) > .dialog-header h2 { margin: 0; font: 650 var(--text-title)/24px var(--font-ui); }
+:is(.layer-dialog, .layer-panel) > .dialog-header .actions { margin: 0; gap: var(--control-gap); }
+:is(.layer-dialog, .layer-panel) > .dialog-header .icon-button { --icon-button-size: var(--control-height); }
+:is(.layer-dialog, .layer-panel) > .dialog-body { flex: 0 1 auto; min-height: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
+:is(.layer-dialog, .layer-panel) > .dialog-footer { display: flex; flex: none; justify-content: flex-end; gap: 12px; padding: 0; border: 0; background: none; }
+:is(.layer-dialog, .layer-panel) > .layer-dismissal { flex-direction: column; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
 .layer-dismissal p { margin: 0; font-size: var(--text-small); line-height: 20px; color: var(--text-secondary); }
 .layer-dismissal .actions { flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .layer-dismissal .button.primary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-.layer-dialog > .setup-steps { flex: none; margin: 0; }
-.layer-dialog > .setup-return, .layer-dialog > .setup-context { flex: none; margin: 0; }
+:is(.layer-dialog, .layer-panel) > .setup-steps { flex: none; margin: 0; }
+:is(.layer-dialog, .layer-panel) > .setup-return, :is(.layer-dialog, .layer-panel) > .setup-context { flex: none; margin: 0; }
 @keyframes layer-dialog-enter { from { opacity: 0; transform: translate(var(--layer-entry-x), var(--layer-entry-y)); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .dialog.layer-dialog { animation: none; } }
-:root[data-reduced-motion="true"] .dialog.layer-dialog { animation: none; }
 
-.layer-dialog > .dialog-footer[hidden] { display: none; }
-.layer-dialog > .dialog-footer > .actions, .layer-dialog > .dialog-footer > .device-actions { justify-content: flex-end; }
+.dialog.layer-panel { animation-name: layer-panel-enter; animation-duration: var(--motion-panel); }
+.layer-panel > .dialog-header .panel-title { flex: 0 1 auto; }
+.layer-panel > .dialog-header .actions { margin-left: auto; }
+@keyframes layer-panel-enter { from { opacity: 0; transform: translate(var(--layer-entry-x), var(--layer-entry-y)); } to { opacity: 1; transform: none; } }
 
-.layer-dialog > .dialog-description { flex: none; margin: 0; color: var(--text-secondary); font-size: var(--text-small); }
+.layer-panel > .dialog-body { flex: 1 1 auto; }
+@media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { animation: none; } }
+:root[data-reduced-motion="true"] .dialog:is(.layer-dialog, .layer-panel) { animation: none; }
+
+:is(.layer-dialog, .layer-panel) > .dialog-footer[hidden] { display: none; }
+:is(.layer-dialog, .layer-panel) > .dialog-footer > .actions, :is(.layer-dialog, .layer-panel) > .dialog-footer > .device-actions { justify-content: flex-end; }
+
+:is(.layer-dialog, .layer-panel) > .dialog-description { flex: none; margin: 0; color: var(--text-secondary); font-size: var(--text-small); }
 .dialog-breadcrumb { color: var(--text-secondary); font-weight: 400; }
 .dialog-view-stack { position: relative; }
 .dialog-swap { opacity: 1; transition: opacity var(--motion-base) var(--ease-enter), display var(--motion-base) allow-discrete; }
@@ -37,3 +44,5 @@
 @starting-style { .dialog-swap { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .dialog-swap { transition: none; } }
 :root[data-reduced-motion="true"] .dialog-swap { transition: none; }
+
+.layer-panel > .dialog-footer > .panel-footer-content { width: 100%; }

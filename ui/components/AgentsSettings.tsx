@@ -1,4 +1,4 @@
-import WorkspacePanel from "./WorkspacePanel";
+import Panel from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { useReducedMotion } from "../state/appEnvironment";
 import { useState, type ReactNode } from "react";
@@ -142,9 +142,9 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
   }
   return (
     <>
-      <WorkspacePanel className="settings-dialog"
+      <Panel className="settings-dialog"
         title={t("agents")}
-        width={720}
+        size="l" busy={state.loading || !!state.saving}
         onClose={onClose}
         actions={
           <>
@@ -270,7 +270,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         </div>
         </>}
         {error && <Notice>{error}</Notice>}
-      </WorkspacePanel>
+      </Panel>
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />
       )}{" "}

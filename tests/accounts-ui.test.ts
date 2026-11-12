@@ -186,13 +186,13 @@ test('built-in local authority is absent from control sources, accounts and disc
 test('connection management exposes connections without source or platform administration', async () => {
   // Regression: connection management mixed duplicate source/account rows and platform grouping with connection lifecycle actions.
   await withAccountUI(async ({ server, root }) => {
-    const { ConnectionsDialog } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
+    const { ConnectionsPanel } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     navigation.set((old: any) => ({ ...old, page: 'overview', connectionsOpen: true, remoteSourceId: undefined, remoteConnectionId: undefined }));
-    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsDialog))));
+    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsPanel))));
     const page = within(document.body);
     assert.ok(page.getByRole('button', { name: t('source.newConnection'), exact: true }));
     assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);

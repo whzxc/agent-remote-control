@@ -1,3 +1,5 @@
+import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
+import { usePanelState } from "../components/ui/Panel";
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { t } from '../i18n';
 import { openUrl } from '../platform';
@@ -8,6 +10,8 @@ import PetPreview from './PetPreview';
 export default function PetsPage() {
   const library = petLibrary.use(), assignments = petAssignments.use();
   const [url, setUrl] = useState(''), [busy, setBusy] = useState<string | null>(null), [error, setError] = useState('');
+  const draft = useSubmittedDirty(url, !!url);
+  usePanelState({ dirty: draft.dirty, busy: !!busy });
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => { void refreshPets(); }, []);
   async function install(input: { url: string } | File) {
@@ -18,7 +22,7 @@ export default function PetsPage() {
         const bytes = new Uint8Array(await input.arrayBuffer());
         let binary = ''; for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
         await installPet({ zip: btoa(binary) });
-      } else { await installPet(input); setUrl(''); }
+      } else { draft.submit(); await installPet(input); setUrl(''); }
     } catch (e) { setError(String(e)); document.getElementById('pet-link')?.focus(); }
     finally { setBusy(null); if (file.current) file.current.value = ''; }
   }
