@@ -4,7 +4,8 @@ export async function verifyWorkspace(page, fixture, messages, width, height) {
   if (!await panel.count()) return;
   await panel.waitFor();
   const box = await panel.boundingBox();
-  const top = await page.evaluate(() => '__TAURI_INTERNALS__' in window ? 48 : 20);
+  // Updater fixtures install an IPC mock after startup; it does not change the app's runtime mode.
+  const top = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
   const size = fixture.page === 'mcp-hub' || fixture.coordination ? 960 : 720;
   const expectedWidth = width < 760 || height > width ? width - 32 : Math.min(size, width - 32);
   if (!box || Math.abs(box.x - (width - expectedWidth) / 2) > 1 || Math.abs(box.y - top) > 1
