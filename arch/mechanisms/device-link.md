@@ -3,7 +3,7 @@ owners:
   - native/src/device_link/**
   - ui/topology/**
   - ui/devices/**
-status: Proposed
+status: Approved
 ---
 The homepage keeps control sources on the left and executors on the right. Pairing adds
 one device tier to the existing hierarchy. Local Agents stay at tier 1 without a local

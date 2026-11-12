@@ -4,7 +4,7 @@ owners:
   - ui/topology/**
   - ui/components/ConnectionOverview.tsx
   - ui/components/ActivityBubbles.tsx
-status: Proposed
+status: Approved
 ---
 The homepage has a manually selected, persisted Topology or Tasks mode. The shared
 SingleChoice sits below the centered Board header in both modes and all widths. Task
@@ -39,7 +39,7 @@ Unread and Unconfirmed retain observation order. Lists scroll vertically without
 queue compaction. Long text truncates with the full accessible title retained.
 Portrait and mobile use one column and preserve the header and mode control.
 
-All nodes use the neutral architecture vocabulary. The sidecar's Proposed status
+All nodes use the neutral architecture vocabulary. The sidecar's Approved status
 covers the presentation and navigation model; it does not add an experimental flag.
 
 A node is a 48px logo with a circular quota ring at idle. When it has tasks the same

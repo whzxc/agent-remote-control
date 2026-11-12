@@ -3,7 +3,7 @@ owners:
   - native/src/device_link/**
   - ui/topology/**
   - ui/devices/**
-status: Proposed
+status: Approved
 ---
 Remote Agent dispatch targets (device, agent). Operation arguments gain the device
 target; the guide/query/act MCP tool names and parameter structures stay frozen.

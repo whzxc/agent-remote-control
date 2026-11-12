@@ -277,7 +277,7 @@ not retire conversation-level queued messages or structural account-group foldin
 
 ### Device level in homepage topology
 
-**Proposed. Awaiting user gallery approval.** The homepage retains its left control-source
+**User-approved.** The homepage retains its left control-source
 and right executor dimensions. A paired member is a tier-1 sibling of local Agents.
 Its Agents and accounts/profiles form successive child levels. Exactly one Agent
 merges into its device node; expansion continues with accounts/profiles.
@@ -285,13 +285,13 @@ Local Agents retain their current position without a local-device wrapper.
 
 | Source / part | Declared forms | Consumer / intended implementation | Status |
 | --- | --- | --- | --- |
-| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{idle,lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | Proposed. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeCapsule. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
-| `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; intended topology panel owner | Proposed. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
-| `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; intended source panel owner | Proposed. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
-| `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; intended right-wing add endpoint | Proposed. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
-| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `surfaces/device-link-topology.tsx`; intended portrait topology owner | Proposed. Remote account/profile levels fold with TopologyGroup. Fixed compact columns retain node labels; horizontal pan reveals branch and account tiers. |
-| `surfaces/device-link-topology.tsx` | `controller-idle`, `controller-overflow`, `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | Intended `ui/topology/Topology.tsx`; no runtime adoption | Proposed. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
-| `fixtures/device-topology.ts` | Support data | Device topology parts and surface | Proposed. Fictional devices, accounts, tasks and inert example endpoints; visual types remain in their owning modules. |
+| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{idle,lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | User-approved. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeCapsule. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
+| `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; intended topology panel owner | User-approved. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
+| `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; intended source panel owner | User-approved. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
+| `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; intended right-wing add endpoint | User-approved. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
+| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `surfaces/device-link-topology.tsx`; intended portrait topology owner | User-approved. Remote account/profile levels fold with TopologyGroup. Fixed compact columns retain node labels; horizontal pan reveals branch and account tiers. |
+| `surfaces/device-link-topology.tsx` | `controller-idle`, `controller-overflow`, `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | Intended `ui/topology/Topology.tsx`; no runtime adoption | User-approved. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
+| `fixtures/device-topology.ts` | Support data | Device topology parts and surface | User-approved. Fictional devices, accounts, tasks and inert example endpoints; visual types remain in their owning modules. |
 
 Device status appears only on device nodes and their expanded management content. The
 controller task-state aggregation includes only tasks it dispatched to that member. A member attributes such
@@ -312,7 +312,7 @@ remain retained until their runtime consumers are replaced, then are retired wit
 `idle`, `working`, `attention`, `unread`, `aggregate`, `thinking-waiting`, `overflow`,
 `left-idle`, `left-working`, `compact`, `compact-overflow`, `unconfirmed`,
 `compact-unconfirmed`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
-counts, observed phases and quota readings. All node capsule forms are **Proposed**.
+counts, observed phases and quota readings. All node capsule forms are **User-approved**.
 
 The quota ring is the capsule outline: the idle circle stretches into a 48px stadium
 whose quota arcs keep their fractional meaning; the pace trace stays on the idle ring.
@@ -391,8 +391,8 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading`, `centered-landscape`, `centered-portrait` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Overview height follows content, with a fixed header and scrolling body at the cap. The centered frames show the dock aligned to its selected node in the full topology view. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `loading`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed and adopted. The account overview fits its content, and the account list scrolls at the viewport cap. The loading frame has a dedicated browser fixture. The native specimen remains unreachable through the current fixture route. |
 | `surfaces/devices.tsx` | See retained workspace sources; both locales | `ui/devices/DevicesWorkspace.tsx` | Retained approved source; scheduled for retirement after topology migration. |
-| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner | Proposed; no runtime fixture. |
-| `surfaces/device-link-topology.tsx` | New forms listed above; retained `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` | New forms Proposed. Legacy summary frames retained and scheduled for retirement. |
+| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner | User-approved; no runtime fixture. |
+| `surfaces/device-link-topology.tsx` | New forms listed above; retained `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` | New forms User-approved. Legacy summary frames retained and scheduled for retirement. |
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination.tsx` | `current`, `empty`, `gap`, `unavailable` | `ui/coordination/CoordinationCenter.tsx` | Reviewed. Composes modules/board. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
@@ -562,9 +562,9 @@ Pet preview atlas labels are decorative image content inside `aria-hidden` previ
 
 ## Known gaps
 
-- Two-mode homepage and task cards are Proposed. Persistence, navigation/focus, origin tooltips, task actions and scroll behavior require runtime adoption; legacy task topology usages remain pending retirement.
+- Two-mode homepage and task cards are User-approved. Persistence, navigation/focus, origin tooltips, task actions and scroll behavior require runtime adoption; legacy task topology usages remain pending retirement.
 
-- Device-level homepage frames are Proposed; runtime fixtures, projection, interaction and native cycle/addressing behavior await approved implementation. The separate workspace and its nav/summary assets remain retained pending that migration.
+- Device-level homepage frames are User-approved; runtime fixtures, projection, interaction and native cycle/addressing behavior await approved implementation. The separate workspace and its nav/summary assets remain retained pending that migration.
 
 - Isolated AX badges, general/display settings content and the theme swatch have pixel-only crop fidelity differences with matching element, layout and color snapshots.
 - Agent platform native has no reachable fixture. Its legacy drawing remains a retained exception.

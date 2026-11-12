@@ -7,7 +7,7 @@ owners:
   - native/src/codex_host.rs
   - native/src/task_host.rs
   - desktop/src/**
-status: Proposed
+status: Approved
 ---
 The MCP hub is experimental. It is off by default and enabled from Experimental settings.
 

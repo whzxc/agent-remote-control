@@ -24,7 +24,7 @@ Remote recovery retries the remote check or restarts only the affected remote co
 
 ### Two-mode homepage
 
-**Tasks presentation is user-approved; the node capsule remains Proposed.**
+**Tasks presentation, the device level and the working node capsule are user-approved.**
 Topology presents ARC configuration; Tasks presents task execution.
 A shared SingleChoice below the centered Board header selects Topology
 or Tasks manually. Persist the choice; task activity never switches modes. In
@@ -58,7 +58,7 @@ these user-approved Tasks forms. Existing task-bearing topology sources remain p
 
 #### Recorded task fields and presentation limits
 
-| Proposed detail | Existing source | Presentation rule |
+| Detail | Existing source | Presentation rule |
 | --- | --- | --- |
 | Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin, agentAccountId and dispatchSummary | Use the current observation; unconfirmed tasks show no live verbs or counters. |
 | Recent step icons and short text | AgentTimelineEntry type, status, title/text, command, operation, commandActions and excerpt fields; `ui/state/taskProjection.ts` | Reading/editing derive from file operations; waiting requires an observed pending item. Keep chronological order in the bounded tail. |
@@ -75,7 +75,7 @@ card feed is not present. Implementation still needs bounded timeline reads, pro
 coverage and remote joins. The proposal assumes no ETA, live provider percentage,
 invented step duration, or inferred waiting phase. All rendered content is fictional.
 
-### Proposed device level
+### Device level
 
 `surfaces/device-link-topology.tsx` composes the proposed paired-device level using
 `modules/device-topology.tsx`. Static landscape frames cover LAN, Tunnel, offline, merged
@@ -84,7 +84,7 @@ with optional upstream sources off/on. The ARC mark, earcups, local tier-1 Agent
 shared navigation capsule remain part of the homepage. Device management temporarily
 folds its child branch while the panel is open, using explicit structural disclosure.
 
-#### Proposed working node capsule
+#### Working node capsule
 
 The quota ring is the capsule outline. An idle node is the existing 48px logo and
 circular quota ring. A working node stretches that same ring into a 48px-high stadium:
@@ -136,7 +136,7 @@ Explicit horizontal pan reveals deeper device/Agent/account columns without refl
 the Board header, mode switch and navigation stay fixed. The root, branch and account
 viewport frames show this proposal. Pan never follows task activity. Remote sibling
 accounts/profiles continue to fold with TopologyGroup.
-These frames are Proposed. Existing approved summary and workspace sources remain
+These frames are user-approved. Existing approved summary and workspace sources remain
 retained until topology implementation replaces their consumers. See the mapping for
 retirement scope and Known gaps.
 
