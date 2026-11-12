@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { Panel } from "../components/panel";
+import { Dialog } from "../components/panel";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { SingleChoice } from "../components/single-choice";
@@ -133,28 +133,14 @@ export function OnboardingShell({ step, children }: { step: OnboardingStep; chil
       (step.body === "secure" ? onboardingCopy.secureProduct : onboardingCopy.sourceProduct) + onboardingCopy.returnSuffix
     : step.subtitle;
   return (
-    <Panel width={680} headerless>
-      <div class="flex flex-col">
-        <header class="flex h-(--control-height) items-center justify-between">
-          <h2 class="text-title leading-6 font-[650]">
-            {step.title || onboardingCopy.title}
-          </h2>
-          <IconButton icon="x" label={onboardingCopy.close} />
-        </header>
-        {subtitle && (
-          <p
-            class={`mt-[6px] text-meta leading-4 ${nested ? "text-text-tertiary" : "text-text-secondary"}`}
-          >
-            {subtitle}
-          </p>
-        )}
-        <div class="mt-[15px]"><OnboardingSteps step={step} /></div>
-        <div class="mt-[27px]">
-          {children}
-        </div>
-        <div class="mt-6"><OnboardingFooter step={step} /></div>
-      </div>
-    </Panel>
+    <Dialog size="m" viewportHeight={step.body === "own" ? 1000 : 800} title={step.title || onboardingCopy.title}
+      headerDetail={<>
+        {subtitle && <p class="text-meta leading-4 text-text-secondary">{subtitle}</p>}
+        <OnboardingSteps step={step} />
+      </>}
+      footer={<OnboardingFooter step={step} />}>
+      {children}
+    </Dialog>
   );
 }
 export default () => [

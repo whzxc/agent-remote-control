@@ -14,7 +14,7 @@ export default () => [
   )),
   <Frame name="history" fixture="updates-history"
     capture={{ region: copy.history, viewport: "1280x800", clicks: [copy.history] }}>
-    <Panel width={520} title={copy.history}>
+    <Panel size="m" title={copy.history}>
       <UpdateHistoryContent entries={releases} />
     </Panel>
   </Frame>,

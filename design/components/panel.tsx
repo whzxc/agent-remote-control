@@ -12,6 +12,7 @@ const layerWidths: Record<LayerSize, string> = {
 
 export function Panel({
   title,
+  kind = "panel",
   children,
   actions,
   footer,
@@ -29,6 +30,7 @@ export function Panel({
   roomyHeader = false,
 }: {
   title?: unknown;
+  kind?: "panel" | "dialog";
   children?: unknown;
   actions?: unknown;
   footer?: unknown;
@@ -47,10 +49,10 @@ export function Panel({
 }) {
   return (
     <section
-      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : size ? layerWidths[size] : width, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
+      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : size ? layerWidths[size] : width, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": kind === "dialog" ? "max(var(--layer-top-browser), calc(var(--layer-viewport-height) * 0.12))" : "var(--layer-top-browser)" }}
       class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
         ${slot ? "mx-auto mt-(--layer-top) max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!" : ""}
-        ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-top-browser)_-_var(--layer-side-margin))]!" : ""}
+        ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-side-margin))]!" : ""}
         ${size ? "max-w-full max-h-full [&>header]:shrink-0" : ""}
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
@@ -75,7 +77,7 @@ export function Panel({
   );
 }
 export function Dialog(props: Parameters<typeof Panel>[0]) {
-  return <Panel {...props} />;
+  return <Panel {...props} kind="dialog" />;
 }
 /** Content-sized shell for topology panels and workspace-specific headers. */
 export function PanelShell({
