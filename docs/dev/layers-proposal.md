@@ -108,8 +108,10 @@ Related defects:
 - `--motion-panel` is 180ms for panel entry and height changes.
 - Exit durations MUST be at most their entry durations.
 - `--ease-enter` and `--ease-exit` MUST be the only easing curves outside the topology springs.
-- A panel MUST enter with a fade and an 8px movement from its slot's outer edge, or from below for the center slot.
-- A dialog MUST enter with a fade and a 6px upward movement.
+- A panel MUST enter with a fade and an 8px movement, and a dialog with a fade and a 6px movement.
+- The movement MUST point from the trigger's center toward the layer's slot, so the layer arrives from the direction of the click.
+- A layer opened without a trigger, such as by external navigation, MUST move upward from below.
+- The trigger MUST only set the entry direction and MUST NOT change the final position or size.
 - Transient layers MUST enter with a fade.
 - Content swaps inside one layer MUST crossfade without changing the shell position.
 - Trigger morphing, visual copies of triggers, automatic shell morphing on content change and overshoot curves MUST be removed.
