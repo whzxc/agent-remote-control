@@ -7,7 +7,10 @@ sequenceDiagram
   participant M as Member front door
   participant R as Member Core
   participant N as Member native session store
-  S->>C: act device {device, op, args}
+  S->>C: act {op, args: device target + agent + operation args}
+  Note over S,C: Ops gain device target argument · MCP guide/query/act structures stay frozen
+  C->>C: resolve (device, agent) · one direct member only
+  Note over C,R: Nesting supported · protocol forwarding = false · no transitive dispatch
   alt member offline
     C-->>S: DEVICE_OFFLINE, not sent, next query devices
   else member online
@@ -17,7 +20,9 @@ sequenceDiagram
     R->>R: receipt under the same ID
     R->>N: Agent or host op runs natively
     R-->>C: member result
-    C->>C: record member task with originating source
+    C->>C: associate member task with controller and originating source
+    Note over C,R: Tasks projection includes only tasks this controller dispatched to this member
+    Note right of R: Task origin: controller device as source · own-source tasks stay local
     C-->>S: member result, or uncertain with receipt read
   end
   C->>M: ordinary peer request: events cursor, wait up to 25 s

@@ -4,7 +4,7 @@ flowchart TB
   src["Control sources<br/>ChatGPT · Claude · other MCP clients"]
   net["Connections<br/>OpenAI Secure Tunnel · dedicated tunnel · relay"]
   subgraph HOST["ARC on this computer"]
-    local["Desktop app · arc CLI"]
+    local["Desktop app · arc CLI<br/>Desktop: manual persisted Topology / Tasks mode"]
     fd["Front door<br/>listeners · auth · tunnels<br/>queue during Core swap"]
     state[("State directory<br/>sources · receipts · bindings")]
     hub["MCP hub<br/>downstream MCP servers"]
@@ -17,10 +17,14 @@ flowchart TB
   end
   native[("Native session stores<br/>CODEX_HOME · Claude projects")]
   subgraph MEMBERS["Member devices · Device link"]
-    member["ARC member<br/>peer listener · Core · peer source"]
+    member["Paired member device · RIGHT tier 1<br/>peer listener · Core<br/>controller device = LEFT tier-1 source"]
+    magent["Remote Agent · tier 2<br/>single Agent merges with device node"]
+    maccount["Account / profile tier<br/>fold under pressure"]
+    mstates["Static anchors · outward NodeCapsule<br/>offline = unconfirmed · no live counts<br/>no task nodes / queues / task arcs"]
     mnative[("Member native session stores")]
+    descendant["Further member devices<br/>nesting supported · cycle rejection<br/>one-hop render · protocol forwarding = false"]
   end
-  src -->|"MCP guide / query / act"| net
+  src -->|"MCP guide / query / act · structures frozen<br/>ops gain device target argument"| net
   net -->|"HTTPS"| fd
   local -->|"local HTTP"| fd
   fd -->|"private IPC"| core
@@ -34,8 +38,12 @@ flowchart TB
   taskhost --> native
   core -.->|"observes turns"| native
   core -.->|"push: L1 claude CLI · L2 webhook"| src
-  core -->|"peer link: LAN mutual TLS · tunnel fallback"| member
+  core -->|"dispatch (device, agent)<br/>LAN mutual TLS · Tunnel fallback"| member
   member -.->|"task events"| core
-  member --> mnative
+  member --> magent --> maccount
+  member -.-> mstates
+  magent -.-> mstates
+  magent --> mnative
+  member -.->|"not rendered or forwarded here"| descendant
   class hub experimental
-  class member experimental
+  class member,magent,maccount,mstates,descendant experimental

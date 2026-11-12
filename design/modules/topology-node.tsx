@@ -1,6 +1,7 @@
 import { example } from "../fixtures/topology-node";
 import { Frame } from "adg";
-import { AgentIcon, type AgentIconReading, type Brand } from "../components/agent-icon";
+import { NodeCapsule, type NodeTaskState } from "./node-capsule";
+import { AgentIcon, BrandMark, type AgentIconReading, type Brand } from "../components/agent-icon";
 
 export type TopologyNodeProps = {
   label: string;
@@ -10,6 +11,14 @@ export type TopologyNodeProps = {
   width?: number;
   layout?: "vertical" | "source" | "agent";
   hideLabel?: boolean;
+  graphic?: unknown;
+  /** The logo drawn inside a working capsule, whose outline replaces the quota ring. */
+  capsuleMark?: unknown;
+  capsuleReadings?: readonly AgentIconReading[];
+  taskState?: NodeTaskState;
+  capsuleCompact?: boolean;
+  capsuleWing?: "left" | "right";
+  panelExpanded?: boolean;
 };
 export function TopologyNode({
   label,
@@ -19,9 +28,16 @@ export function TopologyNode({
   width = 110,
   layout = "vertical",
   hideLabel = false,
+  graphic: customGraphic,
+  capsuleMark,
+  capsuleReadings,
+  taskState,
+  capsuleCompact = false,
+  capsuleWing = "right",
+  panelExpanded,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
-  const graphic = (
+  const baseGraphic = customGraphic ?? (
     <span class={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
       {horizontal && (
         <span
@@ -36,6 +52,10 @@ export function TopologyNode({
       </span>
     </span>
   );
+  const mark = capsuleMark ?? (customGraphic ? undefined : <BrandMark brand={brand} size={readings?.length ? 28 : 32} />);
+  const graphic = taskState ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic} mark={mark}
+    readings={capsuleReadings ?? readings} used={used}
+    compact={capsuleCompact} wing={capsuleWing} expanded={panelExpanded} /> : baseGraphic;
   return (
     <div
       aria-label={hideLabel ? label : undefined}
