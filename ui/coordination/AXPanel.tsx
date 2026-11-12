@@ -35,7 +35,8 @@ function CopyValue({ value, label, compact = false }: { value: string; label: st
 export default function AXPanel() {
   const data = axObservation.use(), selectedId = axSelection.use(), view = axView.use();
   const connection = connector.use(), language = locale.use(), now = useAppNow(30_000);
-  const [limit, setLimit] = useState(view.closed ? 4 : 5);
+  const [pagination, setPagination] = useState({ view, count: view.closed ? 4 : 5 });
+  const limit = pagination.view === view ? pagination.count : view.closed ? 4 : 5;
   const natural = useRef<HTMLDivElement>(null);
   useLayerNaturalContent(natural, !!data.observedAt, { version: `${view.closed}:${limit}:${selectedId}` });
   const list = useRef<HTMLDivElement>(null), scroll = useRef(0), trigger = useRef('');
@@ -49,7 +50,6 @@ export default function AXPanel() {
     document.addEventListener('visibilitychange', read);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', read); };
   }, [core]);
-  useEffect(() => { setLimit(view.closed ? 4 : 5); }, [view.closed, view.search]);
   useEffect(() => {
     if (selectedId) heading.current?.focus();
     else if (previousSelection.current) {
@@ -142,7 +142,7 @@ export default function AXPanel() {
         {!rows.length && data.observedAt && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyBoard')}</p></div>}
       </div></div>
       {data.observedAt && <PanelFooter className="ax-footer"><span>{limit < rows.length ? t('center.ax.showing', { count: Math.min(limit, rows.length), total: rows.length }) : t('center.ax.updatedAt', { time: new Date(data.observedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</span>
-        {limit < rows.length && <Button variant="ghost" onClick={() => setLimit(old => old + 50)}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</PanelFooter>}
+        {limit < rows.length && <Button variant="ghost" onClick={() => setPagination({ view, count: limit + 50 })}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</PanelFooter>}
     </>}
   </div>;
 }
