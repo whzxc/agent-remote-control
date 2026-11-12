@@ -96,7 +96,7 @@ Related defects:
 - Height MUST be capped at the space between the layer's top edge and the bottom margin.
 - Layers MUST NOT stretch to the available height when content is shorter.
 - Headers and footers MUST stay fixed while the body scrolls at the cap.
-- A panel's height SHOULD NOT shrink while it stays open, so filters, tabs and refreshes do not move its bottom edge.
+- A panel's height MUST NOT shrink while it stays open, so filters, tabs and refreshes do not move its bottom edge.
 - A view change that replaces the whole panel content MAY reset the height.
 - Opening MAY wait up to 200ms for the first required data, as it does today.
 
@@ -133,6 +133,7 @@ Related defects:
 - The confirmation MUST focus the action that keeps the layer open.
 - Close and Cancel controls MUST close clean or dirty layers directly.
 - Close and Cancel controls on a layer with running work MUST show the same running-work state as outside input, focus Keep open, offer Stop and close when cancellable, and close when the work finishes unless Keep open withdraws the close request.
+- The navigation capsule MUST act as the workspace switcher: another entry replaces a clean workspace, edited or running work shows its dismissal footer, and the active entry toggles it closed.
 - Dismissal MUST NOT activate the element under the pointer.
 - Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
 - Field errors MUST stay with their fields.
