@@ -1,0 +1,26 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "timezone": "Asia/Shanghai",
+  "agents": [
+    "codex",
+    "cursor",
+    "opencode"
+  ],
+  "tasks": [],
+  "quota": true,
+  "panelHistory": true,
+  "historyRows": 1,
+  "historyDelayMs": 260,
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "layerEntryCheck": true
+}

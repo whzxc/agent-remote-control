@@ -76,3 +76,6 @@
 .layer-panel[data-exiting] { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { transition: none; } }
 :root[data-reduced-motion="true"] .dialog:is(.layer-dialog, .layer-panel) { transition: none; }
+
+/* Initial measurements and incoming content settle instantly beneath the entry fade. */
+.dialog:is(.layer-dialog, .layer-panel)[data-layer-entering] { transition: none; }

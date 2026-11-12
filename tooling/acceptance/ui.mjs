@@ -91,6 +91,24 @@ try {
       await page.route('**/api/**', route => { errors.push(`Unexpected live API: ${route.request().url()}`); return route.abort(); });
       // Stable elapsed labels across runs, while rAF and the renderer keep working.
       await page.addInitScript(clock => { const original = Date; const fixed = original.parse(clock); Date = class extends original { constructor(...args) { super(...(args.length ? args : [fixed])); } static now() { return fixed; } }; }, fixture.clock ?? '2026-01-01T00:00:00Z');
+      if (fixture.layerEntryCheck) await page.addInitScript(() => {
+        // Regression: opening layers interpolated their initial centered top from the unmeasured position.
+        window.__layerEntrySamples = new Promise(resolve => {
+          const rows = []; let start;
+          const sample = now => {
+            const node = document.querySelector('.layer-panel');
+            if (node && getComputedStyle(node).visibility !== 'hidden') {
+              start ??= now;
+              const rect = node.getBoundingClientRect();
+              rows.push({ entering: node.hasAttribute('data-layer-entering'), y: rect.y, height: rect.height,
+                targetY: parseFloat(node.style.top), targetHeight: parseFloat(node.style.height) });
+              if (now - start >= 600) { resolve(rows); return; }
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        });
+      });
       const row = { name, width, height, key, errors, baseline: screenshots ? 'missing' : 'disabled', changedPixels: null, changedRatio: null };
       try {
         await page.goto(`http://127.0.0.1:${port}/${fixture.browser ? 'browser.html' : ''}?scenario=${encodeURIComponent(name)}${fixture.browser ? '&key=arc_fixture_browser_key' : ''}`);
@@ -839,6 +857,14 @@ try {
             await bubble.getByRole('img', { name: messages['activity.unread'], exact: true }).waitFor({ state: 'hidden' });
             if (await page.getByRole('dialog').count()) throw new Error('Mark-read opened a task detail panel');
           }
+        }
+        if (fixture.layerEntryCheck) {
+          const samples = await page.evaluate(() => window.__layerEntrySamples);
+          const entry = samples.filter(row => row.entering);
+          if (new Set(entry.map(row => row.targetHeight)).size < 2) throw new Error('Entry fixture did not receive content during its fade.');
+          if (entry.some(row => Math.abs(row.y - row.targetY) > 1 || Math.abs(row.height - row.targetHeight) > 1)) throw new Error('Layer geometry interpolated during its entry fade.');
+          if (samples.at(-1).entering) throw new Error('Entry geometry gate did not finish with the fade.');
+          row.layerEntry = { samples: samples.length, entrySamples: entry.length };
         }
       } catch (error) { errors.push(error.stack ?? String(error)); if (screenshots) await page.screenshot({ path: path.join(out, `${key}-error.png`), animations: 'disabled' }).catch(() => {}); }
       if (errors.length) { report.failures.push(key); console.error(`${key}: ${errors.join("; ")}`); }

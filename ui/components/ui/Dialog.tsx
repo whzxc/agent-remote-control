@@ -158,6 +158,8 @@ export function LayerShell({ kind, side = 'center', focusTrigger, onPanelFrame, 
   const registerActions = useCallback(() => { setActionCount(count => count + 1); return () => setActionCount(count => count - 1); }, []);
   const actionsContext = useMemo(() => ({ target: footerTarget, register: registerActions }), [footerTarget, registerActions]);
   const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [entering, setEntering] = useState(true);
+  useLayoutEffect(() => { setEntering(!reduced); }, [node, present, reduced]);
   const [view, setView] = useState<View | null>(null);
   const viewHeight = useRef<number | undefined>(undefined), currentNode = useRef(node);
   currentNode.current = node;
@@ -272,6 +274,10 @@ export function LayerShell({ kind, side = 'center', focusTrigger, onPanelFrame, 
         layers.dismiss(id);
       }} />}
       <D.Content asChild role={role} ref={setNode} className={`dialog ${kind === 'panel' ? `layer-panel ${side !== 'center' ? 'node-panel' : ''}` : 'layer-dialog'} ${headerless ? 'headerless' : ''} ${className}`}
+        data-layer-entering={entering || undefined}
+        onAnimationEnd={event => {
+          if (event.target === event.currentTarget && (event.animationName === 'layer-panel-enter' || event.animationName === 'layer-dialog-enter')) setEntering(false);
+        }}
         data-layer-kind={kind} data-layer-side={kind === 'panel' ? side : undefined} data-panel-depth={depth + 1} inert={recessed || !present || undefined} aria-hidden={!present || undefined} data-exiting={!present || undefined}
         {...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
         aria-describedby={description ? `${id}-description` : undefined}
