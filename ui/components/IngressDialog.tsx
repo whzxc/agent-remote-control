@@ -427,7 +427,7 @@ export default function IngressDialog({
                   ]}
                 />
               </Field>
-              {!ingress && <ToolPolicyField value={toolPolicy} onChange={setToolPolicy} disabled={working} />}
+              {!ingress && <ToolPolicyField value={toolPolicy} onChange={value => { dirty.current.add("toolPolicy"); setToolPolicy(value); }} disabled={working} />}
             </>
           )}
           {!https && setupFormId && nameField}

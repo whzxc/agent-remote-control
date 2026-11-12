@@ -1,4 +1,4 @@
-import { DialogActions } from "./ui/Dialog";
+import { DialogActions, useDialogFeedback } from "./ui/Dialog";
 import { readOnlyBrowser } from "../browserMode";
 import { useId, type ReactNode } from "react";
 import type { AgentActivitySession } from "../types";
@@ -28,6 +28,7 @@ function QuestionField({ question, value, onChange, disabled }: { question: Ques
   </fieldset>;
 }
 export default function TaskQuestion({ agent, session, answers, onAnswersChange, routing }: { routing?: ReactNode; agent: string; session: AgentActivitySession; answers: Record<string, string[]>; onAnswersChange: (answers: Record<string, string[]>) => void }) {
+  const feedback = useDialogFeedback();
   const submissions = activityApprovals.use();
   const submission = submissions[interactionKey(agent, session)];
   const interaction = session.interaction!;
@@ -36,7 +37,10 @@ export default function TaskQuestion({ agent, session, answers, onAnswersChange,
   const supported = !!inputResponse(interaction, {}, true, t("detail.skippedAnswer"));
   const send = (skip: boolean) => {
     const payload = inputResponse(interaction, answers, skip, t("detail.skippedAnswer"));
-    if (payload) void submitActivityResponse(agent, session, skip ? "cancel" : "answer", payload);
+    if (payload) void submitActivityResponse(agent, session, skip ? "cancel" : "answer", payload).then(() => {
+      const result = activityApprovals.get()[interactionKey(agent, session)];
+      feedback(result?.status === "failed" ? taskErrorText(result.error) : t(result?.status === "submitted" ? "activity.submitted" : result?.status === "unconfirmed" ? "activity.unconfirmed" : "activity.checkResult"), result?.status === "failed");
+    });
   };
   return <form className="task-question" onSubmit={event => { event.preventDefault(); send(false); }}>
     <div className="task-question-options">{questions.map(question => <QuestionField key={question.id} question={question} value={answers[question.id] ?? []} onChange={value => onAnswersChange({ ...answers, [question.id]: value })} disabled={readOnlyBrowser || locked || !supported} />)}</div>

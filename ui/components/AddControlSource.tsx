@@ -9,6 +9,7 @@ import { connector, refreshConnector } from "../state/connector";
 import { onboarding, openConnectionSetup, finishSourceSetup, addedSource, type OnboardingStep, type ConnectionMethod } from "../state/onboarding";
 import { connectionDisabledReason, connectionKind, isPendingSource } from "../sourcePresentation";
 import SetupDialog from "./SetupDialog";
+import { useDialogCompletion } from "./ui/Dialog";
 import SourceIcon from "./SourceIcon";
 import { ApprovalCard } from "./OAuthApproval";
 import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction, Tile } from "./ui";
@@ -16,6 +17,7 @@ import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction, Tile
 const steps: OnboardingStep[] = ["product", "connection", "address", "approval", "success"];
 const products = [...curatedSources.map(source => source.id), "grok-bot", "local-code", "local-desktop", "custom"];
 export default function AddControlSource({ returnFocus }: { returnFocus?: string }) {
+  const completion = useDialogCompletion(finishSourceSetup);
   const flow = onboarding.use()!, { status, sources } = connector.use();
   const [busy, setBusy] = useState(false), [approvalDirty, setApprovalDirty] = useState(false), [error, setError] = useState("");
   const [route, setRoute] = useState("");
@@ -44,7 +46,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   function step(next: OnboardingStep) { setError(""); onboarding.set(old => old && { ...old, step: next, ...(["product", "connection"].includes(next) ? { requestId: undefined, ingressId: old.fixedConnection ? old.ingressId : undefined, sourceId: undefined } : {}) }); }
   async function perform(action: () => Promise<void>) {
     setBusy(true); setError("");
-    try { await action(); } catch (e) { setError(String(e)); }
+    try { await action(); completion.feedback(`${t("addControlSource")} · ${t("activity.completed")}`); } catch (e) { setError(String(e)); completion.feedback(String(e), true); }
     finally { setBusy(false); }
   }
   async function selectConnection(id: string) {
@@ -94,7 +96,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
     {flow.step === "address" && <Button variant="primary" busy>{t(current?.auth === "oauth" ? "connect.waitClient" : "source.waitConnection", { name })}</Button>}
     {flow.step === "success" && <><Button variant="primary" onClick={() => { if (flow.sourceId) addedSource.set(flow.sourceId); onboarding.set({ step: "product" }); }}>{t("setup.addAnother")}</Button></>}
   </>;
-  return <SetupDialog title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
+  return <SetupDialog layerId={completion.layerId} title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
     context={flow.step === "product" && flow.fixedConnection && current ? t("setup.via", { name: current.name }) : undefined}
     actionLayout={["product", "approval", "success"].includes(flow.step) ? "end" : "split"}
     active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy || flow.step === "address" && !connected} dirty={approvalDirty || choiceDirty || flow.source !== initialProduct.current} onClose={finishSourceSetup}

@@ -11,12 +11,14 @@ import { SensitiveInput, useSensitiveText } from "./Sensitive";
 import IngressDialog from "./IngressDialog";
 import RelayProgress from "./RelayProgress";
 import SetupDialog from "./SetupDialog";
+import { useDialogCompletion } from "./ui/Dialog";
 import { Card } from "./ui/card";
-import { Button, CopyField, Field, Icon, Input, Loading, Notice, SingleChoice, Status, Tile } from "./ui";
+import { DialogClose, Button, CopyField, Field, Icon, Input, Loading, Notice, SingleChoice, Status, Tile } from "./ui";
 
 type LocalAccess = { codeAvailable: boolean; desktopAvailable: boolean };
 const steps = ["method", "address", "success"] as const;
 export default function AddConnection({ options, onClose, onAdded, returnFocus }: { options: ConnectionSetup; onClose: () => void; onAdded: (id: string) => void; returnFocus?: string }) {
+  const completion = useDialogCompletion(onClose);
   const { status, sources } = connector.use();
   const [step, setStep] = useState<typeof steps[number]>(options.step ?? (options.method ? "address" : "method"));
   const [method, setMethod] = useState<ConnectionMethod>(options.localTarget ? `local-${options.localTarget}` : options.method ?? "create");
@@ -57,10 +59,13 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   async function perform(action: () => Promise<void>) {
     setBusy(true); setError("");
     try { await action(); }
-    catch (e) { setError(String(e).includes("LOCAL_CONFIG_CONFLICT") ? t("connect.localConflict") : String(e)); }
+    catch (e) { setError(String(e).includes("LOCAL_CONFIG_CONFLICT") ? t("connect.localConflict") : String(e)); completion.feedback(String(e), true); }
     finally { setBusy(false); }
   }
-  function complete(id: string) { setCreatedId(id); setStep("success"); }
+  function complete(id: string) {
+    if (!completion.isOpen()) { completion.feedback(t("connection.added")); return; }
+    setCreatedId(id); setStep("success");
+  }
   async function startRelay(retry = false) {
     const action = retry && progress.relayId && operation !== "join" ? "redeploy" : retry ? operation ?? "create" : method as "create" | "join";
     await perform(async () => {
@@ -94,7 +99,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   }
   const flow = onboarding.get();
   const parentTitle = options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
-  return <SetupDialog title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
+  return <SetupDialog layerId={completion.layerId} title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
     active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={method !== initialMethod.current || configDirty || !!link || !!account || deviceName !== (status?.deviceName ?? "")}
     onCancel={waiting ? cancelRelay : undefined} onClose={onClose}
     returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
@@ -102,7 +107,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
       {step === "address" && !waiting && <Button disabled={busy || configBusy} variant="ghost" onClick={() => { setError(""); setStep("method"); }}>{t("back")}</Button>}
       {step === "method" && <Button variant="primary" disabled={!!reason(method)} onClick={() => { setError(""); setStep("address"); if (method === "create") void startRelay(); }}>{method === "create" && <Icon icon={ExternalLink} />}{t(method === "create" ? "setup.deploy" : "source.next")}</Button>}
       {step === "address" && !operation && <Button type="submit" form={formId} variant="primary" busy={busy || configBusy} disabled={!!reason(method) || !!target && (!local || !local[target === "code" ? "codeAvailable" : "desktopAvailable"] || revoked)}>{t(editing ? "setup.saveStart" : method === "create" ? "setup.deploy" : "source.next")}</Button>}
-      {waiting && <><Button variant="ghost" disabled={busy} onClick={() => void cancelRelay()}>{t("cancel")}</Button><Button variant="primary" busy>{t("connect.inProgress")}</Button></>}
+      {waiting && <><DialogClose asChild><Button variant="ghost">{t("cancel")}</Button></DialogClose><Button variant="primary" busy>{t("connect.inProgress")}</Button></>}
       {step === "success" && <><Button variant="primary" disabled={!created || busy} onClick={() => { if (!createdId) return; onAdded(createdId); if (!(options.forSource || options.forSwitch)) openOnboarding("product", { ingressId: createdId, fixedConnection: true }); }}>{t((options.forSource || options.forSwitch) ? "setup.continueConnection" : "setup.addSourceForConnection")}</Button></>}
     </>}>
     <div className={`setup-content ${step === "method" ? "setup-methods" : ""}`}>
@@ -114,7 +119,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
         }} /></div>}
       {step === "address" && !editing && (operation ? <>
         {progressError && <Notice>{t("connect.readFailed")}</Notice>}
-        <RelayProgress cancelInFooter={waiting} progress={progress} busy={busy} account={account} setAccount={setAccount} onRetry={() => void startRelay(true)} onCancel={() => void cancelRelay()} />
+        <RelayProgress cancelInFooter={waiting} progress={progress} busy={busy} account={account} setAccount={setAccount} onRetry={() => void startRelay(true)} />
       </> : <form className="setup-form" id={formId} onSubmit={e => { e.preventDefault(); void configure(); }}>
         {method === "join" && <>
           <Field id={`${formId}-link`} label={t("connect.sharedLink")}><SensitiveInput id={`${formId}-link`} required type="url" value={link} onChange={e => setLink(e.target.value)} /></Field>

@@ -28,7 +28,7 @@ export function createLayerStore() {
   const top = () => current.at(-1);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
-  const close = async (id: string, complete?: () => void | Promise<void>) => {
+  const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
     closing.add(id);
@@ -37,6 +37,17 @@ export function createLayerStore() {
   };
   const setDismissal = (id: string, dismissal: Dismissal) => {
     publish(current.map(layer => layer.id === id ? { ...layer, dismissal } : layer));
+  };
+  const close = (id: string) => {
+    if (current.find(layer => layer.id === id)?.busy) { setDismissal(id, 'running'); return Promise.resolve(); }
+    return finishClose(id);
+  };
+  const canOpen = (kind: LayerKind, id: string) => {
+    if (kind !== 'dialog' || current.some(layer => layer.id === id) || current.filter(layer => layer.kind === 'dialog').length < 2) return true;
+    const error = new Error(`Cannot open dialog ${id}: at most two dialogs may be stacked. Use an in-dialog view for nested content.`);
+    if (!import.meta.env?.PROD) throw error;
+    console.error(error);
+    return false;
   };
   const dismiss = (id: string) => {
     const layer = top();
@@ -61,15 +72,14 @@ export function createLayerStore() {
     async complete(id: string, onComplete: () => void | Promise<void>) {
       const layer = current.find(item => item.id === id);
       if (layer?.keepAfterWork) return;
-      if (layer) await close(id, onComplete);
+      if (layer) await finishClose(id, onComplete);
       else await onComplete();
     },
     use: () => useSyncExternalStore(subscribe, get, get),
-    canOpen: (kind: LayerKind, id: string) => kind !== 'dialog' || current.some(layer => layer.id === id)
-      || current.filter(layer => layer.kind === 'dialog').length < 2,
+    canOpen,
     open(layer: LayerInput) {
       if (current.some(item => item.id === layer.id)) return;
-      if (layer.kind === 'dialog' && current.filter(item => item.kind === 'dialog').length >= 2) return;
+      if (!canOpen(layer.kind, layer.id)) return;
       publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
     },
     ready(id: string, node: HTMLElement) {
@@ -86,7 +96,7 @@ export function createLayerStore() {
       const finished = previous.busy && !next.busy && previous.dismissal === 'running';
       const dismissal = previous.dismissal === 'discard' && !next.dirty ? 'none' : previous.dismissal;
       publish(current.map(layer => layer.id === id ? { ...layer, ...next, dismissal, keepAfterWork: !previous.busy && next.busy ? false : layer.keepAfterWork } : layer));
-      if (finished) { setDismissal(id, 'none'); void close(id); }
+      if (finished) { setDismissal(id, 'none'); void finishClose(id); }
     },
     keepOpen(id: string) {
       if (top()?.id !== id) return;
@@ -97,7 +107,7 @@ export function createLayerStore() {
       if (layer?.id !== id || !layer.onCancel) return;
       setDismissal(id, 'none');
       if (await layer.onCancel() === false) return;
-      await close(id);
+      await finishClose(id);
     },
     restoreFocus(layer: Pick<Layer, 'trigger' | 'returnFocus'>) {
       requestAnimationFrame(() => {

@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronRight, Laptop, Maximize2, Minimize2, Monitor, Pencil,
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { relativeTime } from '../lib/relativeTime';
-import { Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
+import { DialogClose, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { SettingLine } from '../components/ui/Settings';
 import { connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
@@ -110,7 +110,7 @@ function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boo
   }
   return <Dialog layerId={completion.layerId} size="s" returnFocus={memberSide ? '[data-device-offer]' : '[data-device-add]'} title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy}>
     <div className="device-revoke-copy"><p>{c(memberSide ? 'revokeMemberEffect' : 'revokeEffect', { name: peer.name })}</p><p className="device-muted">{c('localWork')}</p></div>
-    {error && <Notice layout="inline">{error}</Notice>}<DialogActions className="device-actions"><Button onClick={close}>{c('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></DialogActions>
+    {error && <Notice layout="inline">{error}</Notice>}<DialogActions className="device-actions"><DialogClose asChild><Button>{c('cancel')}</Button></DialogClose><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></DialogActions>
   </Dialog>;
 }
 export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {

@@ -84,9 +84,8 @@ test('Agent and task defaults retain pending edits across consecutive changes an
         await act(async () => { fireEvent.keyDown(page.getByRole('button', { name: t('dispatchDefaults.spec') }), { key: 'Escape' }); });
         await waitFor(() => assert.ok(page.getByRole('button', { name: t('layers.keepOpen') })));
         await click(page.getByRole('button', { name: t('close'), exact: true }));
-        await waitFor(() => assertNodeIdentity(page.queryByRole('dialog', { name: t('taskDispatch.title') }), null));
-        await waitFor(() => assert.ok(page.getByRole('button', { name: t('taskDispatch.title') }).matches(':focus')));
-        await openTask();
+        assert.ok(page.getByRole('dialog', { name: t('taskDispatch.title') }));
+        await click(page.getByRole('button', { name: t('layers.keepOpen') }));
         await click(page.getByRole('button', { name: t('dispatchDefaults.spec') }));
         slider = page.getByRole('slider', { name: t('dispatchDefaults.effort') });
         assert.equal(slider.getAttribute('aria-valuetext'), t('dispatchSpec.effort.high'));

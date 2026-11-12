@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { t, locale } from "../i18n";
 import {
@@ -12,13 +12,12 @@ import {
 import {
   Button,
   Checkbox,
-  Dialog,
-  DialogClose,
   Field,
   Notice,
   SingleChoice,
   Tooltip,
 } from "./ui";
+import { DialogView } from "./ui/Dialog";
 export default function ToolPolicyField({
   value,
   onChange,
@@ -86,15 +85,16 @@ export default function ToolPolicyField({
   for (const tool of catalog?.tools ?? [])
     if (draft.includes(tool.name))
       for (const name of tool.requires) locked.add(name);
+  const back = useCallback(() => setOpen(false), []);
   function toggle(names: string[], checked: boolean) {
-    setDraft(
-      normalizeSelection(
+    const next = normalizeSelection(
         checked
           ? [...draft, ...names]
           : draft.filter((name) => !names.includes(name)),
         catalog!,
-      ),
-    );
+      );
+    setDraft(next);
+    onChange({ allowlist: next });
   }
   return (
     <>
@@ -136,34 +136,9 @@ export default function ToolPolicyField({
           </Notice>
         )}
       </Field>
-      <Dialog size="m"
-        open={open}
-        dirty={mode === "custom" && JSON.stringify([...draft].sort()) !== JSON.stringify([...selected].sort())}
-        onClose={() => {
-          setOpen(false);
-          if (catalog) setMode(identifyPolicy(value, catalog));
-        }}
-        title={`${t("toolList")} · ${options.find((option) => option.value === mode)?.label}`}
-        footer={
-          <>
-            <DialogClose asChild>
-              <Button>{t("cancel")}</Button>
-            </DialogClose>
-            <DialogClose asChild>
-              <Button
-                variant="primary"
-                disabled={disabled}
-                onClick={() => {
-                  if (mode === "custom")
-                    onChange({ allowlist: normalizeSelection(draft, catalog!) });
-                }}
-              >
-                {t("done")}
-              </Button>
-            </DialogClose>
-          </>
-        }
-      >
+      <DialogView open={open} onBack={back}
+        title={`${t("toolList")} · ${options.find(option => option.value === mode)?.label}`}
+        footer={<Button variant="primary" onClick={back}>{t("done")}</Button>}>
         <div className="tool-groups">
           {catalog?.groups.map((group) => {
             const tools = catalog.tools.filter(
@@ -233,7 +208,7 @@ export default function ToolPolicyField({
             );
           })}
         </div>
-      </Dialog>
+      </DialogView>
     </>
   );
 }

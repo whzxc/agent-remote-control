@@ -1,4 +1,4 @@
-import { DialogActions } from "./ui/Dialog";
+import { DialogActions, useDialogClose } from "./ui/Dialog";
 import { usePrivacy } from "../state/privacy";
 import { maskSensitive } from "../privacyMask";
 import { Check, Circle, LoaderCircle } from "lucide-react";
@@ -8,9 +8,10 @@ import type { RelayProgress as Progress } from "../state/relay";
 import { Button, Notice, SingleChoice, Tile } from "./ui";
 export default function RelayProgress({ progress, busy, account, setAccount, onCancel, onRetry, cancelInFooter = false }: {
   cancelInFooter?: boolean;
-  progress: Progress; busy: boolean; account: string; setAccount: (value: string) => void; onCancel: () => void; onRetry: () => void;
+  progress: Progress; busy: boolean; account: string; setAccount: (value: string) => void; onCancel?: () => void; onRetry: () => void;
 }) {
   const hidden = usePrivacy();
+  const closeDialog = useDialogClose();
   const accountOptions = progress.accounts ?? [];
   const phase = ["login", "deploying", "connecting", "ready"].indexOf(progress.phase);
   const reason = progress.reason ?? "";
@@ -34,6 +35,6 @@ export default function RelayProgress({ progress, busy, account, setAccount, onC
       <Tile icon={phase > index ? Check : phase === index ? LoaderCircle : Circle} className={phase > index ? "step-complete" : phase === index ? "step-running" : "step-waiting"} /><div><strong>{t(`connect.phase.${step}`)}</strong>{(step === "deploying" || phase === index) && <small>{[phase === index && t(step === "login" ? `connect.login.${loginStatus}` : "connect.inProgress"), step === "deploying" && t("connect.twentySeconds")].filter(Boolean).join(" · ")}</small>}</div>
     </li>)}</ol>}
     {progress.loginUrl && <Button variant="ghost" onClick={() => void copyText(progress.loginUrl!)}>{t("connect.copyLogin")}</Button>}
-    {!cancelInFooter && <DialogActions className="remote-progress-actions"><Button disabled={busy} onClick={onCancel}>{t("cancel")}</Button>{progress.phase !== "failed" && <Button variant="primary" busy>{t("connect.inProgress")}</Button>}</DialogActions>}
+    {!cancelInFooter && <DialogActions className="remote-progress-actions"><Button disabled={!closeDialog && busy} onClick={closeDialog ?? onCancel}>{t("cancel")}</Button>{progress.phase !== "failed" && <Button variant="primary" busy>{t("connect.inProgress")}</Button>}</DialogActions>}
   </div>;
 }

@@ -1,5 +1,7 @@
 import { api } from '../api';
 import { createStore, preference } from '../state/store';
+import { notify } from '../state/connector';
+import { t } from '../i18n';
 
 export const deviceLinkEnabled = preference('device-link', false, value => value === 'on', value => value ? 'on' : 'off');
 export type Peer = { deviceId: string; name: string; addresses: string[]; tunnelUrl: string | null; addressOverride: string | null };
@@ -54,11 +56,13 @@ export async function connectDevice() {
   try {
     const result = await api<{ deviceId: string; name: string }>('device/pair', 'POST', { pairingString: input });
     if (!deviceLinkEnabled.get()) return;
+    if (deviceView.get().dialog !== 'pair') notify(t('device.paired', { name: result.name }));
     devicePair.set({ state: 'success', input, name: result.name, memberId: result.deviceId });
     await refreshDevices();
   } catch (error) {
     if (!deviceLinkEnabled.get()) return;
     const text = String(error);
+    if (deviceView.get().dialog !== 'pair') notify(text, true);
     const state: PairState = text.includes('DEVICE_PAIRING_INVALID') ? 'invalid' : text.includes('DEVICE_OFFER_EXPIRED') ? 'expired'
       : text.includes('DEVICE_PROTOCOL_MISMATCH') ? 'protocol' : text.includes('DEVICE_PAIRING_DECLINED') ? 'declined'
       : /DEVICE_(LAN_UNAVAILABLE|CONNECTION_REFUSED|TLS_FAILED)/.test(text) ? 'unreachable' : 'error';

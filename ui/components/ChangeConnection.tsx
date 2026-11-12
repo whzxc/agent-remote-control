@@ -11,7 +11,7 @@ import type { Ingress } from "../state/types";
 import SetupDialog from "./SetupDialog";
 import { useDialogCompletion } from "./ui/Dialog";
 import { ApprovalCard } from "./OAuthApproval";
-import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction } from "./ui";
+import { Button, CopyField, DialogClose, Field, Icon, Notice, SingleChoice, SetupAction } from "./ui";
 
 const steps = ["connection", "address", "approval"] as const;
 export default function ChangeConnection() {
@@ -46,7 +46,7 @@ export default function ChangeConnection() {
   }, [flow.step, target?.id, target?.auth]);
   async function perform(action: () => Promise<void>) {
     setBusy(true); setError("");
-    try { await action(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
+    try { await action(); completion.feedback(`${t("switch.reauthorize")} · ${t("activity.completed")}`); } catch (e) { setError(String(e)); completion.feedback(String(e), true); } finally { setBusy(false); }
   }
   async function cancel(close: boolean) {
     setBusy(true); setError("");
@@ -61,7 +61,7 @@ export default function ChangeConnection() {
     if (!target || reason(target)) return;
     await perform(async () => {
       await api(`source/${flow.sourceId}/switch`, "POST", { ingressId: target.id });
-      await refreshConnector(); connectionSwitch.set({ ...flow, step: "address", requestId: undefined });
+      await refreshConnector(); connectionSwitch.set(old => old === flow ? { ...flow, step: "address", requestId: undefined } : old);
     });
   }
   const expired = flow.step !== "connection" && ((!source?.pendingSwitch && source?.ingressId !== flow.ingressId) || request?.status === "expired" || request?.status === "denied");
@@ -71,7 +71,8 @@ export default function ChangeConnection() {
     steps={[{ label: t("source.step.connection"), value: target?.name }, { label: t("switch.address") }, { label: t("switch.reauthorize") }]}
     actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onCancel={waiting ? () => cancel(true) : undefined} onClose={async () => { await cancel(true); }} footer={<>
       {flow.step === "approval" && canApprove ? <><Button form={`approval-${request.id}`} type="submit" value="deny" disabled={busy}>{t("oauthDeny")}</Button><Button form={`approval-${request.id}`} type="submit" value="allow" variant="primary" busy={busy}>{t("switch.approve")}</Button></> : <>
-        <Button variant="ghost" disabled={busy && flow.step !== "connection"} onClick={() => void cancel(flow.step === "connection")}>{t(flow.step === "connection" ? "cancel" : "back")}</Button>
+        {flow.step === "connection" ? <DialogClose asChild><Button variant="ghost">{t("cancel")}</Button></DialogClose>
+          : <Button variant="ghost" disabled={busy} onClick={() => void cancel(false)}>{t("back")}</Button>}
         {flow.step === "connection" ? <Button variant="primary" busy={busy} disabled={!target || !!reason(target)} onClick={() => void begin()}>{t("source.next")}</Button> : !expired && <Button variant="primary" busy>{t(request?.status === "approved" ? "connect.returning" : "connect.waitClient", { name: productName })}</Button>}
       </>}
     </>}>

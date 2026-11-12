@@ -14,7 +14,6 @@ import {
   type Ref,
 } from "react";
 import {
-  Dialog as D,
   Select as S,
   RadioGroup,
   Switch as Sw,
@@ -594,7 +593,7 @@ export function SingleChoice({
     </div>
   );
 }
-export const DialogClose = D.Close;
+export { DialogClose } from "./Dialog";
 export { default as Dialog, DialogActions } from "./Dialog";
 export function Tooltip({
   text,

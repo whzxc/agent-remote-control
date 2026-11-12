@@ -1,10 +1,10 @@
 import { useDialogCompletion } from "./ui/Dialog";
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { accountsApi, api } from '../api';
 import { t } from '../i18n';
 import { refreshAccounts, refreshAccountQuota } from '../state/accounts';
 import type { AccountLogin, CodexAccountImport, ProviderAccount } from '../types';
-import { Button, Dialog, Field, Input, Notice, SingleChoice, Textarea } from './ui';
+import { DialogClose, Button, Dialog, Field, Input, Notice, SingleChoice, Textarea } from './ui';
 import { copyText } from '../platform';
 import './AgentAccountAdd.css';
 
@@ -30,7 +30,6 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [errors, setErrors] = useState<Errors>({});
   const [login, setLogin] = useState<AccountLogin | null>(null);
   const [code, setCode] = useState(''), [submitted, setSubmitted] = useState(false);
-  const closing = useRef(false);
   const active = login?.state === 'starting' || login?.state === 'waiting';
   const expired = login?.state === 'failed' && !!login.error?.startsWith('CLAUDE_LOGIN_TIMEOUT');
   useEffect(() => {
@@ -42,7 +41,10 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
     const poll = async () => {
       try {
         const result = await accountsApi.list();
-        if (stopped) return;
+        if (stopped) {
+          if (result.login?.loginId === login.loginId && result.login.state === 'completed') completion.feedback(`${title} · ${t('accounts.login.completed')}`);
+          return;
+        }
         if (desktop) {
           const primary = result.accounts.find(row => row.agentProfiles.some(p => p.profileId === 'codex-home' && p.state === 'signed-in'));
           if (primary) {
@@ -77,12 +79,6 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
     if (!active || !login || desktop) return true;
     try { await accountsApi.login({ loginId: login.loginId, action: 'cancel' }); setLogin(null); return true; }
     catch (error) { setError(String(error)); return false; }
-  }
-  async function close() {
-    if (closing.current) return;
-    closing.current = true;
-    if (await cancelLogin()) onClose();
-    else closing.current = false;
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setErrors({});
@@ -127,7 +123,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         setAuth(''); await refreshAccounts(true); await completion.finish();
         void refreshAccountQuota(result.accountId).catch(() => {});
       }
-    } catch (e) { setError(String(e)); }
+    } catch (e) { setError(String(e)); completion.feedback(String(e), true); }
     finally { setBusy(false); }
   }
   const codeEntry = active && login?.state === 'waiting' && kind === 'claude' && !submitted;
@@ -138,8 +134,8 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   return <Dialog layerId={completion.layerId} size="m" title={title} className="agent-account-add" busy={busy || active}
     dirty={!!auth || !!program || !!args || !!code || browser !== "default" || method !== (importOnly ? "import" : "oauth")}
     onCancel={active && !desktop ? cancelLogin : undefined}
-    onClose={close} returnFocus={focusTarget} footer={<div className="actions">
-    {!account && kind === 'codex' && <Button onClick={() => void close()}>{t('cancel')}</Button>}
+    onClose={onClose} returnFocus={focusTarget} footer={<div className="actions">
+    {!account && kind === 'codex' && <DialogClose asChild><Button>{t('cancel')}</Button></DialogClose>}
     {active && login?.loginUrl && <Button onClick={() => void copyText(login.loginUrl!).catch(error => setError(String(error)))}>{t('accountAdd.copyLink')}</Button>}
     {codeEntry && <Button form={`${id}-form`} type="submit" variant="primary" busy={busy} disabled={!code.trim()}>{t('accountAdd.submitCode')}</Button>}
     {!active && <Button form={`${id}-form`} type="submit" variant="primary" busy={busy}>

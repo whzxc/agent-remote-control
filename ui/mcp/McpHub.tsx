@@ -6,7 +6,7 @@ import { locale, t } from '../i18n';
 import { copyText } from '../platform';
 import { useAppNow } from '../state/appEnvironment';
 import { relativeTime } from '../lib/relativeTime';
-import { Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
+import { DialogClose, Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
 import { failureKind, hubSummary, matchServer } from './model';
 import type { HubServer, HubSnapshot, HubTool } from './state';
 import './mcp.css';
@@ -159,7 +159,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
       </div>
     </Dialog>}
     {removing && <Dialog layerId={removal.layerId} size="s" title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
-      <Button onClick={() => setRemoving(undefined)}>{t("cancel")}</Button>
+      <DialogClose asChild><Button>{t("cancel")}</Button></DialogClose>
       <Button variant="danger" busy={!!busy} onClick={() => void act('remove', removing)}>{t('delete')}</Button>
     </>}>
       <p>{t('mcp.removeEffect', { name: removing.name })}</p>{error && <Notice>{error}</Notice>}

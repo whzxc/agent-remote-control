@@ -30,3 +30,10 @@
 .layer-dialog > .dialog-footer > .actions, .layer-dialog > .dialog-footer > .device-actions { justify-content: flex-end; }
 
 .layer-dialog > .dialog-description { flex: none; margin: 0; color: var(--text-secondary); font-size: var(--text-small); }
+.dialog-breadcrumb { color: var(--text-secondary); font-weight: 400; }
+.dialog-view-stack { position: relative; }
+.dialog-swap { opacity: 1; transition: opacity var(--motion-base) var(--ease-enter), display var(--motion-base) allow-discrete; }
+.dialog-swap[hidden] { display: none; position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+@starting-style { .dialog-swap { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dialog-swap { transition: none; } }
+:root[data-reduced-motion="true"] .dialog-swap { transition: none; }
