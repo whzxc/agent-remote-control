@@ -104,10 +104,29 @@ export async function verifyDevices(page, fixture, messages) {
   } else if (state.startsWith('pair-')) {
     const dialog = page.getByRole('dialog', { name: c('add'), exact: true });
     if (state === 'pair-waiting') {
-      await dialog.getByRole('button', { name: c('waiting'), exact: true, disabled: true }).waitFor();
+      const waiting = () => dialog.getByRole('button', { name: c('waiting'), exact: true, disabled: true });
+      const stop = () => dialog.getByRole('button', { name: messages['layers.stopClose'], exact: true });
+      await waiting().waitFor();
       await page.keyboard.press('Escape');
+      const keep = dialog.getByRole('button', { name: messages['layers.keepOpen'], exact: true });
+      await keep.waitFor();
+      if (!await keep.evaluate(element => element === document.activeElement)) throw new Error('Keep open must receive focus while pairing runs.');
+      await keep.click();
+      await waiting().waitFor();
+      await page.keyboard.press('Escape');
+      await stop().click();
+      await dialog.waitFor({ state: 'hidden' });
+      // Reopening starts a clean form; another explicit submission starts a new attempt.
       await workspace.getByRole('button', { name: c('add'), exact: true }).click();
-      await dialog.getByRole('button', { name: c('waiting'), exact: true, disabled: true }).waitFor();
+      const input = dialog.getByRole('textbox', { name: c('pairing'), exact: true });
+      if (!await input.isEditable() || await input.inputValue()) throw new Error('Cancelled pairing was not reset.');
+      await input.fill('arc-device:3:synthetic-approved-offer');
+      await dialog.getByRole('button', { name: c('pair'), exact: true }).click();
+      await waiting().waitFor();
+      await page.keyboard.press('Escape');
+      await stop().click();
+      await dialog.waitFor({ state: 'hidden' });
+      return;
     } else if (state === 'pair-success') await dialog.getByRole('button', { name: c('done'), exact: true }).waitFor();
     else if (state !== 'pair-input') await dialog.getByText(c(state === 'pair-invalid' ? 'invalidHint' : state.slice(5)), { exact: true }).waitFor();
     await page.keyboard.press('Escape');

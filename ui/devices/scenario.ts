@@ -15,6 +15,7 @@ const pairingString = 'arc-device:3:' +
 const codes: Record<string, string> = { invalid: 'DEVICE_PAIRING_INVALID', expired: 'DEVICE_OFFER_EXPIRED', protocol: 'DEVICE_PROTOCOL_MISMATCH', declined: 'DEVICE_PAIRING_DECLINED', unreachable: 'DEVICE_LAN_UNAVAILABLE' };
 export function deviceScenario(fixture?: DeviceFixture) {
   let snapshot: DeviceSnapshot | undefined;
+  let cancelPair: ((reason: Error) => void) | undefined;
   if (fixture) {
     const state = fixture.state;
     const empty = ['empty', 'pair-input', 'member-idle', 'member-offer', 'member-pending', 'member-expired', 'member-declined', 'member-controlled', 'revoke-controller'].includes(state);
@@ -39,6 +40,7 @@ export function deviceScenario(fixture?: DeviceFixture) {
   return (path: string, method: string, body?: unknown): unknown => {
     if (!path.startsWith('device/') || method !== 'POST' || !snapshot) return undefined;
     const action = path.slice(7), args = body as Record<string, unknown> | undefined;
+    if (action === 'cancel-pair') { cancelPair?.(new Error('DEVICE_PAIRING_CANCELLED')); cancelPair = undefined; return { cancelled: true }; }
     if (action === 'snapshot') return structuredClone(snapshot);
     if (action === 'offer') { snapshot.offerExpiresInSeconds = 600; return { pairingString, deviceId: snapshot.deviceId, expiresInSeconds: 600, protocolVersion: 3 }; }
     if (action === 'approve' || action === 'decline') { if (action === 'approve') snapshot.controller = controller; snapshot.pending = null; return { [action === 'approve' ? 'approved' : 'declined']: true, deviceId: controller.deviceId }; }
@@ -51,7 +53,7 @@ export function deviceScenario(fixture?: DeviceFixture) {
     }
     if (action === 'pair') {
       const input = String(args?.pairingString);
-      if (fixture?.state === 'pair-waiting') return new Promise(() => {});
+      if (fixture?.state === 'pair-waiting') return new Promise((_, reject) => { cancelPair = reject; });
       if (input === 'arc-device:3:fixture') throw new Error(codes.invalid);
       const failure = fixture?.state.replace('pair-', '');
       if (failure && codes[failure]) throw new Error(codes[failure]);

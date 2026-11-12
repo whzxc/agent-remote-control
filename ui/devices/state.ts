@@ -50,12 +50,14 @@ export function observeDevices() {
   document.addEventListener('visibilitychange', visible);
   return () => { stop(); if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
 }
+let pairAttempt = 0;
 export async function connectDevice() {
+  const attempt = ++pairAttempt;
   const input = devicePair.get().input.trim();
   devicePair.set({ state: 'waiting', input });
   try {
     const result = await api<{ deviceId: string; name: string }>('device/pair', 'POST', { pairingString: input });
-    if (!deviceLinkEnabled.get()) return;
+    if (!deviceLinkEnabled.get() || attempt !== pairAttempt) return;
     if (deviceView.get().dialog !== 'pair') notify(t('device.paired', { name: result.name }));
     devicePair.set({ state: 'success', input, name: result.name, memberId: result.deviceId });
     await refreshDevices();
@@ -67,5 +69,17 @@ export async function connectDevice() {
       : text.includes('DEVICE_PROTOCOL_MISMATCH') ? 'protocol' : text.includes('DEVICE_PAIRING_DECLINED') ? 'declined'
       : /DEVICE_(LAN_UNAVAILABLE|CONNECTION_REFUSED|TLS_FAILED)/.test(text) ? 'unreachable' : 'error';
     devicePair.set({ state, input, error: text });
+  }
+}
+
+export async function cancelDevicePair() {
+  try {
+    await api('device/cancel-pair', 'POST');
+    pairAttempt++;
+    devicePair.set({ state: 'input', input: '' });
+    return true;
+  } catch (error) {
+    devicePair.set(old => ({ ...old, error: String(error) }));
+    return false;
   }
 }

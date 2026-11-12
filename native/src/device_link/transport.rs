@@ -414,14 +414,33 @@ impl Manager {
         let epoch = *closed.borrow();
         let session = super::client::Session::default();
         let addresses = connect_addresses(&offer.addresses)?;
-        let channel = session
-            .connect(&identity, &offer.device_id, &addresses)
-            .await?;
+        let cancelled = Arc::new(tokio::sync::Notify::new());
+        if let Some(previous) = self
+            .pairing_cancel
+            .lock()
+            .unwrap()
+            .replace(cancelled.clone())
+        {
+            previous.notify_one();
+        }
         let result = tokio::select! {
-            _=closed.changed()=>return Err(error("DEVICE_UNPAIRED","Local pairing was revoked or disabled; read cli guide.")),
-            result=channel.request("/arc-peer/3/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?}),OFFER_TTL)=>result,
+            _=closed.changed()=>Err(error("DEVICE_UNPAIRED","Local pairing was revoked or disabled; read cli guide.")),
+            _=cancelled.notified()=>Err(error("DEVICE_PAIRING_CANCELLED","Pairing was cancelled. Start a new attempt to pair the device.")),
+            result=async {
+                let channel = session.connect(&identity, &offer.device_id, &addresses).await?;
+                channel.request("/arc-peer/3/pair",json!({"version":VERSION,"secret":offer.secret,"name":self.name()?}),OFFER_TTL).await
+            }=>result,
         };
         session.close().await;
+        {
+            let mut active = self.pairing_cancel.lock().unwrap();
+            if active
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &cancelled))
+            {
+                active.take();
+            }
+        }
         let result = result?;
         let member: Peer = serde_json::from_value(result["member"].clone()).map_err(|_| {
             error(

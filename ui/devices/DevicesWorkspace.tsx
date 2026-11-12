@@ -8,7 +8,7 @@ import { relativeTime } from '../lib/relativeTime';
 import { DialogClose, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { SettingLine } from '../components/ui/Settings';
-import { connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
+import { cancelDevicePair, connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
 import './devices.css';
 
 const c = (key: string, params?: Record<string, unknown>) => t(`device.${key}`, params);
@@ -69,13 +69,13 @@ function PairDialog({ close }: { close: () => void }) {
   useEffect(() => { if (error) input.current?.focus(); }, [pair.state, error]);
   const titles: Record<string, string> = { invalid: 'invalid', expired: 'expired', protocol: 'protocol', declined: 'declined', unreachable: 'unreachable' };
   const member = pair.memberId && pairedDevices(snapshot).find(device => device.id === pair.memberId);
-  return <Dialog size="m" title={c('add')} className="device-dialog" onClose={dismiss} dirty={pair.state === "input" && !!pair.input} busy={waiting} returnFocus="[data-device-add]">
+  return <Dialog size="m" title={c('add')} className="device-dialog" onClose={dismiss} dirty={pair.state === "input" && !!pair.input} busy={waiting} onCancel={waiting ? cancelDevicePair : undefined} returnFocus="[data-device-add]">
     <form className="device-form" onSubmit={event => { event.preventDefault(); if (!waiting && !success) void connectDevice(); }}>
       {success ? <Notice layout="inline" tone="success" title={c('paired', { name: pair.name })}>{member ? <span className="device-success-status">{`${c(member.state)} · ${c(member.path === 'lan' ? 'lan' : 'tunnelPath')}${member.latency !== null ? ` · ${member.latency} ms` : ''}`}</span> : null}</Notice> : <>
         <Field id={inputId} label={c('pairing')} error={pair.state === 'invalid' ? c('invalidHint') : undefined}>
           <Input ref={input} id={inputId} value={pair.input} placeholder={c('paste')} readOnly={waiting} aria-invalid={error || undefined} aria-describedby={error ? `${inputId}-error` : undefined} className="device-pair-input" onChange={event => devicePair.set({ state: 'input', input: event.target.value })} />
         </Field>
-        {waiting ? <div className="device-waiting" role="status"><p className="device-paragraph">{c('waitingHint', { member: pair.name || c('members'), controller: snapshot?.name || '' })}</p>{snapshot && <Fingerprint value={snapshot.deviceId} controller />}<p className="device-meta">{c('deadline')}</p></div>
+        {waiting ? <div className="device-waiting" role="status">{pair.error && <Notice>{pair.error}</Notice>}<p className="device-paragraph">{c('waitingHint', { member: pair.name || c('members'), controller: snapshot?.name || '' })}</p>{snapshot && <Fingerprint value={snapshot.deviceId} controller />}<p className="device-meta">{c('deadline')}</p></div>
           : pair.state === 'invalid' ? <code className="device-error-code">DEVICE_PAIRING_INVALID</code>
           : error ? <div id={`${inputId}-error`}><Notice layout="inline" title={titles[pair.state] ? c(titles[pair.state]) : undefined}><p>{titles[pair.state] ? c(`${titles[pair.state]}Hint`) : pair.error}</p>{titles[pair.state] && <code>{pair.error?.match(/DEVICE_[A-Z_]+/)?.[0]}</code>}</Notice></div>
           : <p className="device-paragraph device-muted">{c('lanOnly')}</p>}

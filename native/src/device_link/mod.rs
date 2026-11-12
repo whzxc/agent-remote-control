@@ -177,6 +177,7 @@ pub(crate) struct Manager {
     runtime: Mutex<Option<Runtime>>,
     configuration: Mutex<()>,
     closed: tokio::sync::watch::Sender<u64>,
+    pairing_cancel: StdMutex<Option<Arc<tokio::sync::Notify>>>,
     #[cfg(test)]
     reply_gate: StdMutex<Option<Arc<ReplyGate>>>,
     transfers: transfer::Store,
@@ -209,6 +210,7 @@ impl Manager {
             runtime: Mutex::new(None),
             configuration: Mutex::new(()),
             closed,
+            pairing_cancel: Default::default(),
             #[cfg(test)]
             reply_gate: Default::default(),
             transfers: Default::default(),
@@ -382,17 +384,23 @@ impl Manager {
                     "controller":state.stored.controller.as_ref().map(peer),
                     "members":state.stored.members.values().map(peer).collect::<Vec<_>>(),
                     "offerExpiresInSeconds":state.offer.as_ref().map(|(_,expires)|remaining(*expires)),
-                    "pending":state.pending.as_ref().filter(|p|p.expires > Instant::now()).map(|p|json!({"deviceId":p.peer.device_id,"name":p.peer.name,"expiresInSeconds":remaining(p.expires)}))
+                    "pending":state.pending.as_ref().filter(|p|p.expires > Instant::now() && !p.decision.is_closed()).map(|p|json!({"deviceId":p.peer.device_id,"name":p.peer.name,"expiresInSeconds":remaining(p.expires)}))
                 }))
             }
             "offer" => self.offer().await,
             "pending" => {
                 let state = self.state.lock().unwrap();
                 Ok(
-                    json!({"pending":state.pending.as_ref().filter(|p| p.expires > Instant::now()).map(|p| json!({"deviceId":p.peer.device_id,"name":p.peer.name,"publicKey":p.peer.public_key}))}),
+                    json!({"pending":state.pending.as_ref().filter(|p| p.expires > Instant::now() && !p.decision.is_closed()).map(|p| json!({"deviceId":p.peer.device_id,"name":p.peer.name,"publicKey":p.peer.public_key}))}),
                 )
             }
             "approve" | "decline" => self.decide(action == "approve").await,
+            "cancel-pair" => {
+                if let Some(cancel) = self.pairing_cancel.lock().unwrap().take() {
+                    cancel.notify_one();
+                }
+                Ok(json!({"cancelled":true}))
+            }
             "pair" => {
                 self.pair(Offer::decode(string(&body, "pairingString"))?)
                     .await
@@ -691,7 +699,7 @@ pub fn operations() -> Vec<Value> {
     if !enabled() {
         return vec![];
     }
-    ["snapshot","offer","pending","approve","decline","pair","revoke","configure","address"].into_iter().map(|action| {
+    ["snapshot","offer","pending","approve","decline","pair","cancel-pair","revoke","configure","address"].into_iter().map(|action| {
         let (properties, required) = match action {
             "pair" => (json!({"pairingString":{"type":"string","maxLength":16384}}),json!(["pairingString"])),
             "address" => (json!({"device":{"type":"string","minLength":1},"address":{"type":["string","null"]}}),json!(["device","address"])),

@@ -930,3 +930,62 @@ async fn desktop_snapshot_reads_identity_pairings_and_pending_deadline() {
     assert!(snapshot["pending"]["expiresInSeconds"].as_u64().unwrap() > 0);
     assert!(snapshot["controller"].get("publicKey").is_none());
 }
+
+#[tokio::test]
+async fn cancelled_pairing_cannot_accept_a_late_member_approval() {
+    // Regression: the waiting-pair dialog had no stop action and could leave its native pairing attempt running after close.
+    let fixture = Fixture::new();
+    let controller = Fixture::manager(fixture.directory.join("cancel-controller"));
+    let listener = tokio::net::TcpListener::bind(lan_sockets(0).unwrap()[0])
+        .await
+        .unwrap();
+    let mut offer = fixture.offer();
+    offer.addresses = vec![listener.local_addr().unwrap().to_string()];
+    let member = fixture.member.clone();
+    let acceptor = tls::server(&member, &member.identity().unwrap()).unwrap();
+    let permit = Arc::new(tokio::sync::Semaphore::new(1))
+        .acquire_owned()
+        .await
+        .unwrap();
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        member.accept_connection(stream, acceptor, permit).await;
+    });
+    let pairing = {
+        let controller = controller.clone();
+        tokio::spawn(async move {
+            controller
+                .request("pair", json!({"pairingString":offer.encode().unwrap()}))
+                .await
+        })
+    };
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if fixture.member.request("pending", json!({})).await.unwrap()["pending"].is_object() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        controller.request("cancel-pair", json!({})).await.unwrap()["cancelled"],
+        true
+    );
+    assert!(pairing
+        .await
+        .unwrap()
+        .unwrap_err()
+        .contains("DEVICE_PAIRING_CANCELLED"));
+    tokio::time::timeout(Duration::from_secs(3), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(fixture.member.request("pending", json!({})).await.unwrap()["pending"].is_null());
+    assert!(fixture.member.request("approve", json!({})).await.is_err());
+    assert_eq!(
+        controller.request("snapshot", json!({})).await.unwrap()["members"],
+        json!([])
+    );
+}

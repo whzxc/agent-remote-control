@@ -13,7 +13,7 @@ stateDiagram-v2
   offered --> pending: controller proves the one-time secret
   offered --> expired: 10 minutes pass or the secret is used
   pending --> lan: member approves locally
-  pending --> expired: member declines
+  pending --> expired: member declines or controller cancels
   lan --> tunnel: LAN misses and the tunnel heartbeat succeeds
   tunnel --> lan: LAN probe succeeds
   lan --> offline: 3 missed heartbeats on every path
